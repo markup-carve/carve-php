@@ -1198,14 +1198,12 @@ final class BlockContinuationScanner
         // Track the note's blank and a marker released to the item separately.
         // Both stop mattering once a line leaves the item's content column.
         $releasedNoteMarker = false;
-        $noteBlankAfterCodeFence = false;
+        $blankRun = new ItemBlankRunState();
         $nestedNoteBodyColumn = null;
         $nestedNoteTail = null;
         $nestedNoteTailColumn = 0;
         $releasedNoteParagraphColumn = null;
         $sawNestedNote = false;
-        $nestedNoteBlankContinues = false;
-        $inBlankRun = false;
         $noteCursor = 1;
         $noteBroken = false;
         $markerRunCursor = 1;
@@ -1260,11 +1258,11 @@ final class BlockContinuationScanner
             }
 
             if (IndentationHelper::isBlankLine($nextLine)) {
-                if (!$inBlankRun) {
+                if (!$blankRun->active()) {
                     // The run is inline text in the quoted note, so the blank
                     // cannot split the note before its next body-column marker.
-                    $noteBlankAfterCodeFence = $markerNoteItem && $trailingState->quoteParagraph
-                        && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($itemLines[count($itemLines) - 1] ?? '', " \t")) !== null;
+                    $blankRun->rememberNoteAfterCodeFence($markerNoteItem && $trailingState->quoteParagraph
+                        && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($itemLines[count($itemLines) - 1] ?? '', " \t")) !== null);
                 }
                 $recentDefinitionBodyColumn = null;
                 $recentDefinitionParagraph = false;
@@ -1272,10 +1270,9 @@ final class BlockContinuationScanner
                     $nestedNoteTail = null;
                 }
                 $rejectedColonFenceLength = null;
-                if (!$inBlankRun) {
-                    $nestedNoteBlankContinues = $nestedNoteBodyColumn !== null
-                        && $this->footnoteBodyResumesAfter($lines, $i, $count, $nestedNoteBodyColumn, false) !== null;
-                    $inBlankRun = true;
+                if (!$blankRun->active()) {
+                    $blankRun->begin($nestedNoteBodyColumn !== null
+                        && $this->footnoteBodyResumesAfter($lines, $i, $count, $nestedNoteBodyColumn, false) !== null);
                 }
                 $floorParagraphWitness = false;
                 $authoredTermColumn = null;
@@ -1299,12 +1296,12 @@ final class BlockContinuationScanner
                     )
                     || (
                         $markerNoteItem && !$sawNestedNote
-                        && $noteBlankAfterCodeFence
+                        && $blankRun->noteAfterCodeFence()
                         && $this->noteKeepsItsBody($itemLines, $markerRunCursor, $markerRunBroken)
                         && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $noteSourceCursor, $noteSourceBroken)
                         && $this->footnoteBodyResumesAfter($lines, $i, $count, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, false) !== null
                     )
-                    || $nestedNoteBlankContinues
+                    || $blankRun->nestedNoteContinues()
                     || $openCommentLength !== null
                     || $termCodeTailFence !== null
                     || ($unclosedFenceColumn !== null && $itemOwnFenceRuns && !$markerNoteItem)
@@ -1326,7 +1323,7 @@ final class BlockContinuationScanner
                 break;
             }
 
-            $inBlankRun = false;
+            $blankRun->end();
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
             // A wrapped attribute opened at the content column is one construct: its later lines sit at any column (carve#3421).
@@ -1379,9 +1376,9 @@ final class BlockContinuationScanner
             ) {
                 break;
             }
-            $blankChildMarkerAtBoundary = $noteBlankAfterCodeFence;
+            $blankChildMarkerAtBoundary = $blankRun->noteAfterCodeFence();
             if ($nextIndent < $contentIndent) {
-                $noteBlankAfterCodeFence = false;
+                $blankRun->clearNoteAfterCodeFence();
                 $releasedNoteMarkerAtBoundary = $releasedNoteMarker;
                 $releasedNoteMarker = false;
             } else {
