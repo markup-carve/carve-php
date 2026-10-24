@@ -26,6 +26,8 @@ use MarkupCarve\Carve\Util\StringUtil;
  */
 final class DefinitionListBuilder
 {
+    private WrappedAttributeRunScanner $wrappedAttributeScanner;
+
     /**
      * @param \MarkupCarve\Carve\Parser\BlockParserState $state
      * @param \MarkupCarve\Carve\Parser\BlockSourceMapper $source
@@ -84,6 +86,7 @@ final class DefinitionListBuilder
         private Closure $tryParseFencedCommentCallback,
         private Closure $wrappedBlockAttributeLengthCallback,
     ) {
+        $this->wrappedAttributeScanner = new WrappedAttributeRunScanner($state, $source, $isBlockAttributeLineCallback, $wrappedBlockAttributeLengthCallback);
     }
 
     /**
@@ -955,7 +958,7 @@ final class DefinitionListBuilder
                     || $b->bodyFrames->hasListContentColumn($l->contColumn - $b->continuationColumn));
         }
         $wrappedRun = ($l->contColumn === $b->continuationColumn || $nestedItem) && $b->bodyState->fence === null
-            ? $this->wrappedAttributeRunLength($b->lines, $b->i, $b->count)
+            ? $this->wrappedAttributeScanner->length($b->lines, $b->i, $b->count)
             : null;
         if ($wrappedRun !== null) {
             for ($end = $b->i + $wrappedRun; $b->i < $end; $b->i++) {
@@ -2609,40 +2612,6 @@ final class DefinitionListBuilder
     private function wholeLinesSpan(int $firstIndex, int $lastIndex, int $openingColumn = 0): ?SourceSpan
     {
         return $this->source->wholeLinesSpan($firstIndex, $lastIndex, $openingColumn);
-    }
-
-    /**
-     * The line count of a block attribute that opens on `$lines[$start]` and closes on a later line, or null.
-     *
-     * @param array<string> $lines
-     * @param int $count
-     * @param int $start
-     */
-    private function wrappedAttributeRunLength(array $lines, int $start, int $count): ?int
-    {
-        $first = ltrim($lines[$start], " \t");
-        if (!str_starts_with($first, '{') || $this->isBlockAttributeLine($first)) {
-            return null;
-        }
-        $probe = [$first];
-        $depth = count(ContainerPrefix::quoteStages(ltrim($this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '', " \t")));
-        for ($at = $start + 1; $at < $count && !IndentationHelper::isBlankLine($lines[$at]); $at++) {
-            // A lazy line outside the opener's quote does not continue the attribute.
-            if (count(ContainerPrefix::quoteStages(ltrim($this->state->source->sourceLines[$this->sourceLineFor($at)] ?? '', " \t"))) < $depth) {
-                break;
-            }
-            // A `{` cannot continue an attribute, so an unclosed run stops at the next opener.
-            if (str_contains($lines[$at], '{')) {
-                break;
-            }
-            $probe[] = ltrim($lines[$at], " \t");
-            if (str_contains($lines[$at], '}')) {
-                break;
-            }
-        }
-        $length = $this->wrappedBlockAttributeLength($probe, 0);
-
-        return $length !== null && $length > 1 ? $length : null;
     }
 
     /**
