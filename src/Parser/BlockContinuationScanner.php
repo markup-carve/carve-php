@@ -1964,7 +1964,6 @@ final class BlockContinuationScanner
                         $minimumFenceBase = true;
                         if (
                             $itemOwnFenceRuns && !$markerNoteItem && $openDefinitionBody === null && !$pendingDefinitionTerm && !$pendingAttachedAttributes
-                            && $trailingState->openParagraph
                             && !$this->isCommentLineOrFence(ltrim($itemLines[count($itemLines) - 1] ?? '', " \t"))
                         ) {
                             $unclosedFenceColumn ??= $contentIndent;
@@ -2101,7 +2100,6 @@ final class BlockContinuationScanner
                             $failedFenceColumn = $column;
                             if (
                                 $itemOwnFenceRuns && !$markerNoteItem && $openDefinitionBody === null && !$pendingDefinitionTerm && !$pendingAttachedAttributes
-                                && $trailingState->openParagraph && !$trailingState->afterComment
                                 && !$this->isCommentLineOrFence(ltrim($itemLines[count($itemLines) - 1] ?? '', " \t"))
                             ) {
                                 $unclosedFenceColumn ??= $column;
