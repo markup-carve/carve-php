@@ -1,27 +1,17 @@
-# Literal colon lines in Markdown definitions
+# Continuation refusal lint in lazy quotes
 
 ## Root cause
 
-The Markdown writer protects a literal description marker only on continuation lines whose paragraph is a direct child of a definition description. The paragraph's first line and paragraphs nested deeper in the definition list can therefore emit a bare colon marker. This differs from the JS and Rust writers and can turn text into a definition marker on import.
+The classifier identifies a lone `+` at an unmatched column in an open list and quote, but the lint collector skips that decision when the quote continues lazily without a parsed first block. The marker remains text, while its refusal goes unreported.
+
+## Spec ruling
+
+PART 9 §17 L3 says: “The `continuation-marker-refused` lint reports every refusal.” The two no-warning expectations for `between list and quote` and `past quote column` conflict with this clause.
 
 ## Change
 
-Use the paragraph's definition-list ancestry when protecting its lines, and protect a literal description marker at the start of every such line. Keep the existing term-marker protection for all paragraphs.
+Record a wrong-column refusal when the classifier finds no owner and an open container still exists on a quoted line or after an indented quote. Use the classifier's decision, including its source position, rather than the two listed inputs' numeric columns. Change only the two stale expectations.
 
 ## Scope
 
-The rule applies to any literal colon marker line inside a definition list, regardless of the listed corpus's indentation, tabs, or nested term shape.
-
-# Quote flanking after a slash
-
-## Quote root cause
-
-The inline parser treats a slash as an opening context for a straight quote. Its follow-up rule for closing quotes after a dash does not include slash. A quote after the final slash in a path therefore opens when the next character is punctuation or the end of the inline source.
-
-## Quote change
-
-Apply the existing dash follow-up rule to slash. Keep the same next-character classification for both characters. When Djot explicitly forces an opening single quote after a slash, spell that imported quote as the opening glyph so the generic parser rule cannot reverse it. Add parser and importer regressions for both contexts.
-
-## Quote scope
-
-This changes quote direction based on the neighboring characters, not on any path, URL, or corpus spelling. Djot's explicit opening quote remains an opening quote. The rule covers every slash followed by a straight quote under the normative typography rule.
+The rule covers standalone markers at columns no open container owns during those lazy quote paths. It does not depend on the particular list text or the marker's numeric column.

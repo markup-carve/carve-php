@@ -18,8 +18,8 @@ final class ContinuationMarkerOwnerGateTest extends TestCase
         yield 'list content column' => ["- a\n  +\n\nx\n", []];
         yield 'list content column before reference' => ["- a\n  +\n  [r]: /u\n\nsee [t][r]\n", []];
         yield 'between nested marker columns' => ["- x\n  - L\n +\n", []];
-        yield 'between list and quote' => ["- x\n  > q\n +\n", []];
-        yield 'past quote column' => ["- x\n  > q\n   +\n", []];
+        yield 'between list and quote' => ["- x\n  > q\n +\n", [[3, 2]]];
+        yield 'past quote column' => ["- x\n  > q\n   +\n", [[3, 4]]];
         yield 'past closed quote' => ["> q\n +\n- m\n", []];
         yield 'past quoted paragraph' => ["> q\n>   +\n> para\n", [[2, 5]]];
         yield 'missing quote prefix' => ["> - a\n  +\n", []];
