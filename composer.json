@@ -51,6 +51,7 @@
             "@test"
         ],
         "cs-check": "phpcs --colors --parallel=16",
+        "complexity-check": "phpcs --standard=phpcs-complexity.xml --no-cache --parallel=16",
         "cs-fix": "phpcbf --colors --parallel=16",
         "fuzz": "php-fuzzer fuzz fuzz/target.php fuzz/corpus/",
         "fuzz-strict": "php-fuzzer fuzz fuzz/target-strict.php fuzz/corpus/",

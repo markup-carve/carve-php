@@ -395,6 +395,23 @@ trait NormalizesStructure
         return implode("\n", $output);
     }
 
+    /**
+     * Read a footnote marker attached to an item at this quote depth.
+     *
+     * @return array<int, string>|null
+     */
+    private static function inlineFootnoteItem(string $visible, DjotStructureState $structure, int $quoteDepth, ?ListContext $previousList, int $indent): ?array
+    {
+        if (
+            $structure->blank || !$structure->paragraph || $quoteDepth < $structure->depth
+            || ($previousList !== null && $previousList->depth === $quoteDepth && $indent <= $previousList->column)
+        ) {
+            return preg_match('/^((?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)(?=\[\^[^\]\n]+\]:(?:[ \t]|$))/', $visible, $match) === 1 ? $match : null;
+        }
+
+        return null;
+    }
+
     private function normalizeDjotStructure(
         string $source,
         ?Closure $isBoundary = null,
@@ -465,10 +482,7 @@ trait NormalizesStructure
             $quoteView = $quotedNoteItem !== null ? substr($original, 0, strlen($physicalQuote) + strlen($quotedNoteItem[1])) . str_repeat(' ', strlen($quotedNoteItem[2])) . substr($original, strlen($physicalQuote) + strlen($quotedNoteItem[1]) + strlen($quotedNoteItem[2])) : $original;
             $quoteColumns = $quoteDepth > 0 ? $this->djotIndentColumnsAfterQuotes($quoteView, $quoteDepth, $quoteBases) : [];
             $listColumn = static fn (ListContext $owner): int => $quoteDepth > $owner->depth ? ($quoteColumns[$owner->depth] ?? $rawIndent) + ($owner->sourcePrefix === null ? 0 : ($quoteBases[$owner->depth] ?? 0) - $owner->sourcePrefix) : ($owner->sourcePrefix === null ? $indent : strlen($quote) + $rawIndent - $owner->sourcePrefix);
-            $inlineNoteItem = null;
-            if (($structure->blank || !$structure->paragraph || $quoteDepth < $structure->depth || ($previousList !== null && $previousList->depth === $quoteDepth && $indent <= $previousList->column)) && preg_match('/^((?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)(?=\[\^[^\]\n]+\]:(?:[ \t]|$))/', $visible, $inlineItem) === 1) {
-                $inlineNoteItem = $inlineItem;
-            }
+            $inlineNoteItem = self::inlineFootnoteItem($visible, $structure, $quoteDepth, $previousList, $indent);
             $noteText = $inlineNoteItem !== null ? substr($text, strlen($inlineNoteItem[0])) : $text;
             $noteHead = null;
             if (($inlineNoteItem !== null || str_starts_with($visible, '[^')) && preg_match('/^(\[\^[^\]\n]+\]:[ \t]*)(.*)$/', $noteText, $noteMatch) === 1 && ($inlineNoteItem !== null || $quotedNoteItem !== null || $structure->blank || !$structure->paragraph || $quoteDepth < $structure->depth || ($structure->noteOwner !== null && $indent <= $structure->noteOwner->column) || ($n > 0 && $isBoundary !== null && $isBoundary($lines[$n - 1])))) {

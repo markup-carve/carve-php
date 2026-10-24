@@ -1208,6 +1208,29 @@ final class ListBodyRebaser
     }
 
     /**
+     * Keep a nested fence inside its marker-line paragraph when its closer is absent.
+     *
+     * @param array<string> $lines
+     * @param int $index
+     * @param array<int> $nestedColumns
+     * @param bool $afterBlank
+     */
+    private function keepsNestedFenceInline(array $lines, int $index, array $nestedColumns, bool $afterBlank): bool
+    {
+        $line = $lines[$index];
+        $previousMarker = $index > 0 ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$index - 1], " \t")) : null;
+        $nestedFence = $previousMarker === null || preg_match('/^`{3,}[ \t]*$/', ltrim($line, " \t")) !== 1
+            ? null : ($this->itemFenceOpenerAtCallback)($line);
+        $fenceColumn = IndentationHelper::getLeadingColumns($line);
+
+        return !$afterBlank && $nestedColumns !== [] && $fenceColumn < end($nestedColumns)
+            && $previousMarker !== null
+            && !($this->lineOpensBlockForLoosenessCallback)($previousMarker['content'], true)
+            && $nestedFence !== null
+            && !($this->itemFenceCloserAheadCallback)($lines, $index, $nestedFence, $fenceColumn, 0);
+    }
+
+    /**
      * Apply an authored block base after a container's minimum content column
      * has been stripped. Item calls exclude sublists because their residual
      * indentation is another list level; definition and footnote bodies include
@@ -1320,23 +1343,7 @@ final class ListBodyRebaser
             ) {
                 continue;
             }
-            $previousMarker = $i > 0 ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$i - 1], " \t")) : null;
-            $nestedFence = $previousMarker === null || preg_match('/^`{3,}[ \t]*$/', ltrim($line, " \t")) !== 1
-                ? null : ($this->itemFenceOpenerAtCallback)($line);
-            $fenceColumn = IndentationHelper::getLeadingColumns($line);
-            if (
-                !$afterBlank && $nestedColumns !== [] && $fenceColumn < end($nestedColumns)
-                && $previousMarker !== null
-                && !($this->lineOpensBlockForLoosenessCallback)($previousMarker['content'], true)
-                && $nestedFence !== null
-                && !($this->itemFenceCloserAheadCallback)(
-                    $lines,
-                    $i,
-                    $nestedFence,
-                    $fenceColumn,
-                    0,
-                )
-            ) {
+            if ($this->keepsNestedFenceInline($lines, $i, $nestedColumns, $afterBlank)) {
                 $nestedInlineParagraph = true;
 
                 continue;

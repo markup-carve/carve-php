@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
+use Closure;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
@@ -28,6 +29,33 @@ class SourceLinter
     private const BLOCK = '/^(?:#{1,6} +\S|>(?: |$)|`{3,}|~{3,}|::(?: |$)|:{3,}(?: |$)|!\[|\[[^\]]+\]: +\S|(?:-{3,}|\*{3,}|_{3,})[ \t]*$|\{[^{}]+\}[ \t]*$|\|.*\|[ \t]*$)/';
 
     /**
+     * Build the warning sink with the source's offset map.
+     *
+     * @param list<\MarkupCarve\Carve\Lint\LintWarning> $warnings
+     * @param list<array{string, int}> $rows
+     * @param int $length
+     * @param array<int, int>|null $map
+     * @param bool $validUtf8
+     * @param array<int, array<int, int>> $prefixCounts
+     *
+     * @return \Closure(int, int, int, string, string): void
+     */
+    private static function warningEmitter(array &$warnings, array $rows, int $length, ?array $map, bool $validUtf8, array $prefixCounts): Closure
+    {
+        return static function (int $line, int $at, int $size, string $rule, string $message) use (&$warnings, $rows, $length, $map, $validUtf8, $prefixCounts): void {
+            if (!isset($rows[$line - 1])) {
+                return;
+            }
+            [$text, $start] = $rows[$line - 1];
+            $at = min($at, strlen($text));
+            $column = $validUtf8 ? SourceOffsets::toCodepoint($start + $at, $map) - SourceOffsets::toCodepoint($start, $map) + 1
+                : (isset($prefixCounts[$line - 1][$at])
+                    ? $prefixCounts[$line - 1][$at] + 1 : SourceOffsets::toColumn($text, $at));
+            $warnings[] = new LintWarning($line, $column, $rule, $message, $start + $at, min($start + $at + $size, $length));
+        };
+    }
+
+    /**
      * @param string $source
      * @param callable(): void|null $onRecoveredContainerMetadata
      *
@@ -50,17 +78,7 @@ class SourceLinter
         }
         $length = strlen($source);
         $warnings = [];
-        $emit = static function (int $line, int $at, int $size, string $rule, string $message) use (&$warnings, $rows, $length, $map, $validUtf8, $prefixCounts): void {
-            if (!isset($rows[$line - 1])) {
-                return;
-            }
-            [$text, $start] = $rows[$line - 1];
-            $at = min($at, strlen($text));
-            $column = $validUtf8 ? SourceOffsets::toCodepoint($start + $at, $map) - SourceOffsets::toCodepoint($start, $map) + 1
-                : (isset($prefixCounts[$line - 1][$at])
-                    ? $prefixCounts[$line - 1][$at] + 1 : SourceOffsets::toColumn($text, $at));
-            $warnings[] = new LintWarning($line, $column, $rule, $message, $start + $at, min($start + $at + $size, $length));
-        };
+        $emit = self::warningEmitter($warnings, $rows, $length, $map, $validUtf8, $prefixCounts);
         foreach ($converter->getParser()->getUnattachedBlockAttributes() as $span) {
             $warnings[] = new LintWarning(
                 $span->startLine,

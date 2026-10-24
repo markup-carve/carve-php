@@ -6694,14 +6694,7 @@ class DjotToCarve
         $mask = $this->maskCodeAndDestinations($source, false);
         $rows = $this->djotTableRows($source, $mask);
         $labels = $definitions = $defined = $used = [];
-        $nonRows = [];
-        $rowOffset = 0;
-        foreach (explode("\n", $source) as $n => $line) {
-            $at = $this->djotContentStart($line);
-            if (!($rows[$n] ?? false) && ($line[$at] ?? '') === '|' && ($mask[$rowOffset + $at] ?? '') === '|') {
-                $nonRows[$rowOffset + $at] = true;
-            } $rowOffset += strlen($line) + 1;
-        }
+        $nonRows = $this->djotFootnoteNonRows($source, $mask, $rows);
         preg_match_all('/carve-djot-note-(\d+)/i', $source, $reservedMatches);
         $reserved = array_fill_keys(array_map('intval', $reservedMatches[1]), true);
         $serial = 0;
@@ -6967,6 +6960,30 @@ class DjotToCarve
         }
 
         return ($stubs !== [] ? implode("\n\n", $stubs) . "\n\n" : '') . $output;
+    }
+
+    /**
+     * Identify pipe openers outside table rows for footnote parsing.
+     *
+     * @param string $source
+     * @param string $mask
+     * @param array<int, bool> $rows
+     *
+     * @return array<int, true>
+     */
+    private function djotFootnoteNonRows(string $source, string $mask, array $rows): array
+    {
+        $nonRows = [];
+        $rowOffset = 0;
+        foreach (explode("\n", $source) as $n => $line) {
+            $at = $this->djotContentStart($line);
+            if (!($rows[$n] ?? false) && ($line[$at] ?? '') === '|' && ($mask[$rowOffset + $at] ?? '') === '|') {
+                $nonRows[$rowOffset + $at] = true;
+            }
+            $rowOffset += strlen($line) + 1;
+        }
+
+        return $nonRows;
     }
 
     private function normalizeDjotFences(string $source): string
