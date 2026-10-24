@@ -159,11 +159,11 @@ class ConformanceDivergenceTest extends TestCase
     public function testSmartQuoteAfterTrailingSlashCloses(): void
     {
         $this->assertSame(
-            "<p>Exclude “/trunk/app/config/”.</p>",
+            '<p>Exclude “/trunk/app/config/”.</p>',
             trim($this->converter->convert("Exclude \"\\/trunk/app/config/\".\n")),
         );
         $this->assertSame(
-            "<p>and/“or” too</p>",
+            '<p>and/“or” too</p>',
             trim($this->converter->convert("and/\"or\" too\n")),
         );
     }
