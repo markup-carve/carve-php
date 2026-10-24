@@ -623,7 +623,10 @@ class ProseMirrorToCarve
                 if ($head instanceof TableRow) {
                     foreach ($head->getChildren() as $column => $cell) {
                         $align = $this->separatorAligns[$node][$column] ?? null;
-                        if ($cell instanceof TableCell && in_array($align, [TableCell::ALIGN_LEFT, TableCell::ALIGN_CENTER, TableCell::ALIGN_RIGHT], true)) {
+                        if (
+                            $cell instanceof TableCell && $cell->getSpanMarker() !== null
+                            && in_array($align, [TableCell::ALIGN_LEFT, TableCell::ALIGN_CENTER, TableCell::ALIGN_RIGHT], true)
+                        ) {
                             $cell->setAlignment($align);
                         }
                     }
