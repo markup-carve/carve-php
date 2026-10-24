@@ -349,9 +349,7 @@ final class TableStage
      * @param string $text
      * @param string $prefix
      * @param int $index
-     * @param array<string, \MarkupCarve\Carve\Converter\Markdown\ListMarkers> $markers
-     * @param array{prefix: string, text: string, itemQuote?: string}|null $prev
-     * @param string|null $lazy
+     * @param \MarkupCarve\Carve\Converter\Markdown\QuoteRunState $state
      * @param array<int, string|null> $result
      *
      * @return array{lines: list<string>, end: int}|null
@@ -363,13 +361,11 @@ final class TableStage
         string $text,
         int $contentCol,
         bool $inRun,
-        array &$markers,
-        ?array &$prev,
-        ?string &$lazy,
+        QuoteRunState $state,
         array &$result,
     ): ?array {
-        $list = $markers[$prefix] ?? new ListMarkers();
-        $paragraph = $inRun && $prev !== null && $prev['prefix'] === $prefix && ($this->quoteParagraphIsOpen)($prev['text']);
+        $list = $state->markers[$prefix] ?? new ListMarkers();
+        $paragraph = $inRun && $state->previous !== null && $state->previous['prefix'] === $prefix && ($this->quoteParagraphIsOpen)($state->previous['text']);
         if (
             $paragraph && (($this->isHeldOrderedMarker)($text, $list)
             || (!$list->hasListAt(($this->indentWidth)($text)) && preg_match('/^[ \t]*(?!0*1[.)])\d+[.)]/', $text) === 1)
@@ -401,17 +397,16 @@ final class TableStage
                 }
                 $virtual[] = $body;
             }
-            $written = ($this->respellQuotedLine)($lines, $index, $prefix, $text, $inRun, $markers, $prev, $lazy, $result);
+            $written = ($this->respellQuotedLine)($lines, $index, $prefix, $text, $inRun, $state, $result);
             $block = ($this->writeItemContent)($virtual, 0, substr($written, strlen($prefix)), $sourceCol);
             if ($block !== null) {
-                $writtenCol = $markers[$prefix]->openItemContentColumn() ?? $sourceCol;
+                $writtenCol = $state->markers[$prefix]->openItemContentColumn() ?? $sourceCol;
                 foreach ($block['lines'] as $at => $line) {
                     if ($at > 0) {
                         $block['lines'][$at] = ($this->moveIndent)($line, $sourceCol, $writtenCol);
                     }
                 }
-                $prev = null;
-                $lazy = null;
+                $state->clearPrevious();
 
                 return ['lines' => array_map(static fn (string $line): string => str_repeat(' ', $contentCol) . $prefix . $line, array_values($block['lines'])), 'end' => $index + $block['end']];
             }
@@ -424,8 +419,8 @@ final class TableStage
         if ($table === null) {
             return null;
         }
-        $written = ($this->respellQuotedLine)($lines, $index, $prefix, $text, $inRun, $markers, $prev, $lazy, $result);
-        $writtenCol = $markers[$prefix]->openItemContentColumn() ?? $sourceCol;
+        $written = ($this->respellQuotedLine)($lines, $index, $prefix, $text, $inRun, $state, $result);
+        $writtenCol = $state->markers[$prefix]->openItemContentColumn() ?? $sourceCol;
         if ($table['lines'] === [$prefix . '%% ' . $this->context->omittedTableComment]) {
             $table['lines'] = [$prefix . '%%'];
         }
@@ -433,8 +428,7 @@ final class TableStage
             $lead = $at === 0 ? substr($written, 0, -strlen($item[2])) : $prefix . str_repeat(' ', $writtenCol);
             $table['lines'][$at] = str_repeat(' ', $contentCol) . $lead . substr($row, strlen($prefix));
         }
-        $prev = null;
-        $lazy = null;
+        $state->clearPrevious();
 
         return $table;
     }
