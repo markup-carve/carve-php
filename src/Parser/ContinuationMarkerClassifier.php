@@ -301,7 +301,10 @@ final class ContinuationMarkerClassifier
             $this->stack = array_values(array_filter($this->stack, static fn (array $entry): bool => $entry['kind'] !== 'quote'));
         }
         if (
-            $this->paragraphOpen && $this->stack !== [] && $column < $this->stack[array_key_last($this->stack)]['column']
+            $this->paragraphOpen && $this->stack !== []
+            && ($column < $this->stack[array_key_last($this->stack)]['column']
+                || $column === $this->stack[array_key_last($this->stack)]['column']
+                    && $this->stack[array_key_last($this->stack)]['kind'] === 'list')
             && $this->lists->parseListItemMarker(ltrim($body, " \t")) === null
             && !str_starts_with(ltrim($body, " \t"), '#')
             && !str_starts_with(ltrim($body, " \t"), '>')
