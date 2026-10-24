@@ -190,75 +190,7 @@ final class TableBlockBuilder
                 $separatorWidths = $separator['widths'];
                 $table->setSeparatorWidths($separatorWidths);
 
-                // Mark previous row as header and apply alignments to it
-                $children = $table->getChildren();
-                if ($children !== []) {
-                    $lastRow = $children[count($children) - 1];
-                    if ($lastRow instanceof TableRow) {
-                        // Recreate as header row with alignments
-                        $headerRow = new TableRow(true);
-                        $headerRow->setContinuationLines($lastRow->getContinuationLines());
-                        // Preserve row attributes from original row
-                        $headerRow->setAttributes($lastRow->getAttributeEntries());
-                        // Same source, so the same span; it is a re-typing of
-                        // the row that was already parsed, not a new one.
-                        $headerRow->setPos($lastRow->getPos());
-                        // Every column has its own cell now (placeholders
-                        // included), so the cell's position in the row IS its
-                        // grid column - no more `+= colspan` accounting for
-                        // columns a merge dropped from the array.
-                        $cellIndex = 0;
-                        foreach ($lastRow->getChildren() as $cell) {
-                            if ($cell instanceof TableCell) {
-                                if ($cell->hasExplicitAlignment()) {
-                                    $columnAligns[$cellIndex] = $cell->getAlignment();
-                                }
-                                $alignment = $columnAligns[$cellIndex]
-                                    ?? $alignments[$cellIndex]
-                                    ?? $cell->getAlignment();
-                                // The delimiter row is where a GFM table
-                                // DECLARES its column alignment, so a header
-                                // cell promoted here carries alignment of its
-                                // own - the same shape carve-rs publishes for
-                                // `|:---|---:|`, and what keeps the markers in
-                                // the written form after a ProseMirror trip.
-                                $headerCell = new TableCell(
-                                    true,
-                                    $alignment,
-                                    $cell->getRowspan(),
-                                    $cell->getColspan(),
-                                    $cell->getSpanMarker(),
-                                    (($alignments[$cellIndex] ?? TableCell::ALIGN_DEFAULT) !== TableCell::ALIGN_DEFAULT)
-                                        || $cell->hasExplicitAlignment(),
-                                );
-                                // Preserve cell attributes from original cell
-                                $headerCell->setAttributes($cell->getAttributeEntries());
-                                // Same source as the cell it replaces.
-                                $headerCell->setPos($cell->getPos());
-                                if ($cell->hasExplicitVerticalAlignment()) {
-                                    $headerCell->setVerticalAlignment($cell->getVerticalAlignment());
-                                    $columnValigns[$cellIndex] = $cell->getVerticalAlignment();
-                                }
-                                $headerCell->setChildren($cell->getChildren());
-                                $headerRow->appendChild($headerCell);
-                                // The promoted header cell replaces the original, so
-                                // repoint the rowspan origin to the NEW cell (else a
-                                // later `^` extends the detached old cell and the
-                                // header rowspan is lost).
-                                if (($columnOrigin[$cellIndex] ?? null) === $cell) {
-                                    $columnOrigin[$cellIndex] = $headerCell;
-                                }
-                                if (isset($cellBuilds[spl_object_id($cell)])) {
-                                    $cellBuilds[spl_object_id($headerCell)] = ['cell' => $headerCell] + $cellBuilds[spl_object_id($cell)];
-                                    unset($cellBuilds[spl_object_id($cell)]);
-                                }
-                                $cellIndex++;
-                            }
-                        }
-                        // Replace last row
-                        $table->replaceChild(count($children) - 1, $headerRow);
-                    }
-                }
+                $this->promoteTableHeader($table, $alignments, $columnAligns, $columnValigns, $columnOrigin, $cellBuilds);
                 $i++;
 
                 continue;
@@ -1077,5 +1009,92 @@ final class TableBlockBuilder
         }
 
         return $this->resolveRowSpans($mergedCellsWithAttrs, $columnOrigin);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\Table $table
+     * @param array<int, string|null> $alignments
+     * @param array<int, string|null> $columnAligns
+     * @param array<int, string|null> $columnValigns
+     * @param array<int, \MarkupCarve\Carve\Node\Block\TableCell> $columnOrigin
+     * @param array<int, array{cell: \MarkupCarve\Carve\Node\Block\TableCell, cellData: array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}, line: int, content: string, wraps: array<int, array{int, int, int}>, rowIndex: int, leadLine?: int}> $cellBuilds
+     */
+    private function promoteTableHeader(
+        Table $table,
+        array $alignments,
+        array &$columnAligns,
+        array &$columnValigns,
+        array &$columnOrigin,
+        array &$cellBuilds,
+    ): void {
+        // Mark previous row as header and apply alignments to it
+        $children = $table->getChildren();
+        if ($children !== []) {
+            $lastRow = $children[count($children) - 1];
+            if ($lastRow instanceof TableRow) {
+                // Recreate as header row with alignments
+                $headerRow = new TableRow(true);
+                $headerRow->setContinuationLines($lastRow->getContinuationLines());
+                // Preserve row attributes from original row
+                $headerRow->setAttributes($lastRow->getAttributeEntries());
+                // Same source, so the same span; it is a re-typing of
+                // the row that was already parsed, not a new one.
+                $headerRow->setPos($lastRow->getPos());
+                // Every column has its own cell now (placeholders
+                // included), so the cell's position in the row IS its
+                // grid column - no more `+= colspan` accounting for
+                // columns a merge dropped from the array.
+                $cellIndex = 0;
+                foreach ($lastRow->getChildren() as $cell) {
+                    if ($cell instanceof TableCell) {
+                        if ($cell->hasExplicitAlignment()) {
+                            $columnAligns[$cellIndex] = $cell->getAlignment();
+                        }
+                        $alignment = $columnAligns[$cellIndex]
+                            ?? $alignments[$cellIndex]
+                            ?? $cell->getAlignment();
+                        // The delimiter row is where a GFM table
+                        // DECLARES its column alignment, so a header
+                        // cell promoted here carries alignment of its
+                        // own - the same shape carve-rs publishes for
+                        // `|:---|---:|`, and what keeps the markers in
+                        // the written form after a ProseMirror trip.
+                        $headerCell = new TableCell(
+                            true,
+                            $alignment,
+                            $cell->getRowspan(),
+                            $cell->getColspan(),
+                            $cell->getSpanMarker(),
+                            (($alignments[$cellIndex] ?? TableCell::ALIGN_DEFAULT) !== TableCell::ALIGN_DEFAULT)
+                                || $cell->hasExplicitAlignment(),
+                        );
+                        // Preserve cell attributes from original cell
+                        $headerCell->setAttributes($cell->getAttributeEntries());
+                        // Same source as the cell it replaces.
+                        $headerCell->setPos($cell->getPos());
+                        if ($cell->hasExplicitVerticalAlignment()) {
+                            $headerCell->setVerticalAlignment($cell->getVerticalAlignment());
+                            $columnValigns[$cellIndex] = $cell->getVerticalAlignment();
+                        }
+                        $headerCell->setChildren($cell->getChildren());
+                        $headerRow->appendChild($headerCell);
+                        // The promoted header cell replaces the original, so
+                        // repoint the rowspan origin to the NEW cell (else a
+                        // later `^` extends the detached old cell and the
+                        // header rowspan is lost).
+                        if (($columnOrigin[$cellIndex] ?? null) === $cell) {
+                            $columnOrigin[$cellIndex] = $headerCell;
+                        }
+                        if (isset($cellBuilds[spl_object_id($cell)])) {
+                            $cellBuilds[spl_object_id($headerCell)] = ['cell' => $headerCell] + $cellBuilds[spl_object_id($cell)];
+                            unset($cellBuilds[spl_object_id($cell)]);
+                        }
+                        $cellIndex++;
+                    }
+                }
+                // Replace last row
+                $table->replaceChild(count($children) - 1, $headerRow);
+            }
+        }
     }
 }
