@@ -345,6 +345,12 @@ class ProseMirrorRenderer
                     $entry['rowspan'],
                     $entry['colspan'],
                 );
+                if ($index === 0 && $node->getSeparatorWidths() !== null) {
+                    $widths = $node->getSeparatorWidths();
+                    $attrs = is_array($rendered['attrs'] ?? null) ? $rendered['attrs'] : [];
+                    $attrs['carveSeparatorWidths'] = array_slice($widths, $column, $entry['colspan']);
+                    $rendered['attrs'] = $attrs;
+                }
                 if ($entry['rowspan'] > 1 && $entry['colspan'] > 1) {
                     $coveredRows = [];
                     for ($offset = 1; $offset < $entry['rowspan']; $offset++) {
@@ -785,6 +791,7 @@ class ProseMirrorRenderer
             $attrs['carveSeparatorWidths'] = $node->getSeparatorWidths();
             $head = $node->getChildren()[0] ?? null;
             if ($head instanceof TableRow) {
+                $attrs['carveSeparatorColumnCount'] = count($head->getChildren());
                 $attrs['carveSeparatorAligns'] = array_map(
                     static fn (TableCell $cell): string => $cell->getAlignment(),
                     array_values(array_filter($head->getChildren(), static fn ($cell): bool => $cell instanceof TableCell)),

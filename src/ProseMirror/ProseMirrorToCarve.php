@@ -618,6 +618,7 @@ class ProseMirrorToCarve
             // continuation markers - just at the node level instead of
             // through Carve source text.
             $this->normalizeTableSpans($node);
+            $this->restoreEditedSeparatorWidths($node, $data);
             if ($this->separatorAligns !== null && isset($this->separatorAligns[$node])) {
                 $head = $node->getChildren()[0] ?? null;
                 if (
@@ -638,6 +639,67 @@ class ProseMirrorToCarve
         }
 
         return $node;
+    }
+
+    /**
+     * Widths travel with first-row cells so column edits keep their author choice.
+     * Older editor payloads carry only the table vector; normalize its length
+     * against the edited grid before the source writer sees it.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\Table $table
+     * @param array<string, mixed> $data
+     */
+    private function restoreEditedSeparatorWidths(Table $table, array $data): void
+    {
+        $old = $table->getSeparatorWidths();
+        if ($old === null) {
+            return;
+        }
+        $head = $table->getChildren()[0] ?? null;
+        if (!$head instanceof TableRow) {
+            return;
+        }
+        $count = count($head->getChildren());
+        if ($count === 0) {
+            return;
+        }
+        $rows = array_values(array_filter($this->childrenOf($data), static fn (array $child): bool => ($child['type'] ?? null) === 'tableRow'));
+        $first = $rows[0] ?? null;
+        $cells = is_array($first) ? $this->childrenOf($first) : [];
+        $hasCellWidths = false;
+        foreach ($cells as $cell) {
+            $attrs = is_array($cell['attrs'] ?? null) ? $cell['attrs'] : [];
+            if (array_key_exists('carveSeparatorWidths', $attrs)) {
+                $hasCellWidths = true;
+
+                break;
+            }
+        }
+        if (!$hasCellWidths) {
+            $attrs = is_array($data['attrs'] ?? null) ? $data['attrs'] : [];
+            $originalCount = self::asInt($attrs['carveSeparatorColumnCount'] ?? 0);
+            $widths = $originalCount > 0 && $originalCount !== $count
+                ? array_slice(array_pad($old, $count, 3), 0, $count)
+                : array_slice($old, 0, $count);
+            $table->setSeparatorWidths($widths);
+
+            return;
+        }
+        $slots = [];
+        foreach ($cells as $cell) {
+            $attrs = is_array($cell['attrs'] ?? null) ? $cell['attrs'] : [];
+            $colspan = max(1, self::asInt($attrs['colspan'] ?? 1));
+            $carried = self::separatorWidths($attrs['carveSeparatorWidths'] ?? null) ?? [];
+            $columns = min($colspan, $count - count($slots));
+            for ($column = 0; $column < $columns; $column++) {
+                $slots[] = array_key_exists('carveSeparatorWidths', $attrs) ? ($carried[$column] ?? null) : 3;
+            }
+        }
+        $slots = array_slice(array_pad($slots, $count, null), 0, $count);
+        while ($slots !== [] && end($slots) === null) {
+            array_pop($slots);
+        }
+        $table->setSeparatorWidths($slots === [] ? [3] : array_map(static fn (?int $width): int => $width ?? 3, $slots));
     }
 
     /**
@@ -1682,6 +1744,7 @@ class ProseMirrorToCarve
                     'separatorWidths',
                     self::separatorWidths($value),
                 ),
+                $node instanceof Table && $key === 'carveSeparatorColumnCount' => true,
                 $node instanceof Table && $key === 'carveSeparatorAligns' => $this->rememberSeparatorAligns($node, $value),
                 $node instanceof BlockQuote && $key === 'carveFenced' => $this->setState(
                     $node,
@@ -1919,6 +1982,7 @@ class ProseMirrorToCarve
                 is_scalar($value) ? (string)$value : null,
             ),
             $key === 'carveCoveredRowMarkers' => $this->rememberCoveredRowMarkers($node, $value),
+            $key === 'carveSeparatorWidths' => true,
             $key === 'carveInheritedTextAlign'
                 && !$node->hasExplicitAlignment()
                 && in_array(self::asString($value), [TableCell::ALIGN_LEFT, TableCell::ALIGN_CENTER, TableCell::ALIGN_RIGHT], true)

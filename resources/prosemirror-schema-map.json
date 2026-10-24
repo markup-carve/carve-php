@@ -114,7 +114,8 @@
         "carveKeyValues": "authored key=values",
         "class": "authored classes",
         "id": "authored id",
-        "carveSeparatorWidths": "authored separator-row dash widths, colons excluded; its PRESENCE says the author wrote a separator row rather than `|=` header cells"
+        "carveSeparatorWidths": "authored separator-row dash widths, colons excluded; its PRESENCE says the author wrote a separator row rather than `|=` header cells",
+        "carveSeparatorColumnCount": "physical columns in the exported first row; used to detect structural edits when importing older cell payloads"
       }
     },
     "table_row": {
@@ -134,6 +135,7 @@
       "attrs": {
         "carveCoverMarkers": "per row a cell spanning rows and columns covers below its first, the markers written right of its `^`; present only where one of them is `^`",
         "carveInheritedTextAlign": "effective alignment inherited from table column metadata; editor presentation only and never serialized as a cell override",
+        "carveSeparatorWidths": "authored separator widths for the physical columns covered by a first-row cell; follows the cell through column edits",
         "carveSpanMarker": "the span marker as written, where a cell carries one",
         "colspan": "omitted when 1",
         "rowspan": "omitted when 1",
