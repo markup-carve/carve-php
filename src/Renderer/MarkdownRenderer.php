@@ -2730,13 +2730,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $content = preg_replace('/[ \t]+((?:<!-- carve: (?:(?! -->)[^\n])* -->)*)$/D', '$1', $content) ?? $content;
         }
 
-        return $this->protectParagraphListMarkers($content, $node->getParent() instanceof DefinitionDescription) . "\n\n";
+        return $this->protectParagraphListMarkers($content, $this->definitionListDepth($node) > 0) . "\n\n";
     }
 
     /**
      * Keep paragraph continuation lines from becoming lists in Markdown readers.
      */
-    protected function protectParagraphListMarkers(string $text, bool $inDescription = false): string
+    protected function protectParagraphListMarkers(string $text, bool $inDefinition = false): string
     {
         $codeFence = 0;
         $lines = explode("\n", $text);
@@ -2757,7 +2757,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 // PART 11 §10m: a reader strips edge whitespace anyway, except
                 // where four columns of it open indented code.
                 $line = ltrim($line, " \t");
-                $line = $this->protectLineShape($line, $atFirst, $bare, $inDescription);
+                $line = $this->protectLineShape($line, $atFirst, $bare, $inDefinition);
             }
 
             $length = strlen($line);
@@ -2805,9 +2805,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * @param string $line
      * @param bool $first Whether this is the paragraph's first line.
      * @param array<string, string> $bare Sentinel to the character it stands for.
-     * @param bool $inDescription Whether the paragraph is inside a definition body.
+     * @param bool $inDefinition Whether the paragraph is inside a definition list.
      */
-    protected function protectLineShape(string $line, bool $first, array $bare, bool $inDescription = false): string
+    protected function protectLineShape(string $line, bool $first, array $bare, bool $inDefinition = false): string
     {
         $line = preg_replace_callback(
             '/^([-+])(?=[ \t])/',
@@ -2827,7 +2827,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $view = strtr($line, $bare);
         if (
             preg_match('/^::(?=[ \t])/', $view) === 1
-            || ($inDescription && !$first && preg_match('/^:(?=[ \t])/', $view) === 1)
+            || ($inDefinition && preg_match('/^:(?=[ \t])/', $view) === 1)
         ) {
             return $this->escapeFirstCharacter($line);
         }
