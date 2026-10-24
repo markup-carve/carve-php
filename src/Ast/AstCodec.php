@@ -2490,7 +2490,7 @@ class AstCodec
     }
 
     /**
-     * Whether a cell's alignment came from a preceding head-row marker.
+     * Whether a cell's alignment comes from the table head's final default.
      */
     private function inheritsColumnAlignment(TableCell $cell): bool
     {
@@ -2511,24 +2511,28 @@ class AstCodec
         if (!isset($this->tableHeaderAlignments[$tableId])) {
             $alignments = [];
             $columns = [];
-            $inHeadRows = true;
-            foreach ($table->getChildren() as $candidate) {
-                if (!$candidate instanceof TableRow) {
-                    continue;
+            $rows = array_values(array_filter($table->getChildren(), static fn ($candidate): bool => $candidate instanceof TableRow));
+            $groups = $table->getRowGroups();
+            $headRows = $groups['headRows'] ?? 0;
+            if ($groups === null) {
+                foreach ($rows as $candidate) {
+                    if (!$candidate->isHeader()) {
+                        break;
+                    }
+                    $headRows++;
                 }
-                if (!$candidate->isHeader()) {
-                    $inHeadRows = false;
+            }
+            foreach (array_slice($rows, 0, $headRows) as $candidate) {
+                foreach ($candidate->getChildren() as $column => $headerCell) {
+                    if ($headerCell instanceof TableCell && $headerCell->isHeader() && $headerCell->hasExplicitAlignment()) {
+                        $columns[$column] = $headerCell->getAlignment();
+                    }
                 }
-                $column = 0;
-                foreach ($candidate->getChildren() as $headerCell) {
-                    if ($headerCell instanceof TableCell) {
-                        if (isset($columns[$column]) && !$headerCell->hasExplicitAlignment()) {
-                            $alignments[spl_object_id($headerCell)] = $columns[$column];
-                        }
-                        if ($inHeadRows && $headerCell->hasExplicitAlignment()) {
-                            $columns[$column] = $headerCell->getAlignment();
-                        }
-                        $column++;
+            }
+            foreach ($rows as $candidate) {
+                foreach ($candidate->getChildren() as $column => $candidateCell) {
+                    if ($candidateCell instanceof TableCell && !$candidateCell->hasExplicitAlignment() && isset($columns[$column])) {
+                        $alignments[spl_object_id($candidateCell)] = $columns[$column];
                     }
                 }
             }

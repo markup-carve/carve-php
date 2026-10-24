@@ -96,6 +96,12 @@ class TableCell extends BlockNode
         return $this->alignment;
     }
 
+    public function setAlignment(string $alignment, bool $explicit = true): void
+    {
+        $this->alignment = $alignment;
+        $this->hasExplicitAlignment = $explicit;
+    }
+
     public function hasExplicitAlignment(): bool
     {
         return $this->hasExplicitAlignment;

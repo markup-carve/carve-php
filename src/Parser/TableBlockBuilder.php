@@ -228,7 +228,8 @@ final class TableBlockBuilder
                                     $cell->getRowspan(),
                                     $cell->getColspan(),
                                     $cell->getSpanMarker(),
-                                    isset($alignments[$cellIndex]) || $cell->hasExplicitAlignment(),
+                                    (($alignments[$cellIndex] ?? TableCell::ALIGN_DEFAULT) !== TableCell::ALIGN_DEFAULT)
+                                        || $cell->hasExplicitAlignment(),
                                 );
                                 // Preserve cell attributes from original cell
                                 $headerCell->setAttributes($cell->getAttributeEntries());
@@ -521,7 +522,8 @@ final class TableBlockBuilder
                 // column's alignment carries none of its own, which is the
                 // shape carve-rs publishes.
                 $explicitAlign = $marker['align'] !== null
-                    || (($isHeaderRow || $marker['header']) && ($alignments[$col] ?? null) !== null);
+                    || (($isHeaderRow || $marker['header'])
+                        && ($alignments[$col] ?? TableCell::ALIGN_DEFAULT) !== TableCell::ALIGN_DEFAULT);
                 $cell = new TableCell(
                     $isHeaderRow || $marker['header'],
                     $alignment,
@@ -667,6 +669,7 @@ final class TableBlockBuilder
         // after every row is appended, because the partition is measured against
         // the row count.
         $table->setRowGroups($table->statedRowGroups());
+        $this->applyHeaderColumnDefaults($table, $alignments);
         $this->applyTableColumns($table);
         $rows = $table->getChildren();
         if ($rows !== []) {
@@ -688,6 +691,61 @@ final class TableBlockBuilder
         // Caption parsing is now handled by tryParseCaption
 
         return $i - $start;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\Table $table
+     * @param array<int, string> $delimiterAlignments
+     */
+    private function applyHeaderColumnDefaults(Table $table, array $delimiterAlignments): void
+    {
+        $rows = $table->getChildren();
+        $groups = $table->getRowGroups();
+        $headRows = $groups['headRows'] ?? 0;
+        if ($groups === null) {
+            foreach ($rows as $row) {
+                if (!$row instanceof TableRow || !$row->isHeader()) {
+                    break;
+                }
+                $headRows++;
+            }
+        }
+
+        $horizontal = $headRows > 0 ? $delimiterAlignments : [];
+        $vertical = [];
+        foreach (array_slice($rows, 0, $headRows) as $row) {
+            if (!$row instanceof TableRow) {
+                continue;
+            }
+            foreach ($row->getChildren() as $column => $cell) {
+                if (!$cell instanceof TableCell || !$cell->isHeader()) {
+                    continue;
+                }
+                if ($cell->hasExplicitAlignment()) {
+                    $horizontal[$column] = $cell->getAlignment();
+                }
+                if ($cell->hasExplicitVerticalAlignment()) {
+                    $vertical[$column] = $cell->getVerticalAlignment();
+                }
+            }
+        }
+
+        foreach ($rows as $row) {
+            if (!$row instanceof TableRow) {
+                continue;
+            }
+            foreach ($row->getChildren() as $column => $cell) {
+                if (!$cell instanceof TableCell) {
+                    continue;
+                }
+                if (!$cell->hasExplicitAlignment()) {
+                    $cell->setAlignment($horizontal[$column] ?? TableCell::ALIGN_DEFAULT, false);
+                }
+                if (!$cell->hasExplicitVerticalAlignment()) {
+                    $cell->setVerticalAlignment($vertical[$column] ?? TableCell::VALIGN_DEFAULT, false);
+                }
+            }
+        }
     }
 
     /**
