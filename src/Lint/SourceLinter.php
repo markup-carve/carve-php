@@ -89,49 +89,7 @@ class SourceLinter
             $type = $node->getType();
             $pos = $node->getPos();
             if ($node instanceof Table) {
-                $tableRows = array_values(array_filter($node->getChildren(), static fn ($child): bool => $child->getType() === 'table_row'));
-                $gridRows = TableSpanGrid::resolve($node);
-                foreach ($gridRows as $rowIndex => $gridRow) {
-                    foreach ($gridRow as $columnIndex => $entry) {
-                        $marker = $entry['cell']->getSpanMarker();
-                        if ($entry['skip'] || ($marker !== '^' && $marker !== '<')) {
-                            continue;
-                        }
-                        $cellPos = $entry['cell']->getPos();
-                        $reason = $marker === '^'
-                            ? ($rowIndex === 0 || !isset($gridRows[$rowIndex - 1][$columnIndex]) ? 'There is no cell above it to extend.' : 'Extending the cell above would cover another cell.')
-                            : ($columnIndex === 0 ? 'There is no cell to its left to widen.' : 'The cell to its left starts in an earlier row, so widening it would cover cells already placed.');
-                        $message = sprintf('The "%s" span marker cannot extend a cell. %s It renders as a cell of its own; escape it as "\\%s" to keep the character as text, or remove it.', $marker, $reason, $marker);
-                        if ($cellPos === null) {
-                            $rowPos = $tableRows[$rowIndex]->getPos() ?? null;
-                            if ($rowPos === null) {
-                                continue;
-                            }
-                            $line = $rowPos->startLine;
-                            $lineText = $rows[$line - 1][0] ?? '';
-                            $prefix = strlen(mb_substr($lineText, 0, $rowPos->startColumn - 1, 'UTF-8'));
-                            $sourceCells = (new TableParser())->splitCells(substr($lineText, $prefix));
-                            $sourceCell = $sourceCells[$columnIndex] ?? null;
-                            $withinCell = $sourceCell === null ? false : strpos($sourceCell['raw'], $marker);
-                            if ($withinCell === false) {
-                                continue;
-                            }
-                            $at = $prefix + $sourceCell['offset'] + $withinCell;
-                            $emit($line, $at, 1, 'table-span-marker-blocked', $message);
-
-                            continue;
-                        }
-                        $cellStart = SourceOffsets::toByte($cellPos->startOffset, $map, $length);
-                        $cellEnd = SourceOffsets::toByte($cellPos->endOffset, $map, $length);
-                        $withinCell = strpos(substr($source, $cellStart, $cellEnd - $cellStart), $marker);
-                        if ($withinCell === false) {
-                            continue;
-                        }
-                        $line = $cellPos->startLine;
-                        $lineStart = $rows[$line - 1][1] ?? 0;
-                        $emit($line, $cellStart + $withinCell - $lineStart, 1, 'table-span-marker-blocked', $message);
-                    }
-                }
+                $this->lintTableSpanMarkers($node, $rows, $source, $map, $length, $emit);
             }
             if ($pos !== null) {
                 if (in_array($type, ['text', 'mention', 'tag'], true)) {
@@ -222,55 +180,8 @@ class SourceLinter
                 $pending[] = [$child, $depth + 1];
             }
         }
-        sort($textSpans);
-        $textRuns = [];
-        foreach ($textSpans as [$from, $to]) {
-            $last = array_key_last($textRuns);
-            if ($last !== null && $textRuns[$last][1] === $from) {
-                $textRuns[$last][1] = $to;
-            } else {
-                $textRuns[] = [$from, $to];
-            }
-        }
-        $inText = static function (int $from, int $to) use ($textRuns): bool {
-            $lo = 0;
-            $hi = count($textRuns);
-            while ($lo < $hi) {
-                $mid = intdiv($lo + $hi, 2);
-                if ($textRuns[$mid][0] <= $from) {
-                    $lo = $mid + 1;
-                } else {
-                    $hi = $mid;
-                }
-            }
-
-            return $lo > 0 && $textRuns[$lo - 1][1] >= $to;
-        };
-        foreach (
-            [
-                'djot-plus-bullet' => '/^[ \t]*\K\+(?=[ \t]+\S)/m',
-                'djot-superscript-caret' => '/(?<![{[])\^(?![\s[])((?:(?!\n[ \t]*\n)[^\^])+?)(?<![\s[])\^(?!\})/u',
-            ] as $rule => $pattern
-        ) {
-            preg_match_all($pattern, $source, $matches, PREG_OFFSET_CAPTURE);
-            foreach ($matches[0] as [$match, $from]) {
-                $slashes = 0;
-                for ($i = $from - 1; $i >= 0 && $source[$i] === '\\'; $i--) {
-                    $slashes++;
-                }
-                $to = $from + strlen($match);
-                if ($slashes % 2 === 1 || !$inText($from, $from + 1) || !$inText($to - 1, $to)) {
-                    continue;
-                }
-                $index = 0;
-                while ($index + 1 < $rowCount && $rows[$index + 1][1] <= $from) {
-                    $index++;
-                }
-                $emit($index + 1, $from - $rows[$index][1], strlen($match), $rule, $rule === 'djot-plus-bullet'
-                    ? 'A plus bullet is literal text in Carve. Use a dash for a list item.'
-                    : 'Bare carets are literal text in Carve. Use {^text^} for superscript.');
-            }
-        }
+        $textRuns = self::mergeTextSpans($textSpans);
+        $this->lintLiteralDjotMarkers($source, $rows, $rowCount, $textRuns, $emit);
         $listLines = [];
         foreach ((new DefinitionTermFoldLinter())->lint($source) as $warning) {
             $listLines[$warning->line] = true;
@@ -413,29 +324,7 @@ class SourceLinter
             if (!isset($inlineVerbatim[$ln]) && str_starts_with($text, '>') && strlen($text) > 1 && !str_starts_with($text, '> ')) {
                 $emit($ln, 0, strlen($text), 'blockquote-marker-without-space', 'A blockquote marker must be bare or followed by a space.');
             }
-            preg_match_all('/\{\{([^{}]*)\}\}/', $text, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
-            foreach ($matches as $match) {
-                $inner = $match[1][0];
-                $body = trim($inner, " \t");
-                if ($body !== '' && !(strspn($inner, " \t") > 0 && str_contains('#@', $body[0]))) {
-                    continue;
-                }
-                $from = $start + $match[0][1];
-                $end = $from + strlen($match[0][0]);
-                $lo = 0;
-                $hi = count($textRuns);
-                while ($lo < $hi) {
-                    $mid = intdiv($lo + $hi, 2);
-                    if ($textRuns[$mid][0] <= $from) {
-                        $lo = $mid + 1;
-                    } else {
-                        $hi = $mid;
-                    }
-                }
-                if ($lo > 0 && $textRuns[$lo - 1][1] >= $end) {
-                    $emit($ln, $match[0][1], strlen($match[0][0]), 'empty-include-path', 'This include-shaped text has no path. Add a path or remove the braces.');
-                }
-            }
+            $this->lintEmptyIncludePaths($text, $start, $ln, $textRuns, $emit);
         }
         foreach ($starts as [$pos, $value]) {
             if (isset($listLines[$pos->startLine])) {
@@ -450,6 +339,120 @@ class SourceLinter
             $title = preg_match('/^:{3,}[ \t]+[A-Za-z_][\w-]*[ \t]+([^"\[ \t].*)$/', ltrim($text));
             $emit($pos->startLine, $at, $title ? strlen($view) : (str_starts_with($view, ':') ? strspn($view, ':') : 2), $title ? 'fence-title-syntax' : 'block-marker-as-text', $title ? 'A fence title must use straight double quotes; put attributes on a separate preceding line.' : 'This block-shaped marker parsed as text. Check its syntax and container indentation.');
         }
+        $this->lintContainerFences($fences, $rows, $rowCount, $fenceParser, $onRecoveredContainerMetadata, $emit);
+        $this->lintDeclaredVersion($source, $rows, $emit);
+        usort($warnings, static fn (LintWarning $a, LintWarning $b): int => $a->start <=> $b->start);
+
+        return $warnings;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\Table $table
+     * @param list<array{string, int}> $rows
+     * @param string $source
+     * @param array<int, int>|null $map
+     * @param int $length
+     * @param callable(int, int, int, string, string): void $emit
+     */
+    private function lintTableSpanMarkers(Table $table, array $rows, string $source, ?array $map, int $length, callable $emit): void
+    {
+        $tableRows = array_values(array_filter($table->getChildren(), static fn ($child): bool => $child->getType() === 'table_row'));
+        $gridRows = TableSpanGrid::resolve($table);
+        foreach ($gridRows as $rowIndex => $gridRow) {
+            foreach ($gridRow as $columnIndex => $entry) {
+                $marker = $entry['cell']->getSpanMarker();
+                if ($entry['skip'] || ($marker !== '^' && $marker !== '<')) {
+                    continue;
+                }
+                $cellPos = $entry['cell']->getPos();
+                $reason = $marker === '^'
+                    ? ($rowIndex === 0 || !isset($gridRows[$rowIndex - 1][$columnIndex]) ? 'There is no cell above it to extend.' : 'Extending the cell above would cover another cell.')
+                    : ($columnIndex === 0 ? 'There is no cell to its left to widen.' : 'The cell to its left starts in an earlier row, so widening it would cover cells already placed.');
+                $message = sprintf('The "%s" span marker cannot extend a cell. %s It renders as a cell of its own; escape it as "\\%s" to keep the character as text, or remove it.', $marker, $reason, $marker);
+                if ($cellPos === null) {
+                    $rowPos = $tableRows[$rowIndex]->getPos() ?? null;
+                    if ($rowPos === null) {
+                        continue;
+                    }
+                    $line = $rowPos->startLine;
+                    $lineText = $rows[$line - 1][0] ?? '';
+                    $prefix = strlen(mb_substr($lineText, 0, $rowPos->startColumn - 1, 'UTF-8'));
+                    $sourceCells = (new TableParser())->splitCells(substr($lineText, $prefix));
+                    $sourceCell = $sourceCells[$columnIndex] ?? null;
+                    $withinCell = $sourceCell === null ? false : strpos($sourceCell['raw'], $marker);
+                    if ($withinCell === false) {
+                        continue;
+                    }
+                    $at = $prefix + $sourceCell['offset'] + $withinCell;
+                    $emit($line, $at, 1, 'table-span-marker-blocked', $message);
+
+                    continue;
+                }
+                $cellStart = SourceOffsets::toByte($cellPos->startOffset, $map, $length);
+                $cellEnd = SourceOffsets::toByte($cellPos->endOffset, $map, $length);
+                $withinCell = strpos(substr($source, $cellStart, $cellEnd - $cellStart), $marker);
+                if ($withinCell === false) {
+                    continue;
+                }
+                $line = $cellPos->startLine;
+                $lineStart = $rows[$line - 1][1] ?? 0;
+                $emit($line, $cellStart + $withinCell - $lineStart, 1, 'table-span-marker-blocked', $message);
+            }
+        }
+    }
+
+    /**
+     * @param string $source
+     * @param list<array{string, int}> $rows
+     * @param int $rowCount
+     * @param list<array{int, int}> $textRuns
+     * @param callable(int, int, int, string, string): void $emit
+     */
+    private function lintLiteralDjotMarkers(string $source, array $rows, int $rowCount, array $textRuns, callable $emit): void
+    {
+        foreach (
+            [
+                'djot-plus-bullet' => '/^[ \t]*\K\+(?=[ \t]+\S)/m',
+                'djot-superscript-caret' => '/(?<![{[])\^(?![\s[])((?:(?!\n[ \t]*\n)[^\^])+?)(?<![\s[])\^(?!\})/u',
+            ] as $rule => $pattern
+        ) {
+            preg_match_all($pattern, $source, $matches, PREG_OFFSET_CAPTURE);
+            foreach ($matches[0] as [$match, $from]) {
+                $slashes = 0;
+                for ($i = $from - 1; $i >= 0 && $source[$i] === '\\'; $i--) {
+                    $slashes++;
+                }
+                $to = $from + strlen($match);
+                if ($slashes % 2 === 1 || !self::textRunsCover($textRuns, $from, $from + 1) || !self::textRunsCover($textRuns, $to - 1, $to)) {
+                    continue;
+                }
+                $index = 0;
+                while ($index + 1 < $rowCount && $rows[$index + 1][1] <= $from) {
+                    $index++;
+                }
+                $emit($index + 1, $from - $rows[$index][1], strlen($match), $rule, $rule === 'djot-plus-bullet'
+                    ? 'A plus bullet is literal text in Carve. Use a dash for a list item.'
+                    : 'Bare carets are literal text in Carve. Use {^text^} for superscript.');
+            }
+        }
+    }
+
+    /**
+     * @param list<array{first: int, last: int, column: int, width: int, bare: bool}> $fences
+     * @param list<array{string, int}> $rows
+     * @param callable|null $onRecoveredContainerMetadata
+     * @param \MarkupCarve\Carve\Parser\Block\FencedBlockParser $fenceParser
+     * @param int $rowCount
+     * @param callable(int, int, int, string, string): void $emit
+     */
+    private function lintContainerFences(
+        array $fences,
+        array $rows,
+        int $rowCount,
+        FencedBlockParser $fenceParser,
+        ?callable $onRecoveredContainerMetadata,
+        callable $emit,
+    ): void {
         usort($fences, static fn (array $a, array $b): int => ($a['first'] <=> $b['first']) ?: ($b['last'] <=> $a['last']));
         $closed = [];
         $claimed = [];
@@ -497,6 +500,15 @@ class SourceLinter
                 $emit($fence['first'], $fence['column'], $fence['width'], 'unclosed-container-fence', 'This colon-fenced container has no closer. Add a bare fence of the same width.');
             }
         }
+    }
+
+    /**
+     * @param string $source
+     * @param list<array{string, int}> $rows
+     * @param callable(int, int, int, string, string): void $emit
+     */
+    private function lintDeclaredVersion(string $source, array $rows, callable $emit): void
+    {
         $declared = null;
         if (preg_match('/\A(?:\xEF\xBB\xBF)?---(?:yaml|toml|json)?[ \t]*(?:\r\n|\r|\n)(.*?)(?:\r\n|\r|\n)---[ \t]*(?:\r\n|\r|\n|$)/s', $source, $front, PREG_OFFSET_CAPTURE)) {
             if (preg_match('/^[ \t]*carve-version[ \t]*:[ \t]*(\S+)[ \t]*\r?$/m', $front[1][0], $version, PREG_OFFSET_CAPTURE)) {
@@ -530,9 +542,82 @@ class SourceLinter
                 }
             }
         }
-        usort($warnings, static fn (LintWarning $a, LintWarning $b): int => $a->start <=> $b->start);
+    }
 
-        return $warnings;
+    /**
+     * @param string $text
+     * @param int $start
+     * @param int $ln
+     * @param list<array{int, int}> $textRuns
+     * @param callable(int, int, int, string, string): void $emit
+     */
+    private function lintEmptyIncludePaths(string $text, int $start, int $ln, array $textRuns, callable $emit): void
+    {
+        preg_match_all('/\{\{([^{}]*)\}\}/', $text, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+        foreach ($matches as $match) {
+            $inner = $match[1][0];
+            $body = trim($inner, " \t");
+            if ($body !== '' && !(strspn($inner, " \t") > 0 && str_contains('#@', $body[0]))) {
+                continue;
+            }
+            $from = $start + $match[0][1];
+            $end = $from + strlen($match[0][0]);
+            $lo = 0;
+            $hi = count($textRuns);
+            while ($lo < $hi) {
+                $mid = intdiv($lo + $hi, 2);
+                if ($textRuns[$mid][0] <= $from) {
+                    $lo = $mid + 1;
+                } else {
+                    $hi = $mid;
+                }
+            }
+            if ($lo > 0 && $textRuns[$lo - 1][1] >= $end) {
+                $emit($ln, $match[0][1], strlen($match[0][0]), 'empty-include-path', 'This include-shaped text has no path. Add a path or remove the braces.');
+            }
+        }
+    }
+
+    /**
+     * @param list<array{int, int}> $textRuns
+     * @param int $to
+     * @param int $from
+     */
+    private static function textRunsCover(array $textRuns, int $from, int $to): bool
+    {
+        $lo = 0;
+        $hi = count($textRuns);
+        while ($lo < $hi) {
+            $mid = intdiv($lo + $hi, 2);
+            if ($textRuns[$mid][0] <= $from) {
+                $lo = $mid + 1;
+            } else {
+                $hi = $mid;
+            }
+        }
+
+        return $lo > 0 && $textRuns[$lo - 1][1] >= $to;
+    }
+
+    /**
+     * @param list<array{int, int}> $textSpans
+     *
+     * @return list<array{int, int}>
+     */
+    private static function mergeTextSpans(array $textSpans): array
+    {
+        sort($textSpans);
+        $textRuns = [];
+        foreach ($textSpans as [$from, $to]) {
+            $last = array_key_last($textRuns);
+            if ($last !== null && $textRuns[$last][1] === $from) {
+                $textRuns[$last][1] = $to;
+            } else {
+                $textRuns[] = [$from, $to];
+            }
+        }
+
+        return $textRuns;
     }
 
     private static function visual(string $text): int
