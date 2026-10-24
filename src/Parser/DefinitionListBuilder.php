@@ -656,6 +656,12 @@ final class DefinitionListBuilder
      */
     private function admitDescriptionLine(DescriptionBodyCollection $b, DescriptionBodyLine $l): bool
     {
+        if ($b->nestedAttributeClosed && !IndentationHelper::isBlankLine($l->contLine)) {
+            if ($l->contColumn < $b->continuationColumn && !$this->descriptionMarkerAttaches($b->i)) {
+                return false;
+            }
+            $b->nestedAttributeClosed = false;
+        }
         $admitted = $this->descriptionLineReleased($b, $l) ?? $this->foldDescriptionLazyLine($b, $l);
         if ($admitted !== null) {
             return $admitted;
@@ -939,7 +945,16 @@ final class DefinitionListBuilder
     private function admitWrappedAttributeRun(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?bool
     {
         // A wrapped attribute opened at the body column is one construct: its later lines sit at any column (carve#3421).
-        $wrappedRun = $l->contColumn === $b->continuationColumn && $b->bodyState->fence === null
+        // Past that column, only an open nested item's own content column can claim the run.
+        $nestedItem = false;
+        if ($l->contColumn > $b->continuationColumn && str_starts_with(ltrim($l->contLine, " \t"), '{')) {
+            $nestedColumn = $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+            $nestedItem = $b->bodyNestedState->nestedListSeen
+                && !$b->bodyNestedState->nestedIsQuote
+                && ($nestedColumn === $l->contColumn - $b->continuationColumn
+                    || $b->bodyFrames->hasListContentColumn($l->contColumn - $b->continuationColumn));
+        }
+        $wrappedRun = ($l->contColumn === $b->continuationColumn || $nestedItem) && $b->bodyState->fence === null
             ? $this->wrappedAttributeRunLength($b->lines, $b->i, $b->count)
             : null;
         if ($wrappedRun !== null) {
@@ -948,6 +963,9 @@ final class DefinitionListBuilder
                     ? IndentationHelper::stripLeadingColumns($b->lines[$b->i], $b->continuationColumn)
                     : ltrim($b->lines[$b->i], " \t");
                 $b->bodyMap[] = $this->sourceLineFor($b->i);
+            }
+            if ($nestedItem) {
+                $b->nestedAttributeClosed = true;
             }
 
             return true;

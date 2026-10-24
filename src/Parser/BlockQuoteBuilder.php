@@ -500,6 +500,10 @@ final class BlockQuoteBuilder
                     || $this->quotedNestedLineBlockOpen($innerLines, $nestedLineBlock)
                     || !$this->endsBlockQuote($currentLine, $lazyState['paragraphOpen'], $lines, $i))
             ) {
+                $unquotedAttributeTail = $lazyState['attrRun'] !== null;
+                if ($unquotedAttributeTail) {
+                    $lazyState['attrRun'] = null;
+                }
                 $lazyState['colonClaims'] = array_values(array_filter($lazyState['colonClaims'], static fn (array $claim): bool => $claim['body']));
                 // Lazy continuation only extends an OPEN paragraph (djot rule).
                 // A non-">" line inside an open code fence/comment, or after a
@@ -514,11 +518,11 @@ final class BlockQuoteBuilder
                 // list (endsBlockQuote() handles this via paragraphOpen).
                 // Framed, so a nested item's open paragraph takes it as text
                 // too (`CARVE-P0-009`).
-                $innerLines[] = ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
-                    ? BlockGrammar::LAZY_FRAME . ltrim($currentLine, " \t")
-                    : (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1
-                        ? BlockGrammar::LAZY_FRAME . ltrim($currentLine, " \t")
-                        : $currentLine);
+                $frameLazyLine = $unquotedAttributeTail
+                    || ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
+                    || preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1;
+                $innerLines[] = $frameLazyLine
+                    ? BlockGrammar::LAZY_FRAME . ltrim($currentLine, " \t") : $currentLine;
                 $lazySourceLine = $this->sourceLineFor($i);
                 $innerLineMap[] = $lazySourceLine;
                 $this->state->session->blockQuoteLazySourceLines[$lazySourceLine] = true;
@@ -1841,16 +1845,21 @@ final class BlockQuoteBuilder
             // attributes the block renders nothing and floats forward, so the
             // quote holds no open paragraph and a flush-left line below ends it -
             // the container kind is not a parameter (carve#920).
-            if ($this->trackWrappedAttributeRun($state, $content)) {
+            $hostColumns = $state['hosts']['columns'] ?? [0];
+            $hostFloor = $hostColumns[array_key_last($hostColumns)];
+            $hostKinds = $state['hosts']['kinds'] ?? [];
+            $attributeContent = end($hostKinds) === 'item'
+                && IndentationHelper::getLeadingColumns($content) === $hostFloor
+                ? ltrim($content, " \t") : $content;
+            if ($this->trackWrappedAttributeRun($state, $attributeContent)) {
                 $state['paragraphOpen'] = false;
 
                 return;
             }
 
             $trimmed = ltrim($content, " \t");
-            $hostColumns = $state['hosts']['columns'] ?? [0];
             $atContentColumn = $trimmed === $content
-                || IndentationHelper::getLeadingColumns($content) === $hostColumns[array_key_last($hostColumns)];
+                || IndentationHelper::getLeadingColumns($content) === $hostFloor;
             // A QUOTED DESCRIPTION BODY IS AN INDENTATION HOST TOO: a block at
             // or past its content column ends its paragraph (CARVE-P0-011).
             if (isset($state['hosts'])) {

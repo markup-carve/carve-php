@@ -53,6 +53,11 @@ final class DefinitionBodyFrameState
         $this->listContentColumns[] = $column;
     }
 
+    public function hasListContentColumn(int $column): bool
+    {
+        return in_array($column, $this->listContentColumns, true);
+    }
+
     public function addDescriptionContentColumn(int $column): void
     {
         $this->descriptionContentColumns[] = $column;
