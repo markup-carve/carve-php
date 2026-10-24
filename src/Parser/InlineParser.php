@@ -4131,7 +4131,7 @@ class InlineParser
         $nextChar = $this->quoteCharacterAt($text, $pos + 1);
         $openContext = $this->isQuoteOpenContext($prevConverted);
         if (
-            in_array($prevConverted, ['-', '–', '—'], true)
+            in_array($prevConverted, ['-', '–', '—', '/'], true)
             && ($nextChar === '' || $this->isQuoteSpace($nextChar) || str_contains('"\'.,;:!?)]', $nextChar))
         ) {
             $openContext = false;

@@ -1,0 +1,13 @@
+# Quote flanking after a slash
+
+## Root cause
+
+The inline parser treats a slash as an opening context for a straight quote. Its follow-up rule for closing quotes after a dash does not include slash. A quote after the final slash in a path therefore opens when the next character is punctuation or the end of the inline source.
+
+## Change
+
+Apply the existing dash follow-up rule to slash. Keep the same next-character classification for both characters. Add a parser regression for a path ending in slash and for a slash before quoted prose.
+
+## Scope
+
+This changes quote direction based on the neighboring characters, not on any path, URL, or corpus spelling. It covers every slash followed by a straight quote under the normative typography rule.
