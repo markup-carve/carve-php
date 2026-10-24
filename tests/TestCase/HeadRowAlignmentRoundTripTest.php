@@ -111,6 +111,8 @@ class HeadRowAlignmentRoundTripTest extends TestCase
             "{header-rows=1}\n|=> A|= B|\n|=< C|= D|\n|c|d|\n",
             "{header-rows=0}\n|=> A|= B|\n|c|d|\n",
             "{header-rows=0}\n|A|B|\n|:--|--:|\n|c|d|\n",
+            "{aligns=right,center}\n|= A|= B|\n|c|d|\n",
+            "{aligns=right,center}\n|A|B|\n|---|---|\n|c|d|\n",
             "{header-rows=3}\n|=>^ A|= B|\n|a|b|\n|=<v C|= D|\n|c|d|\n",
         ];
 
