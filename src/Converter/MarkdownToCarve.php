@@ -387,11 +387,8 @@ class MarkdownToCarve
         // (markup-carve/carve#2850). Everything this probe dirties is reset
         // below, before the conversion proper reads any of it.
         $carrierOriginal = $markdown;
-        $markdown = $this->carrierStage->prepareCarrierMarkers($markdown, $this->markdownHtmlBlockLines($markdown));
         $inlineCarriers = new InlineCarrierReader();
-        if (!$this->carrierContext->carrierFallbackMode && !$this->carrierContext->carrierDamaged) {
-            $markdown = $inlineCarriers->prepare($markdown);
-        }
+        $markdown = $this->prepareCarrierInput($markdown, $inlineCarriers);
         $this->resetConversionState($markdown);
         if ($whitespaceOnly !== null) {
             return $whitespaceOnly;
@@ -400,13 +397,7 @@ class MarkdownToCarve
         // Preserve exact edges when a plain paragraph needs no rewrite.
         $plain = str_replace(["\r\n", "\r"], "\n", $markdown);
         $plainBody = rtrim($plain, "\n");
-        if (
-            !ImportWork::$on && !$this->carrierContext->carrierFallbackMode && !$this->carrierContext->carrierDamaged
-            && $this->carrierContext->carrierSlots === []
-            && $plainBody !== '' && $plainBody[0] !== ' ' && !str_contains($plainBody, '  ')
-            && !str_contains($plainBody, 'CARVEINLINE')
-            && preg_match('/\A[\p{L}\p{N} ]+\z/u', $plainBody) === 1
-        ) {
+        if ($this->canPreservePlainParagraph($plainBody)) {
             return $plain;
         }
 
@@ -1137,6 +1128,25 @@ class MarkdownToCarve
             $inlineCarriers,
             $carrierOriginal,
         );
+    }
+
+    private function prepareCarrierInput(string $markdown, InlineCarrierReader $inlineCarriers): string
+    {
+        $markdown = $this->carrierStage->prepareCarrierMarkers($markdown, $this->markdownHtmlBlockLines($markdown));
+        if (!$this->carrierContext->carrierFallbackMode && !$this->carrierContext->carrierDamaged) {
+            $markdown = $inlineCarriers->prepare($markdown);
+        }
+
+        return $markdown;
+    }
+
+    private function canPreservePlainParagraph(string $body): bool
+    {
+        return !ImportWork::$on && !$this->carrierContext->carrierFallbackMode && !$this->carrierContext->carrierDamaged
+            && $this->carrierContext->carrierSlots === []
+            && $body !== '' && $body[0] !== ' ' && !str_contains($body, '  ')
+            && !str_contains($body, 'CARVEINLINE')
+            && preg_match('/\A[\p{L}\p{N} ]+\z/u', $body) === 1;
     }
 
     /**
