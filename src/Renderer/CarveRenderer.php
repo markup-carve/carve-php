@@ -143,11 +143,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
-     * @var list<string>
-     */
-    private const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
-
-    /**
      * Canonical definition marker.
      *
      * @var string
@@ -2921,13 +2916,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function admonitionKind(Div $node): ?string
     {
-        foreach ($node->getClassEntries() as $class) {
-            if (in_array($class, self::ADMONITION_TYPES, true)) {
-                return $class;
-            }
-        }
-
-        return null;
+        return $node->admonitionKind();
     }
 
     /**
