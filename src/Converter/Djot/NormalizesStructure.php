@@ -2000,20 +2000,168 @@ trait NormalizesStructure
 
     /**
      * @param string $source
+     * @param array<string> $lines
+     * @param string $mask
+     *
+     * @return array{array<int, int>, array<int, int>, array<int, int>, array<int, int>, string, int}
+     */
+    private function scanDjotReferenceBrackets(string $source, array $lines, string $mask): array
+    {
+        $length = strlen($source);
+        $escaped = str_repeat("\0", $length);
+        $closers = [];
+        $brackets = [];
+        $labelClosers = [];
+        $labelBarriers = [];
+        $tablePipes = [];
+        $pipeMask = str_contains($source, '|') ? $this->maskCodeAndDestinations($source, false, opaqueOptions: ['destinations' => false, 'autolinks' => false, 'attributeValues' => false, 'comments' => false]) : '';
+        $tableRows = str_contains($source, '|') ? $this->djotTableRows($source, $pipeMask) : [];
+        $quoteDepths = array_map(fn (string $line): int => substr_count(substr($line, 0, $this->djotContentStart($line)), '>'), $lines);
+        if ($quoteDepths !== [] && max($quoteDepths) > 0) {
+            $this->normalizeDjotStructure($source, onLiteralQuote: static function (int $line, int $depth) use (&$quoteDepths): void {
+                $quoteDepths[$line] = $depth;
+            });
+        }
+        $bracketDepths = [];
+        $labelCache = [];
+        $rowIndex = 0;
+        $slashes = 0;
+        for ($at = 0; $at < $length; $at++) {
+            $escaped[$at] = $slashes % 2 === 0 ? "\0" : "\1";
+            $slashes = $source[$at] === '\\' ? $slashes + 1 : 0;
+            if (($tableRows[$rowIndex] ?? false) && $source[$at] === '|' && $pipeMask[$at] === '|' && $escaped[$at] === "\0") {
+                $tablePipes[$at] = true;
+                $brackets = [];
+            }
+            if ($source[$at] === "\n") {
+                $rowIndex++;
+            }
+            if ($mask[$at] !== $source[$at] || $escaped[$at] !== "\0") {
+                continue;
+            }
+            if ($source[$at] === '[') {
+                $brackets[] = $at;
+                $bracketDepths[$at] = $quoteDepths[$rowIndex] ?? 0;
+            } elseif ($source[$at] === ']' && $brackets !== []) {
+                $closers[array_pop($brackets)] = $at;
+                if (($source[$at + 1] ?? '') === '[') {
+                    $labelClosers[$at + 2] = -1;
+                }
+            }
+        }
+        $next = -1;
+        $nextPipe = -1;
+        for ($at = $length - 1; $at >= 0; $at--) {
+            if ($source[$at] === '[' && $mask[$at] === '[' && $escaped[$at] === "\0") {
+                $next = -1;
+            } elseif ($source[$at] === ']' && $escaped[$at] === "\0") {
+                $next = $at;
+            }
+            if (isset($tablePipes[$at])) {
+                $nextPipe = $at;
+            }
+            if (isset($labelClosers[$at])) {
+                $labelClosers[$at] = $next;
+                $labelBarriers[$at] = $nextPipe;
+            }
+        }
+
+        return [$closers, $labelClosers, $labelBarriers, $bracketDepths, $escaped, $length];
+    }
+
+    /**
+     * @param array<string, array{url: string, attrs: array<string, string>, inherited: bool, line: int}> $definitions
+     * @param array<int, array{label: string, target: string, end: int}> $accepted
+     * @param array<int, array{6: string}> $matches
+     * @param bool $caretOnly
+     * @param bool $aliasesOnly
+     * @param string $source
+     *
+     * @return array{array<string, string>, \Closure(): string}
+     */
+    private function djotReferenceAliases(array $definitions, array $accepted, array $matches, bool $caretOnly, bool $aliasesOnly, string $source): array
+    {
+        $occupied = array_fill_keys(array_keys($definitions), true);
+        if ($caretOnly) {
+            foreach ($accepted as $decision) {
+                $occupied[$this->djotReferenceDefinitionKey($decision['label'])] = true;
+            }
+        }
+        foreach ($matches as $match) {
+            $occupied[$match[6]] = true;
+        }
+        $serial = 0;
+        $nextAlias = static function () use (&$serial, &$occupied): string {
+            do {
+                $alias = 'carve-djot-reference-' . ++$serial;
+            } while (isset($occupied[$alias]));
+            $occupied[$alias] = true;
+
+            return $alias;
+        };
+        $aliases = [];
+        $needsAliases = false;
+        $hasSourceNuls = str_contains($source, "\0U\0");
+        foreach ($definitions as $key => $definition) {
+            if ((str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '[') || str_contains((string)$key, '`') || str_contains((string)$key, '{') || str_contains((string)$key, "\0") || $aliasesOnly && $hasSourceNuls && str_contains((string)$key, '�'))) {
+                $needsAliases = true;
+
+                break;
+            }
+        }
+        if ($needsAliases) {
+            foreach ($definitions as $key => $definition) {
+                if (!(str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '[') || str_contains((string)$key, '`') || str_contains((string)$key, '{') || str_contains((string)$key, "\0") || $aliasesOnly && $hasSourceNuls && str_contains((string)$key, '�'))) {
+                    continue;
+                }
+                $aliases[$key] = $nextAlias();
+            }
+        }
+
+        return [$aliases, $nextAlias];
+    }
+
+    /**
+     * @param array<string, array{url: string, attrs: array<string, string>, inherited: bool, line: int}> $definitions
+     * @param array<int, array{5: array<string, string>, 6: string}> $matches
+     *
+     * @return array{array<string, array{url: string, attrs: array<string, string>, inherited: bool, line: int}>, array<string, array<string, int>>}
+     */
+    private function djotReferenceOverrides(array $definitions, array $matches): array
+    {
+        $useCounts = [];
+        $overrideCounts = [];
+        foreach ($matches as $match) {
+            $key = $match[6];
+            if (($definitions[$key]['url'] ?? '') === '') {
+                continue;
+            }
+            $useCounts[$key] = ($useCounts[$key] ?? 0) + 1;
+            foreach ($match[5] as $attribute => $value) {
+                $overrideCounts[$key][$attribute] = ($overrideCounts[$key][$attribute] ?? 0) + 1;
+            }
+        }
+        foreach ($overrideCounts as $key => $counts) {
+            foreach ($counts as $attribute => $count) {
+                if ($count === $useCounts[$key]) {
+                    unset($definitions[$key]['attrs'][$attribute]);
+                }
+            }
+        }
+
+        return [$definitions, $overrideCounts];
+    }
+
+    /**
+     * @param string $source
      * @param bool $caretOnly
      * @param array<int, array{label: string, target: string, end: int}> $accepted
-     * @param array<string, true> $inherited
-     * @param array<string, string> $headingTargets
      * @param bool $aliasesOnly
+     *
+     * @return array{array<string>, array<string, array{url: string, attrs: array<string, string>, inherited: bool, line: int}>, array<int, array{key: string, start: int, labelLength: int}>, array<int, true>, array<int, int>}
      */
-    private function normalizeDjotReferenceUses(
-        string $source,
-        bool $caretOnly = false,
-        array $accepted = [],
-        array $inherited = [],
-        bool $aliasesOnly = false,
-        array $headingTargets = [],
-    ): string {
+    private function scanDjotReferenceDefinitions(string $source, bool $caretOnly, array $accepted, bool $aliasesOnly): array
+    {
         $mask = $this->maskCodeAndDestinations($source);
         $definitions = [];
         $definitionLines = [];
@@ -2138,6 +2286,27 @@ trait NormalizesStructure
             }
             $offset += strlen($line) + 1;
         }
+
+        return [$lines, $definitions, $definitionLines, $removed, $offsets];
+    }
+
+    /**
+     * @param string $source
+     * @param bool $caretOnly
+     * @param array<int, array{label: string, target: string, end: int}> $accepted
+     * @param array<string, true> $inherited
+     * @param array<string, string> $headingTargets
+     * @param bool $aliasesOnly
+     */
+    private function normalizeDjotReferenceUses(
+        string $source,
+        bool $caretOnly = false,
+        array $accepted = [],
+        array $inherited = [],
+        bool $aliasesOnly = false,
+        array $headingTargets = [],
+    ): string {
+        [$lines, $definitions, $definitionLines, $removed, $offsets] = $this->scanDjotReferenceDefinitions($source, $caretOnly, $accepted, $aliasesOnly);
         if ($definitions === [] && $headingTargets === []) {
             return $source;
         }
@@ -2148,64 +2317,7 @@ trait NormalizesStructure
         $source = implode("\n", $lines);
         $mask = $this->maskCodeAndDestinations($source);
         $matches = [];
-        $length = strlen($source);
-        $escaped = str_repeat("\0", $length);
-        $closers = [];
-        $brackets = [];
-        $labelClosers = [];
-        $labelBarriers = [];
-        $tablePipes = [];
-        $pipeMask = str_contains($source, '|') ? $this->maskCodeAndDestinations($source, false, opaqueOptions: ['destinations' => false, 'autolinks' => false, 'attributeValues' => false, 'comments' => false]) : '';
-        $tableRows = str_contains($source, '|') ? $this->djotTableRows($source, $pipeMask) : [];
-        $quoteDepths = array_map(fn (string $line): int => substr_count(substr($line, 0, $this->djotContentStart($line)), '>'), $lines);
-        if (max($quoteDepths) > 0) {
-            $this->normalizeDjotStructure($source, onLiteralQuote: static function (int $line, int $depth) use (&$quoteDepths): void {
-                $quoteDepths[$line] = $depth;
-            });
-        }
-        $bracketDepths = [];
-        $labelCache = [];
-        $rowIndex = 0;
-        $slashes = 0;
-        for ($at = 0; $at < $length; $at++) {
-            $escaped[$at] = $slashes % 2 === 0 ? "\0" : "\1";
-            $slashes = $source[$at] === '\\' ? $slashes + 1 : 0;
-            if (($tableRows[$rowIndex] ?? false) && $source[$at] === '|' && $pipeMask[$at] === '|' && $escaped[$at] === "\0") {
-                $tablePipes[$at] = true;
-                $brackets = [];
-            }
-            if ($source[$at] === "\n") {
-                $rowIndex++;
-            }
-            if ($mask[$at] !== $source[$at] || $escaped[$at] !== "\0") {
-                continue;
-            }
-            if ($source[$at] === '[') {
-                $brackets[] = $at;
-                $bracketDepths[$at] = $quoteDepths[$rowIndex] ?? 0;
-            } elseif ($source[$at] === ']' && $brackets !== []) {
-                $closers[array_pop($brackets)] = $at;
-                if (($source[$at + 1] ?? '') === '[') {
-                    $labelClosers[$at + 2] = -1;
-                }
-            }
-        }
-        $next = -1;
-        $nextPipe = -1;
-        for ($at = $length - 1; $at >= 0; $at--) {
-            if ($source[$at] === '[' && $mask[$at] === '[' && $escaped[$at] === "\0") {
-                $next = -1;
-            } elseif ($source[$at] === ']' && $escaped[$at] === "\0") {
-                $next = $at;
-            }
-            if (isset($tablePipes[$at])) {
-                $nextPipe = $at;
-            }
-            if (isset($labelClosers[$at])) {
-                $labelClosers[$at] = $next;
-                $labelBarriers[$at] = $nextPipe;
-            }
-        }
+        [$closers, $labelClosers, $labelBarriers, $bracketDepths, $escaped, $length] = $this->scanDjotReferenceBrackets($source, $lines, $mask);
         $scanNestedAliases = $aliasesOnly && str_contains($source, "\0U\0") && array_filter(array_keys($definitions), static fn ($key): bool => str_contains((string)$key, '�')) !== [];
         $nativeDefinitions = $definitions;
         if ($scanNestedAliases && str_contains($source, '#')) {
@@ -2308,61 +2420,8 @@ trait NormalizesStructure
                 $open = $end - 1;
             }
         }
-        $useCounts = [];
-        $overrideCounts = [];
-        foreach ($matches as $match) {
-            $key = $match[6];
-            if (($definitions[$key]['url'] ?? '') === '') {
-                continue;
-            }
-            $useCounts[$key] = ($useCounts[$key] ?? 0) + 1;
-            foreach ($match[5] as $attribute => $value) {
-                $overrideCounts[$key][$attribute] = ($overrideCounts[$key][$attribute] ?? 0) + 1;
-            }
-        }
-        foreach ($overrideCounts as $key => $counts) {
-            foreach ($counts as $attribute => $count) {
-                if ($count === $useCounts[$key]) {
-                    unset($definitions[$key]['attrs'][$attribute]);
-                }
-            }
-        }
-        $occupied = array_fill_keys(array_keys($definitions), true);
-        if ($caretOnly) {
-            foreach ($accepted as $decision) {
-                $occupied[$this->djotReferenceDefinitionKey($decision['label'])] = true;
-            }
-        }
-        foreach ($matches as $match) {
-            $occupied[$match[6]] = true;
-        }
-        $serial = 0;
-        $nextAlias = static function () use (&$serial, &$occupied): string {
-            do {
-                $alias = 'carve-djot-reference-' . ++$serial;
-            } while (isset($occupied[$alias]));
-            $occupied[$alias] = true;
-
-            return $alias;
-        };
-        $aliases = [];
-        $needsAliases = false;
-        $hasSourceNuls = str_contains($source, "\0U\0");
-        foreach ($definitions as $key => $definition) {
-            if ((str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '[') || str_contains((string)$key, '`') || str_contains((string)$key, '{') || str_contains((string)$key, "\0") || $aliasesOnly && $hasSourceNuls && str_contains((string)$key, '�'))) {
-                $needsAliases = true;
-
-                break;
-            }
-        }
-        if ($needsAliases) {
-            foreach ($definitions as $key => $definition) {
-                if (!(str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '[') || str_contains((string)$key, '`') || str_contains((string)$key, '{') || str_contains((string)$key, "\0") || $aliasesOnly && $hasSourceNuls && str_contains((string)$key, '�'))) {
-                    continue;
-                }
-                $aliases[$key] = $nextAlias();
-            }
-        }
+        [$definitions, $overrideCounts] = $this->djotReferenceOverrides($definitions, $matches);
+        [$aliases, $nextAlias] = $this->djotReferenceAliases($definitions, $accepted, $matches, $caretOnly, $aliasesOnly, $source);
         if ($aliasesOnly) {
             $edits = [];
             foreach ($definitionLines as $recordLine => $record) {
