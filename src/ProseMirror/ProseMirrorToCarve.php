@@ -620,7 +620,10 @@ class ProseMirrorToCarve
             $this->normalizeTableSpans($node);
             if ($this->separatorAligns !== null && isset($this->separatorAligns[$node])) {
                 $head = $node->getChildren()[0] ?? null;
-                if ($head instanceof TableRow) {
+                if (
+                    $head instanceof TableRow
+                    && count($this->separatorAligns[$node]) === count($head->getChildren())
+                ) {
                     foreach ($head->getChildren() as $column => $cell) {
                         $align = $this->separatorAligns[$node][$column] ?? null;
                         if (

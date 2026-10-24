@@ -23,4 +23,17 @@ class SeparatorAlignmentEditTest extends TestCase
 
         $this->assertSame("| Wide | < | Last |\n|:--:|:--|:--:|\n|> a | b | c |\n", $actual);
     }
+
+    public function testDeletedColumnDoesNotAssignStaleAlignmentToSpanPlaceholder(): void
+    {
+        $source = "| x | Wide|<| y|\n|:--:|--:|:--|:--:|\n|p|a|b|c|\n";
+        $proseMirror = (new ProseMirrorRenderer())->render((new CarveConverter())->parse($source));
+
+        array_splice($proseMirror['content'][0]['content'][0]['content'], 0, 1);
+        array_splice($proseMirror['content'][0]['content'][1]['content'], 0, 1);
+
+        $actual = CarveConverter::carve()->render((new ProseMirrorToCarve())->convert($proseMirror));
+
+        $this->assertStringContainsString("|--:|--|:--:|--|\n", $actual);
+    }
 }
