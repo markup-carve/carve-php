@@ -2155,6 +2155,7 @@ class MarkdownToCarve
                 && $listCols->innermost() <= $indent
                 && $indent - $holderCol < 4
                 && $this->isHeldOrderedMarker($line, $listMarkers);
+            $lm = [];
             if (
                 !$overMarker
                 && $indent - $holderCol < 4
