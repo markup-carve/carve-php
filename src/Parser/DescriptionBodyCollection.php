@@ -74,6 +74,8 @@ final class DescriptionBodyCollection
 
     public bool $bodyEndsWithAttribute = false;
 
+    public bool $nestedAttributeClosed = false;
+
     public bool $nestedLazyParagraph = false;
 
     public bool $retainedBelowComment = false;
