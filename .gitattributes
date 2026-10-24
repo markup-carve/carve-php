@@ -23,6 +23,7 @@ tools/ export-ignore
 docs/ export-ignore
 .gitmodules export-ignore
 phpcs.xml export-ignore
+phpcs-complexity.xml export-ignore
 phpstan.neon export-ignore
 mago.toml export-ignore
 mago-baseline.toml export-ignore

@@ -97,3 +97,6 @@ jobs:
 
       - name: Run PHP CS Fixer
         run: composer cs-check
+
+      - name: Check cyclomatic complexity
+        run: composer complexity-check
