@@ -188,6 +188,7 @@ final class ListBlockBuilder
         $lastItemAttachColumn = $baseIndent + 2;
         $unclosedFenceBase = null;
         $attachedParagraphOpen = false;
+        $attachedParagraphAfterNoteSeparator = false;
         $leadDiv = ($this->getFencedBlockParser)()->parseDivFenceOpener($this->markerFreeContent(ltrim($line, " \t"))) !== null;
 
         while ($i < $count) {
@@ -197,6 +198,7 @@ final class ListBlockBuilder
             if (IndentationHelper::isBlankLine($currentLine)) {
                 $lastItemHadBlankAfter = true;
                 $attachedParagraphOpen = false;
+                $attachedParagraphAfterNoteSeparator = false;
                 $i++;
 
                 continue;
@@ -287,12 +289,14 @@ final class ListBlockBuilder
                 && $priorTextAfterListFence && !($trailingState->inFootnoteBody ?? false)
             ) {
                 $attachedParagraphOpen = true;
+                $attachedParagraphAfterNoteSeparator = false;
             } elseif ($currentIndent >= $baseIndent && $currentIndent < $lastItemContentIndent && $sourceLine > 0) {
                 if (
                     $priorMarker !== null && $priorMarker['column'] > $lastItemContentIndent && $priorMarker['reason'] !== null
                     && !($trailingState->inFootnoteBody ?? false)
                 ) {
                     $attachedParagraphOpen = true;
+                    $attachedParagraphAfterNoteSeparator = false;
                 }
             }
 
@@ -329,8 +333,12 @@ final class ListBlockBuilder
 
                 break;
             }
+            // A recovered note paragraph admits lazy text at the marker column,
+            // but a new description separator there starts outside the item.
             if (
                 $attachedParagraphOpen && $currentIndent >= $baseIndent && $currentIndent < $lastItemContentIndent
+                && !($attachedParagraphAfterNoteSeparator && $currentIndent === $baseIndent
+                    && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1)
                 && !$this->acceptedContinuationMarker($i)
                 && (!$this->isFoldableInvisibleLine(ltrim($currentLine, " \t")) || $priorAttachedFollower)
                 && !($this->isBlockAttributeLineCallback)(ltrim($currentLine, " \t"))
@@ -365,6 +373,28 @@ final class ListBlockBuilder
                     }
                 }
             }
+            // A below-column separator after a note-body term leaves the note,
+            // but stays in the list item when it is past the marker column.
+            if (
+                ($trailingState->inFootnoteBody ?? false)
+                && $currentIndent > $baseIndent && $currentIndent < $lastItemContentIndent
+                && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1
+                && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $priorText) === 1
+                && IndentationHelper::getLeadingColumns(
+                    $priorBody,
+                    $lastItemContentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN,
+                ) >= $lastItemContentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
+            ) {
+                $lastItem = ($this->getListParser)()->getLastListItem($list);
+                if ($lastItem !== null) {
+                    $this->callParseItemBlocks($lastItem, [BlockGrammar::LAZY_FRAME . ltrim($currentLine, " \t")], [$sourceLine]);
+                    $attachedParagraphOpen = true;
+                    $attachedParagraphAfterNoteSeparator = true;
+                    $i++;
+
+                    continue;
+                }
+            }
             if ($currentIndent === $baseIndent && $this->markerAttachesToList($i)) {
                 $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($i), 'list item');
                 $next = $this->attachListContinuation($list, $lines, $i, $count, $baseIndent, $lastItemAttachColumn);
@@ -375,6 +405,7 @@ final class ListBlockBuilder
                     $children = $lastItem?->getChildren() ?? [];
                     $marker = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);
                     $attachedParagraphOpen = end($children) instanceof Paragraph && $marker['column'] > $baseIndent;
+                    $attachedParagraphAfterNoteSeparator = false;
 
                     continue;
                 }
@@ -595,6 +626,7 @@ final class ListBlockBuilder
             $taskMarker = $itemInfo['taskMarker'] ?? null;
             $listItem = new ListItem($taskMarker);
             $attachedParagraphOpen = false;
+            $attachedParagraphAfterNoteSeparator = false;
             $listItemSourceLine = $this->sourceLineFor($i);
             $itemOpeningColumn = $listOpeningColumn;
             $itemSource = $this->state->source->sourceLines[$listItemSourceLine] ?? '';
