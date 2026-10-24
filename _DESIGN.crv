@@ -1,0 +1,13 @@
+# Markdown description continuation
+
+## Root cause
+
+The writer protects a leading `: ` in every paragraph. This changes unrelated corpus output, while the needed protection belongs to text continuing an open definition body.
+
+## General change
+
+When a paragraph is inside a definition description, protect a leading description separator on a continuation line. Keep the existing term marker handling for all paragraphs. This rule follows the AST parent and line position, not the text or indentation of corpus 657.
+
+## Scope
+
+Any definition body with a literal description-shaped continuation gets the same protection, including bodies nested in lists and other containers.
