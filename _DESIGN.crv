@@ -1,3 +1,17 @@
+# Literal colon lines in Markdown definitions
+
+## Root cause
+
+The Markdown writer protects a literal description marker only on continuation lines whose paragraph is a direct child of a definition description. The paragraph's first line and paragraphs nested deeper in the definition list can therefore emit a bare colon marker. This differs from the JS and Rust writers and can turn text into a definition marker on import.
+
+## Change
+
+Use the paragraph's definition-list ancestry when protecting its lines, and protect a literal description marker at the start of every such line. Keep the existing term-marker protection for all paragraphs.
+
+## Scope
+
+The rule applies to any literal colon marker line inside a definition list, regardless of the listed corpus's indentation, tabs, or nested term shape.
+
 # Quote flanking after a slash
 
 ## Root cause
