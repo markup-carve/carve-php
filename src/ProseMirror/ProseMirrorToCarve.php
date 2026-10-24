@@ -105,7 +105,11 @@ class ProseMirrorToCarve
      */
     private ?WeakMap $coveredRowMarkers = null;
 
-    /** @var WeakMap<Table, list<string>>|null */
+    /**
+     * Separator alignment for columns hidden by an editor colspan.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Table, list<string>>|null
+     */
     private ?WeakMap $separatorAligns = null;
 
     /**
