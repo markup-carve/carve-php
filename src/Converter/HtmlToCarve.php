@@ -98,11 +98,6 @@ class HtmlToCarve
     protected const DEFINITION_BODY_INDENT = '  ';
 
     /**
-     * @var list<string>
-     */
-    protected const ADMONITION_TYPES = ['note', 'tip', 'warning', 'danger', 'info', 'success', 'example', 'quote'];
-
-    /**
      * The seven HTML elements the compact semantic span spells exactly.
      *
      * `abbr`, `time` and `kbd` are core names; `samp`, `var`, `cite` and `dfn`
