@@ -24,6 +24,7 @@ use MarkupCarve\Carve\Converter\Markdown\InlineContext;
 use MarkupCarve\Carve\Converter\Markdown\InlineStage;
 use MarkupCarve\Carve\Converter\Markdown\ListColumns;
 use MarkupCarve\Carve\Converter\Markdown\ListMarkers;
+use MarkupCarve\Carve\Converter\Markdown\QuoteBlankRun;
 use MarkupCarve\Carve\Converter\Markdown\ReferenceContext;
 use MarkupCarve\Carve\Converter\Markdown\ReferenceStage;
 use MarkupCarve\Carve\Converter\Markdown\TableContext;
@@ -473,10 +474,7 @@ class MarkdownToCarve
         $quoteMarkers = [];
         $quotePrev = null;
         $quoteLazy = null;
-        $quoteRunContentAt = [];
-        $quoteBlankEnd = -1;
-        $quoteBlankFutureContent = false;
-        $quoteBlankPrefix = '';
+        $quoteBlankRun = new QuoteBlankRun(Closure::fromCallable([$this, 'normalizeBlockquoteMarkers']));
         // Whether the last line left a paragraph open inside a list item, and
         // the quote prefix and column of a quote paragraph it left open there:
         // a lazy line continues either.
@@ -847,7 +845,7 @@ class MarkdownToCarve
                 $quoteMarkers = [];
                 $quotePrev = null;
                 $quoteLazy = null;
-                $quoteRunContentAt = [];
+                $quoteBlankRun->resetContent();
             }
 
             // Inside an open raw-HTML block the line is literal content, not a
@@ -1400,24 +1398,11 @@ class MarkdownToCarve
                 if (str_starts_with($body, '>') && preg_match('/^((?:> )+)(.*)$/s', $body, $quoted) === 1) {
                     $quotedText = $quoted[2];
                     if (trim($quotedText) === '') {
-                        if ($i >= $quoteBlankEnd || $quoteBlankPrefix !== $quoted[1]) {
-                            $quoteBlankPrefix = $quoted[1];
-                            $quoteBlankEnd = $i + 1;
-                            while ($quoteBlankEnd < $lineCount) {
-                                $candidate = $this->normalizeBlockquoteMarkers(ltrim($lines[$quoteBlankEnd], ' '));
-                                if (!str_starts_with($candidate, $quoted[1]) || trim(substr($candidate, strlen($quoted[1]))) !== '') {
-                                    break;
-                                }
-                                $quoteBlankEnd++;
-                            }
-                            $candidate = $quoteBlankEnd < $lineCount ? $this->normalizeBlockquoteMarkers(ltrim($lines[$quoteBlankEnd], ' ')) : '';
-                            $quoteBlankFutureContent = str_starts_with($candidate, '>');
-                        }
-                        if (!$quoteBlankFutureContent) {
-                            if ($i + 1 === $quoteBlankEnd && isset($quoteRunContentAt[$quoted[1]]) && isset($lines[$quoteBlankEnd]) && trim($lines[$quoteBlankEnd]) !== '') {
+                        if (!$quoteBlankRun->hasFutureQuote($lines, $i, $lineCount, $quoted[1])) {
+                            if ($quoteBlankRun->endsAfter($i) && $quoteBlankRun->hasContentAt($quoted[1]) && isset($lines[$i + 1]) && trim($lines[$i + 1]) !== '') {
                                 $result[] = '';
                                 $prevLineType = 'blank';
-                            } elseif (!isset($quoteRunContentAt[$quoted[1]]) && rtrim((string)end($result)) !== rtrim($quoted[1])) {
+                            } elseif (!$quoteBlankRun->hasContentAt($quoted[1]) && rtrim((string)end($result)) !== rtrim($quoted[1])) {
                                 $result[] = rtrim($quoted[1]);
                             }
                             $quotePrev = null;
@@ -1426,7 +1411,7 @@ class MarkdownToCarve
                             continue;
                         }
                     } else {
-                        $quoteRunContentAt[$quoted[1]] = true;
+                        $quoteBlankRun->markContentAt($quoted[1]);
                     }
                     if ($quotePrev !== null && strlen($quoted[1]) < strlen($quotePrev['prefix']) && $this->quoteParagraphIsOpen($quotePrev['text']) && preg_match('/^(?:[-*+]|0*1[.)])(?:[ \t]|$)/', ltrim($quotedText)) === 1) {
                         $result[] = rtrim($quoted[1]);
