@@ -57,13 +57,13 @@ class TableSpanPaddingRulingTest extends TestCase
         self::assertSame([], $writer->finishConversionDiagnosticCollection()['diagnostics']);
     }
 
-    public function testEmptyHeaderDefaultWithoutDelimiterReportsLoss(): void
+    public function testEmptyHeaderDefaultWithoutDelimiterKeepsAlignment(): void
     {
         [$document] = self::tableWithEmptyCell(true, false);
         $writer = new CarveRenderer();
         $writer->beginConversionDiagnosticCollection();
-        self::assertSame("|= |\n", $writer->render($document));
-        self::assertSame('field-unspellable', $writer->finishConversionDiagnosticCollection()['diagnostics'][0]['code']);
+        self::assertSame("|=< |\n", $writer->render($document));
+        self::assertSame([], $writer->finishConversionDiagnosticCollection()['diagnostics']);
     }
 
     /**
