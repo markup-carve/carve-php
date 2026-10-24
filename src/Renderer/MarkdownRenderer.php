@@ -2824,7 +2824,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $line = (string)preg_replace('/^>/', '\\\\>', $line);
 
         $view = strtr($line, $bare);
-        if (preg_match('/^::(?=[ \t])/', $view) === 1) {
+        if (preg_match('/^:{1,2}(?=[ \t])/', $view) === 1) {
             return $this->escapeFirstCharacter($line);
         }
         if (preg_match('/^([-_*])[ \t]*(?:\1[ \t]*){2,}$/', $view) === 1) {

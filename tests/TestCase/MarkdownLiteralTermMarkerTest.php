@@ -21,8 +21,8 @@ final class MarkdownLiteralTermMarkerTest extends TestCase
     {
         return [
             'space after marker' => ["\\:: term\n", "\\:: term\n"],
-            'nested paragraph term' => ["- one\n :: term\n :  def\n", "- one\n  \\:: term\n  :  def\n"],
-            'tab after marker' => ["::\tterm\n:  d\n", "\\::\tterm\n:  d\n"],
+            'nested paragraph term' => ["- one\n :: term\n :  def\n", "- one\n  \\:: term\n  \\:  def\n"],
+            'tab after marker' => ["::\tterm\n:  d\n", "\\::\tterm\n\\:  d\n"],
             'bare marker' => ["\\::\n", "::\n"],
         ];
     }
@@ -36,5 +36,12 @@ final class MarkdownLiteralTermMarkerTest extends TestCase
         $back = (new MarkdownToCarve())->convert($markdown);
         $html = new CarveConverter();
         self::assertSame($html->convert($source), $html->convert($back));
+    }
+
+    public function testDescriptionContinuationKeepsLiteralColon(): void
+    {
+        $source = "- item\n\n  :: Term\n  :  Def\n :  under\n";
+        $markdown = (new CarveConverter(renderer: new MarkdownRenderer()))->convert($source);
+        self::assertSame("- item\n\n  **Term**\n\n  Def\n  \\:  under\n", $markdown);
     }
 }
