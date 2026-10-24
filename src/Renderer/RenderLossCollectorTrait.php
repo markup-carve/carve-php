@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Node;
 use SplObjectStorage;
 
@@ -124,6 +125,34 @@ trait RenderLossCollectorTrait
             'target' => $this->renderLossTarget,
             'nodeType' => $nodeType,
             'message' => sprintf('Dropped %s raw format "%s" while rendering %s', $nodeType, $format, $this->renderLossTarget),
+        ];
+        if ($node->getPos() !== null) {
+            $loss['pos'] = $node->getPos()->toArray();
+        }
+        $this->renderLosses[] = $loss;
+    }
+
+    protected function recordMarkdownLoss(Node $node, string $code): void
+    {
+        if ($this->renderLossTarget !== 'markdown') {
+            return;
+        }
+        $messages = [
+            'markdown-container-flattened' => 'Flattened a container into Markdown blocks',
+            'markdown-caption-flattened' => 'Wrote a caption as ordinary Markdown text',
+            'markdown-attributes-dropped' => 'Dropped block attributes while rendering Markdown',
+            'raw-html-escaped' => 'Escaped raw HTML while rendering Markdown',
+        ];
+        $this->renderLossTotal++;
+        $this->renderLossCounts[$code] = ($this->renderLossCounts[$code] ?? 0) + 1;
+        if (count($this->renderLosses) >= $this->renderLossMaximum) {
+            return;
+        }
+        $loss = [
+            'code' => $code,
+            'target' => 'markdown',
+            'nodeType' => $node instanceof RawInline ? 'inline' : 'block',
+            'message' => $messages[$code],
         ];
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();

@@ -551,13 +551,53 @@ class CarveConverter
 
     /**
      * Convert with a bounded report of raw formats omitted by this target.
+     *
+     * @throws \MarkupCarve\Carve\Exception\RenderLossException
      */
     public function convertWithReport(string $source, bool $strictLosses = false, int $maxRenderLosses = 100): RenderResult
     {
         $this->enforceProfileMaxLength($source);
         $this->parser->enablePositionTracking();
+        $document = $this->parse($source);
+        $dangling = $this->renderer instanceof MarkdownRenderer && !$this->renderer->isRoundTripMode()
+            ? $this->parser->getUnattachedBlockAttributes() : [];
+        $rendered = $this->renderWithReport($document, false, $maxRenderLosses);
+        if ($dangling === []) {
+            if ($strictLosses && $rendered->totalLosses > 0) {
+                throw new RenderLossException($rendered);
+            }
 
-        return $this->renderWithReport($this->parse($source), $strictLosses, $maxRenderLosses);
+            return $rendered;
+        }
+        $losses = $rendered->losses;
+        foreach ($dangling as $span) {
+            $losses[] = [
+                'code' => 'markdown-attributes-dropped',
+                'target' => 'markdown',
+                'nodeType' => 'block',
+                'message' => 'Dropped an unattached block attribute while rendering Markdown',
+                'pos' => $span->toArray(),
+            ];
+        }
+        usort($losses, static function (array $a, array $b): int {
+            $aPosition = is_array($a['pos'] ?? null) ? $a['pos'] : [];
+            $bPosition = is_array($b['pos'] ?? null) ? $b['pos'] : [];
+
+            return ($aPosition['startOffset'] ?? PHP_INT_MAX) <=> ($bPosition['startOffset'] ?? PHP_INT_MAX);
+        });
+        $total = $rendered->totalLosses + count($dangling);
+        $result = new RenderResult(
+            $rendered->value,
+            array_slice($losses, 0, $maxRenderLosses),
+            $total,
+            $total > $maxRenderLosses,
+            [...$rendered->lossCounts, 'markdown-attributes-dropped' => ($rendered->lossCounts['markdown-attributes-dropped'] ?? 0) + count($dangling)],
+        );
+        if ($strictLosses) {
+            throw new RenderLossException($result);
+        }
+
+        return $result;
     }
 
     /**

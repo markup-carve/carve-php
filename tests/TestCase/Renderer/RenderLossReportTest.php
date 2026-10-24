@@ -32,7 +32,9 @@ class RenderLossReportTest extends TestCase
     public function testMatchingAndVisibleFallbacksAreNotLosses(): void
     {
         self::assertSame(0, CarveConverter::create()->convertWithReport('`<b>x</b>`{=html}')->totalLosses);
-        self::assertSame(0, CarveConverter::markdown()->convertWithReport('`<b>x</b>`{=html}')->totalLosses);
+        $markdownHtml = CarveConverter::markdown()->convertWithReport('`<b>x</b>`{=html}');
+        self::assertSame(1, $markdownHtml->totalLosses);
+        self::assertSame('raw-html-escaped', $markdownHtml->losses[0]['code']);
 
         $block = "``` =latex\nx\n```\n";
         self::assertSame(0, CarveConverter::ansi()->convertWithReport($block)->totalLosses);

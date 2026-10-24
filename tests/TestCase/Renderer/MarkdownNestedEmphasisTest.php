@@ -44,10 +44,12 @@ class MarkdownNestedEmphasisTest extends TestCase
         $rows = json_decode(file_get_contents(__DIR__ . '/../../fixtures/markdown-nested-emphasis-hosts.json'), true, flags: JSON_THROW_ON_ERROR);
         $converter = CarveConverter::create(null, (new MarkdownRenderer())->setAttributeFallback(AttributeFallback::Html));
         foreach ($rows as $row) {
+            $captions = str_starts_with($row['source'], '::: figure')
+                ? (str_contains($row['source'], ":::\n^ ") ? 2 : 1) : 0;
             foreach ([$converter->convertWithReport($row['source']), $converter->renderWithReport($converter->parse($row['source']))] as $report) {
                 self::assertSame($row['markdown'], $report->value);
-                self::assertSame([], $report->losses);
-                self::assertSame(0, $report->totalLosses);
+                self::assertSame(array_fill(0, $captions, 'markdown-caption-flattened'), array_column($report->losses, 'code'));
+                self::assertSame($captions, $report->totalLosses);
                 self::assertFalse($report->truncated);
             }
         }
