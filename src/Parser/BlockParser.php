@@ -498,9 +498,11 @@ class BlockParser
             $taskCheckboxColumn = ($previousItem['type'] ?? null) === 'task'
                 && $decision['column'] === IndentationHelper::getLeadingColumns($previous) + 2;
             if ($decision['owner'] === null && !$taskCheckboxColumn) {
-                // A quoted `+` at a column no container claims (`> q` / `>   +`) stays paragraph text.
+                // A `+` at a column no open container claims stays paragraph text, but is still refused.
                 if (
-                    $decision['reason'] === 'wrong-column' && $decision['depth'] > 0 && $firstBlock === null
+                    $decision['reason'] === 'wrong-column' && $decision['open'] && $firstBlock === null
+                    && ($decision['depth'] > 0 || ($this->quotedSourceLine($previous) !== null
+                        && IndentationHelper::getLeadingColumns($previous) > 0))
                     && !$this->state->session->plusAtHostContentColumn($this->state->source, $this->listParser, $index)
                 ) {
                     $markers[] = [
