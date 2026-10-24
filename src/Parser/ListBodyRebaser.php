@@ -991,6 +991,223 @@ final class ListBodyRebaser
     }
 
     /**
+     * @param array<string> $lines
+     * @param int|null $base
+     */
+    private function unclosedFenceStart(array $lines, ?int $base): int
+    {
+        if ($base === null) {
+            return -1;
+        }
+        foreach ($lines as $index => $candidate) {
+            if (
+                (str_starts_with($candidate, BlockGrammar::LAZY_FRAME)
+                    || IndentationHelper::getLeadingColumns($candidate) === $base)
+                && ($this->getFencedBlockParser)()->isCodeFenceHead(BlockGrammar::stripLazyFrame($candidate), 0)
+            ) {
+                return $index;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * @param array<string> $lines
+     *
+     * @return int|null
+     */
+    private function firstContentLine(array $lines): ?int
+    {
+        foreach ($lines as $index => $line) {
+            if (!IndentationHelper::isBlankLine($line)) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int|null $firstContentLine
+     */
+    private function protectedPrefixEnd(array $lines, ?int $firstContentLine): int
+    {
+        if ($firstContentLine === null || ($this->getListParser)()->parseListItemMarker($lines[$firstContentLine]) === null) {
+            return -1;
+        }
+        $prefixHasFence = false;
+        foreach ($lines as $index => $line) {
+            $prefixHasFence = $prefixHasFence || ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($line, " \t"), 0);
+            if ($prefixHasFence && $index > $firstContentLine && preg_match('/^(?:#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '|([-*_])\1{2,}[ \t]*$)/', $line) === 1) {
+                return $index;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $index
+     * @param int $count
+     * @param int $noteStart
+     * @param int $noteEnd
+     *
+     * @return int|null
+     */
+    private function leadNoteFenceEnd(array $lines, int $index, int $count, int $noteStart, int $noteEnd): ?int
+    {
+        $column = IndentationHelper::getLeadingColumns($lines[$index]);
+        if ($index < $noteStart || $index > $noteEnd || $column < BlockGrammar::FOOTNOTE_BODY_COLUMN) {
+            return null;
+        }
+        $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($lines[$index], " \t"));
+        if ($fence === null) {
+            return null;
+        }
+        for ($next = $index + 1; $next < $count; $next++) {
+            if (IndentationHelper::isBlankLine($lines[$next])) {
+                continue;
+            }
+            if (IndentationHelper::getLeadingColumns($lines[$next], BlockGrammar::FOOTNOTE_BODY_COLUMN) < BlockGrammar::FOOTNOTE_BODY_COLUMN) {
+                break;
+            }
+            if (IndentationHelper::getLeadingColumns($lines[$next]) !== $column) {
+                continue;
+            }
+            $payload = IndentationHelper::stripLeadingColumns($lines[$next], $column);
+            if (($this->getFencedBlockParser)()->isCodeFenceCloser($payload, $fence['fence'][0], strlen($fence['fence']))) {
+                return $next;
+            }
+        }
+
+        return min($next, $noteEnd + 1) - 1;
+    }
+
+    /**
+     * @param string $line
+     * @param array<int, true>|null $eligible
+     * @param int $index
+     * @param bool $absorbLeadNoteBody
+     * @param int|null $firstContentLine
+     */
+    private function shouldWalkAuthoredBase(string $line, ?array $eligible, int $index, bool $absorbLeadNoteBody, ?int $firstContentLine): bool
+    {
+        if ($eligible === null || isset($eligible[$index])) {
+            return true;
+        }
+
+        return preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $line) === 1
+            || ($absorbLeadNoteBody && $index === $firstContentLine && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) === 1)
+            || (IndentationHelper::getLeadingColumns($line) === 0
+                && (($this->getFencedBlockParser)()->parseCodeFenceOpener($line) !== null
+                    || ($this->getFencedBlockParser)()->parseRawBlockOpener($line) !== null
+                    || ($this->blockQuoteLineContentCallback)($line) !== null));
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $index
+     * @param int $count
+     * @param bool $includeSublists
+     *
+     * @return int|null
+     */
+    private function minimumDivExtent(array $lines, int $index, int $count, bool $includeSublists): ?int
+    {
+        $div = ($this->getFencedBlockParser)()->parseDivFenceOpener($lines[$index]);
+        if ($div === null) {
+            return null;
+        }
+        /** @var int $length */
+        $length = $div['length'];
+        $closer = ($this->colonFenceEndCallback)($lines, $index, $length, $count, null);
+        $end = $closer === -1 ? $count - 1 : $closer;
+        $firstBody = ltrim($lines[$index + 1] ?? '', " \t");
+        $definitionExtent = ($this->containerExtentBeforeADefinitionCallback)($lines, $index, $end);
+        $bodyStartsWithCode = $div['className'] !== '|'
+            && (($this->getFencedBlockParser)()->parseCodeFenceOpener($firstBody) !== null
+                || ($this->getFencedBlockParser)()->parseRawBlockOpener($firstBody) !== null);
+        if ($definitionExtent < $end) {
+            return $definitionExtent;
+        }
+        // A list starting the div body belongs to that div.
+        if (!$bodyStartsWithCode && (!$includeSublists || ($this->getListParser)()->parseListItemMarker($firstBody) !== null)) {
+            return $end;
+        }
+
+        return $index;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $index
+     * @param int|null $unclosedFenceBase
+     * @param int $unclosedFenceStart
+     *
+     * @return int|null
+     */
+    private function minimumQuoteExtent(array $lines, int $index, ?int $unclosedFenceBase, int $unclosedFenceStart): ?int
+    {
+        if (($this->blockQuoteLineContentCallback)($lines[$index]) === null) {
+            return null;
+        }
+        // A blank ends a quote's lazy run; a div remains open across one.
+        $end = ($this->blockQuoteExtentThroughDefinitionCallback)($lines, $index);
+        if ($unclosedFenceBase !== null && $index > $unclosedFenceStart && $unclosedFenceBase > 0) {
+            for ($next = $index + 1; $next <= $end; $next++) {
+                if (IndentationHelper::getLeadingColumns($lines[$next]) === $unclosedFenceBase) {
+                    $end = $next - 1;
+
+                    break;
+                }
+            }
+        }
+
+        return ($this->containerExtentBeforeADefinitionCallback)($lines, $index, $end);
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $index
+     * @param int $count
+     * @param string $fence
+     *
+     * @return int|null
+     */
+    private function minimumCodeFenceCloser(array $lines, int $index, int $count, string $fence): ?int
+    {
+        for ($next = $index + 1; $next < $count; $next++) {
+            if (($this->getFencedBlockParser)()->isCodeFenceCloser($lines[$next], $fence[0], strlen($fence))) {
+                return $next;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $index
+     * @param int $count
+     * @param int $width
+     *
+     * @return int|null
+     */
+    private function minimumCommentFenceCloser(array $lines, int $index, int $count, int $width): ?int
+    {
+        for ($next = $index + 1; $next < $count; $next++) {
+            if (($this->getFencedBlockParser)()->isFencedCommentCloser($lines[$next], $width)) {
+                return $next;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Apply an authored block base after a container's minimum content column
      * has been stripped. Item calls exclude sublists because their residual
      * indentation is another list level; definition and footnote bodies include
@@ -1024,20 +1241,7 @@ final class ListBodyRebaser
             return $lines;
         }
 
-        $unclosedFenceStart = -1;
-        if ($unclosedFenceBase !== null) {
-            foreach ($lines as $index => $candidate) {
-                if (
-                    (str_starts_with($candidate, BlockGrammar::LAZY_FRAME)
-                        || IndentationHelper::getLeadingColumns($candidate) === $unclosedFenceBase)
-                    && ($this->getFencedBlockParser)()->isCodeFenceHead(BlockGrammar::stripLazyFrame($candidate), 0)
-                ) {
-                    $unclosedFenceStart = $index;
-
-                    break;
-                }
-            }
-        }
+        $unclosedFenceStart = $this->unclosedFenceStart($lines, $unclosedFenceBase);
         $count = count($lines);
         $nestedColumns = $leadNestedColumn === null ? [] : [$leadNestedColumn];
         // The first non-blank line is the chunk's own authored-base lead. A
@@ -1046,26 +1250,8 @@ final class ListBodyRebaser
         // (ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest);
         // only a note reached AFTER the body's own content is the convergent
         // case the note-body absorption below applies to (carve-php#1907).
-        $firstContentLine = null;
-        foreach ($lines as $lineIndex => $chunkLine) {
-            if (!IndentationHelper::isBlankLine($chunkLine)) {
-                $firstContentLine = $lineIndex;
-
-                break;
-            }
-        }
-        $protectedPrefixEnd = -1;
-        if ($firstContentLine !== null && ($this->getListParser)()->parseListItemMarker($lines[$firstContentLine]) !== null) {
-            $prefixHasFence = false;
-            foreach ($lines as $lineIndex => $chunkLine) {
-                $prefixHasFence = $prefixHasFence || ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($chunkLine, " \t"), 0);
-                if ($prefixHasFence && $lineIndex > $firstContentLine && preg_match('/^(?:#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '|([-*_])\1{2,}[ \t]*$)/', $chunkLine) === 1) {
-                    $protectedPrefixEnd = $lineIndex;
-
-                    break;
-                }
-            }
-        }
+        $firstContentLine = $this->firstContentLine($lines);
+        $protectedPrefixEnd = $this->protectedPrefixEnd($lines, $firstContentLine);
         $leadNoteTextEnd = $this->leadNoteTextEnd($lines);
         $leadNoteFenceLine = $absorbLeadNoteBody ? $this->leadNoteMarkerRunEnd($lines, $firstContentLine === null ? null : (int)$firstContentLine) : -1;
         $leadNoteExtentEnd = $leadNoteFenceLine >= 0 ? $this->footnoteDefinitionBodyExtent($lines, (int)$firstContentLine, $count) : -1;
@@ -1114,32 +1300,11 @@ final class ListBodyRebaser
                 }
             }
             // A closed fence at a marker-line note's body column opens in the note (CARVE-P2-017).
-            $noteFenceColumn = IndentationHelper::getLeadingColumns($line);
-            if ($i >= $leadNoteFenceLine && $i <= $leadNoteExtentEnd && $noteFenceColumn >= BlockGrammar::FOOTNOTE_BODY_COLUMN) {
-                $noteFence = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t"));
-                if ($noteFence !== null) {
-                    for ($j = $i + 1; $j < $count; $j++) {
-                        if (IndentationHelper::isBlankLine($lines[$j])) {
-                            continue;
-                        }
-                        if (IndentationHelper::getLeadingColumns($lines[$j], BlockGrammar::FOOTNOTE_BODY_COLUMN) < BlockGrammar::FOOTNOTE_BODY_COLUMN) {
-                            break;
-                        }
-                        if (IndentationHelper::getLeadingColumns($lines[$j]) !== $noteFenceColumn) {
-                            continue;
-                        }
-                        $payload = IndentationHelper::stripLeadingColumns($lines[$j], $noteFenceColumn);
-                        if (($this->getFencedBlockParser)()->isCodeFenceCloser($payload, $noteFence['fence'][0], strlen($noteFence['fence']))) {
-                            $i = $j;
+            $noteFenceEnd = $this->leadNoteFenceEnd($lines, $i, $count, $leadNoteFenceLine, $leadNoteExtentEnd);
+            if ($noteFenceEnd !== null) {
+                $i = $noteFenceEnd;
 
-                            continue 2;
-                        }
-                    }
-                    // An unclosed fence in the note runs to the note's end.
-                    $i = min($j, $leadNoteExtentEnd + 1) - 1;
-
-                    continue;
-                }
+                continue;
             }
             if ($i <= $minimumColonEnd && preg_match('/^[ \t]+:{3,}[ \t]*$/', $line) === 1) {
                 continue;
@@ -1186,20 +1351,7 @@ final class ListBodyRebaser
             // A TERM LINE IS WALKED FOR THE SAME REASON: on a list marker line
             // it carries the item's own column, so skipping it left the term
             // closed and nothing folded into it (markup-carve/carve#2445).
-            if (
-                $eligible !== null
-                && !isset($eligible[$i])
-                && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $line) !== 1
-                && !($absorbLeadNoteBody && $i === $firstContentLine && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) === 1)
-                && (
-                    IndentationHelper::getLeadingColumns($line) !== 0
-                    || (
-                        ($this->getFencedBlockParser)()->parseCodeFenceOpener($line) === null
-                        && ($this->getFencedBlockParser)()->parseRawBlockOpener($line) === null
-                        && ($this->blockQuoteLineContentCallback)($line) === null
-                    )
-                )
-            ) {
+            if (!$this->shouldWalkAuthoredBase($line, $eligible, $i, $absorbLeadNoteBody, $firstContentLine)) {
                 continue;
             }
             $base = IndentationHelper::getLeadingColumns($line);
@@ -1311,15 +1463,7 @@ final class ListBodyRebaser
                     : null;
                 if ($skipOpaqueAtMinimum && ($code !== null || $comment !== null)) {
                     if ($code !== null) {
-                        $fence = $code['fence'];
-                        $closer = null;
-                        for ($j = $i + 1; $j < $count; $j++) {
-                            if (($this->getFencedBlockParser)()->isCodeFenceCloser($lines[$j], $fence[0], strlen($fence))) {
-                                $closer = $j;
-
-                                break;
-                            }
-                        }
+                        $closer = $this->minimumCodeFenceCloser($lines, $i, $count, $code['fence']);
                         // At block start a fence needs no closer. Track the
                         // normalized prefix once, including blocks skipped by
                         // this walk, to distinguish it from paragraph text.
@@ -1338,15 +1482,7 @@ final class ListBodyRebaser
                             $i = $closer ?? ($count - 1);
                         }
                     } else {
-                        $width = strlen($comment['fence']);
-                        $closer = null;
-                        for ($j = $i + 1; $j < $count; $j++) {
-                            if (($this->getFencedBlockParser)()->isFencedCommentCloser($lines[$j], $width)) {
-                                $closer = $j;
-
-                                break;
-                            }
-                        }
+                        $closer = $this->minimumCommentFenceCloser($lines, $i, $count, strlen($comment['fence']));
                         if ($closer !== null) {
                             $i = $closer;
                         } else {
@@ -1421,55 +1557,16 @@ final class ListBodyRebaser
                     // The bound now sits where the difference actually is -
                     // `containerExtentBeforeADefinition()` below - so the two
                     // bodies get the container reading for everything else.
-                    $div = ($this->getFencedBlockParser)()->parseDivFenceOpener($line);
-                    if ($div !== null) {
-                        // A DIV'S EXTENT IS ITS FENCES, blank lines included -
-                        // it stays open across one, so a run stopping at the
-                        // first blank handed the rest back and opened a heading
-                        // inside it. Read through
-                        // `colonFenceEnd()`, which is what the parser itself
-                        // uses: the closer matches the opener's EXACT width, a
-                        // nested pair keeps its own, and a bare run inside a
-                        // code or comment fence is payload. An unterminated div
-                        // owns the remainder, which is what `-1` means.
-                        /** @var int $length */
-                        $length = $div['length'];
-                        $closer = ($this->colonFenceEndCallback)($lines, $i, $length, $count, null);
-                        $end = $closer === -1 ? $count - 1 : $closer;
-                        $firstBody = ltrim($lines[$i + 1] ?? '', " \t");
-                        $definitionExtent = ($this->containerExtentBeforeADefinitionCallback)($lines, $i, $end);
-                        $bodyStartsWithCode = $div['className'] !== '|'
-                            && (($this->getFencedBlockParser)()->parseCodeFenceOpener($firstBody) !== null
-                                || ($this->getFencedBlockParser)()->parseRawBlockOpener($firstBody) !== null);
-                        // A list starting the div body belongs to that div.
-                        if ($definitionExtent < $end) {
-                            $i = $definitionExtent;
-                        } elseif (!$bodyStartsWithCode && (!$includeSublists || ($this->getListParser)()->parseListItemMarker($firstBody) !== null)) {
-                            $i = $end;
-                        }
+                    $divEnd = $this->minimumDivExtent($lines, $i, $count, $includeSublists);
+                    if ($divEnd !== null) {
+                        $i = $divEnd;
                         $afterBlank = false;
 
                         continue;
                     }
-                    if (($this->blockQuoteLineContentCallback)($line) !== null) {
-                        // A QUOTE'S EXTENT IS ITS LAZY RUN, which a blank ENDS -
-                        // that is the difference from the div above, and why
-                        // these are two arms rather than one loop. A lazy line
-                        // needs an open paragraph (carve-php#1897).
-                        $end = ($this->blockQuoteExtentThroughDefinitionCallback)($lines, $i);
-                        if ($unclosedFenceBase !== null && $i > $unclosedFenceStart && $unclosedFenceBase > 0) {
-                            for ($j = $i + 1; $j <= $end; $j++) {
-                                if (IndentationHelper::getLeadingColumns($lines[$j]) === $unclosedFenceBase) {
-                                    $end = $j - 1;
-
-                                    break;
-                                }
-                            }
-                        }
-                        // A definition in a quote's lazy run is classified
-                        // before its block owner, including in an item host
-                        // (carve-php#1908). Divs retain the item-only contrast.
-                        $i = ($this->containerExtentBeforeADefinitionCallback)($lines, $i, $end);
+                    $quoteEnd = $this->minimumQuoteExtent($lines, $i, $unclosedFenceBase, $unclosedFenceStart);
+                    if ($quoteEnd !== null) {
+                        $i = $quoteEnd;
                         $afterBlank = false;
 
                         continue;
