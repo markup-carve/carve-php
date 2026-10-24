@@ -783,6 +783,13 @@ class ProseMirrorRenderer
             // and, worse, so is the PRESENCE, so the writer comes back with the
             // `|=` header form (markup-carve/carve#2894).
             $attrs['carveSeparatorWidths'] = $node->getSeparatorWidths();
+            $head = $node->getChildren()[0] ?? null;
+            if ($head instanceof TableRow) {
+                $attrs['carveSeparatorAligns'] = array_map(
+                    static fn (TableCell $cell): string => $cell->getAlignment(),
+                    array_values(array_filter($head->getChildren(), static fn ($cell): bool => $cell instanceof TableCell)),
+                );
+            }
         } elseif ($node instanceof CodeBlock) {
             $this->appendCodeBlockAttributes($node, $attrs);
         } elseif ($node instanceof ListBlock) {

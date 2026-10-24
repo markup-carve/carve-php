@@ -105,6 +105,9 @@ class ProseMirrorToCarve
      */
     private ?WeakMap $coveredRowMarkers = null;
 
+    /** @var WeakMap<Table, list<string>>|null */
+    private ?WeakMap $separatorAligns = null;
+
     /**
      * @var array<string, string>
      */
@@ -611,6 +614,17 @@ class ProseMirrorToCarve
             // continuation markers - just at the node level instead of
             // through Carve source text.
             $this->normalizeTableSpans($node);
+            if ($this->separatorAligns !== null && isset($this->separatorAligns[$node])) {
+                $head = $node->getChildren()[0] ?? null;
+                if ($head instanceof TableRow) {
+                    foreach ($head->getChildren() as $column => $cell) {
+                        $align = $this->separatorAligns[$node][$column] ?? null;
+                        if ($cell instanceof TableCell && in_array($align, [TableCell::ALIGN_LEFT, TableCell::ALIGN_CENTER, TableCell::ALIGN_RIGHT], true)) {
+                            $cell->setAlignment($align);
+                        }
+                    }
+                }
+            }
         }
 
         return $node;
@@ -738,6 +752,21 @@ class ProseMirrorToCarve
         $cell->setSpanMarker($marker);
 
         return $cell;
+    }
+
+    private function rememberSeparatorAligns(Table $table, mixed $value): bool
+    {
+        if (!is_array($value)) {
+            return true;
+        }
+        $this->separatorAligns ??= new WeakMap();
+        $this->separatorAligns[$table] = array_values(array_map(
+            static fn (mixed $align): string => in_array($align, [TableCell::ALIGN_LEFT, TableCell::ALIGN_CENTER, TableCell::ALIGN_RIGHT], true)
+                ? $align : TableCell::ALIGN_DEFAULT,
+            $value,
+        ));
+
+        return true;
     }
 
     private function rememberCoveredRowMarkers(TableCell $cell, mixed $value): bool
@@ -1643,6 +1672,7 @@ class ProseMirrorToCarve
                     'separatorWidths',
                     self::separatorWidths($value),
                 ),
+                $node instanceof Table && $key === 'carveSeparatorAligns' => $this->rememberSeparatorAligns($node, $value),
                 $node instanceof BlockQuote && $key === 'carveFenced' => $this->setState(
                     $node,
                     'fenced',

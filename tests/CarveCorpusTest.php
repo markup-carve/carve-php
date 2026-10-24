@@ -1237,6 +1237,8 @@ class CarveCorpusTest extends TestCase
         'a-comment-line-leaves-a-description-s-list-item-open-for-a-fence',
         'a-quote-prefixed-plus-takes-one-space-after-each-quote-marker-and-attaches-a-quote',
         'a-quote-opened-on-its-own-line-in-an-item-takes-the-first-block-form',
+        'a-definition-marker-line-keeps-a-straddling-tab-s-residual-columns',
+        'table-spans-keep-alignment-defaults-in-physical-columns',
     ];
 
     /**
