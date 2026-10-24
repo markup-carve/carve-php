@@ -28,6 +28,7 @@ use MarkupCarve\Carve\Converter\Markdown\ReferenceContext;
 use MarkupCarve\Carve\Converter\Markdown\ReferenceStage;
 use MarkupCarve\Carve\Converter\Markdown\TableContext;
 use MarkupCarve\Carve\Converter\Markdown\TableStage;
+use MarkupCarve\Carve\Converter\Markdown\TableWork;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Heading;
@@ -458,9 +459,8 @@ class MarkdownToCarve
         $htmlPrevHadContent = false;
         $htmlContainer = null;
 
-        // The column count of the GFM table whose body rows are being written,
-        // or 0 outside one.
-        $tableWidth = 0;
+        // The GFM table whose body rows are being written.
+        $tableWork = new TableWork();
 
         // Where $result holds a blank line of the source, as opposed to one the
         // conversion put in to separate two blocks.
@@ -482,8 +482,6 @@ class MarkdownToCarve
         // a lazy line continues either.
         $itemParagraph = false;
         $itemQuote = null;
-        // The column a GFM table under way is written at.
-        $tableCol = 0;
         // Whether the last item line was code or a table the item holds; a
         // block that then leaves every item is set apart from the list.
         $closedItem = false;
@@ -1006,7 +1004,7 @@ class MarkdownToCarve
             }
 
             if ($isBlank) {
-                $tableWidth = 0;
+                $tableWork->end();
                 $sourceBlanks[count($result)] = true;
                 if (isset($this->referenceContext->hardReferenceSeparators[$i])) {
                     $listMarkers->end(0);
@@ -1061,15 +1059,15 @@ class MarkdownToCarve
             // A body row of the table above, rebuilt so its padding is what the
             // formatter writes and its cells are fitted to the header, as GFM
             // reads them.
-            if ($tableWidth > 0 && $this->indentWidth($line) >= $tableCol && $this->tableStage->continuesGfmTableBody($this->stripColumns($line, $tableCol))) {
+            if ($tableWork->active() && $this->indentWidth($line) >= $tableWork->column() && $this->tableStage->continuesGfmTableBody($this->stripColumns($line, $tableWork->column()))) {
                 $cells = $this->tableStage->splitPipeCells($trimmed);
-                $this->tableStage->recordTableRowDiagnostics($trimmed, $i, $tableWidth, $cells);
-                $row = $this->tableStage->writeTableRow($cells, [], $tableWidth);
-                $result[] = str_repeat(' ', $tableCol) . $row;
+                $this->tableStage->recordTableRowDiagnostics($trimmed, $i, $tableWork->width(), $cells);
+                $row = $this->tableStage->writeTableRow($cells, [], $tableWork->width());
+                $result[] = str_repeat(' ', $tableWork->column()) . $row;
 
                 continue;
             }
-            $tableWidth = 0;
+            $tableWork->end();
 
             $itemQuoteLine = $isBlockquote && $contentCol > 0
                 ? $this->normalizeBlockquoteMarkers($this->stripColumns($line, $contentCol)) : null;
@@ -1186,8 +1184,7 @@ class MarkdownToCarve
                     // Keep the block boundary until the writer separates adjacent lists.
                     $result[] = str_repeat(' ', $contentCol) . '%% ' . $this->tableContext->omittedTableComment;
                 }
-                $tableWidth = count($this->tableStage->splitPipeCells($trimmed));
-                $tableCol = $contentCol;
+                $tableWork->begin(count($this->tableStage->splitPipeCells($trimmed)), $contentCol);
                 $i++; // skip the delimiter row
                 $prevLineType = 'text';
 
@@ -1218,8 +1215,7 @@ class MarkdownToCarve
                         $shiftCol = $contentCol;
                         $shiftBy = $listMarkers->shiftAt($contentCol);
                         if ($item['table'] > 0) {
-                            $tableWidth = $item['table'];
-                            $tableCol = $contentCol;
+                            $tableWork->begin($item['table'], $contentCol);
                         }
                         $prevLineType = 'list';
 
@@ -1536,8 +1532,7 @@ class MarkdownToCarve
                     $shiftCol = $contentCol;
                     $shiftBy = $listMarkers->shiftAt($contentCol);
                     if ($item['table'] > 0) {
-                        $tableWidth = $item['table'];
-                        $tableCol = $contentCol;
+                        $tableWork->begin($item['table'], $contentCol);
                     }
                     $prevLineType = 'list';
 
