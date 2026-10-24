@@ -6659,6 +6659,29 @@ class DjotToCarve
 
     /**
      * @param string $source
+     * @param array<string, true> $inherited
+     *
+     * @return array<int, int>
+     */
+    private function djotNoteMalformedAttributeEnds(string $source, array $inherited): array
+    {
+        $malformedEnds = [];
+        $nextBrace = null;
+        for ($at = strlen($source) - 1; $at >= 0; $at--) {
+            if ($source[$at] === "\n") {
+                $nextBrace = null;
+            } elseif ($source[$at] === '}') {
+                $nextBrace = $at + 1;
+            } elseif ($source[$at] === '{' && $nextBrace !== null && preg_match('/\G\{(\x00DJOTINVALIDATTR\x00[0-9]+\x00)?[A-Za-z][\w-]*=/', $source, $malformed, offset: $at) === 1 && (empty($malformed[1]) || isset($inherited[$malformed[1]]))) {
+                $malformedEnds[$at] = $nextBrace;
+            }
+        }
+
+        return $malformedEnds;
+    }
+
+    /**
+     * @param string $source
      * @param \Closure|null $isDefinitionBoundary
      * @param array<string, true> $inherited
      * @param string $emptyNote
@@ -6784,17 +6807,7 @@ class DjotToCarve
                 }
             }
         }
-        $malformedEnds = [];
-        $nextBrace = null;
-        for ($at = $length - 1; $at >= 0; $at--) {
-            if ($source[$at] === "\n") {
-                $nextBrace = null;
-            } elseif ($source[$at] === '}') {
-                $nextBrace = $at + 1;
-            } elseif ($source[$at] === '{' && $nextBrace !== null && preg_match('/\G\{(\x00DJOTINVALIDATTR\x00[0-9]+\x00)?[A-Za-z][\w-]*=/', $source, $malformed, offset: $at) === 1 && (empty($malformed[1]) || isset($inherited[$malformed[1]]))) {
-                $malformedEnds[$at] = $nextBrace;
-            }
-        }
+        $malformedEnds = $this->djotNoteMalformedAttributeEnds($source, $inherited);
         $brackets = $stack = [];
         $lineIndex = 0;
         for ($i = 0; $i < $length; $i++) {
@@ -7556,20 +7569,13 @@ class DjotToCarve
 
     /**
      * @param string $source
-     * @param callable(int): void|null $onRawCode
+     * @param int $length
+     * @param callable(string): bool $punctuation
+     *
+     * @return array{\Closure(int, int): int, \Closure(int, int): bool}
      */
-    private function closeDjotTableCode(string $source, ?callable $onRawCode = null): string
+    private function djotTableTickIndex(string $source, int $length, callable $punctuation): array
     {
-        if (!str_contains($source, '`')) {
-            return $source;
-        }
-        $blockAttributes = function (string $value): bool {
-            $attrs = str_starts_with($value, '{') ? $this->readDjotWordAttributes($value, 0) : null;
-
-            return $attrs !== null && trim(substr($value, $attrs['end']), " \t") === '';
-        };
-        $mask = $this->maskDjotOpaque($this->maskDjotFences($source), false, ['code' => false]);
-        $length = strlen($source);
         preg_match_all('/`+/', $source, $tickMatches, PREG_OFFSET_CAPTURE);
         $runs = [];
         foreach ($tickMatches[0] as [$run, $position]) {
@@ -7590,7 +7596,6 @@ class DjotToCarve
 
             return $positions[$low] ?? $length;
         };
-        $punctuation = static fn (string $char): bool => $char !== '' && preg_match('/[!-\/:-@\[-`{-~]/', $char) === 1;
         $tickStarts = [];
         $tickWidths = [];
         $queryEnd = str_contains($source, '![') || str_contains($source, '[^') || str_contains($source, '](') ? max((int)strrpos($source, ']'), (int)strrpos($source, ')')) : 0;
@@ -7655,6 +7660,19 @@ class DjotToCarve
 
             return true;
         };
+
+        return [$closeRun, $balancedTicks];
+    }
+
+    /**
+     * @param string $source
+     * @param int $length
+     * @param callable(string): bool $punctuation
+     *
+     * @return array{array<int, int>, array<int, int>}
+     */
+    private function djotTableBracketPairs(string $source, int $length, callable $punctuation): array
+    {
         $parens = [];
         $labels = [];
         $parenthesisStack = [];
@@ -7675,6 +7693,29 @@ class DjotToCarve
                 $labels[array_pop($bracketStack)] = $at;
             }
         }
+
+        return [$parens, $labels];
+    }
+
+    /**
+     * @param string $source
+     * @param callable(int): void|null $onRawCode
+     */
+    private function closeDjotTableCode(string $source, ?callable $onRawCode = null): string
+    {
+        if (!str_contains($source, '`')) {
+            return $source;
+        }
+        $blockAttributes = function (string $value): bool {
+            $attrs = str_starts_with($value, '{') ? $this->readDjotWordAttributes($value, 0) : null;
+
+            return $attrs !== null && trim(substr($value, $attrs['end']), " \t") === '';
+        };
+        $mask = $this->maskDjotOpaque($this->maskDjotFences($source), false, ['code' => false]);
+        $length = strlen($source);
+        $punctuation = static fn (string $char): bool => $char !== '' && preg_match('/[!-\/:-@\[-`{-~]/', $char) === 1;
+        [$closeRun, $balancedTicks] = $this->djotTableTickIndex($source, $length, $punctuation);
+        [$parens, $labels] = $this->djotTableBracketPairs($source, $length, $punctuation);
         $block = '/^(?:[-*+] |(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] |\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\) |: |#{1,6} |`{3,}|~{3,}|:{3,}(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*$|>(?:[ \t]|$)|\||\^ |\[[^\]]+\]:)/';
         $marker = '/^(?:\[\^[^\]\n]+\]:[ \t]*|(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+)/';
         $prefixMarker = '/\G' . substr($marker, 2);

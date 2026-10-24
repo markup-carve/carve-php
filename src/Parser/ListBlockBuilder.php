@@ -114,6 +114,356 @@ final class ListBlockBuilder
     }
 
     /**
+     * @param \MarkupCarve\Carve\Node\Block\ListItem $item
+     * @param array<\MarkupCarve\Carve\Node\Node> $children
+     * @param int $before
+     */
+    private function mergeAdjacentDefinitionLists(ListItem $item, array $children, int $before): int
+    {
+        $previous = $before > 0 ? $children[$before - 1] : null;
+        $next = $children[$before] ?? null;
+        if (
+            !$previous instanceof DefinitionList || !$next instanceof DefinitionList
+            || $previous->getAttributeEntries() !== [] || $next->getAttributeEntries() !== []
+            || $previous->isLoose() !== $next->isLoose()
+        ) {
+            return $before;
+        }
+        $terms = $next->getChildren();
+        $next->setChildren([]);
+        foreach ($terms as $term) {
+            $previous->appendChild($term);
+        }
+        $startPos = $previous->getPos();
+        $endPos = $next->getPos();
+        if ($startPos !== null && $endPos !== null) {
+            $previous->setPos(new SourceSpan(
+                $startPos->startLine,
+                $endPos->endLine,
+                $startPos->startColumn,
+                $endPos->endColumn,
+                $startPos->startOffset,
+                $endPos->endOffset,
+            ));
+        }
+        $item->removeChild($next);
+
+        return $before - 1;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\ListBlock $list
+     * @param \MarkupCarve\Carve\Node\Block\ListItem $lastItem
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     * @param int $baseIndent
+     * @param int $lastItemContentIndent
+     * @param int $currentIndent
+     * @param bool $lastItemHadBlankAfter
+     * @param array<string, array<string, list<string>|string>|bool|int|string> $listInfo
+     * @param int|null $unclosedFenceBase
+     *
+     * @return array{int, bool, int|null}
+     */
+    private function applyIndentedListContinuation(
+        ListBlock $list,
+        ListItem $lastItem,
+        array $lines,
+        int $i,
+        int $count,
+        int $baseIndent,
+        int $lastItemContentIndent,
+        int $currentIndent,
+        bool $lastItemHadBlankAfter,
+        array $listInfo,
+        ?int $unclosedFenceBase,
+    ): array {
+        $currentLine = $lines[$i];
+        $wasListTight = $list->isTight();
+        if (
+            !$this->indentedContinuationOpensBlock($lines, $i, $baseIndent, $lastItemContentIndent)
+            && preg_match('/^\^[ ]+\S/', ltrim($currentLine, " \t")) !== 1
+            && !$this->continuationReachesNestedListContent($lastItem, $currentIndent)
+        ) {
+            $list->setTight(false);
+        }
+
+        $continuation = $this->collectIndentedListContinuation(
+            $lines,
+            $i,
+            $count,
+            $baseIndent,
+            $lastItemContentIndent,
+            $currentIndent,
+            $lastItemHadBlankAfter,
+            $listInfo,
+            $unclosedFenceBase,
+        );
+        $i = $continuation->nextIndex;
+        $subLines = $continuation->lines;
+        $subLineMap = $continuation->lineMap;
+        $subEligible = $continuation->eligible;
+        $subRetainedMarker = $continuation->retainedMarker;
+        $brokeForParentContent = $continuation->brokeForParentContent;
+        $lastItemHadBlankAfter = $continuation->lastItemHadBlankAfter;
+        $unclosedFenceBase = $continuation->unclosedFenceBase;
+        $blankBeforeNestedContinuation = $continuation->blankBeforeNestedContinuation;
+        if ($blankBeforeNestedContinuation) {
+            $list->setTight(false);
+        }
+
+        // Compact-list rule (carve#322): an internal blank line in
+        // the item's collected content loosens THIS list only when
+        // the content after the blank is the item's OWN block (a
+        // plain paragraph dedented back below the sub-list). Content
+        // at or past the sub-list's content column belongs to the
+        // sub-list, whose looseness is decided by its own recursive
+        // parse, so it must not propagate up (nested-item looseness
+        // does not propagate, corpus 142). Only the outer item, which
+        // owns the blank before its own attached block, goes loose.
+        // A blank before a newly retained paragraph makes the list loose.
+        if ($subLines !== []) {
+            $before = count($lastItem->getChildren());
+            $this->callParseItemBlocks($lastItem, $subLines, $subLineMap, $subEligible, null, $unclosedFenceBase);
+            if ($this->state->session->itemHasParsedBlankBeforeParagraph($lastItem)) {
+                $list->setTight(false);
+            }
+            $children = $lastItem->getChildren();
+            if ($lastItemHadBlankAfter && preg_match('/^\^[ ]+\S/', ltrim($currentLine, " \t")) === 1) {
+                $captionHost = $children[count($children) - 1] ?? null;
+                if ($captionHost instanceof Paragraph) {
+                    $list->setTight(false);
+                }
+            }
+            $before = $this->mergeAdjacentDefinitionLists($lastItem, $children, $before);
+            $visibleContinuation = array_filter(
+                array_slice($lastItem->getChildren(), $before),
+                static fn (Node $child): bool => !$child instanceof Comment,
+            );
+            if ($visibleContinuation === []) {
+                $list->setTight($wasListTight);
+            }
+            if ($lastItemHadBlankAfter && $subRetainedMarker) {
+                foreach (array_slice($lastItem->getChildren(), $before) as $child) {
+                    if ($child instanceof Comment) {
+                        continue;
+                    }
+                    if ($child instanceof Paragraph) {
+                        $list->setTight(false);
+                    }
+
+                    break;
+                }
+            }
+        }
+        // Blank lines within nested content don't make the parent list loose
+        // The list is only loose if there's a blank line directly after item content
+        // (before nested content starts), which is already handled elsewhere
+        // Only reset if we didn't break to handle content at parent level
+        if (!$brokeForParentContent) {
+            // ... unless everything collected after the blank
+            // RENDERS NOTHING. §17 L1 has two clauses, and only the
+            // second-paragraph one is answered above: an item
+            // FOLLOWED by a blank line before the next sibling
+            // marker is loose either way, and an invisible line in
+            // that gap does not fill it. Keeping the flag lets a
+            // following sibling loosen the list, while an item that
+            // ends the list stays tight - which is the pair the
+            // corpus pins as 87-compact-list-blocks-4/5 against -6
+            // (carve-php#744).
+            $lastItemHadBlankAfter = $this->contentRendersNothing($subLines);
+        }
+
+        return [$i, $lastItemHadBlankAfter, $unclosedFenceBase];
+    }
+
+    /**
+     * @param array<string> $itemLines
+     * @param array<int, int> $itemLineMap
+     * @param array<string> $lines
+     * @param int $nextIndex
+     * @param int $baseIndent
+     * @param array<string, array<string, list<string>|string>|bool|int|string> $listInfo
+     */
+    private function markerLeadHasLooseningBlank(array $itemLines, array $itemLineMap, array $lines, int $nextIndex, int $baseIndent, array $listInfo): bool
+    {
+        $lastVisible = count($itemLines) - 1;
+        while (
+            $lastVisible >= 0
+            && ($this->isFoldableInvisibleLine(ltrim($itemLines[$lastVisible], " \t"))
+                || $this->isCommentLineOrFence(ltrim($itemLines[$lastVisible], " \t")))
+        ) {
+            $lastVisible--;
+        }
+        $nextItem = isset($lines[$nextIndex])
+            ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$nextIndex], " \t")) : null;
+        $loose = false;
+        if (
+            $lastVisible >= 0
+            && IndentationHelper::isBlankLine($itemLines[$lastVisible])
+            && isset($lines[$nextIndex])
+            && IndentationHelper::getLeadingColumns($lines[$nextIndex]) === $baseIndent
+            && $nextItem !== null
+            && ($this->getListParser)()->itemMatchesList($listInfo, $nextItem)
+        ) {
+            $blankRun = 0;
+            for ($j = $nextIndex - 1; $j >= 0 && $blankRun < 3 && IndentationHelper::isBlankLine($lines[$j]); $j--) {
+                $blankRun++;
+            }
+            $loose = $blankRun < 3;
+        }
+        // A blank before a nested continuation marker also loosens the parent.
+        foreach ($itemLines as $k => $collectedLine) {
+            if ($k === 0 || trim($collectedLine) !== '+' || !IndentationHelper::isBlankLine($itemLines[$k - 1])) {
+                continue;
+            }
+            $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $itemLineMap[$k] ?? -1);
+            if ($decision['reason'] === null && ($decision['owner']['kind'] ?? null) === 'list' && $decision['owner']['column'] > $baseIndent) {
+                $loose = true;
+
+                break;
+            }
+        }
+
+        return $loose;
+    }
+
+    /**
+     * @param string $lead
+     * @param array<string> $itemLines
+     * @param array<int, int> $lineMap
+     * @param array<int, true> $eligible
+     *
+     * @return array{array<string>, array<int, int>, array<int, true>}
+     */
+    private function foldColonFenceParagraph(string $lead, array $itemLines, array $lineMap, array $eligible): array
+    {
+        if (count($itemLines) <= 1 || ($this->getFencedBlockParser)()->parseDivFenceOpener($lead) === null) {
+            return [$itemLines, $lineMap, $eligible];
+        }
+        $split = count($itemLines);
+        foreach ($itemLines as $candidate => $entry) {
+            if ($candidate > 0 && $this->isCommentLineOrFence($entry)) {
+                $split = $candidate;
+
+                break;
+            }
+        }
+        foreach (array_keys($eligible) as $candidate) {
+            if ($candidate > 0) {
+                $split = min($split, $candidate);
+            }
+        }
+        $itemLines = [
+            BlockGrammar::LAZY_FRAME . implode("\n", array_map(BlockGrammar::stripLazyFrame(...), array_slice($itemLines, 0, $split))),
+            ...array_slice($itemLines, $split),
+        ];
+        $lineMap = [$lineMap[0] ?? -1, ...array_slice($lineMap, $split)];
+        $remaining = [];
+        foreach (array_keys($eligible) as $candidate) {
+            if ($candidate >= $split) {
+                $remaining[$candidate - $split + 1] = true;
+            }
+        }
+
+        return [$itemLines, $lineMap, $remaining];
+    }
+
+    /**
+     * @param array<string> $itemLines
+     * @param \MarkupCarve\Carve\Node\Block\ListItem $item
+     */
+    private function foldedBlankLoosensList(array $itemLines, ListItem $item): bool
+    {
+        $foldedBeforeBlank = false;
+        $previous = null;
+        foreach ($itemLines as $line) {
+            if ($line === '') {
+                $foldedBeforeBlank = $foldedBeforeBlank || ($previous !== null && str_contains($previous, "\n"));
+            } elseif ($foldedBeforeBlank) {
+                return count(array_filter($item->getChildren(), static fn (Node $child): bool => $child instanceof Paragraph)) > 1;
+            } else {
+                $previous = $line;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\ListItem $item
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param string $listLine
+     * @param string $itemLine
+     * @param int $sourceLine
+     * @param bool $laterItem
+     * @param int|null $listOpeningColumn
+     *
+     * @return array{int|null, int|null, string}
+     */
+    private function listItemSourcePosition(
+        ListItem $item,
+        Node $parent,
+        string $listLine,
+        string $itemLine,
+        int $sourceLine,
+        bool $laterItem,
+        ?int $listOpeningColumn,
+    ): array {
+        $itemSource = $this->state->source->sourceLines[$sourceLine] ?? '';
+        $marker = ltrim($listLine, " \t");
+        $markerColumn = str_ends_with($itemSource, $marker)
+            ? strlen($itemSource) - strlen($marker)
+            : $listOpeningColumn;
+        $openingColumn = $listOpeningColumn;
+        if (!$parent instanceof Document && $laterItem) {
+            $prefix = substr($itemSource, 0, $markerColumn);
+            $openingColumn = str_contains($prefix, "\t")
+                && $markerColumn <= $listOpeningColumn
+                && !str_contains($prefix, '>')
+                ? 0
+                : $this->resolveMarkerColumn($sourceLine, $itemLine);
+        }
+        if ($openingColumn === null) {
+            $this->state->session->unplaceableNodeIds[spl_object_id($item)] = true;
+        }
+
+        return [$openingColumn, $markerColumn, $itemSource];
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $index
+     */
+    private function hasHardListBoundary(array $lines, int $start, int $index): bool
+    {
+        $blankRun = 0;
+        for ($back = $index - 1; $blankRun < 3 && $back >= $start && IndentationHelper::isBlankLine($lines[$back]); $back--) {
+            $blankRun++;
+        }
+
+        return $blankRun >= 3;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\ListItem $item
+     * @param array<string, array<string, list<string>|string>|bool|int|string> $info
+     */
+    private function applyListMarkerAttributes(ListItem $item, array $info): void
+    {
+        if (!isset($info['attributes'])) {
+            return;
+        }
+        /** @var array<string, string|list<string>> $attributes */
+        $attributes = $info['attributes'];
+        foreach ($attributes as $key => $value) {
+            $item->setAttribute($key, $value);
+        }
+    }
+
+    /**
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
@@ -431,16 +781,9 @@ final class ListBlockBuilder
                 // Content after blank line with indentation belongs to previous item
                 $lastItem = ($this->getListParser)()->getLastListItem($list);
                 if ($lastItem !== null) {
-                    $wasListTight = $list->isTight();
-                    if (
-                        !$this->indentedContinuationOpensBlock($lines, $i, $baseIndent, $lastItemContentIndent)
-                        && preg_match('/^\^[ ]+\S/', ltrim($currentLine, " \t")) !== 1
-                        && !$this->continuationReachesNestedListContent($lastItem, $currentIndent)
-                    ) {
-                        $list->setTight(false);
-                    }
-
-                    $continuation = $this->collectIndentedListContinuation(
+                    [$i, $lastItemHadBlankAfter, $unclosedFenceBase] = $this->applyIndentedListContinuation(
+                        $list,
+                        $lastItem,
                         $lines,
                         $i,
                         $count,
@@ -451,106 +794,6 @@ final class ListBlockBuilder
                         $listInfo,
                         $unclosedFenceBase,
                     );
-                    $i = $continuation->nextIndex;
-                    $subLines = $continuation->lines;
-                    $subLineMap = $continuation->lineMap;
-                    $subEligible = $continuation->eligible;
-                    $subRetainedMarker = $continuation->retainedMarker;
-                    $brokeForParentContent = $continuation->brokeForParentContent;
-                    $lastItemHadBlankAfter = $continuation->lastItemHadBlankAfter;
-                    $unclosedFenceBase = $continuation->unclosedFenceBase;
-                    $blankBeforeNestedContinuation = $continuation->blankBeforeNestedContinuation;
-                    if ($blankBeforeNestedContinuation) {
-                        $list->setTight(false);
-                    }
-
-                    // Compact-list rule (carve#322): an internal blank line in
-                    // the item's collected content loosens THIS list only when
-                    // the content after the blank is the item's OWN block (a
-                    // plain paragraph dedented back below the sub-list). Content
-                    // at or past the sub-list's content column belongs to the
-                    // sub-list, whose looseness is decided by its own recursive
-                    // parse, so it must not propagate up (nested-item looseness
-                    // does not propagate, corpus 142). Only the outer item, which
-                    // owns the blank before its own attached block, goes loose.
-                    // A blank before a newly retained paragraph makes the list loose.
-                    if ($subLines !== []) {
-                        $before = count($lastItem->getChildren());
-                        $this->callParseItemBlocks($lastItem, $subLines, $subLineMap, $subEligible, null, $unclosedFenceBase);
-                        if ($this->state->session->itemHasParsedBlankBeforeParagraph($lastItem)) {
-                            $list->setTight(false);
-                        }
-                        $children = $lastItem->getChildren();
-                        if ($lastItemHadBlankAfter && preg_match('/^\^[ ]+\S/', ltrim($currentLine, " \t")) === 1) {
-                            $captionHost = $children[count($children) - 1] ?? null;
-                            if ($captionHost instanceof Paragraph) {
-                                $list->setTight(false);
-                            }
-                        }
-                        $previousList = $before > 0 ? $children[$before - 1] : null;
-                        $nextList = $children[$before] ?? null;
-                        if (
-                            $previousList instanceof DefinitionList && $nextList instanceof DefinitionList
-                            && $previousList->getAttributeEntries() === [] && $nextList->getAttributeEntries() === []
-                            && $previousList->isLoose() === $nextList->isLoose()
-                        ) {
-                            $terms = $nextList->getChildren();
-                            $nextList->setChildren([]);
-                            foreach ($terms as $term) {
-                                $previousList->appendChild($term);
-                            }
-                            $startPos = $previousList->getPos();
-                            $endPos = $nextList->getPos();
-                            if ($startPos !== null && $endPos !== null) {
-                                $previousList->setPos(new SourceSpan(
-                                    $startPos->startLine,
-                                    $endPos->endLine,
-                                    $startPos->startColumn,
-                                    $endPos->endColumn,
-                                    $startPos->startOffset,
-                                    $endPos->endOffset,
-                                ));
-                            }
-                            $lastItem->removeChild($nextList);
-                            $before--;
-                        }
-                        $visibleContinuation = array_filter(
-                            array_slice($lastItem->getChildren(), $before),
-                            static fn (Node $child): bool => !$child instanceof Comment,
-                        );
-                        if ($visibleContinuation === []) {
-                            $list->setTight($wasListTight);
-                        }
-                        if ($lastItemHadBlankAfter && $subRetainedMarker) {
-                            foreach (array_slice($lastItem->getChildren(), $before) as $child) {
-                                if ($child instanceof Comment) {
-                                    continue;
-                                }
-                                if ($child instanceof Paragraph) {
-                                    $list->setTight(false);
-                                }
-
-                                break;
-                            }
-                        }
-                    }
-                    // Blank lines within nested content don't make the parent list loose
-                    // The list is only loose if there's a blank line directly after item content
-                    // (before nested content starts), which is already handled elsewhere
-                    // Only reset if we didn't break to handle content at parent level
-                    if (!$brokeForParentContent) {
-                        // ... unless everything collected after the blank
-                        // RENDERS NOTHING. §17 L1 has two clauses, and only the
-                        // second-paragraph one is answered above: an item
-                        // FOLLOWED by a blank line before the next sibling
-                        // marker is loose either way, and an invisible line in
-                        // that gap does not fill it. Keeping the flag lets a
-                        // following sibling loosen the list, while an item that
-                        // ends the list stays tight - which is the pair the
-                        // corpus pins as 87-compact-list-blocks-4/5 against -6
-                        // (carve-php#744).
-                        $lastItemHadBlankAfter = $this->contentRendersNothing($subLines);
-                    }
 
                     continue;
                 }
@@ -601,16 +844,8 @@ final class ListBlockBuilder
             //
             // Breaking leaves `$i` on the marker line, so the caller resumes
             // there and parses it as the first item of the next list.
-            if ($i > $start && $list->hasChildren()) {
-                $blankRun = 0;
-                $k = $i - 1;
-                while ($blankRun < 3 && $k >= $start && IndentationHelper::isBlankLine($lines[$k])) {
-                    $blankRun++;
-                    $k--;
-                }
-                if ($blankRun >= 3) {
-                    break;
-                }
+            if ($i > $start && $list->hasChildren() && $this->hasHardListBoundary($lines, $start, $i)) {
+                break;
             }
 
             // If there was a blank line before this item, list is loose
@@ -628,31 +863,17 @@ final class ListBlockBuilder
             $attachedParagraphOpen = false;
             $attachedParagraphAfterNoteSeparator = false;
             $listItemSourceLine = $this->sourceLineFor($i);
-            $itemOpeningColumn = $listOpeningColumn;
-            $itemSource = $this->state->source->sourceLines[$listItemSourceLine] ?? '';
-            $itemMarker = ltrim($line, " \t");
-            $itemMarkerColumn = str_ends_with($itemSource, $itemMarker)
-                ? strlen($itemSource) - strlen($itemMarker)
-                : $listOpeningColumn;
-            if (!$parent instanceof Document && $i !== $start) {
-                $itemPrefix = substr($itemSource, 0, $itemMarkerColumn);
-                $itemOpeningColumn = str_contains($itemPrefix, "\t")
-                    && $itemMarkerColumn <= $listOpeningColumn
-                    && !str_contains($itemPrefix, '>')
-                    ? 0
-                    : $this->resolveMarkerColumn($listItemSourceLine, $currentLine);
-            }
-            if ($itemOpeningColumn === null) {
-                $this->state->session->unplaceableNodeIds[spl_object_id($listItem)] = true;
-            }
+            [$itemOpeningColumn, $itemMarkerColumn, $itemSource] = $this->listItemSourcePosition(
+                $listItem,
+                $parent,
+                $line,
+                $currentLine,
+                $listItemSourceLine,
+                $i !== $start,
+                $listOpeningColumn,
+            );
             // Attributes from an abutting `{...}` block attach to the <li>.
-            if (isset($itemInfo['attributes'])) {
-                /** @var array<string, string|list<string>> $markerAttributes */
-                $markerAttributes = $itemInfo['attributes'];
-                foreach ($markerAttributes as $key => $value) {
-                    $listItem->setAttribute($key, $value);
-                }
-            }
+            $this->applyListMarkerAttributes($listItem, $itemInfo);
             if ($this->state->source->trackSourceLines && $listItemSourceLine >= 0 && $listItem->getAttribute('data-source-line') === null) {
                 $listItem->setAttribute('data-source-line', (string)($listItemSourceLine + 1));
             }
@@ -797,44 +1018,8 @@ final class ListBlockBuilder
                 // `- x` / blank / `  b` went loose (carve-php#681). Content at or
                 // past the sub-list's own content column still belongs to the
                 // sub-list and does not propagate its looseness outwards.
-                $lastVisible = count($itemLines) - 1;
-                while (
-                    $lastVisible >= 0
-                    && ($this->isFoldableInvisibleLine(ltrim($itemLines[$lastVisible], " \t"))
-                        || $this->isCommentLineOrFence(ltrim($itemLines[$lastVisible], " \t")))
-                ) {
-                    $lastVisible--;
-                }
-                $nextItem = isset($lines[$i])
-                    ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$i], " \t")) : null;
-                if (
-                    $lastVisible >= 0
-                    && IndentationHelper::isBlankLine($itemLines[$lastVisible])
-                    && isset($lines[$i])
-                    && IndentationHelper::getLeadingColumns($lines[$i]) === $baseIndent
-                    && $nextItem !== null
-                    && ($this->getListParser)()->itemMatchesList($listInfo, $nextItem)
-                ) {
-                    $blankRun = 0;
-                    for ($j = $i - 1; $j >= 0 && $blankRun < 3 && IndentationHelper::isBlankLine($lines[$j]); $j--) {
-                        $blankRun++;
-                    }
-                    if ($blankRun < 3) {
-                        $list->setTight(false);
-                    }
-                }
-                // A blank before a `+` that continues the marker-line sub-list
-                // loosens this list, as on the indented-continuation path.
-                foreach ($itemLines as $k => $collectedLine) {
-                    if ($k === 0 || trim($collectedLine) !== '+' || !IndentationHelper::isBlankLine($itemLines[$k - 1])) {
-                        continue;
-                    }
-                    $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $itemLineMap[$k] ?? -1);
-                    if ($decision['reason'] === null && ($decision['owner']['kind'] ?? null) === 'list' && $decision['owner']['column'] > $baseIndent) {
-                        $list->setTight(false);
-
-                        break;
-                    }
+                if ($this->markerLeadHasLooseningBlank($itemLines, $itemLineMap, $lines, $i, $baseIndent, $listInfo)) {
+                    $list->setTight(false);
                 }
                 $listItem->setPos($itemOpeningColumn === null ? null : $this->spanForLineMap($itemLineMap, $itemOpeningColumn));
                 foreach ($itemLines as &$collectedLine) {
@@ -910,39 +1095,12 @@ final class ListBlockBuilder
                 $unclosedFenceBase,
             );
 
-            if (
-                count($itemLines) > 1
-                && ($this->getFencedBlockParser)()->parseDivFenceOpener($itemContent) !== null
-            ) {
-                $split = count($itemLines);
-                foreach ($itemLines as $candidate => $entry) {
-                    if ($candidate > 0 && $this->isCommentLineOrFence($entry)) {
-                        $split = $candidate;
-
-                        break;
-                    }
-                }
-                foreach (array_keys($authoredBaseEligible) as $candidate) {
-                    if ($candidate > 0) {
-                        $split = min($split, $candidate);
-                    }
-                }
-                $itemLines = [
-                    BlockGrammar::LAZY_FRAME . implode("\n", array_map(BlockGrammar::stripLazyFrame(...), array_slice($itemLines, 0, $split))),
-                    ...array_slice($itemLines, $split),
-                ];
-                $itemLineMap = [
-                    $itemLineMap[0] ?? -1,
-                    ...array_slice($itemLineMap, $split),
-                ];
-                $eligible = [];
-                foreach (array_keys($authoredBaseEligible) as $candidate) {
-                    if ($candidate >= $split) {
-                        $eligible[$candidate - $split + 1] = true;
-                    }
-                }
-                $authoredBaseEligible = $eligible;
-            }
+            [$itemLines, $itemLineMap, $authoredBaseEligible] = $this->foldColonFenceParagraph(
+                $itemContent,
+                $itemLines,
+                $itemLineMap,
+                $authoredBaseEligible,
+            );
 
             // For tight lists with continuation lines, check if content starts with
             // a block element. If so, parse as blocks; otherwise parse as plain text.
@@ -969,25 +1127,7 @@ final class ListBlockBuilder
             if ($this->state->session->itemHasParsedBlankBeforeParagraph($listItem)) {
                 $list->setTight(false);
             }
-            $blankAfterFoldedLine = false;
-            $foldedBeforeBlank = false;
-            $previousItemLine = null;
-            foreach ($itemLines as $itemLine) {
-                if ($itemLine === '') {
-                    $foldedBeforeBlank = $foldedBeforeBlank || ($previousItemLine !== null && str_contains($previousItemLine, "\n"));
-                } elseif ($foldedBeforeBlank) {
-                    $blankAfterFoldedLine = true;
-
-                    break;
-                } else {
-                    $previousItemLine = $itemLine;
-                }
-            }
-            if (
-                $list->isTight() && $blankAfterFoldedLine
-                && array_filter($itemLines, static fn (string $line): bool => str_contains($line, "\n")) !== []
-                && count(array_filter($listItem->getChildren(), static fn (Node $child): bool => $child instanceof Paragraph)) > 1
-            ) {
+            if ($list->isTight() && $this->foldedBlankLoosensList($itemLines, $listItem)) {
                 $list->setTight(false);
             }
 
@@ -1240,13 +1380,7 @@ final class ListBlockBuilder
             // between (markup-carve/carve-php#2140).
             $continuesCollectedList = $subSawListMarker
                 && ($this->getListParser)()->parseListItemMarker(ltrim(IndentationHelper::stripLeadingColumns($subLine, $subIndent), " \t")) !== null;
-            $nestedFenceMarker = false;
-            if ($subMarkerFence !== null && $lineIndent === $subIndent) {
-                $markerDecision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($i));
-                $nestedFenceMarker = $markerDecision['reason'] === null
-                    && ($markerDecision['owner']['kind'] ?? null) === 'list'
-                    && $markerDecision['owner']['column'] === $subIndent;
-            }
+            $nestedFenceMarker = $this->isNestedFenceMarker($subMarkerFence, $lineIndent, $subIndent, $i);
             // An open fence, div or block comment still owns the line
             // (carve-php#2507, carve-php#2519).
             if ($lineIndent === $subIndent && $maxContentIndent > $subIndent && $sawBlankLine && !$continuesCollectedList && !$nestedFenceMarker && $subTrailingState->fence === null && !$subTrailingState->hasOpenDiv() && $subOpenCommentLength === null) {
@@ -1380,28 +1514,16 @@ final class ListBlockBuilder
                 // Walk the full indent on a term line only: per line it is quadratic on a ladder.
                 $subSubject = ltrim($stripped, " \t");
                 $afterSubTerm = $subTermColumn !== null && !$sawBlankLine;
-                if (str_starts_with($subSubject, '::') && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $subSubject) === 1) {
-                    if (!$afterSubTerm) {
-                        $subTermColumn = IndentationHelper::getLeadingColumns($stripped);
-                        $subMarker = $subListMarkerLine === null
-                            ? null
-                            : ($this->getListParser)()->parseListItemMarker(ltrim($subListMarkerLine, " \t"));
-                        $subListContentColumn = $subMarker === null
-                            ? null
-                            : IndentationHelper::getLeadingColumns($subListMarkerLine)
-                                + $this->listMarkerWidth(ltrim($subListMarkerLine, " \t"), $subMarker);
-                        $subTermOwnsText = $subListContentColumn === null || $subTermColumn < $subListContentColumn;
-                    }
-                } elseif (
-                    !$afterSubTerm
-                    || $this->isCommentLineOrFence($subSubject)
-                    || (
-                        IndentationHelper::getLeadingColumns($stripped, $subTermColumn + 1) <= $subTermColumn
-                        && $this->startsNewBlock($subSubject, $lines, $i)
-                    )
-                ) {
-                    $subTermColumn = null;
-                }
+                [$subTermColumn, $subTermOwnsText] = $this->trackIndentedTerm(
+                    $subSubject,
+                    $stripped,
+                    $subListMarkerLine,
+                    $subTermColumn,
+                    $subTermOwnsText,
+                    $afterSubTerm,
+                    $lines,
+                    $i,
+                );
                 if (
                     $subTermCodeFence !== null && $lineIndent === $subIndent
                     && ($this->getFencedBlockParser)()->isCodeFenceCloser($subSubject, $subTermCodeFence['char'] ?? $subTermCodeFence['fence'][0], $subTermCodeFence['length'])
@@ -1879,6 +2001,75 @@ final class ListBlockBuilder
             $unclosedFenceBase,
             $blankBeforeNestedContinuation,
         );
+    }
+
+    /**
+     * @param string $subject
+     * @param string $stripped
+     * @param string|null $listMarkerLine
+     * @param int|null $termColumn
+     * @param bool $termOwnsText
+     * @param bool $afterTerm
+     * @param array<string> $lines
+     * @param int $index
+     *
+     * @return array{?int, bool}
+     */
+    private function trackIndentedTerm(
+        string $subject,
+        string $stripped,
+        ?string $listMarkerLine,
+        ?int $termColumn,
+        bool $termOwnsText,
+        bool $afterTerm,
+        array $lines,
+        int $index,
+    ): array {
+        if (str_starts_with($subject, '::') && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $subject) === 1) {
+            if (!$afterTerm) {
+                $termColumn = IndentationHelper::getLeadingColumns($stripped);
+                $marker = $listMarkerLine === null
+                    ? null : ($this->getListParser)()->parseListItemMarker(ltrim($listMarkerLine, " \t"));
+                $contentColumn = $marker === null
+                    ? null : IndentationHelper::getLeadingColumns($listMarkerLine)
+                        + $this->listMarkerWidth(ltrim($listMarkerLine, " \t"), $marker);
+                $termOwnsText = $contentColumn === null || $termColumn < $contentColumn;
+            }
+        } elseif (
+            !$afterTerm
+            || $this->isCommentLineOrFence($subject)
+            || (
+                IndentationHelper::getLeadingColumns($stripped, $termColumn + 1) <= $termColumn
+                && $this->startsNewBlock($subject, $lines, $index)
+            )
+        ) {
+            $termColumn = null;
+        }
+
+        return [$termColumn, $termOwnsText];
+    }
+
+    /**
+     * @param array<string, mixed>|null $markerFence
+     * @param int $lineIndent
+     * @param int $subIndent
+     * @param int $index
+     */
+    private function isNestedFenceMarker(?array $markerFence, int $lineIndent, int $subIndent, int $index): bool
+    {
+        if ($markerFence === null || $lineIndent !== $subIndent) {
+            return false;
+        }
+
+        $decision = $this->state->session->continuationMarkerDecision(
+            $this->state->source,
+            ($this->getListParser)(),
+            $this->sourceLineFor($index),
+        );
+
+        return $decision['reason'] === null
+            && ($decision['owner']['kind'] ?? null) === 'list'
+            && $decision['owner']['column'] === $subIndent;
     }
 
     /**

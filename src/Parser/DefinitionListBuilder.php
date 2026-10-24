@@ -477,1427 +477,14 @@ final class DefinitionListBuilder
                 if ($m === null) {
                     break;
                 }
-                $definitionStart = $i;
-                // THE SEPARATOR'S WIDTH SETS THIS BODY'S CONTENT COLUMN
-                // (carve#1757). Read per body, not per list: `: one` and
-                // `:  two` may sit in one entry, and each one's continuations
-                // answer to its own column.
-                $continuationColumn = BlockGrammar::DEFINITION_MARKER_WIDTH + strlen($m[1]);
-                $bodyColumn = new IndentedContainerColumn($continuationColumn);
-                $definitionSource = $this->sourceLineFor($definitionStart);
-                $authoredDefinition = $this->state->source->sourceLines[$definitionSource] ?? '';
-                $definitionColumn = self::authoredSubjectColumn($authoredDefinition, $lines[$definitionStart]);
-                $i++;
-                // First-block form (`: +`, mirroring the list `- +`): when the
-                // sole content is a lone `+`, the body is the FOLLOWING
-                // flush-left block, with no indentation. `: \+` is a literal `+`.
-                $bodyMap = [];
-                $firstBlockOwner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $definitionSource);
-                if (($firstBlockOwner['kind'] ?? null) === 'description' && $firstBlockOwner['column'] === $definitionColumn) {
-                    $this->state->session->recordRefusedContinuationMarker($this->state->source, $definitionSource, 'definition description');
-                    [$i, $body, $bodyRawMap] = $this->collectAttachedBlock(
-                        $lines,
-                        $i,
-                        $count,
-                        function (string $a, int $at): bool {
-                            $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($at));
-
-                            return IndentationHelper::isBlankLine($a)
-                                || $decision['column'] >= 0 && $decision['owner'] !== null && $decision['reason'] === null
-                                || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
-                                || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $a) === 1;
-                        },
-                    );
-                    $bodyMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $bodyRawMap);
-                } else {
-                    $body = [trim($m[2], StringUtil::WHITESPACE_CHARS)];
-                    $bodyMap = [$this->sourceLineFor($definitionStart)];
-                }
-                // A nested item owns lines that reach its column; a document or quote body keeps its own band.
-                $descriptionAtDocumentOrQuote = $definitionColumn === 0
-                    || str_starts_with(
-                        ltrim($this->state->source->sourceLines[$bodyMap[0] ?? -1] ?? '', " \t"),
-                        '>',
-                    );
-                $termScan = null;
-                $commentSpan = new CollectedCommentSpan();
-                $bodyFenceView = new IndexedFenceView();
-                $lastOpenerKey = null;
-                $lastOpenerIsParagraph = null;
-                // A definition body continues like a list item (SS17):
-                //  - form A: a deeper-indented (>= 3) line folds in, and a blank
-                //    line is tolerated when a later line still continues, so a
-                //    `<dd>` can hold multiple paragraphs;
-                //  - form B: a lone `+` attaches the FOLLOWING flush-left block
-                //    with no indentation (the same continuation marker lists and
-                //    block quotes use);
-                //  - lazy continuation: a flush-left line with no blank before
-                //    it that does not start an interrupting block folds into the
-                //    open paragraph (matching list items, block quotes and djot).
-                // Whether a FORM A line has been pushed since the last blank.
-                // Past-the-column laziness is about a line following the BODY'S
-                // OWN paragraph; once an indented block has been opened, the
-                // lines under it belong to that block and its own indentation
-                // governs them. Without this the second line of an indented list
-                // or fence was folded into the first.
-                $formABlockOpen = false;
-                // A DEFINITION BODY IS AN INDENTED-BLOCK COLLECTOR LIKE THE
-                // OTHER TWO (markup-carve/carve#956), so it owes the same answer
-                // about an OPEN FENCE that a list item and a block quote already
-                // give. This loop tracked no fence state at all, which is why it
-                // was the last collector still folding a below-column line into
-                // one. Advanced one body ENTRY at a time because `parseBlocks()`
-                // reads an entry as a line - an entry that grew a `"\n"` from a
-                // past-the-column append is still one line to it, so only the
-                // entry's first line decides block structure and the cursor below
-                // stays correct when the last entry is appended to in place.
-                $bodyState = new TrailingBlockState();
-                $nestedLeadFence = new NestedLeadFenceState();
-                $bodyStateCursor = 0;
-                // Authored base of the block the body tracker has open.
-                /** @var int|null $bodyOpenerBase */
-                $bodyOpenerBase = null;
-                /** @var array<int, true> $bodyLazy Body indexes collected BELOW the content column. */
-                $bodyLazy = [];
-                /** @var array<int, true> $bodyDefinition Entries that close the body's paragraph. */
-                $bodyDefinition = [];
-                /** @var array<int, array{index: int, opener: array{fence: string, length: int, char?: string}, columns: int, nested: bool, eligible: bool, paragraph: bool}> $bodyFenceSource Fence-shaped body entries, by body index. */
-                $bodyFenceSource = [];
-                $nestedDescriptionBodyColumn = null;
-                /** @var array<int, array{strip: int, column: int, char: string, length: int}> $bodyEligibleFenceSource */
-                $bodyEligibleFenceSource = [];
-                // Whether the fence the tracker has open interrupted a paragraph
-                // on the strength of a closer the collected body cannot see.
-                $bodyInterruptedParagraphFence = false;
-                $bodyNestedState = new TrailingBlockState();
-                $bodyNestedCursor = 0;
-                $bodyAttributeThrough = -1;
-                $bodyEndsWithAttribute = false;
-                $nestedLazyParagraph = false;
-                $retainedBelowComment = false;
-                $restoredDivLength = null;
-                $detachedFootnote = null;
-                $detachedFootnoteMap = [];
-                $bodyAtColumnBlock = false;
-                $attachedDefinitionListOpen = false;
-                $bodyFrames = new DefinitionBodyFrameState();
-                $preReleaseListEntries = [];
-                $syntheticTermColumns = [];
-                $reachedTermColumn = null;
-                $noteBodyColumn = null;
-                foreach (
-                    IndentedContainerCollector::admissions(
-                        $lines,
-                        $i,
-                        $count,
-                        $bodyColumn,
-                    ) as $admission
-                ) {
-                    $contLine = $admission['line'];
-                    $contColumn = IndentationHelper::getLeadingColumns($contLine);
-                    $releasedMarkerEntry = false;
-                    if ($reachedTermColumn !== null && !IndentationHelper::isBlankLine($contLine) && $contColumn < $reachedTermColumn) {
-                        $reachedTermColumn = null;
-                    }
-                    $noteReleased = $noteBodyColumn !== null && !IndentationHelper::isBlankLine($contLine)
-                        && $contColumn < $noteBodyColumn;
-                    if ($bodyColumn->classify($contLine) === 'content' && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($contLine, " \t")) === 1) {
-                        $noteBodyColumn = $contColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN;
-                    } elseif ($noteReleased) {
-                        $noteBodyColumn = null;
-                    }
-                    $priorSourceLine = $this->sourceLineFor($i) - 1;
-                    if ($priorSourceLine >= 0) {
-                        $priorMarker = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $priorSourceLine);
-                        if ($priorMarker['column'] >= 0 && $priorMarker['reason'] === null && $priorMarker['stale'] && ($priorMarker['owner']['kind'] ?? null) === 'list') {
-                            break;
-                        }
-                    }
-                    $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($i));
-                    if ($decision['column'] >= 0) {
-                        if (
-                            $decision['reason'] === null && $decision['owner'] !== null
-                            && $decision['owner']['kind'] !== 'description' && $definitionColumn !== null
-                            && $decision['owner']['column'] < $definitionColumn + $continuationColumn
-                        ) {
-                            break;
-                        }
-                    }
-                    if (
-                        $attachedDefinitionListOpen
-                        && preg_match('/^[ \t]*\[/', $contLine) === 1
-                        && $contColumn < $continuationColumn
-                    ) {
-                        break;
-                    }
-                    $lastBody = $body === [] ? '' : $body[array_key_last($body)];
-                    if (
-                        $termHasOwnColumn && $termColumn !== null
-                        && str_starts_with($contLine, BlockGrammar::LAZY_FRAME)
-                        && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, BlockGrammar::stripLazyFrame($contLine)) === 1
-                        && $body !== []
-                        && $this->bodyEntryStartsParagraph($lastBody)
-                    ) {
-                        $subject = BlockGrammar::stripLazyFrame($contLine);
-                        $authored = ContainerPrefix::stripQuoteMarkers(
-                            $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
-                        );
-                        $column = self::authoredSubjectColumn($authored, $subject);
-                        if ($column !== null && $column < $termColumn) {
-                            $body[array_key_last($body)] .= "\n" . $subject;
-                            $i++;
-
-                            continue;
-                        }
-                    }
-                    // At the description column, caret text folds into its body.
-                    if (
-                        $body !== [] && preg_match('/^\^ +\S/', $contLine) === 1
-                        && (str_starts_with($body[0], '![') || str_starts_with($body[0], '>'))
-                    ) {
-                        $body[array_key_last($body)] .= "\n" . $contLine;
-                        $i++;
-
-                        continue;
-                    }
-                    $sourceLine = $this->sourceLineFor($i);
-                    if (
-                        isset($this->state->session->blockQuoteLazySourceLines[$sourceLine])
-                        && $body !== []
-                        && !IndentationHelper::isBlankLine($contLine)
-                    ) {
-                        $body[array_key_last($body)] .= "\n" . ltrim(BlockGrammar::stripLazyFrame($contLine), " \t");
-                        $i++;
-
-                        continue;
-                    }
-                    $authoredLine = $this->state->source->sourceLines[$sourceLine] ?? '';
-                    if (ContainerPrefix::quoteContent($authoredLine) !== null) {
-                        $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
-                    }
-                    if (
-                        ContainerPrefix::quoteContent($authoredLine) !== null
-                        && $body !== []
-                        && $bodyNestedState->fence === null
-                        && !IndentationHelper::isBlankLine($contLine)
-                        && $contColumn > 0
-                        && $contColumn < $continuationColumn
-                        && !$this->lineOpensBlockForLooseness(ltrim($contLine, " \t"), true)
-                        && preg_match('/^\|.*\|[ \t]*$/', ltrim($contLine, " \t")) !== 1
-                        && $this->bodyEntryStartsParagraph($body[array_key_last($body)])
-                    ) {
-                        $body[array_key_last($body)] .= "\n" . ltrim($contLine, " \t");
-                        $i++;
-
-                        continue;
-                    }
-                    // A containing item may have erased this line's indent while
-                    // folding an unmatched run. Read its authored column before
-                    // deciding whether a visible opener reaches this body.
-                    if (
-                        $definitionColumn !== null
-                        && (str_starts_with($contLine, BlockGrammar::LAZY_FRAME)
-                            || str_starts_with($lastBody, BlockGrammar::LAZY_FRAME)
-                            || str_contains($lastBody, "\n")
-                            || $restoredDivLength !== null)
-                    ) {
-                        $subject = BlockGrammar::stripLazyFrame($contLine);
-                        $sourceLine = $this->sourceLineFor($i);
-                        $authored = $this->state->source->sourceLines[$sourceLine] ?? '';
-                        $authoredColumn = self::authoredSubjectColumn($authored, $subject);
-                        $relativeColumn = $authoredColumn === null ? null : $authoredColumn - $definitionColumn;
-                        if (
-                            $relativeColumn !== null
-                            && $relativeColumn >= $continuationColumn
-                            && ($restoredDivLength !== null || !$formABlockOpen)
-                            && ($restoredDivLength !== null
-                                || $this->lineOpensBlockForLooseness($subject, true, invisibleArms: false))
-                        ) {
-                            $contLine = str_repeat(' ', $relativeColumn) . $subject;
-                            $contColumn = $relativeColumn;
-                            if ($restoredDivLength !== null && ($this->getFencedBlockParser)()->isDivFenceCloser($subject, $restoredDivLength)) {
-                                $restoredDivLength = null;
-                            } elseif ($restoredDivLength === null) {
-                                $restoredDivLength = ($this->getFencedBlockParser)()->parseDivFenceOpener($subject)['length'] ?? null;
-                            }
-                        }
-                    }
-                    // Form B: `+` pull-left continuation.
-                    if ($this->descriptionMarkerAttaches($i)) {
-                        $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($i), 'definition description');
-                        $i++;
-                        if (!$this->continuationFollowerIsEligible($i)) {
-                            break;
-                        }
-                        $attachedItemColumn = 0;
-                        $attachedReferenceSeen = false;
-                        $quotedAttached = str_starts_with($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '', '>');
-                        [$i, $attached, $attachedRawLineMap] = $this->attachedFlushLeftBlock(
-                            $lines,
-                            $i,
-                            $count,
-                            function (string $a) use (&$attachedItemColumn, &$attachedReferenceSeen, $quotedAttached): bool {
-                                if (
-                                    preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
-                                    || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $a) === 1
-                                ) {
-                                    return true;
-                                }
-                                if ($quotedAttached) {
-                                    return false;
-                                }
-                                if ($attachedItemColumn === 0 && preg_match('/^([ \t]*)(?:[-*] |\d+[.)] )/', $a, $marker) === 1) {
-                                    $attachedItemColumn = IndentationHelper::getLeadingColumns($marker[1]) + strlen($marker[0]) - strlen($marker[1]);
-                                }
-                                $definition = $this->isReferenceDefinitionLine(ltrim($a, " \t"))
-                                    || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($a, " \t")) === 1;
-                                if (
-                                    $attachedItemColumn > 0 && $definition
-                                    && IndentationHelper::getLeadingColumns($a, $attachedItemColumn) >= $attachedItemColumn
-                                ) {
-                                    $attachedReferenceSeen = true;
-
-                                    return false;
-                                }
-                                if (
-                                    $attachedReferenceSeen && ($definition
-                                    || (str_starts_with(ltrim($a, " \t"), '[')
-                                        && IndentationHelper::getLeadingColumns($a, $attachedItemColumn) < $attachedItemColumn))
-                                ) {
-                                    return true;
-                                }
-
-                                return false;
-                            },
-                        );
-                        $attachedDefinitionListOpen = $attachedReferenceSeen;
-                        $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
-                        if ($attached) {
-                            $body[] = '';
-                            $bodyMap[] = -1;
-                            foreach ($attached as $attachedIndex => $a) {
-                                $body[] = $a;
-                                $bodyMap[] = $attachedLineMap[$attachedIndex];
-                            }
-                        }
-
-                        continue;
-                    }
-                    // COLUMNS, not literal spaces. This counted the leading
-                    // SPACES, so a tab never continued the body and a mixed run
-                    // continued it only once three spaces had appeared - one
-                    // reader of five spellings, and the only one that made the
-                    // answer depend on which character an editor inserted
-                    // (carve-php#964).
-                    $indent = min($contColumn, $continuationColumn + 1);
-                    // A wrapped attribute opened at the body column is one construct: its later lines sit at any column (carve#3421).
-                    $wrappedRun = $contColumn === $continuationColumn && $bodyState->fence === null
-                        ? $this->wrappedAttributeRunLength($lines, $i, $count)
-                        : null;
-                    if ($wrappedRun !== null) {
-                        for ($end = $i + $wrappedRun; $i < $end; $i++) {
-                            $body[] = IndentationHelper::getLeadingColumns($lines[$i], $continuationColumn + 1) >= $continuationColumn
-                                ? IndentationHelper::stripLeadingColumns($lines[$i], $continuationColumn)
-                                : ltrim($lines[$i], " \t");
-                            $bodyMap[] = $this->sourceLineFor($i);
-                        }
-
-                        continue;
-                    }
-                    if (
-                        $indent === 0
-                        && !IndentationHelper::isBlankLine($contLine)
-                        && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
-                        && !$nestedLazyParagraph
-                        && (
-                            count($body) === 1
-                            || IndentationHelper::getLeadingColumns(
-                                $this->state->source->sourceLines[$bodyMap[1] ?? -1] ?? '',
-                            ) >= $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                        )
-                    ) {
-                        break;
-                    }
-                    $commentText = ltrim($contLine, " \t");
-                    if (IndentationHelper::isBlankLine($contLine)) {
-                        $retainedBelowComment = false;
-                    } elseif ($indent < $continuationColumn && $this->isCommentLineOrFence($commentText)) {
-                        for ($k = count($body); $bodyStateCursor < $k; $bodyStateCursor++) {
-                            $bodyState = $this->advanceTrailingStateWithFenceLookahead($bodyState, $body[$bodyStateCursor], $body, $bodyStateCursor, true);
-                        }
-                        if ($bodyState->openParagraph || $retainedBelowComment) {
-                            $holder = new Document();
-                            $consumed = $this->tryParseFencedComment($holder, $lines, $i)
-                                ?? $this->tryParseComment($holder, $lines, $i) ?? 1;
-                            if ($consumed > 1 && $indent === 0) {
-                                break;
-                            }
-                            if ($consumed > 1 && $indent > 0) {
-                                for ($end = $i + $consumed; $i < $end; $i++) {
-                                    $body[] = $this->keptCommentDelimiter($lines[$i]);
-                                    $bodyMap[] = $this->sourceLineFor($i);
-                                }
-                                $bodyState->openParagraph = false;
-                                $bodyStateCursor = count($body);
-                                $retainedBelowComment = true;
-
-                                continue;
-                            }
-                            for ($end = $i + $consumed; $i < $end; $i++) {
-                                $body[] = $consumed > 1
-                                    ? $this->keptCommentDelimiter($lines[$i]) : ltrim($lines[$i], " \t");
-                                $bodyMap[] = $this->sourceLineFor($i);
-                            }
-                            $bodyState->openParagraph = false;
-                            $bodyStateCursor = count($body);
-                            $retainedBelowComment = true;
-
-                            continue;
-                        }
-                    } elseif ($retainedBelowComment) {
-                        $retainedBelowComment = false;
-                        $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($commentText)
-                            ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($commentText);
-                        if (!$this->startsInterruptingBlock($commentText, $lines, $i) || $fence !== null) {
-                            $body[] = $commentText;
-                            $bodyMap[] = $this->sourceLineFor($i);
-                            $bodyState = $this->advanceTrailingStateWithFenceLookahead($bodyState, $commentText, $lines, $i, true);
-                            $bodyStateCursor = count($body);
-                            $i++;
-
-                            continue;
-                        }
-                    }
-                    // Ordinary text past the minimum may continue the open
-                    // paragraph, but carve#1729 gives a recognized block opener
-                    // an authored local base. Test the opener before joining the
-                    // physical line to the previous paragraph entry, so
-                    //
-                    //     :: t
-                    //     :  body
-                    //         > q
-                    //
-                    // gives `<dd>body\n&gt; q</dd>` rather than a nested quote.
-                    // The alternative reading makes indentation depth mean two
-                    // different things one line apart: lazy continuation already
-                    // governs the line above, folding it into the same
-                    // paragraph, and a stray four-space indent would silently
-                    // become a block quote.
-                    //
-                    // The line is APPENDED TO THE PREVIOUS BODY ENTRY rather
-                    // than pushed as a new one. `parseBlocks()` reads each entry
-                    // as a line, so a `>` at the front of its own entry opens a
-                    // quote however the entry was indented; inside an entry it
-                    // is inline content, which is what a paragraph continuation
-                    // is. An entry holding newlines is the shape a list item
-                    // already hands over.
-                    //
-                    // FORM A still works, because it goes through the blank-line
-                    // branch below first: that pushes an empty entry, the test
-                    // here sees it, and the next indented line opens a real
-                    // block. The blank is what separates the two readings.
-                    //
-                    // AN OPEN PARAGRAPH, not merely a non-empty entry. If the
-                    // body's own first line OPENS A BLOCK - `:  - x`, `:  ```` -
-                    // then there is no open paragraph for a past-the-column line
-                    // to continue, and the line belongs to that block's own
-                    // reading. Testing only for non-emptiness turned a nested
-                    // list into literal text.
-                    //
-                    // A LIST MARKER IS ASKED FOR SEPARATELY, because
-                    // `startsNewBlock()` answers the INTERRUPTION question and
-                    // PART 9 §10 says a bullet or ordered marker never
-                    // interrupts a paragraph - so it reports false for `- x`,
-                    // which does open a block when it is the body's first line.
-                    $lastBodyKey = $body === [] ? null : array_key_last($body);
-                    if ($lastOpenerKey !== $lastBodyKey) {
-                        $lastOpenerKey = $lastBodyKey;
-                        $lastOpenerIsParagraph = null;
-                    }
-                    // A DEFINITION PAST THE BODY'S COLUMN IS STILL A DEFINITION.
-                    // PART 0's `CARVE-P0-020` AT OR PAST MEANS THE DEEPEST
-                    // COLUMN THE LINE REACHES (markup-carve/carve#1896) reads
-                    // the test against the innermost open container the line
-                    // REACHES, and the grammar's DEFINITION BODIES FOLLOW THE
-                    // SAME CONTAINER REACH RULE (markup-carve/carve#956) makes
-                    // this the third such container - so past its column what
-                    // is left is the body's own indentation, and §10 I5 has the
-                    // definition interrupt the paragraph rather than fold into
-                    // it (carve-php#1870). `lineOpensBlockForLooseness()` cannot
-                    // answer it: it is asked with `invisibleArms: false` here,
-                    // which is what keeps a definition BELOW the column folding
-                    // as §24 C3 requires.
-                    $trimmedCont = ltrim($contLine, " \t");
-                    if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $trimmedCont) === 1) {
-                        $currentColumn = self::authoredSubjectColumn(
-                            ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? ''),
-                            rtrim($trimmedCont, " \t"),
-                        );
-                        $definitionBase = self::authoredSubjectColumn(
-                            ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($definitionStart)] ?? ''),
-                            trim($lines[$definitionStart], " \t"),
-                        );
-                        if ($definitionBase !== null && $currentColumn === $definitionBase) {
-                            $lines[$i] = $trimmedCont;
-
-                            break;
-                        }
-                    }
-                    $marker = ($this->getListParser)()->parseListItemMarker($trimmedCont);
-                    if ($marker !== null) {
-                        $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
-                        if ($contColumn >= $continuationColumn && $bodyNestedState->fence === null && $bodyFrames->releaseDescriptionsAt($contColumn)) {
-                            // CARVE-P2-017: the inner body cannot withhold this outer column.
-                            $releasedMarkerEntry = true;
-                            $body[] = '';
-                            $bodyMap[] = -1;
-                            $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
-                        }
-                    }
-                    $markerColumn = $marker === null || $definitionColumn === null
-                        ? null : self::authoredSubjectColumn($authoredLine, $trimmedCont);
-                    if (
-                        $markerColumn !== null
-                        && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers($authoredDefinition)) > 0
-                        && $markerColumn >= $definitionColumn
-                        && $markerColumn < $definitionColumn + $continuationColumn
-                        && !$bodyNestedState->quoteParagraph
-                        && !str_starts_with(($body[0] ?? ''), '>')
-                    ) {
-                        // CARVE-P2-017: a reached outer column owns this marker.
-                        break;
-                    }
-                    // These openers need the body's column unless an item inside it claims the line.
-                    $belowDescriptionTextOpener = preg_match(
-                        '/^(?:#{1,6}(?:[ \t]|$)|>|\||(?:[-*_][ \t]*){3,}$)/',
-                        $trimmedCont,
-                    ) === 1;
-                    if (
-                        $indent > $continuationColumn
-                        && $definitionColumn !== null && $definitionColumn > 0
-                        && !$formABlockOpen
-                        && !$this->lineOpensBlockForLooseness(($body[0] ?? ''), true)
-                        && ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
-                        && $body !== []
-                        && trim($body[array_key_last($body)]) !== ''
-                        && $this->bodyEntryStartsParagraph($body[array_key_last($body)])
-                        && $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy) === 0
-                    ) {
-                        $body[array_key_last($body)] .= "\n" . $trimmedCont;
-                        $i++;
-
-                        continue;
-                    }
-                    if (
-                        $indent === 0 && !$bodyState->openParagraph
-                        && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
-                        && $this->isReferenceDefinitionLine($trimmedCont)
-                    ) {
-                        break;
-                    }
-                    // A COMMENT INSIDE A SPAN THE BODY ALREADY HOLDS IS NOT "A
-                    // COMMENT BELOW THE COLUMN" (markup-carve/carve#2488).
-                    // Section 28 pairs the delimiters and indentation is part of
-                    // neither, so ending the body here split the span: the body's
-                    // own parse then read an opener with no closer, and the
-                    // payload reached the page while both delimiters did not.
-                    // {@see self::linesLeaveACommentSpanOpen()}
-                    if (
-                        $indent < $continuationColumn
-                        && !IndentationHelper::isBlankLine($contLine)
-                        && $this->isCommentLineOrFence($trimmedCont)
-                        && $this->linesLeaveACommentSpanOpen($body, $commentSpan)
-                    ) {
-                        $body[] = $this->keptCommentDelimiter($contLine);
-                        $bodyMap[] = $this->sourceLineFor($i);
-                        $i++;
-
-                        continue;
-                    }
-                    $termPastTheColumn = false;
-                    if (
-                        $indent > $continuationColumn
-                        && $reachedTermColumn === null
-                        && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $trimmedCont) === 1
-                        && $this->bodyEntryStartsParagraph($body[0])
-                        && ($noteBodyColumn === null || $contColumn < $noteBodyColumn)
-                    ) {
-                        $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
-                        $termPastTheColumn = $bodyNestedState->nestedColumn === 0
-                            && !$bodyNestedState->quoteParagraph
-                            && $bodyNestedState->fence === null
-                            && !$bodyNestedState->inDiv
-                            && !$bodyNestedState->absorbingFence
-                            && (str_contains($body[0], "\n")
-                                || ($this->getListParser)()->parseListItemMarker(ltrim($lastBody, " \t")) !== null);
-                    }
-                    $definitionPastTheColumn = $indent > $continuationColumn
-                        && ($termPastTheColumn
-                            || (ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
-                                && $this->isReferenceDefinitionLine($trimmedCont)))
-                        && (!$this->bodyTermIsOpen($body, $termScan, $lines, $i)
-                            || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ($body[0] ?? '')) === 1);
-                    // AN ATTRIBUTE BLOCK PAST THE COLUMN IS THE OTHER HALF OF
-                    // THE SAME §10 I5 CLAUSE (markup-carve/carve#1911). A
-                    // visible opener already reaches the push branch, because
-                    // `lineOpensBlockForLooseness()` reports it even with
-                    // `invisibleArms: false`; a comment reaches it through that
-                    // parameter's own `%%` arm; and carve-php#1873 sent the
-                    // definition there. An attribute line was the one spelling
-                    // left folding into the paragraph one column past the
-                    // body's own, while the same line AT the column ended it
-                    // (corpus `444-*-7` against `444-*-8`).
-                    $attributePastTheColumn = $indent > $continuationColumn
-                        && $this->isBlockAttributeLine($trimmedCont);
-                    $paragraphFence = ($this->getFencedBlockParser)()->parseRawBlockOpener($trimmedCont)
-                        ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($trimmedCont);
-                    $paragraphFenceHasNoCloser = $paragraphFence !== null
-                        && !$this->descriptionBodyCloserAhead(
-                            $lines,
-                            $i,
-                            $paragraphFence,
-                            $continuationColumn,
-                            $contColumn,
-                        );
-                    if (
-                        $continuationColumn > BlockGrammar::DEFINITION_MARKER_WIDTH + 1
-                        && $indent === $continuationColumn - 1
-                        && ($this->getListParser)()->parseListItemMarker(($body[0] ?? '')) !== null
-                        && ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
-                    ) {
-                        $body[] = $trimmedCont;
-                        $bodyMap[] = $this->sourceLineFor($i);
-                        $i++;
-
-                        continue;
-                    }
-                    ($this->advanceNestedLeadFenceStateCallback)($nestedLeadFence, $body);
-                    if (
-                        (
-                            ($indent === 0 && $paragraphFenceHasNoCloser && $nestedLeadFence->length === 0
-                                && !$bodyAtColumnBlock)
-                            || ($indent > 0 && $indent < $continuationColumn
-                                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) !== 1
-                                && (($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
-                                    || $this->isBlockAttributeLine($trimmedCont)
-                                    || (str_starts_with(($body[0] ?? ''), '>')
-                                        && $this->isReferenceDefinitionLine($trimmedCont))))
-                        )
-                        && (($this->getListParser)()->parseListItemMarker(($body[0] ?? '')) !== null
-                            || ($lastBodyKey !== null
-                                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
-                                && ($this->getListParser)()->parseListItemMarker($body[$lastBodyKey]) !== null)
-                            || str_starts_with(($body[0] ?? ''), '>'))
-                    ) {
-                        $body[] = BlockGrammar::LAZY_FRAME . $trimmedCont;
-                        $bodyMap[] = $this->sourceLineFor($i);
-                        $bodyLazy[count($body) - 1] = true;
-                        $i++;
-
-                        continue;
-                    }
-                    if (
-                        $indent > $continuationColumn
-                        && $contColumn < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                        && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
-                        && ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
-                    ) {
-                        $body[] = $trimmedCont;
-                        $bodyMap[] = $this->sourceLineFor($i);
-                        $nestedLazyParagraph = true;
-                        $i++;
-
-                        continue;
-                    }
-                    if (
-                        $indent > 0
-                        && $indent < $continuationColumn
-                        && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ($body[0] ?? '')) === 1
-                        && ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
-                    ) {
-                        $body[] = $trimmedCont;
-                        $bodyMap[] = $this->sourceLineFor($i);
-                        $i++;
-
-                        continue;
-                    }
-                    if (
-                        preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
-                        && $indent >= $continuationColumn
-                        && $contColumn < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                        && ($this->isReferenceDefinitionLine($trimmedCont) || $this->isBlockAttributeLine($trimmedCont))
-                    ) {
-                        $detachedFootnote = $body;
-                        $detachedFootnoteMap = $bodyMap;
-                        $body = [''];
-                        $bodyMap = [$bodyMap[0]];
-                        // Keep the line in the dd after detaching the marker-line note.
-                    }
-                    $belowColumnMarker = $indent < $continuationColumn
-                        && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) !== 1
-                        && (($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
-                            || ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
-                            || $this->isBlockAttributeLine($trimmedCont));
-                    if (
-                        !IndentationHelper::isBlankLine($contLine)
-                        && $indent > 0
-                        && ($indent !== $continuationColumn || $paragraphFenceHasNoCloser)
-                        && !$definitionPastTheColumn
-                        && !$attributePastTheColumn
-                        && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) !== 1
-                        && !$formABlockOpen
-                        && $lastBodyKey !== null
-                        && ($body[$lastBodyKey] ?? '') !== ''
-                        && ($lastOpenerIsParagraph ??= $this->bodyEntryStartsParagraph($body[$lastBodyKey]))
-                        // A nested marker keeps its own entry; a later fence folds into its item.
-                        && ($this->getListParser)()->parseListItemMarker(ltrim($body[$lastBodyKey], " \t")) === null
-                        && ($belowColumnMarker || $paragraphFenceHasNoCloser
-                            || ($descriptionAtDocumentOrQuote
-                                && $indent < $continuationColumn && $belowDescriptionTextOpener)
-                            || !$this->lineOpensBlockForLooseness($trimmedCont, true, invisibleArms: false))
-                    ) {
-                        $body[$lastBodyKey] .= "\n" . $trimmedCont;
-                        $i++;
-
-                        continue;
-                    }
-                    // A marker at the column folds into the body's open
-                    // paragraph (§10 I2) and opens no item, so it joins that
-                    // entry and leaves the next line measured against the body.
-                    if (
-                        $indent === $continuationColumn
-                        && $lastBodyKey !== null
-                        && ($body[$lastBodyKey] ?? '') !== ''
-                        && !isset($bodyDefinition[$lastBodyKey])
-                        && ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
-                        && !$this->bodyTermIsOpen($body, $termScan, $lines, $i)
-                        && $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy) === 0
-                        && $bodyNestedState->openParagraph
-                        && $bodyNestedState->fence === null
-                        && !$bodyNestedState->hasOpenDiv()
-                        && !$bodyNestedState->absorbingFence
-                        && !$bodyNestedState->inTable
-                        && !$bodyNestedState->nestedListSeen
-                    ) {
-                        $body[$lastBodyKey] .= "\n" . $trimmedCont;
-                        $i++;
-
-                        continue;
-                    }
-                    if (!IndentationHelper::isBlankLine($contLine) && $indent >= $continuationColumn) {
-                        $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
-                        $formABlockOpen = $formABlockOpen
-                            || $nestedLeadFence->length > 0
-                            || ($this->getFencedBlockParser)()->parseCodeFenceOpener(($body[0] ?? '')) !== null
-                            || ($this->getFencedBlockParser)()->parseRawBlockOpener(($body[0] ?? '')) !== null
-                            || $this->lineOpensBlockForLooseness($trimmedCont, true)
-                            || ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
-                            || ($this->getFencedBlockParser)()->parseCodeFenceOpener($trimmedCont) !== null
-                            || ($this->getFencedBlockParser)()->parseRawBlockOpener($trimmedCont) !== null;
-                        // 01-layout.ebnf keeps the source closer decision with its opener.
-                        if ($paragraphFence !== null) {
-                            $bodyFenceSource[count($body)] = [
-                                'index' => $i,
-                                'opener' => $paragraphFence,
-                                'columns' => $contColumn,
-                                'nested' => $bodyNestedState->nestedColumn > 0 || $bodyAtColumnBlock
-                                    || ($nestedDescriptionBodyColumn !== null
-                                        && $contColumn >= $continuationColumn + $nestedDescriptionBodyColumn)
-                                    || ($this->getListParser)()->parseListItemMarker(($body[0] ?? '')) !== null,
-                                'eligible' => !$paragraphFenceHasNoCloser,
-                                'paragraph' => $lastBodyKey !== null && ($body[$lastBodyKey] ?? '') !== ''
-                                    && ($lastOpenerIsParagraph ??= $this->bodyEntryStartsParagraph($body[$lastBodyKey])),
-                            ];
-                        }
-                        if ($bodyFrames->releasedListLine === $i) {
-                            $bodyFrames->releasedBlockBase = $contColumn - $continuationColumn;
-                            $bodyFrames->releasedListLine = null;
-                        }
-                        if (
-                            $noteReleased && $i > 0 && IndentationHelper::isBlankLine($lines[$i - 1])
-                            && $this->lineOpensBlockForLooseness($trimmedCont, true)
-                        ) {
-                            // DEFINITION EXTENT: the released note no longer owns this opener.
-                            $bodyFrames->releasedBlockBase = $contColumn - $continuationColumn;
-                        }
-                        $stripColumns = $continuationColumn;
-                        if (
-                            $bodyFrames->releasedBlockBase !== null
-                            && ($contColumn >= $continuationColumn + $bodyFrames->releasedBlockBase || $bodyNestedState->fence !== null)
-                        ) {
-                            $stripColumns += $bodyFrames->releasedBlockBase;
-                        }
-                        $entry = (new IndentedContainerColumn($stripColumns))->strip($contLine);
-                        if (
-                            preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
-                            && $contColumn < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                            && $this->lineOpensBlockForLooseness($trimmedCont, true)
-                        ) {
-                            $entry = $trimmedCont;
-                        }
-                        if (
-                            count($body) === 1
-                            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $body[0]) === 1
-                            && $indent > $continuationColumn
-                            && $contColumn < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                            && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
-                            && !isset($lines[$i + 1])
-                        ) {
-                            $body[] = substr($entry, 0, strspn($entry, " \t")) . '\\' . ltrim($entry, " \t");
-                            $bodyMap[] = $this->sourceLineFor($i);
-                            $i++;
-
-                            continue;
-                        }
-                        $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
-                        $leadMarker = ($this->getListParser)()->parseListItemMarker(($body[0] ?? ''));
-                        if (
-                            $leadMarker !== null
-                            && $bodyNestedState->nestedColumn > 0
-                            && IndentationHelper::getLeadingColumns($entry) < $bodyNestedState->nestedColumn
-                            && !$this->isCommentLineOrFence(ltrim($entry, " \t"))
-                            && $this->startsInterruptingBlock(ltrim($entry, " \t"), $lines, $i)
-                        ) {
-                            $nestedLazyParagraph = true;
-                        }
-                        if (
-                            str_starts_with(($body[0] ?? ''), '>')
-                            && IndentationHelper::getLeadingColumns($entry) > 0
-                            && !$this->isCommentLineOrFence(ltrim($entry, " \t"))
-                            && $this->startsInterruptingBlock(ltrim($entry, " \t"), $lines, $i)
-                        ) {
-                            $nestedLazyParagraph = true;
-                        }
-                        if (
-                            str_starts_with(($body[0] ?? ''), ':::')
-                            && $bodyNestedState->hasOpenDiv()
-                            && $bodyNestedState->nestedColumn === 0
-                            && $this->startsInterruptingBlock(ltrim($entry, " \t"), $lines, $i)
-                        ) {
-                            $entry = ltrim($entry, " \t");
-                        }
-                        $nestedColumn = $definitionPastTheColumn
-                            ? $this->descriptionBodyNestedColumn(
-                                $bodyNestedState,
-                                $bodyNestedCursor,
-                                $body,
-                                $bodyLazy,
-                            )
-                            : 0;
-                        // NOT UNDER AN OPAQUE BLOCK. Inside a code fence or a
-                        // div the line is verbatim content and its indentation
-                        // is part of it, so nothing here may read it as a
-                        // definition. The nested column cannot say so on its
-                        // own - a fence opens no content column - and without
-                        // this the erasure below ate a leading space out of a
-                        // code block.
-                        if (
-                            $definitionPastTheColumn
-                            && $bodyNestedState->fence === null
-                            && !$bodyNestedState->inDiv
-                            && !$bodyNestedState->absorbingFence
-                        ) {
-                            // §10 I5 HAS IT INTERRUPT WHATEVER PARAGRAPH IS
-                            // OPEN, so the body carries no open paragraph over
-                            // this entry whichever container the definition
-                            // registered against. Without this a nested item
-                            // swallowed the flush-left line below the entry,
-                            // because the tracker reports the item's own state
-                            // and the item is still collecting (carve-php#1872).
-                            $bodyDefinition[count($body)] = true;
-                            // AND THE RESIDUAL COLUMN GOES WITH IT, but only
-                            // where the line reaches no container open INSIDE
-                            // the body. `CARVE-P0-020` answers the definition
-                            // against the innermost open container the line
-                            // REACHES: below that container's column the line
-                            // is the body's, and the indentation left after the
-                            // body's own column is the body's indentation, so
-                            // the entry has to arrive at the body's column or
-                            // the nested container collects it as prose. At or
-                            // past that column the line is the container's own
-                            // and its collector reads it there.
-                            // MEASURED ON THE ENTRY, because `$indent` is
-                            // capped one past the body's own column and cannot
-                            // count further in.
-                            $ownerColumn = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ($body[0] ?? '')) === 1
-                                ? 2 * BlockGrammar::DEFINITION_MARKER_WIDTH
-                                : $nestedColumn;
-                            if (
-                                !$termPastTheColumn
-                                && ($ownerColumn === 0 || IndentationHelper::getLeadingColumns($entry, $ownerColumn) < $ownerColumn)
-                            ) {
-                                $entry = ltrim($entry, " \t");
-                            }
-                        }
-                        $quotedContinuation = str_starts_with(($body[0] ?? ''), '>')
-                            && str_starts_with($trimmedCont, '>')
-                            && !str_starts_with(ltrim(substr($trimmedCont, 1), " \t"), '%%');
-                        $closesParagraphAtColumn = preg_match('/^#{1,6} .+$/', $trimmedCont) === 1
-                            || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedCont) === 1
-                            || preg_match('/^\|.*\|[ \t]*$/', $trimmedCont) === 1
-                            || ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
-                            || $this->isBlockAttributeLine($trimmedCont)
-                            || $this->isCommentLineOrFence($trimmedCont)
-                            || (str_starts_with($trimmedCont, '>')
-                                && str_starts_with(ltrim(substr($trimmedCont, 1), " \t"), '%%'));
-                        if (
-                            $indent === $continuationColumn
-                            && !$quotedContinuation
-                            && $closesParagraphAtColumn
-                        ) {
-                            $bodyDefinition[count($body)] = true;
-                            $nestedLazyParagraph = false;
-                            $bodyAtColumnBlock = true;
-                        }
-                        if (
-                            preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ($body[0] ?? '')) === 1
-                            && IndentationHelper::getLeadingColumns($entry) === 1
-                            && preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedCont) === 1
-                        ) {
-                            $entry = ltrim($entry, " \t");
-                        }
-                        if (
-                            $definitionPastTheColumn
-                            || ($attributePastTheColumn && !str_starts_with(($body[0] ?? ''), '>'))
-                            || ($indent > $continuationColumn
-                                && !$quotedContinuation
-                                && $this->lineOpensBlockForLooseness($trimmedCont, true))
-                        ) {
-                            $bodyAtColumnBlock = true;
-                        }
-                        if ($attributePastTheColumn && str_starts_with(($body[0] ?? ''), '>')) {
-                            $nestedLazyParagraph = true;
-                        }
-                        $entryColumn = $entry === $trimmedCont ? 0 : max(0, $contColumn - $continuationColumn);
-                        if (
-                            $nestedDescriptionBodyColumn !== null && $entryColumn < $nestedDescriptionBodyColumn
-                            && ($this->startsInterruptingBlock($trimmedCont, $lines, $i)
-                                || IndentationHelper::isBlankLine($body[count($body) - 1] ?? ''))
-                        ) {
-                            $nestedDescriptionBodyColumn = null;
-                        }
-                        if (
-                            $bodyState->fence === null
-                            && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $entry, $nestedDefinitionMatch) === 1
-                        ) {
-                            $nestedDescriptionBodyColumn = $entryColumn + BlockGrammar::DEFINITION_MARKER_WIDTH
-                                + strlen($nestedDefinitionMatch[1]);
-                        }
-                        $entryMarker = $marker;
-                        $reachesOuterBody = false;
-                        $opensBlock = false;
-                        if ($bodyFrames->hasListAbove($entryColumn)) {
-                            $opensBlock = $this->startsInterruptingBlock($trimmedCont, $lines, $i);
-                            if ($opensBlock || $entryMarker !== null) {
-                                // CARVE-P2-017: leave each nested body whose content column the opener misses.
-                                $bodyFrames->releaseListsAt($entryColumn);
-                                $reachesOuterBody = true;
-                            }
-                        }
-                        if ($reachesOuterBody && $opensBlock) {
-                            $entry = ltrim($entry, " \t");
-                        }
-                        if ($entryMarker !== null) {
-                            $bodyFrames->addListContentColumn($entryColumn + $this->continuations->listMarkerWidth($trimmedCont, $entryMarker));
-                        }
-                        if ($termPastTheColumn && $definitionPastTheColumn) {
-                            // CARVE-P2-017: end the folded paragraph before parsing the reached term.
-                            $body[] = '';
-                            $bodyMap[] = -1;
-                            $syntheticTermColumns[$this->sourceLineFor($i)] = $contColumn;
-                            $reachedTermColumn = $contColumn;
-                        }
-                        $body[] = $entry;
-                        if ($releasedMarkerEntry) {
-                            $preReleaseListEntries[$this->sourceLineFor($i)] = $entry;
-                            $releasedMarkerEntry = false;
-                        }
-                        $bodyMap[] = $this->sourceLineFor($i);
-                        if (
-                            $bodyNestedState->fence === null
-                            && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $trimmedCont, $descriptionMatch) === 1
-                        ) {
-                            $bodyFrames->addDescriptionContentColumn($contColumn + 1 + strlen($descriptionMatch[1]));
-                        }
-                        $i++;
-
-                        continue;
-                    }
-                    // Blank line: absorb as a paragraph separator ONLY when a
-                    // later line still continues the definition; otherwise leave
-                    // it for the entry separator / outer block stream.
-                    if (IndentationHelper::isBlankLine($contLine)) {
-                        $look = $i;
-                        while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
-                            $look++;
-                        }
-                        // Two blanks end the description even when its last
-                        // block is an unfinished fence (carve-php#2681).
-                        if ($look - $i > 1) {
-                            break;
-                        }
-                        $after = $lines[$look] ?? null;
-                        // The SECOND spelling of the same rule, with a different
-                        // job: this one decides whether the blank is an internal
-                        // paragraph break or the end of the body. It has to read
-                        // the column the same way, or a tab-indented paragraph
-                        // is unreachable through a blank line while reachable
-                        // without one.
-                        $afterIndent = $after === null ? 0 : IndentationHelper::getLeadingColumns($after, $continuationColumn);
-                        if ($after !== null && !IndentationHelper::isBlankLine($after) && $afterIndent >= $continuationColumn) {
-                            $afterColumn = IndentationHelper::getLeadingColumns($after);
-                            $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
-                            $bodyFrames->releaseAfterBlank(
-                                $afterColumn,
-                                $continuationColumn,
-                                $noteBodyColumn,
-                                $bodyNestedState->fence !== null,
-                                $look,
-                            );
-                            $formABlockOpen = $bodyNestedState->fence !== null;
-                            for (; $i < $look; $i++) {
-                                $body[] = $this->blankLineResidue($lines[$i], $continuationColumn, $bodyNestedState);
-                                $bodyMap[] = $this->sourceLineFor($i);
-                            }
-
-                            continue;
-                        }
-                    }
-
-                    // A new term/definition marker ends this definition (the
-                    // outer loop picks it up).
-                    if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $contLine) || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $contLine)) {
-                        break;
-                    }
-                    $useIndexedBodyFence = ($this->getFencedBlockParser)()::class === FencedBlockParser::class;
-                    for ($k = count($body); $bodyStateCursor < $k; $bodyStateCursor++) {
-                        $bodyLine = $this->descriptionBodyEntryAsRead(
-                            $bodyState,
-                            $body,
-                            $bodyStateCursor,
-                            $bodyOpenerBase,
-                        );
-                        $wasOpenParagraph = $bodyState->openParagraph;
-                        $wasInFence = $bodyState->fence !== null;
-                        // ASKED ONLY WHERE THE VETO WOULD FIRE. Inside a fence,
-                        // or with no paragraph open, the lookahead delegates
-                        // whatever the answer is, so the scan buys nothing -
-                        // and once this arms a fence, every later entry is
-                        // inside it and asks nothing at all.
-                        $closerKnownAhead = isset($bodyFenceSource[$bodyStateCursor])
-                            && $wasOpenParagraph
-                            && !$wasInFence
-                            && ($bodyFenceSource[$bodyStateCursor]['columns'] > $continuationColumn
-                                ? $bodyFenceSource[$bodyStateCursor]['eligible']
-                                : $this->descriptionBodyCloserAhead(
-                                    $lines,
-                                    $bodyFenceSource[$bodyStateCursor]['index'],
-                                    $bodyFenceSource[$bodyStateCursor]['opener'],
-                                    $continuationColumn,
-                                    $bodyFenceSource[$bodyStateCursor]['columns'],
-                                ));
-                        $trackerLine = $bodyLine;
-                        if (!$closerKnownAhead && $wasOpenParagraph && !$wasInFence && $useIndexedBodyFence) {
-                            $fenceAt = IndentationHelper::pastLeadingWhitespace($bodyLine);
-                            $subject = $bodyLine;
-                            $column = $bodyOpenerBase ?? 0;
-                            if (($this->getFencedBlockParser)()->isCodeFenceHead($bodyLine, $fenceAt)) {
-                                $subject = substr($bodyLine, $fenceAt);
-                                $column += IndentationHelper::getLeadingColumns($bodyLine);
-                            }
-                            $opener = ($this->getFencedBlockParser)()->parseRawBlockOpener($subject)
-                                ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject);
-                            if ($opener !== null) {
-                                $bodyFenceView->advance($body);
-                                if ($bodyFenceView->contains($bodyStateCursor + 1, count($body), $column, $opener['char'] ?? $opener['fence'][0], $opener['length'])) {
-                                    $closerKnownAhead = true;
-                                } else {
-                                    $trackerLine = 'text';
-                                }
-                            }
-                            // This entry's lookahead is settled, including a neutralized opener.
-                            $closerKnownAhead = true;
-                        }
-                        $bodyState = $this->advanceTrailingStateWithFenceLookahead(
-                            $bodyState,
-                            $trackerLine,
-                            $body,
-                            $bodyStateCursor,
-                            !isset($bodyLazy[$bodyStateCursor]),
-                            // THE CLOSER LOOKAHEAD READS AT THE SAME BASE. The
-                            // opener was rebased above, so a closer written at
-                            // the same authored base is only visible to §10's
-                            // lookahead once it is stripped too - otherwise the
-                            // fence looks unterminated, arms nothing, and the
-                            // body reports a paragraph a closed fence does not
-                            // leave (markup-carve/carve#1930, carve-php#1899).
-                            $bodyOpenerBase ?? 0,
-                            closerKnownAhead: $closerKnownAhead,
-                        );
-                        if ($wasInFence && $bodyState->fence === null) {
-                            $bodyInterruptedParagraphFence = false;
-                        } elseif ($wasOpenParagraph && !$wasInFence && ($bodyState->fence !== null)) {
-                            $bodyInterruptedParagraphFence = true;
-                        }
-                        if (isset($bodyDefinition[$bodyStateCursor])) {
-                            $bodyState->openParagraph = false;
-                        }
-                        // A WRAPPED ATTRIBUTE BLOCK LEAVES NO PARAGRAPH EITHER,
-                        // and the tracker above cannot say so: it reads one line,
-                        // and `{.k` is a block-attribute line only once a later
-                        // line closes it. Carried INCREMENTALLY, on the same
-                        // cursor the tracker walks - rescanning the whole body
-                        // per collected line made a description of N lazy lines
-                        // quadratic.
-                        if ($bodyStateCursor <= $bodyAttributeThrough) {
-                            continue;
-                        }
-                        if (IndentationHelper::isBlankLine($bodyLine)) {
-                            continue;
-                        }
-                        $wrapped = $this->wrappedBlockAttributeLength($body, $bodyStateCursor);
-                        if ($wrapped !== null) {
-                            $bodyAttributeThrough = $bodyStateCursor + $wrapped - 1;
-                            $bodyEndsWithAttribute = true;
-
-                            continue;
-                        }
-                        $bodyEndsWithAttribute = $this->isBlockAttributeLine($bodyLine)
-                            && !(str_starts_with(($body[0] ?? ''), '>')
-                                && IndentationHelper::getLeadingColumns($body[$bodyStateCursor]) > 0);
-                    }
-                    // A WRAPPED ATTRIBUTE BLOCK LEAVES NO PARAGRAPH EITHER, and
-                    // the tracker above cannot say so: it reads one line, and
-                    // `{.k` is a block-attribute line only once a later line
-                    // closes it. The single-line form is already answered there;
-                    // this is the same rule for the form that spans lines.
-                    ($this->advanceNestedLeadFenceStateCallback)($nestedLeadFence, $body);
-                    $bodyTermOpen = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ($body[0] ?? '')) === 1
-                        && $this->bodyTermIsOpen($body, $termScan, $lines, $i);
-                    $leadItem = ($this->getListParser)()->parseListItemMarker(($body[0] ?? ''));
-                    if (
-                        $leadItem !== null
-                        && count($body) > 1
-                        && $this->isBlockAttributeLine(ltrim($body[array_key_last($body)], " \t"))
-                        && IndentationHelper::getLeadingColumns($body[array_key_last($body)]) < strlen($leadItem['marker']) + 1
-                    ) {
-                        $bodyEndsWithAttribute = false;
-                        $nestedLazyParagraph = true;
-                    }
-                    $paragraphOpen = !$noteReleased && ($nestedLeadFence->length > 0
-                        ? ($nestedLeadFence->closed && $nestedLeadFence->trailing->openParagraph)
-                        : ($bodyState->openParagraph || $nestedLazyParagraph || $bodyTermOpen));
-                    $lastBodySource = $body === [] ? -1 : ($bodyMap[array_key_last($body)] ?? -1);
-                    $attributeColumn = IndentationHelper::getLeadingColumns(
-                        $this->state->source->sourceLines[$lastBodySource] ?? '',
-                    );
-                    // An attribute at or past the item's content column cannot keep its paragraph open.
-                    if (
-                        $body !== []
-                        && $leadItem !== null
-                        && $this->isBlockAttributeLine(ltrim($body[array_key_last($body)], " \t"))
-                        && $attributeColumn > $continuationColumn
-                        && $attributeColumn < $continuationColumn + strlen($body[0]) - strlen($leadItem['content'])
-                    ) {
-                        $paragraphOpen = true;
-                        $bodyEndsWithAttribute = false;
-                    } elseif (
-                        $indent < $continuationColumn
-                        && $body !== []
-                        && $this->isBlockAttributeLine(ltrim($body[array_key_last($body)], " \t"))
-                        && $attributeColumn === $continuationColumn
-                    ) {
-                        $bodyEndsWithAttribute = true;
-                    }
-                    if (
-                        $indent > 0 && $indent < $continuationColumn
-                        && $body !== []
-                        && str_starts_with($body[0], '>')
-                        && $belowDescriptionTextOpener
-                        && $bodyState->openParagraph
-                        && !IndentationHelper::isBlankLine($contLine)
-                    ) {
-                        $body[array_key_last($body)] .= "\n" . $trimmedCont;
-                        $i++;
-
-                        continue;
-                    }
-                    if (
-                        $bodyState->fence !== null
-                        && $bodyInterruptedParagraphFence
-                        && $bodyOpenerBase !== null && $bodyOpenerBase > 0
-                        && $indent < $continuationColumn
-                        && !IndentationHelper::isBlankLine($contLine)
-                    ) {
-                        $body[] = str_repeat(' ', $continuationColumn) . BlockGrammar::LAZY_FRAME . ltrim($contLine, " \t");
-                        $bodyMap[] = $this->sourceLineFor($i);
-                        $i++;
-
-                        continue;
-                    }
-                    if (!$paragraphOpen || ($bodyEndsWithAttribute && !$bodyTermOpen)) {
-                        // AND THE BOUNDARY CLOSER IS SYNTHESIZED, exactly as
-                        // the list-item collector synthesizes it: the closer
-                        // that armed this fence stands past the line ending the
-                        // body, so the body is parsed on its own from a
-                        // truncated stream and §10 I4 turns the same opener back
-                        // into inline code. Carried with no source line, because
-                        // the authored closer is still the document's to read.
-                        if (($bodyState->fence !== null) && $bodyInterruptedParagraphFence) {
-                            $body[] = str_repeat($bodyState->fence->char, $bodyState->fence->length);
-                            $bodyMap[] = -1;
-                        }
-
-                        break;
-                    }
-                    if (
-                        (
-                            $indent === 0
-                            || (
-                                ($bodyState->nestedColumn > 0 || $indent > 0)
-                                && ($indent > 0 && $descriptionAtDocumentOrQuote
-                                    && $indent < $continuationColumn && $belowDescriptionTextOpener
-                                    || !$this->lineOpensBlockForLooseness($trimmedCont, true, invisibleArms: false))
-                            )
-                        )
-                        && !IndentationHelper::isBlankLine($contLine)
-                        && !$this->isBlockAttributeLine($trimmedCont)
-                        && $this->wrappedBlockAttributeLength($lines, $i) === null
-                        && !$this->isCommentLineOrFence($trimmedCont)
-                        && ($indent > 0 && $descriptionAtDocumentOrQuote
-                            && $indent < $continuationColumn && $belowDescriptionTextOpener
-                            || !$this->startsInterruptingBlock($trimmedCont, $lines, $i))
-                    ) {
-                        // COLLECTED BELOW THE CONTENT COLUMN, so it adds no
-                        // block: the tracker must read it as the lazy line it
-                        // is rather than as content at the column
-                        // {@see TrailingBlockStateScanner::advanceTrailingStateCore()}.
-                        //
-                        // AND NOT ONLY AT COLUMN 0. §24 C3's A NON-OPENER STILL
-                        // FOLDS is asked of the innermost container the line
-                        // REACHES, so a body that has opened one of its own has
-                        // a column deeper than its own for the line to be below
-                        // - and every column under the BODY's is then the
-                        // container's to fold, not the body's to end on. The
-                        // bare body gets this from the appending branch above,
-                        // which refuses a body whose last entry opens a block,
-                        // so this is where that body has to be answered
-                        // (carve-php#1875). A bare body folds a non-opener
-                        // between column 0 and its own column the same way, once
-                        // a line at the column has ended the appending branch's
-                        // reach (carve-php#2210).
-                        //
-                        // NO COLUMN BOUND IS SPELLED because none can fire: the
-                        // push branch above takes every line at or past the
-                        // content column, so the only lines that reach here are
-                        // already below it.
-                        //
-                        // THE PREDICATE IS THE CLAUSE'S OWN. It has to be
-                        // `lineOpensBlockForLooseness()` and not the
-                        // interruption test beside it: a sibling marker
-                        // deliberately does not interrupt a paragraph (§10) and
-                        // a code fence's closer does not match when it is
-                        // indented, so the interruption test reports false for
-                        // both and folded 210 and 36 documents that every other
-                        // reading keeps outside.
-                        $bodyLazy[count($body)] = true;
-                        $body[] = $contLine;
-                        $bodyMap[] = $this->sourceLineFor($i);
-                        $i++;
-
-                        continue;
-                    }
-
-                    break;
-                }
-                $bodyHasFenceLine = false;
-                foreach ($body as $entry) {
-                    $head = strtok($entry, "\n");
-                    if (
-                        $head !== false
-                        && (
-                            ($this->getFencedBlockParser)()->parseRawBlockOpener($head) !== null
-                            || ($this->getFencedBlockParser)()->parseCodeFenceOpener($head) !== null
-                        )
-                    ) {
-                        $bodyHasFenceLine = true;
-
-                        break;
-                    }
-                }
-                if ($bodyLazy !== [] && $bodyHasFenceLine) {
-                    $foldedBody = [];
-                    $foldedBodyMap = [];
-                    foreach ($body as $bodyIndex => $entry) {
-                        if (
-                            isset($bodyLazy[$bodyIndex])
-                            && $foldedBody !== []
-                            && ($this->getListParser)()->parseListItemMarker(ltrim($foldedBody[array_key_last($foldedBody)], " \t")) === null
-                        ) {
-                            $last = count($foldedBody) - 1;
-                            $foldedBody[$last] .= "\n" . ltrim(BlockGrammar::stripLazyFrame(ltrim($entry, " \t")), " \t");
-
-                            continue;
-                        }
-                        $foldedBody[] = $entry;
-                        $foldedBodyMap[] = $bodyMap[$bodyIndex] ?? -1;
-                    }
-                    $body = $foldedBody;
-                    $bodyMap = $foldedBodyMap;
-                }
-                if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) !== 1) {
-                    $body = $this->rebaseOverindentedItemBlocks(
-                        $body,
-                        includeSublists: true,
-                        skipOnlyClosedOpaqueAtMinimum: true,
-                        absorbLeadNoteBody: true,
-                    );
-                    // CARVE-P2-017: keep a released marker's column after rebasing neighboring blocks.
-                    foreach ($bodyMap as $entryIndex => $entrySource) {
-                        if (isset($preReleaseListEntries[$entrySource]) && !str_contains($body[$entryIndex], "\n")) {
-                            $body[$entryIndex] = $preReleaseListEntries[$entrySource];
-                        }
-                    }
-                }
-                $syntheticTermColumn = null;
-                $syntheticTermEntryColumn = 0;
-                $syntheticTermBlank = false;
-                foreach ($bodyFenceSource as $fenceSource) {
-                    if (
-                        !$fenceSource['nested']
-                        && $fenceSource['paragraph']
-                        && $fenceSource['columns'] > $continuationColumn
-                        && $fenceSource['eligible']
-                    ) {
-                        $bodyEligibleFenceSource[$this->sourceLineFor($fenceSource['index'])] = [
-                            'strip' => $fenceSource['columns'] - $continuationColumn,
-                            'column' => $fenceSource['columns'],
-                            'char' => $fenceSource['opener']['char'] ?? $fenceSource['opener']['fence'][0],
-                            'length' => $fenceSource['opener']['length'],
-                        ];
-                    }
-                }
-                // 01-layout.ebnf keeps payload columns when rebasing an eligible opener.
-                $normalizedFence = null;
-                foreach ($body as $bodyIndex => $entry) {
-                    $entrySource = $bodyMap[$bodyIndex] ?? -1;
-                    if (isset($bodyEligibleFenceSource[$entrySource])) {
-                        $normalizedFence = $bodyEligibleFenceSource[$entrySource];
-                        $body[$bodyIndex] = ltrim($entry, " \t");
-                        $entry = $body[$bodyIndex];
-                    } elseif ($normalizedFence !== null && !str_contains($entry, BlockGrammar::LAZY_FRAME)) {
-                        $entryColumn = IndentationHelper::getLeadingColumns($entry);
-                        $subject = ltrim($entry, " \t");
-                        if (
-                            ($entryColumn === 0 || $entryColumn === $normalizedFence['strip'])
-                            && ($this->getFencedBlockParser)()->isCodeFenceCloser(
-                                $subject,
-                                $normalizedFence['char'],
-                                $normalizedFence['length'],
-                            )
-                        ) {
-                            $body[$bodyIndex] = $subject;
-                            $entry = $subject;
-                            $normalizedFence = null;
-                        } elseif (
-                            $entryColumn > 0
-                            && IndentationHelper::getLeadingColumns($this->state->source->sourceLines[$entrySource] ?? '')
-                            < $normalizedFence['column']
-                        ) {
-                            $body[$bodyIndex] = IndentationHelper::stripLeadingColumns(
-                                $entry,
-                                min($entryColumn, $normalizedFence['strip']),
-                            );
-                            $entry = $body[$bodyIndex];
-                        }
-                    }
-                    $source = $this->state->source->sourceLines[$bodyMap[$bodyIndex] ?? -1] ?? '';
-                    if (isset($syntheticTermColumns[$entrySource])) {
-                        $syntheticTermColumn = $syntheticTermColumns[$entrySource];
-                        $syntheticTermEntryColumn = IndentationHelper::getLeadingColumns($entry);
-                        $syntheticTermBlank = false;
-                    } elseif (IndentationHelper::isBlankLine($entry)) {
-                        $syntheticTermBlank = $syntheticTermColumn !== null;
-                    } elseif (
-                        ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($entry, " \t")) !== null
-                        || ($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($entry, " \t")) !== null
-                    ) {
-                        $syntheticTermColumn = null;
-                    } elseif (
-                        $syntheticTermColumn !== null
-                        && ($syntheticTermBlank
-                            || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, ltrim($entry, " \t")) === 1
-                            || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($entry, " \t")) === 1)
-                        && IndentationHelper::getLeadingColumns($source) === $syntheticTermColumn
-                    ) {
-                        $entryColumn = IndentationHelper::getLeadingColumns($entry);
-                        if ($entryColumn > $syntheticTermEntryColumn) {
-                            $body[$bodyIndex] = IndentationHelper::stripLeadingColumns(
-                                $entry,
-                                $entryColumn - $syntheticTermEntryColumn,
-                            );
-                        }
-                        if (
-                            $syntheticTermBlank
-                            && preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, ltrim($entry, " \t")) !== 1
-                            && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($entry, " \t")) !== 1
-                        ) {
-                            $syntheticTermColumn = null;
-                        }
-                        $syntheticTermBlank = false;
-                    } else {
-                        $syntheticTermBlank = false;
-                    }
-                    // Keep the delimiter's residual column through the body rebase.
-                    if (
-                        preg_match('/^%{3,}$/', $entry) === 1
-                        && IndentationHelper::getLeadingColumns($source) > 0
-                        && IndentationHelper::getLeadingColumns($source) !== $continuationColumn
-                    ) {
-                        $body[$bodyIndex] = ' ' . $entry;
-                    }
-                }
-                $dd = new DefinitionDescription();
-                $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
-                if ($detachedFootnote !== null) {
-                    $this->parseBlocks($dd, $detachedFootnote, 0, $detachedFootnoteMap);
-                }
-                if (count($body) !== 1 || rtrim($body[0], " \t") !== '{empty}') {
-                    $this->parseBlocks($dd, $body, 0, $bodyMap);
-                }
-                // The description is a container too, and its boundary ends the
-                // pending run for the same reason a quote's does.
-                $this->endContainerAttributeScope();
-                $definitionSource = $this->sourceLineFor($definitionStart);
-                $ddPos = $this->wholeLinesSpan(
-                    $definitionStart,
-                    $definitionStart,
-                    $this->state->frame->currentContentColumns[$definitionSource] ?? 0,
-                );
-                $ddChildren = $dd->getChildren();
-                $lastChildPos = $ddChildren === [] ? null : $ddChildren[count($ddChildren) - 1]->getPos();
-                if ($ddPos !== null && $lastChildPos !== null && $lastChildPos->endOffset > $ddPos->endOffset) {
-                    $ddPos = new SourceSpan(
-                        startLine: $ddPos->startLine,
-                        endLine: $lastChildPos->endLine,
-                        startColumn: $ddPos->startColumn,
-                        endColumn: $lastChildPos->endColumn,
-                        startOffset: $ddPos->startOffset,
-                        endOffset: $lastChildPos->endOffset,
-                    );
-                }
-                $dd->setPos($ddPos);
-                if ($dd->getChildren() === [] && $dd->getPos() === null) {
-                    // A description EMPTIED by collection still occupied a line,
-                    // and §4 wants a position on every node but the root.
-                    // Container spans are derived from children, so this one
-                    // came out with none - and the writer then had no way to
-                    // find the definition the author wrote on it, which is what
-                    // made the emptied `dd` unable to round-trip (carve#805,
-                    // carve-php#903).
-                    $dd->setPos($this->wholeLineSpan($definitionStart));
-                }
-                $dl->appendChild($dd);
+                $b = $this->openDescriptionBody($lines, $i, $count, $m, $termColumn, $termHasOwnColumn);
+                $this->collectDescriptionBody($b);
+                $lines = $b->lines;
+                $i = $b->i;
+                $this->foldLazyEntriesUnderFence($b);
+                $this->restoreReleasedListEntries($b);
+                $this->normalizeDescriptionEntries($b);
+                $this->appendDefinitionDescription($dl, $b);
             }
             // The next entry may follow with NO blank line at all:
             // `definition_list = definition_entry+`, and the blank is only ever
@@ -1943,6 +530,1723 @@ final class DefinitionListBuilder
         $parent->appendChild($dl);
 
         return $i - $start;
+    }
+
+    /**
+     * Opens the description whose separator line is at `$i`.
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     * @param array<int, string> $m
+     * @param int|null $termColumn
+     * @param bool $termHasOwnColumn
+     */
+    private function openDescriptionBody(array $lines, int $i, int $count, array $m, ?int $termColumn, bool $termHasOwnColumn): DescriptionBodyCollection
+    {
+        $definitionStart = $i;
+        // THE SEPARATOR'S WIDTH SETS THIS BODY'S CONTENT COLUMN
+        // (carve#1757). Read per body, not per list: `: one` and
+        // `:  two` may sit in one entry, and each one's continuations
+        // answer to its own column.
+        $continuationColumn = BlockGrammar::DEFINITION_MARKER_WIDTH + strlen($m[1]);
+        $bodyColumn = new IndentedContainerColumn($continuationColumn);
+        $definitionSource = $this->sourceLineFor($definitionStart);
+        $authoredDefinition = $this->state->source->sourceLines[$definitionSource] ?? '';
+        $definitionColumn = self::authoredSubjectColumn($authoredDefinition, $lines[$definitionStart]);
+        $i++;
+        // First-block form (`: +`, mirroring the list `- +`): when the
+        // sole content is a lone `+`, the body is the FOLLOWING
+        // flush-left block, with no indentation. `: \+` is a literal `+`.
+        $bodyMap = [];
+        $firstBlockOwner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $definitionSource);
+        if (($firstBlockOwner['kind'] ?? null) === 'description' && $firstBlockOwner['column'] === $definitionColumn) {
+            $this->state->session->recordRefusedContinuationMarker($this->state->source, $definitionSource, 'definition description');
+            [$i, $body, $bodyRawMap] = $this->collectAttachedBlock(
+                $lines,
+                $i,
+                $count,
+                function (string $a, int $at): bool {
+                    $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($at));
+
+                    return IndentationHelper::isBlankLine($a)
+                        || $decision['column'] >= 0 && $decision['owner'] !== null && $decision['reason'] === null
+                        || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
+                        || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $a) === 1;
+                },
+            );
+            $bodyMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $bodyRawMap);
+        } else {
+            $body = [trim($m[2], StringUtil::WHITESPACE_CHARS)];
+            $bodyMap = [$this->sourceLineFor($definitionStart)];
+        }
+        // A nested item owns lines that reach its column; a document or quote body keeps its own band.
+        $descriptionAtDocumentOrQuote = $definitionColumn === 0
+            || str_starts_with(
+                ltrim($this->state->source->sourceLines[$bodyMap[0] ?? -1] ?? '', " \t"),
+                '>',
+            );
+
+        return new DescriptionBodyCollection(
+            lines: $lines,
+            i: $i,
+            count: $count,
+            body: $body,
+            bodyMap: $bodyMap,
+            continuationColumn: $continuationColumn,
+            bodyColumn: $bodyColumn,
+            definitionStart: $definitionStart,
+            definitionColumn: $definitionColumn,
+            authoredDefinition: $authoredDefinition,
+            descriptionAtDocumentOrQuote: $descriptionAtDocumentOrQuote,
+            termColumn: $termColumn,
+            termHasOwnColumn: $termHasOwnColumn,
+        );
+    }
+
+    /**
+     * Collects the description body's lines until one ends it.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     */
+    private function collectDescriptionBody(DescriptionBodyCollection $b): void
+    {
+        // A definition body continues like a list item (SS17):
+        //  - form A: a deeper-indented (>= 3) line folds in, and a blank
+        //    line is tolerated when a later line still continues, so a
+        //    `<dd>` can hold multiple paragraphs;
+        //  - form B: a lone `+` attaches the FOLLOWING flush-left block
+        //    with no indentation (the same continuation marker lists and
+        //    block quotes use);
+        //  - lazy continuation: a flush-left line with no blank before
+        //    it that does not start an interrupting block folds into the
+        //    open paragraph (matching list items, block quotes and djot).
+        // A DEFINITION BODY IS AN INDENTED-BLOCK COLLECTOR LIKE THE
+        // OTHER TWO (markup-carve/carve#956), so it owes the same answer
+        // about an OPEN FENCE that a list item and a block quote already
+        // give. This loop tracked no fence state at all, which is why it
+        // was the last collector still folding a below-column line into
+        // one. Advanced one body ENTRY at a time because `parseBlocks()`
+        // reads an entry as a line - an entry that grew a `"\n"` from a
+        // past-the-column append is still one line to it, so only the
+        // entry's first line decides block structure and the cursor below
+        // stays correct when the last entry is appended to in place.
+        foreach (
+            IndentedContainerCollector::admissions(
+                $b->lines,
+                $b->i,
+                $b->count,
+                $b->bodyColumn,
+            ) as $admission
+        ) {
+            $line = new DescriptionBodyLine($admission['line'], IndentationHelper::getLeadingColumns($admission['line']));
+            if (!$this->admitDescriptionLine($b, $line)) {
+                break;
+            }
+        }
+    }
+
+    /**
+     * Admits one collected line into the body.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     *
+     * @return bool Whether the body continues past the line.
+     */
+    private function admitDescriptionLine(DescriptionBodyCollection $b, DescriptionBodyLine $l): bool
+    {
+        $admitted = $this->descriptionLineReleased($b, $l) ?? $this->foldDescriptionLazyLine($b, $l);
+        if ($admitted !== null) {
+            return $admitted;
+        }
+        $this->restoreAuthoredDescriptionColumn($b, $l);
+        // Form B: `+` pull-left continuation.
+        if ($this->descriptionMarkerAttaches($b->i)) {
+            return $this->attachFlushLeftDescriptionBlock($b);
+        }
+        // COLUMNS, not literal spaces. This counted the leading
+        // SPACES, so a tab never continued the body and a mixed run
+        // continued it only once three spaces had appeared - one
+        // reader of five spellings, and the only one that made the
+        // answer depend on which character an editor inserted
+        // (carve-php#964).
+        $l->indent = min($l->contColumn, $b->continuationColumn + 1);
+        $admitted = $this->admitWrappedAttributeRun($b, $l)
+            ?? $this->admitBelowColumnComment($b, $l)
+            ?? $this->descriptionOpenerGates($b, $l);
+        if ($admitted !== null) {
+            return $admitted;
+        }
+        $this->measurePastColumnLine($b, $l);
+        $admitted = $this->admitLazyItemEntry($b, $l) ?? $this->foldBelowColumnLine($b, $l);
+        if ($admitted !== null) {
+            return $admitted;
+        }
+        if (!IndentationHelper::isBlankLine($l->contLine) && $l->indent >= $b->continuationColumn) {
+            return $this->pushColumnEntry($b, $l);
+        }
+        $admitted = $this->absorbDescriptionBlank($b, $l);
+        if ($admitted !== null) {
+            return $admitted;
+        }
+        $this->advanceDescriptionBodyTracker($b);
+
+        return $this->admitDescriptionTail($b, $l);
+    }
+
+    /**
+     * Ends the body where an outer container reclaims the line.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     *
+     * @return bool|null `true` continues the body, `false` ends it, `null` leaves the line to the next phase.
+     */
+    private function descriptionLineReleased(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?bool
+    {
+        if ($b->reachedTermColumn !== null && !IndentationHelper::isBlankLine($l->contLine) && $l->contColumn < $b->reachedTermColumn) {
+            $b->reachedTermColumn = null;
+        }
+        $l->noteReleased = $b->noteBodyColumn !== null && !IndentationHelper::isBlankLine($l->contLine)
+            && $l->contColumn < $b->noteBodyColumn;
+        if ($b->bodyColumn->classify($l->contLine) === 'content' && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($l->contLine, " \t")) === 1) {
+            $b->noteBodyColumn = $l->contColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN;
+        } elseif ($l->noteReleased) {
+            $b->noteBodyColumn = null;
+        }
+        $priorSourceLine = $this->sourceLineFor($b->i) - 1;
+        if ($priorSourceLine >= 0) {
+            $priorMarker = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $priorSourceLine);
+            if ($priorMarker['column'] >= 0 && $priorMarker['reason'] === null && $priorMarker['stale'] && ($priorMarker['owner']['kind'] ?? null) === 'list') {
+                return false;
+            }
+        }
+        $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($b->i));
+        if ($decision['column'] >= 0) {
+            if (
+                $decision['reason'] === null && $decision['owner'] !== null
+                && $decision['owner']['kind'] !== 'description' && $b->definitionColumn !== null
+                && $decision['owner']['column'] < $b->definitionColumn + $b->continuationColumn
+            ) {
+                return false;
+            }
+        }
+        if (
+            $b->attachedDefinitionListOpen
+            && preg_match('/^[ \t]*\[/', $l->contLine) === 1
+            && $l->contColumn < $b->continuationColumn
+        ) {
+            return false;
+        }
+
+        return null;
+    }
+
+    /**
+     * Folds a lazy or quoted line into the last body entry.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     *
+     * @return bool|null `true` continues the body, `false` ends it, `null` leaves the line to the next phase.
+     */
+    private function foldDescriptionLazyLine(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?bool
+    {
+        $l->lastBody = $b->body === [] ? '' : $b->body[array_key_last($b->body)];
+        if (
+            $b->termHasOwnColumn && $b->termColumn !== null
+            && str_starts_with($l->contLine, BlockGrammar::LAZY_FRAME)
+            && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, BlockGrammar::stripLazyFrame($l->contLine)) === 1
+            && $b->body !== []
+            && $this->bodyEntryStartsParagraph($l->lastBody)
+        ) {
+            $subject = BlockGrammar::stripLazyFrame($l->contLine);
+            $authored = ContainerPrefix::stripQuoteMarkers(
+                $this->state->source->sourceLines[$this->sourceLineFor($b->i)] ?? '',
+            );
+            $column = self::authoredSubjectColumn($authored, $subject);
+            if ($column !== null && $column < $b->termColumn) {
+                $b->body[array_key_last($b->body)] .= "\n" . $subject;
+                $b->i++;
+
+                return true;
+            }
+        }
+        // At the description column, caret text folds into its body.
+        if (
+            $b->body !== [] && preg_match('/^\^ +\S/', $l->contLine) === 1
+            && (str_starts_with($b->body[0], '![') || str_starts_with($b->body[0], '>'))
+        ) {
+            $b->body[array_key_last($b->body)] .= "\n" . $l->contLine;
+            $b->i++;
+
+            return true;
+        }
+        $sourceLine = $this->sourceLineFor($b->i);
+        if (
+            isset($this->state->session->blockQuoteLazySourceLines[$sourceLine])
+            && $b->body !== []
+            && !IndentationHelper::isBlankLine($l->contLine)
+        ) {
+            $b->body[array_key_last($b->body)] .= "\n" . ltrim(BlockGrammar::stripLazyFrame($l->contLine), " \t");
+            $b->i++;
+
+            return true;
+        }
+        $l->authoredLine = $this->state->source->sourceLines[$sourceLine] ?? '';
+        if (ContainerPrefix::quoteContent($l->authoredLine) !== null) {
+            $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+        }
+        if (
+            ContainerPrefix::quoteContent($l->authoredLine) !== null
+            && $b->body !== []
+            && $b->bodyNestedState->fence === null
+            && !IndentationHelper::isBlankLine($l->contLine)
+            && $l->contColumn > 0
+            && $l->contColumn < $b->continuationColumn
+            && !$this->lineOpensBlockForLooseness(ltrim($l->contLine, " \t"), true)
+            && preg_match('/^\|.*\|[ \t]*$/', ltrim($l->contLine, " \t")) !== 1
+            && $this->bodyEntryStartsParagraph($b->body[array_key_last($b->body)])
+        ) {
+            $b->body[array_key_last($b->body)] .= "\n" . ltrim($l->contLine, " \t");
+            $b->i++;
+
+            return true;
+        }
+
+        return null;
+    }
+
+    /**
+     * Restores the authored column a containing item erased.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     */
+    private function restoreAuthoredDescriptionColumn(DescriptionBodyCollection $b, DescriptionBodyLine $l): void
+    {
+        // A containing item may have erased this line's indent while
+        // folding an unmatched run. Read its authored column before
+        // deciding whether a visible opener reaches this body.
+        if (
+            $b->definitionColumn !== null
+            && (str_starts_with($l->contLine, BlockGrammar::LAZY_FRAME)
+                || str_starts_with($l->lastBody, BlockGrammar::LAZY_FRAME)
+                || str_contains($l->lastBody, "\n")
+                || $b->restoredDivLength !== null)
+        ) {
+            $subject = BlockGrammar::stripLazyFrame($l->contLine);
+            $sourceLine = $this->sourceLineFor($b->i);
+            $authored = $this->state->source->sourceLines[$sourceLine] ?? '';
+            $authoredColumn = self::authoredSubjectColumn($authored, $subject);
+            $relativeColumn = $authoredColumn === null ? null : $authoredColumn - $b->definitionColumn;
+            if (
+                $relativeColumn !== null
+                && $relativeColumn >= $b->continuationColumn
+                && ($b->restoredDivLength !== null || !$b->formABlockOpen)
+                && ($b->restoredDivLength !== null
+                    || $this->lineOpensBlockForLooseness($subject, true, invisibleArms: false))
+            ) {
+                $l->contLine = str_repeat(' ', $relativeColumn) . $subject;
+                $l->contColumn = $relativeColumn;
+                if ($b->restoredDivLength !== null && ($this->getFencedBlockParser)()->isDivFenceCloser($subject, $b->restoredDivLength)) {
+                    $b->restoredDivLength = null;
+                } elseif ($b->restoredDivLength === null) {
+                    $b->restoredDivLength = ($this->getFencedBlockParser)()->parseDivFenceOpener($subject)['length'] ?? null;
+                }
+            }
+        }
+    }
+
+    /**
+     * Attaches the flush-left block after a `+` continuation marker.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     *
+     * @return bool Whether the body continues past the block.
+     */
+    private function attachFlushLeftDescriptionBlock(DescriptionBodyCollection $b): bool
+    {
+        $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($b->i), 'definition description');
+        $b->i++;
+        if (!$this->continuationFollowerIsEligible($b->i)) {
+            return false;
+        }
+        $attachedItemColumn = 0;
+        $attachedReferenceSeen = false;
+        $quotedAttached = str_starts_with($this->state->source->sourceLines[$this->sourceLineFor($b->i)] ?? '', '>');
+        [$b->i, $attached, $attachedRawLineMap] = $this->attachedFlushLeftBlock(
+            $b->lines,
+            $b->i,
+            $b->count,
+            function (string $a) use (&$attachedItemColumn, &$attachedReferenceSeen, $quotedAttached): bool {
+                if (
+                    preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
+                    || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $a) === 1
+                ) {
+                    return true;
+                }
+                if ($quotedAttached) {
+                    return false;
+                }
+                if ($attachedItemColumn === 0 && preg_match('/^([ \t]*)(?:[-*] |\d+[.)] )/', $a, $marker) === 1) {
+                    $attachedItemColumn = IndentationHelper::getLeadingColumns($marker[1]) + strlen($marker[0]) - strlen($marker[1]);
+                }
+                $definition = $this->isReferenceDefinitionLine(ltrim($a, " \t"))
+                    || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($a, " \t")) === 1;
+                if (
+                    $attachedItemColumn > 0 && $definition
+                    && IndentationHelper::getLeadingColumns($a, $attachedItemColumn) >= $attachedItemColumn
+                ) {
+                    $attachedReferenceSeen = true;
+
+                    return false;
+                }
+                if (
+                    $attachedReferenceSeen && ($definition
+                    || (str_starts_with(ltrim($a, " \t"), '[')
+                        && IndentationHelper::getLeadingColumns($a, $attachedItemColumn) < $attachedItemColumn))
+                ) {
+                    return true;
+                }
+
+                return false;
+            },
+        );
+        $b->attachedDefinitionListOpen = $attachedReferenceSeen;
+        $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
+        if ($attached) {
+            $b->body[] = '';
+            $b->bodyMap[] = -1;
+            foreach ($attached as $attachedIndex => $a) {
+                $b->body[] = $a;
+                $b->bodyMap[] = $attachedLineMap[$attachedIndex];
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Takes a wrapped attribute opened at the body column whole.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     *
+     * @return bool|null `true` continues the body, `false` ends it, `null` leaves the line to the next phase.
+     */
+    private function admitWrappedAttributeRun(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?bool
+    {
+        // A wrapped attribute opened at the body column is one construct: its later lines sit at any column (carve#3421).
+        $wrappedRun = $l->contColumn === $b->continuationColumn && $b->bodyState->fence === null
+            ? $this->wrappedAttributeRunLength($b->lines, $b->i, $b->count)
+            : null;
+        if ($wrappedRun !== null) {
+            for ($end = $b->i + $wrappedRun; $b->i < $end; $b->i++) {
+                $b->body[] = IndentationHelper::getLeadingColumns($b->lines[$b->i], $b->continuationColumn + 1) >= $b->continuationColumn
+                    ? IndentationHelper::stripLeadingColumns($b->lines[$b->i], $b->continuationColumn)
+                    : ltrim($b->lines[$b->i], " \t");
+                $b->bodyMap[] = $this->sourceLineFor($b->i);
+            }
+
+            return true;
+        }
+
+        return null;
+    }
+
+    /**
+     * Ends a lead note, or keeps a comment below the body column.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     *
+     * @return bool|null `true` continues the body, `false` ends it, `null` leaves the line to the next phase.
+     */
+    private function admitBelowColumnComment(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?bool
+    {
+        if (
+            $l->indent === 0
+            && !IndentationHelper::isBlankLine($l->contLine)
+            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) === 1
+            && !$b->nestedLazyParagraph
+            && (
+                count($b->body) === 1
+                || IndentationHelper::getLeadingColumns(
+                    $this->state->source->sourceLines[$b->bodyMap[1] ?? -1] ?? '',
+                ) >= $b->continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+            )
+        ) {
+            return false;
+        }
+        $commentText = ltrim($l->contLine, " \t");
+        if (IndentationHelper::isBlankLine($l->contLine)) {
+            $b->retainedBelowComment = false;
+        } elseif ($l->indent < $b->continuationColumn && $this->isCommentLineOrFence($commentText)) {
+            for ($k = count($b->body); $b->bodyStateCursor < $k; $b->bodyStateCursor++) {
+                $b->bodyState = $this->advanceTrailingStateWithFenceLookahead($b->bodyState, $b->body[$b->bodyStateCursor], $b->body, $b->bodyStateCursor, true);
+            }
+            if ($b->bodyState->openParagraph || $b->retainedBelowComment) {
+                $holder = new Document();
+                $consumed = $this->tryParseFencedComment($holder, $b->lines, $b->i)
+                    ?? $this->tryParseComment($holder, $b->lines, $b->i) ?? 1;
+                if ($consumed > 1 && $l->indent === 0) {
+                    return false;
+                }
+                if ($consumed > 1 && $l->indent > 0) {
+                    for ($end = $b->i + $consumed; $b->i < $end; $b->i++) {
+                        $b->body[] = $this->keptCommentDelimiter($b->lines[$b->i]);
+                        $b->bodyMap[] = $this->sourceLineFor($b->i);
+                    }
+                    $b->bodyState->openParagraph = false;
+                    $b->bodyStateCursor = count($b->body);
+                    $b->retainedBelowComment = true;
+
+                    return true;
+                }
+                for ($end = $b->i + $consumed; $b->i < $end; $b->i++) {
+                    $b->body[] = $consumed > 1
+                        ? $this->keptCommentDelimiter($b->lines[$b->i]) : ltrim($b->lines[$b->i], " \t");
+                    $b->bodyMap[] = $this->sourceLineFor($b->i);
+                }
+                $b->bodyState->openParagraph = false;
+                $b->bodyStateCursor = count($b->body);
+                $b->retainedBelowComment = true;
+
+                return true;
+            }
+        } elseif ($b->retainedBelowComment) {
+            $b->retainedBelowComment = false;
+            $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($commentText)
+                ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($commentText);
+            if (!$this->startsInterruptingBlock($commentText, $b->lines, $b->i) || $fence !== null) {
+                $b->body[] = $commentText;
+                $b->bodyMap[] = $this->sourceLineFor($b->i);
+                $b->bodyState = $this->advanceTrailingStateWithFenceLookahead($b->bodyState, $commentText, $b->lines, $b->i, true);
+                $b->bodyStateCursor = count($b->body);
+                $b->i++;
+
+                return true;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Answers the openers that end, fold or keep the line before it is measured.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     *
+     * @return bool|null `true` continues the body, `false` ends it, `null` leaves the line to the next phase.
+     */
+    private function descriptionOpenerGates(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?bool
+    {
+        // Ordinary text past the minimum may continue the open
+        // paragraph, but carve#1729 gives a recognized block opener
+        // an authored local base. Test the opener before joining the
+        // physical line to the previous paragraph entry, so
+        //
+        //     :: t
+        //     :  body
+        //         > q
+        //
+        // gives `<dd>body\n&gt; q</dd>` rather than a nested quote.
+        // The alternative reading makes indentation depth mean two
+        // different things one line apart: lazy continuation already
+        // governs the line above, folding it into the same
+        // paragraph, and a stray four-space indent would silently
+        // become a block quote.
+        //
+        // The line is APPENDED TO THE PREVIOUS BODY ENTRY rather
+        // than pushed as a new one. `parseBlocks()` reads each entry
+        // as a line, so a `>` at the front of its own entry opens a
+        // quote however the entry was indented; inside an entry it
+        // is inline content, which is what a paragraph continuation
+        // is. An entry holding newlines is the shape a list item
+        // already hands over.
+        //
+        // FORM A still works, because it goes through the blank-line
+        // branch below first: that pushes an empty entry, the test
+        // here sees it, and the next indented line opens a real
+        // block. The blank is what separates the two readings.
+        //
+        // AN OPEN PARAGRAPH, not merely a non-empty entry. If the
+        // body's own first line OPENS A BLOCK - `:  - x`, `:  ```` -
+        // then there is no open paragraph for a past-the-column line
+        // to continue, and the line belongs to that block's own
+        // reading. Testing only for non-emptiness turned a nested
+        // list into literal text.
+        //
+        // A LIST MARKER IS ASKED FOR SEPARATELY, because
+        // `startsNewBlock()` answers the INTERRUPTION question and
+        // PART 9 §10 says a bullet or ordered marker never
+        // interrupts a paragraph - so it reports false for `- x`,
+        // which does open a block when it is the body's first line.
+        $l->lastBodyKey = $b->body === [] ? null : array_key_last($b->body);
+        if ($b->lastOpenerKey !== $l->lastBodyKey) {
+            $b->lastOpenerKey = $l->lastBodyKey;
+            $b->lastOpenerIsParagraph = null;
+        }
+        // A DEFINITION PAST THE BODY'S COLUMN IS STILL A DEFINITION.
+        // PART 0's `CARVE-P0-020` AT OR PAST MEANS THE DEEPEST
+        // COLUMN THE LINE REACHES (markup-carve/carve#1896) reads
+        // the test against the innermost open container the line
+        // REACHES, and the grammar's DEFINITION BODIES FOLLOW THE
+        // SAME CONTAINER REACH RULE (markup-carve/carve#956) makes
+        // this the third such container - so past its column what
+        // is left is the body's own indentation, and §10 I5 has the
+        // definition interrupt the paragraph rather than fold into
+        // it (carve-php#1870). `lineOpensBlockForLooseness()` cannot
+        // answer it: it is asked with `invisibleArms: false` here,
+        // which is what keeps a definition BELOW the column folding
+        // as §24 C3 requires.
+        $l->trimmedCont = ltrim($l->contLine, " \t");
+        if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $l->trimmedCont) === 1) {
+            $currentColumn = self::authoredSubjectColumn(
+                ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($b->i)] ?? ''),
+                rtrim($l->trimmedCont, " \t"),
+            );
+            $definitionBase = self::authoredSubjectColumn(
+                ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($b->definitionStart)] ?? ''),
+                trim($b->lines[$b->definitionStart], " \t"),
+            );
+            if ($definitionBase !== null && $currentColumn === $definitionBase) {
+                $b->lines[$b->i] = $l->trimmedCont;
+
+                return false;
+            }
+        }
+        $l->marker = ($this->getListParser)()->parseListItemMarker($l->trimmedCont);
+        if ($l->marker !== null) {
+            $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+            if ($l->contColumn >= $b->continuationColumn && $b->bodyNestedState->fence === null && $b->bodyFrames->releaseDescriptionsAt($l->contColumn)) {
+                // CARVE-P2-017: the inner body cannot withhold this outer column.
+                $l->releasedMarkerEntry = true;
+                $b->body[] = '';
+                $b->bodyMap[] = -1;
+                $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+            }
+        }
+        $markerColumn = $l->marker === null || $b->definitionColumn === null
+            ? null : self::authoredSubjectColumn($l->authoredLine, $l->trimmedCont);
+        if (
+            $markerColumn !== null
+            && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers($b->authoredDefinition)) > 0
+            && $markerColumn >= $b->definitionColumn
+            && $markerColumn < $b->definitionColumn + $b->continuationColumn
+            && !$b->bodyNestedState->quoteParagraph
+            && !str_starts_with($b->lead(), '>')
+        ) {
+            // CARVE-P2-017: a reached outer column owns this marker.
+            return false;
+        }
+        // These openers need the body's column unless an item inside it claims the line.
+        $l->belowDescriptionTextOpener = preg_match(
+            '/^(?:#{1,6}(?:[ \t]|$)|>|\||(?:[-*_][ \t]*){3,}$)/',
+            $l->trimmedCont,
+        ) === 1;
+        if (
+            $l->indent > $b->continuationColumn
+            && $b->definitionColumn !== null && $b->definitionColumn > 0
+            && !$b->formABlockOpen
+            && !$this->lineOpensBlockForLooseness($b->lead(), true)
+            && ($this->getListParser)()->parseListItemMarker($l->trimmedCont) !== null
+            && $b->body !== []
+            && trim($b->body[array_key_last($b->body)]) !== ''
+            && $this->bodyEntryStartsParagraph($b->body[array_key_last($b->body)])
+            && $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy) === 0
+        ) {
+            $b->body[array_key_last($b->body)] .= "\n" . $l->trimmedCont;
+            $b->i++;
+
+            return true;
+        }
+        if (
+            $l->indent === 0 && !$b->bodyState->openParagraph
+            && ReferenceDefinitionExtractor::isDefinitionHead($l->trimmedCont)
+            && $this->isReferenceDefinitionLine($l->trimmedCont)
+        ) {
+            return false;
+        }
+        // A COMMENT INSIDE A SPAN THE BODY ALREADY HOLDS IS NOT "A
+        // COMMENT BELOW THE COLUMN" (markup-carve/carve#2488).
+        // Section 28 pairs the delimiters and indentation is part of
+        // neither, so ending the body here split the span: the body's
+        // own parse then read an opener with no closer, and the
+        // payload reached the page while both delimiters did not.
+        // {@see self::linesLeaveACommentSpanOpen()}
+        if (
+            $l->indent < $b->continuationColumn
+            && !IndentationHelper::isBlankLine($l->contLine)
+            && $this->isCommentLineOrFence($l->trimmedCont)
+            && $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan)
+        ) {
+            $b->body[] = $this->keptCommentDelimiter($l->contLine);
+            $b->bodyMap[] = $this->sourceLineFor($b->i);
+            $b->i++;
+
+            return true;
+        }
+
+        return null;
+    }
+
+    /**
+     * Measures which past-the-column constructs the line opens.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     */
+    private function measurePastColumnLine(DescriptionBodyCollection $b, DescriptionBodyLine $l): void
+    {
+        $l->termPastTheColumn = false;
+        if (
+            $l->indent > $b->continuationColumn
+            && $b->reachedTermColumn === null
+            && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $l->trimmedCont) === 1
+            && $this->bodyEntryStartsParagraph($b->body[0])
+            && ($b->noteBodyColumn === null || $l->contColumn < $b->noteBodyColumn)
+        ) {
+            $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+            $l->termPastTheColumn = $b->bodyNestedState->nestedColumn === 0
+                && !$b->bodyNestedState->quoteParagraph
+                && $b->bodyNestedState->fence === null
+                && !$b->bodyNestedState->inDiv
+                && !$b->bodyNestedState->absorbingFence
+                && (str_contains($b->body[0], "\n")
+                    || ($this->getListParser)()->parseListItemMarker(ltrim($l->lastBody, " \t")) !== null);
+        }
+        $l->definitionPastTheColumn = $l->indent > $b->continuationColumn
+            && ($l->termPastTheColumn
+                || (ReferenceDefinitionExtractor::isDefinitionHead($l->trimmedCont)
+                    && $this->isReferenceDefinitionLine($l->trimmedCont)))
+            && (!$this->bodyTermIsOpen($b->body, $b->termScan, $b->lines, $b->i)
+                || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $b->lead()) === 1);
+        // AN ATTRIBUTE BLOCK PAST THE COLUMN IS THE OTHER HALF OF
+        // THE SAME §10 I5 CLAUSE (markup-carve/carve#1911). A
+        // visible opener already reaches the push branch, because
+        // `lineOpensBlockForLooseness()` reports it even with
+        // `invisibleArms: false`; a comment reaches it through that
+        // parameter's own `%%` arm; and carve-php#1873 sent the
+        // definition there. An attribute line was the one spelling
+        // left folding into the paragraph one column past the
+        // body's own, while the same line AT the column ended it
+        // (corpus `444-*-7` against `444-*-8`).
+        $l->attributePastTheColumn = $l->indent > $b->continuationColumn
+            && $this->isBlockAttributeLine($l->trimmedCont);
+        $l->paragraphFence = ($this->getFencedBlockParser)()->parseRawBlockOpener($l->trimmedCont)
+            ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($l->trimmedCont);
+        $l->paragraphFenceHasNoCloser = $l->paragraphFence !== null
+            && !$this->descriptionBodyCloserAhead(
+                $b->lines,
+                $b->i,
+                $l->paragraphFence,
+                $b->continuationColumn,
+                $l->contColumn,
+            );
+    }
+
+    /**
+     * Keeps marker lines a list-led or note-led body owns as their own entries.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     *
+     * @return bool|null `true` continues the body, `false` ends it, `null` leaves the line to the next phase.
+     */
+    private function admitLazyItemEntry(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?bool
+    {
+        if (
+            $b->continuationColumn > BlockGrammar::DEFINITION_MARKER_WIDTH + 1
+            && $l->indent === $b->continuationColumn - 1
+            && ($this->getListParser)()->parseListItemMarker($b->lead()) !== null
+            && ($this->getListParser)()->parseListItemMarker($l->trimmedCont) !== null
+        ) {
+            $b->body[] = $l->trimmedCont;
+            $b->bodyMap[] = $this->sourceLineFor($b->i);
+            $b->i++;
+
+            return true;
+        }
+        ($this->advanceNestedLeadFenceStateCallback)($b->nestedLeadFence, $b->body);
+        if (
+            (
+                ($l->indent === 0 && $l->paragraphFenceHasNoCloser && $b->nestedLeadFence->length === 0
+                    && !$b->bodyAtColumnBlock)
+                || ($l->indent > 0 && $l->indent < $b->continuationColumn
+                    && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) !== 1
+                    && (($this->getListParser)()->parseListItemMarker($l->trimmedCont) !== null
+                        || $this->isBlockAttributeLine($l->trimmedCont)
+                        || (str_starts_with($b->lead(), '>')
+                            && $this->isReferenceDefinitionLine($l->trimmedCont))))
+            )
+            && (($this->getListParser)()->parseListItemMarker($b->lead()) !== null
+                || ($l->lastBodyKey !== null
+                    && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) === 1
+                    && ($this->getListParser)()->parseListItemMarker($b->body[$l->lastBodyKey]) !== null)
+                || str_starts_with($b->lead(), '>'))
+        ) {
+            $b->body[] = BlockGrammar::LAZY_FRAME . $l->trimmedCont;
+            $b->bodyMap[] = $this->sourceLineFor($b->i);
+            $b->bodyLazy[count($b->body) - 1] = true;
+            $b->i++;
+
+            return true;
+        }
+        if (
+            $l->indent > $b->continuationColumn
+            && $l->contColumn < $b->continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) === 1
+            && ($this->getListParser)()->parseListItemMarker($l->trimmedCont) !== null
+        ) {
+            $b->body[] = $l->trimmedCont;
+            $b->bodyMap[] = $this->sourceLineFor($b->i);
+            $b->nestedLazyParagraph = true;
+            $b->i++;
+
+            return true;
+        }
+        if (
+            $l->indent > 0
+            && $l->indent < $b->continuationColumn
+            && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $b->lead()) === 1
+            && ($this->getListParser)()->parseListItemMarker($l->trimmedCont) !== null
+        ) {
+            $b->body[] = $l->trimmedCont;
+            $b->bodyMap[] = $this->sourceLineFor($b->i);
+            $b->i++;
+
+            return true;
+        }
+        if (
+            preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) === 1
+            && $l->indent >= $b->continuationColumn
+            && $l->contColumn < $b->continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+            && ($this->isReferenceDefinitionLine($l->trimmedCont) || $this->isBlockAttributeLine($l->trimmedCont))
+        ) {
+            $b->detachedFootnote = $b->body;
+            $b->detachedFootnoteMap = $b->bodyMap;
+            $b->body = [''];
+            $b->bodyMap = [$b->bodyMap[0]];
+            // Keep the line in the dd after detaching the marker-line note.
+        }
+
+        return null;
+    }
+
+    /**
+     * Folds a below-column or at-column line into the open paragraph entry.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     *
+     * @return bool|null `true` continues the body, `false` ends it, `null` leaves the line to the next phase.
+     */
+    private function foldBelowColumnLine(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?bool
+    {
+        $belowColumnMarker = $l->indent < $b->continuationColumn
+            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) !== 1
+            && (($this->getListParser)()->parseListItemMarker($l->trimmedCont) !== null
+                || ReferenceDefinitionExtractor::isDefinitionHead($l->trimmedCont)
+                || $this->isBlockAttributeLine($l->trimmedCont));
+        if (
+            !IndentationHelper::isBlankLine($l->contLine)
+            && $l->indent > 0
+            && ($l->indent !== $b->continuationColumn || $l->paragraphFenceHasNoCloser)
+            && !$l->definitionPastTheColumn
+            && !$l->attributePastTheColumn
+            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) !== 1
+            && !$b->formABlockOpen
+            && $l->lastBodyKey !== null
+            && ($b->body[$l->lastBodyKey] ?? '') !== ''
+            && ($b->lastOpenerIsParagraph ??= $this->bodyEntryStartsParagraph($b->body[$l->lastBodyKey]))
+            // A nested marker keeps its own entry; a later fence folds into its item.
+            && ($this->getListParser)()->parseListItemMarker(ltrim($b->body[$l->lastBodyKey], " \t")) === null
+            && ($belowColumnMarker || $l->paragraphFenceHasNoCloser
+                || ($b->descriptionAtDocumentOrQuote
+                    && $l->indent < $b->continuationColumn && $l->belowDescriptionTextOpener)
+                || !$this->lineOpensBlockForLooseness($l->trimmedCont, true, invisibleArms: false))
+        ) {
+            $b->body[$l->lastBodyKey] .= "\n" . $l->trimmedCont;
+            $b->i++;
+
+            return true;
+        }
+        // A marker at the column folds into the body's open
+        // paragraph (§10 I2) and opens no item, so it joins that
+        // entry and leaves the next line measured against the body.
+        if (
+            $l->indent === $b->continuationColumn
+            && $l->lastBodyKey !== null
+            && ($b->body[$l->lastBodyKey] ?? '') !== ''
+            && !isset($b->bodyDefinition[$l->lastBodyKey])
+            && ($this->getListParser)()->parseListItemMarker($l->trimmedCont) !== null
+            && !$this->bodyTermIsOpen($b->body, $b->termScan, $b->lines, $b->i)
+            && $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy) === 0
+            && $b->bodyNestedState->openParagraph
+            && $b->bodyNestedState->fence === null
+            && !$b->bodyNestedState->hasOpenDiv()
+            && !$b->bodyNestedState->absorbingFence
+            && !$b->bodyNestedState->inTable
+            && !$b->bodyNestedState->nestedListSeen
+        ) {
+            $b->body[$l->lastBodyKey] .= "\n" . $l->trimmedCont;
+            $b->i++;
+
+            return true;
+        }
+
+        return null;
+    }
+
+    /**
+     * Pushes a line at or past the body column as a body entry.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     *
+     * @return bool Whether the body continues past the line.
+     */
+    private function pushColumnEntry(DescriptionBodyCollection $b, DescriptionBodyLine $l): bool
+    {
+        $this->recordBodyFenceSource($b, $l);
+        $entry = $this->columnEntry($b, $l);
+        if (
+            count($b->body) === 1
+            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->body[0]) === 1
+            && $l->indent > $b->continuationColumn
+            && $l->contColumn < $b->continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+            && ReferenceDefinitionExtractor::isDefinitionHead($l->trimmedCont)
+            && !isset($b->lines[$b->i + 1])
+        ) {
+            $b->body[] = substr($entry, 0, strspn($entry, " \t")) . '\\' . ltrim($entry, " \t");
+            $b->bodyMap[] = $this->sourceLineFor($b->i);
+            $b->i++;
+
+            return true;
+        }
+        $entry = $this->rewriteColumnEntry($b, $l, $entry);
+        $this->appendColumnEntry($b, $l, $entry);
+
+        return true;
+    }
+
+    /**
+     * Records the block state a pushed entry opens.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     */
+    private function recordBodyFenceSource(DescriptionBodyCollection $b, DescriptionBodyLine $l): void
+    {
+        $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+        $b->formABlockOpen = $b->formABlockOpen
+            || $b->nestedLeadFence->length > 0
+            || ($this->getFencedBlockParser)()->parseCodeFenceOpener($b->lead()) !== null
+            || ($this->getFencedBlockParser)()->parseRawBlockOpener($b->lead()) !== null
+            || $this->lineOpensBlockForLooseness($l->trimmedCont, true)
+            || ($this->getListParser)()->parseListItemMarker($l->trimmedCont) !== null
+            || ($this->getFencedBlockParser)()->parseCodeFenceOpener($l->trimmedCont) !== null
+            || ($this->getFencedBlockParser)()->parseRawBlockOpener($l->trimmedCont) !== null;
+        // 01-layout.ebnf keeps the source closer decision with its opener.
+        if ($l->paragraphFence !== null) {
+            $b->bodyFenceSource[count($b->body)] = [
+                'index' => $b->i,
+                'opener' => $l->paragraphFence,
+                'columns' => $l->contColumn,
+                'nested' => $b->bodyNestedState->nestedColumn > 0 || $b->bodyAtColumnBlock
+                    || ($b->nestedDescriptionBodyColumn !== null
+                        && $l->contColumn >= $b->continuationColumn + $b->nestedDescriptionBodyColumn)
+                    || ($this->getListParser)()->parseListItemMarker($b->lead()) !== null,
+                'eligible' => !$l->paragraphFenceHasNoCloser,
+                'paragraph' => $l->lastBodyKey !== null && ($b->body[$l->lastBodyKey] ?? '') !== ''
+                    && ($b->lastOpenerIsParagraph ??= $this->bodyEntryStartsParagraph($b->body[$l->lastBodyKey])),
+            ];
+        }
+        if ($b->bodyFrames->releasedListLine === $b->i) {
+            $b->bodyFrames->releasedBlockBase = $l->contColumn - $b->continuationColumn;
+            $b->bodyFrames->releasedListLine = null;
+        }
+        if (
+            $l->noteReleased && $b->i > 0 && IndentationHelper::isBlankLine($b->lines[$b->i - 1])
+            && $this->lineOpensBlockForLooseness($l->trimmedCont, true)
+        ) {
+            // DEFINITION EXTENT: the released note no longer owns this opener.
+            $b->bodyFrames->releasedBlockBase = $l->contColumn - $b->continuationColumn;
+        }
+    }
+
+    /**
+     * Strips the body column from a pushed line.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     */
+    private function columnEntry(DescriptionBodyCollection $b, DescriptionBodyLine $l): string
+    {
+        $stripColumns = $b->continuationColumn;
+        if (
+            $b->bodyFrames->releasedBlockBase !== null
+            && ($l->contColumn >= $b->continuationColumn + $b->bodyFrames->releasedBlockBase || $b->bodyNestedState->fence !== null)
+        ) {
+            $stripColumns += $b->bodyFrames->releasedBlockBase;
+        }
+        $entry = (new IndentedContainerColumn($stripColumns))->strip($l->contLine);
+        if (
+            preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) === 1
+            && $l->contColumn < $b->continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+            && $this->lineOpensBlockForLooseness($l->trimmedCont, true)
+        ) {
+            $entry = $l->trimmedCont;
+        }
+
+        return $entry;
+    }
+
+    /**
+     * Rewrites the leading columns of a pushed entry.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     * @param string $entry
+     */
+    private function rewriteColumnEntry(DescriptionBodyCollection $b, DescriptionBodyLine $l, string $entry): string
+    {
+        $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+        $leadMarker = ($this->getListParser)()->parseListItemMarker($b->lead());
+        if (
+            $leadMarker !== null
+            && $b->bodyNestedState->nestedColumn > 0
+            && IndentationHelper::getLeadingColumns($entry) < $b->bodyNestedState->nestedColumn
+            && !$this->isCommentLineOrFence(ltrim($entry, " \t"))
+            && $this->startsInterruptingBlock(ltrim($entry, " \t"), $b->lines, $b->i)
+        ) {
+            $b->nestedLazyParagraph = true;
+        }
+        if (
+            str_starts_with($b->lead(), '>')
+            && IndentationHelper::getLeadingColumns($entry) > 0
+            && !$this->isCommentLineOrFence(ltrim($entry, " \t"))
+            && $this->startsInterruptingBlock(ltrim($entry, " \t"), $b->lines, $b->i)
+        ) {
+            $b->nestedLazyParagraph = true;
+        }
+        if (
+            str_starts_with($b->lead(), ':::')
+            && $b->bodyNestedState->hasOpenDiv()
+            && $b->bodyNestedState->nestedColumn === 0
+            && $this->startsInterruptingBlock(ltrim($entry, " \t"), $b->lines, $b->i)
+        ) {
+            $entry = ltrim($entry, " \t");
+        }
+        $nestedColumn = $l->definitionPastTheColumn
+            ? $this->descriptionBodyNestedColumn(
+                $b->bodyNestedState,
+                $b->bodyNestedCursor,
+                $b->body,
+                $b->bodyLazy,
+            )
+            : 0;
+        // NOT UNDER AN OPAQUE BLOCK. Inside a code fence or a
+        // div the line is verbatim content and its indentation
+        // is part of it, so nothing here may read it as a
+        // definition. The nested column cannot say so on its
+        // own - a fence opens no content column - and without
+        // this the erasure below ate a leading space out of a
+        // code block.
+        if (
+            $l->definitionPastTheColumn
+            && $b->bodyNestedState->fence === null
+            && !$b->bodyNestedState->inDiv
+            && !$b->bodyNestedState->absorbingFence
+        ) {
+            // §10 I5 HAS IT INTERRUPT WHATEVER PARAGRAPH IS
+            // OPEN, so the body carries no open paragraph over
+            // this entry whichever container the definition
+            // registered against. Without this a nested item
+            // swallowed the flush-left line below the entry,
+            // because the tracker reports the item's own state
+            // and the item is still collecting (carve-php#1872).
+            $b->bodyDefinition[count($b->body)] = true;
+            // AND THE RESIDUAL COLUMN GOES WITH IT, but only
+            // where the line reaches no container open INSIDE
+            // the body. `CARVE-P0-020` answers the definition
+            // against the innermost open container the line
+            // REACHES: below that container's column the line
+            // is the body's, and the indentation left after the
+            // body's own column is the body's indentation, so
+            // the entry has to arrive at the body's column or
+            // the nested container collects it as prose. At or
+            // past that column the line is the container's own
+            // and its collector reads it there.
+            // MEASURED ON THE ENTRY, because `$l->indent` is
+            // capped one past the body's own column and cannot
+            // count further in.
+            $ownerColumn = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $b->lead()) === 1
+                ? 2 * BlockGrammar::DEFINITION_MARKER_WIDTH
+                : $nestedColumn;
+            if (
+                !$l->termPastTheColumn
+                && ($ownerColumn === 0 || IndentationHelper::getLeadingColumns($entry, $ownerColumn) < $ownerColumn)
+            ) {
+                $entry = ltrim($entry, " \t");
+            }
+        }
+        $quotedContinuation = str_starts_with($b->lead(), '>')
+            && str_starts_with($l->trimmedCont, '>')
+            && !str_starts_with(ltrim(substr($l->trimmedCont, 1), " \t"), '%%');
+        $closesParagraphAtColumn = preg_match('/^#{1,6} .+$/', $l->trimmedCont) === 1
+            || preg_match('/^([-*_])\1{2,}[ \t]*$/', $l->trimmedCont) === 1
+            || preg_match('/^\|.*\|[ \t]*$/', $l->trimmedCont) === 1
+            || ReferenceDefinitionExtractor::isDefinitionHead($l->trimmedCont)
+            || $this->isBlockAttributeLine($l->trimmedCont)
+            || $this->isCommentLineOrFence($l->trimmedCont)
+            || (str_starts_with($l->trimmedCont, '>')
+                && str_starts_with(ltrim(substr($l->trimmedCont, 1), " \t"), '%%'));
+        if (
+            $l->indent === $b->continuationColumn
+            && !$quotedContinuation
+            && $closesParagraphAtColumn
+        ) {
+            $b->bodyDefinition[count($b->body)] = true;
+            $b->nestedLazyParagraph = false;
+            $b->bodyAtColumnBlock = true;
+        }
+        if (
+            preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $b->lead()) === 1
+            && IndentationHelper::getLeadingColumns($entry) === 1
+            && preg_match('/^([-*_])\1{2,}[ \t]*$/', $l->trimmedCont) === 1
+        ) {
+            $entry = ltrim($entry, " \t");
+        }
+        if (
+            $l->definitionPastTheColumn
+            || ($l->attributePastTheColumn && !str_starts_with($b->lead(), '>'))
+            || ($l->indent > $b->continuationColumn
+                && !$quotedContinuation
+                && $this->lineOpensBlockForLooseness($l->trimmedCont, true))
+        ) {
+            $b->bodyAtColumnBlock = true;
+        }
+        if ($l->attributePastTheColumn && str_starts_with($b->lead(), '>')) {
+            $b->nestedLazyParagraph = true;
+        }
+
+        return $entry;
+    }
+
+    /**
+     * Appends a pushed entry and the nested frames it opens.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     * @param string $entry
+     */
+    private function appendColumnEntry(DescriptionBodyCollection $b, DescriptionBodyLine $l, string $entry): void
+    {
+        $entryColumn = $entry === $l->trimmedCont ? 0 : max(0, $l->contColumn - $b->continuationColumn);
+        if (
+            $b->nestedDescriptionBodyColumn !== null && $entryColumn < $b->nestedDescriptionBodyColumn
+            && ($this->startsInterruptingBlock($l->trimmedCont, $b->lines, $b->i)
+                || IndentationHelper::isBlankLine($b->body[count($b->body) - 1] ?? ''))
+        ) {
+            $b->nestedDescriptionBodyColumn = null;
+        }
+        if (
+            $b->bodyState->fence === null
+            && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $entry, $nestedDefinitionMatch) === 1
+        ) {
+            $b->nestedDescriptionBodyColumn = $entryColumn + BlockGrammar::DEFINITION_MARKER_WIDTH
+                + strlen($nestedDefinitionMatch[1]);
+        }
+        $entryMarker = $l->marker;
+        $reachesOuterBody = false;
+        $opensBlock = false;
+        if ($b->bodyFrames->hasListAbove($entryColumn)) {
+            $opensBlock = $this->startsInterruptingBlock($l->trimmedCont, $b->lines, $b->i);
+            if ($opensBlock || $entryMarker !== null) {
+                // CARVE-P2-017: leave each nested body whose content column the opener misses.
+                $b->bodyFrames->releaseListsAt($entryColumn);
+                $reachesOuterBody = true;
+            }
+        }
+        if ($reachesOuterBody && $opensBlock) {
+            $entry = ltrim($entry, " \t");
+        }
+        if ($entryMarker !== null) {
+            $b->bodyFrames->addListContentColumn($entryColumn + $this->continuations->listMarkerWidth($l->trimmedCont, $entryMarker));
+        }
+        if ($l->termPastTheColumn && $l->definitionPastTheColumn) {
+            // CARVE-P2-017: end the folded paragraph before parsing the reached term.
+            $b->body[] = '';
+            $b->bodyMap[] = -1;
+            $b->syntheticTermColumns[$this->sourceLineFor($b->i)] = $l->contColumn;
+            $b->reachedTermColumn = $l->contColumn;
+        }
+        $b->body[] = $entry;
+        if ($l->releasedMarkerEntry) {
+            $b->preReleaseListEntries[$this->sourceLineFor($b->i)] = $entry;
+            $l->releasedMarkerEntry = false;
+        }
+        $b->bodyMap[] = $this->sourceLineFor($b->i);
+        if (
+            $b->bodyNestedState->fence === null
+            && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $l->trimmedCont, $descriptionMatch) === 1
+        ) {
+            $b->bodyFrames->addDescriptionContentColumn($l->contColumn + 1 + strlen($descriptionMatch[1]));
+        }
+        $b->i++;
+    }
+
+    /**
+     * Keeps a blank line that a later body line continues past.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     *
+     * @return bool|null `true` continues the body, `false` ends it, `null` leaves the line to the next phase.
+     */
+    private function absorbDescriptionBlank(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?bool
+    {
+        // Blank line: absorb as a paragraph separator ONLY when a
+        // later line still continues the definition; otherwise leave
+        // it for the entry separator / outer block stream.
+        if (IndentationHelper::isBlankLine($l->contLine)) {
+            $look = $b->i;
+            while ($look < $b->count && IndentationHelper::isBlankLine($b->lines[$look])) {
+                $look++;
+            }
+            // Two blanks end the description even when its last
+            // block is an unfinished fence (carve-php#2681).
+            if ($look - $b->i > 1) {
+                return false;
+            }
+            $after = $b->lines[$look] ?? null;
+            // The SECOND spelling of the same rule, with a different
+            // job: this one decides whether the blank is an internal
+            // paragraph break or the end of the body. It has to read
+            // the column the same way, or a tab-indented paragraph
+            // is unreachable through a blank line while reachable
+            // without one.
+            $afterIndent = $after === null ? 0 : IndentationHelper::getLeadingColumns($after, $b->continuationColumn);
+            if ($after !== null && !IndentationHelper::isBlankLine($after) && $afterIndent >= $b->continuationColumn) {
+                $afterColumn = IndentationHelper::getLeadingColumns($after);
+                $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+                $b->bodyFrames->releaseAfterBlank(
+                    $afterColumn,
+                    $b->continuationColumn,
+                    $b->noteBodyColumn,
+                    $b->bodyNestedState->fence !== null,
+                    $look,
+                );
+                $b->formABlockOpen = $b->bodyNestedState->fence !== null;
+                for (; $b->i < $look; $b->i++) {
+                    $b->body[] = $this->blankLineResidue($b->lines[$b->i], $b->continuationColumn, $b->bodyNestedState);
+                    $b->bodyMap[] = $this->sourceLineFor($b->i);
+                }
+
+                return true;
+            }
+        }
+
+        // A new term/definition marker ends this definition (the
+        // outer loop picks it up).
+        if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $l->contLine) || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $l->contLine)) {
+            return false;
+        }
+
+        return null;
+    }
+
+    /**
+     * Advances the body tracker over the entries collected so far.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     */
+    private function advanceDescriptionBodyTracker(DescriptionBodyCollection $b): void
+    {
+        $useIndexedBodyFence = ($this->getFencedBlockParser)()::class === FencedBlockParser::class;
+        for ($k = count($b->body); $b->bodyStateCursor < $k; $b->bodyStateCursor++) {
+            $bodyLine = $this->descriptionBodyEntryAsRead(
+                $b->bodyState,
+                $b->body,
+                $b->bodyStateCursor,
+                $b->bodyOpenerBase,
+            );
+            $wasOpenParagraph = $b->bodyState->openParagraph;
+            $wasInFence = $b->bodyState->fence !== null;
+            // ASKED ONLY WHERE THE VETO WOULD FIRE. Inside a fence,
+            // or with no paragraph open, the lookahead delegates
+            // whatever the answer is, so the scan buys nothing -
+            // and once this arms a fence, every later entry is
+            // inside it and asks nothing at all.
+            $closerKnownAhead = isset($b->bodyFenceSource[$b->bodyStateCursor])
+                && $wasOpenParagraph
+                && !$wasInFence
+                && ($b->bodyFenceSource[$b->bodyStateCursor]['columns'] > $b->continuationColumn
+                    ? $b->bodyFenceSource[$b->bodyStateCursor]['eligible']
+                    : $this->descriptionBodyCloserAhead(
+                        $b->lines,
+                        $b->bodyFenceSource[$b->bodyStateCursor]['index'],
+                        $b->bodyFenceSource[$b->bodyStateCursor]['opener'],
+                        $b->continuationColumn,
+                        $b->bodyFenceSource[$b->bodyStateCursor]['columns'],
+                    ));
+            $trackerLine = $bodyLine;
+            if (!$closerKnownAhead && $wasOpenParagraph && !$wasInFence && $useIndexedBodyFence) {
+                $fenceAt = IndentationHelper::pastLeadingWhitespace($bodyLine);
+                $subject = $bodyLine;
+                $column = $b->bodyOpenerBase ?? 0;
+                if (($this->getFencedBlockParser)()->isCodeFenceHead($bodyLine, $fenceAt)) {
+                    $subject = substr($bodyLine, $fenceAt);
+                    $column += IndentationHelper::getLeadingColumns($bodyLine);
+                }
+                $opener = ($this->getFencedBlockParser)()->parseRawBlockOpener($subject)
+                    ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject);
+                if ($opener !== null) {
+                    $b->bodyFenceView->advance($b->body);
+                    if ($b->bodyFenceView->contains($b->bodyStateCursor + 1, count($b->body), $column, $opener['char'] ?? $opener['fence'][0], $opener['length'])) {
+                        $closerKnownAhead = true;
+                    } else {
+                        $trackerLine = 'text';
+                    }
+                }
+                // This entry's lookahead is settled, including a neutralized opener.
+                $closerKnownAhead = true;
+            }
+            $b->bodyState = $this->advanceTrailingStateWithFenceLookahead(
+                $b->bodyState,
+                $trackerLine,
+                $b->body,
+                $b->bodyStateCursor,
+                !isset($b->bodyLazy[$b->bodyStateCursor]),
+                // THE CLOSER LOOKAHEAD READS AT THE SAME BASE. The
+                // opener was rebased above, so a closer written at
+                // the same authored base is only visible to §10's
+                // lookahead once it is stripped too - otherwise the
+                // fence looks unterminated, arms nothing, and the
+                // body reports a paragraph a closed fence does not
+                // leave (markup-carve/carve#1930, carve-php#1899).
+                $b->bodyOpenerBase ?? 0,
+                closerKnownAhead: $closerKnownAhead,
+            );
+            if ($wasInFence && $b->bodyState->fence === null) {
+                $b->bodyInterruptedParagraphFence = false;
+            } elseif ($wasOpenParagraph && !$wasInFence && ($b->bodyState->fence !== null)) {
+                $b->bodyInterruptedParagraphFence = true;
+            }
+            if (isset($b->bodyDefinition[$b->bodyStateCursor])) {
+                $b->bodyState->openParagraph = false;
+            }
+            // A WRAPPED ATTRIBUTE BLOCK LEAVES NO PARAGRAPH EITHER,
+            // and the tracker above cannot say so: it reads one line,
+            // and `{.k` is a block-attribute line only once a later
+            // line closes it. Carried INCREMENTALLY, on the same
+            // cursor the tracker walks - rescanning the whole body
+            // per collected line made a description of N lazy lines
+            // quadratic.
+            if ($b->bodyStateCursor <= $b->bodyAttributeThrough) {
+                continue;
+            }
+            if (IndentationHelper::isBlankLine($bodyLine)) {
+                continue;
+            }
+            $wrapped = $this->wrappedBlockAttributeLength($b->body, $b->bodyStateCursor);
+            if ($wrapped !== null) {
+                $b->bodyAttributeThrough = $b->bodyStateCursor + $wrapped - 1;
+                $b->bodyEndsWithAttribute = true;
+
+                continue;
+            }
+            $b->bodyEndsWithAttribute = $this->isBlockAttributeLine($bodyLine)
+                && !(str_starts_with($b->lead(), '>')
+                    && IndentationHelper::getLeadingColumns($b->body[$b->bodyStateCursor]) > 0);
+        }
+    }
+
+    /**
+     * Decides a line no earlier phase took against the body's open paragraph.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
+     *
+     * @return bool Whether the body continues past the line.
+     */
+    private function admitDescriptionTail(DescriptionBodyCollection $b, DescriptionBodyLine $l): bool
+    {
+        // A WRAPPED ATTRIBUTE BLOCK LEAVES NO PARAGRAPH EITHER, and
+        // the tracker above cannot say so: it reads one line, and
+        // `{.k` is a block-attribute line only once a later line
+        // closes it. The single-line form is already answered there;
+        // this is the same rule for the form that spans lines.
+        ($this->advanceNestedLeadFenceStateCallback)($b->nestedLeadFence, $b->body);
+        $bodyTermOpen = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $b->lead()) === 1
+            && $this->bodyTermIsOpen($b->body, $b->termScan, $b->lines, $b->i);
+        $leadItem = ($this->getListParser)()->parseListItemMarker($b->lead());
+        if (
+            $leadItem !== null
+            && count($b->body) > 1
+            && $this->isBlockAttributeLine(ltrim($b->body[array_key_last($b->body)], " \t"))
+            && IndentationHelper::getLeadingColumns($b->body[array_key_last($b->body)]) < strlen($leadItem['marker']) + 1
+        ) {
+            $b->bodyEndsWithAttribute = false;
+            $b->nestedLazyParagraph = true;
+        }
+        $paragraphOpen = !$l->noteReleased && ($b->nestedLeadFence->length > 0
+            ? ($b->nestedLeadFence->closed && $b->nestedLeadFence->trailing->openParagraph)
+            : ($b->bodyState->openParagraph || $b->nestedLazyParagraph || $bodyTermOpen));
+        $lastBodySource = $b->body === [] ? -1 : ($b->bodyMap[array_key_last($b->body)] ?? -1);
+        $attributeColumn = IndentationHelper::getLeadingColumns(
+            $this->state->source->sourceLines[$lastBodySource] ?? '',
+        );
+        // An attribute at or past the item's content column cannot keep its paragraph open.
+        if (
+            $b->body !== []
+            && $leadItem !== null
+            && $this->isBlockAttributeLine(ltrim($b->body[array_key_last($b->body)], " \t"))
+            && $attributeColumn > $b->continuationColumn
+            && $attributeColumn < $b->continuationColumn + strlen($b->body[0]) - strlen($leadItem['content'])
+        ) {
+            $paragraphOpen = true;
+            $b->bodyEndsWithAttribute = false;
+        } elseif (
+            $l->indent < $b->continuationColumn
+            && $b->body !== []
+            && $this->isBlockAttributeLine(ltrim($b->body[array_key_last($b->body)], " \t"))
+            && $attributeColumn === $b->continuationColumn
+        ) {
+            $b->bodyEndsWithAttribute = true;
+        }
+        if (
+            $l->indent > 0 && $l->indent < $b->continuationColumn
+            && $b->body !== []
+            && str_starts_with($b->body[0], '>')
+            && $l->belowDescriptionTextOpener
+            && $b->bodyState->openParagraph
+            && !IndentationHelper::isBlankLine($l->contLine)
+        ) {
+            $b->body[array_key_last($b->body)] .= "\n" . $l->trimmedCont;
+            $b->i++;
+
+            return true;
+        }
+        if (
+            $b->bodyState->fence !== null
+            && $b->bodyInterruptedParagraphFence
+            && $b->bodyOpenerBase !== null && $b->bodyOpenerBase > 0
+            && $l->indent < $b->continuationColumn
+            && !IndentationHelper::isBlankLine($l->contLine)
+        ) {
+            $b->body[] = str_repeat(' ', $b->continuationColumn) . BlockGrammar::LAZY_FRAME . ltrim($l->contLine, " \t");
+            $b->bodyMap[] = $this->sourceLineFor($b->i);
+            $b->i++;
+
+            return true;
+        }
+        if (!$paragraphOpen || ($b->bodyEndsWithAttribute && !$bodyTermOpen)) {
+            // AND THE BOUNDARY CLOSER IS SYNTHESIZED, exactly as
+            // the list-item collector synthesizes it: the closer
+            // that armed this fence stands past the line ending the
+            // body, so the body is parsed on its own from a
+            // truncated stream and §10 I4 turns the same opener back
+            // into inline code. Carried with no source line, because
+            // the authored closer is still the document's to read.
+            if (($b->bodyState->fence !== null) && $b->bodyInterruptedParagraphFence) {
+                $b->body[] = str_repeat($b->bodyState->fence->char, $b->bodyState->fence->length);
+                $b->bodyMap[] = -1;
+            }
+
+            return false;
+        }
+        if (
+            (
+                $l->indent === 0
+                || (
+                    ($b->bodyState->nestedColumn > 0 || $l->indent > 0)
+                    && ($l->indent > 0 && $b->descriptionAtDocumentOrQuote
+                        && $l->indent < $b->continuationColumn && $l->belowDescriptionTextOpener
+                        || !$this->lineOpensBlockForLooseness($l->trimmedCont, true, invisibleArms: false))
+                )
+            )
+            && !IndentationHelper::isBlankLine($l->contLine)
+            && !$this->isBlockAttributeLine($l->trimmedCont)
+            && $this->wrappedBlockAttributeLength($b->lines, $b->i) === null
+            && !$this->isCommentLineOrFence($l->trimmedCont)
+            && ($l->indent > 0 && $b->descriptionAtDocumentOrQuote
+                && $l->indent < $b->continuationColumn && $l->belowDescriptionTextOpener
+                || !$this->startsInterruptingBlock($l->trimmedCont, $b->lines, $b->i))
+        ) {
+            // COLLECTED BELOW THE CONTENT COLUMN, so it adds no
+            // block: the tracker must read it as the lazy line it
+            // is rather than as content at the column
+            // {@see TrailingBlockStateScanner::advanceTrailingStateCore()}.
+            //
+            // AND NOT ONLY AT COLUMN 0. §24 C3's A NON-OPENER STILL
+            // FOLDS is asked of the innermost container the line
+            // REACHES, so a body that has opened one of its own has
+            // a column deeper than its own for the line to be below
+            // - and every column under the BODY's is then the
+            // container's to fold, not the body's to end on. The
+            // bare body gets this from the appending branch above,
+            // which refuses a body whose last entry opens a block,
+            // so this is where that body has to be answered
+            // (carve-php#1875). A bare body folds a non-opener
+            // between column 0 and its own column the same way, once
+            // a line at the column has ended the appending branch's
+            // reach (carve-php#2210).
+            //
+            // NO COLUMN BOUND IS SPELLED because none can fire: the
+            // push branch above takes every line at or past the
+            // content column, so the only lines that reach here are
+            // already below it.
+            //
+            // THE PREDICATE IS THE CLAUSE'S OWN. It has to be
+            // `lineOpensBlockForLooseness()` and not the
+            // interruption test beside it: a sibling marker
+            // deliberately does not interrupt a paragraph (§10) and
+            // a code fence's closer does not match when it is
+            // indented, so the interruption test reports false for
+            // both and folded 210 and 36 documents that every other
+            // reading keeps outside.
+            $b->bodyLazy[count($b->body)] = true;
+            $b->body[] = $l->contLine;
+            $b->bodyMap[] = $this->sourceLineFor($b->i);
+            $b->i++;
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Folds lazy entries into their predecessor once the body holds a fence.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     */
+    private function foldLazyEntriesUnderFence(DescriptionBodyCollection $b): void
+    {
+        $bodyHasFenceLine = false;
+        foreach ($b->body as $entry) {
+            $head = strtok($entry, "\n");
+            if (
+                $head !== false
+                && (
+                    ($this->getFencedBlockParser)()->parseRawBlockOpener($head) !== null
+                    || ($this->getFencedBlockParser)()->parseCodeFenceOpener($head) !== null
+                )
+            ) {
+                $bodyHasFenceLine = true;
+
+                break;
+            }
+        }
+        if ($b->bodyLazy !== [] && $bodyHasFenceLine) {
+            $foldedBody = [];
+            $foldedBodyMap = [];
+            foreach ($b->body as $bodyIndex => $entry) {
+                if (
+                    isset($b->bodyLazy[$bodyIndex])
+                    && $foldedBody !== []
+                    && ($this->getListParser)()->parseListItemMarker(ltrim($foldedBody[array_key_last($foldedBody)], " \t")) === null
+                ) {
+                    $last = count($foldedBody) - 1;
+                    $foldedBody[$last] .= "\n" . ltrim(BlockGrammar::stripLazyFrame(ltrim($entry, " \t")), " \t");
+
+                    continue;
+                }
+                $foldedBody[] = $entry;
+                $foldedBodyMap[] = $b->bodyMap[$bodyIndex] ?? -1;
+            }
+            $b->body = $foldedBody;
+            $b->bodyMap = $foldedBodyMap;
+        }
+    }
+
+    /**
+     * Rebases over-indented item blocks, keeping released marker columns.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     */
+    private function restoreReleasedListEntries(DescriptionBodyCollection $b): void
+    {
+        if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) !== 1) {
+            $b->body = $this->rebaseOverindentedItemBlocks(
+                $b->body,
+                includeSublists: true,
+                skipOnlyClosedOpaqueAtMinimum: true,
+                absorbLeadNoteBody: true,
+            );
+            // CARVE-P2-017: keep a released marker's column after rebasing neighboring blocks.
+            foreach ($b->bodyMap as $entryIndex => $entrySource) {
+                if (isset($b->preReleaseListEntries[$entrySource]) && !str_contains($b->body[$entryIndex], "\n")) {
+                    $b->body[$entryIndex] = $b->preReleaseListEntries[$entrySource];
+                }
+            }
+        }
+    }
+
+    /**
+     * Rebases eligible fences, synthetic terms and comment delimiters.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     */
+    private function normalizeDescriptionEntries(DescriptionBodyCollection $b): void
+    {
+        /** @var array<int, array{strip: int, column: int, char: string, length: int}> $bodyEligibleFenceSource */
+        $bodyEligibleFenceSource = [];
+        $syntheticTermColumn = null;
+        $syntheticTermEntryColumn = 0;
+        $syntheticTermBlank = false;
+        foreach ($b->bodyFenceSource as $fenceSource) {
+            if (
+                !$fenceSource['nested']
+                && $fenceSource['paragraph']
+                && $fenceSource['columns'] > $b->continuationColumn
+                && $fenceSource['eligible']
+            ) {
+                $bodyEligibleFenceSource[$this->sourceLineFor($fenceSource['index'])] = [
+                    'strip' => $fenceSource['columns'] - $b->continuationColumn,
+                    'column' => $fenceSource['columns'],
+                    'char' => $fenceSource['opener']['char'] ?? $fenceSource['opener']['fence'][0],
+                    'length' => $fenceSource['opener']['length'],
+                ];
+            }
+        }
+        // 01-layout.ebnf keeps payload columns when rebasing an eligible opener.
+        $normalizedFence = null;
+        foreach ($b->body as $bodyIndex => $entry) {
+            $entrySource = $b->bodyMap[$bodyIndex] ?? -1;
+            if (isset($bodyEligibleFenceSource[$entrySource])) {
+                $normalizedFence = $bodyEligibleFenceSource[$entrySource];
+                $b->body[$bodyIndex] = ltrim($entry, " \t");
+                $entry = $b->body[$bodyIndex];
+            } elseif ($normalizedFence !== null && !str_contains($entry, BlockGrammar::LAZY_FRAME)) {
+                $entryColumn = IndentationHelper::getLeadingColumns($entry);
+                $subject = ltrim($entry, " \t");
+                if (
+                    ($entryColumn === 0 || $entryColumn === $normalizedFence['strip'])
+                    && ($this->getFencedBlockParser)()->isCodeFenceCloser(
+                        $subject,
+                        $normalizedFence['char'],
+                        $normalizedFence['length'],
+                    )
+                ) {
+                    $b->body[$bodyIndex] = $subject;
+                    $entry = $subject;
+                    $normalizedFence = null;
+                } elseif (
+                    $entryColumn > 0
+                    && IndentationHelper::getLeadingColumns($this->state->source->sourceLines[$entrySource] ?? '')
+                    < $normalizedFence['column']
+                ) {
+                    $b->body[$bodyIndex] = IndentationHelper::stripLeadingColumns(
+                        $entry,
+                        min($entryColumn, $normalizedFence['strip']),
+                    );
+                    $entry = $b->body[$bodyIndex];
+                }
+            }
+            $source = $this->state->source->sourceLines[$b->bodyMap[$bodyIndex] ?? -1] ?? '';
+            if (isset($b->syntheticTermColumns[$entrySource])) {
+                $syntheticTermColumn = $b->syntheticTermColumns[$entrySource];
+                $syntheticTermEntryColumn = IndentationHelper::getLeadingColumns($entry);
+                $syntheticTermBlank = false;
+            } elseif (IndentationHelper::isBlankLine($entry)) {
+                $syntheticTermBlank = $syntheticTermColumn !== null;
+            } elseif (
+                ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($entry, " \t")) !== null
+                || ($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($entry, " \t")) !== null
+            ) {
+                $syntheticTermColumn = null;
+            } elseif (
+                $syntheticTermColumn !== null
+                && ($syntheticTermBlank
+                    || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, ltrim($entry, " \t")) === 1
+                    || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($entry, " \t")) === 1)
+                && IndentationHelper::getLeadingColumns($source) === $syntheticTermColumn
+            ) {
+                $entryColumn = IndentationHelper::getLeadingColumns($entry);
+                if ($entryColumn > $syntheticTermEntryColumn) {
+                    $b->body[$bodyIndex] = IndentationHelper::stripLeadingColumns(
+                        $entry,
+                        $entryColumn - $syntheticTermEntryColumn,
+                    );
+                }
+                if (
+                    $syntheticTermBlank
+                    && preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, ltrim($entry, " \t")) !== 1
+                    && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($entry, " \t")) !== 1
+                ) {
+                    $syntheticTermColumn = null;
+                }
+                $syntheticTermBlank = false;
+            } else {
+                $syntheticTermBlank = false;
+            }
+            // Keep the delimiter's residual column through the body rebase.
+            if (
+                preg_match('/^%{3,}$/', $entry) === 1
+                && IndentationHelper::getLeadingColumns($source) > 0
+                && IndentationHelper::getLeadingColumns($source) !== $b->continuationColumn
+            ) {
+                $b->body[$bodyIndex] = ' ' . $entry;
+            }
+        }
+    }
+
+    /**
+     * Parses the collected body into a description of the list.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\DefinitionList $dl
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     */
+    private function appendDefinitionDescription(DefinitionList $dl, DescriptionBodyCollection $b): void
+    {
+        $dd = new DefinitionDescription();
+        $this->stampNodeSourceLine($dd, $this->sourceLineFor($b->definitionStart));
+        if ($b->detachedFootnote !== null) {
+            $this->parseBlocks($dd, $b->detachedFootnote, 0, $b->detachedFootnoteMap);
+        }
+        if (count($b->body) !== 1 || rtrim($b->body[0], " \t") !== '{empty}') {
+            $this->parseBlocks($dd, $b->body, 0, $b->bodyMap);
+        }
+        // The description is a container too, and its boundary ends the
+        // pending run for the same reason a quote's does.
+        $this->endContainerAttributeScope();
+        $definitionSource = $this->sourceLineFor($b->definitionStart);
+        $ddPos = $this->wholeLinesSpan(
+            $b->definitionStart,
+            $b->definitionStart,
+            $this->state->frame->currentContentColumns[$definitionSource] ?? 0,
+        );
+        $ddChildren = $dd->getChildren();
+        $lastChildPos = $ddChildren === [] ? null : $ddChildren[count($ddChildren) - 1]->getPos();
+        if ($ddPos !== null && $lastChildPos !== null && $lastChildPos->endOffset > $ddPos->endOffset) {
+            $ddPos = new SourceSpan(
+                startLine: $ddPos->startLine,
+                endLine: $lastChildPos->endLine,
+                startColumn: $ddPos->startColumn,
+                endColumn: $lastChildPos->endColumn,
+                startOffset: $ddPos->startOffset,
+                endOffset: $lastChildPos->endOffset,
+            );
+        }
+        $dd->setPos($ddPos);
+        if ($dd->getChildren() === [] && $dd->getPos() === null) {
+            // A description EMPTIED by collection still occupied a line,
+            // and §4 wants a position on every node but the root.
+            // Container spans are derived from children, so this one
+            // came out with none - and the writer then had no way to
+            // find the definition the author wrote on it, which is what
+            // made the emptied `dd` unable to round-trip (carve#805,
+            // carve-php#903).
+            $dd->setPos($this->wholeLineSpan($b->definitionStart));
+        }
+        $dl->appendChild($dd);
     }
 
     /**

@@ -106,29 +106,10 @@ final class InlineStage
             $line = $this->protectBareLinks($sourceInput, $protect, $table);
         }
 
-        $preserveReferenceAutolinks = static function (string $value) use ($protect, $table): string {
-            return preg_replace_callback('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', static function (array $match) use ($protect, $table): string {
-                $body = substr($match[0], 1, -1);
-                $prefix = preg_match('/^[A-Za-z][A-Za-z0-9+.-]{1,31}:/', $body) === 1 ? '' : 'mailto:';
-                $url = $prefix . ($table ? DestinationEncoding::destination($body, true) : $body);
-                $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
-                    . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
-
-                return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"));
-            }, $value) ?? $value;
-        };
+        $preserveReferenceAutolinks = fn (string $value): string => $this->preserveReferenceAutolinks($value, $protect, $table);
 
         $writeLiteralReference = function (string $value) use (&$protected, $preserveReferenceAutolinks): string {
-            return implode('', array_map(function (string $part) use (&$protected, $preserveReferenceAutolinks): string {
-                if (str_starts_with($part, '<') && str_ends_with($part, '>')) {
-                    return $preserveReferenceAutolinks($part);
-                }
-                if (preg_match('/^\x00P(\d+)\x00$/', $part, $token) === 1 && preg_match('/^!?`/', $protected[(int)$token[1]] ?? '') === 1) {
-                    return $part;
-                }
-
-                return preg_replace('/[!-\/:-@\[-`{-~]/', '\\\\$0', $this->decodeLinkTitle($part, $protected)) ?? $part;
-            }, preg_split('/(\x00P\d+\x00|<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>)/', $value, flags: PREG_SPLIT_DELIM_CAPTURE) ?: []));
+            return $this->literalReferenceText($value, $protected, $preserveReferenceAutolinks);
         };
 
         $codeTokens = [];
@@ -161,86 +142,14 @@ final class InlineStage
                 ? $protect('\\[', '[') . $match[1] . ']' : $match[0];
         }, $line) ?? $line;
 
-        $validateCodeScalar = function (string $paren) use ($protected, $table): ?string {
-            $inner = trim(substr($paren, 1, -1), " \t\n");
-            if (str_starts_with($inner, '<')) {
-                preg_match('/^<((?:[^>\\\\]|\\\\.)*)>/s', $inner, $pointy);
-                $end = isset($pointy[0]) ? strlen($pointy[0]) - 1 : false;
-                if ($end === false) {
-                    return null;
-                }
-                $url = substr($inner, 1, $end - 1);
-                if (preg_match('/(?<!\\\\)[\r\n]/', $url) === 1) {
-                    return null;
-                }
-                $rest = substr($inner, $end + 1);
-            } elseif (preg_match('/^((?:\x00P\d+\x00|[^\x00-\x20\x7f])+)([\s\S]*)$/', $inner, $matches)) {
-                $url = $matches[1];
-                $rest = $matches[2];
-            } else {
-                $url = $inner;
-                $rest = '';
-            }
+        $validateCodeScalar = fn (string $paren): ?string => $this->validateInlineCodeDestination($paren, $protected, $table);
 
-            if (trim($rest) !== '') {
-                if (preg_match('/^[ \t\n]+("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|\((?:[^()\\\\]|\\\\.)*\))[ \t\n]*$/s', $rest, $title) !== 1) {
-                    return null;
-                }
-                $decoded = $this->decodeLinkTitle(substr($title[1], 1, -1), $protected);
-                $rest = ' ' . $this->context->importWriter->spellImportedTitle($decoded, $table);
-            }
-
-            return '(' . $this->writeMarkdownDestination($url, $protected, table: $table) . $rest . ')';
-        };
-
-        $destinationClosers = static function (string $subject): array {
-            $opens = [];
-            $closers = [];
-            for ($at = 0, $length = strlen($subject); $at < $length; $at++) {
-                if ($subject[$at] === '\\') {
-                    $at++;
-                } elseif ($subject[$at] === '[') {
-                    $opens[] = $at;
-                } elseif ($subject[$at] === ']' && $opens !== []) {
-                    array_pop($opens);
-                    $closers[$at] = true;
-                }
-            }
-
-            return $closers;
-        };
         $codeScalarTags = [];
         $protectCodeTags = function (string $value) use ($protect, &$codeScalarTags): string {
-            $written = '';
-            $opaqueEnds = [];
-            for ($at = 0, $length = strlen($value); $at < $length;) {
-                $end = $value[$at] === '<' ? $this->opaqueHtmlEnd($value, $at, $opaqueEnds) : null;
-                if ($end === null && $value[$at] === '<') {
-                    $end = $this->htmlTagAt($value, $at)['end'] ?? null;
-                }
-                if (
-                    $end === null && $value[$at] === '&'
-                    && preg_match('/\G&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $value, $entity, 0, $at) === 1
-                    && strpbrk($this->decodeHtmlReferenceText($entity[0]), "\r\n") !== false
-                ) {
-                    $end = $at + strlen($entity[0]);
-                }
-                if ($end === null) {
-                    $written .= $value[$at++];
-
-                    continue;
-                }
-                $span = substr($value, $at, $end - $at);
-                $token = $protect($span);
-                $codeScalarTags[$token] = $span;
-                $written .= $token;
-                $at = $end;
-            }
-
-            return $written;
+            return $this->protectCodeTags($value, $protect, $codeScalarTags);
         };
         $scalarSubject = $line;
-        $scalarDestinationClosers = $destinationClosers($line);
+        $scalarDestinationClosers = $this->destinationClosers($line);
         $scalarOpaqueRanges = [];
         $scalarOpaqueEnds = [];
         for ($at = 0, $length = strlen($line); $at < $length;) {
@@ -257,43 +166,8 @@ final class InlineStage
         $scalarOpaqueCursor = 0;
         $line = preg_replace_callback(
             '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\[\]\n]|\n(?![ \t]*\n))*\])*\])(\((?:[^()\n]|\n(?![ \t]*\n)|\([^()\n]*\))*\))/',
-            static function (array $match) use ($validateCodeScalar, $protectCodeTags, $protect, $scalarSubject, $scalarOpaqueRanges, $scalarDestinationClosers, &$scalarOpaqueCursor): string {
-                $start = $match[0][1];
-                while (isset($scalarOpaqueRanges[$scalarOpaqueCursor]) && $scalarOpaqueRanges[$scalarOpaqueCursor][1] <= $start) {
-                    $scalarOpaqueCursor++;
-                }
-                if (isset($scalarOpaqueRanges[$scalarOpaqueCursor]) && $scalarOpaqueRanges[$scalarOpaqueCursor][0] <= $start) {
-                    return $match[0][0];
-                }
-                $match = array_map(static fn (array $capture): string => $capture[0], $match);
-                if (!isset($scalarDestinationClosers[$start + strlen($match[1]) - 1])) {
-                    return $match[0];
-                }
-                $slashes = 0;
-                for ($at = $start - 1; $at >= 0 && $scalarSubject[$at] === '\\'; $at--) {
-                    $slashes++;
-                }
-                $closingSlashes = 0;
-                for ($at = strlen($match[1]) - 2; $at >= 0 && $match[1][$at] === '\\'; $at--) {
-                    $closingSlashes++;
-                }
-                if (($match[1][0] === '[' && $slashes % 2 !== 0) || $closingSlashes % 2 !== 0) {
-                    return $match[0];
-                }
-                if ($validateCodeScalar($match[2]) === null) {
-                    return preg_match('/<\/?code\b/i', $match[2]) === 1
-                        ? $match[1] . $protect('\\(', '(') . substr($match[2], 1) : $match[0];
-                }
-                if (!str_starts_with($match[1], '!') && preg_match_all('/\[[^\[\]\n]*\](\([^()\n]*\))/', $match[1], $nestedDestinations) !== false) {
-                    foreach ($nestedDestinations[1] as $destination) {
-                        if ($validateCodeScalar($destination) !== null) {
-                            return $match[0];
-                        }
-                    }
-                }
-                $label = str_starts_with($match[1], '!') && $slashes % 2 === 0 ? $protectCodeTags($match[1]) : $match[1];
-
-                return $label . $protectCodeTags($match[2]);
+            function (array $match) use ($validateCodeScalar, $protectCodeTags, $protect, $scalarSubject, $scalarOpaqueRanges, $scalarDestinationClosers, &$scalarOpaqueCursor): string {
+                return $this->protectScalarDestinationMatch($match, $validateCodeScalar, $protectCodeTags, $protect, $scalarSubject, $scalarOpaqueRanges, $scalarDestinationClosers, $scalarOpaqueCursor);
             },
             $line,
             flags: PREG_OFFSET_CAPTURE,
@@ -344,177 +218,9 @@ final class InlineStage
             return $foldedSourceLines[$low - 1]['line'] ?? null;
         };
         $standaloneCodeSource = trim($line);
-        $unchangedHtmlCode = null;
-        $activeCodeLinkOpeners = null;
-        $nextCodeLinkOpener = 0;
-        $writeHtmlCode = function (array $match, int $offset) use ($protect, $standaloneCodeSource, $terminal, $table, &$line, &$protected, &$unchangedHtmlCode, &$codeFallbacks, $htmlCodeLineAt, &$activeCodeLinkOpeners, &$nextCodeLinkOpener, &$protectedSources): ?string {
-            $parts = [''];
-            for ($at = 0, $length = strlen($match[1]); $at < $length;) {
-                if ($match[1][$at] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $match[1][$at + 1] ?? '') === 1) {
-                    $parts[count($parts) - 1] .= substr($match[1], $at, 2);
-                    $at += 2;
-                } elseif (substr_compare($match[1], '<!---->', $at, 7) === 0) {
-                    $parts[] = '';
-                    $at += 7;
-                } else {
-                    $parts[count($parts) - 1] .= $match[1][$at++];
-                }
-            }
-            $slashes = 0;
-            for ($at = strlen($match[1]) - 1; $at >= 0 && $match[1][$at] === '\\'; $at--) {
-                $slashes++;
-            }
-            if ($slashes % 2 !== 0) {
-                return null;
-            }
-            if (str_contains($match[1], "\0")) {
-                return null;
-            }
-            if (strpbrk($match[1], '[]') !== false) {
-                if ($activeCodeLinkOpeners === null) {
-                    $activeCodeLinkOpeners = [];
-                    $opaqueEnds = [];
-                    $activeCodeLinkOpeners = $this->markdownLinkScopes(
-                        $line,
-                        $protectedSources,
-                        true,
-                        function (int $start) use ($line, &$opaqueEnds): ?int {
-                            return $this->opaqueHtmlEnd($line, $start, $opaqueEnds) ?? ($this->htmlTagAt($line, $start)['end'] ?? null);
-                        },
-                    )['active'];
-                    sort($activeCodeLinkOpeners);
-                }
-                while (isset($activeCodeLinkOpeners[$nextCodeLinkOpener]) && $activeCodeLinkOpeners[$nextCodeLinkOpener] < $offset + 6) {
-                    $nextCodeLinkOpener++;
-                }
-                if (($activeCodeLinkOpeners[$nextCodeLinkOpener] ?? PHP_INT_MAX) < $offset + strlen($match[0]) - 7) {
-                    return null;
-                }
-            }
-            if (strpbrk($match[1], '\\`*_~[]') !== false) {
-                if (strpbrk($match[1], '*_~') !== false) {
-                    $unchangedHtmlCode ??= $this->htmlCodeUnchangedByEmphasis($line, $protected);
-                    if (!isset($unchangedHtmlCode[$offset])) {
-                        return null;
-                    }
-                }
-                $probe = (new CarveConverter())->parse('x ' . (clone $this)->convertInlineFormatting(implode('', $parts)) . "\n");
-                $paragraphs = $probe->getChildren();
-                if (count($paragraphs) !== 1 || !($paragraphs[0] instanceof Paragraph)) {
-                    return null;
-                }
-                $plain = function (array $children) use (&$plain): bool {
-                    foreach ($children as $child) {
-                        if (in_array($child->getType(), ['text', 'escaped_text', 'smart_punctuation', 'non_breaking_space', 'soft_break'], true)) {
-                            continue;
-                        }
-                        $label = $child instanceof Link ? $child->getReferenceLabel() : null;
-                        if ($label === null || $child->getDestination() !== null && $child->getDestination() !== '' || isset($this->context->definedReferenceLabels[$this->normalizeReferenceLabel($label)]) || !$plain($child->getChildren())) {
-                            return false;
-                        }
-                    }
-
-                    return true;
-                };
-                if (!$plain($paragraphs[0]->getChildren())) {
-                    return null;
-                }
-            }
-            $decodedParts = array_map(function (string $part): string {
-                $decoded = preg_replace_callback(
-                    '/\\\\([!-\/:-@\[-`{-~])|&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/',
-                    fn (array $piece): string => $piece[1] ?? $this->decodeHtmlReferenceText($piece[0]),
-                    $part,
-                ) ?? $part;
-
-                return str_replace(["\r\n", "\r"], "\n", $decoded);
-            }, $parts);
-            foreach ($decodedParts as $part) {
-                if (str_contains($part, '@') && BareLinks::ranges($part, null, 'email') !== []) {
-                    return null;
-                }
-            }
-            $value = implode('', $decodedParts);
-            if ($this->context->nativeCodeSlot && $terminal && !$table && $standaloneCodeSource === $match[0]) {
-                $document = new Document();
-                $paragraph = new Paragraph();
-                $paragraph->appendChild(new Code($value));
-                $document->appendChild($paragraph);
-                try {
-                    $source = (new CarveRenderer())->render($document);
-                    $read = (new CarveConverter())->parse($source)->getChildren();
-                    $children = ($read[0] ?? null) instanceof Paragraph ? $read[0]->getChildren() : [];
-                    if (count($read) === 1 && count($children) === 1 && $children[0] instanceof Code && $children[0]->getContent() === str_replace(["\r\n", "\r"], "\n", $value)) {
-                        return $protect(rtrim($source, "\n"), $match[0]);
-                    }
-                } catch (SourceUnspellableException) {
-                }
-            }
-            $before = substr($line, 0, $offset);
-            // An empty code run is spellable only as an unclosed run ending its paragraph.
-            if (
-                $value === ''
-                && $terminal
-                && !$table
-                && preg_match('/(?:^|[\p{L}\p{N} \t\n.,;:?)\'"-])$/u', $before) === 1
-                && preg_match('/^[ \t]*$/', substr($line, $offset + strlen($match[0]))) === 1
-            ) {
-                return $protect('``', $match[0]);
-            }
-            // A line break in the value continues the paragraph when the caller keeps added lines.
-            if (
-                $this->context->breakableCodeSlot
-                && str_contains($value, "\n")
-                && !str_contains($value, "\r")
-                && !$table
-                && preg_match('/^[ \t]*#{1,6}(?:[ \t]|$)/', $line) !== 1
-                && preg_match('/[!$\\\\`\x00{}\]]$/', $before) !== 1
-            ) {
-                $document = new Document();
-                $paragraph = new Paragraph();
-                $paragraph->appendChild(new Code($value));
-                $document->appendChild($paragraph);
-                try {
-                    $written = rtrim((new CarveRenderer())->render($document), "\n");
-                    $read = (new CarveConverter())->parse('x ' . $written . " y\n")->getChildren();
-                    $children = ($read[0] ?? null) instanceof Paragraph ? $read[0]->getChildren() : [];
-                    if (count($read) === 1 && count($children) === 3 && $children[1] instanceof Code && $children[1]->getContent() === $value) {
-                        return $protect($written, $match[0]);
-                    }
-                } catch (SourceUnspellableException) {
-                }
-            }
-            if ($value === '' || str_contains($value, "\n") || str_contains($value, "\r")) {
-                $htmlCodeSourceLine = $htmlCodeLineAt($offset);
-                $diagnostic = new MigrationDiagnostic(
-                    'raw-code-fallback',
-                    'Preserved an HTML code payload as raw HTML; targets and profiles that escape or omit raw HTML change its code structure and content',
-                    'warning',
-                    'degraded',
-                    'exact',
-                    $htmlCodeSourceLine === null ? null : 'line:' . $htmlCodeSourceLine,
-                );
-
-                $html = preg_replace_callback('/[ !-\/:-@\[-`{-~\t\n]/', static function (array $character): string {
-                    if ($character[0] === "\n") {
-                        return '<!---->&#10;<!---->';
-                    }
-                    $entity = '&#' . ord($character[0]) . ';';
-
-                    return $character[0] === '@' ? $entity . '<!---->' : $entity;
-                }, str_replace(["\r\n", "\r"], "\n", $value)) ?? $value;
-
-                $token = $protect($this->verbatimHtmlInline('<code>' . $html . '</code>'), $match[0]);
-                $codeFallbacks[$token] = $diagnostic;
-
-                return $token;
-            }
-            $document = new Document();
-            $paragraph = new Paragraph();
-            $paragraph->appendChild(new Code($value));
-            $document->appendChild($paragraph);
-
-            return $protect(rtrim((new CarveRenderer())->render($document), "\n"), $match[0]);
+        $htmlCodeState = new HtmlCodeState();
+        $writeHtmlCode = function (array $match, int $offset) use ($protect, $standaloneCodeSource, $terminal, $table, &$line, $htmlCodeLineAt, $htmlCodeState, $work): ?string {
+            return $this->writeHtmlCode($match, $offset, $line, $standaloneCodeSource, $terminal, $table, $protect, $htmlCodeLineAt, $htmlCodeState, $work);
         };
         $line = preg_replace_callback(
             '/\]\(([ \t]*)</',
@@ -537,138 +243,8 @@ final class InlineStage
 
         // A backslash is literal inside an autolink, including before its
         // closing bracket. Leave that bracket available to the autolink pass.
-        $escaped = '';
-        $htmlCodeDepth = 0;
-        $opaqueEnds = [];
-        for ($i = 0, $length = strlen($line); $i < $length;) {
-            if ($htmlCodeDepth > 0 && $line[$i] === '&' && preg_match('/\G&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $line, $entity, 0, $i) === 1 && strpbrk($this->decodeHtmlReferenceText($entity[0]), "\r\n") !== false) {
-                $start = $i;
-                $i += strlen($entity[0]);
-                if (
-                    $this->decodeHtmlReferenceText($entity[0]) === "\r"
-                    && preg_match('/\G&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $line, $following, 0, $i) === 1
-                    && $this->decodeHtmlReferenceText($following[0]) === "\n"
-                ) {
-                    $i += strlen($following[0]);
-                } elseif ($this->decodeHtmlReferenceText($entity[0]) === "\r" && ($line[$i] ?? '') === "\n") {
-                    $i++;
-                    $i += strspn($line, " \t", $i);
-                }
-                $escaped .= $protect($this->verbatimHtmlInline('<!---->&#10;<!---->'), substr($line, $start, $i - $start));
-
-                continue;
-            }
-            $opaqueEnd = $line[$i] === '<' ? $this->opaqueHtmlEnd($line, $i, $opaqueEnds) : null;
-            if ($opaqueEnd !== null) {
-                $escaped .= substr($line, $i, $opaqueEnd - $i);
-                $i = $opaqueEnd;
-
-                continue;
-            }
-            if ($line[$i] === '<' && preg_match('/\G<code>((?:[^<\n]|<!---->)*)<\/code>/i', $line, $code, 0, $i) === 1) {
-                $written = $writeHtmlCode($code, $i);
-                if ($written !== null) {
-                    $escaped .= $written;
-                    $i += strlen($code[0]);
-
-                    continue;
-                }
-            }
-            $tag = $line[$i] === '<' ? $this->htmlTagAt($line, $i) : null;
-            if ($tag !== null) {
-                $sourceTag = substr($line, $i, $tag['end'] - $i);
-                if ($tag['name'] === 'code') {
-                    $htmlCodeDepth = max(0, $htmlCodeDepth + ($tag['closing'] ? -1 : 1));
-                    if (!$tag['closing']) {
-                        $htmlCodeSourceLine = $htmlCodeLineAt($i);
-                        $diagnostic = new MigrationDiagnostic(
-                            'raw-code-fallback',
-                            'Preserved HTML code markup as raw HTML; targets and profiles that escape or omit raw HTML change its code structure and content',
-                            'warning',
-                            'degraded',
-                            'exact',
-                            $htmlCodeSourceLine === null ? null : 'line:' . $htmlCodeSourceLine,
-                        );
-                    }
-                    $token = $protect($this->verbatimHtmlInline($sourceTag), $sourceTag);
-                    if (!$tag['closing']) {
-                        $codeFallbacks[$token] = $diagnostic;
-                    }
-                    $escaped .= $token;
-                } elseif ($htmlCodeDepth > 0 && $tag['name'] === 'br') {
-                    $escaped .= $protect($this->verbatimHtmlInline($sourceTag), $sourceTag);
-                } else {
-                    $escaped .= $sourceTag;
-                }
-                $i = $tag['end'];
-            } elseif ($line[$i] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $line[$i + 1] ?? '') === 1) {
-                $pair = substr($line, $i, 2);
-                $escaped .= $pair === '\\>' ? $protect('\\') . '>' : $protect($pair);
-                $i += 2;
-            } else {
-                $escaped .= $line[$i] === '\\' && (($line[$i + 1] ?? '') === ' ' || ($terminal && $i + 1 === $length)) ? $protect('\\\\', $line[$i]) : $line[$i];
-                $i++;
-            }
-        }
-        $line = $escaped;
-        if (
-            !$isReferenceDefinition && str_contains($line, '/')
-            && (preg_match('/<(?:em|i)\\b/i', $line) === 1
-                || ($this->hasOddMarkdownDelimiterRun($line) && substr_count(Emphasis::convert($line, protectedSpans: $protected), '/') > substr_count($line, '/')))
-        ) {
-            $authored = $line;
-            $guarded = '';
-            $opaqueEnds = [];
-            $bracketDepth = 0;
-            for ($at = 0, $length = strlen($authored); $at < $length;) {
-                if ($authored[$at] === "\0" && preg_match('/\\G\\x00P\\d+\\x00/', $authored, $token, 0, $at) === 1) {
-                    $guarded .= $token[0];
-                    $at += strlen($token[0]);
-
-                    continue;
-                }
-                if ($this->context->convertMath && $authored[$at] === '$' && preg_match('/\G(?:\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d))/', $authored, $math, 0, $at) === 1) {
-                    $guarded .= $math[0];
-                    $at += strlen($math[0]);
-
-                    continue;
-                }
-                if ($authored[$at] === '\\') {
-                    $guarded .= substr($authored, $at, 2);
-                    $at += 2;
-
-                    continue;
-                }
-                if ($authored[$at] === '<' && preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9.-]+)>/', $authored, $autolink, 0, $at) === 1) {
-                    $guarded .= $autolink[0];
-                    $at += strlen($autolink[0]);
-
-                    continue;
-                }
-                $end = $authored[$at] === '<' ? $this->opaqueHtmlEnd($authored, $at, $opaqueEnds) ?? ($this->htmlTagAt($authored, $at)['end'] ?? null) : null;
-                if ($end !== null) {
-                    $guarded .= substr($authored, $at, $end - $at);
-                    $at = $end;
-
-                    continue;
-                }
-                if ($authored[$at] === '[') {
-                    $bracketDepth++;
-                } elseif ($authored[$at] === ']' && $bracketDepth > 0) {
-                    $bracketDepth--;
-                    $end = $this->markdownActivationTailEnd($authored, $at + 1);
-                    if ($end !== null) {
-                        $guarded .= substr($authored, $at, $end - $at + 1);
-                        $at = $end + 1;
-
-                        continue;
-                    }
-                }
-                $guarded .= $authored[$at] === '/' ? $protect('\\/', '/') : $authored[$at];
-                $at++;
-            }
-            $line = $guarded;
-        }
+        $line = $this->escapeHtmlCodeAndBackslashes($line, $protect, $writeHtmlCode, $htmlCodeLineAt, $work, $terminal);
+        $line = $this->guardMarkdownSlashDelimiters($line, $isReferenceDefinition, $protected, $protect);
         $hasProtectedEscapeBefore = static function (string $subject, int $offset) use (&$protected): bool {
             $before = substr($subject, max(0, $offset - 32), min(32, $offset));
 
@@ -719,51 +295,7 @@ final class InlineStage
                 ? $alt : str_replace(['\\', '[', ']', '`'], ['\\\\', '\\[', '\\]', '\\`'], $alt)) . ']';
         };
 
-        $encodeDest = function (string $paren, bool $reference = false) use ($protected, &$protectedSources, $table): ?string {
-            $sourceParen = $this->referenceSourceText($paren, $protectedSources);
-            if (
-                $reference ? ReferenceDefinition::read('[x]: ' . substr($sourceParen, 1, -1), 0) === null
-                    : $this->markdownActivationTailEnd($sourceParen, 0) !== strlen($sourceParen) - 1
-            ) {
-                return null;
-            }
-            $paren = $sourceParen;
-            $inner = trim(substr($paren, 1, -1), " \t\n");
-            if (str_starts_with($inner, '<')) {
-                preg_match('/^<((?:[^>\\\\]|\\\\.)*)>/s', $inner, $pointy);
-                $end = isset($pointy[0]) ? strlen($pointy[0]) - 1 : false;
-                if ($end === false) {
-                    return null;
-                }
-                $url = substr($inner, 1, $end - 1);
-                $pointyLine = 0;
-                $url = preg_replace_callback('/\\\\\n[ \t]*/', function (array $match) use (&$pointyLine): string {
-                    $pointyLine++;
-
-                    return "\\\n" . (($this->context->pointyContinuationStrip[$pointyLine] ?? false) ? '' : substr($match[0], 2));
-                }, $url) ?? $url;
-                if (preg_match('/(?<!\\\\)[\r\n]/', $url) === 1) {
-                    return null;
-                }
-                $rest = substr($inner, $end + 1);
-            } elseif (preg_match('/^((?:\x00P\d+\x00|[^\x00-\x20\x7f])+)([\s\S]*)$/', $inner, $matches)) {
-                $url = $matches[1];
-                $rest = $matches[2];
-            } else {
-                $url = $inner;
-                $rest = '';
-            }
-
-            if (trim($rest) !== '') {
-                if (preg_match('/^[ \t\n]+("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|\((?:[^()\\\\]|\\\\.)*\))[ \t\n]*$/s', $rest, $title) !== 1) {
-                    return null;
-                }
-                $decoded = $this->decodeMarkdownScalar($this->referenceSourceText(substr($title[1], 1, -1), $protected));
-                $rest = ' ' . $this->context->importWriter->spellImportedTitle($decoded, $table);
-            }
-
-            return '(' . $this->writeMarkdownDestination($url, originalSource: true, table: $table) . $rest . ')';
-        };
+        $encodeDest = fn (string $paren, bool $reference = false): ?string => $this->encodeInlineDestination($paren, $reference, $protected, $protectedSources, $table);
 
         $protectDestination = function (string $alt, string $paren, ?string $source = null, bool $reference = false) use ($encodeDest, $protect): string {
             $encoded = $encodeDest($paren, $reference);
@@ -776,59 +308,7 @@ final class InlineStage
         // A bare destination can stop at whitespace even with open parentheses.
         // The regular expression below cannot pair that shape without also
         // accepting invalid destinations, so read its closing offset directly.
-        if (str_contains($line, '](')) {
-            $source = $line;
-            $opens = [];
-            $pieces = [];
-            $copied = 0;
-            for ($at = 0, $length = strlen($source); $at < $length; $at++) {
-                if ($source[$at] === "\0" && preg_match('/\G\x00P\d+\x00/', $source, $token, 0, $at) === 1) {
-                    $at += strlen($token[0]) - 1;
-
-                    continue;
-                }
-                if ($source[$at] === '\\') {
-                    $at++;
-
-                    continue;
-                }
-                if ($source[$at] === '[') {
-                    $opens[] = $at;
-
-                    continue;
-                }
-                if ($source[$at] !== ']' || $opens === []) {
-                    continue;
-                }
-                $open = array_pop($opens);
-                if (($source[$at + 1] ?? '') !== '(') {
-                    continue;
-                }
-                $end = $this->markdownActivationTailEnd($source, $at + 1);
-                if ($end === null || $open < $copied) {
-                    continue;
-                }
-                $paren = substr($source, $at + 1, $end - $at);
-                $image = $open > 0 && $source[$open - 1] === '!';
-                if (!$image && strpbrk($paren, " \t\n") === false) {
-                    continue;
-                }
-                $label = substr($source, $open, $at - $open + 1);
-                $start = $image ? $open - 1 : $at + 1;
-                if ($start < $copied) {
-                    continue;
-                }
-                $pieces[] = substr($source, $copied, $start - $copied);
-                $pieces[] = $image
-                    ? $protectDestination($imageLabel('!' . $label), $paren, '!' . $label . $paren)
-                    : $protectDestination('', $paren);
-                $copied = $end + 1;
-                $at = $end;
-            }
-            if ($pieces !== []) {
-                $line = implode('', $pieces) . substr($source, $copied);
-            }
-        }
+        $line = $this->protectBareInlineDestinations($line, $imageLabel, $protectDestination);
 
         $line = preg_replace_callback(
             '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\[\]\n]|\n(?![ \t]*\n))*\])*\])(\([ \t\n]*(?:[^()\s]|\([^()\n]*\))+[ \t\n]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\'|\((?:[^()\n]|\n(?![ \t]*\n))*\))[ \t\n]*\))/',
@@ -838,7 +318,7 @@ final class InlineStage
             $line,
         ) ?? $line;
 
-        $activeDestinationClosers = $destinationClosers($line);
+        $activeDestinationClosers = $this->destinationClosers($line);
         $line = preg_replace_callback(
             '/(?<=\])(\([ \t\n]*(?:[^()\s]|\([^()\n]*\))+[ \t\n]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\'|\((?:[^()\n]|\n(?![ \t]*\n))*\))[ \t\n]*\))/',
             static fn (array $match): string => isset($activeDestinationClosers[$match[1][1] - 1])
@@ -855,7 +335,7 @@ final class InlineStage
             fn (array $match): string => $protectDestination($imageLabel($match[1]), $match[2], $match[1] . $match[2]),
             $line,
         ) ?? $line;
-        $activeDestinationClosers = $destinationClosers($line);
+        $activeDestinationClosers = $this->destinationClosers($line);
         $line = preg_replace_callback(
             '/(?<=\])(' . $destination . ')/',
             static fn (array $match): string => isset($activeDestinationClosers[$match[1][1] - 1])
@@ -878,51 +358,7 @@ final class InlineStage
         $line = preg_replace_callback(
             '/(?<![\\\\\]])\[([^[\]\n^]+)\]\[([^[\]\n^]+)\]\[([^[\]\n^]+)\]/u',
             function (array $match) use ($chainSubject, &$chainCursor, $protect, $protected, $protectedSources, $protectDestination): string {
-                $offset = $match[0][1];
-                while ($chainCursor < $offset) {
-                    if ($chainSubject[$chainCursor] === '<') {
-                        $tag = $this->htmlTagAt($chainSubject, $chainCursor);
-                        if ($tag !== null) {
-                            $chainCursor = $tag['end'];
-
-                            continue;
-                        }
-                        if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[^<>\s@]+@[^<>\s]+)>/', $chainSubject, $auto, 0, $chainCursor) === 1) {
-                            $chainCursor += strlen($auto[0]);
-
-                            continue;
-                        }
-                    }
-                    $chainCursor++;
-                }
-                if ($chainCursor > $offset) {
-                    return $match[0][0];
-                }
-                if (
-                    preg_match('/\G\x00P(\d+)\x00/', $chainSubject, $tail, 0, $offset + strlen($match[0][0])) === 1
-                    && str_starts_with($protected[(int)$tail[1]] ?? '', '(')
-                ) {
-                    return $match[0][0];
-                }
-                [$first, $second, $third] = [$match[1][0], $match[2][0], $match[3][0]];
-                $middleTarget = $this->complexReferenceTarget($second, $protectedSources);
-                $lastTarget = $this->complexReferenceTarget($third, $protectedSources);
-                $middle = $this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($second)] ?? null;
-                $last = $this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($third)] ?? null;
-                $middleTail = $middleTarget !== null ? $protectDestination('', '(' . $middleTarget . ')', reference: true) : ($middle !== null ? $protect('[' . $middle . ']') : null);
-                $lastTail = $lastTarget !== null ? $protectDestination('', '(' . $lastTarget . ')', reference: true) : ($last !== null ? $protect('[' . $last . ']') : null);
-                if ($middleTail !== null) {
-                    if (($chainSubject[$offset - 1] ?? '') === '!' || ($chainSubject[$offset + strlen($match[0][0])] ?? '') === '[') {
-                        return $match[0][0];
-                    }
-
-                    return '[' . $first . ']' . $middleTail . '[' . $third . ']' . ($lastTail ?? '');
-                }
-                if ($lastTail !== null) {
-                    return $protect('\\[' . $first . ']') . '[' . $second . ']' . $lastTail;
-                }
-
-                return $match[0][0];
+                return $this->rewriteReferenceChain($match, $chainSubject, $chainCursor, $protect, $protected, $protectedSources, $protectDestination);
             },
             $line,
             flags: PREG_OFFSET_CAPTURE,
@@ -952,210 +388,19 @@ final class InlineStage
         ) ?? $line;
         $line = preg_replace_callback('/\[\^(?=[^[\]\n]*\[(?!\^))/', fn (): string => $protect('\\[') . '^', $line) ?? $line;
 
-        $footnoteSource = $line;
-        $footnoteCursor = 0;
-        $line = preg_replace_callback('/\[\^([^[\]\n]+)\]/', function (array $match) use ($protected, $protect, $table, $footnoteSource, &$footnoteCursor): string {
-            $offset = $match[0][1];
-            while ($footnoteCursor < $offset) {
-                if ($footnoteSource[$footnoteCursor] === '<') {
-                    $tag = $this->htmlTagAt($footnoteSource, $footnoteCursor);
-                    if ($tag !== null) {
-                        $footnoteCursor = $tag['end'];
-
-                        continue;
-                    }
-                    if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[^<>\s@]+@[^<>\s]+)>/', $footnoteSource, $auto, 0, $footnoteCursor) === 1) {
-                        $footnoteCursor += strlen($auto[0]);
-
-                        continue;
-                    }
-                }
-                $footnoteCursor++;
-            }
-            if ($footnoteCursor > $offset) {
-                return $match[0][0];
-            }
-            $label = $this->referenceSourceText($match[1][0], $protected);
-            $renamed = $this->context->importedFootnoteLabels[$label] ?? null;
-
-            return $renamed === null
-                ? ($table && str_contains($label, '|') ? $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0][0])) : $match[0][0])
-                : '[^' . $renamed . ']';
-        }, $line, flags: PREG_OFFSET_CAPTURE) ?? $line;
+        $line = $this->rewriteInlineFootnotes($line, $protected, $protect, $table);
 
         if ($table) {
-            $line = preg_replace_callback('/(?<!\\\\)\[([^[\]\n^]+)\]\[([^[\]\n]+)\]/', function (array $match) use ($protected, $protectedSources, $protect, $writeLiteralReference): string {
-                if (!str_contains($match[1], '|') || $this->complexReferenceTarget($match[2], $protectedSources) !== null) {
-                    return $match[0];
-                }
-                $canonical = $this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[2], $protected))] ?? null;
-                if ($canonical !== null && (!str_contains($canonical, '|') || $this->normalizeReferenceLabel($canonical) === $this->normalizeReferenceLabel($match[2]))) {
-                    return $match[0];
-                }
-
-                return $protect($writeLiteralReference($match[0]));
-            }, $line) ?? $line;
-            $line = preg_replace_callback(
-                '/(?<!\\\\)(!?)\[([^[\]\n^][^[\]\n]*)\]\[\]/',
-                function (array $match) use ($protected, $protectedSources, $protect, $writeLiteralReference): string {
-                    if (!str_contains($match[2], '|') || $this->complexReferenceTarget($match[2], $protectedSources) !== null) {
-                        return $match[0];
-                    }
-                    $canonical = $this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[2], $protected))] ?? null;
-                    if ($canonical !== null && $this->normalizeReferenceLabel($canonical) === $this->normalizeReferenceLabel($match[2])) {
-                        return $match[0];
-                    }
-
-                    return $protect($writeLiteralReference($match[0]));
-                },
-                $line,
-            ) ?? $line;
+            $line = $this->rewriteTableReferences($line, $protected, $protectedSources, $protect, $writeLiteralReference);
         }
-        $literalReferenceOpeners = [];
-        if (str_contains($line, '][') && preg_match('/\]\[[^\[\]\n]+\]\x00P\d+\x00/', $line) === 1) {
-            $inlineChainMath = [];
-            if ($this->context->convertMath && str_contains($line, '$')) {
-                preg_match_all('/\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d)/', $line, $mathRanges, PREG_OFFSET_CAPTURE);
-                foreach ($mathRanges[0] as [$body, $start]) {
-                    $inlineChainMath[] = [$start, $start + strlen($body)];
-                }
-            }
-            $resolvedReferenceTailOpeners = [];
-            $referenceScopes = $this->markdownLinkScopes($line, $protected, scopeOnly: true)['active'];
-            for ($at = 1, $count = count($referenceScopes); $at < $count; $at += 2) {
-                $tailAt = $referenceScopes[$at] + 1;
-                if (($line[$tailAt] ?? '') === '[') {
-                    $resolvedReferenceTailOpeners[$tailAt] = true;
-                }
-            }
-            $inlineChainUrls = $this->plainMarkdownUrlRanges($line, $protected, $protectedSources);
-            $inlineChainMathAt = 0;
-            $inlineChainUrlAt = 0;
-            $line = preg_replace_callback(
-                '/(?<!\\\\)\[((?!\^)[^\[\]\n]+)\]\[([^\[\]\n]+)\](?=\x00P(\d+)\x00)/',
-                function (array $match) use ($inlineChainUrls, $inlineChainMath, &$inlineChainMathAt, &$inlineChainUrlAt, $resolvedReferenceTailOpeners, $protected, $protectedSources, $protect, &$literalReferenceOpeners): string {
-                    $offset = $match[0][1];
-                    if (isset($resolvedReferenceTailOpeners[$offset])) {
-                        return $match[0][0];
-                    }
-                    while (isset($inlineChainMath[$inlineChainMathAt]) && $inlineChainMath[$inlineChainMathAt][1] <= $offset) {
-                        $inlineChainMathAt++;
-                    }
-                    if (isset($inlineChainMath[$inlineChainMathAt]) && $inlineChainMath[$inlineChainMathAt][0] <= $offset) {
-                        return $match[0][0];
-                    }
-                    while (isset($inlineChainUrls[$inlineChainUrlAt]) && $inlineChainUrls[$inlineChainUrlAt]['end'] <= $offset) {
-                        $inlineChainUrlAt++;
-                    }
-                    if (isset($inlineChainUrls[$inlineChainUrlAt]) && $inlineChainUrls[$inlineChainUrlAt]['start'] <= $offset) {
-                        return $match[0][0];
-                    }
-                    $tail = $protected[(int)$match[3][0]] ?? '';
-                    $label = $match[2][0];
-                    $defined = isset($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))])
-                        || $this->complexReferenceTarget($label, $protectedSources) !== null;
-                    if (!str_starts_with($tail, '(') || $defined) {
-                        return $match[0][0];
-                    }
-
-                    $opener = $protect('\\[', '[');
-                    $literalReferenceOpeners[$opener] = true;
-
-                    return $opener . $match[1][0] . $protect('\\]', ']') . '[' . $label . ']';
-                },
-                $line,
-                flags: PREG_OFFSET_CAPTURE,
-            ) ?? $line;
-        }
-        $linkClosers = [];
-        $openLabels = [];
-        for ($at = 0, $length = strlen($line); $at < $length; $at++) {
-            if ($this->context->convertMath && $line[$at] === '$' && preg_match('/\G(?:\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d))/', $line, $math, 0, $at) === 1) {
-                $at += strlen($math[0]) - 1;
-
-                continue;
-            }
-            if (($line[$at] === '<' || ($line[$at] === 'h' && $openLabels === [])) && preg_match('~\G(?:<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*>|https?://[^\s<>`\x00]+)~', $line, $url, 0, $at) === 1) {
-                $at += strlen($url[0]) - 1;
-
-                continue;
-            }
-            if ($line[$at] === '[') {
-                $openLabels[] = $at;
-            } elseif ($line[$at] === ']' && $openLabels !== []) {
-                $open = array_pop($openLabels);
-                if (($line[$open + 1] ?? '') !== '^') {
-                    $linkClosers[$at] = $open;
-                }
-            }
-        }
+        [$line, $literalReferenceOpeners] = $this->protectInlineReferenceChains($line, $protected, $protectedSources, $protect);
+        $linkClosers = $this->inlineLinkClosers($line);
         $referenceClosers = [];
         $subject = $line;
         $line = preg_replace_callback(
             '/(?<=\])\[([^\]]*)\]/',
             function (array $match) use ($subject, $protected, $protectedSources, $protect, $protectDestination, $linkClosers, &$referenceClosers, &$literalReferenceOpeners, $table, $writeLiteralReference): string {
-                $reference = $match[1][0];
-                if (str_starts_with($reference, '^')) {
-                    return $protect($match[0][0]);
-                }
-                $offset = $match[0][1];
-                if (!isset($linkClosers[$offset - 1]) || isset($referenceClosers[$offset - 1])) {
-                    return $match[0][0];
-                }
-                $referenceClosers[$offset + strlen($match[0][0]) - 1] = true;
-                $labelStart = $reference === '' ? strrpos(substr($subject, 0, max(0, $offset - 1)), '[') : false;
-                $preceding = $labelStart === false ? '' : substr($subject, $labelStart + 1, $offset - $labelStart - 2);
-                $label = $reference !== '' ? $reference : (strpbrk($preceding, "]\n") === false ? $preceding : null);
-                $target = $label !== null ? $this->complexReferenceTarget($label, $protectedSources) : null;
-                if ($target !== null) {
-                    return $protectDestination('', '(' . $target . ')', reference: true);
-                }
-                $canonical = $label !== null && ($reference === '' || strpbrk($label, "\\&\0") === false)
-                    ? ($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null)
-                    : null;
-                if ($table && $canonical !== null && str_contains($canonical, '|') && $this->normalizeReferenceLabel($label) !== $this->normalizeReferenceLabel($canonical)) {
-                    $canonical = null;
-                }
-                $firstStart = $linkClosers[$offset - 1];
-                $firstLabel = substr($subject, $firstStart + 1, $offset - $firstStart - 2);
-                $literal = $this->decodeLinkTitle($reference, $protected);
-                $raw = $reference;
-                $protectedCount = count($protected);
-                for ($pass = 0; $pass < $protectedCount; $pass++) {
-                    $restored = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $part): string => $protected[(int)$part[1]] ?? $part[0], $raw) ?? $raw;
-                    if ($restored === $raw) {
-                        break;
-                    }
-                    $raw = $restored;
-                }
-                if (
-                    $canonical === null && preg_match('/\\\\[!*]/', $raw) === 1 && $literal !== $reference
-                    && $this->normalizeReferenceLabel($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($literal)] ?? '') !== $this->normalizeReferenceLabel($raw)
-                ) {
-                    $firstStart = $linkClosers[$offset - 1];
-                    $firstLabel = substr($subject, $firstStart + 1, $offset - $firstStart - 2);
-                    if (!isset($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($firstLabel, $protected))])) {
-                        return $protect('\\[' . $writeLiteralReference($reference) . '\\]');
-                    }
-                }
-                if ($canonical === null && str_contains($raw, '|')) {
-                    return $protect('\\[' . $writeLiteralReference($reference) . '\\]');
-                }
-                $definedReference = isset($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($literal)])
-                    || isset($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->referenceSourceText($reference, $protectedSources))]);
-                $end = $offset + strlen($match[0][0]);
-                $inlineTail = preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1
-                    && str_starts_with($protected[(int)$next[1]] ?? '', '(');
-                if ($canonical === null && !$definedReference && !$inlineTail && preg_match('/[\x00*_`\\\\<&~"\'=^]/', $firstLabel . $reference) === 1) {
-                    $opener = $protect('\\[', '[');
-                    $literalReferenceOpeners[$opener] = true;
-
-                    return $opener . $reference . $protect('\\]', ']');
-                }
-                $collapsed = $reference === '' && $label === $canonical && preg_match('/^[\p{L}\p{N} .-]*$/u', $label ?? '') === 1
-                    && preg_match('/(?:\.{3,}|--)/', $label ?? '') !== 1;
-
-                return $protect($canonical === null || strpbrk($canonical, '[]') !== false || $collapsed ? $match[0][0] : '[' . $canonical . ']');
+                return $this->rewriteReferenceLabelMatch($match, $subject, $protected, $protectedSources, $protect, $protectDestination, $linkClosers, $referenceClosers, $literalReferenceOpeners, $table, $writeLiteralReference);
             },
             $line,
             flags: PREG_OFFSET_CAPTURE,
@@ -1227,58 +472,976 @@ final class InlineStage
             $line = preg_replace_callback(
                 '/(!?)\[([^[\]\n^][^[\]\n]*)\]/',
                 function (array $match) use ($subject, $protected, $protectedSources, $protect, $protectDestination, $closers, $literalReferenceOpeners, $table, $isReferenceDefinition, &$referenceUrls, &$referenceUrlAt): string {
-                    $offset = $match[0][1];
-                    while (isset($referenceUrls[$referenceUrlAt]) && $referenceUrls[$referenceUrlAt]['end'] <= $offset) {
-                        $referenceUrlAt++;
-                    }
-                    $url = $referenceUrls[$referenceUrlAt] ?? null;
-                    if ($url !== null && $offset >= $url['start'] && $offset < $url['end']) {
-                        return $match[0][0];
-                    }
-                    $label = $match[2][0];
-                    $end = $match[0][1] + strlen($match[0][0]);
-                    if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
-                        $tail = $protectedSources[(int)$next[1]] ?? '';
-                        if (isset($literalReferenceOpeners[$next[0]]) || str_starts_with($tail, '(') && ($protected[(int)$next[1]] ?? '') !== '\\(' || str_starts_with($tail, '{title=') || preg_match('/^\[[^\]]*\]$/', $tail) === 1) {
-                            return $match[0][0];
-                        }
-                    }
-                    if ($isReferenceDefinition && ($subject[$end] ?? '') === ':' && preg_match('/^[ \t>]*' . self::DEFINITION_MARKER . '$/', substr($subject, 0, $match[0][1])) === 1) {
-                        return $match[0][0];
-                    }
-                    // A task checkbox, whose label the reader never resolves.
-                    if (($this->cmarkReadsTaskCheckbox)($subject, $match[0][1])) {
-                        return $match[0][0];
-                    }
-                    $target = $this->complexReferenceTarget($label, $protectedSources);
-                    $rawLabel = $this->referenceSourceText($label, $protectedSources);
-                    $definition = preg_match('/&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $rawLabel) === 1
-                        && !isset($this->context->authoredReferenceLabelKeys[$this->normalizeReferenceLabel($rawLabel)])
-                        ? null
-                        : ($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protectedSources))] ?? null);
-                    if ($url !== null && $offset < $url['start'] && ($target !== null || $definition !== null)) {
-                        for ($at = $referenceUrlAt; isset($referenceUrls[$at]) && $referenceUrls[$at]['start'] < $end; $at++) {
-                            $referenceUrls[$at]['end'] = min($referenceUrls[$at]['end'], $end);
-                        }
-                    }
-                    if ($target !== null) {
-                        return $match[1][0] . '[' . $label . ']' . $protectDestination('', '(' . $target . ')', reference: true);
-                    }
-                    if ($table && str_contains($label, '|') && ($definition === null || $this->normalizeReferenceLabel($definition) !== $this->normalizeReferenceLabel($label))) {
-                        return $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0][0]));
-                    }
-                    if ($definition === null) {
-                        return $match[0][0];
-                    }
-
-                    return $match[1][0] . '[' . $label . ']'
-                        . ($definition === $label && preg_match('/^[\p{L}\p{N} .-]*$/u', $label) === 1 && preg_match('/(?:\.{3,}|--)/', $label) !== 1 ? '[]' : $protect('[' . $definition . ']'));
+                    return $this->rewriteShortcutReference($match, $subject, $protected, $protectedSources, $protect, $protectDestination, $closers, $literalReferenceOpeners, $table, $isReferenceDefinition, $referenceUrls, $referenceUrlAt);
                 },
                 $line,
                 flags: PREG_OFFSET_CAPTURE,
             ) ?? $line;
         }
 
+        $line = $this->protectBareInlineUrls($line, $protected, $protectedSources, $codeTokens, $protect, $writeCodeSpan, $table);
+
+        if ($this->context->convertMath) {
+            $line = preg_replace_callback('/\$\$([^$]+)\$\$/', fn (array $match): string => $protect('$$`' . $match[1] . '`'), $line) ?? $line;
+            $line = preg_replace_callback('/\$([^$\s][^$]*[^$\s]|\S)\$(?!\d)/', function (array $match) use ($protect): string {
+                return preg_match('/^[\d.,]+$/', $match[1])
+                    ? $match[0]
+                    : $protect('$`' . $match[1] . '`');
+            }, $line) ?? $line;
+        }
+
+        if (!$this->context->convertAttributes) {
+            $line = $this->escapeAttributeBlockOpener($line);
+        }
+
+        $line = preg_replace('/ {2,}\n/', "\\\n", $line) ?? $line;
+
+        $nativeInlineTags = [];
+        $line = preg_replace_callback('/<\/?(?:' . $nativeInline . ')>/i', static function (array $match) use ($protect, &$nativeInlineTags): string {
+            $token = $protect($match[0]);
+            $nativeInlineTags[$token] = $match[0];
+
+            return $token;
+        }, $line) ?? $line;
+
+        $resolved = $this->context->resolvedCrossrefs ?? [];
+        $line = preg_replace_callback(ImportedCrossrefs::RUN, static fn (array $match): string => isset($resolved[$match[1]]) ? $match[0] : $protect($match[0]), $line) ?? $line;
+        $line = $this->escapePlainCarveInlineSyntax($line, self::HANDLED_MARKDOWN);
+        $line = $this->restoreNumericReferenceHashes($line);
+        $line = str_replace('&#', '&\\#', $line);
+
+        $line = $this->escapeLinkLabelSlashes($line, $protected);
+        $line = Emphasis::convert($line, function (): void {
+            $this->context->flattenedEmphasis = true;
+        }, null, $protected, strikethrough: true);
+
+        $line = strtr($line, $nativeInlineTags);
+
+        $line = $this->rewriteNativeInlineTags($line, $work, $protect, $hasProtectedEscapeBefore, $nativeInline);
+
+        $line = $this->escapeFinalInlineText($line, $work, $protect, $hasProtectedEscapeBefore, $table);
+
+        return $this->restoreProtectedInlineOutput($line, $work, $table);
+    }
+
+    /**
+     * @param string $paren
+     * @param array<string> $protected
+     * @param bool $table
+     */
+    private function validateInlineCodeDestination(string $paren, array $protected, bool $table): ?string
+    {
+        $inner = trim(substr($paren, 1, -1), " \t\n");
+        if (str_starts_with($inner, '<')) {
+            preg_match('/^<((?:[^>\\\\]|\\\\.)*)>/s', $inner, $pointy);
+            $end = isset($pointy[0]) ? strlen($pointy[0]) - 1 : false;
+            if ($end === false) {
+                return null;
+            }
+            $url = substr($inner, 1, $end - 1);
+            if (preg_match('/(?<!\\\\)[\r\n]/', $url) === 1) {
+                return null;
+            }
+            $rest = substr($inner, $end + 1);
+        } elseif (preg_match('/^((?:\x00P\d+\x00|[^\x00-\x20\x7f])+)([\s\S]*)$/', $inner, $matches)) {
+            $url = $matches[1];
+            $rest = $matches[2];
+        } else {
+            $url = $inner;
+            $rest = '';
+        }
+
+        if (trim($rest) !== '') {
+            if (preg_match('/^[ \t\n]+("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|\((?:[^()\\\\]|\\\\.)*\))[ \t\n]*$/s', $rest, $title) !== 1) {
+                return null;
+            }
+            $decoded = $this->decodeLinkTitle(substr($title[1], 1, -1), $protected);
+            $rest = ' ' . $this->context->importWriter->spellImportedTitle($decoded, $table);
+        }
+
+        return '(' . $this->writeMarkdownDestination($url, $protected, table: $table) . $rest . ')';
+    }
+
+    /**
+     * @return array<int, true>
+     */
+    private function destinationClosers(string $subject): array
+    {
+        $opens = [];
+        $closers = [];
+        for ($at = 0, $length = strlen($subject); $at < $length; $at++) {
+            if ($subject[$at] === '\\') {
+                $at++;
+            } elseif ($subject[$at] === '[') {
+                $opens[] = $at;
+            } elseif ($subject[$at] === ']' && $opens !== []) {
+                array_pop($opens);
+                $closers[$at] = true;
+            }
+        }
+
+        return $closers;
+    }
+
+    /**
+     * @param string $value
+     * @param \Closure(string, ?string=): string $protect
+     * @param array<string, string> $codeScalarTags
+     */
+    private function protectCodeTags(string $value, Closure $protect, array &$codeScalarTags): string
+    {
+        $written = '';
+        $opaqueEnds = [];
+        for ($at = 0, $length = strlen($value); $at < $length;) {
+            $end = $value[$at] === '<' ? $this->opaqueHtmlEnd($value, $at, $opaqueEnds) : null;
+            if ($end === null && $value[$at] === '<') {
+                $end = $this->htmlTagAt($value, $at)['end'] ?? null;
+            }
+            if (
+                $end === null && $value[$at] === '&'
+                && preg_match('/\G&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $value, $entity, 0, $at) === 1
+                && strpbrk($this->decodeHtmlReferenceText($entity[0]), "\r\n") !== false
+            ) {
+                $end = $at + strlen($entity[0]);
+            }
+            if ($end === null) {
+                $written .= $value[$at++];
+
+                continue;
+            }
+            $span = substr($value, $at, $end - $at);
+            $token = $protect($span);
+            $codeScalarTags[$token] = $span;
+            $written .= $token;
+            $at = $end;
+        }
+
+        return $written;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Node> $children
+     */
+    private function htmlCodeChildrenArePlain(array $children): bool
+    {
+        foreach ($children as $child) {
+            if (in_array($child->getType(), ['text', 'escaped_text', 'smart_punctuation', 'non_breaking_space', 'soft_break'], true)) {
+                continue;
+            }
+            $label = $child instanceof Link ? $child->getReferenceLabel() : null;
+            if ($label === null || $child->getDestination() !== null && $child->getDestination() !== '' || isset($this->context->definedReferenceLabels[$this->normalizeReferenceLabel($label)]) || !$this->htmlCodeChildrenArePlain($child->getChildren())) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<int, string> $match
+     * @param int $offset
+     * @param string $line
+     * @param string $standaloneSource
+     * @param bool $terminal
+     * @param bool $table
+     * @param \Closure(string, ?string=): string $protect
+     * @param \Closure(int): ?int $lineAt
+     * @param \MarkupCarve\Carve\Converter\Markdown\HtmlCodeState $state
+     * @param \MarkupCarve\Carve\Converter\Markdown\InlineWork $work
+     */
+    private function writeHtmlCode(
+        array $match,
+        int $offset,
+        string $line,
+        string $standaloneSource,
+        bool $terminal,
+        bool $table,
+        Closure $protect,
+        Closure $lineAt,
+        HtmlCodeState $state,
+        InlineWork $work,
+    ): ?string {
+        $parts = [''];
+        for ($at = 0, $length = strlen($match[1]); $at < $length;) {
+            if ($match[1][$at] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $match[1][$at + 1] ?? '') === 1) {
+                $parts[count($parts) - 1] .= substr($match[1], $at, 2);
+                $at += 2;
+            } elseif (substr_compare($match[1], '<!---->', $at, 7) === 0) {
+                $parts[] = '';
+                $at += 7;
+            } else {
+                $parts[count($parts) - 1] .= $match[1][$at++];
+            }
+        }
+        $slashes = 0;
+        for ($at = strlen($match[1]) - 1; $at >= 0 && $match[1][$at] === '\\'; $at--) {
+            $slashes++;
+        }
+        if ($slashes % 2 !== 0) {
+            return null;
+        }
+        if (str_contains($match[1], "\0")) {
+            return null;
+        }
+        if (strpbrk($match[1], '[]') !== false) {
+            if ($state->activeLinkOpeners === null) {
+                $state->activeLinkOpeners = [];
+                $opaqueEnds = [];
+                $state->activeLinkOpeners = $this->markdownLinkScopes(
+                    $line,
+                    $work->protectedSources,
+                    true,
+                    function (int $start) use ($line, &$opaqueEnds): ?int {
+                        return $this->opaqueHtmlEnd($line, $start, $opaqueEnds) ?? ($this->htmlTagAt($line, $start)['end'] ?? null);
+                    },
+                )['active'];
+                sort($state->activeLinkOpeners);
+            }
+            while (isset($state->activeLinkOpeners[$state->nextLinkOpener]) && $state->activeLinkOpeners[$state->nextLinkOpener] < $offset + 6) {
+                $state->nextLinkOpener++;
+            }
+            if (($state->activeLinkOpeners[$state->nextLinkOpener] ?? PHP_INT_MAX) < $offset + strlen($match[0]) - 7) {
+                return null;
+            }
+        }
+        if (strpbrk($match[1], '\\`*_~[]') !== false) {
+            if (strpbrk($match[1], '*_~') !== false) {
+                $state->unchangedByEmphasis ??= $this->htmlCodeUnchangedByEmphasis($line, $work->protected);
+                if (!isset($state->unchangedByEmphasis[$offset])) {
+                    return null;
+                }
+            }
+            $probe = (new CarveConverter())->parse('x ' . (clone $this)->convertInlineFormatting(implode('', $parts)) . "\n");
+            $paragraphs = $probe->getChildren();
+            if (count($paragraphs) !== 1 || !($paragraphs[0] instanceof Paragraph)) {
+                return null;
+            }
+            if (!$this->htmlCodeChildrenArePlain($paragraphs[0]->getChildren())) {
+                return null;
+            }
+        }
+        $decodedParts = array_map(function (string $part): string {
+            $decoded = preg_replace_callback(
+                '/\\\\([!-\/:-@\[-`{-~])|&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/',
+                fn (array $piece): string => $piece[1] ?? $this->decodeHtmlReferenceText($piece[0]),
+                $part,
+            ) ?? $part;
+
+            return str_replace(["\r\n", "\r"], "\n", $decoded);
+        }, $parts);
+        foreach ($decodedParts as $part) {
+            if (str_contains($part, '@') && BareLinks::ranges($part, null, 'email') !== []) {
+                return null;
+            }
+        }
+        $value = implode('', $decodedParts);
+        if ($this->context->nativeCodeSlot && $terminal && !$table && $standaloneSource === $match[0]) {
+            $document = new Document();
+            $paragraph = new Paragraph();
+            $paragraph->appendChild(new Code($value));
+            $document->appendChild($paragraph);
+            try {
+                $source = (new CarveRenderer())->render($document);
+                $read = (new CarveConverter())->parse($source)->getChildren();
+                $children = ($read[0] ?? null) instanceof Paragraph ? $read[0]->getChildren() : [];
+                if (count($read) === 1 && count($children) === 1 && $children[0] instanceof Code && $children[0]->getContent() === str_replace(["\r\n", "\r"], "\n", $value)) {
+                    return $protect(rtrim($source, "\n"), $match[0]);
+                }
+            } catch (SourceUnspellableException) {
+            }
+        }
+        $before = substr($line, 0, $offset);
+        // An empty code run is spellable only as an unclosed run ending its paragraph.
+        if (
+            $value === ''
+            && $terminal
+            && !$table
+            && preg_match('/(?:^|[\p{L}\p{N} \t\n.,;:?)\'"-])$/u', $before) === 1
+            && preg_match('/^[ \t]*$/', substr($line, $offset + strlen($match[0]))) === 1
+        ) {
+            return $protect('``', $match[0]);
+        }
+        // A line break in the value continues the paragraph when the caller keeps added lines.
+        if (
+            $this->context->breakableCodeSlot
+            && str_contains($value, "\n")
+            && !str_contains($value, "\r")
+            && !$table
+            && preg_match('/^[ \t]*#{1,6}(?:[ \t]|$)/', $line) !== 1
+            && preg_match('/[!$\\\\`\x00{}\]]$/', $before) !== 1
+        ) {
+            $document = new Document();
+            $paragraph = new Paragraph();
+            $paragraph->appendChild(new Code($value));
+            $document->appendChild($paragraph);
+            try {
+                $written = rtrim((new CarveRenderer())->render($document), "\n");
+                $read = (new CarveConverter())->parse('x ' . $written . " y\n")->getChildren();
+                $children = ($read[0] ?? null) instanceof Paragraph ? $read[0]->getChildren() : [];
+                if (count($read) === 1 && count($children) === 3 && $children[1] instanceof Code && $children[1]->getContent() === $value) {
+                    return $protect($written, $match[0]);
+                }
+            } catch (SourceUnspellableException) {
+            }
+        }
+        if ($value === '' || str_contains($value, "\n") || str_contains($value, "\r")) {
+            $htmlCodeSourceLine = $lineAt($offset);
+            $diagnostic = new MigrationDiagnostic(
+                'raw-code-fallback',
+                'Preserved an HTML code payload as raw HTML; targets and profiles that escape or omit raw HTML change its code structure and content',
+                'warning',
+                'degraded',
+                'exact',
+                $htmlCodeSourceLine === null ? null : 'line:' . $htmlCodeSourceLine,
+            );
+
+            $html = preg_replace_callback('/[ !-\/:-@\[-`{-~\t\n]/', static function (array $character): string {
+                if ($character[0] === "\n") {
+                    return '<!---->&#10;<!---->';
+                }
+                $entity = '&#' . ord($character[0]) . ';';
+
+                return $character[0] === '@' ? $entity . '<!---->' : $entity;
+            }, str_replace(["\r\n", "\r"], "\n", $value)) ?? $value;
+
+            $token = $protect($this->verbatimHtmlInline('<code>' . $html . '</code>'), $match[0]);
+            $work->codeFallbacks[$token] = $diagnostic;
+
+            return $token;
+        }
+        $document = new Document();
+        $paragraph = new Paragraph();
+        $paragraph->appendChild(new Code($value));
+        $document->appendChild($paragraph);
+
+        return $protect(rtrim((new CarveRenderer())->render($document), "\n"), $match[0]);
+    }
+
+    /**
+     * @param string $paren
+     * @param bool $reference
+     * @param array<string> $protected
+     * @param array<string> $protectedSources
+     * @param bool $table
+     */
+    private function encodeInlineDestination(string $paren, bool $reference, array $protected, array $protectedSources, bool $table): ?string
+    {
+        $sourceParen = $this->referenceSourceText($paren, $protectedSources);
+        if (
+            $reference ? ReferenceDefinition::read('[x]: ' . substr($sourceParen, 1, -1), 0) === null
+                : $this->markdownActivationTailEnd($sourceParen, 0) !== strlen($sourceParen) - 1
+        ) {
+            return null;
+        }
+        $paren = $sourceParen;
+        $inner = trim(substr($paren, 1, -1), " \t\n");
+        if (str_starts_with($inner, '<')) {
+            preg_match('/^<((?:[^>\\\\]|\\\\.)*)>/s', $inner, $pointy);
+            $end = isset($pointy[0]) ? strlen($pointy[0]) - 1 : false;
+            if ($end === false) {
+                return null;
+            }
+            $url = substr($inner, 1, $end - 1);
+            $pointyLine = 0;
+            $url = preg_replace_callback('/\\\\\n[ \t]*/', function (array $match) use (&$pointyLine): string {
+                $pointyLine++;
+
+                return "\\\n" . (($this->context->pointyContinuationStrip[$pointyLine] ?? false) ? '' : substr($match[0], 2));
+            }, $url) ?? $url;
+            if (preg_match('/(?<!\\\\)[\r\n]/', $url) === 1) {
+                return null;
+            }
+            $rest = substr($inner, $end + 1);
+        } elseif (preg_match('/^((?:\x00P\d+\x00|[^\x00-\x20\x7f])+)([\s\S]*)$/', $inner, $matches)) {
+            $url = $matches[1];
+            $rest = $matches[2];
+        } else {
+            $url = $inner;
+            $rest = '';
+        }
+
+        if (trim($rest) !== '') {
+            if (preg_match('/^[ \t\n]+("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|\((?:[^()\\\\]|\\\\.)*\))[ \t\n]*$/s', $rest, $title) !== 1) {
+                return null;
+            }
+            $decoded = $this->decodeMarkdownScalar($this->referenceSourceText(substr($title[1], 1, -1), $protected));
+            $rest = ' ' . $this->context->importWriter->spellImportedTitle($decoded, $table);
+        }
+
+        return '(' . $this->writeMarkdownDestination($url, originalSource: true, table: $table) . $rest . ')';
+    }
+
+    /**
+     * @param string $value
+     * @param array<string> $protected
+     * @param \Closure(string): string $preserveReferenceAutolinks
+     */
+    private function literalReferenceText(string $value, array $protected, Closure $preserveReferenceAutolinks): string
+    {
+        return implode('', array_map(function (string $part) use (&$protected, $preserveReferenceAutolinks): string {
+            if (str_starts_with($part, '<') && str_ends_with($part, '>')) {
+                return $preserveReferenceAutolinks($part);
+            }
+            if (preg_match('/^\x00P(\d+)\x00$/', $part, $token) === 1 && preg_match('/^!?`/', $protected[(int)$token[1]] ?? '') === 1) {
+                return $part;
+            }
+
+            return preg_replace('/[!-\/:-@\[-`{-~]/', '\\\\$0', $this->decodeLinkTitle($part, $protected)) ?? $part;
+        }, preg_split('/(\x00P\d+\x00|<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>)/', $value, flags: PREG_SPLIT_DELIM_CAPTURE) ?: []));
+    }
+
+    /**
+     * @param string $value
+     * @param \Closure(string, ?string=): string $protect
+     * @param bool $table
+     */
+    private function preserveReferenceAutolinks(string $value, Closure $protect, bool $table): string
+    {
+        return preg_replace_callback('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', static function (array $match) use ($protect, $table): string {
+            $body = substr($match[0], 1, -1);
+            $prefix = preg_match('/^[A-Za-z][A-Za-z0-9+.-]{1,31}:/', $body) === 1 ? '' : 'mailto:';
+            $url = $prefix . ($table ? DestinationEncoding::destination($body, true) : $body);
+            $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
+                . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
+
+            return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"));
+        }, $value) ?? $value;
+    }
+
+    /**
+     * @param string $line
+     * @param \Closure(string, ?string=): string $protect
+     * @param \Closure(array<int, string>, int): ?string $writeHtmlCode
+     * @param \Closure(int): ?int $lineAt
+     * @param \MarkupCarve\Carve\Converter\Markdown\InlineWork $work
+     * @param bool $terminal
+     */
+    private function escapeHtmlCodeAndBackslashes(
+        string $line,
+        Closure $protect,
+        Closure $writeHtmlCode,
+        Closure $lineAt,
+        InlineWork $work,
+        bool $terminal,
+    ): string {
+        $escaped = '';
+        $htmlCodeDepth = 0;
+        $opaqueEnds = [];
+        for ($i = 0, $length = strlen($line); $i < $length;) {
+            if ($htmlCodeDepth > 0 && $line[$i] === '&' && preg_match('/\G&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $line, $entity, 0, $i) === 1 && strpbrk($this->decodeHtmlReferenceText($entity[0]), "\r\n") !== false) {
+                $start = $i;
+                $i += strlen($entity[0]);
+                if (
+                    $this->decodeHtmlReferenceText($entity[0]) === "\r"
+                    && preg_match('/\G&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $line, $following, 0, $i) === 1
+                    && $this->decodeHtmlReferenceText($following[0]) === "\n"
+                ) {
+                    $i += strlen($following[0]);
+                } elseif ($this->decodeHtmlReferenceText($entity[0]) === "\r" && ($line[$i] ?? '') === "\n") {
+                    $i++;
+                    $i += strspn($line, " \t", $i);
+                }
+                $escaped .= $protect($this->verbatimHtmlInline('<!---->&#10;<!---->'), substr($line, $start, $i - $start));
+
+                continue;
+            }
+            $opaqueEnd = $line[$i] === '<' ? $this->opaqueHtmlEnd($line, $i, $opaqueEnds) : null;
+            if ($opaqueEnd !== null) {
+                $escaped .= substr($line, $i, $opaqueEnd - $i);
+                $i = $opaqueEnd;
+
+                continue;
+            }
+            if ($line[$i] === '<' && preg_match('/\G<code>((?:[^<\n]|<!---->)*)<\/code>/i', $line, $code, 0, $i) === 1) {
+                $written = $writeHtmlCode($code, $i);
+                if ($written !== null) {
+                    $escaped .= $written;
+                    $i += strlen($code[0]);
+
+                    continue;
+                }
+            }
+            $tag = $line[$i] === '<' ? $this->htmlTagAt($line, $i) : null;
+            if ($tag !== null) {
+                $sourceTag = substr($line, $i, $tag['end'] - $i);
+                if ($tag['name'] === 'code') {
+                    $htmlCodeDepth = max(0, $htmlCodeDepth + ($tag['closing'] ? -1 : 1));
+                    if (!$tag['closing']) {
+                        $htmlCodeSourceLine = $lineAt($i);
+                        $diagnostic = new MigrationDiagnostic(
+                            'raw-code-fallback',
+                            'Preserved HTML code markup as raw HTML; targets and profiles that escape or omit raw HTML change its code structure and content',
+                            'warning',
+                            'degraded',
+                            'exact',
+                            $htmlCodeSourceLine === null ? null : 'line:' . $htmlCodeSourceLine,
+                        );
+                    }
+                    $token = $protect($this->verbatimHtmlInline($sourceTag), $sourceTag);
+                    if (!$tag['closing']) {
+                        $work->codeFallbacks[$token] = $diagnostic;
+                    }
+                    $escaped .= $token;
+                } elseif ($htmlCodeDepth > 0 && $tag['name'] === 'br') {
+                    $escaped .= $protect($this->verbatimHtmlInline($sourceTag), $sourceTag);
+                } else {
+                    $escaped .= $sourceTag;
+                }
+                $i = $tag['end'];
+            } elseif ($line[$i] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $line[$i + 1] ?? '') === 1) {
+                $pair = substr($line, $i, 2);
+                $escaped .= $pair === '\\>' ? $protect('\\') . '>' : $protect($pair);
+                $i += 2;
+            } else {
+                $escaped .= $line[$i] === '\\' && (($line[$i + 1] ?? '') === ' ' || ($terminal && $i + 1 === $length)) ? $protect('\\\\', $line[$i]) : $line[$i];
+                $i++;
+            }
+        }
+
+        return $escaped;
+    }
+
+    /**
+     * @param string $line
+     * @param bool $isReferenceDefinition
+     * @param array<string> $protected
+     * @param \Closure(string, ?string=): string $protect
+     */
+    private function guardMarkdownSlashDelimiters(string $line, bool $isReferenceDefinition, array $protected, Closure $protect): string
+    {
+        if (
+            !$isReferenceDefinition && str_contains($line, '/')
+            && (preg_match('/<(?:em|i)\\b/i', $line) === 1
+                || ($this->hasOddMarkdownDelimiterRun($line) && substr_count(Emphasis::convert($line, protectedSpans: $protected), '/') > substr_count($line, '/')))
+        ) {
+            $authored = $line;
+            $guarded = '';
+            $opaqueEnds = [];
+            $bracketDepth = 0;
+            for ($at = 0, $length = strlen($authored); $at < $length;) {
+                if ($authored[$at] === "\0" && preg_match('/\\G\\x00P\\d+\\x00/', $authored, $token, 0, $at) === 1) {
+                    $guarded .= $token[0];
+                    $at += strlen($token[0]);
+
+                    continue;
+                }
+                if ($this->context->convertMath && $authored[$at] === '$' && preg_match('/\G(?:\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d))/', $authored, $math, 0, $at) === 1) {
+                    $guarded .= $math[0];
+                    $at += strlen($math[0]);
+
+                    continue;
+                }
+                if ($authored[$at] === '\\') {
+                    $guarded .= substr($authored, $at, 2);
+                    $at += 2;
+
+                    continue;
+                }
+                if ($authored[$at] === '<' && preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9.-]+)>/', $authored, $autolink, 0, $at) === 1) {
+                    $guarded .= $autolink[0];
+                    $at += strlen($autolink[0]);
+
+                    continue;
+                }
+                $end = $authored[$at] === '<' ? $this->opaqueHtmlEnd($authored, $at, $opaqueEnds) ?? ($this->htmlTagAt($authored, $at)['end'] ?? null) : null;
+                if ($end !== null) {
+                    $guarded .= substr($authored, $at, $end - $at);
+                    $at = $end;
+
+                    continue;
+                }
+                if ($authored[$at] === '[') {
+                    $bracketDepth++;
+                } elseif ($authored[$at] === ']' && $bracketDepth > 0) {
+                    $bracketDepth--;
+                    $end = $this->markdownActivationTailEnd($authored, $at + 1);
+                    if ($end !== null) {
+                        $guarded .= substr($authored, $at, $end - $at + 1);
+                        $at = $end + 1;
+
+                        continue;
+                    }
+                }
+                $guarded .= $authored[$at] === '/' ? $protect('\\/', '/') : $authored[$at];
+                $at++;
+            }
+            $line = $guarded;
+        }
+
+        return $line;
+    }
+
+    /**
+     * @param string $line
+     * @param \Closure(string): string $imageLabel
+     * @param \Closure(string, string, ?string=, bool=): string $protectDestination
+     */
+    private function protectBareInlineDestinations(string $line, Closure $imageLabel, Closure $protectDestination): string
+    {
+        if (str_contains($line, '](')) {
+            $source = $line;
+            $opens = [];
+            $pieces = [];
+            $copied = 0;
+            for ($at = 0, $length = strlen($source); $at < $length; $at++) {
+                if ($source[$at] === "\0" && preg_match('/\G\x00P\d+\x00/', $source, $token, 0, $at) === 1) {
+                    $at += strlen($token[0]) - 1;
+
+                    continue;
+                }
+                if ($source[$at] === '\\') {
+                    $at++;
+
+                    continue;
+                }
+                if ($source[$at] === '[') {
+                    $opens[] = $at;
+
+                    continue;
+                }
+                if ($source[$at] !== ']' || $opens === []) {
+                    continue;
+                }
+                $open = array_pop($opens);
+                if (($source[$at + 1] ?? '') !== '(') {
+                    continue;
+                }
+                $end = $this->markdownActivationTailEnd($source, $at + 1);
+                if ($end === null || $open < $copied) {
+                    continue;
+                }
+                $paren = substr($source, $at + 1, $end - $at);
+                $image = $open > 0 && $source[$open - 1] === '!';
+                if (!$image && strpbrk($paren, " \t\n") === false) {
+                    continue;
+                }
+                $label = substr($source, $open, $at - $open + 1);
+                $start = $image ? $open - 1 : $at + 1;
+                if ($start < $copied) {
+                    continue;
+                }
+                $pieces[] = substr($source, $copied, $start - $copied);
+                $pieces[] = $image
+                    ? $protectDestination($imageLabel('!' . $label), $paren, '!' . $label . $paren)
+                    : $protectDestination('', $paren);
+                $copied = $end + 1;
+                $at = $end;
+            }
+            if ($pieces !== []) {
+                $line = implode('', $pieces) . substr($source, $copied);
+            }
+        }
+
+        return $line;
+    }
+
+    /**
+     * @param array<int, array{string, int}> $match
+     * @param string $subject
+     * @param int $cursor
+     * @param \Closure(string, ?string=): string $protect
+     * @param array<string> $protected
+     * @param array<string> $protectedSources
+     * @param \Closure(string, string, ?string=, bool=): string $protectDestination
+     */
+    private function rewriteReferenceChain(
+        array $match,
+        string $subject,
+        int &$cursor,
+        Closure $protect,
+        array $protected,
+        array $protectedSources,
+        Closure $protectDestination,
+    ): string {
+            $offset = $match[0][1];
+        while ($cursor < $offset) {
+            if ($subject[$cursor] === '<') {
+                $tag = $this->htmlTagAt($subject, $cursor);
+                if ($tag !== null) {
+                    $cursor = $tag['end'];
+
+                    continue;
+                }
+                if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[^<>\s@]+@[^<>\s]+)>/', $subject, $auto, 0, $cursor) === 1) {
+                    $cursor += strlen($auto[0]);
+
+                    continue;
+                }
+            }
+            $cursor++;
+        }
+        if ($cursor > $offset) {
+            return $match[0][0];
+        }
+        if (
+                preg_match('/\G\x00P(\d+)\x00/', $subject, $tail, 0, $offset + strlen($match[0][0])) === 1
+                && str_starts_with($protected[(int)$tail[1]] ?? '', '(')
+        ) {
+            return $match[0][0];
+        }
+        [$first, $second, $third] = [$match[1][0], $match[2][0], $match[3][0]];
+        $middleTarget = $this->complexReferenceTarget($second, $protectedSources);
+        $lastTarget = $this->complexReferenceTarget($third, $protectedSources);
+        $middle = $this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($second)] ?? null;
+        $last = $this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($third)] ?? null;
+        $middleTail = $middleTarget !== null ? $protectDestination('', '(' . $middleTarget . ')', null, true) : ($middle !== null ? $protect('[' . $middle . ']') : null);
+        $lastTail = $lastTarget !== null ? $protectDestination('', '(' . $lastTarget . ')', null, true) : ($last !== null ? $protect('[' . $last . ']') : null);
+        if ($middleTail !== null) {
+            if (($subject[$offset - 1] ?? '') === '!' || ($subject[$offset + strlen($match[0][0])] ?? '') === '[') {
+                return $match[0][0];
+            }
+
+            return '[' . $first . ']' . $middleTail . '[' . $third . ']' . ($lastTail ?? '');
+        }
+        if ($lastTail !== null) {
+            return $protect('\\[' . $first . ']') . '[' . $second . ']' . $lastTail;
+        }
+
+        return $match[0][0];
+    }
+
+    /**
+     * @param array<int, array{string, int}> $match
+     * @param \Closure(string): ?string $validateCodeScalar
+     * @param \Closure(string): string $protectCodeTags
+     * @param \Closure(string, ?string=): string $protect
+     * @param string $subject
+     * @param array<int, array{int, int}> $opaqueRanges
+     * @param array<int, true> $destinationClosers
+     * @param int $cursor
+     */
+    private function protectScalarDestinationMatch(
+        array $match,
+        Closure $validateCodeScalar,
+        Closure $protectCodeTags,
+        Closure $protect,
+        string $subject,
+        array $opaqueRanges,
+        array $destinationClosers,
+        int &$cursor,
+    ): string {
+            $start = $match[0][1];
+        while (isset($opaqueRanges[$cursor]) && $opaqueRanges[$cursor][1] <= $start) {
+            $cursor++;
+        }
+        if (isset($opaqueRanges[$cursor]) && $opaqueRanges[$cursor][0] <= $start) {
+            return $match[0][0];
+        }
+        $match = array_map(static fn (array $capture): string => $capture[0], $match);
+        if (!isset($destinationClosers[$start + strlen($match[1]) - 1])) {
+            return $match[0];
+        }
+        $slashes = 0;
+        for ($at = $start - 1; $at >= 0 && $subject[$at] === '\\'; $at--) {
+            $slashes++;
+        }
+        $closingSlashes = 0;
+        for ($at = strlen($match[1]) - 2; $at >= 0 && $match[1][$at] === '\\'; $at--) {
+            $closingSlashes++;
+        }
+        if (($match[1][0] === '[' && $slashes % 2 !== 0) || $closingSlashes % 2 !== 0) {
+            return $match[0];
+        }
+        if ($validateCodeScalar($match[2]) === null) {
+            return preg_match('/<\/?code\b/i', $match[2]) === 1
+                ? $match[1] . $protect('\\(', '(') . substr($match[2], 1) : $match[0];
+        }
+        if (!str_starts_with($match[1], '!') && preg_match_all('/\[[^\[\]\n]*\](\([^()\n]*\))/', $match[1], $nestedDestinations) !== false) {
+            foreach ($nestedDestinations[1] as $destination) {
+                if ($validateCodeScalar($destination) !== null) {
+                    return $match[0];
+                }
+            }
+        }
+        $label = str_starts_with($match[1], '!') && $slashes % 2 === 0 ? $protectCodeTags($match[1]) : $match[1];
+
+        return $label . $protectCodeTags($match[2]);
+    }
+
+    /**
+     * @param array<int, array{string, int}> $match
+     * @param string $subject
+     * @param array<string> $protected
+     * @param array<string> $protectedSources
+     * @param \Closure(string, ?string=): string $protect
+     * @param \Closure(string, string, ?string=, bool=): string $protectDestination
+     * @param array<int, int> $linkClosers
+     * @param array<int, true> $referenceClosers
+     * @param array<string, true> $literalReferenceOpeners
+     * @param bool $table
+     * @param \Closure(string): string $writeLiteralReference
+     */
+    private function rewriteReferenceLabelMatch(
+        array $match,
+        string $subject,
+        array $protected,
+        array $protectedSources,
+        Closure $protect,
+        Closure $protectDestination,
+        array $linkClosers,
+        array &$referenceClosers,
+        array &$literalReferenceOpeners,
+        bool $table,
+        Closure $writeLiteralReference,
+    ): string {
+            $reference = $match[1][0];
+        if (str_starts_with($reference, '^')) {
+            return $protect($match[0][0]);
+        }
+        $offset = $match[0][1];
+        if (!isset($linkClosers[$offset - 1]) || isset($referenceClosers[$offset - 1])) {
+            return $match[0][0];
+        }
+        $referenceClosers[$offset + strlen($match[0][0]) - 1] = true;
+        $labelStart = $reference === '' ? strrpos(substr($subject, 0, max(0, $offset - 1)), '[') : false;
+        $preceding = $labelStart === false ? '' : substr($subject, $labelStart + 1, $offset - $labelStart - 2);
+        $label = $reference !== '' ? $reference : (strpbrk($preceding, "]\n") === false ? $preceding : null);
+        $target = $label !== null ? $this->complexReferenceTarget($label, $protectedSources) : null;
+        if ($target !== null) {
+            return $protectDestination('', '(' . $target . ')', null, true);
+        }
+        $canonical = $label !== null && ($reference === '' || strpbrk($label, "\\&\0") === false)
+                ? ($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null)
+                : null;
+        if ($table && $canonical !== null && str_contains($canonical, '|') && $this->normalizeReferenceLabel($label) !== $this->normalizeReferenceLabel($canonical)) {
+            $canonical = null;
+        }
+        $firstStart = $linkClosers[$offset - 1];
+        $firstLabel = substr($subject, $firstStart + 1, $offset - $firstStart - 2);
+        $literal = $this->decodeLinkTitle($reference, $protected);
+        $raw = $reference;
+        $protectedCount = count($protected);
+        for ($pass = 0; $pass < $protectedCount; $pass++) {
+            $restored = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $part): string => $protected[(int)$part[1]] ?? $part[0], $raw) ?? $raw;
+            if ($restored === $raw) {
+                break;
+            }
+            $raw = $restored;
+        }
+        if (
+                $canonical === null && preg_match('/\\\\[!*]/', $raw) === 1 && $literal !== $reference
+                && $this->normalizeReferenceLabel($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($literal)] ?? '') !== $this->normalizeReferenceLabel($raw)
+        ) {
+            $firstStart = $linkClosers[$offset - 1];
+            $firstLabel = substr($subject, $firstStart + 1, $offset - $firstStart - 2);
+            if (!isset($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($firstLabel, $protected))])) {
+                return $protect('\\[' . $writeLiteralReference($reference) . '\\]');
+            }
+        }
+        if ($canonical === null && str_contains($raw, '|')) {
+            return $protect('\\[' . $writeLiteralReference($reference) . '\\]');
+        }
+        $definedReference = isset($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($literal)])
+                || isset($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->referenceSourceText($reference, $protectedSources))]);
+        $end = $offset + strlen($match[0][0]);
+        $inlineTail = preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1
+                && str_starts_with($protected[(int)$next[1]] ?? '', '(');
+        if ($canonical === null && !$definedReference && !$inlineTail && preg_match('/[\x00*_`\\\\<&~"\'=^]/', $firstLabel . $reference) === 1) {
+            $opener = $protect('\\[', '[');
+            $literalReferenceOpeners[$opener] = true;
+
+            return $opener . $reference . $protect('\\]', ']');
+        }
+        $collapsed = $reference === '' && $label === $canonical && preg_match('/^[\p{L}\p{N} .-]*$/u', $label ?? '') === 1
+                && preg_match('/(?:\.{3,}|--)/', $label ?? '') !== 1;
+
+        return $protect($canonical === null || strpbrk($canonical, '[]') !== false || $collapsed ? $match[0][0] : '[' . $canonical . ']');
+    }
+
+    /**
+     * @param array<int, array{string, int}> $match
+     * @param string $subject
+     * @param array<string> $protected
+     * @param array<string> $protectedSources
+     * @param \Closure(string, ?string=): string $protect
+     * @param \Closure(string, string, ?string=, bool=): string $protectDestination
+     * @param array<int, true> $closers
+     * @param array<string, true> $literalReferenceOpeners
+     * @param bool $table
+     * @param bool $isReferenceDefinition
+     * @param array<int, array{start:int, end:int}> $referenceUrls
+     * @param int $referenceUrlAt
+     */
+    private function rewriteShortcutReference(
+        array $match,
+        string $subject,
+        array $protected,
+        array $protectedSources,
+        Closure $protect,
+        Closure $protectDestination,
+        array $closers,
+        array $literalReferenceOpeners,
+        bool $table,
+        bool $isReferenceDefinition,
+        array &$referenceUrls,
+        int &$referenceUrlAt,
+    ): string {
+                $offset = $match[0][1];
+        while (isset($referenceUrls[$referenceUrlAt]) && $referenceUrls[$referenceUrlAt]['end'] <= $offset) {
+            $referenceUrlAt++;
+        }
+        $url = $referenceUrls[$referenceUrlAt] ?? null;
+        if ($url !== null && $offset >= $url['start'] && $offset < $url['end']) {
+            return $match[0][0];
+        }
+        $label = $match[2][0];
+        $end = $match[0][1] + strlen($match[0][0]);
+        if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
+            $tail = $protectedSources[(int)$next[1]] ?? '';
+            if (isset($literalReferenceOpeners[$next[0]]) || str_starts_with($tail, '(') && ($protected[(int)$next[1]] ?? '') !== '\\(' || str_starts_with($tail, '{title=') || preg_match('/^\[[^\]]*\]$/', $tail) === 1) {
+                return $match[0][0];
+            }
+        }
+        if ($isReferenceDefinition && ($subject[$end] ?? '') === ':' && preg_match('/^[ \t>]*' . self::DEFINITION_MARKER . '$/', substr($subject, 0, $match[0][1])) === 1) {
+            return $match[0][0];
+        }
+                // A task checkbox, whose label the reader never resolves.
+        if (($this->cmarkReadsTaskCheckbox)($subject, $match[0][1])) {
+            return $match[0][0];
+        }
+        $target = $this->complexReferenceTarget($label, $protectedSources);
+        $rawLabel = $this->referenceSourceText($label, $protectedSources);
+        $definition = preg_match('/&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $rawLabel) === 1
+                    && !isset($this->context->authoredReferenceLabelKeys[$this->normalizeReferenceLabel($rawLabel)])
+                    ? null
+                    : ($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protectedSources))] ?? null);
+        if ($url !== null && $offset < $url['start'] && ($target !== null || $definition !== null)) {
+            for ($at = $referenceUrlAt; isset($referenceUrls[$at]) && $referenceUrls[$at]['start'] < $end; $at++) {
+                $referenceUrls[$at]['end'] = min($referenceUrls[$at]['end'], $end);
+            }
+        }
+        if ($target !== null) {
+            return $match[1][0] . '[' . $label . ']' . $protectDestination('', '(' . $target . ')', null, true);
+        }
+        if ($table && str_contains($label, '|') && ($definition === null || $this->normalizeReferenceLabel($definition) !== $this->normalizeReferenceLabel($label))) {
+            return $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0][0]));
+        }
+        if ($definition === null) {
+            return $match[0][0];
+        }
+
+        return $match[1][0] . '[' . $label . ']'
+                    . ($definition === $label && preg_match('/^[\p{L}\p{N} .-]*$/u', $label) === 1 && preg_match('/(?:\.{3,}|--)/', $label) !== 1 ? '[]' : $protect('[' . $definition . ']'));
+    }
+
+    /**
+     * @param string $line
+     * @param array<string> $protected
+     * @param array<string> $protectedSources
+     * @param array<string, string> $codeTokens
+     * @param \Closure(string, ?string=): string $protect
+     * @param \Closure(string, int=, ?string=): string $writeCodeSpan
+     * @param bool $table
+     */
+    private function protectBareInlineUrls(
+        string $line,
+        array $protected,
+        array $protectedSources,
+        array $codeTokens,
+        Closure $protect,
+        Closure $writeCodeSpan,
+        bool $table,
+    ): string {
         if (str_contains($line, ':') || str_contains($line, 'www.')) {
             $labelRanges = Emphasis::linkLabelRanges($line, $protected);
             $labelAt = $urlCursor = 0;
@@ -1331,47 +1494,189 @@ final class InlineStage
             }
         }
 
-        if ($this->context->convertMath) {
-            $line = preg_replace_callback('/\$\$([^$]+)\$\$/', fn (array $match): string => $protect('$$`' . $match[1] . '`'), $line) ?? $line;
-            $line = preg_replace_callback('/\$([^$\s][^$]*[^$\s]|\S)\$(?!\d)/', function (array $match) use ($protect): string {
-                return preg_match('/^[\d.,]+$/', $match[1])
-                    ? $match[0]
-                    : $protect('$`' . $match[1] . '`');
+        return $line;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function inlineLinkClosers(string $line): array
+    {
+        $linkClosers = [];
+        $openLabels = [];
+        for ($at = 0, $length = strlen($line); $at < $length; $at++) {
+            if ($this->context->convertMath && $line[$at] === '$' && preg_match('/\G(?:\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d))/', $line, $math, 0, $at) === 1) {
+                $at += strlen($math[0]) - 1;
+
+                continue;
+            }
+            if (($line[$at] === '<' || ($line[$at] === 'h' && $openLabels === [])) && preg_match('~\G(?:<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*>|https?://[^\s<>`\x00]+)~', $line, $url, 0, $at) === 1) {
+                $at += strlen($url[0]) - 1;
+
+                continue;
+            }
+            if ($line[$at] === '[') {
+                $openLabels[] = $at;
+            } elseif ($line[$at] === ']' && $openLabels !== []) {
+                $open = array_pop($openLabels);
+                if (($line[$open + 1] ?? '') !== '^') {
+                    $linkClosers[$at] = $open;
+                }
+            }
+        }
+
+        return $linkClosers;
+    }
+
+    /**
+     * @param string $line
+     * @param array<string> $protected
+     * @param array<string> $protectedSources
+     * @param \Closure(string, ?string=): string $protect
+     *
+     * @return array{string, array<string, true>}
+     */
+    private function protectInlineReferenceChains(string $line, array $protected, array $protectedSources, Closure $protect): array
+    {
+        $literalReferenceOpeners = [];
+        if (str_contains($line, '][') && preg_match('/\]\[[^\[\]\n]+\]\x00P\d+\x00/', $line) === 1) {
+            $inlineChainMath = [];
+            if ($this->context->convertMath && str_contains($line, '$')) {
+                preg_match_all('/\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d)/', $line, $mathRanges, PREG_OFFSET_CAPTURE);
+                foreach ($mathRanges[0] as [$body, $start]) {
+                    $inlineChainMath[] = [$start, $start + strlen($body)];
+                }
+            }
+            $resolvedReferenceTailOpeners = [];
+            $referenceScopes = $this->markdownLinkScopes($line, $protected, scopeOnly: true)['active'];
+            for ($at = 1, $count = count($referenceScopes); $at < $count; $at += 2) {
+                $tailAt = $referenceScopes[$at] + 1;
+                if (($line[$tailAt] ?? '') === '[') {
+                    $resolvedReferenceTailOpeners[$tailAt] = true;
+                }
+            }
+            $inlineChainUrls = $this->plainMarkdownUrlRanges($line, $protected, $protectedSources);
+            $inlineChainMathAt = 0;
+            $inlineChainUrlAt = 0;
+            $line = preg_replace_callback(
+                '/(?<!\\\\)\[((?!\^)[^\[\]\n]+)\]\[([^\[\]\n]+)\](?=\x00P(\d+)\x00)/',
+                function (array $match) use ($inlineChainUrls, $inlineChainMath, &$inlineChainMathAt, &$inlineChainUrlAt, $resolvedReferenceTailOpeners, $protected, $protectedSources, $protect, &$literalReferenceOpeners): string {
+                    $offset = $match[0][1];
+                    if (isset($resolvedReferenceTailOpeners[$offset])) {
+                        return $match[0][0];
+                    }
+                    while (isset($inlineChainMath[$inlineChainMathAt]) && $inlineChainMath[$inlineChainMathAt][1] <= $offset) {
+                        $inlineChainMathAt++;
+                    }
+                    if (isset($inlineChainMath[$inlineChainMathAt]) && $inlineChainMath[$inlineChainMathAt][0] <= $offset) {
+                        return $match[0][0];
+                    }
+                    while (isset($inlineChainUrls[$inlineChainUrlAt]) && $inlineChainUrls[$inlineChainUrlAt]['end'] <= $offset) {
+                        $inlineChainUrlAt++;
+                    }
+                    if (isset($inlineChainUrls[$inlineChainUrlAt]) && $inlineChainUrls[$inlineChainUrlAt]['start'] <= $offset) {
+                        return $match[0][0];
+                    }
+                    $tail = $protected[(int)$match[3][0]] ?? '';
+                    $label = $match[2][0];
+                    $defined = isset($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))])
+                        || $this->complexReferenceTarget($label, $protectedSources) !== null;
+                    if (!str_starts_with($tail, '(') || $defined) {
+                        return $match[0][0];
+                    }
+
+                    $opener = $protect('\\[', '[');
+                    $literalReferenceOpeners[$opener] = true;
+
+                    return $opener . $match[1][0] . $protect('\\]', ']') . '[' . $label . ']';
+                },
+                $line,
+                flags: PREG_OFFSET_CAPTURE,
+            ) ?? $line;
+        }
+
+        return [$line, $literalReferenceOpeners];
+    }
+
+    /**
+     * @param string $line
+     * @param array<string> $protected
+     * @param \Closure(string, ?string=): string $protect
+     * @param bool $table
+     */
+    private function rewriteInlineFootnotes(string $line, array $protected, Closure $protect, bool $table): string
+    {
+        $footnoteSource = $line;
+        $footnoteCursor = 0;
+        $line = preg_replace_callback('/\[\^([^[\]\n]+)\]/', function (array $match) use ($protected, $protect, $table, $footnoteSource, &$footnoteCursor): string {
+            $offset = $match[0][1];
+            while ($footnoteCursor < $offset) {
+                if ($footnoteSource[$footnoteCursor] === '<') {
+                    $tag = $this->htmlTagAt($footnoteSource, $footnoteCursor);
+                    if ($tag !== null) {
+                        $footnoteCursor = $tag['end'];
+
+                        continue;
+                    }
+                    if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[^<>\s@]+@[^<>\s]+)>/', $footnoteSource, $auto, 0, $footnoteCursor) === 1) {
+                        $footnoteCursor += strlen($auto[0]);
+
+                        continue;
+                    }
+                }
+                $footnoteCursor++;
+            }
+            if ($footnoteCursor > $offset) {
+                return $match[0][0];
+            }
+            $label = $this->referenceSourceText($match[1][0], $protected);
+            $renamed = $this->context->importedFootnoteLabels[$label] ?? null;
+
+            return $renamed === null
+                ? ($table && str_contains($label, '|') ? $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0][0])) : $match[0][0])
+                : '[^' . $renamed . ']';
+        }, $line, flags: PREG_OFFSET_CAPTURE) ?? $line;
+
+        return $line;
+    }
+
+    /**
+     * @param string $line
+     * @param array<string> $protected
+     * @param array<string> $protectedSources
+     * @param \Closure(string, ?string=): string $protect
+     * @param \Closure(string): string $writeLiteralReference
+     */
+    private function rewriteTableReferences(string $line, array $protected, array $protectedSources, Closure $protect, Closure $writeLiteralReference): string
+    {
+            $line = preg_replace_callback('/(?<!\\\\)\[([^[\]\n^]+)\]\[([^[\]\n]+)\]/', function (array $match) use ($protected, $protectedSources, $protect, $writeLiteralReference): string {
+                if (!str_contains($match[1], '|') || $this->complexReferenceTarget($match[2], $protectedSources) !== null) {
+                    return $match[0];
+                }
+                $canonical = $this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[2], $protected))] ?? null;
+                if ($canonical !== null && (!str_contains($canonical, '|') || $this->normalizeReferenceLabel($canonical) === $this->normalizeReferenceLabel($match[2]))) {
+                    return $match[0];
+                }
+
+                return $protect($writeLiteralReference($match[0]));
             }, $line) ?? $line;
-        }
+        $line = preg_replace_callback(
+            '/(?<!\\\\)(!?)\[([^[\]\n^][^[\]\n]*)\]\[\]/',
+            function (array $match) use ($protected, $protectedSources, $protect, $writeLiteralReference): string {
+                if (!str_contains($match[2], '|') || $this->complexReferenceTarget($match[2], $protectedSources) !== null) {
+                    return $match[0];
+                }
+                $canonical = $this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[2], $protected))] ?? null;
+                if ($canonical !== null && $this->normalizeReferenceLabel($canonical) === $this->normalizeReferenceLabel($match[2])) {
+                    return $match[0];
+                }
 
-        if (!$this->context->convertAttributes) {
-            $line = $this->escapeAttributeBlockOpener($line);
-        }
+                return $protect($writeLiteralReference($match[0]));
+            },
+            $line,
+        ) ?? $line;
 
-        $line = preg_replace('/ {2,}\n/', "\\\n", $line) ?? $line;
-
-        $nativeInlineTags = [];
-        $line = preg_replace_callback('/<\/?(?:' . $nativeInline . ')>/i', static function (array $match) use ($protect, &$nativeInlineTags): string {
-            $token = $protect($match[0]);
-            $nativeInlineTags[$token] = $match[0];
-
-            return $token;
-        }, $line) ?? $line;
-
-        $resolved = $this->context->resolvedCrossrefs ?? [];
-        $line = preg_replace_callback(ImportedCrossrefs::RUN, static fn (array $match): string => isset($resolved[$match[1]]) ? $match[0] : $protect($match[0]), $line) ?? $line;
-        $line = $this->escapePlainCarveInlineSyntax($line, self::HANDLED_MARKDOWN);
-        $line = $this->restoreNumericReferenceHashes($line);
-        $line = str_replace('&#', '&\\#', $line);
-
-        $line = $this->escapeLinkLabelSlashes($line, $protected);
-        $line = Emphasis::convert($line, function (): void {
-            $this->context->flattenedEmphasis = true;
-        }, null, $protected, strikethrough: true);
-
-        $line = strtr($line, $nativeInlineTags);
-
-        $line = $this->rewriteNativeInlineTags($line, $work, $protect, $hasProtectedEscapeBefore, $nativeInline);
-
-        $line = $this->escapeFinalInlineText($line, $work, $protect, $hasProtectedEscapeBefore, $table);
-
-        return $this->restoreProtectedInlineOutput($line, $work, $table);
+        return $line;
     }
 
     /**

@@ -73,67 +73,7 @@ final class Emphasis
         bool $omitQuoteDelimiters = false,
     ): string {
         $cells = array_fill_keys($cellBoundaries, true);
-        $validBraces = [];
-        $validBraceClosers = [];
-        $braceEnds = [];
-        $pendingBraces = [];
-        $literalDashes = [];
-        $braceLineStart = 0;
-        $lastEscaped = -1;
-        for ($i = 0, $length = strlen($source); $i < $length; $i++) {
-            if (isset($cells[$i])) {
-                $pendingBraces = [];
-            }
-            if ($source[$i] === "\n") {
-                $line = preg_replace('/^(?:[ \t]*>)*[ \t]*/', '', substr($source, $braceLineStart, $i - $braceLineStart)) ?? '';
-                if (trim($line) === '') {
-                    $pendingBraces = [];
-                }
-                $braceLineStart = $i + 1;
-            }
-            if ($mask[$i] !== $source[$i]) {
-                continue;
-            }
-            if ($source[$i] === '\\' && ($source[$i + 1] ?? '') !== "\n") {
-                $lastEscaped = $i + 1;
-                $i++;
-
-                continue;
-            }
-            if ($source[$i] === '{' && str_contains('+-=^~_*', $source[$i + 1] ?? "\x00")) {
-                $pendingBraces[$source[$i + 1]][] = $i;
-            } elseif ($source[$i] === '}' && $i - 1 !== $lastEscaped && isset($pendingBraces[$source[$i - 1]]) && $pendingBraces[$source[$i - 1]] !== []) {
-                $start = array_pop($pendingBraces[$source[$i - 1]]);
-                if ($i > $start + 2) {
-                    $validBraces[$start] = true;
-                    $validBraceClosers[$i - 1] = true;
-                    $braceEnds[$start] = $i - 1;
-                    if ($paired !== null && str_contains('+-=', $source[$start + 1])) {
-                        $paired[$start + 1] = $i + 1;
-                    }
-                    foreach ($pendingBraces as &$stack) {
-                        while ($stack !== [] && $stack[array_key_last($stack)] > $start) {
-                            array_pop($stack);
-                        }
-                    }
-                    unset($stack);
-                }
-            }
-        }
-        for ($i = 1, $length = strlen($source); $i < $length; $i++) {
-            if ($source[$i] !== '}' || $source[$i - 1] !== '-' || isset($validBraceClosers[$i - 1]) || $i - 1 === $lastEscaped) {
-                continue;
-            }
-            $first = $i - 1;
-            while ($first > 0 && $source[$first - 1] === '-') {
-                $first--;
-            }
-            if ($i - $first === 2 && $mask[$first] === '-' && $mask[$first + 1] === '-') {
-                $literalDashes[$first] = $literalDashes[$first + 1] = true;
-            } elseif ($i - $first > 2) {
-                $literalDashes[$i - 1] = true;
-            }
-        }
+        [$validBraces, $validBraceClosers, $braceEnds, $literalDashes] = self::scanForcedBraces($source, $mask, $cells, $paired);
         $kinds = $omitQuoteDelimiters ? "_*~^\"'" : '_*~^';
         /** @var array<string, list<array{start: int, end: int, forced: bool}>> $openers */
         $openers = [];
@@ -416,6 +356,81 @@ final class Emphasis
         $bracketCloses = array_fill_keys(array_column($bracketPairs, 1), true);
 
         return (new EmphasisRenderer($source, $mask, $structural, $literalBrackets, $literalDashes, Closure::fromCallable($convert), $attributes, $bracketCloses, $validBraceClosers, $validBraces, $onFlattened === null ? null : Closure::fromCallable($onFlattened), $omittedQuoteBraces, $omitQuoteDelimiters))->convert($roots);
+    }
+
+    /**
+     * @param string $source
+     * @param string $mask
+     * @param array<int, true> $cells
+     * @param array<int, int>|null $paired
+     *
+     * @return array{array<int, true>, array<int, true>, array<int, int>, array<int, true>}
+     */
+    private static function scanForcedBraces(string $source, string $mask, array $cells, ?array &$paired): array
+    {
+        $validBraces = [];
+        $validBraceClosers = [];
+        $braceEnds = [];
+        $pendingBraces = [];
+        $literalDashes = [];
+        $braceLineStart = 0;
+        $lastEscaped = -1;
+        for ($i = 0, $length = strlen($source); $i < $length; $i++) {
+            if (isset($cells[$i])) {
+                $pendingBraces = [];
+            }
+            if ($source[$i] === "\n") {
+                $line = preg_replace('/^(?:[ \t]*>)*[ \t]*/', '', substr($source, $braceLineStart, $i - $braceLineStart)) ?? '';
+                if (trim($line) === '') {
+                    $pendingBraces = [];
+                }
+                $braceLineStart = $i + 1;
+            }
+            if ($mask[$i] !== $source[$i]) {
+                continue;
+            }
+            if ($source[$i] === '\\' && ($source[$i + 1] ?? '') !== "\n") {
+                $lastEscaped = $i + 1;
+                $i++;
+
+                continue;
+            }
+            if ($source[$i] === '{' && str_contains('+-=^~_*', $source[$i + 1] ?? "\x00")) {
+                $pendingBraces[$source[$i + 1]][] = $i;
+            } elseif ($source[$i] === '}' && $i - 1 !== $lastEscaped && isset($pendingBraces[$source[$i - 1]]) && $pendingBraces[$source[$i - 1]] !== []) {
+                $start = array_pop($pendingBraces[$source[$i - 1]]);
+                if ($i > $start + 2) {
+                    $validBraces[$start] = true;
+                    $validBraceClosers[$i - 1] = true;
+                    $braceEnds[$start] = $i - 1;
+                    if ($paired !== null && str_contains('+-=', $source[$start + 1])) {
+                        $paired[$start + 1] = $i + 1;
+                    }
+                    foreach ($pendingBraces as &$stack) {
+                        while ($stack !== [] && $stack[array_key_last($stack)] > $start) {
+                            array_pop($stack);
+                        }
+                    }
+                    unset($stack);
+                }
+            }
+        }
+        for ($i = 1, $length = strlen($source); $i < $length; $i++) {
+            if ($source[$i] !== '}' || $source[$i - 1] !== '-' || isset($validBraceClosers[$i - 1]) || $i - 1 === $lastEscaped) {
+                continue;
+            }
+            $first = $i - 1;
+            while ($first > 0 && $source[$first - 1] === '-') {
+                $first--;
+            }
+            if ($i - $first === 2 && $mask[$first] === '-' && $mask[$first + 1] === '-') {
+                $literalDashes[$first] = $literalDashes[$first + 1] = true;
+            } elseif ($i - $first > 2) {
+                $literalDashes[$i - 1] = true;
+            }
+        }
+
+        return [$validBraces, $validBraceClosers, $braceEnds, $literalDashes];
     }
 
     public static function structuralPrefixEnd(string $line): int

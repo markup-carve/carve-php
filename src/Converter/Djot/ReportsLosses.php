@@ -173,43 +173,7 @@ trait ReportsLosses
                 $quoteDepths[$line] = $depth;
             });
         }
-        if (str_contains($source, '`') && str_contains($source, ':::')) {
-            $codeSource = $this->replaceImageLabels($source, $this->maskCodeAndDestinations($source), fn (array $match): string => $this->blanks($match[0][0]));
-            foreach ($lines as $line => $value) {
-                $depth = 0;
-                $prefixEnd = $this->djotContentStart($value);
-                for ($i = 0; $i < $prefixEnd; $i++) {
-                    if ($value[$i] === '>' && ++$depth > ($quoteDepths[$line] ?? 0)) {
-                        $codeSource[$offsets[$line] + $i] = ' ';
-                    }
-                }
-            }
-            $codeSpans = [];
-            $spanEnd = 0;
-            $this->maskCodeAndDestinations($codeSource, false, opaqueOptions: [
-                'destinations' => true,
-                'onCode' => static function (int $at, int $end, bool $closed) use (&$codeSpans, &$spanEnd): void {
-                    if ($at >= $spanEnd) {
-                        $codeSpans[] = [$at, $end, $closed];
-                        $spanEnd = $end;
-                    }
-                },
-            ]);
-            $codeLine = 0;
-            foreach ($codeSpans as [$at, $end, $closed]) {
-                while (isset($offsets[$codeLine + 1]) && $offsets[$codeLine + 1] <= $at) {
-                    $codeLine++;
-                }
-                if (($quoteDepths[$codeLine] ?? 0) > 0) {
-                    continue;
-                }
-                $width = $this->backtickRun($source, $at);
-                $content = substr($source, $at + $width, max(0, $end - $at - $width - ($closed ? $width : 0)));
-                if (preg_match('/\n[ \t]*:{3,}(?:[ \t]+[^\n]*)?(?:\n|$)/', $content) === 1) {
-                    $add($at, 'A multiline code span contains a Carve container opener on a continuation line.');
-                }
-            }
-        }
+        $this->reportMultilineCodeContainerLosses($source, $lines, $quoteDepths, $offsets, $add);
         foreach ($lines as $n => $line) {
             if (isset($definitionLines[$n])) {
                 continue;
@@ -307,59 +271,12 @@ trait ReportsLosses
 
             return [];
         }
-        $rows = [];
-        $offset = 0;
-        foreach ($lines as $n => $line) {
-            $view = trim($visible[$n]);
-            if ($tableRows[$n]) {
-                $view = trim(substr($line, $this->djotContentStart($line)));
-                $separator = preg_match('/^\|(?:[ \t]*:?-+:?[ \t]*\|)+[ \t]*$/', $view) === 1;
-                if ($separator && count($rows) >= 2) {
-                    $add($offset, 'A separator inside a table promotes the preceding row to a header; Carve cannot spell that structure.');
-                }
-                // A row of blank cells is a Carve row (CARVE-P9-082), but Carve
-                // reads a tab between the pipes as content where Djot reads padding.
-                if (str_contains($view, "\t") && preg_match('/^\|(?:[ \t]*\|)+$/', $view) === 1) {
-                    $add($offset, 'A blank table cell holding a tab reads as tab content in Carve.');
-                }
-                $rows[] = ['at' => $offset, 'separator' => $separator];
-            } else {
-                $this->reportDjotTableLosses($rows, $add);
-                $rows = [];
-            }
-            $offset += strlen($line) + 1;
-        }
-        $this->reportDjotTableLosses($rows, $add);
+        $this->reportDjotTableStructureLosses($lines, $visible, $tableRows, $add);
         $mask = $linkMask;
         $boundaryOffsets = $this->djotInlineBoundaries($source, $mask);
         $boundaries = array_fill_keys($boundaryOffsets, true);
-        if (str_contains($source, ':::')) {
-            $divBoundaries = array_fill_keys($this->djotInlineBoundaries($source, $mask, true), true);
-            foreach ($lines as $n => $line) {
-                $at = $this->djotContentStart($line);
-                if (
-                    isset($divBoundaries[$offsets[$n]]) && ($mask[$offsets[$n] + $at] ?? '') === ':'
-                    && preg_match('/^:{3,}[ \t]*([A-Za-z0-9_-]+)[ \t]*$/', substr($line, $at), $div) === 1
-                    && in_array($div[1], Div::ADMONITION_TYPES, true)
-                ) {
-                    $add($offsets[$n] + $at, 'Carve PHP renders the Djot DIV class "' . $div[1] . '" as an admonition; it cannot preserve the generic DIV wrapper.');
-                }
-            }
-        }
-        $referenceEnds = [];
-        $next = -1;
-        for ($at = strlen($source) - 1; $at >= 0; $at--) {
-            if (isset($boundaries[$at])) {
-                $next = -1;
-            } elseif ($mask[$at] === ']' && !$this->isDjotEscaped($source, $at)) {
-                $next = $at;
-            } elseif ($mask[$at] === '[' && !$this->isDjotEscaped($source, $at)) {
-                $next = -1;
-            }
-            if ($at >= 2 && $source[$at - 1] === '[' && $source[$at - 2] === ']') {
-                $referenceEnds[$at] = $next;
-            }
-        }
+        $this->reportDjotAdmonitionLosses($source, $mask, $lines, $offsets, $add);
+        $referenceEnds = $this->djotReferenceEnds($source, $mask, $boundaries);
         $starts = $images = $innerLinks = $depths = [];
         $plainFlags = $plainFirst = $plainLast = [];
         $boundary = 0;
@@ -493,6 +410,154 @@ trait ReportsLosses
             }
         }
 
+        return $this->finalizeDjotLosses($source, $findings, $rawFormats, $rawFormatIgnored, $rawFormatMessage);
+    }
+
+    /**
+     * @param string $source
+     * @param string $mask
+     * @param list<string> $lines
+     * @param array<int, int> $offsets
+     * @param callable(int, string): void $add
+     */
+    private function reportDjotAdmonitionLosses(string $source, string $mask, array $lines, array $offsets, callable $add): void
+    {
+        if (!str_contains($source, ':::')) {
+            return;
+        }
+        $divBoundaries = array_fill_keys($this->djotInlineBoundaries($source, $mask, true), true);
+        foreach ($lines as $n => $line) {
+            $at = $this->djotContentStart($line);
+            if (
+                isset($divBoundaries[$offsets[$n]]) && ($mask[$offsets[$n] + $at] ?? '') === ':'
+                && preg_match('/^:{3,}[ \t]*([A-Za-z0-9_-]+)[ \t]*$/', substr($line, $at), $div) === 1
+                && in_array($div[1], Div::ADMONITION_TYPES, true)
+            ) {
+                $add($offsets[$n] + $at, 'Carve PHP renders the Djot DIV class "' . $div[1] . '" as an admonition; it cannot preserve the generic DIV wrapper.');
+            }
+        }
+    }
+
+    /**
+     * @param string $source
+     * @param string $mask
+     * @param array<int, true> $boundaries
+     *
+     * @return array<int, int>
+     */
+    private function djotReferenceEnds(string $source, string $mask, array $boundaries): array
+    {
+        $referenceEnds = [];
+        $next = -1;
+        for ($at = strlen($source) - 1; $at >= 0; $at--) {
+            if (isset($boundaries[$at])) {
+                $next = -1;
+            } elseif ($mask[$at] === ']' && !$this->isDjotEscaped($source, $at)) {
+                $next = $at;
+            } elseif ($mask[$at] === '[' && !$this->isDjotEscaped($source, $at)) {
+                $next = -1;
+            }
+            if ($at >= 2 && $source[$at - 1] === '[' && $source[$at - 2] === ']') {
+                $referenceEnds[$at] = $next;
+            }
+        }
+
+        return $referenceEnds;
+    }
+
+    /**
+     * @param list<string> $lines
+     * @param list<string> $visible
+     * @param array<int, bool> $tableRows
+     * @param callable(int, string): void $add
+     */
+    private function reportDjotTableStructureLosses(array $lines, array $visible, array $tableRows, callable $add): void
+    {
+        $rows = [];
+        $offset = 0;
+        foreach ($lines as $n => $line) {
+            $view = trim($visible[$n]);
+            if ($tableRows[$n]) {
+                $view = trim(substr($line, $this->djotContentStart($line)));
+                $separator = preg_match('/^\|(?:[ \t]*:?-+:?[ \t]*\|)+[ \t]*$/', $view) === 1;
+                if ($separator && count($rows) >= 2) {
+                    $add($offset, 'A separator inside a table promotes the preceding row to a header; Carve cannot spell that structure.');
+                }
+                // A row of blank cells is a Carve row (CARVE-P9-082), but Carve
+                // reads a tab between the pipes as content where Djot reads padding.
+                if (str_contains($view, "\t") && preg_match('/^\|(?:[ \t]*\|)+$/', $view) === 1) {
+                    $add($offset, 'A blank table cell holding a tab reads as tab content in Carve.');
+                }
+                $rows[] = ['at' => $offset, 'separator' => $separator];
+            } else {
+                $this->reportDjotTableLosses($rows, $add);
+                $rows = [];
+            }
+            $offset += strlen($line) + 1;
+        }
+        $this->reportDjotTableLosses($rows, $add);
+    }
+
+    /**
+     * @param string $source
+     * @param list<string> $lines
+     * @param array<int, int> $quoteDepths
+     * @param array<int, int> $offsets
+     * @param callable(int, string): void $add
+     */
+    private function reportMultilineCodeContainerLosses(string $source, array $lines, array $quoteDepths, array $offsets, callable $add): void
+    {
+        if (!str_contains($source, '`') || !str_contains($source, ':::')) {
+            return;
+        }
+        $codeSource = $this->replaceImageLabels($source, $this->maskCodeAndDestinations($source), fn (array $match): string => $this->blanks($match[0][0]));
+        foreach ($lines as $line => $value) {
+            $depth = 0;
+            $prefixEnd = $this->djotContentStart($value);
+            for ($i = 0; $i < $prefixEnd; $i++) {
+                if ($value[$i] === '>' && ++$depth > ($quoteDepths[$line] ?? 0)) {
+                    $codeSource[$offsets[$line] + $i] = ' ';
+                }
+            }
+        }
+        $codeSpans = [];
+        $spanEnd = 0;
+        $this->maskCodeAndDestinations($codeSource, false, opaqueOptions: [
+            'destinations' => true,
+            'onCode' => static function (int $at, int $end, bool $closed) use (&$codeSpans, &$spanEnd): void {
+                if ($at >= $spanEnd) {
+                    $codeSpans[] = [$at, $end, $closed];
+                    $spanEnd = $end;
+                }
+            },
+        ]);
+        $codeLine = 0;
+        foreach ($codeSpans as [$at, $end, $closed]) {
+            while (isset($offsets[$codeLine + 1]) && $offsets[$codeLine + 1] <= $at) {
+                $codeLine++;
+            }
+            if (($quoteDepths[$codeLine] ?? 0) > 0) {
+                continue;
+            }
+            $width = $this->backtickRun($source, $at);
+            $content = substr($source, $at + $width, max(0, $end - $at - $width - ($closed ? $width : 0)));
+            if (preg_match('/\n[ \t]*:{3,}(?:[ \t]+[^\n]*)?(?:\n|$)/', $content) === 1) {
+                $add($at, 'A multiline code span contains a Carve container opener on a continuation line.');
+            }
+        }
+    }
+
+    /**
+     * @param string $source
+     * @param list<array{int, string}> $findings
+     * @param list<array{int, int}> $rawFormats
+     * @param list<array{int, int}> $rawFormatIgnored
+     * @param string $rawFormatMessage
+     *
+     * @return list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
+     */
+    private function finalizeDjotLosses(string $source, array $findings, array $rawFormats, array $rawFormatIgnored, string $rawFormatMessage): array
+    {
         usort($rawFormatIgnored, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
         $ignoredIndex = 0;
         $ignoredEnd = -1;
@@ -502,7 +567,7 @@ trait ReportsLosses
                 $ignoredEnd = max($ignoredEnd, $rawFormatIgnored[$ignoredIndex++][1]);
             }
             if ($ignoredEnd < $end) {
-                $add($start, $rawFormatMessage);
+                $findings[] = [$start, $rawFormatMessage];
             }
         }
         usort($findings, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
