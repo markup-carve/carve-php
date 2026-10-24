@@ -14,16 +14,49 @@ final class DefinitionBodyFrameState
     /**
      * @var list<int>
      */
-    public array $listContentColumns = [];
+    private array $listContentColumns = [];
 
     /**
      * @var list<int>
      */
-    public array $descriptionContentColumns = [];
+    private array $descriptionContentColumns = [];
 
     public ?int $releasedListLine = null;
 
     public ?int $releasedBlockBase = null;
+
+    public function releaseDescriptionsAt(int $column): bool
+    {
+        $released = false;
+        while ($this->descriptionContentColumns !== [] && $column < $this->descriptionContentColumns[array_key_last($this->descriptionContentColumns)]) {
+            array_pop($this->descriptionContentColumns);
+            $released = true;
+        }
+
+        return $released;
+    }
+
+    public function hasListAbove(int $column): bool
+    {
+        return $this->listContentColumns !== [] && $column < $this->listContentColumns[array_key_last($this->listContentColumns)];
+    }
+
+    public function releaseListsAt(int $column): void
+    {
+        while ($this->hasListAbove($column)) {
+            array_pop($this->listContentColumns);
+        }
+    }
+
+    public function addListContentColumn(int $column): void
+    {
+        $this->listContentColumns[] = $column;
+    }
+
+    public function addDescriptionContentColumn(int $column): void
+    {
+        $this->descriptionContentColumns[] = $column;
+    }
 
     public function releaseAfterBlank(
         int $afterColumn,

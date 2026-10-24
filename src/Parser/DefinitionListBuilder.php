@@ -946,16 +946,8 @@ final class DefinitionListBuilder
                     $marker = ($this->getListParser)()->parseListItemMarker($trimmedCont);
                     if ($marker !== null) {
                         $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
-                        if (
-                            $bodyFrames->descriptionContentColumns !== []
-                            && $contColumn < $bodyFrames->descriptionContentColumns[array_key_last($bodyFrames->descriptionContentColumns)]
-                            && $contColumn >= $continuationColumn
-                            && $bodyNestedState->fence === null
-                        ) {
+                        if ($contColumn >= $continuationColumn && $bodyNestedState->fence === null && $bodyFrames->releaseDescriptionsAt($contColumn)) {
                             // CARVE-P2-017: the inner body cannot withhold this outer column.
-                            while ($bodyFrames->descriptionContentColumns !== [] && $contColumn < $bodyFrames->descriptionContentColumns[array_key_last($bodyFrames->descriptionContentColumns)]) {
-                                array_pop($bodyFrames->descriptionContentColumns);
-                            }
                             $releasedMarkerEntry = true;
                             $body[] = '';
                             $bodyMap[] = -1;
@@ -1394,16 +1386,11 @@ final class DefinitionListBuilder
                         $entryMarker = $marker;
                         $reachesOuterBody = false;
                         $opensBlock = false;
-                        if (
-                            $bodyFrames->listContentColumns !== []
-                            && $entryColumn < $bodyFrames->listContentColumns[array_key_last($bodyFrames->listContentColumns)]
-                        ) {
+                        if ($bodyFrames->hasListAbove($entryColumn)) {
                             $opensBlock = $this->startsInterruptingBlock($trimmedCont, $lines, $i);
                             if ($opensBlock || $entryMarker !== null) {
                                 // CARVE-P2-017: leave each nested body whose content column the opener misses.
-                                while ($bodyFrames->listContentColumns !== [] && $entryColumn < $bodyFrames->listContentColumns[array_key_last($bodyFrames->listContentColumns)]) {
-                                    array_pop($bodyFrames->listContentColumns);
-                                }
+                                $bodyFrames->releaseListsAt($entryColumn);
                                 $reachesOuterBody = true;
                             }
                         }
@@ -1411,7 +1398,7 @@ final class DefinitionListBuilder
                             $entry = ltrim($entry, " \t");
                         }
                         if ($entryMarker !== null) {
-                            $bodyFrames->listContentColumns[] = $entryColumn + $this->continuations->listMarkerWidth($trimmedCont, $entryMarker);
+                            $bodyFrames->addListContentColumn($entryColumn + $this->continuations->listMarkerWidth($trimmedCont, $entryMarker));
                         }
                         if ($termPastTheColumn && $definitionPastTheColumn) {
                             // CARVE-P2-017: end the folded paragraph before parsing the reached term.
@@ -1430,7 +1417,7 @@ final class DefinitionListBuilder
                             $bodyNestedState->fence === null
                             && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $trimmedCont, $descriptionMatch) === 1
                         ) {
-                            $bodyFrames->descriptionContentColumns[] = $contColumn + 1 + strlen($descriptionMatch[1]);
+                            $bodyFrames->addDescriptionContentColumn($contColumn + 1 + strlen($descriptionMatch[1]));
                         }
                         $i++;
 
