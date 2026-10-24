@@ -2730,13 +2730,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $content = preg_replace('/[ \t]+((?:<!-- carve: (?:(?! -->)[^\n])* -->)*)$/D', '$1', $content) ?? $content;
         }
 
-        return $this->protectParagraphListMarkers($content) . "\n\n";
+        return $this->protectParagraphListMarkers($content, $node->getParent() instanceof DefinitionDescription) . "\n\n";
     }
 
     /**
      * Keep paragraph continuation lines from becoming lists in Markdown readers.
      */
-    protected function protectParagraphListMarkers(string $text): string
+    protected function protectParagraphListMarkers(string $text, bool $inDescription = false): string
     {
         $codeFence = 0;
         $lines = explode("\n", $text);
@@ -2757,7 +2757,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 // PART 11 §10m: a reader strips edge whitespace anyway, except
                 // where four columns of it open indented code.
                 $line = ltrim($line, " \t");
-                $line = $this->protectLineShape($line, $atFirst, $bare);
+                $line = $this->protectLineShape($line, $atFirst, $bare, $inDescription);
             }
 
             $length = strlen($line);
@@ -2805,8 +2805,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * @param string $line
      * @param bool $first Whether this is the paragraph's first line.
      * @param array<string, string> $bare Sentinel to the character it stands for.
+     * @param bool $inDescription Whether the paragraph is inside a definition body.
      */
-    protected function protectLineShape(string $line, bool $first, array $bare): string
+    protected function protectLineShape(string $line, bool $first, array $bare, bool $inDescription = false): string
     {
         $line = preg_replace_callback(
             '/^([-+])(?=[ \t])/',
@@ -2824,7 +2825,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $line = (string)preg_replace('/^>/', '\\\\>', $line);
 
         $view = strtr($line, $bare);
-        if (preg_match('/^:{1,2}(?=[ \t])/', $view) === 1) {
+        if (
+            preg_match('/^::(?=[ \t])/', $view) === 1
+            || ($inDescription && !$first && preg_match('/^:(?=[ \t])/', $view) === 1)
+        ) {
             return $this->escapeFirstCharacter($line);
         }
         if (preg_match('/^([-_*])[ \t]*(?:\1[ \t]*){2,}$/', $view) === 1) {
