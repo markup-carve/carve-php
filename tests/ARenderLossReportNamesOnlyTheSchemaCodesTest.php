@@ -80,10 +80,10 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
         ];
     }
 
-    public function testTheSchemaEnumHoldsExactlyTheElevenCodes(): void
+    public function testTheSchemaEnumHoldsExactlyTheFifteenCodes(): void
     {
         self::assertSame(
-            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped', 'list-delimiter-changed', 'table-span-flattened', 'table-header-row-demoted', 'table-header-row-hoisted', 'table-header-cell-demoted'],
+            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped', 'list-delimiter-changed', 'table-span-flattened', 'table-header-row-demoted', 'table-header-row-hoisted', 'table-header-cell-demoted', 'markdown-container-flattened', 'markdown-caption-flattened', 'markdown-attributes-dropped', 'raw-html-escaped'],
             self::schemaCodes(),
         );
     }
@@ -174,7 +174,11 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
         sort($codes);
         $permitted = self::schemaCodes();
         sort($permitted);
-        self::assertSame($permitted, $codes);
+        self::assertSame([], array_diff($codes, $permitted));
+        self::assertSame(
+            ['carrier-attribute-dropped', 'destination-denied', 'editorial-comment-flattened', 'list-delimiter-changed', 'list-style-dropped', 'raw-format-dropped', 'ruby-flattened', 'table-header-cell-demoted', 'table-header-row-demoted', 'table-header-row-hoisted', 'table-span-flattened'],
+            $codes,
+        );
     }
 
     #[DataProvider('textTargets')]
