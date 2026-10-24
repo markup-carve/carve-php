@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -59,5 +61,55 @@ class TableRowHeaderTest extends TestCase
         $html = $this->converter->convert("|= Item |= Qty |\n|=> Total | 5 |");
 
         $this->assertStringContainsString('<th scope="row" style="text-align: right;">Total</th>', $html);
+    }
+
+    public function testLaterAllHeaderRowDoesNotResetColumnDefaults(): void
+    {
+        $source = "|=> A|<|=~ B|\n|a|b|c|\n|=< D|<|= End|\n|d|e|f|\n";
+        $html = $this->converter->convert($source);
+
+        $this->assertStringContainsString('<th scope="row" colspan="2" style="text-align: left;">D</th>', $html);
+        $this->assertStringContainsString('<td style="text-align: right;">d</td><td>e</td><td style="text-align: center;">f</td>', $html);
+    }
+
+    public function testLaterAllHeaderRowKeepsVerticalMarkerLocal(): void
+    {
+        $source = "|=>^ A|= B|\n|a|b|\n|=<v C|= D|\n|c|d|\n";
+        $html = $this->converter->convert($source);
+
+        $this->assertStringContainsString('<th scope="row" style="text-align: left; vertical-align: bottom;">C</th>', $html);
+        $this->assertStringContainsString('<td style="text-align: right; vertical-align: top;">c</td>', $html);
+    }
+
+    public function testStatedHeadRowsControlColumnDefaults(): void
+    {
+        $none = $this->converter->convert("{header-rows=0}\n|=> A|= B|\n|c|d|\n");
+        $this->assertStringContainsString('<tr><td>c</td><td>d</td></tr>', $none);
+
+        $one = $this->converter->convert("{header-rows=1}\n|=> A|= B|\n|=< C|= D|\n|c|d|\n");
+        $this->assertStringContainsString('<th scope="row" style="text-align: left;">C</th>', $one);
+        $this->assertStringContainsString('<td style="text-align: right;">c</td>', $one);
+
+        $three = $this->converter->convert("{header-rows=3}\n|=>^ A|= B|\n|a|b|\n|=<v C|= D|\n|c|d|\n");
+        $this->assertStringContainsString('<th scope="col" style="text-align: left; vertical-align: bottom;">a</th>', $three);
+        $this->assertStringContainsString('<td style="text-align: left; vertical-align: bottom;">c</td>', $three);
+    }
+
+    public function testGfmPromotionAppliesLaterHeaderDefaultToEarlierHeadCell(): void
+    {
+        $html = $this->converter->convert("|A|B|\n|---|---|\n|=< C|= D|\n|c|d|\n");
+
+        $this->assertStringContainsString('<th scope="col" style="text-align: left;">A</th>', $html);
+        $this->assertStringContainsString('<td style="text-align: left;">c</td>', $html);
+    }
+
+    public function testAstKeepsInheritedHeadAlignmentOutOfCellFields(): void
+    {
+        $wire = (new AstCodec())->encode((new BlockParser())->parse("|A|B|\n|---|---|\n|=< C|= D|\n|c|d|\n"));
+        $rows = $wire['children'][0]['rows'];
+
+        $this->assertArrayNotHasKey('align', $rows[0]['cells'][0]);
+        $this->assertSame('left', $rows[1]['cells'][0]['align']);
+        $this->assertArrayNotHasKey('align', $rows[2]['cells'][0]);
     }
 }
