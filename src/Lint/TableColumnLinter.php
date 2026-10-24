@@ -29,6 +29,10 @@ class TableColumnLinter
                 if (preg_match_all('/(?:\||\|=)([<>~^v?]{1,2})(?![<>~^v?\s])/', $line, $matches, PREG_OFFSET_CAPTURE)) {
                     foreach ($matches[1] as [$run, $offset]) {
                         $runEnd = $offset + strlen($run);
+                        // A whole-cell ^ or < is a span marker, not an unpadded alignment run.
+                        if (($run === '^' || $run === '<') && ($line[$offset - 1] ?? '') === '|' && ($line[$runEnd] ?? '') === '|') {
+                            continue;
+                        }
                         // Ask the PARSER where the block ends rather than
                         // matching braces here: a `}` inside a quoted value is
                         // content, and a hand-rolled regex reports a terminated

@@ -9,6 +9,18 @@ use PHPUnit\Framework\TestCase;
 
 class TableColumnLinterTest extends TestCase
 {
+    public function testWholeCellSpanMarkersNeedNoAlignmentPadding(): void
+    {
+        $source = "|= 2-col header|<|= header|\n"
+            . "|some long content|foo|bar|\n"
+            . "+and even more content|||\n"
+            . "|^|spans 4 cells|<|\n"
+            . "|^|^|<|\n";
+        self::assertSame([], (new TableColumnLinter())->lint($source));
+        self::assertCount(1, (new TableColumnLinter())->lint('|<text|'));
+        self::assertCount(1, (new TableColumnLinter())->lint('|=^|'));
+    }
+
     public function testReportsTheFourColumnContracts(): void
     {
         $linter = new TableColumnLinter();
