@@ -26,6 +26,7 @@ use MarkupCarve\Carve\Converter\Markdown\ListColumns;
 use MarkupCarve\Carve\Converter\Markdown\ListMarkers;
 use MarkupCarve\Carve\Converter\Markdown\QuoteBlankRun;
 use MarkupCarve\Carve\Converter\Markdown\QuoteRunState;
+use MarkupCarve\Carve\Converter\Markdown\RawHtmlBlockState;
 use MarkupCarve\Carve\Converter\Markdown\ReferenceContext;
 use MarkupCarve\Carve\Converter\Markdown\ReferenceStage;
 use MarkupCarve\Carve\Converter\Markdown\TableContext;
@@ -446,20 +447,7 @@ class MarkdownToCarve
         $shiftCol = 0;
         $shiftBy = 0;
 
-        // Raw-HTML block tracking. `$htmlCloser` is the terminator pattern of an
-        // open CommonMark condition 1-5 block (`</script>`, `-->`, ...),
-        // `$htmlBreakOwed` records that such a block ended on the line just
-        // emitted, so the next non-blank line starts a block of its own, and
-        // `$htmlBlockOpen` marks a condition 6 or 7 block, which runs to the
-        // next blank line where a condition 1-5 block runs past one. Inside an
-        // open block nothing opens another, so the `</div>` closing a
-        // multi-line element stays part of it. Every kind ends where its
-        // container does, which `$htmlContainer` records.
-        $htmlCloser = null;
-        $htmlBreakOwed = false;
-        $htmlBlockOpen = false;
-        $htmlPrevHadContent = false;
-        $htmlContainer = null;
+        $rawHtmlBlock = new RawHtmlBlockState();
 
         // The GFM table whose body rows are being written.
         $tableWork = new TableWork();
@@ -847,7 +835,7 @@ class MarkdownToCarve
 
             // Inside an open raw-HTML block the line is literal content, not a
             // break, so nothing respells it there.
-            $inHtmlBlock = $this->inlineContext->convertRawHtml && ($htmlCloser !== null || $htmlBlockOpen);
+            $inHtmlBlock = $this->inlineContext->convertRawHtml && $rawHtmlBlock->inBlock();
             // A break closes every open block, so the line after it opens one
             // of its own: 'blank', not 'text', or a bare `-` below the rule
             // would be read as a setext underline and stay text.
@@ -987,11 +975,7 @@ class MarkdownToCarve
                     $contentCol,
                     in_array($prevLineType, ['text', 'list', 'blockquote'], true),
                     $isBlank,
-                    $htmlCloser,
-                    $htmlBreakOwed,
-                    $htmlBlockOpen,
-                    $htmlPrevHadContent,
-                    $htmlContainer,
+                    $rawHtmlBlock,
                 )
                 : null;
             if ($separator !== null && !$separatedByCaller) {
@@ -2391,28 +2375,20 @@ class MarkdownToCarve
      * @param int $contentCol Content column of the innermost enclosing list item.
      * @param bool $paragraphOpen Whether the previous line left a paragraph open.
      * @param bool $isBlank Whether this line is blank.
-     * @param string|null $htmlCloser Terminator pattern of the open condition 1-5 block.
-     * @param bool $htmlBreakOwed Whether such a block ended on the previous line.
-     * @param bool $htmlBlockOpen Whether a condition 6 or 7 block is open.
-     * @param bool $prevHadContent Whether the previous line carried content inside its container.
-     * @param string|null $htmlContainer Container the tracked block opened in.
+     * @param \MarkupCarve\Carve\Converter\Markdown\RawHtmlBlockState $state State of the current raw HTML block.
      */
     protected function rawHtmlBlockSeparator(
         string $line,
         int $contentCol,
         bool $paragraphOpen,
         bool $isBlank,
-        ?string &$htmlCloser,
-        bool &$htmlBreakOwed,
-        bool &$htmlBlockOpen,
-        bool &$prevHadContent,
-        ?string &$htmlContainer,
+        RawHtmlBlockState $state,
     ): ?string {
         $rest = $isBlank ? '' : $this->stripContainerPrefix($line, $contentCol);
         // A line that is nothing but its container's markers - `>` on its own -
         // is that container's blank line, so no paragraph survives it.
-        $wasOpen = $paragraphOpen && $prevHadContent;
-        $prevHadContent = !$isBlank && $rest !== '';
+        $wasOpen = $paragraphOpen && $state->prevHadContent;
+        $state->prevHadContent = !$isBlank && $rest !== '';
 
         if ($isBlank || $rest === '') {
             // A condition 6 or 7 block ends at a blank line, and a blank already
@@ -2420,8 +2396,7 @@ class MarkdownToCarve
             // there. Conditions 1 to 5 run to their OWN terminator with blank
             // lines inside them, so their closer survives one - dropping it put
             // a break in the middle of a `<script>` and changed its contents.
-            $htmlBreakOwed = false;
-            $htmlBlockOpen = false;
+            $state->endAtBlank();
 
             return null;
         }
@@ -2431,32 +2406,28 @@ class MarkdownToCarve
         // run on - without this, `> <div>` / `> x` / `<footer>y</footer>` kept
         // the dedented element attached to the quote it had already left.
         $key = $this->containerKey($line, $contentCol);
-        if ($key !== $htmlContainer) {
-            $htmlCloser = null;
-            $htmlBlockOpen = false;
-        }
-        $htmlContainer = $key;
+        $state->enterContainer($key);
 
-        if ($htmlCloser !== null) {
-            if (preg_match($htmlCloser, $line) === 1) {
-                $htmlCloser = null;
-                $htmlBreakOwed = true;
+        if ($state->closer !== null) {
+            if (preg_match($state->closer, $line) === 1) {
+                $state->closer = null;
+                $state->breakOwed = true;
             }
 
             return null;
         }
 
-        if ($htmlBlockOpen) {
+        if ($state->blockOpen) {
             return null;
         }
 
         $separator = null;
-        if ($htmlBreakOwed) {
+        if ($state->breakOwed) {
             $separator = $this->containerSeparator($line, $contentCol);
         } elseif ($wasOpen && $rest !== null && $this->htmlBlockInterrupts($rest)) {
             $separator = $this->containerSeparator($line, $contentCol);
         }
-        $htmlBreakOwed = false;
+        $state->breakOwed = false;
 
         if ($rest === null) {
             return $separator;
@@ -2467,9 +2438,9 @@ class MarkdownToCarve
             // An opener that carries its own terminator - `<!-- x -->` - is a
             // one-line block, so the break is owed straight away.
             if (preg_match($closer, $line) === 1) {
-                $htmlBreakOwed = true;
+                $state->breakOwed = true;
             } else {
-                $htmlCloser = $closer;
+                $state->closer = $closer;
             }
 
             return $separator;
@@ -2479,7 +2450,7 @@ class MarkdownToCarve
         // complete tag alone on its line - only opens one where no paragraph is
         // already running.
         if ($this->htmlBlockInterrupts($rest) || (!$wasOpen && $this->isCompleteTagLine($rest))) {
-            $htmlBlockOpen = true;
+            $state->blockOpen = true;
         }
 
         return $separator;
