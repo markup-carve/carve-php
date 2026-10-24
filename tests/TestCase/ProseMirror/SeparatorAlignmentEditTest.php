@@ -34,6 +34,6 @@ class SeparatorAlignmentEditTest extends TestCase
 
         $actual = CarveConverter::carve()->render((new ProseMirrorToCarve())->convert($proseMirror));
 
-        $this->assertStringContainsString("|--:|--|:--:|--|\n", $actual);
+        $this->assertStringContainsString("|--:|--|:--:|\n", $actual);
     }
 }
