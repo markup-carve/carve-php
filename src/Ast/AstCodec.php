@@ -2434,55 +2434,42 @@ class AstCodec
                 self::writeProperty($rows[$index], 'isHeader', $allHeaders);
             }
 
-            // Each header-row marker updates its column. Later header cells
-            // without a marker and body cells inherit the last value.
-            $columns = [];
-            $verticalColumns = [];
-            foreach ($node->getChildren() as $row) {
-                if (!$row instanceof TableRow || !$row->isHeader()) {
-                    break;
+            $groups = $node->getRowGroups();
+            $headRows = $groups['headRows'] ?? 0;
+            if ($groups === null) {
+                foreach ($rows as $row) {
+                    if (!$row->isHeader()) {
+                        break;
+                    }
+                    $headRows++;
                 }
-                $index = 0;
-                foreach ($row->getChildren() as $cell) {
-                    if ($cell instanceof TableCell) {
-                        if ($cell->getAlignment() === TableCell::ALIGN_DEFAULT && isset($columns[$index])) {
-                            self::writeProperty($cell, 'alignment', $columns[$index]);
-                        }
-                        if ($cell->getVerticalAlignment() === TableCell::VALIGN_DEFAULT && isset($verticalColumns[$index])) {
-                            $cell->setVerticalAlignment($verticalColumns[$index], false);
-                        }
-                        if ($cell->getAlignment() !== TableCell::ALIGN_DEFAULT) {
-                            $columns[$index] = $cell->getAlignment();
-                        }
-                        if ($cell->getVerticalAlignment() !== TableCell::VALIGN_DEFAULT) {
-                            $verticalColumns[$index] = $cell->getVerticalAlignment();
-                        }
-                        $index++;
+            }
+
+            $horizontal = [];
+            $vertical = [];
+            foreach (array_slice($rows, 0, $headRows) as $row) {
+                foreach ($row->getChildren() as $column => $cell) {
+                    if (!$cell instanceof TableCell || !$cell->isHeader()) {
+                        continue;
+                    }
+                    if ($cell->hasExplicitAlignment()) {
+                        $horizontal[$column] = $cell->getAlignment();
+                    }
+                    if ($cell->hasExplicitVerticalAlignment()) {
+                        $vertical[$column] = $cell->getVerticalAlignment();
                     }
                 }
             }
-            if ($columns !== [] || $verticalColumns !== []) {
-                $inHeadRows = true;
-                foreach ($node->getChildren() as $row) {
-                    if (!$row instanceof TableRow) {
+            foreach ($rows as $row) {
+                foreach ($row->getChildren() as $column => $cell) {
+                    if (!$cell instanceof TableCell) {
                         continue;
                     }
-                    if ($inHeadRows && $row->isHeader()) {
-                        continue;
+                    if (!$cell->hasExplicitAlignment()) {
+                        $cell->setAlignment($horizontal[$column] ?? TableCell::ALIGN_DEFAULT, false);
                     }
-                    $inHeadRows = false;
-                    $index = 0;
-                    foreach ($row->getChildren() as $cell) {
-                        if (!$cell instanceof TableCell) {
-                            continue;
-                        }
-                        if ($cell->getAlignment() === TableCell::ALIGN_DEFAULT && isset($columns[$index])) {
-                            self::writeProperty($cell, 'alignment', $columns[$index]);
-                        }
-                        if ($cell->getVerticalAlignment() === TableCell::VALIGN_DEFAULT && isset($verticalColumns[$index])) {
-                            $cell->setVerticalAlignment($verticalColumns[$index], false);
-                        }
-                        $index++;
+                    if (!$cell->hasExplicitVerticalAlignment()) {
+                        $cell->setVerticalAlignment($vertical[$column] ?? TableCell::VALIGN_DEFAULT, false);
                     }
                 }
             }

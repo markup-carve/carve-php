@@ -103,4 +103,28 @@ class HeadRowAlignmentRoundTripTest extends TestCase
             $this->assertSame((new CarveConverter())->convert($source), (new CarveConverter())->render($back));
         }
     }
+
+    public function testAstDecodeUsesFinalHeadDefaults(): void
+    {
+        $cases = [
+            "|A|B|\n|---|---|\n|=< C|= D|\n|c|d|\n",
+            "{header-rows=1}\n|=> A|= B|\n|=< C|= D|\n|c|d|\n",
+            "{header-rows=0}\n|=> A|= B|\n|c|d|\n",
+            "{header-rows=0}\n|A|B|\n|:--|--:|\n|c|d|\n",
+            "{aligns=right,center}\n|= A|= B|\n|c|d|\n",
+            "{aligns=right,center}\n|A|B|\n|---|---|\n|c|d|\n",
+            "{header-rows=3}\n|=>^ A|= B|\n|a|b|\n|=<v C|= D|\n|c|d|\n",
+        ];
+
+        $converter = new CarveConverter();
+        $codec = new AstCodec();
+        foreach ($cases as $source) {
+            $document = $converter->parse($source);
+            $wire = $codec->encode($document);
+            $decoded = $codec->decode($wire);
+
+            $this->assertSame($wire, $codec->encode($decoded), $source);
+            $this->assertSame($converter->render($document), $converter->render($decoded), $source);
+        }
+    }
 }
