@@ -133,35 +133,6 @@ class MathBlockExtension implements StaticRenderExtensionInterface
     }
 
     /**
-     * Build the extra-attribute string from author attributes (all but `class`).
-     *
-     * Attributes get the same treatment the core renderer applies to every
-     * element: always-on hardening plus any additional safe-mode name filtering,
-     * with values HTML-escaped - so copying author attributes onto the raw output
-     * element cannot bypass the sanitizer the renderer applies everywhere else.
-     */
-    protected function buildExtraAttributes(CodeBlock $node): string
-    {
-        $attrs = $node->getAttributes();
-        unset($attrs['class']);
-
-        if ($this->renderer !== null) {
-            $attrs = $this->renderer->sanitizeAttributes($attrs);
-            $safeMode = $this->renderer->getSafeMode();
-            if ($safeMode !== null) {
-                $attrs = $safeMode->filterAttributes($attrs);
-            }
-        }
-
-        $out = '';
-        foreach ($attrs as $name => $value) {
-            $out .= ' ' . StringUtil::escapeHtmlAttribute((string)$name) . '="' . StringUtil::escapeHtmlAttribute((string)$value) . '"';
-        }
-
-        return $out;
-    }
-
-    /**
      * Escape the LaTeX body the same way the core math renderer does (`&`, `<`,
      * `>`), so a fenced math block escapes identically to inline / display
      * `$…$` math.
