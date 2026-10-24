@@ -24,3 +24,33 @@
 2798: No user-visible change, by the author's own call in the pull request. The source-line rule moves onto the frame that already owns the map it reads, so the two resolvers cannot drift apart. The isolated lookup is cheaper, whole-document conversion is not measurably different, and the four behaviors the old ternary left implicit are now pinned by a test.
 3136: Moves a regex capture read inside its branch for PHPStan; output unchanged
 3482: Comment-only. It shortens the sentinel and quote-marker comments; no non-comment line in src moves.
+
+3758: CI-only Mago check; no runtime behavior changes.
+3759: Internal Markdown inline scope refactor; output unchanged.
+3761: Internal Markdown inline HTML policy split; output unchanged.
+3763: Internal importer destination and tag phase split; output unchanged.
+3764: Internal reference-list tracking refactor; output unchanged.
+3765: Internal emphasis delimiter phase split; output unchanged.
+3766: Internal carrier validation phase split; output unchanged.
+3802: Internal footnote label preparation refactor; output unchanged.
+3811: Internal Markdown output assembly refactor; output unchanged.
+3820: Internal Djot destination and edit phase split; output unchanged.
+3823: Internal caption construction deduplication; output unchanged.
+3827: Internal inline dispatch deduplication; output unchanged.
+3832: Internal bare-link protection refactor; output unchanged.
+3834: Internal Markdown fence state refactor; output unchanged.
+3836: Internal table layout step extraction; output unchanged.
+3838: AST documentation clarification; no runtime behavior changes.
+3839: Internal list continuation result naming; output unchanged.
+3841: Internal Markdown list-column refactor; output unchanged.
+3842: Internal Markdown table continuation refactor; output unchanged.
+3856: Unused protected attribute helper removed; no output change.
+3858: Internal raw HTML block state refactor; output unchanged.
+3859: Internal Markdown quote handoff refactor; output unchanged.
+3860: Internal definition frame release refactor; output unchanged.
+3861: Internal item blank-run state refactor; output unchanged.
+3862: Internal definition frame encapsulation; output unchanged.
+3874: Internal admonition classification deduplication; output unchanged.
+3876: Internal complexity reduction; output unchanged.
+3877: Removed parser conditions proven unreachable; output unchanged.
+3887: CI-only complexity gate; no runtime behavior changes.

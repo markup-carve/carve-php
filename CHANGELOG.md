@@ -9,8 +9,24 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-10-24
+
+carve-php 0.1.15 keeps imported Djot and Markdown closer to their source and corrects table layout, nested containers, and render-loss reports.
+
 ### Fixes
-- A description separator or tight term line below a list item's content column folds into the open definition body or term as text, after a blank line in the item too (#3762, markup-carve/carve#3547).
+
+- Djot import preserves link targets, reference destinations, backslashes, literal symbols, quote direction, emphasis boundaries, heading IDs, and extension fences and titles (#3775, #3776, #3777, #3781, #3785, #3786, #3787, #3791, #3795, #3797, #3798, #3807, #3808, #3810, #3813, #3815, #3817, #3818, #3822, #3828, #3864).
+- Djot footnotes reserve their IDs before headings receive matching suffixes (#3821).
+- Markdown export escapes literal definition and term markers, keeps nested heading fences compact, and retains separator widths when table columns are edited (#3846, #3854, #3855, #3867, #3884).
+- Tables retain left alignment on empty headers, read padded span markers, keep column defaults within resolved header rows, and report Markdown render losses from the schema (#3865, #3878, #3879, #3880, #3882, #3885, #3889).
+- Nested lists, notes, quotes, and descriptions keep continuation markers, blank lines, wrapped attributes, and definition text with the owning block (#3762, #3799, #3806, #3809, #3830, #3829, #3845, #3847, #3849, #3852, #3869, #3888).
+- Adjacent highlighted code blocks retain their whitespace (#3760).
+
+### Improvements
+
+- Cross-references to headings supplied by includes now resolve (#3824).
+
+**Full Changelog**: https://github.com/markup-carve/carve-php/compare/0.1.14...0.1.15
 
 ## [0.1.14] - 2026-10-23
 

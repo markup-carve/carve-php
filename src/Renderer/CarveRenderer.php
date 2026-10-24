@@ -3893,7 +3893,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         if (trim($content, ' ') === '') {
-            if ($align === '<') {
+            if ($align === '<' && !($cell->isHeader() && $markHeader)) {
                 $align = '';
                 if ($cell->isHeader()) {
                     $this->recordUnspellableField($cell, 'align', 'An empty cell cannot spell a left alignment marker');
