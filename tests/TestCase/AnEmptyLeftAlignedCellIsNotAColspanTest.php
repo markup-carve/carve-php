@@ -9,9 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A `<` glued to the opening pipe and ended by a space is an alignment run
- * (PART 9 §5 T11), so the cell is empty and left-aligned. Only a lone `<` with
- * no run is a colspan marker.
+ * A lone `<` is a colspan marker in every space-padding form (PART 9 §5 T4).
  */
 class AnEmptyLeftAlignedCellIsNotAColspanTest extends TestCase
 {
@@ -23,15 +21,15 @@ class AnEmptyLeftAlignedCellIsNotAColspanTest extends TestCase
         return [
             'glued after a cell' => [
                 "| a |< |\n",
-                '<tr><td>a</td><td style="text-align: left;"></td></tr>',
+                '<tr><td colspan="2">a</td></tr>',
             ],
             'glued alone' => [
                 "|< |\n",
-                '<tr><td style="text-align: left;"></td></tr>',
+                '<tr><td></td></tr>',
             ],
             'glued with a continuation' => [
                 "| a |< |\n+ b | c |\n",
-                '<tr><td>a b</td><td style="text-align: left;">c</td></tr>',
+                '<tr><td colspan="2">a b c</td></tr>',
             ],
             'bare marker stays a colspan' => [
                 "| a |<|\n",
@@ -58,6 +56,6 @@ class AnEmptyLeftAlignedCellIsNotAColspanTest extends TestCase
 
     public function testTheWriterSpellingReadsBackAsWritten(): void
     {
-        $this->assertSame("| a |< |\n", (new CarveConverter())->toCarve("| a |< |\n"));
+        $this->assertSame("| a | < |\n", (new CarveConverter())->toCarve("| a |< |\n"));
     }
 }

@@ -3853,15 +3853,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $this->recordUnspellableField($cell, 'blocks', 'Carve table cells cannot hold blocks');
         }
         $attrs = $this->renderAttrs($cell);
-        // A lone span marker keeps a SPACE before it. Glued to the opening pipe,
-        // `<` is also the left-alignment sigil, and the two readings differ: the
-        // executable spec reads `|<|` as alignment on an empty cell where all
-        // three engines read a colspan (carve#710). `alignment_marker` is
-        // defined as glued and `colspan_marker` may carry surrounding
-        // whitespace, so the padded form means the same thing to every reader
-        // and the writer must not emit the ambiguous one. `^` is not an
-        // alignment sigil, but takes the same shape so a row of span cells stays
-        // readable.
+        // A lone span marker reads as a span with any surrounding padding.
         //
         // A cell attribute block is GLUED to the pipe here, because a span cell
         // has no marker run for it to bind after (PART 9 §5 T10); the space
@@ -3898,6 +3890,25 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $this->tableCellDepth--;
             $this->edgeCellBreaks = [];
             $this->flattenedTableCell = $previousFlattenedCell;
+        }
+
+        if (trim($content, ' ') === '') {
+            if ($align === '<') {
+                $align = '';
+                if ($cell->isHeader()) {
+                    $this->recordUnspellableField($cell, 'align', 'An empty cell cannot spell a left alignment marker');
+                }
+            }
+            if ($valign === '^') {
+                $valign = '';
+                if ($cell->isHeader()) {
+                    $this->recordUnspellableField($cell, 'valign', 'An empty cell cannot spell a top alignment marker');
+                }
+            }
+            $inheritHorizontal = $align === '' && $valign !== '' ? '?' : '';
+            $prefix = ($cell->isHeader() && $markHeader ? '=' : '') . $align . $inheritHorizontal . $valign . $attrs;
+        } elseif (($content === '<' || $content === '^') && $prefix === '') {
+            $content = '\\' . $content;
         }
 
         return $this->padCell($prefix, $content);

@@ -573,6 +573,10 @@ class TableParser
      */
     public function cellMarkerRunLength(string $cell): int
     {
+        // A bare span glyph takes precedence over an empty alignment run.
+        if (trim($cell, ' ') === '<' || trim($cell, ' ') === '^') {
+            return 0;
+        }
         $length = ($cell[0] ?? '') === '=' ? 1 : 0;
         $start = $length;
         while (isset($cell[$length]) && str_contains('<>~^v?', $cell[$length])) {
@@ -968,9 +972,7 @@ class TableParser
      */
     public function isColspanMarker(string $cellContent): bool
     {
-        // `|< |` is a glued alignment run ended by a space (PART 9 §5 T11):
-        // an empty left-aligned cell, not a span marker.
-        return trim($cellContent, ' ') === '<' && !str_starts_with($cellContent, '< ');
+        return trim($cellContent, ' ') === '<';
     }
 
     /**
