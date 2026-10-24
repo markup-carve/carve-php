@@ -170,15 +170,18 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
             self::assertContains($loss['code'], self::schemaCodes());
             $seen[$loss['code']] = true;
         }
+        foreach (["::: box\nhi\n:::\n", "![x](a)\n^ caption\n", "{#x}\nhello\n"] as $source) {
+            $report = (new CarveConverter(renderer: new MarkdownRenderer()))->convertWithReport($source);
+            foreach ($report->losses as $loss) {
+                self::assertContains($loss['code'], self::schemaCodes());
+                $seen[$loss['code']] = true;
+            }
+        }
         $codes = array_keys($seen);
         sort($codes);
         $permitted = self::schemaCodes();
         sort($permitted);
-        self::assertSame([], array_diff($codes, $permitted));
-        self::assertSame(
-            ['carrier-attribute-dropped', 'destination-denied', 'editorial-comment-flattened', 'list-delimiter-changed', 'list-style-dropped', 'raw-format-dropped', 'ruby-flattened', 'table-header-cell-demoted', 'table-header-row-demoted', 'table-header-row-hoisted', 'table-span-flattened'],
-            $codes,
-        );
+        self::assertSame($permitted, $codes);
     }
 
     #[DataProvider('textTargets')]

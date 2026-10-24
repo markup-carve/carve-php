@@ -1650,6 +1650,18 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
         $this->renderDepth++;
         try {
+            if (!$this->roundTripMode && $node instanceof BlockNode && !$node instanceof Section) {
+                $attributes = $node->getAttributeEntries();
+                if ($node instanceof Heading && !in_array('id', $node->getAttributeOrder(), true)) {
+                    unset($attributes['id']);
+                }
+                if ($node instanceof CodeBlock) {
+                    unset($attributes['title']);
+                }
+                if ($attributes !== []) {
+                    $this->recordMarkdownLoss($node, 'markdown-attributes-dropped');
+                }
+            }
             if ($node instanceof ListBlock) {
                 return $this->renderTrackedList($node);
             }
@@ -3463,6 +3475,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderDiv(Div $node): string
     {
+        if (!$this->roundTripMode) {
+            $this->recordMarkdownLoss($node, 'markdown-container-flattened');
+        }
         $listTable = $this->listTableAsTable($node);
         if ($listTable !== null) {
             $label = $node->getLabel();
@@ -3881,6 +3896,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         if ($caption !== null) {
             $text = trim($this->renderChildren($caption), StringUtil::TRIMMABLE_WHITESPACE);
             if ($text !== '') {
+                if (!$this->roundTripMode) {
+                    $this->recordMarkdownLoss($node, 'markdown-caption-flattened');
+                }
                 $marker = $this->roundTripMode && $this->tableCellDepth === 0
                     ? $this->literalCarrierLine((new CarrierOpenerWriter())->inlinePayload($caption, '^ ')) . "\n" : '';
                 $output .= "\n" . $marker . $text . "\n";
@@ -4549,6 +4567,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderRawBlock(RawBlock $node): string
     {
         if ($node->getFormat() === 'html') {
+            $this->recordMarkdownLoss($node, 'raw-html-escaped');
             // Escape, not emit: raw HTML in Markdown output would be live again
             // when the Markdown is rendered to HTML downstream.
             return $this->escapeHtml($this->stripControls($node->getPassthroughContent())) . "\n\n";
@@ -4562,6 +4581,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderRawInline(RawInline $node): string
     {
         if ($node->getFormat() === 'html') {
+            $this->recordMarkdownLoss($node, 'raw-html-escaped');
             return $this->escapeHtml($this->stripControls($node->getContent()));
         }
 
@@ -4578,6 +4598,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function renderFigure(Figure $node): string
     {
+        if (!$this->roundTripMode) {
+            $this->recordMarkdownLoss($node, 'markdown-caption-flattened');
+        }
         $targets = $node->getTargets();
         $target = $targets === [] ? null : $targets[count($targets) - 1];
         // The caption sits on its own line directly under the figure (`\n`),
@@ -4625,6 +4648,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 $host = implode('', array_map($this->renderNode(...), $child->getTargets()));
                 $output .= rtrim($host, StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
                 foreach ($child->getCaptions() as $panelCaption) {
+                    if (!$this->roundTripMode) {
+                        $this->recordMarkdownLoss($child, 'markdown-caption-flattened');
+                    }
                     if ($this->roundTripMode && $this->tableCellDepth === 0) {
                         $output .= $this->literalCarrierLine((new CarrierOpenerWriter())->inlinePayload($panelCaption, '^ ')) . "\n";
                     }
@@ -4651,6 +4677,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // slot hangs on the closing fence), so its fallback follows the closer.
         $caption = $node->getCaption();
         if ($caption !== null) {
+            if (!$this->roundTripMode) {
+                $this->recordMarkdownLoss($node, 'markdown-caption-flattened');
+            }
             $output .= $this->renderWrappedChildren(
                 $caption,
                 '**',
