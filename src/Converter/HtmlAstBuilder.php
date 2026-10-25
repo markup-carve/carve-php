@@ -1698,9 +1698,15 @@ final class HtmlAstBuilder
                 }
             }
         }
+        $plain = array_values(array_filter($this->codeLanguageClasses($pre), static fn (string $token): bool => $token !== ''));
+        $fallback = count($plain) === 1 && strlen($plain[0]) > 1 && $this->validCodeLanguage($plain[0])
+            && preg_match('/^(?:language|lang)-/i', $plain[0]) !== 1
+            && !in_array($plain[0], ['mermaid', 'highlight', 'prettyprint', 'sourceCode', 'notranslate'], true)
+                ? $plain[0]
+                : null;
         $parent = $pre->parentNode;
         if (!$parent instanceof DOMElement || !$this->codeLanguageWrapper($parent, $pre)) {
-            return null;
+            return $fallback;
         }
         $tokens = $this->codeLanguageClasses($parent);
         $direct = (in_array('highlight', $tokens, true) ? $this->prefixedCodeLanguage($tokens, 'highlight-source-') : null)
@@ -1710,9 +1716,9 @@ final class HtmlAstBuilder
         }
         $outer = $parent->parentNode;
 
-        return in_array('highlight', $tokens, true) && $outer instanceof DOMElement && $this->codeLanguageWrapper($outer, $parent)
+        return (in_array('highlight', $tokens, true) && $outer instanceof DOMElement && $this->codeLanguageWrapper($outer, $parent)
             ? $this->prefixedCodeLanguage($this->codeLanguageClasses($outer), 'highlight-')
-            : null;
+            : null) ?? $fallback;
     }
 
     private function validCodeLanguage(string $value): bool
