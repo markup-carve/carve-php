@@ -17,6 +17,29 @@ use DOMElement;
 final class TableStructure
 {
     /**
+     * @return array{rows: int, columns: int}
+     */
+    public static function bounds(DOMElement $table): array
+    {
+        $rows = self::directTableRows($table);
+        $cells = 0;
+        foreach ($rows as $row) {
+            foreach ($row->childNodes as $child) {
+                if ($child instanceof DOMElement && in_array(strtolower(DomLoader::elementName($child)), ['td', 'th'], true)) {
+                    ++$cells;
+                }
+            }
+        }
+
+        return ['rows' => count($rows), 'columns' => max(2, $cells * 2)];
+    }
+
+    public static function boundedSpan(DOMElement $cell, string $name, int $bound): int
+    {
+        return min(max(1, (int)$cell->getAttribute($name)), max(1, $bound));
+    }
+
+    /**
      * @phpstan-param list<TableRowNode> $rows
      *
      * @param list<array<string, mixed>> $rows
