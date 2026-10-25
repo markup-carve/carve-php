@@ -54,3 +54,4 @@
 3876: Internal complexity reduction; output unchanged.
 3877: Removed parser conditions proven unreachable; output unchanged.
 3887: CI-only complexity gate; no runtime behavior changes.
+3890: Internal wrapped attribute scanner extraction; output unchanged.

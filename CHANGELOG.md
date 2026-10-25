@@ -9,6 +9,24 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+## [0.1.16] - 2026-10-25
+
+Task lists gain progress and blocked states. The parser and converters also follow recent container, table and destination rulings.
+
+### Fixes
+
+- Nested lazy continuation survives folded fences, and folded HTML container labels keep their text (#3926, #3924).
+- HTML import bounds table spans; AST output represents unset table columns as objects; Markdown export keeps covered-column alignment and table captions resolve forward references (#3922, #3907, #3905, #3896).
+- Tabs remain content in empty link destinations and line comments. Markdown destinations keep escaped and unmatched closing parentheses, and HTML anchors inside Markdown link labels flatten on import (#3928, #3929, #3911, #3899, #3901).
+- The Carve writer picks literal backslash spelling by reparsing its output (#3912).
+- HTML import reads a sole plain `pre` class as a code language and imports integral pixel image dimensions; Djot attributes and GitHub HTML footnotes survive import (#3902, #3900, #3897).
+- Markdown conversion reports a dropped title on a fence without a language (#3931).
+
+### Improvements
+
+- Progress `[/]` and blocked `[!]` task markers round trip through AST JSON, HTML import and formatting. `[_]`, previously paused, is now an open alias (#3920).
+- The ProseMirror schema map follows the current grammar package (#3906).
+
 ## [0.1.15] - 2026-10-24
 
 carve-php 0.1.15 keeps imported Djot and Markdown closer to their source and corrects table layout, nested containers, and render-loss reports.
