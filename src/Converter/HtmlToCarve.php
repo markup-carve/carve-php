@@ -3863,7 +3863,7 @@ class HtmlToCarve
 
     private function normalizeHtmlForDirectAst(string $html): string
     {
-        if (!in_array($this->importAdapter, self::FOOTNOTE_SHAPED_ADAPTERS, true) && !str_contains($html, 'data-footnotes')) {
+        if (!in_array($this->importAdapter, self::FOOTNOTE_SHAPED_ADAPTERS, true) && stripos($html, 'data-footnotes') === false) {
             return $html;
         }
         $document = DomLoader::fragment($html);
