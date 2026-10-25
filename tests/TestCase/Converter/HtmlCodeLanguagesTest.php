@@ -13,6 +13,28 @@ use PHPUnit\Framework\TestCase;
 
 class HtmlCodeLanguagesTest extends TestCase
 {
+    public function testSolePlainPreClassIsLanguageAfterStrongerHints(): void
+    {
+        foreach (['<pre class="python">x</pre>', '<pre class="python"><code>x</code></pre>'] as $html) {
+            $ast = (new HtmlAstBuilder())->build($html);
+            $this->assertSame('python', $ast['children'][0]['lang']);
+            $this->assertStringContainsString('```python', (new HtmlToCarve())->convert($html));
+        }
+
+        $cases = [
+            '<pre class="python"><code class="language-js">x</code></pre>' => 'js',
+            '<div class="highlight highlight-source-js"><pre class="prettyprint">x</pre></div>' => 'js',
+        ];
+        foreach ($cases as $html => $language) {
+            $this->assertStringContainsString('```' . $language, (new HtmlToCarve())->convert($html));
+        }
+
+        foreach (['python extra', 'd', 'mermaid'] as $classes) {
+            $ast = (new HtmlAstBuilder())->build('<pre class="' . $classes . '">x</pre>');
+            $this->assertArrayNotHasKey('lang', $ast['children'][0]);
+        }
+    }
+
     public function testSharedLanguageCases(): void
     {
         $path = dirname(__DIR__, 2) . '/spec/tests/html-code-language-cases.json';
