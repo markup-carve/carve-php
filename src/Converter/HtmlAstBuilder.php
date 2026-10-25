@@ -3567,8 +3567,6 @@ final class HtmlAstBuilder
                 continue;
             }
             if (
-                !$bareTransport
-                &&
                 $child instanceof DOMElement
                 && strtolower(DomLoader::elementName($child)) === 'input'
                 && strtolower($child->getAttribute('type')) === 'checkbox'
@@ -3643,6 +3641,8 @@ final class HtmlAstBuilder
                 continue;
             }
             if (
+                !$bareTransport
+                &&
                 $child instanceof DOMElement
                 && strtolower(DomLoader::elementName($child)) === 'p'
                 && (preg_split('/\s+/', trim($child->getAttribute('class'))) ?: []) === ['div-label']
