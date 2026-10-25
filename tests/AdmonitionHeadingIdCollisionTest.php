@@ -11,12 +11,9 @@ class AdmonitionHeadingIdCollisionTest extends TestCase
 {
     public function testMergedC1CorpusRow(): void
     {
-        $base = __DIR__ . '/spec/tests/corpus/663-a-titled-admonition-skips-an-authored-heading-id';
-        $source = file_get_contents($base . '.crv');
-        $expected = file_get_contents($base . '.html');
-        self::assertNotFalse($source);
-        self::assertNotFalse($expected);
-        self::assertSame(trim($expected), trim((new CarveConverter())->convert($source)));
+        $source = "{#adm-1}\n# H\n\n::: warning \"Careful\"\nbody\n:::\n";
+        $expected = "<section id=\"adm-1\">\n  <h1>H</h1>\n  <aside class=\"admonition warning\" aria-labelledby=\"adm-1-2\">\n    <p class=\"admonition-title\" id=\"adm-1-2\">Careful</p>\n    <p>body</p>\n  </aside>\n</section>";
+        self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
 
     public function testAutomaticHeadingAfterAdmonition(): void
