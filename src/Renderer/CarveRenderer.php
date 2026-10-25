@@ -3911,6 +3911,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $content = '\\' . $content;
         }
 
+        if (!$cell->isHeader() && str_starts_with($content, '\\= ')) {
+            $content = substr($content, 1);
+        }
+
         return $this->padCell($prefix, $content);
     }
 
@@ -6767,6 +6771,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // colon at all (carve-php#743).
             if ($char === ':' && !self::opensLine($text, $offset)) {
                 return ':';
+            }
+            if ($char === '\\' && isset($text[$offset + 1])) {
+                $next = ord($text[$offset + 1]);
+                $escapable = ($next >= 33 && $next <= 47)
+                    || ($next >= 58 && $next <= 64)
+                    || ($next >= 91 && $next <= 96)
+                    || ($next >= 123 && $next <= 126);
+                if (!$escapable) {
+                    return '\\';
+                }
             }
 
             return '\\' . $char;
