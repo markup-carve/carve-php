@@ -4,7 +4,7 @@
 `carve fmt --stamp` records the spec version a document was last processed under:
 
 ~~~
-%% carve-version: 0.1; generated-by: carve-php 0.1.15
+%% carve-version: 0.1; generated-by: carve-php 0.1.16
 ~~~
 
 That marker is what makes the spec's
@@ -16,7 +16,7 @@ it back with:
 ~~~ php
 use MarkupCarve\Carve\Stamp;
 
-Stamp::read($source);          // ['version' => '0.1', 'generatedBy' => 'carve-php 0.1.15'] or null
+Stamp::read($source);          // ['version' => '0.1', 'generatedBy' => 'carve-php 0.1.16'] or null
 Stamp::needsReview($source);   // true when the document predates this engine's spec version
 ~~~
 
