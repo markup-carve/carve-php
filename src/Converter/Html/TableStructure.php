@@ -17,6 +17,37 @@ use DOMElement;
 final class TableStructure
 {
     /**
+     * Plan spans against one budget for the table's physical cells. Each
+     * source cell receives one position before expansion spends the rest.
+     *
+     * @return \MarkupCarve\Carve\Converter\Html\TableSpanPlan
+     */
+    public static function spanPlan(DOMElement $table): TableSpanPlan
+    {
+        $rows = self::directTableRows($table);
+        $cells = [];
+        foreach ($rows as $rowIndex => $row) {
+            foreach ($row->childNodes as $child) {
+                if ($child instanceof DOMElement && in_array(strtolower(DomLoader::elementName($child)), ['td', 'th'], true)) {
+                    $cells[] = [$child, $rowIndex];
+                }
+            }
+        }
+        $remaining = max(1000, count($cells) + count($rows)) - count($cells);
+        $plan = new TableSpanPlan();
+        foreach ($cells as [$cell, $rowIndex]) {
+            $colspan = min(1000, max(1, (int)$cell->getAttribute('colspan')), $remaining + 1);
+            $remaining -= $colspan - 1;
+            $rowspan = min(65534, max(1, (int)$cell->getAttribute('rowspan')), count($rows) - $rowIndex);
+            $rowspan = min($rowspan, 1 + intdiv($remaining, $colspan));
+            $remaining -= ($rowspan - 1) * $colspan;
+            $plan->set($cell, $colspan, $rowspan);
+        }
+
+        return $plan;
+    }
+
+    /**
      * @phpstan-param list<TableRowNode> $rows
      *
      * @param list<array<string, mixed>> $rows

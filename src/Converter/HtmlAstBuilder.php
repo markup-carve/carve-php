@@ -2672,6 +2672,7 @@ final class HtmlAstBuilder
         /** @var array<int, int> $rowspans */
         $rowspans = [];
         $sourceRows = TableStructure::directTableRows($node);
+        $spanPlan = TableStructure::spanPlan($node);
         foreach ($sourceRows as $rowElement) {
             $sectionTag = $rowElement->parentNode instanceof DOMElement ? strtolower(DomLoader::elementName($rowElement->parentNode)) : '';
             $cells = [];
@@ -2700,7 +2701,8 @@ final class HtmlAstBuilder
                     }
                     ++$column;
                 }
-                $colspan = max(1, (int)$cellElement->getAttribute('colspan'));
+                $spans = $spanPlan->get($cellElement);
+                $colspan = $spans['colspan'];
                 $lastColumn = $column + $colspan - 1;
                 $allowsEmptyCode = $listForm
                     || (!$this->hasFollowingTableCell($cellElement) && $colspan === 1);
@@ -2750,7 +2752,7 @@ final class HtmlAstBuilder
                     $skipAttrs[] = 'valign';
                 }
                 $this->attachAttrs($cell, $cellElement, $skipAttrs);
-                $rowspan = max(1, (int)$cellElement->getAttribute('rowspan'));
+                $rowspan = $spans['rowspan'];
                 $cells[] = $cell;
                 $cellBlocks[] = $blocks;
                 $ownAlignment[] = ['align' => $cell['align'] ?? null, 'valign' => $cell['valign'] ?? null];

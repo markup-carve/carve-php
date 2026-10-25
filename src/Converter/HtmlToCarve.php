@@ -18,6 +18,7 @@ use MarkupCarve\Carve\Converter\Html\DomLoader;
 use MarkupCarve\Carve\Converter\Html\ImportSession;
 use MarkupCarve\Carve\Converter\Html\MathTex;
 use MarkupCarve\Carve\Converter\Html\PrecedingLabels;
+use MarkupCarve\Carve\Converter\Html\TableStructure;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
@@ -3089,6 +3090,21 @@ class HtmlToCarve
      */
     protected function inspectTableStructure(DOMElement $node, string $path, array &$diagnostics): void
     {
+        $sourceRows = TableStructure::directTableRows($node);
+        $spanPlan = TableStructure::spanPlan($node);
+        foreach ($sourceRows as $row) {
+            foreach ($row->childNodes as $cell) {
+                if (!$cell instanceof DOMElement || !in_array(strtolower(DomLoader::elementName($cell)), ['td', 'th'], true)) {
+                    continue;
+                }
+                $spans = $spanPlan->get($cell);
+                foreach ($spans as $name => $bound) {
+                    if (max(1, (int)$cell->getAttribute($name)) > $bound) {
+                        $this->addImportDiagnostic($diagnostics, 'table-degraded', 'Clamped ' . $name . ' to the table size', 'warning', $path);
+                    }
+                }
+            }
+        }
         $captions = 0;
         $footRows = 0;
         $bodyGroups = 0;
@@ -4647,6 +4663,7 @@ class HtmlToCarve
 
         /** @var array<int, int> $rowspanMap */
         $rowspanMap = [];
+        $spanPlan = TableStructure::spanPlan($table);
         foreach ($this->getDirectTableRows($table) as $tr) {
             $isCellRow = $tr === $cell->parentNode;
             $passedCell = false;
@@ -4662,8 +4679,9 @@ class HtmlToCarve
                     $rowspanMap[$logicalCol]--;
                     $logicalCol++;
                 }
-                $colspan = max(1, (int)$candidate->getAttribute('colspan'));
-                $rowspan = max(1, (int)$candidate->getAttribute('rowspan'));
+                $spans = $spanPlan->get($candidate);
+                $colspan = $spans['colspan'];
+                $rowspan = $spans['rowspan'];
                 if ($rowspan > 1) {
                     $rowspanMap[$logicalCol] = ($rowspanMap[$logicalCol] ?? 0) + ($rowspan - 1);
                 }
