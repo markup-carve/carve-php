@@ -52,8 +52,8 @@ use function trim;
  *  - MINIMALITY, PART 11 §2's other half: an escape is written IF AND ONLY IF
  *    omitting it would change the re-parse. The tree comparison cannot see
  *    this one, because it has to forgive escaping or §1 contradicts §2 - so an
- *    invented escape passes every property above. It is red on two documents
- *    and gated by a shrink-only ratchet (carve-php#1533).
+     *    invented escape passes every property above. The shrink-only ratchet
+     *    now permits no idle escapes (carve-php#1533).
  *
  * Plus a clean-parse guard: the formatted output must re-parse without error.
  *
@@ -131,17 +131,13 @@ class CarveFmtCorpusTest extends TestCase
      * document that would have joined them arrived with the pin that brought
      * corpus category 509.
      *
-     * MINIMAL CLASS, the two that are left: both passes agree, so nothing
-     * escalated, and the escape is still idle. Grouping cost
-     * `72-escape-coverage-2` two of its four as well, because a doubled
-     * backslash is ONE escape and was being judged as two.
+     * The last two minimal-class documents now have no idle escapes. Literal
+     * backslashes use the reparse search, and padding removes an idle table
+     * marker escape.
      *
      * @var array<string, array{0: int, 1: string}>
      */
-    private const IDLE_ESCAPE_RATCHET = [
-        '72-escape-coverage-2' => [2, 'minimal class: a literal backslash is written doubled, and a lone backslash before a non-escapable character re-parses the same bare'],
-        '390-a-table-cell-s-marker-run-ends-at-a-space-5' => [1, 'minimal class: an authored `\=` is kept after the writer\'s own cell padding retired it - padded, the `=` no longer starts the cell'],
-    ];
+    private const IDLE_ESCAPE_RATCHET = [];
 
     /**
      * @throws \RuntimeException when the spec submodule is not initialized
@@ -918,7 +914,7 @@ class CarveFmtCorpusTest extends TestCase
      *
      * Red on 28 of 1341 documents when this landed, so it is gated by the
      * shrink-only ratchet above rather than an allowlist - the entries are
-     * known violations with a number attached, not blessings. Two are left, and
+     * known violations with a number attached, not blessings. None remain, and
      * the sweep asks §2's question of the OPENER: a run's escapes stand or fall
      * together, or the score is a half-escaped run §2 forbids.
      */
@@ -950,6 +946,7 @@ class CarveFmtCorpusTest extends TestCase
     public function testEveryRatchetEntryCarriesACountAndAReason(): void
     {
         $corpus = self::corpusProvider();
+        $this->assertSame([], self::IDLE_ESCAPE_RATCHET);
 
         foreach (self::IDLE_ESCAPE_RATCHET as $slug => [$count, $reason]) {
             $this->assertArrayHasKey($slug, $corpus, 'the ratchet names a document the corpus does not have: ' . $slug);

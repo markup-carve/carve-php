@@ -32,7 +32,7 @@ class AHyphenOrDotRunInImportedTextIsEscapedTest extends TestCase
             'a flag before an element' => ['<p>a --<b>x</b></p>', 'a --*x*'],
             'a run ending an emphasis' => ['<p><em>a --</em>x</p>', '{/a \\-\\-/}x'],
             'a flag opening an emphasis' => ['<p><em>--x</em></p>', '/--x/'],
-            'a backslash before a run' => ['<p>\\--x</p>', '\\\\\\-\\-x'],
+            'a backslash before a run' => ['<p>\\--x</p>', '\\\-\\-x'],
             'a line-start rule' => ['<p>---</p>', '\\-\\-\\-'],
             'a list item' => ['<ul><li>-- x</li></ul>', '- \\-\\- x'],
             'a heading' => ['<h2>a -- b</h2>', '## a \\-\\- b'],

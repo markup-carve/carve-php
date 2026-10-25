@@ -51,7 +51,7 @@ class APreWithoutCodeKeepsItsInlineContentTest extends TestCase
         $html = '<table><tr><td><div class="hl"><pre><span class="k">\forall</span> x</pre></div></td>'
             . '<td>b</td></tr></table>';
         $result = (new HtmlToCarve())->convertWithReport($html);
-        $this->assertSame("| [\\\\forall]{.k} x | b |\n", $result->value);
+        $this->assertSame("| [\\forall]{.k} x | b |\n", $result->value);
         $this->assertSame([
             ['attribute-dropped', '/table[1]/tr[1]/td[1]/div[1]'],
             ['element-unwrapped', '/table[1]/tr[1]/td[1]/div[1]'],
