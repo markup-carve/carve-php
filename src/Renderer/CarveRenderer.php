@@ -363,7 +363,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * @var string
      */
-    protected const NOT_OFFERED_PER_OCCURRENCE = '\\`"\'^!$';
+    protected const NOT_OFFERED_PER_OCCURRENCE = '`"\'^!$';
 
     /**
      * What separates two backtick runs that would otherwise merge: an empty
@@ -3911,6 +3911,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $content = '\\' . $content;
         }
 
+        if (!$cell->isHeader() && str_starts_with($content, '\\= ')) {
+            $content = substr($content, 1);
+        }
+
         return $this->padCell($prefix, $content);
     }
 
@@ -6714,6 +6718,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 return $escaped ? '\\]' : ']';
             }
             if ($minimal && ($char === '[' || $char === ']' || $char === '(')) {
+                return $char;
+            }
+            if ($minimal && $char === '\\') {
                 return $char;
             }
             // PART 11 section 2's decision is taken per OPENER OCCURRENCE.
