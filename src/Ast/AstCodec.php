@@ -45,6 +45,7 @@ use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionProperty;
 use SplFileInfo;
+use stdClass;
 
 /**
  * Encodes the AST as plain arrays (JSON) and reads it back.
@@ -1880,7 +1881,14 @@ class AstCodec
                 continue;
             }
 
-            $encoded[$field] = $this->encodeValue($value);
+            if ($node instanceof Table && $field === 'columns' && is_array($value)) {
+                $encoded[$field] = array_map(
+                    static fn (array $column): array|stdClass => $column === [] ? new stdClass() : $column,
+                    $value,
+                );
+            } else {
+                $encoded[$field] = $this->encodeValue($value);
+            }
         }
 
         $attributes = $node->getAttributeEntries();
@@ -2865,7 +2873,11 @@ class AstCodec
 
                 continue;
             }
-            $property->setValue($node, $name === 'rowGroups' && $node instanceof Table ? $data[$name] : $this->decodeValue($data[$name], $expectsNode));
+            $value = $name === 'rowGroups' && $node instanceof Table ? $data[$name] : $this->decodeValue($data[$name], $expectsNode);
+            if ($node instanceof Table && $name === 'columns' && is_array($value)) {
+                $value = array_map(static fn (mixed $column): mixed => $column instanceof stdClass ? (array)$column : $column, $value);
+            }
+            $property->setValue($node, $value);
         }
         if ($node instanceof Ruby) {
             try {
