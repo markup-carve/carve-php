@@ -459,13 +459,18 @@ class AstCodec
      *
      * @return array<mixed>
      */
-    private static function jsonSectionObjects(array $value): array
+    private static function jsonObjectFields(array $value): array
     {
         foreach ($value as $key => $item) {
             if ($key === 'payload' || !is_array($item)) {
                 continue;
             }
-            $item = self::jsonSectionObjects($item);
+            $item = self::jsonObjectFields($item);
+            if ($key === 'columns' && ($value['type'] ?? null) === 'table') {
+                $value[$key] = array_map(static fn (mixed $column): mixed => $column === [] ? (object)[] : $column, $item);
+
+                continue;
+            }
             if (($key === 'headAttrs' || $key === 'footAttrs' || $key === 'attrs' || $key === 'keyValues') && $item === []) {
                 $value[$key] = (object)[];
             } else {
@@ -537,7 +542,7 @@ class AstCodec
         }
 
         return (string)json_encode(
-            self::jsonSectionObjects($tree),
+            self::jsonObjectFields($tree),
             $flags | JSON_THROW_ON_ERROR,
             self::MAX_JSON_DEPTH,
         );
