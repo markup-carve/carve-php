@@ -3130,7 +3130,7 @@ class BlockParser
         // earlier by tryParseFencedComment) runs to end of line, not rendered.
         if (str_starts_with(ltrim($line, " \t"), '%%')) {
             $content = substr(ltrim($line, " \t"), 2);
-            if ($content !== '' && ($content[0] === ' ' || $content[0] === "\t")) {
+            if ($content !== '' && $content[0] === ' ') {
                 $content = substr($content, 1);
             }
             $comment = new Comment(rtrim($content, " \t"));

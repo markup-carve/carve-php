@@ -1141,9 +1141,8 @@ class InlineParser
                 $nl = strpos($text, "\n", $pos);
                 $end = $nl === false ? $length : $nl;
                 $content = substr($text, $pos + 2, $end - ($pos + 2));
-                // Strip exactly one leading space/tab (the separator between
-                // `%%` and the comment text); any further spacing is kept.
-                if ($content !== '' && ($content[0] === ' ' || $content[0] === "\t")) {
+                // One ASCII space separates `%%` from its content.
+                if ($content !== '' && $content[0] === ' ') {
                     $content = substr($content, 1);
                 }
                 $content = rtrim($content, " \t");
