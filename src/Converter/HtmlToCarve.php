@@ -5417,6 +5417,10 @@ class HtmlToCarve
      */
     protected function mappedStyleSlot(DOMElement $node, string $property, string $value): ?string
     {
+        if (strtolower(DomLoader::elementName($node)) === 'img' && in_array($property, ['width', 'height'], true)) {
+            return AttributePolicy::imagePixelDimension($value) !== null ? $property : null;
+        }
+
         if ($this->importMode === 'safe' && !($this->isTableCell($node) && $property === 'text-align')) {
             return null;
         }
