@@ -1795,7 +1795,7 @@ class HtmlToCarve
             return false;
         }
         $state = $item->getAttribute('data-task-state');
-        if (!in_array($state, ['-', '_', '>', '?', 'x', 'X', ' '], true)) {
+        if (!in_array($state, ['-', '_', '/', '!', '>', '?', 'x', 'X', ' '], true)) {
             return false;
         }
         foreach ($item->getElementsByTagName('input') as $input) {

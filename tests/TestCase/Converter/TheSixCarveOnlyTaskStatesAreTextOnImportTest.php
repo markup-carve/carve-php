@@ -10,21 +10,21 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Carve has seven task states and GFM has three, so four spellings a Markdown
+ * Carve has nine task marker spellings and GFM has three, so six spellings a Markdown
  * source cannot mean as a checkbox imported as one (carve-php#2377).
  *
- * `task_state = ' ' | 'x' | 'X' | '-' | '_' | '>' | '?'` (PART 3,
- * `resources/spec/03-blocks-core.ebnf`), while cmark-gfm's task-list extension
+ * `task_state = ' ' | 'x' | 'X' | '-' | '_' | '/' | '!' | '>' | '?'` (PART 3,
+ * `tests/spec/resources/spec/03-blocks-core.ebnf`), while cmark-gfm's task-list extension
  * accepts ` `, `x` and `X` and nothing else. This is a SET DIFFERENCE rather
  * than the extension's reach, which is why carve-php#2366 left it alone: that
- * rule counts the container markers on the line, and these four diverge at every
+ * rule counts the container markers on the line, and these six diverge at every
  * position, in scope and out.
  *
  * Measured against cmark-gfm 0.29.0.gfm.13 through the spec repo's oracle, the
  * reader the importers answer to (markup-carve/carve#2187). commonmark 0.31.2
  * abstains, having no task list.
  */
-final class TheFourCarveOnlyTaskStatesAreTextOnImportTest extends TestCase
+final class TheSixCarveOnlyTaskStatesAreTextOnImportTest extends TestCase
 {
     /**
      * Every Carve-only state against every bullet position the extension reaches.
@@ -34,7 +34,7 @@ final class TheFourCarveOnlyTaskStatesAreTextOnImportTest extends TestCase
     public static function carveOnlyStateProvider(): array
     {
         $cases = [];
-        foreach (['-', '_', '>', '?'] as $state) {
+        foreach (['-', '_', '/', '!', '>', '?'] as $state) {
             $shown = $state === '>' ? '&gt;' : $state;
             $cases['a dash bullet holds [' . $state . '] as text'] = [
                 '- [' . $state . "] foo\n",
@@ -49,7 +49,7 @@ final class TheFourCarveOnlyTaskStatesAreTextOnImportTest extends TestCase
                 '<ul><li>[' . $shown . '] foo</li></ul>',
             ];
             // Indentation is not a second marker, so this position reads a box
-            // for the three states GFM has - and none for these four.
+            // for the three states GFM has - and none for these six.
             $cases['an indented bullet holds [' . $state . '] as text'] = [
                 '   - [' . $state . "] foo\n",
                 '<ul><li>[' . $shown . '] foo</li></ul>',

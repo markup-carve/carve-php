@@ -13,7 +13,7 @@ class TaskListRulingTest extends TestCase
 {
     public function testStatesRenderAndImportInEveryMode(): void
     {
-        $source = "- [ ] open\n- [x] done\n- [X] shout\n- [-] dropped\n- [_] paused\n- [>] deferred\n- [?] maybe\n";
+        $source = "- [ ] open\n- [x] done\n- [X] shout\n- [-] dropped\n- [_] open alias\n- [/] in progress\n- [!] blocked\n- [>] deferred\n- [?] maybe\n";
         foreach ([false, true] as $roundTrip) {
             foreach (['interactive', 'static'] as $mode) {
                 $converter = new CarveConverter(roundTripMode: $roundTrip, mode: $mode);
@@ -21,7 +21,7 @@ class TaskListRulingTest extends TestCase
                 $this->assertStringStartsWith('<ul class="task-list">', $html);
                 $this->assertStringContainsString('<li><input type="checkbox" disabled aria-label="open">', $html);
                 $this->assertSame(2, substr_count($html, 'data-task-state="x"'));
-                foreach (['-', '_', '&gt;', '?'] as $state) {
+                foreach (['-', '_', '/', '!', '&gt;', '?'] as $state) {
                     $this->assertStringContainsString('data-task-state="' . $state . '"', $html);
                 }
                 $this->assertSame(str_replace('[X]', '[x]', $source), (new HtmlToCarve())->convert($html));

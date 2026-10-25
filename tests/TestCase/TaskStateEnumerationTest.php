@@ -12,10 +12,10 @@ use PHPUnit\Framework\TestCase;
  * PART 9 enumerates the task states exhaustively:
  *
  *   task_marker = '[', task_state, ']', space ;
- *   task_state = ' ' | 'x' | 'X' | '-' | '_' | '>' | '?' ;
+ *   task_state = ' ' | 'x' | 'X' | '-' | '_' | '/' | '!' | '>' | '?' ;
  *
  * This engine accepted ANY single character, which deleted the bracket text:
- * `- [!] urgent` rendered a checkbox and dropped the `!`. carve-js implements
+ * `- [%] urgent` rendered a checkbox and dropped the `%`. carve-js implements
  * the enumeration; carve-rs shares this defect (carve-rs#471, carve-php#657).
  */
 class TaskStateEnumerationTest extends TestCase
@@ -43,6 +43,8 @@ class TaskStateEnumerationTest extends TestCase
             'uppercase X' => ['X'],
             'dash' => ['-'],
             'underscore' => ['_'],
+            'in progress' => ['/'],
+            'blocked' => ['!'],
             'greater than' => ['>'],
             'question mark' => ['?'],
         ];
@@ -73,7 +75,8 @@ class TaskStateEnumerationTest extends TestCase
             'digit' => ['1'],
             'hash' => ['#'],
             'asterisk' => ['*'],
-            'bang' => ['!'],
+            'percent' => ['%'],
+            'pause bar' => ['|'],
             'tilde' => ['~'],
         ];
     }
@@ -89,9 +92,9 @@ class TaskStateEnumerationTest extends TestCase
     public function testTheBracketTextSurvives(): void
     {
         // The sharp end: the marker was not reinterpreted, it was deleted.
-        $html = $this->converter->convert("- [!] urgent\n");
+        $html = $this->converter->convert("- [%] urgent\n");
 
-        $this->assertStringContainsString('[!]', $html);
+        $this->assertStringContainsString('[%]', $html);
         $this->assertStringNotContainsString('checkbox', $html);
     }
 

@@ -2273,7 +2273,7 @@ final class HtmlAstBuilder
                 || strtolower($child->getAttribute('data-checked')) === 'true'
             );
             $consumesTaskState = $task !== null
-                && in_array($taskState, ['', ' ', '-', '_', '>', '?', 'x', 'X'], true)
+                && in_array($taskState, ['', ' ', '-', '_', '/', '!', '>', '?', 'x', 'X'], true)
                 && ($taskState === '' || ($checkboxChecked === in_array($taskState, ['x', 'X'], true)));
             // An ORDERED task item has no Carve spelling: `task_marker` hangs off
             // `unordered_item` alone (PART 3). The writer keeps the characters

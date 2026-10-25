@@ -77,7 +77,7 @@ class TaskListHtmlHooksTest extends TestCase
     {
         $converter = new CarveConverter();
         $renderer = new CarveRenderer();
-        foreach (['-', '_', '>', '?'] as $state) {
+        foreach (['-', '_', '/', '!', '>', '?'] as $state) {
             $source = "- [$state] task\n";
             $imported = (new HtmlToCarve())->convert($converter->convert($source));
             $this->assertSame($source, $renderer->render($converter->parse($imported)));

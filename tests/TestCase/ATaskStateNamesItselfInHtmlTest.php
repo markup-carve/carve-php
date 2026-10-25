@@ -11,8 +11,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * PART 10 section 11 / carve#1870. All five unchecked spellings render the same
- * box, so the item names the state it was written with.
+ * PART 10 section 11 / carve#1870. The item names its authored task marker
+ * so serializers and stylesheets can distinguish it.
  */
 class ATaskStateNamesItselfInHtmlTest extends TestCase
 {
@@ -28,7 +28,7 @@ class ATaskStateNamesItselfInHtmlTest extends TestCase
      */
     public static function extendedStates(): array
     {
-        return [['-'], ['_'], ['?']];
+        return [['-'], ['_'], ['/'], ['!'], ['?']];
     }
 
     #[DataProvider('extendedStates')]
@@ -72,10 +72,10 @@ class ATaskStateNamesItselfInHtmlTest extends TestCase
     public function testAValueOutsideTheEnumerationStaysTheAuthorsAttribute(): void
     {
         $imported = (new HtmlToCarve())->convert(
-            '<ul><li data-task-state="/"><input type="checkbox" disabled> odd</li></ul>',
+            '<ul><li data-task-state="%"><input type="checkbox" disabled> odd</li></ul>',
         );
 
-        $this->assertSame("-{data-task-state=/} [ ] odd\n", $imported);
+        $this->assertSame("-{data-task-state=%} [ ] odd\n", $imported);
     }
 
     public function testAPlainItemAfterATaskKeepsItsOwnAttribute(): void

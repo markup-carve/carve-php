@@ -4912,7 +4912,7 @@ class MarkdownToCarve
     protected function escapeUnreadTaskMarker(string $line): string
     {
         $marker = '(?:>[ \t]?|(?:[-*+]|\d{1,9}[.)])[ \t]+)';
-        if (preg_match('/^((?:[ \t]*' . $marker . ')+)\[(?<state>[ xX_>?-])\][ \t]+\S/', $line, $at) !== 1) {
+        if (preg_match('/^((?:[ \t]*' . $marker . ')+)\[(?<state>[ xX_>?\/!-])\][ \t]+\S/', $line, $at) !== 1) {
             return $line;
         }
         // Carve reads a checkbox off a BULLET item only. Behind an ordered

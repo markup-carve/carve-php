@@ -2208,7 +2208,7 @@ trait NormalizesStructure
             $compact = preg_replace($canonicalBullets ? '/^[-*+](?=[ \t])/' : '/^\+(?=[ \t])/', '-', $compact) ?? $compact;
             $parts[] = str_replace("\t", ' ', preg_replace('/^\(([^)]+)\)/', '$1.', $compact) ?? $compact);
             $at += strlen($item[0]);
-            if (in_array($item[0][0], ['-', '*', '+'], true) && preg_match('/\G\[[ xX\-_>?]\](?:[ \t]+|$)/', $text, $task, 0, $at) === 1) {
+            if (in_array($item[0][0], ['-', '*', '+'], true) && preg_match('/\G\[[ xX\-_>?\/!]\](?:[ \t]+|$)/', $text, $task, 0, $at) === 1) {
                 $accepted = preg_match('/^[-*+] $/', $item[0]) === 1 && in_array($task[0][1], [' ', 'x', 'X'], true);
                 $parts[] = $accepted ? str_replace("\t", ' ', $task[0]) : '\\' . $task[0];
                 $at += strlen($task[0]);

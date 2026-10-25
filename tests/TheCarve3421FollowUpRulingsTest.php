@@ -15,6 +15,23 @@ use PHPUnit\Framework\TestCase;
 class TheCarve3421FollowUpRulingsTest extends TestCase
 {
     /**
+     * @return iterable<string, array{string}>
+     */
+    public static function taskStates(): iterable
+    {
+        foreach ([' ', 'x', 'X', '_', '-', '/', '!', '>', '?'] as $state) {
+            yield "task state [$state]" => [$state];
+        }
+    }
+
+    #[DataProvider('taskStates')]
+    public function testStackedListFollowerIsRefusedForEveryTaskState(string $state): void
+    {
+        $html = (new CarveConverter())->convert("- [$state] - +\n    text\n");
+        $this->assertStringContainsString("<li></li>\n    </ul>\n    text", $html);
+    }
+
+    /**
      * @return iterable<string, array{string, string}>
      */
     public static function readings(): iterable

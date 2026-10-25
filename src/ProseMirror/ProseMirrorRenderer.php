@@ -819,7 +819,7 @@ class ProseMirrorRenderer
         } elseif ($node instanceof ListItem) {
             if ($node->isTask()) {
                 $attrs['checked'] = $node->isCompleted();
-                // tiptap's taskItem has only a box, so the four extended
+                // tiptap's taskItem has only a box, so the extended
                 // states need the prefixed attribute, like `carveLoose` above.
                 $state = $node->getAuthoredTaskState();
                 if ($state !== null) {

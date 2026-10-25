@@ -2234,7 +2234,7 @@ class ProseMirrorToCarve
     private static function taskStateAttr(array $attrs, bool $checked): ?string
     {
         $state = $attrs['carveTaskState'] ?? null;
-        if (!is_string($state) || !in_array($state, [' ', 'x', '-', '_', '>', '?'], true)) {
+        if (!is_string($state) || !in_array($state, [' ', 'x', '-', '_', '/', '!', '>', '?'], true)) {
             return null;
         }
 

@@ -13,7 +13,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * PART 11 6g / carve#1866. The seven task states render as two, so the wire
+ * PART 11 6g / carve#1866. The task marker spellings render as two, so the wire
  * carried only `checked` and the writer rewrote four of them to `[ ]`. The
  * state is the author's spelling, published like `bulletChar`.
  */
@@ -90,8 +90,8 @@ class ATaskStateSurvivesAFormatCycleTest extends TestCase
         // The constructor takes any character and its docblock names markers
         // outside PART 2's enumeration, so a hand-built item can hold one.
         // Publishing it would put a value on the wire the schema refuses, and
-        // writing it would emit `- [/] x`, which reads back as a paragraph.
-        $item = new ListItem('/');
+        // writing it would emit `- [z] x`, which reads back as a paragraph.
+        $item = new ListItem('z');
 
         $this->assertNull($item->getAuthoredTaskState());
         $this->assertTrue($item->isTask());

@@ -21,7 +21,7 @@ class SourceLinter
     /**
      * @var string
      */
-    private const ITEM = '/^([ \t]*)([-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)])(\{[^{}\r\n]*\})?( +)(?:\[[ xX_?>-]\] +)?/';
+    private const ITEM = '/^([ \t]*)([-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)])(\{[^{}\r\n]*\})?( +)(?:\[[ xX_?>\/!-]\] +)?/';
 
     /**
      * @var string

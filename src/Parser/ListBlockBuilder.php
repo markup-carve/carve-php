@@ -2770,7 +2770,7 @@ final class ListBlockBuilder
     private function stackedListFollowerRefused(int $openerSourceLine, int $followerIndex): bool
     {
         $opener = (string)preg_replace('/^(?:> )+/', '', $this->state->source->sourceLines[$openerSourceLine] ?? '');
-        if (preg_match('/^[ \t]*(?:(?:[-*] (?:\[[ xX]\] )?|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] )){2,}\+[ \t]*$/', $opener) !== 1) {
+        if (preg_match('/^[ \t]*(?:(?:[-*] (?:\[[ xX\-_>?\/!]\] )?|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] )){2,}\+[ \t]*$/', $opener) !== 1) {
             return false;
         }
         $follower = (string)preg_replace('/^(?:> )+/', '', $this->state->source->sourceLines[$this->sourceLineFor($followerIndex)] ?? '');
