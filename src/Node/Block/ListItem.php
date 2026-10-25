@@ -36,8 +36,8 @@ class ListItem extends BlockNode
     /**
      * For task lists: null = not a task, true = checked, false = unchecked
      *
-     * Note: This method only recognizes standard markers (' ', '_', 'x', 'X').
-     * For extended markers, use getTaskMarker() and handle in render events.
+     * Only 'x' and 'X' are checked. ' ', '_', '-', '/', '!', '>', and '?'
+     * are unchecked; getTaskMarker() preserves their authored spelling.
      */
     public function getChecked(): ?bool
     {
@@ -45,7 +45,7 @@ class ListItem extends BlockNode
             return null;
         }
 
-        // Standard markers - space and underscore are both unchecked
+        // Space and underscore are both open and unchecked
         if ($this->taskMarker === ' ' || $this->taskMarker === '_') {
             return false;
         }
@@ -53,7 +53,7 @@ class ListItem extends BlockNode
             return true;
         }
 
-        // Extended markers default to unchecked for backward compatibility
+        // Every other recognized state is unchecked
         return false;
     }
 
