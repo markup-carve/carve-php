@@ -23,7 +23,11 @@ class TaskStatesSurviveBridgeTest extends TestCase
         $this->assertStringContainsString("[$state]", CarveConverter::carve()->render($returned));
     }
 
-    /** @return array<string, array{0: string}> */
+    /**
+     * Task states accepted by the bridge.
+     *
+     * @return array<string, array{0: string}>
+     */
     public static function states(): array
     {
         return ['progress' => ['/'], 'blocked' => ['!']];
