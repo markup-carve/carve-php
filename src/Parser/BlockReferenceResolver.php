@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Parser;
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
+use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\Image;
@@ -102,6 +103,9 @@ final class BlockReferenceResolver
             if ($child->hasChildren()) {
                 $this->resolveForwardReferences($child, $depth + 1);
             }
+        }
+        if ($node instanceof Table && $node->getCaption() !== null) {
+            $this->resolveForwardReferences($node->getCaption(), $depth + 1);
         }
         if ($depth === 0 && $this->state->session->abbreviations !== []) {
             ($this->getInlineParser)()->expandLateAbbreviations($node, $this->state->session->abbreviations);
