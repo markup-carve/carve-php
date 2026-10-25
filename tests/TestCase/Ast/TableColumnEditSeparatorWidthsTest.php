@@ -13,6 +13,21 @@ use PHPUnit\Framework\TestCase;
 
 final class TableColumnEditSeparatorWidthsTest extends TestCase
 {
+    public function testBridgeWritesSchemaMapSeparatorMetadata(): void
+    {
+        $bridge = (new ProseMirrorRenderer())->render((new BlockParser())->parse("| a | b |\n|:-----|---:|\n| x | y |\n"));
+        $table = $bridge['content'][0];
+
+        self::assertSame([5, 3], $table['attrs']['carveSeparatorWidths']);
+        self::assertSame(2, $table['attrs']['carveSeparatorColumnCount']);
+        self::assertSame([5], $table['content'][0]['content'][0]['attrs']['carveSeparatorWidths']);
+        self::assertSame([3], $table['content'][0]['content'][1]['attrs']['carveSeparatorWidths']);
+
+        $map = json_decode((string)file_get_contents(dirname(__DIR__, 3) . '/resources/prosemirror-schema-map.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayHasKey('carveSeparatorColumnCount', $map['types']['table']['attrs']);
+        self::assertArrayHasKey('carveSeparatorWidths', $map['types']['table_cell']['attrs']);
+    }
+
     /**
      * @return array<string, array{string, list<int>}>
      */
