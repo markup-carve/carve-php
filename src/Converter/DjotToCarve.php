@@ -204,6 +204,7 @@ class DjotToCarve
     public function convert(string $djot): string
     {
         $djot = StringUtil::toValidUtf8($djot);
+        $djot = $this->recoverDjotAttributes($djot)['source'];
         if (!str_contains($djot, "\0")) {
             return $this->convertDocument($djot);
         }
@@ -219,6 +220,66 @@ class DjotToCarve
         } finally {
             $this->headingIdSource = $originalSource;
         }
+    }
+
+    /**
+     * @return array{source: string, losses: list<array{name: string, line: int}>}
+     */
+    private function recoverDjotAttributes(string $source): array
+    {
+        if (!str_contains($source, '{')) {
+            return ['source' => $source, 'losses' => []];
+        }
+        $mask = $this->maskCodeAndDestinations($source);
+        preg_match_all('/\{([^{}\n]*)\}/', $source, $matches, PREG_OFFSET_CAPTURE);
+        $pieces = [];
+        $losses = [];
+        $copied = 0;
+        foreach ($matches[0] as $index => [$whole, $at]) {
+            $inner = $matches[1][$index][0];
+            if (($mask[$at] ?? '') !== '{' || $this->isDjotEscaped($source, $at) || $this->readDjotWordAttributes($source, $at) !== null) {
+                continue;
+            }
+            if (str_contains($inner, "\0") || str_contains($inner, '\\') || preg_match('/[<>]|#[^#\s]*#/', $inner) === 1 || preg_match('/^[\s.#A-Za-z]/', $inner) !== 1 || preg_match('/[#.]/', $inner) !== 1) {
+                continue;
+            }
+            preg_match_all('/#[^\s.#{}]+|\.[^\s.#{}]+|[A-Za-z][A-Za-z0-9_-]*=(?:"(?:\\\\.|[^"])*"|[^\s{}]+)|[^\s{}]+/', $inner, $tokens);
+            if ($tokens[0] === []) {
+                continue;
+            }
+            $kept = [];
+            $rejected = [];
+            foreach ($tokens[0] as $token) {
+                $valid = $this->readDjotWordAttributes('{' . $token . '}', 0) !== null;
+                if (!str_starts_with($token, '#') && !str_starts_with($token, '.') && !$valid) {
+                    continue 2;
+                }
+                if ($valid && (!str_starts_with($token, '#') && !str_starts_with($token, '.') || preg_match('/^[#.][A-Za-z0-9_][\w-]*$/', $token) === 1)) {
+                    $kept[] = $token;
+                } else {
+                    $rejected[] = str_starts_with($token, '#') ? 'id' : (str_starts_with($token, '.') ? 'class' : explode('=', $token)[0]);
+                }
+            }
+            if ($rejected === [] && implode(' ', $kept) === trim($inner)) {
+                continue;
+            }
+            $replacement = '{' . implode(' ', $kept) . '}';
+            if ($this->readDjotWordAttributes($replacement, 0) === null) {
+                continue;
+            }
+            $pieces[] = substr($source, $copied, $at - $copied) . $replacement;
+            $copied = $at + strlen($whole);
+            $line = substr_count($source, "\n", 0, $at) + 1;
+            foreach ($rejected as $name) {
+                $losses[] = ['name' => $name, 'line' => $line];
+            }
+        }
+        if ($copied === 0) {
+            return ['source' => $source, 'losses' => $losses];
+        }
+        $pieces[] = substr($source, $copied);
+
+        return ['source' => implode('', $pieces), 'losses' => $losses];
     }
 
     private function djotImageChainCharacter(string $source, int $at): string
@@ -2837,6 +2898,7 @@ class DjotToCarve
     public function convertWithFidelityReport(string $djot): MigrationResult
     {
         $djot = StringUtil::toValidUtf8($djot);
+        $recovered = $this->recoverDjotAttributes($djot);
         $stripped = $this->stripFootnoteDefinitionAttributes($djot);
         $losses = $this->djotLosses($djot);
         $result = $this->assessedMigrationResult($djot, $this->convert($djot), 'djot', $stripped['losses'] !== [] || $losses !== []);
@@ -2849,6 +2911,16 @@ class DjotToCarve
                 'dropped',
                 'exact',
                 'line:' . $line,
+            );
+        }
+        foreach ($recovered['losses'] as $loss) {
+            $diagnostics[] = new MigrationDiagnostic(
+                'djot-attribute-dropped',
+                'Djot attribute ' . $loss['name'] . ' could not be represented in Carve and was dropped.',
+                'warning',
+                'dropped',
+                'exact',
+                'line:' . $loss['line'],
             );
         }
 
