@@ -3800,8 +3800,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $alignments = [];
         $bodyAlignments = [];
         $widest = 0;
+        $physicalRows = array_values(array_filter(
+            $node->getChildren(),
+            static fn (Node $child): bool => $child instanceof TableRow,
+        ));
 
-        foreach ($layout['rows'] as $row) {
+        foreach ($layout['rows'] as $rowIndex => $row) {
             $cells = [];
             foreach ($row['cells'] as $index => $cell) {
                 // A ROW KEEPS ITS OWN CELL COUNT. TableLayout::expand pads every
@@ -3824,14 +3828,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 // Multiple header rows collapse to Markdown's one header row.
                 // The later header's effective column alignment wins in Carve,
                 // so update the delimiter source on every header.
-                foreach ($row['cells'] as $index => $cell) {
+                foreach ($physicalRows[$rowIndex]->getChildren() as $index => $cell) {
                     if (
                         $index < $row['authoredWidth']
-                        && is_array($cell)
-                        && is_string($cell['alignment'] ?? null)
-                        && $cell['alignment'] !== TableCell::ALIGN_DEFAULT
+                        && $cell instanceof TableCell
+                        && $cell->getAlignment() !== TableCell::ALIGN_DEFAULT
                     ) {
-                        $alignments[$index] = $cell['alignment'];
+                        $alignments[$index] = $cell->getAlignment();
                     }
                 }
                 if ($headerCells === null) {
