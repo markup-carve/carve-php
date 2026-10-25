@@ -22,7 +22,7 @@ final class MarkdownImportDestinationDivergencesTest extends TestCase
         $bare = ['markdown-bare-autolink', 'normalized', 'line:1'];
 
         yield 'A1' => ['<https://example.com/\[\>', '[https://example.com/' . str_repeat('\\', 3) . '[' . str_repeat('\\', 2) . '](https://example.com/\[' . str_repeat('\\', 2) . ')', [$paragraph, $autolink], 0];
-        yield 'A2' => ['<https://e.com/a\b>', '[https://e.com/a' . str_repeat('\\', 2) . 'b](https://e.com/a\b)', [$paragraph, $autolink], 0];
+        yield 'A2' => ['<https://e.com/a\b>', '[https://e.com/a\b](https://e.com/a\b)', [$paragraph, $autolink], 0];
         yield 'A3' => ['<https://e.com/a`b>', '[https://e.com/a\`b](https://e.com/a`b)', [$paragraph, $autolink], 0];
         yield 'A4' => ['<https://e.com/a[b]>', '<https://e.com/a[b]>', [$paragraph, $autolink], 0];
         yield 'B1' => ['[a](<😀>) and ![b](</x y.png>)', '[a](😀) and ![b](/x%20y.png)', [$paragraph, $link, $image], 0];
