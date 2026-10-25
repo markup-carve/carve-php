@@ -11,7 +11,9 @@ use PHPUnit\Framework\TestCase;
 
 final class MarkdownDestinationParenthesesTest extends TestCase
 {
-    /** @return array<string, array{string, string}> */
+    /**
+     * @return array<string, array{string, string}>
+     */
     public static function cases(): array
     {
         return [
