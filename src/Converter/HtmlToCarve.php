@@ -3863,7 +3863,7 @@ class HtmlToCarve
 
     private function normalizeHtmlForDirectAst(string $html): string
     {
-        if (!in_array($this->importAdapter, self::FOOTNOTE_SHAPED_ADAPTERS, true)) {
+        if (!in_array($this->importAdapter, self::FOOTNOTE_SHAPED_ADAPTERS, true) && stripos($html, 'data-footnotes') === false) {
             return $html;
         }
         $document = DomLoader::fragment($html);
@@ -5512,8 +5512,28 @@ class HtmlToCarve
      */
     protected function normalizeAdapterFootnotes(DOMDocument $doc): void
     {
+        foreach ($doc->getElementsByTagName('section') as $section) {
+            if (!$section->hasAttribute('data-footnotes')) {
+                continue;
+            }
+            foreach ($section->childNodes as $child) {
+                if ($child instanceof DOMElement && preg_match('/^h[1-6]$/', strtolower(DomLoader::elementName($child))) === 1 && $this->hasClass($child, 'sr-only')) {
+                    $section->removeChild($child);
+                }
+            }
+        }
         if (!in_array($this->importAdapter, self::FOOTNOTE_SHAPED_ADAPTERS, true)) {
-            return;
+            $marked = false;
+            foreach ($doc->getElementsByTagName('section') as $section) {
+                if ($section->hasAttribute('data-footnotes')) {
+                    $marked = true;
+
+                    break;
+                }
+            }
+            if (!$marked) {
+                return;
+            }
         }
 
         $elements = $this->documentElements($doc);
@@ -6105,8 +6125,8 @@ class HtmlToCarve
         $role = $anchor->getAttribute('role');
 
         return $this->footnoteMarkerIndex[$key] = [
-            'ref' => $role === 'doc-noteref' || in_array('footnote-ref', $classes, true) || in_array('footnoteRef', $classes, true),
-            'back' => $role === 'doc-backlink' || in_array('footnote-back', $classes, true),
+            'ref' => $role === 'doc-noteref' || $anchor->hasAttribute('data-footnote-ref') || in_array('footnote-ref', $classes, true) || in_array('footnoteRef', $classes, true),
+            'back' => $role === 'doc-backlink' || $anchor->hasAttribute('data-footnote-backref') || in_array('footnote-back', $classes, true),
         ];
     }
 
@@ -6116,7 +6136,7 @@ class HtmlToCarve
      */
     protected function isFootnoteReferenceMarked(DOMElement $anchor): bool
     {
-        if ($anchor->getAttribute('role') === 'doc-noteref') {
+        if ($anchor->getAttribute('role') === 'doc-noteref' || $anchor->hasAttribute('data-footnote-ref')) {
             return true;
         }
         $markers = $this->indexedFootnoteMarkers($anchor);
@@ -6130,7 +6150,7 @@ class HtmlToCarve
 
     protected function isFootnoteBacklinkMarked(DOMElement $anchor): bool
     {
-        if ($anchor->getAttribute('role') === 'doc-backlink') {
+        if ($anchor->getAttribute('role') === 'doc-backlink' || $anchor->hasAttribute('data-footnote-backref')) {
             return true;
         }
         $markers = $this->indexedFootnoteMarkers($anchor);
