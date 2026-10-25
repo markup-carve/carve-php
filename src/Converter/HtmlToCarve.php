@@ -3090,13 +3090,14 @@ class HtmlToCarve
      */
     protected function inspectTableStructure(DOMElement $node, string $path, array &$diagnostics): void
     {
-        $spanBounds = TableStructure::bounds($node);
-        foreach (TableStructure::directTableRows($node) as $row) {
+        $sourceRows = TableStructure::directTableRows($node);
+        foreach ($sourceRows as $row) {
             foreach ($row->childNodes as $cell) {
                 if (!$cell instanceof DOMElement || !in_array(strtolower(DomLoader::elementName($cell)), ['td', 'th'], true)) {
                     continue;
                 }
-                foreach (['colspan' => $spanBounds['columns'], 'rowspan' => $spanBounds['rows']] as $name => $bound) {
+                $spans = TableStructure::boundedSpans($cell, count($sourceRows));
+                foreach ($spans as $name => $bound) {
                     if (max(1, (int)$cell->getAttribute($name)) > $bound) {
                         $this->addImportDiagnostic($diagnostics, 'table-degraded', 'Clamped ' . $name . ' to the table size', 'warning', $path);
                     }
@@ -4661,7 +4662,7 @@ class HtmlToCarve
 
         /** @var array<int, int> $rowspanMap */
         $rowspanMap = [];
-        $spanBounds = TableStructure::bounds($table);
+        $sourceRowCount = count(TableStructure::directTableRows($table));
         foreach ($this->getDirectTableRows($table) as $tr) {
             $isCellRow = $tr === $cell->parentNode;
             $passedCell = false;
@@ -4677,8 +4678,9 @@ class HtmlToCarve
                     $rowspanMap[$logicalCol]--;
                     $logicalCol++;
                 }
-                $colspan = TableStructure::boundedSpan($candidate, 'colspan', $spanBounds['columns']);
-                $rowspan = TableStructure::boundedSpan($candidate, 'rowspan', $spanBounds['rows']);
+                $spans = TableStructure::boundedSpans($candidate, $sourceRowCount);
+                $colspan = $spans['colspan'];
+                $rowspan = $spans['rowspan'];
                 if ($rowspan > 1) {
                     $rowspanMap[$logicalCol] = ($rowspanMap[$logicalCol] ?? 0) + ($rowspan - 1);
                 }

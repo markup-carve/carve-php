@@ -17,26 +17,20 @@ use DOMElement;
 final class TableStructure
 {
     /**
-     * @return array{rows: int, columns: int}
+     * HTML limits colspan to 1,000. Keep the expanded area per source cell
+     * within that same budget so even a combined span cannot fill a huge grid.
+     *
+     * @return array{colspan: int, rowspan: int}
      */
-    public static function bounds(DOMElement $table): array
+    public static function boundedSpans(DOMElement $cell, int $sourceRows): array
     {
-        $rows = self::directTableRows($table);
-        $cells = 0;
-        foreach ($rows as $row) {
-            foreach ($row->childNodes as $child) {
-                if ($child instanceof DOMElement && in_array(strtolower(DomLoader::elementName($child)), ['td', 'th'], true)) {
-                    ++$cells;
-                }
-            }
-        }
+        $colspan = min(1000, max(1, (int)$cell->getAttribute('colspan')));
+        $rowspan = min(65534, max(1, (int)$cell->getAttribute('rowspan')));
 
-        return ['rows' => count($rows), 'columns' => max(2, $cells * 2)];
-    }
-
-    public static function boundedSpan(DOMElement $cell, string $name, int $bound): int
-    {
-        return min(max(1, (int)$cell->getAttribute($name)), max(1, $bound));
+        return [
+            'colspan' => $colspan,
+            'rowspan' => min($rowspan, max(1, $sourceRows), intdiv(1000, $colspan)),
+        ];
     }
 
     /**
