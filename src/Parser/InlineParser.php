@@ -5344,12 +5344,12 @@ class InlineParser
         $notADestination = ['end' => $urlEnd, 'url' => null, 'title' => null];
 
         $emptyRaw = substr($text, $urlStart, $urlEnd - $urlStart);
-        if (preg_match('/^[ \t]*\z/', $emptyRaw) === 1) {
+        if (preg_match('/^ *\z/', $emptyRaw) === 1) {
             return $this->destinationScans[$urlStart] = ['end' => $urlEnd, 'url' => '', 'title' => null];
         }
         if (
-            preg_match('/^ "((?:\\\\.|[^"\\\\])*)"[ \t]*\z/', $emptyRaw, $emptyTitle) === 1
-            || preg_match("/^ '((?:\\\\.|[^'\\\\])*)'[ \\t]*\\z/", $emptyRaw, $emptyTitle) === 1
+            preg_match('/^ "((?:\\\\.|[^"\\\\])*)" *\z/', $emptyRaw, $emptyTitle) === 1
+            || preg_match("/^ '((?:\\\\.|[^'\\\\])*)' *\\z/", $emptyRaw, $emptyTitle) === 1
         ) {
             return $this->destinationScans[$urlStart] = [
                 'end' => $urlEnd,
