@@ -14,7 +14,7 @@ use PHPUnit\Framework\TestCase;
  * source cannot mean as a checkbox imported as one (carve-php#2377).
  *
  * `task_state = ' ' | 'x' | 'X' | '-' | '_' | '/' | '!' | '>' | '?'` (PART 3,
- * `resources/spec/03-blocks-core.ebnf`), while cmark-gfm's task-list extension
+ * `tests/spec/resources/spec/03-blocks-core.ebnf`), while cmark-gfm's task-list extension
  * accepts ` `, `x` and `X` and nothing else. This is a SET DIFFERENCE rather
  * than the extension's reach, which is why carve-php#2366 left it alone: that
  * rule counts the container markers on the line, and these six diverge at every

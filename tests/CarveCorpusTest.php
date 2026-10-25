@@ -50,6 +50,9 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-display-math-span-with-trailing-attributes-takes-a-caption',
+        'a-styled-display-math-span-takes-a-caption-across-one-blank-line',
+        'a-titled-admonition-skips-an-authored-heading-id',
         'a-description-separator-left-of-its-item-s-column-folds-into-the-definition-body',
         'the-column-of-the-quote-that-owns-a-first-block-plus-stays-eligible-at-every-depth',
         'a-hosted-quote-s-first-block-plus-attaches-any-non-list-block-at-column-zero',
