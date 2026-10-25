@@ -4910,15 +4910,31 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         string $sink = self::DESTINATION_SINK_LINK,
     ): string {
         $url = $this->sanitizeUrl($this->stripControls($url), $sink, $node);
-        $url = strtr($url, [
-            '\\' => str_contains($url, '|') ? '%5C' : '\\',
-            '|' => '%7C',
-            ' ' => '%20',
-            '(' => '%28',
-            ')' => '%29',
-            '<' => '%3C',
-            '>' => '%3E',
-        ]);
+        $pipeDestination = str_contains($url, '|');
+        $openParens = 0;
+        $url = preg_replace_callback('/[ ()<>\\\\|]/', static function (array $match) use (&$openParens, $pipeDestination): string {
+            if ($match[0] === '(') {
+                $openParens++;
+
+                return '%28';
+            }
+            if ($match[0] === ')') {
+                if ($openParens === 0) {
+                    return '\\)';
+                }
+                $openParens--;
+
+                return '%29';
+            }
+
+            return match ($match[0]) {
+                '\\' => $pipeDestination ? '%5C' : '\\',
+                '|' => '%7C',
+                ' ' => '%20',
+                '<' => '%3C',
+                '>' => '%3E',
+            };
+        }, $url) ?? $url;
 
         return $this->neutralizeCharacterReferences($url);
     }
