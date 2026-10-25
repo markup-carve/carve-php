@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
  *   task_state = ' ' | 'x' | 'X' | '-' | '_' | '/' | '!' | '>' | '?' ;
  *
  * This engine accepted ANY single character, which deleted the bracket text:
- * `- [%] urgent` rendered a checkbox and dropped the `!`. carve-js implements
+ * `- [%] urgent` rendered a checkbox and dropped the `%`. carve-js implements
  * the enumeration; carve-rs shares this defect (carve-rs#471, carve-php#657).
  */
 class TaskStateEnumerationTest extends TestCase
