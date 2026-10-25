@@ -637,49 +637,22 @@ final class ListBlockBuilder
                 && IndentationHelper::getLeadingColumns($fenceBody) > $lastItemContentIndent)
             && !$this->isFoldableInvisibleLine($priorText);
 
-            if (
-                $currentIndent >= $baseIndent && $currentIndent < $lastItemContentIndent && $sourceLine > 0
-                && $priorTextAfterListFence && !($trailingState->inFootnoteBody ?? false)
-            ) {
-                $attachedParagraphOpen = true;
-                $attachedParagraphAfterNoteSeparator = false;
-            } elseif ($currentIndent >= $baseIndent && $currentIndent < $lastItemContentIndent && $sourceLine > 0) {
-                if (
-                    $priorMarker !== null && $priorMarker['column'] > $lastItemContentIndent && $priorMarker['reason'] !== null
-                    && !($trailingState->inFootnoteBody ?? false)
-                ) {
-                    $attachedParagraphOpen = true;
-                    $attachedParagraphAfterNoteSeparator = false;
-                }
-            }
+            $this->carryAttachedParagraph(
+                $currentIndent,
+                $baseIndent,
+                $lastItemContentIndent,
+                $sourceLine,
+                $priorTextAfterListFence,
+                $priorMarker,
+                $trailingState ?? null,
+                $attachedParagraphOpen,
+                $attachedParagraphAfterNoteSeparator,
+            );
 
-            // A fence-like line below a nested item's content column can be
-            // paragraph text. Its next plain line still belongs to that
-            // paragraph, even at the outer list's marker column.
-            $lastItem = ($this->getListParser)()->getLastListItem($list);
-            $nestedColumn = $lastItem === null ? null : $this->state->session->parsedNestedListContentColumn($lastItem);
-            $tail = $this->tailListParagraph($list);
-            if (
-                $nestedColumn !== null && $tail !== null
-                && IndentationHelper::getLeadingColumns($priorBody) < $nestedColumn
-                && ($this->getFencedBlockParser)()->isCodeFenceHead($priorText)
-                && $currentIndent >= $baseIndent && $currentIndent < $nestedColumn
-                && ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) === null
-                && !$this->isBlockElementStart(ltrim($currentLine, " \t"), $lines, $i)
-                && !$this->startsNewBlock(ltrim($currentLine, " \t"), $lines, $i)
-            ) {
-                $lazy = new ListItem();
-                $this->callParseItemBlocks($lazy, [BlockGrammar::LAZY_FRAME . ltrim($currentLine, " \t")], [$sourceLine]);
-                $lazyParagraph = $lazy->getChildren()[0] ?? null;
-                if ($lazyParagraph instanceof Paragraph) {
-                    $tail->appendChild(new SoftBreak());
-                    foreach ($lazyParagraph->getChildren() as $inline) {
-                        $tail->appendChild($inline);
-                    }
-                    $i++;
+            if ($this->attachNestedLazyContinuation($list, $lines, $i, $baseIndent, $priorBody, $priorText)) {
+                $i++;
 
-                    continue;
-                }
+                continue;
             }
 
             // If line is less indented than base, we're done with this list
@@ -2828,6 +2801,90 @@ final class ListBlockBuilder
         }
 
         return substr_count($followerPrefix[0] ?? '', '>') >= substr_count($openerPrefix[0] ?? '', '>');
+    }
+
+    /**
+     * @param int $currentIndent
+     * @param int $baseIndent
+     * @param int $contentIndent
+     * @param int $sourceLine
+     * @param bool $priorTextAfterListFence
+     * @param array{column: int, reason: string|null}|null $priorMarker
+     * @param \MarkupCarve\Carve\Parser\TrailingBlockState|null $trailingState
+     * @param bool $attachedParagraphOpen
+     * @param bool $attachedParagraphAfterNoteSeparator
+     */
+    private function carryAttachedParagraph(
+        int $currentIndent,
+        int $baseIndent,
+        int $contentIndent,
+        int $sourceLine,
+        bool $priorTextAfterListFence,
+        ?array $priorMarker,
+        ?TrailingBlockState $trailingState,
+        bool &$attachedParagraphOpen,
+        bool &$attachedParagraphAfterNoteSeparator,
+    ): void {
+        if ($currentIndent < $baseIndent || $currentIndent >= $contentIndent || $sourceLine <= 0 || ($trailingState->inFootnoteBody ?? false)) {
+            return;
+        }
+        if (
+            $priorTextAfterListFence
+            || $priorMarker !== null && $priorMarker['column'] > $contentIndent && $priorMarker['reason'] !== null
+        ) {
+            $attachedParagraphOpen = true;
+            $attachedParagraphAfterNoteSeparator = false;
+        }
+    }
+
+    /**
+     * A refused fence below a nested item's content column leaves its
+     * paragraph open for the next plain lazy line.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\ListBlock $list
+     * @param array<string> $lines
+     * @param int $index
+     * @param int $baseIndent
+     * @param string $priorBody
+     * @param string $priorText
+     */
+    private function attachNestedLazyContinuation(
+        ListBlock $list,
+        array $lines,
+        int $index,
+        int $baseIndent,
+        string $priorBody,
+        string $priorText,
+    ): bool {
+        $lastItem = ($this->getListParser)()->getLastListItem($list);
+        $nestedColumn = $lastItem === null ? null : $this->state->session->parsedNestedListContentColumn($lastItem);
+        $tail = $this->tailListParagraph($list);
+        $line = $lines[$index];
+        $indent = IndentationHelper::getLeadingColumns($line);
+        $trimmed = ltrim($line, " \t");
+        if (
+            $nestedColumn === null || $tail === null
+            || IndentationHelper::getLeadingColumns($priorBody) >= $nestedColumn
+            || !($this->getFencedBlockParser)()->isCodeFenceHead($priorText)
+            || $indent < $baseIndent || $indent >= $nestedColumn
+            || ($this->getListParser)()->parseListItemMarker($trimmed) !== null
+            || $this->isBlockElementStart($trimmed, $lines, $index)
+            || $this->startsNewBlock($trimmed, $lines, $index)
+        ) {
+            return false;
+        }
+        $lazy = new ListItem();
+        $this->callParseItemBlocks($lazy, [BlockGrammar::LAZY_FRAME . $trimmed], [$this->sourceLineFor($index)]);
+        $paragraph = $lazy->getChildren()[0] ?? null;
+        if (!$paragraph instanceof Paragraph) {
+            return false;
+        }
+        $tail->appendChild(new SoftBreak());
+        foreach ($paragraph->getChildren() as $inline) {
+            $tail->appendChild($inline);
+        }
+
+        return true;
     }
 
     private function tailListParagraph(ListBlock $list, bool $allowDiv = false): ?Paragraph
