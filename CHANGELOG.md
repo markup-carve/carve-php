@@ -24,7 +24,7 @@ Task lists gain progress and blocked states. The parser and converters also foll
 
 ### Improvements
 
-- Progress `[/]` and blocked `[!]` task markers round trip through AST JSON, HTML import and formatting. `[_]`, previously paused, is now an open alias (#3920).
+- Progress `[/]` and blocked `[!]` task markers round trip through AST JSON, HTML import and formatting. The AST schema documents `[_]` as an open alias (#3920).
 - The ProseMirror schema map follows the current grammar package (#3906).
 
 ## [0.1.15] - 2026-10-24
