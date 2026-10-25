@@ -653,6 +653,35 @@ final class ListBlockBuilder
                 }
             }
 
+            // A fence-like line below a nested item's content column can be
+            // paragraph text. Its next plain line still belongs to that
+            // paragraph, even at the outer list's marker column.
+            $lastItem = ($this->getListParser)()->getLastListItem($list);
+            $nestedColumn = $lastItem === null ? null : $this->state->session->parsedNestedListContentColumn($lastItem);
+            $tail = $this->tailListParagraph($list);
+            if (
+                $nestedColumn !== null && $tail !== null
+                && IndentationHelper::getLeadingColumns($priorBody) < $nestedColumn
+                && ($this->getFencedBlockParser)()->isCodeFenceHead($priorText)
+                && $currentIndent >= $baseIndent && $currentIndent < $nestedColumn
+                && ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) === null
+                && !$this->isBlockElementStart(ltrim($currentLine, " \t"), $lines, $i)
+                && !$this->startsNewBlock(ltrim($currentLine, " \t"), $lines, $i)
+            ) {
+                $lazy = new ListItem();
+                $this->callParseItemBlocks($lazy, [BlockGrammar::LAZY_FRAME . ltrim($currentLine, " \t")], [$sourceLine]);
+                $lazyParagraph = $lazy->getChildren()[0] ?? null;
+                if ($lazyParagraph instanceof Paragraph) {
+                    $tail->appendChild(new SoftBreak());
+                    foreach ($lazyParagraph->getChildren() as $inline) {
+                        $tail->appendChild($inline);
+                    }
+                    $i++;
+
+                    continue;
+                }
+            }
+
             // If line is less indented than base, we're done with this list
             if ($currentIndent < $baseIndent) {
                 $lastItem = ($this->getListParser)()->getLastListItem($list);
