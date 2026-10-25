@@ -14,21 +14,20 @@ final class EmptyTableColumnsAreObjectsTest extends TestCase
     {
         $source = "{aligns=,left,}\n|= Wide|<|= Last|\n|a|b|c|\n";
         $codec = new AstCodec();
-        $encoded = $codec->encode((new BlockParser())->parse($source));
+        $document = (new BlockParser())->parse($source);
+        $encoded = $codec->encode($document);
+        $wire = json_decode($codec->encodeJson($document), false, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame('[{},{"align":"left"},{}]', json_encode($encoded['children'][0]['columns']));
-        self::assertSame(
-            json_encode($encoded, JSON_THROW_ON_ERROR),
-            json_encode($codec->encode($codec->decode($encoded)), JSON_THROW_ON_ERROR),
-        );
+        self::assertSame('[{},{"align":"left"},{}]', json_encode($wire->children[0]->columns));
+        self::assertSame($encoded, $codec->encode($codec->decode($encoded)));
     }
 
     public function testEveryUnsetColumnPositionUsesAnObject(): void
     {
         $document = (new BlockParser())->parse("| a | b |\n");
         $document->getChildren()[0]->setColumns([[], []]);
-        $encoded = (new AstCodec())->encode($document);
+        $wire = json_decode((new AstCodec())->encodeJson($document), false, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame('[{},{}]', json_encode($encoded['children'][0]['columns']));
+        self::assertSame('[{},{}]', json_encode($wire->children[0]->columns));
     }
 }

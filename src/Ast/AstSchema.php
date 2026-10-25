@@ -6,7 +6,6 @@ namespace MarkupCarve\Carve\Ast;
 
 use JsonException;
 use RuntimeException;
-use stdClass;
 use function array_is_list;
 use function array_key_exists;
 use function count;
@@ -586,8 +585,7 @@ final class AstSchema
         return match ($name) {
             // An empty PHP array is both an empty object and an empty list;
             // `properties`/`items` decide which one was meant.
-            'object' => $value instanceof stdClass && (array)$value === []
-                || is_array($value) && (!array_is_list($value) || $value === []),
+            'object' => is_array($value) && (!array_is_list($value) || $value === []),
             'array' => is_array($value) && array_is_list($value),
             'string' => is_string($value),
             // `true` and `false` are not integers here, though PHP will happily
