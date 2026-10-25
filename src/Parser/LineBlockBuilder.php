@@ -285,10 +285,10 @@ final class LineBlockBuilder
             }
 
             // The same content the inline reader takes: everything after the
-            // marker, less exactly one separating space or tab. Any further
+            // marker, less exactly one separating ASCII space. Any further
             // spacing is the comment's own.
             $content = substr($line, 2);
-            if ($content !== '' && ($content[0] === ' ' || $content[0] === "\t")) {
+            if ($content !== '' && $content[0] === ' ') {
                 $content = substr($content, 1);
             }
             $comment = new Comment(rtrim($content, " \t"));
