@@ -1592,8 +1592,11 @@ final class HtmlAstBuilder
         $kids = [...$paragraph->childNodes];
         if (self::every($kids, static fn (DOMNode $part): bool => $part instanceof DOMText)) {
             $text = $paragraph->textContent;
+            if (str_contains($text, "\n") || str_contains($text, "\t") || str_contains($text, "\r")) {
+                $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
+            }
 
-            return str_contains($text, ']') || str_contains($text, "\n") ? null : $text;
+            return str_contains($text, ']') ? null : $text;
         }
 
         $document = (new AstCodec())->decodeImporterTree([
@@ -3564,6 +3567,8 @@ final class HtmlAstBuilder
                 continue;
             }
             if (
+                !$bareTransport
+                &&
                 $child instanceof DOMElement
                 && strtolower(DomLoader::elementName($child)) === 'input'
                 && strtolower($child->getAttribute('type')) === 'checkbox'
@@ -3638,8 +3643,6 @@ final class HtmlAstBuilder
                 continue;
             }
             if (
-                !$bareTransport
-                &&
                 $child instanceof DOMElement
                 && strtolower(DomLoader::elementName($child)) === 'p'
                 && (preg_split('/\s+/', trim($child->getAttribute('class'))) ?: []) === ['div-label']
