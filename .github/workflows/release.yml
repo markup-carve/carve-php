@@ -235,10 +235,10 @@ jobs:
             -f tag_name="$VERSION" -F draft=false --jq '"published \(.tag_name)"'
           # Read it back: exit status does not tell you whether the tag
           # survived the write.
-          state="$(gh api "repos/$GITHUB_REPOSITORY/releases/$ID" --jq '"\(.draft) \(.tag_name)"')"
-          echo "draft=${state% *} tag=${state#* }"
-          if [ "$state" != "false $VERSION" ]; then
-            echo "::error::The release reads back as '$state', expected 'false $VERSION'."
+          state="$(gh api "repos/$GITHUB_REPOSITORY/releases/$ID")"
+          if ! printf '%s' "$state" | jq -e --arg tag "$VERSION" --arg sha "$GITHUB_SHA" \
+            '(.tag_name == $tag) and (.draft == false) and (.target_commitish == $sha)' >/dev/null; then
+            echo "::error::The release tag, draft state, or target commit changed during publication."
             exit 1
           fi
 
