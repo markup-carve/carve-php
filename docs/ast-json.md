@@ -118,7 +118,7 @@ publish their children under another key. Derived state converts in both
 directions: `ordered` is a boolean over an internal `listType` string, `checked`
 comes from a task marker, a cell's `header` from its flag. A task item's raw
 marker stays internal - it holds `X` and the default `[ ]`, neither of which the
-wire spells - and what the author chose rides as `taskState` beside `checked`.
+wire spells - and what the author chose rides as `taskState` beside `checked`. The wire enum is ` `, `x`, `-`, `_`, `/`, `!`, `>`, or `?`; `_` is an open alias, `/` is progress, and `!` is blocked. `X` folds to `x`.
 
 **Two node types differ by NAME, not by field.** profiles.md is explicit that an
 `autolink` is its own type rather than a `link` carrying a flag - "folding it

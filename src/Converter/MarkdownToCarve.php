@@ -4900,7 +4900,7 @@ class MarkdownToCarve
      * checkbox the reader has none of (carve-php#2366).
      *
      * The STATE narrows it the same way: cmark-gfm's extension accepts ` `, `x`
-     * and `X`, and Carve's four further states - `[-]`, `[_]`, `[>]` and `[?]` -
+     * and `X`, and Carve's six further spellings - `[_]`, `[-]`, `[/]`, `[!]`, `[>]` and `[?]` -
      * are an ordinary bracket pair to it at every position (carve-php#2377).
      *
      * A pair the extension does not reach is a SHORTCUT REFERENCE where its

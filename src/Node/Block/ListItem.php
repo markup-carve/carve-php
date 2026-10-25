@@ -7,18 +7,11 @@ namespace MarkupCarve\Carve\Node\Block;
 /**
  * List item
  *
- * For task lists, stores the raw marker character from inside brackets:
- * - ' ' (space) or '_' (underscore) = unchecked
- * - 'x' or 'X' = checked/completed
- * - Extended markers (for custom rendering via events):
- *   - '-' = cancelled/not applicable
- *   - '/' = in progress (partial)
- *   - '>' = deferred/forwarded
- *   - '?' = question/needs clarification
- *   - '*' = in process/active
- *   - '=' = paused
- *   - '.' = stopped
- *   - etc.
+ * For task lists, stores the authored marker character:
+ * - ' ' and '_' are open; '_' retains its authored spelling.
+ * - 'x' and 'X' are done.
+ * - '/' is progress, '!' is blocked, '-' is dropped, '>' is deferred,
+ *   and '?' is uncertain. Only done is checked.
  */
 class ListItem extends BlockNode
 {
@@ -32,7 +25,7 @@ class ListItem extends BlockNode
     /**
      * Get the raw task marker character
      *
-     * Returns the character inside the brackets: ' ', '_', 'x', 'X', '-', '/', '>', '?', etc.
+     * Returns the character inside the brackets: ' ', '_', 'x', 'X', '-', '/', '!', '>', or '?'.
      * Returns null if this is not a task list item.
      */
     public function getTaskMarker(): ?string
@@ -43,8 +36,8 @@ class ListItem extends BlockNode
     /**
      * For task lists: null = not a task, true = checked, false = unchecked
      *
-     * Note: This method only recognizes standard markers (' ', '_', 'x', 'X').
-     * For extended markers, use getTaskMarker() and handle in render events.
+     * Only 'x' and 'X' are checked. ' ', '_', '-', '/', '!', '>', and '?'
+     * are unchecked; getTaskMarker() preserves their authored spelling.
      */
     public function getChecked(): ?bool
     {
@@ -52,7 +45,7 @@ class ListItem extends BlockNode
             return null;
         }
 
-        // Standard markers - space and underscore are both unchecked
+        // Space and underscore are both open and unchecked
         if ($this->taskMarker === ' ' || $this->taskMarker === '_') {
             return false;
         }
@@ -60,7 +53,7 @@ class ListItem extends BlockNode
             return true;
         }
 
-        // Extended markers default to unchecked for backward compatibility
+        // Every other recognized state is unchecked
         return false;
     }
 

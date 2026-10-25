@@ -320,7 +320,7 @@ neither dialect defines.
 
 Where GFM sees no checkbox but Carve would, the brackets are escaped instead and
 nothing is reported. GFM honors ` `, `x` and `X` after ONE container marker, so
-`- - [ ] a` and Carve's extra states `[-]`, `[_]`, `[>]`, `[?]` all take the
+`- - [ ] a` and Carve's extra markers `[_]` (open alias), `[/]` (progress), `[!]` (blocked), `[-]`, `[>]`, `[?]` all take the
 backslash - unless a link reference definition names that label, in which case GFM
 resolves a link and the collapsed form goes in place of the escape. A label GFM did
 read leaves its definition idle: `- [x] done` above `[x]: /u` keeps both lines as
