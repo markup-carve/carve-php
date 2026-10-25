@@ -2865,11 +2865,12 @@ final class ListBlockBuilder
         if (
             $nestedColumn === null || $tail === null
             || IndentationHelper::getLeadingColumns($priorBody) >= $nestedColumn
-            || !($this->getFencedBlockParser)()->isCodeFenceHead($priorText)
+            || ($this->getFencedBlockParser)()->parseCodeFenceOpener($priorText) === null
             || $indent < $baseIndent || $indent >= $nestedColumn
             || ($this->getListParser)()->parseListItemMarker($trimmed) !== null
             || $this->isBlockElementStart($trimmed, $lines, $index)
             || $this->startsNewBlock($trimmed, $lines, $index)
+            || $this->priorFenceRunInNestedItem($this->sourceLineFor($index), $nestedColumn)
         ) {
             return false;
         }
@@ -2885,6 +2886,25 @@ final class ListBlockBuilder
         }
 
         return true;
+    }
+
+    private function priorFenceRunInNestedItem(int $sourceLine, int $nestedColumn): bool
+    {
+        for ($probe = $sourceLine - 2; $probe >= 0; $probe--) {
+            $body = ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$probe] ?? '');
+            $head = ltrim($body, " \t");
+            if (
+                IndentationHelper::getLeadingColumns($body) < $nestedColumn
+                && ($this->getListParser)()->parseListItemMarker($head) !== null
+            ) {
+                break;
+            }
+            if (($this->getFencedBlockParser)()->parseCodeFenceOpener($head) !== null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function tailListParagraph(ListBlock $list, bool $allowDiv = false): ?Paragraph
