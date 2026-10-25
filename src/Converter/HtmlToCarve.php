@@ -3091,12 +3091,13 @@ class HtmlToCarve
     protected function inspectTableStructure(DOMElement $node, string $path, array &$diagnostics): void
     {
         $sourceRows = TableStructure::directTableRows($node);
+        $spanPlan = TableStructure::spanPlan($node);
         foreach ($sourceRows as $row) {
             foreach ($row->childNodes as $cell) {
                 if (!$cell instanceof DOMElement || !in_array(strtolower(DomLoader::elementName($cell)), ['td', 'th'], true)) {
                     continue;
                 }
-                $spans = TableStructure::boundedSpans($cell, count($sourceRows));
+                $spans = $spanPlan->get($cell);
                 foreach ($spans as $name => $bound) {
                     if (max(1, (int)$cell->getAttribute($name)) > $bound) {
                         $this->addImportDiagnostic($diagnostics, 'table-degraded', 'Clamped ' . $name . ' to the table size', 'warning', $path);
@@ -4662,7 +4663,7 @@ class HtmlToCarve
 
         /** @var array<int, int> $rowspanMap */
         $rowspanMap = [];
-        $sourceRowCount = count(TableStructure::directTableRows($table));
+        $spanPlan = TableStructure::spanPlan($table);
         foreach ($this->getDirectTableRows($table) as $tr) {
             $isCellRow = $tr === $cell->parentNode;
             $passedCell = false;
@@ -4678,7 +4679,7 @@ class HtmlToCarve
                     $rowspanMap[$logicalCol]--;
                     $logicalCol++;
                 }
-                $spans = TableStructure::boundedSpans($candidate, $sourceRowCount);
+                $spans = $spanPlan->get($candidate);
                 $colspan = $spans['colspan'];
                 $rowspan = $spans['rowspan'];
                 if ($rowspan > 1) {

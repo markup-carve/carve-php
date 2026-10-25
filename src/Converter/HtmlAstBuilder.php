@@ -2672,7 +2672,7 @@ final class HtmlAstBuilder
         /** @var array<int, int> $rowspans */
         $rowspans = [];
         $sourceRows = TableStructure::directTableRows($node);
-        $sourceRowCount = count($sourceRows);
+        $spanPlan = TableStructure::spanPlan($node);
         foreach ($sourceRows as $rowElement) {
             $sectionTag = $rowElement->parentNode instanceof DOMElement ? strtolower(DomLoader::elementName($rowElement->parentNode)) : '';
             $cells = [];
@@ -2701,7 +2701,7 @@ final class HtmlAstBuilder
                     }
                     ++$column;
                 }
-                $spans = TableStructure::boundedSpans($cellElement, $sourceRowCount);
+                $spans = $spanPlan->get($cellElement);
                 $colspan = $spans['colspan'];
                 $lastColumn = $column + $colspan - 1;
                 $allowsEmptyCode = $listForm

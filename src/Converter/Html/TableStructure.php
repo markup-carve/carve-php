@@ -17,20 +17,34 @@ use DOMElement;
 final class TableStructure
 {
     /**
-     * HTML limits colspan to 1,000. Keep the expanded area per source cell
-     * within that same budget so even a combined span cannot fill a huge grid.
+     * Plan spans against one budget for the table's physical cells. Each
+     * source cell receives one position before expansion spends the rest.
      *
-     * @return array{colspan: int, rowspan: int}
+     * @return \MarkupCarve\Carve\Converter\Html\TableSpanPlan
      */
-    public static function boundedSpans(DOMElement $cell, int $sourceRows): array
+    public static function spanPlan(DOMElement $table): TableSpanPlan
     {
-        $colspan = min(1000, max(1, (int)$cell->getAttribute('colspan')));
-        $rowspan = min(65534, max(1, (int)$cell->getAttribute('rowspan')));
+        $rows = self::directTableRows($table);
+        $cells = [];
+        foreach ($rows as $rowIndex => $row) {
+            foreach ($row->childNodes as $child) {
+                if ($child instanceof DOMElement && in_array(strtolower(DomLoader::elementName($child)), ['td', 'th'], true)) {
+                    $cells[] = [$child, $rowIndex];
+                }
+            }
+        }
+        $remaining = max(1000, count($cells) + count($rows)) - count($cells);
+        $plan = new TableSpanPlan();
+        foreach ($cells as [$cell, $rowIndex]) {
+            $colspan = min(1000, max(1, (int)$cell->getAttribute('colspan')), $remaining + 1);
+            $remaining -= $colspan - 1;
+            $rowspan = min(65534, max(1, (int)$cell->getAttribute('rowspan')), count($rows) - $rowIndex);
+            $rowspan = min($rowspan, 1 + intdiv($remaining, $colspan));
+            $remaining -= ($rowspan - 1) * $colspan;
+            $plan->set($cell, $colspan, $rowspan);
+        }
 
-        return [
-            'colspan' => $colspan,
-            'rowspan' => min($rowspan, max(1, $sourceRows), intdiv(1000, $colspan)),
-        ];
+        return $plan;
     }
 
     /**

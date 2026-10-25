@@ -17,6 +17,8 @@ final class HtmlImportSpanBoundTest extends TestCase
                 '<table><tr><td colspan="1000000000">x</td></tr></table>',
                 '<table><tr><td colspan="1000000000" rowspan="1000000000">x</td></tr></table>',
                 '<table><tr><th rowspan="1000000000">x</th><th>y</th></tr><tr><td>z</td></tr></table>',
+                '<table><tr><td colspan="1000000000" rowspan="1000000000">x</td></tr>'
+                . str_repeat('<tr><td>y</td></tr>', 200) . '</table>',
             ] as $html
         ) {
             $start = hrtime(true);
