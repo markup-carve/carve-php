@@ -1883,7 +1883,7 @@ class AstCodec
 
             if ($node instanceof Table && $field === 'columns' && is_array($value)) {
                 $encoded[$field] = array_map(
-                    static fn (array $column): array|stdClass => $column === [] ? new stdClass() : $column,
+                    static fn (mixed $column): mixed => is_array($column) && $column === [] ? new stdClass() : $column,
                     $value,
                 );
             } else {

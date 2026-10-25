@@ -19,7 +19,7 @@ final class EmptyTableColumnsAreObjectsTest extends TestCase
         self::assertSame('[{},{"align":"left"},{}]', json_encode($encoded['children'][0]['columns']));
         self::assertSame(
             json_encode($encoded, JSON_THROW_ON_ERROR),
-            json_encode($codec->encode($codec->decodeJson(json_encode($encoded, JSON_THROW_ON_ERROR))), JSON_THROW_ON_ERROR),
+            json_encode($codec->encode($codec->decode($encoded)), JSON_THROW_ON_ERROR),
         );
     }
 
