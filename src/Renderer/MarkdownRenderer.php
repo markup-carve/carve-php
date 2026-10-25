@@ -4914,24 +4914,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     ): string {
         $url = $this->sanitizeUrl($this->stripControls($url), $sink, $node);
         $pipeDestination = str_contains($url, '|');
-        $openParens = 0;
-        $url = preg_replace_callback('/[ ()<>\\\\|]/', static function (array $match) use (&$openParens, $pipeDestination): string {
-            if ($match[0] === '(') {
-                $openParens++;
-
-                return '%28';
-            }
-            if ($match[0] === ')') {
-                if ($openParens === 0) {
-                    return '\\)';
-                }
-                $openParens--;
-
-                return '%29';
-            }
-
+        $url = preg_replace_callback('/[ ()<>\\\\|]/', static function (array $match) use ($pipeDestination): string {
             return match ($match[0]) {
                 '\\' => $pipeDestination ? '%5C' : '\\',
+                '(' => '\\(',
+                ')' => '\\)',
                 '|' => '%7C',
                 ' ' => '%20',
                 '<' => '%3C',
