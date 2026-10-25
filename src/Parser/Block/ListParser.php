@@ -235,7 +235,7 @@ class ListParser
         $bullet = '[' . ($bulletClass ?? $this->bulletMarkerClass) . ']';
 
         $tokens = [
-            'task' => ['(' . $bullet . ')', ' +\[([ xX_>?-])\]' . $gap],
+            'task' => ['(' . $bullet . ')', ' +\[([ xX_>?\/!-])\]' . $gap],
             'bullet' => ['(' . $bullet . ')', $gap],
             'ordered' => ['(\d+)([.)])', $gap],
             'bare' => ['\.', $gap],
@@ -681,13 +681,13 @@ class ListParser
     {
         // Task list. PART 9 enumerates the states exhaustively:
         //
-        //   task_state = ' ' | 'x' | 'X' | '-' | '_' | '>' | '?' ;
+        //   task_state = ' ' | 'x' | 'X' | '-' | '_' | '/' | '!' | '>' | '?' ;
         //
-        // `x`/`X` are CHECKED, the other five UNCHECKED. Anything else is not a
+        // `x`/`X` are CHECKED, the other seven UNCHECKED. Anything else is not a
         // task marker and the brackets stay literal text.
         //
         // This used to accept any single character, which did not merely
-        // reinterpret `- [!] urgent` - it DELETED the `[!]` and rendered a
+        // reinterpret `- [%] urgent` - it DELETED the `[%]` and rendered a
         // checkbox nobody wrote (carve-php#657). Two characters were already
         // rejected; it was only the one-character case that was open.
         if (preg_match($this->markerPattern('task'), $line, $matches)) {

@@ -16,7 +16,7 @@ final class ListColumnLinter
     /**
      * @var string
      */
-    private const MARKER = '/^(?:[-+*](?: +\[[ xX\-_>?]\])?|\([0-9A-Za-z]+\)|[0-9A-Za-z]+[.)]|\.)(?=[ \t])/';
+    private const MARKER = '/^(?:[-+*](?: +\[[ xX\-_>?\/!]\])?|\([0-9A-Za-z]+\)|[0-9A-Za-z]+[.)]|\.)(?=[ \t])/';
 
     /**
      * @return list<\MarkupCarve\Carve\Lint\LintWarning>
@@ -155,7 +155,7 @@ final class ListColumnLinter
             if ($child instanceof ListItem && $pos !== null) {
                 $line = $rows[$pos->startLine - 1][0] ?? '';
                 $at = strlen(mb_substr($line, 0, $pos->startColumn - 1, 'UTF-8'));
-                if (preg_match('/^([ \t]*)([-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)])(\{[^{}\r\n]*\})?( +)(?:\[[ xX_?>-]\] +)?/', substr($line, $at), $match)) {
+                if (preg_match('/^([ \t]*)([-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)])(\{[^{}\r\n]*\})?( +)(?:\[[ xX_?>\/!-]\] +)?/', substr($line, $at), $match)) {
                     $base = $this->visual(substr($line, 0, $at)) + $this->visual($match[1]);
                     $paragraphs = [];
                     $textStarts = [];

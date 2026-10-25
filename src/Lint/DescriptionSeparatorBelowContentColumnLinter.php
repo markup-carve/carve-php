@@ -137,7 +137,7 @@ final class DescriptionSeparatorBelowContentColumnLinter
             $index += strlen($match[0]);
             ++$depth;
         }
-        while (preg_match('/^[ \t]*(?:[-+*](?: +\[[ xX\-_>?]\])?|\([0-9A-Za-z]+\)|[0-9A-Za-z]+[.)]|\.)(?:\{[^{}\r\n]*\})?[ \t]+(?=\S)/', substr($line, $index), $match)) {
+        while (preg_match('/^[ \t]*(?:[-+*](?: +\[[ xX\-_>?\/!]\])?|\([0-9A-Za-z]+\)|[0-9A-Za-z]+[.)]|\.)(?:\{[^{}\r\n]*\})?[ \t]+(?=\S)/', substr($line, $index), $match)) {
             $index += strlen($match[0]);
         }
         $index += strspn($line, " \t", $index);

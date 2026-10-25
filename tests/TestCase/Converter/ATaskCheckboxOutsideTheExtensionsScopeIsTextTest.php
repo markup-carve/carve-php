@@ -27,7 +27,7 @@ use PHPUnit\Framework\TestCase;
  * The rule here is the extension's SCOPE. Its STATE SET narrows the same reading
  * a second time and was ruled separately: the four Carve-only states (`[-]`,
  * `[_]`, `[>]` and `[?]`) are an ordinary bracket pair to cmark-gfm at every
- * position, in scope or out, and `TheFourCarveOnlyTaskStatesAreTextOnImportTest`
+ * position, in scope or out, and `TheSixCarveOnlyTaskStatesAreTextOnImportTest`
  * pins them (carve-php#2377).
  *
  * PINNED AT THE RENDERED LEVEL, since the converter corpus compares an importer

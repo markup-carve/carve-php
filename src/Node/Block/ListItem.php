@@ -84,7 +84,7 @@ class ListItem extends BlockNode
      * The authored state, when it is not the default for the box (PART 11 6g).
      *
      * Only PART 2's states: this constructor takes any character, and a marker
-     * the language does not spell would write `- [/] x`, which reads back as a
+     * the language does not spell would write `- [z] x`, which reads back as a
      * paragraph.
      */
     public function getAuthoredTaskState(): ?string
@@ -93,7 +93,7 @@ class ListItem extends BlockNode
             return null;
         }
 
-        return in_array($this->taskMarker, ['-', '_', '>', '?'], true) ? $this->taskMarker : null;
+        return in_array($this->taskMarker, ['-', '_', '/', '!', '>', '?'], true) ? $this->taskMarker : null;
     }
 
     public function getType(): string
