@@ -7,18 +7,11 @@ namespace MarkupCarve\Carve\Node\Block;
 /**
  * List item
  *
- * For task lists, stores the raw marker character from inside brackets:
- * - ' ' (space) or '_' (underscore) = unchecked
- * - 'x' or 'X' = checked/completed
- * - Extended markers (for custom rendering via events):
- *   - '-' = cancelled/not applicable
- *   - '/' = in progress (partial)
- *   - '>' = deferred/forwarded
- *   - '?' = question/needs clarification
- *   - '*' = in process/active
- *   - '=' = paused
- *   - '.' = stopped
- *   - etc.
+ * For task lists, stores the authored marker character:
+ * - ' ' and '_' are open; '_' retains its authored spelling.
+ * - 'x' and 'X' are done.
+ * - '/' is progress, '!' is blocked, '-' is dropped, '>' is deferred,
+ *   and '?' is uncertain. Only done is checked.
  */
 class ListItem extends BlockNode
 {
@@ -32,7 +25,7 @@ class ListItem extends BlockNode
     /**
      * Get the raw task marker character
      *
-     * Returns the character inside the brackets: ' ', '_', 'x', 'X', '-', '/', '>', '?', etc.
+     * Returns the character inside the brackets: ' ', '_', 'x', 'X', '-', '/', '!', '>', or '?'.
      * Returns null if this is not a task list item.
      */
     public function getTaskMarker(): ?string
