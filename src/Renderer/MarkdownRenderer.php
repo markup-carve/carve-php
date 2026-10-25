@@ -4933,6 +4933,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 ' ' => '%20',
                 '<' => '%3C',
                 '>' => '%3E',
+                default => $match[0],
             };
         }, $url) ?? $url;
 
