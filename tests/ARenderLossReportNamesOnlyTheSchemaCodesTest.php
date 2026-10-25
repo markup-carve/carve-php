@@ -80,10 +80,10 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
         ];
     }
 
-    public function testTheSchemaEnumHoldsExactlyTheFifteenCodes(): void
+    public function testTheSchemaEnumHoldsExactlyTheSixteenCodes(): void
     {
         self::assertSame(
-            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped', 'list-delimiter-changed', 'table-span-flattened', 'table-header-row-demoted', 'table-header-row-hoisted', 'table-header-cell-demoted', 'markdown-container-flattened', 'markdown-caption-flattened', 'markdown-attributes-dropped', 'raw-html-escaped'],
+            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped', 'list-delimiter-changed', 'table-span-flattened', 'table-header-row-demoted', 'table-header-row-hoisted', 'table-header-cell-demoted', 'markdown-container-flattened', 'markdown-caption-flattened', 'fence-title-dropped', 'markdown-attributes-dropped', 'raw-html-escaped'],
             self::schemaCodes(),
         );
     }
@@ -176,6 +176,11 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
                 self::assertContains($loss['code'], self::schemaCodes());
                 $seen[$loss['code']] = true;
             }
+        }
+        $fenceReport = (new CarveConverter(renderer: new MarkdownRenderer()))->convertWithReport("``` \"T\"\nx\n```\n");
+        foreach ($fenceReport->losses as $loss) {
+            self::assertContains($loss['code'], self::schemaCodes());
+            $seen[$loss['code']] = true;
         }
         $codes = array_keys($seen);
         sort($codes);

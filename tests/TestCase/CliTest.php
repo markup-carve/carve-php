@@ -1296,6 +1296,18 @@ class CliTest extends TestCase
         $this->assertSame(0, $this->runCliInput(['--markdown', '--strict-losses'], "|= A |= B |\n| C | D |\n")['exit']);
     }
 
+    public function testStrictLossesCanAllowDroppedFenceTitle(): void
+    {
+        $source = "``` \"T\"\nx\n```\n";
+        $strict = $this->runCliInput(['--markdown', '--strict-losses'], $source);
+        $this->assertSame(1, $strict['exit']);
+        $this->assertStringContainsString('fence-title-dropped', $strict['err']);
+
+        $allowed = $this->runCliInput(['--markdown', '--strict-losses', '--allow-loss', 'fence-title-dropped'], $source);
+        $this->assertSame(0, $allowed['exit']);
+        $this->assertStringStartsWith("```\nx\n```", $allowed['out']);
+    }
+
     /**
      * `--allow-loss` gates the `CARVE-P2-024` report and grows no name for a
      * conversion-diagnostics code (PART 11 §1d), so the dropped field passes
@@ -1313,7 +1325,7 @@ class CliTest extends TestCase
         $this->assertStringContainsString(
             '--allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened'
             . ', carrier-attribute-dropped, list-style-dropped, list-delimiter-changed'
-            . ', table-span-flattened, table-header-row-demoted, table-header-row-hoisted or table-header-cell-demoted',
+            . ', table-span-flattened, table-header-row-demoted, table-header-row-hoisted or table-header-cell-demoted or fence-title-dropped',
             $refused['err'],
         );
     }

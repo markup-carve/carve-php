@@ -140,6 +140,7 @@ trait RenderLossCollectorTrait
         $messages = [
             'markdown-container-flattened' => 'Flattened a container into Markdown blocks',
             'markdown-caption-flattened' => 'Wrote a caption as ordinary Markdown text',
+            'fence-title-dropped' => 'Dropped a code fence title without a language in Markdown',
             'markdown-attributes-dropped' => 'Dropped block attributes while rendering Markdown',
             'raw-html-escaped' => 'Escaped raw HTML while rendering Markdown',
         ];

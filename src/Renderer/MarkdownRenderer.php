@@ -3056,8 +3056,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // present, since a leading quote with no language is not a valid fence
         // header (it would fall back to an inline code span).
         $info = $language;
+        $title = $node->getAttribute('title') ?? $node->getHeader();
+        if ($language === '' && is_string($title) && $title !== '' && !$this->roundTripMode) {
+            $this->recordMarkdownLoss($node, 'fence-title-dropped');
+        }
         if ($language !== '') {
-            $title = $node->getAttribute('title');
             if (is_string($title) && $title !== '') {
                 $info .= ' "' . str_replace('"', '', $this->stripControls($title)) . '"';
             }

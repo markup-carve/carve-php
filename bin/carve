@@ -1076,8 +1076,8 @@ function parseArgs(array $argv): array
             }
             $options['maxConversionDiagnostics'] = (int)$argv[++$i];
         } elseif ($arg === '--allow-loss') {
-            if (!in_array(($argv[$i + 1] ?? null), ['raw-format-dropped', 'ruby-flattened', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped', 'list-delimiter-changed', 'table-span-flattened', 'table-header-row-demoted', 'table-header-row-hoisted', 'table-header-cell-demoted'], true)) {
-                fwrite(STDERR, "Error: --allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened, carrier-attribute-dropped, list-style-dropped, list-delimiter-changed, table-span-flattened, table-header-row-demoted, table-header-row-hoisted or table-header-cell-demoted\n");
+            if (!in_array(($argv[$i + 1] ?? null), ['raw-format-dropped', 'ruby-flattened', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped', 'list-delimiter-changed', 'table-span-flattened', 'table-header-row-demoted', 'table-header-row-hoisted', 'table-header-cell-demoted', 'fence-title-dropped'], true)) {
+                fwrite(STDERR, "Error: --allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened, carrier-attribute-dropped, list-style-dropped, list-delimiter-changed, table-span-flattened, table-header-row-demoted, table-header-row-hoisted or table-header-cell-demoted or fence-title-dropped\n");
                 exit(2);
             }
             $options['allowLoss'][] = $argv[++$i];
@@ -1297,7 +1297,8 @@ Rendering:
                            editorial-comment-flattened, carrier-attribute-dropped,
                            list-style-dropped, list-delimiter-changed,
                            table-span-flattened, table-header-row-demoted,
-                           table-header-row-hoisted or table-header-cell-demoted
+                           table-header-row-hoisted, table-header-cell-demoted
+                           or fence-title-dropped
                            (repeatable)
   --max-render-losses N    Bound detailed losses while retaining the full count (default 100)
   --report-conversion-diagnostics FILE
