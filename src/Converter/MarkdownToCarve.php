@@ -2407,6 +2407,7 @@ class MarkdownToCarve
         $this->inlineContext->foldedHeadingSources = [];
         $this->inlineContext->leadingWhitespaceDiagnostics = [];
         $this->inlineContext->codeFallbackDiagnostics = [];
+        $this->inlineContext->flattenedAnchorDiagnostics = [];
         $this->inlineContext->inlineRunSourceLine = null;
         $this->inlineContext->inlineRunContinuesPrevious = false;
         $this->referenceContext->markdownSourceLines = [];
@@ -2722,6 +2723,7 @@ class MarkdownToCarve
         $this->mergeShiftedDiagnostics($this->referenceContext->boundaryDiagnostics, $importer->referenceContext->boundaryDiagnostics, $offset);
         $this->mergeShiftedDiagnostics($this->inlineContext->leadingWhitespaceDiagnostics, $importer->inlineContext->leadingWhitespaceDiagnostics, $offset);
         $this->mergeShiftedDiagnostics($this->inlineContext->codeFallbackDiagnostics, $importer->inlineContext->codeFallbackDiagnostics, $offset);
+        $this->mergeShiftedDiagnostics($this->inlineContext->flattenedAnchorDiagnostics, $importer->inlineContext->flattenedAnchorDiagnostics, $offset);
         foreach ($importer->unspellableOrderedTasks as $line) {
             $this->referenceContext->boundaryDiagnostics[] = new MigrationDiagnostic('structure-unspellable', self::ORDERED_TASK_ITEM_UNSPELLABLE, 'warning', 'dropped', 'exact', 'line:' . ($importer->sourceLine($line) + $offset));
         }
@@ -2815,17 +2817,17 @@ class MarkdownToCarve
             $assessedLosses = count(array_filter($assessment['diagnostics'], static fn (MigrationDiagnostic $diagnostic): bool => $diagnostic->fidelity === 'dropped'));
             // `frontmatter-synthesized` is a report the assessment knows nothing
             // about, so the fast path must not replace a report that carries it.
-            if ($assessment['complete'] && !$this->inlineContext->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableContext->tableDiagnostics === [] && $this->inlineContext->rawSpanWhitespaceDiagnostics === [] && $this->referenceContext->boundaryDiagnostics === [] && $this->inlineContext->leadingWhitespaceDiagnostics === [] && $this->inlineContext->codeFallbackDiagnostics === [] && $losses <= $assessedLosses) {
+            if ($assessment['complete'] && !$this->inlineContext->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableContext->tableDiagnostics === [] && $this->inlineContext->rawSpanWhitespaceDiagnostics === [] && $this->referenceContext->boundaryDiagnostics === [] && $this->inlineContext->leadingWhitespaceDiagnostics === [] && $this->inlineContext->codeFallbackDiagnostics === [] && $this->inlineContext->flattenedAnchorDiagnostics === [] && $losses <= $assessedLosses) {
                 return new MigrationResult($value, 'markdown', $assessment['diagnostics']);
             }
         }
-        if ($this->unspellableOrderedTasks === [] && !$this->inlineContext->flattenedEmphasis && $this->tableContext->tableDiagnostics === [] && $this->inlineContext->rawSpanWhitespaceDiagnostics === [] && $this->referenceContext->boundaryDiagnostics === [] && $this->inlineContext->leadingWhitespaceDiagnostics === [] && $this->inlineContext->codeFallbackDiagnostics === [] && !$this->frontmatterSynthesized) {
+        if ($this->unspellableOrderedTasks === [] && !$this->inlineContext->flattenedEmphasis && $this->tableContext->tableDiagnostics === [] && $this->inlineContext->rawSpanWhitespaceDiagnostics === [] && $this->referenceContext->boundaryDiagnostics === [] && $this->inlineContext->leadingWhitespaceDiagnostics === [] && $this->inlineContext->codeFallbackDiagnostics === [] && $this->inlineContext->flattenedAnchorDiagnostics === [] && !$this->frontmatterSynthesized) {
             return $result;
         }
         // `structure-unspellable` is the code the import side already uses for a
         // shape Carve has no spelling for, and its fidelity and confidence are
         // properties of that code rather than of this producer.
-        $diagnostics = array_merge($result->diagnostics, $this->tableContext->tableDiagnostics, $this->inlineContext->rawSpanWhitespaceDiagnostics, $this->referenceContext->boundaryDiagnostics, $this->inlineContext->leadingWhitespaceDiagnostics, $this->inlineContext->codeFallbackDiagnostics);
+        $diagnostics = array_merge($result->diagnostics, $this->tableContext->tableDiagnostics, $this->inlineContext->rawSpanWhitespaceDiagnostics, $this->referenceContext->boundaryDiagnostics, $this->inlineContext->leadingWhitespaceDiagnostics, $this->inlineContext->codeFallbackDiagnostics, $this->inlineContext->flattenedAnchorDiagnostics);
         if ($this->inlineContext->flattenedEmphasis) {
             $diagnostics[] = new MigrationDiagnostic(
                 'structure-unspellable',

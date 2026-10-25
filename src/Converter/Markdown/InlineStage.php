@@ -479,6 +479,7 @@ final class InlineStage
             ) ?? $line;
         }
 
+        $line = $this->flattenHtmlAnchorsInLinkLabels($line, $protected);
         $line = $this->protectBareInlineUrls($line, $protected, $protectedSources, $codeTokens, $protect, $writeCodeSpan, $table);
 
         if ($this->context->convertMath) {
@@ -1422,6 +1423,58 @@ final class InlineStage
 
         return $match[1][0] . '[' . $label . ']'
                     . ($definition === $label && preg_match('/^[\p{L}\p{N} .-]*$/u', $label) === 1 && preg_match('/(?:\.{3,}|--)/', $label) !== 1 ? '[]' : $protect('[' . $definition . ']'));
+    }
+
+    /**
+     * @param string $line
+     * @param array<string> $protected
+     */
+    private function flattenHtmlAnchorsInLinkLabels(string $line, array $protected): string
+    {
+        if (!str_contains($line, '[') || !str_contains($line, "\x00P")) {
+            return $line;
+        }
+        $removed = [];
+        foreach (Emphasis::linkLabelRanges($line, $protected) as $range) {
+            $openings = [];
+            preg_match_all('/\x00P(\d+)\x00/', substr($line, $range['start'], $range['end'] - $range['start']), $tokens, PREG_OFFSET_CAPTURE);
+            foreach ($tokens[0] as $index => $token) {
+                $span = $protected[(int)$tokens[1][$index][0]] ?? '';
+                $fenceLength = strspn($span, '`');
+                if ($fenceLength === 0) {
+                    continue;
+                }
+                $fence = str_repeat('`', $fenceLength);
+                if (!str_ends_with($span, $fence . '{=html}')) {
+                    continue;
+                }
+                $html = substr($span, $fenceLength, -$fenceLength - strlen('{=html}'));
+                $tag = $this->htmlTagAt($html, 0);
+                if ($tag === null || $tag['name'] !== 'a' || $tag['end'] !== strlen($html)) {
+                    continue;
+                }
+                $offset = $range['start'] + $token[1];
+                if (!$tag['closing'] && !str_ends_with($html, '/>')) {
+                    $openings[] = $offset;
+                } elseif ($tag['closing'] && $openings !== []) {
+                    $removed[array_pop($openings)] = true;
+                    $removed[$offset] = true;
+                    $this->context->flattenedAnchorDiagnostics[] = new MigrationDiagnostic(
+                        'structure-unspellable',
+                        'Flattened an HTML link inside a Markdown link label; its text was kept',
+                        'warning',
+                        'dropped',
+                        'exact',
+                        $this->context->inlineRunSourceLine === null ? null : 'line:' . $this->context->inlineRunSourceLine,
+                    );
+                }
+            }
+        }
+        if ($removed === []) {
+            return $line;
+        }
+
+        return preg_replace_callback('/\x00P\d+\x00/', static fn (array $match): string => isset($removed[$match[0][1]]) ? '' : $match[0][0], $line, flags: PREG_OFFSET_CAPTURE) ?? $line;
     }
 
     /**

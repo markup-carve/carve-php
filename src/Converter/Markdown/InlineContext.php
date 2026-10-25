@@ -55,6 +55,11 @@ final class InlineContext
     public array $codeFallbackDiagnostics = [];
 
     /**
+     * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
+     */
+    public array $flattenedAnchorDiagnostics = [];
+
+    /**
      * @var array<string, string>
      */
     public array $complexReferenceTargets = [];
