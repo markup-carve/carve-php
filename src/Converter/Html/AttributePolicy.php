@@ -12,6 +12,30 @@ use DOMElement;
  */
 final class AttributePolicy
 {
+    public static function imagePixelDimension(string $value): ?string
+    {
+        $value = strtolower(trim($value));
+        if ($value === '0') {
+            return '0';
+        }
+        if (preg_match('/^\+?(?:([0-9]+)(?:\.([0-9]*))?|\.([0-9]+))px$/D', $value, $matches) !== 1) {
+            return null;
+        }
+        $fraction = ($matches[2] ?? '') . ($matches[3] ?? '');
+        if (strspn($fraction, '0') !== strlen($fraction)) {
+            return null;
+        }
+        $integer = ltrim($matches[1], '0');
+        if ($integer === '') {
+            return '0';
+        }
+        if (strlen($integer) > 16 || (strlen($integer) === 16 && strcmp($integer, '9007199254740991') > 0)) {
+            return null;
+        }
+
+        return $integer;
+    }
+
     /**
      * @param string $name
      * @param array<string> $skip
@@ -80,6 +104,22 @@ final class AttributePolicy
             }
         }
         $tag = strtolower(DomLoader::elementName($node));
+        if ($tag === 'img') {
+            foreach (explode(';', $node->getAttribute('style')) as $declaration) {
+                $colon = strpos($declaration, ':');
+                if ($colon === false) {
+                    continue;
+                }
+                $property = strtolower(trim(substr($declaration, 0, $colon)));
+                if ($property !== 'width' && $property !== 'height') {
+                    continue;
+                }
+                $pixels = self::imagePixelDimension(substr($declaration, $colon + 1));
+                if ($pixels !== null) {
+                    $keyValues[$property] = $pixels;
+                }
+            }
+        }
         if ($alignment !== null && !in_array($tag, ['td', 'th'], true)) {
             $alignmentClass = $alignmentClasses[$alignment] ?? null;
             if (is_string($alignmentClass) && $alignmentClass !== '') {
