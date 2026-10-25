@@ -4915,7 +4915,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $url = $this->sanitizeUrl($this->stripControls($url), $sink, $node);
         $pipeDestination = str_contains($url, '|');
         $url = preg_replace_callback('/[ ()<>\\\\|]/', static function (array $match) use ($pipeDestination): string {
-
             return match ($match[0]) {
                 '\\' => $pipeDestination ? '%5C' : '\\',
                 '(' => '\\(',
