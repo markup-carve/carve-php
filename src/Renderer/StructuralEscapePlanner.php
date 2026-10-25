@@ -361,8 +361,8 @@ final class StructuralEscapePlanner
             return false;
         }
         if (
-            preg_match('/^[ \t]*\z/', $inside) === 1
-            || preg_match('/^ (?:"(?:\\\\.|[^"\\\\\r\n])*"|\'(?:\\\\.|[^\'\\\\\r\n])*\')[ \t]*\z/', $inside) === 1
+            preg_match('/^ *\z/', $inside) === 1
+            || preg_match('/^ (?:"(?:\\\\.|[^"\\\\\r\n])*"|\'(?:\\\\.|[^\'\\\\\r\n])*\') *\z/', $inside) === 1
         ) {
             return true;
         }

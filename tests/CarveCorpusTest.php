@@ -1048,6 +1048,9 @@ class CarveCorpusTest extends TestCase
         'the-round-trip-comparison-normalizes-a-named-list',
         // Arrived with spec f8a99b6; every pair renders byte-exact.
         'an-empty-link-destination-is-not-a-link',
+        'an-empty-link-destination-takes-spaces',
+        'a-tab-cannot-pad-an-empty-link-destination',
+        'a-tab-after-a-comment-marker-stays-in-its-text',
         'a-quote-is-an-ordinary-link-destination-character',
         'braced-emphasis-can-nest-its-own-kind',
         'substitution-content-is-inline-and-only-a-top-level-arrow-splits-it',
