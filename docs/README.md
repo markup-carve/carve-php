@@ -1,35 +1,28 @@
 # PHP guides
 
-Start with the [Carve documentation](https://markup-carve.github.io/carve/)
-for language syntax, examples and features shared by the implementations.
-These guides cover the PHP APIs and configuration.
+Start with the [Carve documentation](https://markup-carve.github.io/carve/) for the language.
 
-## Conversion and configuration
-
-- [Command line](cli.md): subcommands, flags and migration fidelity reports.
-- [Importing](html-import.md): HTML, Markdown, Djot and BBCode importers, fidelity and loss reports.
-- [Markdown output](markdown-output.md): writer options.
-- [Extensions](extensions.md): bundled extensions and registration.
-- [Untrusted input](security.md): safe rendering options.
-- [File inclusion](includes.md): opt-in includes and resolver configuration.
-- [Linting](lint.md): rules and options.
-- [Streaming render](streaming-render.md): chunk delivery and acceptance.
-- [Stored documents](stored-documents.md): spec versions and stored content.
-
-## Editor integration
-
-- [ProseMirror / Tiptap](prosemirror.md): editor interchange.
-- [AST JSON](ast-json.md): the interchange format.
-- [AST editor sidecars](ast-editor-sidecars.md): editor metadata.
-- [Editor sessions](editor-session.md): UTF-8 source edits, mapped nodes and identities.
-- [Source-line tracking](source-lines.md): source positions on the AST.
-- [Source-preserving patches](source-patches.md): structured formatting edits.
-
-For contribution setup, custom renderers, implementation details and
-measurements, see the [developer documentation](development.md).
-
-## More package details
-
-- [Additional package details](readme-details.md): setup, rendering, migration, and feature notes from the former README.
-- [Djot image alternative text](djot-image-alt-fidelity.md).
-- [Table source metadata](table-source-metadata.md).
+- [AST editor sidecars](ast-editor-sidecars.md)
+- [AST as JSON](ast-json.md)
+- [Command line](cli.md)
+- [Configured conversion fast path](configured-conversion-fast-path.md)
+- [Developer documentation](development.md)
+- [Djot image alternative text](djot-image-alt-fidelity.md)
+- [Source editing sessions](editor-session.md)
+- [Bundled extensions](extensions.md)
+- [HTML import fanout measurements](html-import-fanout-performance.md)
+- [Importing HTML](html-import.md)
+- [HTML whitespace differences](html-whitespace.md)
+- [Include directives](includes.md)
+- [Integrated definition layout](integrated-definition-layout.md)
+- [Linting](lint.md)
+- [Markdown output options](markdown-output.md)
+- [Markdown table pipes](markdown-table-code-pipes-2943.md)
+- [ProseMirror / Tiptap bridge](prosemirror.md)
+- [Rendering options](rendering.md)
+- [Rendering untrusted input](security.md)
+- [Source-line tracking](source-lines.md)
+- [Source-preserving patches](source-patches.md)
+- [Stored documents and spec versions](stored-documents.md)
+- [Streaming render boundary](streaming-render.md)
+- [Table source metadata](table-source-metadata.md)
