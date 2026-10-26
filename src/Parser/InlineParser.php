@@ -5357,10 +5357,7 @@ class InlineParser
             ];
         }
 
-        if (
-            $urlEnd > $urlStart && (str_contains(" \t\n\r\0\x0B", $text[$urlStart])
-            || str_contains(" \t\n\r\0\x0B", $text[$urlEnd - 1]))
-        ) {
+        if ($urlEnd > $urlStart && str_contains(" \t\n\r\0\x0B", $text[$urlStart])) {
             return $this->destinationScans[$urlStart] = $notADestination;
         }
         if ($this->destinationWhitespace === null) {
@@ -5395,17 +5392,14 @@ class InlineParser
             if (
                 $firstWhitespace === $urlStart || $text[$firstWhitespace] !== ' '
                 || ($quote !== '"' && $quote !== "'")
-                || $titleClose < $urlEnd - 1 || $text[$urlEnd - 1] !== $quote
+                || $titleClose >= $urlEnd
+                || strspn($text, ' ', $titleClose + 1, $urlEnd - $titleClose - 1) !== $urlEnd - $titleClose - 1
             ) {
                 return $this->destinationScans[$urlStart] = $notADestination;
             }
         }
 
         $raw = substr($text, $urlStart, $urlEnd - $urlStart);
-        if ($raw !== trim($raw)) {
-            return $this->destinationScans[$urlStart] = $notADestination;
-        }
-
         // Optional title after the destination, separated by
         // whitespace (a soft line break counts): "title" or 'title'. A
         // double/single quote delimiter may
@@ -5430,8 +5424,8 @@ class InlineParser
         // link to fail.
         $title = null;
         if (
-            preg_match('/^([\s\S]*?) "((?:\\\\"|[^"])*)"$/', $raw, $tm)
-            || preg_match('/^([\s\S]*?) \'((?:\\\\\'|[^\'])*)\'$/', $raw, $tm)
+            preg_match('/^([\s\S]*?) "((?:\\\\"|[^"])*)" *$/', $raw, $tm)
+            || preg_match('/^([\s\S]*?) \'((?:\\\\\'|[^\'])*)\' *$/', $raw, $tm)
         ) {
             $raw = $tm[1];
             // Unescape any backslash + ASCII-punctuation inside the
@@ -5439,6 +5433,10 @@ class InlineParser
             // non-punctuation char is kept. Matches the canonical
             // carve-js unescapeAttrValue / carve-rs unescape_title.
             $title = AttributeParser::processEscapes($tm[2]);
+        }
+
+        if ($raw !== trim($raw)) {
+            return $this->destinationScans[$urlStart] = $notADestination;
         }
 
         // The destination (what remains after splitting off any
