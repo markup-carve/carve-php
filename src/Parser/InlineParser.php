@@ -2793,6 +2793,14 @@ class InlineParser
             if ($refEnd !== false) {
                 $ref = substr($text, $afterBracket + 1, $refEnd - $afterBracket - 1);
 
+                if (str_starts_with($ref, '@')) {
+                    return [
+                        'node' => new Text(substr($text, $pos, $refEnd + 1 - $pos)),
+                        'pos' => $refEnd + 1,
+                        'link_text' => $linkText,
+                    ];
+                }
+
                 if ($ref === '') {
                     $ref = $linkText;
                 }
@@ -3005,7 +3013,7 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \MarkupCarve\Carve\Node\Inline\Image, pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\Image|\MarkupCarve\Carve\Node\Inline\Text, pos: int}|null
      */
     protected function parseImage(string $text, int $pos): ?array
     {
@@ -3030,6 +3038,12 @@ class InlineParser
         }
 
         $link = $result['node'];
+        if ($link instanceof Text) {
+            return [
+                'node' => new Text('!' . $link->getContent()),
+                'pos' => (int)$result['pos'],
+            ];
+        }
         if (!$link instanceof Link) {
             return null;
         }
@@ -3056,7 +3070,7 @@ class InlineParser
 
         return [
             'node' => $image,
-            'pos' => $result['pos'],
+            'pos' => (int)$result['pos'],
         ];
     }
 

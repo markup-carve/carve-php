@@ -111,12 +111,6 @@ count = 1
 [[issues]]
 file = "src/Parser/InlineParser.php"
 code = "invalid-return-statement"
-message = '''Invalid return type for function `MarkupCarve\Carve\Parser\InlineParser::parseImage`: expected `array{'node': MarkupCarve\Carve\Node\Inline\Image, 'pos': int}|null`, but found `array{'node': MarkupCarve\Carve\Node\Inline\Image, 'pos': int|null}`.'''
-count = 1
-
-[[issues]]
-file = "src/Parser/InlineParser.php"
-code = "invalid-return-statement"
 message = '''Invalid return type for function `MarkupCarve\Carve\Parser\InlineParser::verbatimCellWraps`: expected `array<array-key, array{'line': int, 'offset': int, 'row'?: int}>|null`, but found `non-empty-list<array{'col'?: positive-int, 'line': int, 'offset': non-negative-int, 'row'?: positive-int}>|null`.'''
 count = 1
 
