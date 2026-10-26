@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Transform;
 
+use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
@@ -51,7 +52,7 @@ final class BlockImagePromotion
             $current = array_pop($stack);
             foreach ($current->getChildren() as $child) {
                 if ($child instanceof Paragraph && !($whereAbsent && $child->isBlockImage())) {
-                    $child->setBlockImage(self::isBlockImage($child));
+                    $child->setBlockImage(!($current instanceof LineBlock) && self::isBlockImage($child));
                 }
                 $stack[] = $child;
             }

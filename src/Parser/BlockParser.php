@@ -1292,12 +1292,13 @@ class BlockParser
         foreach ($children as $index => $child) {
             if ($child instanceof Paragraph) {
                 $kids = $child->getChildren();
-                $child->setBlockImage(BlockImagePromotion::isBlockImage($child));
+                $child->setBlockImage(!($node instanceof LineBlock) && BlockImagePromotion::isBlockImage($child));
                 // Only resolved images at the container's content column become block nodes.
                 if (
                     count($kids) === 1
                     && $kids[0] instanceof Image
                     && ($kids[0]->getRawReferenceLabel() === null || $kids[0]->getSource() !== '' || UnresolvedReference::isResolvedEmpty($kids[0]))
+                    && !($node instanceof LineBlock)
                     && !isset($this->state->session->paragraphsAboveContentColumn[spl_object_id($child)])
                 ) {
                     if ($child->getAttributeEntries() !== []) {
