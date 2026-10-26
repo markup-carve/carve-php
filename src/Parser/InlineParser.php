@@ -4089,6 +4089,10 @@ class InlineParser
             }
         }
 
+        if ($previous instanceof Symbol) {
+            return ':';
+        }
+
         // Any other flushed state with prior output is word-adjacent, i.e.
         // closing context: a link, a code span or an emphasis run ends on a
         // construct, not on a character a quote can flank against.
