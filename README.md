@@ -43,7 +43,3 @@ vendor/bin/carve migrate --from html page.html
 - [Engine guides](docs/README.md)
 - [Security for untrusted input](docs/security.md)
 - [Development and contributing](docs/development.md)
-
-## License
-
-[MIT](LICENSE).
