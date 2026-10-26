@@ -787,7 +787,7 @@ final class BorrowedHtmlLayout
         $this->accept($stats, 'tableRows', $start, $start + 2);
         $i = $start + 2;
         $rows = 0;
-        while (isset($lines[$i]) && str_starts_with(ltrim($lines[$i]), '|')) {
+        while (isset($lines[$i]) && str_starts_with($lines[$i], '|')) {
             $row = $this->cells($lines[$i]);
             if ($row === null || count($row) !== count($heads)) {
                 return null;
