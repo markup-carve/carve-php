@@ -5923,9 +5923,6 @@ class InlineParser
 
         if ($closePos === false) {
             $content = substr($text, $contentStart);
-            if ($content === '') {
-                return null;
-            }
             // A forced-span closer ends the run like the block end does, and
             // strips its trailing spaces and tabs (markup-carve/carve#2051).
             $content = rtrim($content, $this->runStripCharacters);
