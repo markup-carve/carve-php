@@ -27,3 +27,9 @@ These guides cover the PHP APIs and configuration.
 
 For contribution setup, custom renderers, implementation details and
 measurements, see the [developer documentation](development.md).
+
+## More package details
+
+- [Additional package details](readme-details.md): setup, rendering, migration, and feature notes from the former README.
+- [Djot image alternative text](djot-image-alt-fidelity.md).
+- [Table source metadata](table-source-metadata.md).
