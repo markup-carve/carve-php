@@ -67,7 +67,9 @@ class BbcodeToCarve
      */
     protected array $quoteFieldDrops = [];
 
-    /** @var array<int, array{kind: string, value: string}> */
+    /**
+     * @var array<int, array{kind: string, value: string}>
+     */
     protected array $stylingDrops = [];
 
     /**
