@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Parser;
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Block\DefinitionDescription;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\ListBlock;
@@ -1103,6 +1104,7 @@ final class ListBlockBuilder
                 $this->leadBottomIsContinuationMarker($itemContent),
                 $authoredBaseEligible,
                 $unclosedFenceBase,
+                $parent instanceof DefinitionDescription,
             );
 
             [$itemLines, $itemLineMap, $authoredBaseEligible] = $this->foldColonFenceParagraph(
@@ -2621,6 +2623,7 @@ final class ListBlockBuilder
      * @param bool $leadIsBareContinuationMarker
      * @param array<int, true> $authoredBaseEligible
      * @param int|null $unclosedFenceBase
+     * @param bool $descriptionHost
      *
      * @return array{0: int, 1: \MarkupCarve\Carve\Parser\TrailingBlockState}
      */
@@ -2636,8 +2639,9 @@ final class ListBlockBuilder
         bool $leadIsBareContinuationMarker = false,
         array &$authoredBaseEligible = [],
         ?int &$unclosedFenceBase = null,
+        bool $descriptionHost = false,
     ): array {
-        return $this->continuations->collectPlainContinuationCore($lines, $i, $count, $baseIndent, $contentIndent, $itemLines, $itemLineMap, $trailingState, $leadIsBareContinuationMarker, $authoredBaseEligible, $unclosedFenceBase);
+        return $this->continuations->collectPlainContinuationCore($lines, $i, $count, $baseIndent, $contentIndent, $itemLines, $itemLineMap, $trailingState, $leadIsBareContinuationMarker, $authoredBaseEligible, $unclosedFenceBase, $descriptionHost);
     }
 
     /**

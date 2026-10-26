@@ -1228,11 +1228,13 @@ final class DefinitionListBuilder
             $l->indent > $b->continuationColumn
             && $b->reachedTermColumn === null
             && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $l->trimmedCont) === 1
-            && $this->bodyEntryStartsParagraph($b->body[0])
+            && ($this->bodyEntryStartsParagraph($b->body[0])
+                || ($this->getListParser)()->parseListItemMarker($b->body[0]) !== null)
             && ($b->noteBodyColumn === null || $l->contColumn < $b->noteBodyColumn)
         ) {
             $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
-            $l->termPastTheColumn = $b->bodyNestedState->nestedColumn === 0
+            $l->termPastTheColumn = ($b->bodyNestedState->nestedColumn === 0
+                    || $l->contColumn - $b->continuationColumn < $b->bodyNestedState->nestedColumn)
                 && !$b->bodyNestedState->quoteParagraph
                 && $b->bodyNestedState->fence === null
                 && !$b->bodyNestedState->inDiv
@@ -1610,7 +1612,7 @@ final class DefinitionListBuilder
                 ? 2 * BlockGrammar::DEFINITION_MARKER_WIDTH
                 : $nestedColumn;
             if (
-                !$l->termPastTheColumn
+                (!$l->termPastTheColumn || $leadMarker !== null)
                 && ($ownerColumn === 0 || IndentationHelper::getLeadingColumns($entry, $ownerColumn) < $ownerColumn)
             ) {
                 $entry = ltrim($entry, " \t");
