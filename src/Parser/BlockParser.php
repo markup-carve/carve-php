@@ -6146,6 +6146,7 @@ class BlockParser
             $this->leadBottomOpensFence(...),
             $this->keptCommentDelimiter(...),
             fn (): BlockQuoteBuilder => $this->quotesBuilder(),
+            $this->wrappedBlockAttributeLength(...),
         );
     }
 

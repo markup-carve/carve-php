@@ -80,4 +80,15 @@ class AnAttributeLineAfterAContinuationMarkerKeepsTheFenceBodyTest extends TestC
 
         $this->assertStringContainsString($expected, (string)$html);
     }
+
+    /**
+     * A quoted value cannot hold a newline, so this brace run is paragraph text
+     * and the fence below it is not attached.
+     */
+    public function testABraceRunTheAttributeMatcherRefusesAttachesNoFence(): void
+    {
+        $html = CarveConverter::create()->convert("- a\n+\n{k=\"hello\nworld\"}\n```\n- x\ncode\n```\n");
+
+        $this->assertStringContainsString("</ul>\n<pre><code>- x\ncode\n</code></pre>", $html);
+    }
 }

@@ -98,6 +98,7 @@ final class BlockContinuationScanner
      * @param \Closure(string): bool $leadBottomOpensFenceCallback
      * @param \Closure(string): string $keptCommentDelimiterCallback
      * @param \Closure(): \MarkupCarve\Carve\Parser\BlockQuoteBuilder $getBlockQuoteBuilder
+     * @param \Closure(array<string>, int): ?int $wrappedBlockAttributeLengthCallback
      */
     public function __construct(
         private BlockParserState $state,
@@ -137,6 +138,7 @@ final class BlockContinuationScanner
         private Closure $leadBottomOpensFenceCallback,
         private Closure $keptCommentDelimiterCallback,
         private Closure $getBlockQuoteBuilder,
+        private Closure $wrappedBlockAttributeLengthCallback,
     ) {
     }
 
@@ -975,24 +977,26 @@ final class BlockContinuationScanner
 
                 continue;
             }
-            if (!str_starts_with($first, '{') || str_contains($first, '}')) {
+            if (!str_starts_with($first, '{')) {
                 return $i;
             }
-            $run = $first;
+            // Hand the real matcher only the run it can read: up to a `}` or a blank.
+            $run = [$first];
             for ($j = $i + 1; $j < $count; $j++) {
                 $next = $view($j);
-                if (IndentationHelper::isBlankLine($next) || str_contains($next, '{')) {
-                    return $i;
+                if (IndentationHelper::isBlankLine($next)) {
+                    break;
                 }
-                $run .= ' ' . trim($next, " \t");
+                $run[] = $next;
                 if (str_contains($next, '}')) {
                     break;
                 }
             }
-            if ($j >= $count || !$this->isBlockAttributeLine($run)) {
+            $length = ($this->wrappedBlockAttributeLengthCallback)($run, 0);
+            if ($length === null) {
                 return $i;
             }
-            $i = $j + 1;
+            $i += $length;
         }
 
         return $i;
