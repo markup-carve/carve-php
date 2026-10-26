@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Transform;
 
+use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
-use function count;
 
 final class BlockImagePromotion
 {
@@ -18,11 +18,25 @@ final class BlockImagePromotion
      */
     public static function isBlockImage(Paragraph $paragraph): bool
     {
-        $children = $paragraph->getChildren();
+        return self::loneImage($paragraph) !== null;
+    }
 
-        return count($children) === 1
-            && $children[0] instanceof Image
-            && ($children[0]->getRawReferenceLabel() === null || $children[0]->getSource() !== '' || UnresolvedReference::isResolvedEmpty($children[0]));
+    public static function loneImage(Paragraph $paragraph): ?Image
+    {
+        $image = null;
+        foreach ($paragraph->getChildren() as $child) {
+            if ($child instanceof Comment) {
+                continue;
+            }
+            if (!($child instanceof Image) || $image !== null) {
+                return null;
+            }
+            $image = $child;
+        }
+
+        return $image !== null
+            && ($image->getRawReferenceLabel() === null || $image->getSource() !== '' || UnresolvedReference::isResolvedEmpty($image))
+            ? $image : null;
     }
 
     /**

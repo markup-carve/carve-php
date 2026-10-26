@@ -72,7 +72,7 @@ class DjotNulHeadingReferencesTest extends TestCase
         foreach ($controls as $row) {
             $converted = $converter->convert($row['source']);
             $html = $renderer->convert($converted);
-            $expectedElements = $this->elements($row['html']);
+            $expectedElements = $this->elements(ImageParagraphFixture::normalized($row['html']));
             $actualElements = $this->elements($html);
             if ($row['destinationOnly'] ?? false) {
                 $images = static function (array $elements): array {

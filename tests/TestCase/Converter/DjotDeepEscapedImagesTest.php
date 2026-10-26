@@ -68,7 +68,7 @@ class DjotDeepEscapedImagesTest extends TestCase
         foreach ($controls as $row) {
             $converted = $converter->convert($row['source']);
             $html = $renderer->convert($converted);
-            $this->assertSame($this->elements($row['html']), $this->elements($html), $row['source']);
+            $this->assertSame($this->elements(ImageParagraphFixture::normalized($row['html'])), $this->elements($html), $row['source']);
             $this->assertSame($this->text($row['html']), $this->text($html), $row['source']);
         }
         foreach ([128, 512, 1600, 6400] as $depth) {

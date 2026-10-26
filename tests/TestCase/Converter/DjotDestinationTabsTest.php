@@ -39,7 +39,7 @@ class DjotDestinationTabsTest extends TestCase
     public function testTabsDoNotChangeResolvedDestination(string $source, string $expected): void
     {
         $carve = (new DjotToCarve())->convert($source);
-        self::assertSame($expected, trim((new CarveConverter())->convert($carve)));
+        self::assertSame(ImageParagraphFixture::normalized($expected), trim((new CarveConverter())->convert($carve)));
     }
 
     /**

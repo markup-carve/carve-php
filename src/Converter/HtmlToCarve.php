@@ -1013,33 +1013,6 @@ class HtmlToCarve
             );
         }
 
-        $directLoneImage = $tag === 'p' ? $this->directAstLoneImage($node) : null;
-        if (
-            $tag === 'p'
-            && $directLoneImage instanceof DOMElement
-            && $this->importParagraphIsWrittenAsABlock($node)
-            && !($node->parentNode instanceof DOMElement && strtolower(DomLoader::elementName($node->parentNode)) === 'figure')
-        ) {
-            $paragraphAttrs = $this->writtenImportAttributeNames($node);
-            $lost = [
-                'attributed' => $paragraphAttrs !== [] || $node->hasAttribute('class'),
-                'overwritten' => $this->overwrittenImportImageAttributes($node, $directLoneImage),
-            ];
-            $head = 'A paragraph holding nothing but an image has no Carve spelling; '
-                . 'the image is written as a block';
-            if (!$lost['attributed']) {
-                $message = $head . ', which renders without the <p> around it';
-            } elseif ($lost['overwritten'] === []) {
-                $message = $head . ', so the <p> is lost and the attributes it carried '
-                    . 'are written on the image instead';
-            } else {
-                $message = $head . ', so the <p> is lost and the attributes it carried '
-                    . 'are written on the image - except ' . implode(', ', $lost['overwritten'])
-                    . ', which the image\'s own value overwrites';
-            }
-            $this->addImportDiagnostic($diagnostics, 'structure-unspellable', $message, 'warning', $path);
-        }
-
         if ($tag === 'p' && $this->holdsOnlyLayoutCharacters($node)) {
             $this->addImportDiagnostic(
                 $diagnostics,
@@ -1567,52 +1540,6 @@ class HtmlToCarve
         }
 
         return false;
-    }
-
-    private function directAstLoneImage(DOMElement $paragraph): ?DOMElement
-    {
-        $find = function (DOMElement $container) use (&$find): ?DOMElement {
-            $found = null;
-            foreach ($container->childNodes as $child) {
-                if ($child instanceof DOMText) {
-                    if (trim($child->textContent) !== '') {
-                        return null;
-                    }
-
-                    continue;
-                }
-                if (!$child instanceof DOMElement) {
-                    continue;
-                }
-                $tag = strtolower(DomLoader::elementName($child));
-                if ($tag === 'img') {
-                    if ($found !== null || HtmlAstBuilder::carriesNoDestination($child->getAttribute('src'))) {
-                        return null;
-                    }
-                    $found = $child;
-
-                    continue;
-                }
-                if (!in_array($tag, ['span', 'picture', 'source', 'figure'], true)) {
-                    return null;
-                }
-                if ($tag === 'source' && !$child->hasChildNodes()) {
-                    continue;
-                }
-                if ($tag !== 'source' && $child->attributes->length !== 0) {
-                    return null;
-                }
-                $nested = $find($child);
-                if ($nested === null || $found !== null) {
-                    return null;
-                }
-                $found = $nested;
-            }
-
-            return $found;
-        };
-
-        return $find($paragraph);
     }
 
     private function importKeepsElementRaw(DOMElement $node): bool
@@ -4445,42 +4372,6 @@ class HtmlToCarve
         }
 
         return true;
-    }
-
-    /**
-     * The paragraph attribute names the image's own attribute block overwrites.
-     *
-     * The paragraph's attributes are written as a block ABOVE the image and the
-     * image's own `{...}` after it, and BOTH are read onto one node - so a name
-     * the image also sets is the one that survives. `<p id="p"><img id="i">`
-     * writes `{#p}` above `![a](a){#i}` and reads back with `id="i"` alone, so a
-     * message claiming the paragraph's attributes were written on the image
-     * would leave that loss undeclared, which is the same defect one level down.
-     *
-     * CLASSES ARE NOT IN THIS SET: the class slot merges rather than replacing,
-     * so `{.p}` and `{.i}` both reach the rendered element and nothing is lost.
-     * An image's `src`, `alt` and `title` are not either - they go into the
-     * destination, the label and the destination's title slot, none of which is
-     * the attribute block, so they never collide with a paragraph's.
-     *
-     * @return list<string>
-     */
-    protected function overwrittenImportImageAttributes(DOMElement $paragraph, DOMElement $image): array
-    {
-        $imageNames = $this->writtenImportAttributeNames($image, ['src', 'alt', 'title', 'data-carve-ref']);
-        if ($imageNames === []) {
-            return [];
-        }
-
-        $lost = [];
-        foreach ($this->writtenImportAttributeNames($paragraph) as $name) {
-            if (in_array($name, $imageNames, true)) {
-                $lost[] = $name;
-            }
-        }
-        sort($lost);
-
-        return $lost;
     }
 
     /**

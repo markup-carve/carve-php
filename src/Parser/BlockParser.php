@@ -1291,18 +1291,16 @@ class BlockParser
         $replaced = false;
         foreach ($children as $index => $child) {
             if ($child instanceof Paragraph) {
-                $kids = $child->getChildren();
+                $image = BlockImagePromotion::loneImage($child);
                 $child->setBlockImage(!($node instanceof LineBlock) && BlockImagePromotion::isBlockImage($child));
                 // Only resolved images at the container's content column become block nodes.
                 if (
-                    count($kids) === 1
-                    && $kids[0] instanceof Image
-                    && ($kids[0]->getRawReferenceLabel() === null || $kids[0]->getSource() !== '' || UnresolvedReference::isResolvedEmpty($kids[0]))
+                    $image instanceof Image
                     && !($node instanceof LineBlock)
                     && !isset($this->state->session->paragraphsAboveContentColumn[spl_object_id($child)])
                 ) {
                     if ($child->getAttributeEntries() !== []) {
-                        $kids[0]->mergeLeadingAttributes($child->getAttributeEntries(), $child->getAttributeOrder());
+                        $image->mergeLeadingAttributes($child->getAttributeEntries(), $child->getAttributeOrder());
                         foreach (array_keys($child->getAttributeEntries()) as $key) {
                             $child->removeAttribute((string)$key);
                         }
@@ -1314,8 +1312,8 @@ class BlockParser
                     // and unwrapped it again in the HTML renderer, so the
                     // output matched while the tree did not - which no HTML
                     // gate can see (#633).
-                    $kids[0]->setPos($kids[0]->getPos() ?? $child->getPos());
-                    $children[$index] = $kids[0];
+                    $image->setPos($image->getPos() ?? $child->getPos());
+                    $children[$index] = $image;
                     $replaced = true;
 
                     continue;

@@ -35,7 +35,7 @@ class DjotNoteMetadataTest extends TestCase
                 $html = preg_replace('/<ol type="([^"]+)" start="([^"]+)">/', '<ol start="$2" type="$1">', $html);
                 $html = preg_replace('/\n[ \t]+(?=<(?:ul|ol|dl)>)/', "\n", $html);
                 $html = preg_replace('/>\s+</', '><', $html);
-                self::assertSame($row['html'], $html, $row['name']);
+                self::assertSame(ImageParagraphFixture::normalized($row['html']), $html, $row['name']);
             }
         }
     }

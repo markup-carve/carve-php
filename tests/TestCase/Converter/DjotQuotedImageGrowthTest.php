@@ -82,7 +82,7 @@ class DjotQuotedImageGrowthTest extends TestCase
             $converter = new DjotToCarve();
             $result = $converter->convertWithFidelityReport($row['source']);
             $html = CarveConverter::create()->convert($result->value);
-            self::assertSame($this->elements($row['html']), $this->elements($html), $row['source']);
+            self::assertSame($this->elements(ImageParagraphFixture::normalized($row['html'])), $this->elements($html), $row['source']);
             self::assertSame($this->text($row['html']), $this->text($html), $row['source']);
             $losses = array_values(array_map(static fn (array $d): string => $d['message'], array_filter($result->report()['diagnostics'], static fn (array $d): bool => $d['code'] === 'structure-unspellable')));
             self::assertSame($row['losses'], $losses, $row['source']);

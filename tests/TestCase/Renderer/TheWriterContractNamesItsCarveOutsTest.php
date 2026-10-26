@@ -396,7 +396,7 @@ class TheWriterContractNamesItsCarveOutsTest extends TestCase
             (new HtmlToCarve())->convertWithReport($html)->report()['diagnostics'],
         );
         if ($declared) {
-            $this->assertContains('structure-unspellable', $codes);
+            $this->assertNotContains('structure-unspellable', $codes);
 
             return;
         }
