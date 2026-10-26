@@ -21,7 +21,7 @@ use MarkupCarve\Carve\Parser\BlockParser;
  *
  * One rule so far.
  *
- * `table-cell-attribute-before-marker`: a table cell whose attribute block is
+ * `table-marker-run-padding`: a table cell whose attribute block is
  * immediately followed by `<`, `>` or `~`. Under PART 9 §5 T10 the block binds
  * AFTER the kind and alignment markers, so that sigil is now ordinary content;
  * under the retired order it was the cell's alignment. Both readings parse, so
@@ -45,7 +45,7 @@ class RetiredSpellingLinter
     /**
      * @var string
      */
-    public const RULE_TABLE_CELL_ATTRIBUTE_BEFORE_MARKER = 'table-cell-attribute-before-marker';
+    public const RULE_TABLE_MARKER_RUN_PADDING = 'table-marker-run-padding';
 
     /**
      * The alignment each retired sigil used to mean, named for the message.
@@ -146,7 +146,7 @@ class RetiredSpellingLinter
         return new LintWarning(
             line: $pos->startLine,
             column: $pos->startColumn,
-            rule: self::RULE_TABLE_CELL_ATTRIBUTE_BEFORE_MARKER,
+            rule: self::RULE_TABLE_MARKER_RUN_PADDING,
             message: sprintf(
                 'The `%s` after this cell\'s attribute block is content, not alignment: '
                     . 'a cell\'s attributes bind after its markers, and the block is part of '

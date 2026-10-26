@@ -391,10 +391,10 @@ class CliTest extends TestCase
         $result = $this->runCliInput(['lint'], "|{#x}< content |\n\n**bold**\n");
 
         $this->assertSame(1, $result['exit']);
-        $this->assertStringContainsString('-:1:2 table-cell-attribute-before-marker', $result['out']);
+        $this->assertStringContainsString('-:1:2 table-marker-run-padding', $result['out']);
         $this->assertLessThan(
             strpos($result['out'], 'markdown-strong-double-star'),
-            strpos($result['out'], 'table-cell-attribute-before-marker'),
+            strpos($result['out'], 'table-marker-run-padding'),
             'findings are ordered by position, across all three passes',
         );
     }

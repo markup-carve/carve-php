@@ -42,7 +42,18 @@ class TableColumnLinter
                         $runEnd = $blockEnd ?? $runEnd;
                         if (($line[$runEnd] ?? '') !== ' ') {
                             $suffix = $block ? ' and its attribute block' : '';
-                            $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $offset, strlen($run), 'table-alignment-run-padding', sprintf('The table alignment run "%s" has no terminating space, so it is literal cell content. Add a space after the run%s to make it alignment.', $run, $suffix));
+                            $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $offset, strlen($run), 'table-marker-run-padding', sprintf('The table alignment run "%s" has no terminating space, so it is literal cell content. Add a space after the run%s to make it alignment.', $run, $suffix));
+                        }
+                    }
+                }
+
+                if (preg_match_all('/\|=(?=[^<>~^v?\s])/', $line, $kindMatches, PREG_OFFSET_CAPTURE)) {
+                    foreach ($kindMatches[0] as [$spelling, $offset]) {
+                        $runEnd = $offset + 2;
+                        $blockEnd = (new TableParser())->cellAttrBlockEnd($line, $runEnd);
+                        $runEnd = $blockEnd ?? $runEnd;
+                        if (($line[$runEnd] ?? '') !== ' ') {
+                            $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $offset + 1, $runEnd - $offset - 1, 'table-marker-run-padding', 'The table kind marker has no terminating space, so it is literal cell content. Add a space after the marker run to make it a header.');
                         }
                     }
                 }
