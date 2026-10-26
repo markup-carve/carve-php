@@ -3041,7 +3041,7 @@ class InlineParser
         if ($link instanceof Text) {
             return [
                 'node' => new Text('!' . $link->getContent()),
-                'pos' => (int) $result['pos'],
+                'pos' => (int)$result['pos'],
             ];
         }
         if (!$link instanceof Link) {
@@ -3070,7 +3070,7 @@ class InlineParser
 
         return [
             'node' => $image,
-            'pos' => (int) $result['pos'],
+            'pos' => (int)$result['pos'],
         ];
     }
 
