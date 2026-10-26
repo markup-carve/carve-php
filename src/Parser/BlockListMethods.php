@@ -357,6 +357,7 @@ trait BlockListMethods
             if (
                 $item === null || isset($item['attributes'])
                 || !ctype_alnum($item['content'][0] ?? '')
+                || $item['content'] !== rtrim($item['content'], " \t")
                 || !$this->listParser->itemMatchesList($first, $item)
             ) {
                 break;
@@ -502,7 +503,7 @@ trait BlockListMethods
         while ($i < $count && str_starts_with($lines[$i], '- ')) {
             $content = substr($lines[$i], 2);
             if (
-                $content === '' || $content !== rtrim($content, ' ')
+                $content === '' || $content !== rtrim($content, " \t")
                 || !$this->inlineParser->canCopyPlainText($content)
             ) {
                 return null;
