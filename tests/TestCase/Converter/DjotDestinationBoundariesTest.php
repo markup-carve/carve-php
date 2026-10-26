@@ -34,7 +34,7 @@ class DjotDestinationBoundariesTest extends TestCase
         $html = preg_replace('/\n[ \t]+(<[ou]l>)/', "\n$1", $html);
         $expected = str_replace('&nbsp;', "\u{00a0}", $expected);
         $expected = preg_replace('/<img alt="([^"]*)" src="([^"]*)">/', '<img src="$2" alt="$1">', $expected);
-        self::assertSame($expected, $html);
+        self::assertSame(ImageParagraphFixture::normalized($expected), $html);
     }
 
     public function testLinkImmediatelyAfterFootnote(): void
@@ -132,6 +132,6 @@ class DjotDestinationBoundariesTest extends TestCase
     {
         $carve = (new DjotToCarve())->convert($source);
 
-        self::assertSame($expectedHtml, trim((new CarveConverter())->convert($carve)));
+        self::assertSame(ImageParagraphFixture::normalized($expectedHtml), trim((new CarveConverter())->convert($carve)));
     }
 }

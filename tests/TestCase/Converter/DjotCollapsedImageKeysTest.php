@@ -42,7 +42,7 @@ class DjotCollapsedImageKeysTest extends TestCase
             return;
         }
         $actual = (new CarveConverter())->convert($report->value);
-        self::assertSame($this->shape($expected), $this->shape($actual), $source . "\n" . $report->value);
+        self::assertSame($this->shape(ImageParagraphFixture::normalized($expected)), $this->shape($actual), $source . "\n" . $report->value);
     }
 
     public function testEscapedCollapsedBracketsRemainLiteral(): void

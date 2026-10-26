@@ -39,7 +39,7 @@ class DjotUnpairedSingleQuoteTest extends TestCase
     {
         $html = trim((new CarveConverter())->convert((new DjotToCarve())->convert($source)));
 
-        self::assertSame($expected, $html);
+        self::assertSame(ImageParagraphFixture::normalized($expected), $html);
     }
 
     public function testHeadingIdKeepsTheAuthoredApostrophe(): void

@@ -69,7 +69,7 @@ class DjotDivOpenersTest extends TestCase
         $renderer = new CarveConverter();
         foreach ($controls as $row) {
             $converted = $converter->convert($row['source']);
-            $this->assertSame($this->html($row['html']), $this->html($renderer->convert($converted)), $row['source']);
+            $this->assertSame($this->html(ImageParagraphFixture::normalized($row['html'])), $this->html($renderer->convert($converted)), $row['source']);
         }
     }
 }

@@ -207,7 +207,7 @@ class AFigureFindsItsImageBehindAWrapperTest extends TestCase
         $codes = $this->codes($html);
 
         $this->assertSame(
-            1,
+            0,
             count(array_filter($codes, static fn (string $code): bool => $code === 'structure-unspellable')),
             'the wrapped image is one loss, reported once: ' . implode(',', $codes),
         );

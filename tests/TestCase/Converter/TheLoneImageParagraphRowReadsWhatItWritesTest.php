@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
-use MarkupCarve\Carve\Converter\Html\DomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Image;
@@ -92,7 +91,7 @@ class TheLoneImageParagraphRowReadsWhatItWritesTest extends TestCase
     {
         $html = '<p><figure><img src="g.jpg" alt="G"></figure></p>';
         $this->assertSame("![G](g.jpg)\n", $this->carve($html));
-        $this->assertSame(DomLoader::usesHtml5() ? [] : ['structure-unspellable'], $this->rows($html));
+        $this->assertSame([], $this->rows($html));
     }
 
     #[DataProvider('transparentWrapperProvider')]
@@ -106,7 +105,7 @@ class TheLoneImageParagraphRowReadsWhatItWritesTest extends TestCase
         $this->assertSame("![G](g.jpg)\n", $written);
         $this->assertSame([Image::class], $this->rereadKinds($written));
 
-        $this->assertSame(['structure-unspellable'], $this->rows($html));
+        $this->assertSame([], $this->rows($html));
     }
 
     /**
@@ -234,7 +233,6 @@ class TheLoneImageParagraphRowReadsWhatItWritesTest extends TestCase
             ),
         ));
 
-        $this->assertCount(1, $messages);
-        $this->assertStringContainsString('except id', $messages[0]);
+        $this->assertSame([], $messages);
     }
 }

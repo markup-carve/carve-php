@@ -31,7 +31,7 @@ class DjotImageQuoteChildTextTest extends TestCase
     {
         $converted = (new DjotToCarve())->convert($source);
         $actual = (new CarveConverter())->convert($converted);
-        self::assertSame($this->shape($expected), $this->shape($actual), $source . "\n" . $converted);
+        self::assertSame($this->shape(ImageParagraphFixture::normalized($expected)), $this->shape($actual), $source . "\n" . $converted);
     }
 
     private function shape(string $html): mixed

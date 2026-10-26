@@ -77,7 +77,7 @@ class DjotDefinitionDivOpenersTest extends TestCase
         foreach ($controls as $row) {
             $converted = $converter->convert($row['source']);
             $html = $renderer->convert($converted);
-            $expectedElements = $this->elements($row['html']);
+            $expectedElements = $this->elements(ImageParagraphFixture::normalized($row['html']));
             $actualElements = $this->elements($html);
             $this->assertSame($expectedElements, $actualElements, $row['source']);
             $this->assertSame($this->text($row['html']), $this->text($html), $row['source']);
