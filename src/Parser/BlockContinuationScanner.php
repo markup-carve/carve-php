@@ -1141,6 +1141,7 @@ final class BlockContinuationScanner
      * @param bool $leadIsBareContinuationMarker
      * @param array<int, true> $authoredBaseEligible
      * @param int|null $unclosedFenceBase
+     * @param bool $descriptionHost
      *
      * @return array{0: int, 1: \MarkupCarve\Carve\Parser\TrailingBlockState}
      */
@@ -1156,6 +1157,7 @@ final class BlockContinuationScanner
         bool $leadIsBareContinuationMarker = false,
         array &$authoredBaseEligible = [],
         ?int &$unclosedFenceBase = null,
+        bool $descriptionHost = false,
     ): array {
         $run = new PlainContinuationState();
         $run->floorLiveParagraph = $trailingState->openParagraph;
@@ -1196,6 +1198,16 @@ final class BlockContinuationScanner
         $run->spanFromMarkerLine = $run->openCommentLength !== null;
         while ($i < $count) {
             $nextLine = $lines[$i];
+            if (
+                $descriptionHost
+                && $run->openCommentLength === null
+                && $trailingState->fence === null
+                && !$trailingState->hasOpenDiv()
+                && IndentationHelper::getLeadingColumns($nextLine, $contentIndent) < $contentIndent
+                && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($nextLine, " \t")) === 1
+            ) {
+                break;
+            }
             if ($this->quotedMarkerAfterBlankReleasesItem($nextLine, $i)) {
                 break;
             }
