@@ -211,6 +211,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * @var array<int, true>
      */
     protected array $edgeCellBreaks = [];
+    protected ?int $terminalCellBreakId = null;
+    private bool $flattenCellBreaksForImport = false;
+
+    public function flattenCellBreaksForImport(): void
+    {
+        $this->flattenCellBreaksForImport = true;
+    }
 
     /**
      * Object ids of the inline spans written in the braced form.
@@ -3901,11 +3908,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->flattenedTableCell = $cell->hasBlockContent() ? $cell : null;
         $this->tableCellDepth++;
         $this->edgeCellBreaks = $this->edgeHardBreaks(array_values(array_filter($inlines, static fn (Node $inline): bool => !$inline instanceof CarveFieldDiagnostic)));
+        $lastInline = end($inlines);
+        $this->terminalCellBreakId = $lastInline instanceof HardBreak ? spl_object_id($lastInline) : null;
         try {
             $content = $this->renderInlines($inlines);
         } finally {
             $this->tableCellDepth--;
             $this->edgeCellBreaks = [];
+            $this->terminalCellBreakId = null;
             $this->flattenedTableCell = $previousFlattenedCell;
         }
 
@@ -3944,6 +3954,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         if ($this->tableCellDepth === 0) {
             return "\\\n";
+        }
+        if (!$this->flattenCellBreaksForImport && $this->terminalCellBreakId === spl_object_id($node)) {
+            return '\\';
         }
         $this->recordCellHardBreak($node);
 
