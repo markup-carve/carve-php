@@ -1498,10 +1498,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * @param array<\MarkupCarve\Carve\Node\Node> $blocks
      * @param bool $compactFootnoteBlocks Keep block openers in a note on a definition line.
      * @param \MarkupCarve\Carve\Node\Block\ListItem|null $item
+     * @param bool $descriptionBody
      *
      * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
-    protected function renderBlocks(array $blocks, bool $compactFootnoteBlocks = false, ?ListItem $item = null): string
+    protected function renderBlocks(array $blocks, bool $compactFootnoteBlocks = false, ?ListItem $item = null, bool $descriptionBody = false): string
     {
         if ($this->blockDepth >= self::MAX_RENDER_DEPTH) {
             throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Carve');
@@ -1531,6 +1532,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $previousList = null;
             $previousCompactDefinition = false;
             $listSeparated = false;
+            $descriptionListOffset = 0;
             $previousEmitted = null;
             $movedMarker = null;
             foreach ($blocks as $index => $block) {
@@ -1559,10 +1561,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $this->afterCaptionHost = self::hostsACaption($block);
                 if ($block instanceof ListBlock) {
                     $listSeparated = $previousList !== null && self::listsWouldMerge($previousList, $block);
+                    if (!$listSeparated) {
+                        $descriptionListOffset = 0;
+                    }
                     $previousList = $block;
                 } elseif (self::spellsSomething($rendered)) {
                     $previousList = null;
                     $listSeparated = false;
+                    $descriptionListOffset = 0;
                 }
                 // A block that spells nothing contributes nothing - not even
                 // the blank line a part of its own would open. As far as the
@@ -1581,7 +1587,18 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $parentList = $item->getParent();
                         $separator = $parentList instanceof ListBlock && $parentList->isTight() ? "\n" : "\n\n";
                         $parts[array_key_last($parts)] .= $separator . $rendered;
+                    } elseif ($listSeparated && $parts !== [] && $descriptionBody) {
+                        // Each sibling list takes the next body column. Move
+                        // item continuations and nested children with its opener.
+                        $descriptionListOffset++;
+                        $indent = str_repeat(' ', $descriptionListOffset);
+                        $shifted = array_map(
+                            fn (string $line): string => $this->indentContinuationLine($line, $indent),
+                            explode("\n", $rendered),
+                        );
+                        $parts[array_key_last($parts)] .= "\n\n" . implode("\n", $shifted);
                     } elseif ($listSeparated && $parts !== []) {
+                        $descriptionListOffset = 0;
                         // The tag OPENS the next block's first line rather than
                         // joining two blocks, so every host that indents line by
                         // line can see the break and prefix the line - see
@@ -3246,7 +3263,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 try {
                     $body = $this->atAnAuthoredBodyColumn(
                         fn (): string => $this->withResetColonFenceDepth(
-                            fn (): string => $this->renderBlocks($child->getChildren()),
+                            fn (): string => $this->renderBlocks($child->getChildren(), false, null, true),
                         ),
                     );
                 } finally {
