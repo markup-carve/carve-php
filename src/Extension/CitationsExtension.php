@@ -826,13 +826,13 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
 
         $isDefinitionMarker = $group->hasAttribute(self::REFS_MARK . '-def');
         $second = $nodes[1] ?? null;
-        if (!$isDefinitionMarker && (!$second instanceof Text || !str_starts_with($second->getContent(), ':'))) {
+        if (!$isDefinitionMarker && (!$second instanceof Text || preg_match('/^: +/', $second->getContent()) !== 1)) {
             return null;
         }
 
         $entry = array_slice($nodes, 1);
         if (!$isDefinitionMarker) {
-            $entry[0] = new Text((string)preg_replace('/^:\s*/', '', $second->getContent()));
+            $entry[0] = new Text((string)preg_replace('/^: +/', '', $second->getContent()));
         }
         $value = ['entry' => $entry];
         foreach (['author', 'year'] as $name) {
