@@ -3037,6 +3037,10 @@ class InlineParser
             return null;
         }
 
+        if (!isset($result['pos'])) {
+            return null;
+        }
+
         $link = $result['node'];
         if ($link instanceof Text) {
             return [
