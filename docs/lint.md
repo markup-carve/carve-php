@@ -381,7 +381,7 @@ author knows which reading was meant, so this pass reports rather than rewrites.
 
 | rule | what it catches |
 |---|---|
-| `table-cell-attribute-before-marker` | a table cell whose attribute block is immediately followed by `<`, `>` or `~`, which used to be the cell's alignment and is now content |
+| `table-marker-run-padding` | a table cell with a kind marker, alignment run, or attribute block that lacks the space ending its marker run |
 
 ```php
 use MarkupCarve\Carve\Lint\RetiredSpellingLinter;

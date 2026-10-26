@@ -72,7 +72,7 @@ class CellAttributesBindAfterTheMarkersTest extends TestCase
      * CONTROL. The RETIRED order does not also work. `<` is no longer in a
      * marker position, so it is literal content and the cell is not aligned -
      * the one released spelling this rule reinterprets, which is why it ships
-     * with `table-cell-attribute-before-marker` rather than a rewrite.
+     * with `table-marker-run-padding` rather than a rewrite.
      */
     public function testTheRetiredOrderIsEntirelyContentWithoutATerminatingSpace(): void
     {

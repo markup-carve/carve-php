@@ -58,7 +58,7 @@ class RetiredSpellingLintTest extends TestCase
     public function testTheRetiredOrderIsReported(string $source): void
     {
         $this->assertSame(
-            [RetiredSpellingLinter::RULE_TABLE_CELL_ATTRIBUTE_BEFORE_MARKER],
+            [RetiredSpellingLinter::RULE_TABLE_MARKER_RUN_PADDING],
             $this->rules($source),
         );
     }
@@ -181,7 +181,7 @@ class RetiredSpellingLintTest extends TestCase
     public function testAContainerDoesNotHideIt(string $source): void
     {
         $this->assertSame(
-            [RetiredSpellingLinter::RULE_TABLE_CELL_ATTRIBUTE_BEFORE_MARKER],
+            [RetiredSpellingLinter::RULE_TABLE_MARKER_RUN_PADDING],
             $this->rules($source),
         );
     }
