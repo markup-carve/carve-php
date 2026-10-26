@@ -930,7 +930,10 @@ final class BlockContinuationScanner
         if (!$this->continuationFollowerIsEligible($i)) {
             return [$i, [], []];
         }
-        $fenced = $this->attachedFencedBlockEnd($lines, $i, $count, $transform);
+        // The attribute lines belong to the block below them (carve#1238), so
+        // a fence after them is still the attached block's first line.
+        $opener = $this->skipLeadingAttributeLines($lines, $i, $count, $transform);
+        $fenced = $this->attachedFencedBlockEnd($lines, $opener, $count, $transform);
         if ($fenced !== -1) {
             $take = $fenced - $i + 1;
         } else {
@@ -951,6 +954,48 @@ final class BlockContinuationScanner
         }
 
         return [$i + $take, $collected, $rawLineMap];
+    }
+
+    /**
+     * Index of the first line after a run of block-attribute lines, single-line
+     * or wrapped (section 15 A5); `$i` itself when none starts there.
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     * @param callable|null $transform
+     */
+    private function skipLeadingAttributeLines(array $lines, int $i, int $count, ?callable $transform): int
+    {
+        $view = static fn (int $at): string => $transform === null ? $lines[$at] : $transform($lines[$at]);
+        while ($i < $count) {
+            $first = $view($i);
+            if ($this->isBlockAttributeLine($first)) {
+                $i++;
+
+                continue;
+            }
+            if (!str_starts_with($first, '{') || str_contains($first, '}')) {
+                return $i;
+            }
+            $run = $first;
+            for ($j = $i + 1; $j < $count; $j++) {
+                $next = $view($j);
+                if (IndentationHelper::isBlankLine($next) || str_contains($next, '{')) {
+                    return $i;
+                }
+                $run .= ' ' . trim($next, " \t");
+                if (str_contains($next, '}')) {
+                    break;
+                }
+            }
+            if ($j >= $count || !$this->isBlockAttributeLine($run)) {
+                return $i;
+            }
+            $i = $j + 1;
+        }
+
+        return $i;
     }
 
     /**
