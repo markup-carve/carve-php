@@ -13,15 +13,6 @@ lightweight markup language for readable source and structured documents.
 
 Implements **Carve spec 0.1** (see [Versioning & Changelog](https://markup-carve.github.io/carve/versioning)).
 
-## Task states
-
-Task items use `[ ]` for open, `[_]` as an authored open alias, `[/]` for
-progress, `[!]` for blocked, `[x]` or `[X]` for done, `[-]` for dropped,
-`[>]` for deferred, and `[?]` for uncertain. Only done is checked. AST JSON
-stores a nondefault authored character in `list_item.taskState`; `_` remains
-open while retaining its spelling. HTML puts a named state on the item's
-`data-task-state` attribute.
-
 ## Installation
 
 ~~~ bash
