@@ -11,11 +11,13 @@ class FormatterKeepsAdjacentTightListsInDescriptionTest extends TestCase
 {
     public function testListsStayTightAndInTheirDescription(): void
     {
-        foreach ([
-            ['- a', '- c', "\t"],
-            ['* alpha', '* beta', '  '],
-            ['1. first', '1. second', ''],
-        ] as [$first, $second, $tail]) {
+        foreach (
+            [
+                ['- a', '- c', "\t"],
+                ['* alpha', '* beta', '  '],
+                ['1. first', '1. second', ''],
+            ] as [$first, $second, $tail]
+        ) {
             $source = ":: term\n: {$first}\n\n   {$second}{$tail}\n";
             $written = CarveConverter::toCarve($source);
             self::assertSame(":: term\n: {$first}\n\n   {$second}\n", $written);
@@ -26,14 +28,16 @@ class FormatterKeepsAdjacentTightListsInDescriptionTest extends TestCase
 
     public function testShiftedListsKeepTheirItemsAndNestedChildren(): void
     {
-        foreach ([
-            ['- a', "- c\n   - d"],
-            ['1. a', "1. c\n   2. d"],
-            ['9. a', "9. c\n   10. d"],
-            ['- a', "- c\n     - nested"],
-            ['- a', "- c\n\n    - e"],
-            ['- a', "- c\n\n   - d"],
-        ] as [$first, $body]) {
+        foreach (
+            [
+                ['- a', "- c\n   - d"],
+                ['1. a', "1. c\n   2. d"],
+                ['9. a', "9. c\n   10. d"],
+                ['- a', "- c\n     - nested"],
+                ['- a', "- c\n\n    - e"],
+                ['- a', "- c\n\n   - d"],
+            ] as [$first, $body]
+        ) {
             $source = ":: term\n: {$first}\n\n   {$body}\n";
             $written = CarveConverter::toCarve($source);
             self::assertSame(CarveConverter::create()->convert($source), CarveConverter::create()->convert($written), $source);

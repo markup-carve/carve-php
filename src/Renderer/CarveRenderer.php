@@ -1498,6 +1498,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * @param array<\MarkupCarve\Carve\Node\Node> $blocks
      * @param bool $compactFootnoteBlocks Keep block openers in a note on a definition line.
      * @param \MarkupCarve\Carve\Node\Block\ListItem|null $item
+     * @param bool $descriptionBody
      *
      * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
