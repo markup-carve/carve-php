@@ -2327,7 +2327,7 @@ final class InlineStage
     {
         $protected =&$work->protected;
         $line = $this->escapeCarveConstructsSpelledLikeText($line, $protected);
-        $line = $this->escapeTypographicDashes($line);
+        $line = $this->escapeTypographicDashes($line, $table);
         $line = preg_replace_callback('/(?<!\\\\)\.{3,}/', static fn (array $run): string => str_replace('.', '\\.', $run[0]), $line) ?? $line;
         $symbolSubject = $line;
         $line = preg_replace_callback(
@@ -3418,14 +3418,14 @@ final class InlineStage
      * only a thematic break, alone or under its containers' markers, is
      * structure rather than text and keeps its hyphens.
      */
-    protected function escapeTypographicDashes(string $line): string
+    protected function escapeTypographicDashes(string $line, bool $table = false): string
     {
         if (!str_contains($line, '--')) {
             return $line;
         }
         $rest = preg_replace('/^[ \t]*(?:>[ \t]?)*/', '', $line) ?? $line;
         while (true) {
-            if (preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $rest) === 1) {
+            if (!$table && preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $rest) === 1) {
                 return $line;
             }
             if (preg_match('/^[ \t]*(?:(?:[-*+]|\d+[.)]) +|>[ \t]?)/', $rest, $marker) !== 1) {
