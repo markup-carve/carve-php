@@ -146,3 +146,7 @@ to HTML output only. Run `bin/carve --help` for the full list.
 ---
 
 [Back to the README](https://github.com/markup-carve/carve-php/blob/main/README.md)
+
+## Directory migration file permissions
+
+The folder command copies assets and writes `docs-carve/migration-report.json` with files that need review. Copied assets keep their source permissions, and a converted file is never more readable than its Markdown source.
