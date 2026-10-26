@@ -11,12 +11,13 @@ final class TerminalTableCellHardBreakTest extends TestCase
 {
     public function testTerminalBreaksSurviveCanonicalWriting(): void
     {
-        foreach ([
+        $sources = [
             "| a\\ | b |\n",
             "| a\\ | b\\ |\n",
             "|= head\\ | data |\n",
             "| a\\|b\\ | c\\|d |\n",
-        ] as $source) {
+        ];
+        foreach ($sources as $source) {
             self::assertSame($source, CarveConverter::toCarve($source));
         }
     }
