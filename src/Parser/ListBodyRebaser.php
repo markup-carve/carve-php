@@ -473,9 +473,9 @@ final class ListBodyRebaser
 
                     continue;
                 }
-                // A retained TAB may depend on its source column. Let the
-                // existing extent walk decide instead of rejecting this chunk.
-                if (str_contains($line, "\t")) {
+                // A retained leading tab may depend on its source column. A
+                // content tab cannot move the line's authored base.
+                if (str_contains(substr($line, 0, strspn($line, " \t")), "\t")) {
                     $parentCandidate = true;
 
                     break;
