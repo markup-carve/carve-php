@@ -67,6 +67,9 @@ class BbcodeToCarve
      */
     protected array $quoteFieldDrops = [];
 
+    /** @var array<int, array{kind: string, value: string}> */
+    protected array $stylingDrops = [];
+
     /**
      * The preferred first code point of the run picked for the list boundary.
      *
@@ -101,6 +104,7 @@ class BbcodeToCarve
             );
         }
         $this->quoteFieldDrops = [];
+        $this->stylingDrops = [];
         $bbcode = StringUtil::toValidUtf8($bbcode);
 
         // A U+0000 IN THE INPUT IS REPLACED BY U+FFFD, before anything reads the
@@ -226,6 +230,16 @@ class BbcodeToCarve
                     'line:' . ($tags[$at]['line'] ?? 1),
                 );
             }
+        }
+
+        foreach ($this->stylingDrops as $drop) {
+            $diagnostics[] = new MigrationDiagnostic(
+                'bbcode-styling-dropped',
+                'Dropped the BBCode ' . $drop['kind'] . ' styling wrapper with value ' . json_encode($drop['value'], JSON_INVALID_UTF8_SUBSTITUTE) . '.',
+                'warning',
+                'dropped',
+                'exact',
+            );
         }
 
         return new MigrationResult($value, 'bbcode', $diagnostics);
@@ -462,15 +476,28 @@ class BbcodeToCarve
         }
 
         // Size [size=X]...[/size] - no direct equivalent, strip tags
-        $text = preg_replace('/\[size=[^\]]*\](.*?)\[\/size\]/is', '$1', $text) ?? $text;
+        $text = $this->dropStyling($text, 'size');
 
         // Color [color=X]...[/color] - no direct equivalent, strip tags
-        $text = preg_replace('/\[color=[^\]]*\](.*?)\[\/color\]/is', '$1', $text) ?? $text;
+        $text = $this->dropStyling($text, 'color');
 
         // Font [font=X]...[/font] - no direct equivalent, strip tags
-        $text = preg_replace('/\[font=[^\]]*\](.*?)\[\/font\]/is', '$1', $text) ?? $text;
+        $text = $this->dropStyling($text, 'font');
 
         return $text;
+    }
+
+    private function dropStyling(string $text, string $kind): string
+    {
+        return preg_replace_callback(
+            '/\[' . $kind . '=([^\]]*)\](.*?)\[\/' . $kind . '\]/is',
+            function (array $match) use ($kind): string {
+                $this->stylingDrops[] = ['kind' => $kind, 'value' => $match[1]];
+
+                return $match[2];
+            },
+            $text,
+        ) ?? $text;
     }
 
     /**

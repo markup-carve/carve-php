@@ -18,6 +18,23 @@ use PHPUnit\Framework\TestCase;
 
 final class MigrationResultTest extends TestCase
 {
+    public function testBbcodeReportsEveryRemovedStylingWrapper(): void
+    {
+        $result = (new BbcodeToCarve())->convertWithFidelityReport('[color=red]a[/color] [size=20]b[/size] [font=serif]c[/font]');
+        self::assertSame("a b c\n", $result->value);
+        $rows = array_values(array_filter($result->diagnostics, static fn (MigrationDiagnostic $row): bool => $row->code === 'bbcode-styling-dropped'));
+        self::assertSame('fidelity-unverified', $result->diagnostics[0]->code);
+        self::assertSame([
+            'Dropped the BBCode size styling wrapper with value "20".',
+            'Dropped the BBCode color styling wrapper with value "red".',
+            'Dropped the BBCode font styling wrapper with value "serif".',
+        ], array_map(static fn (MigrationDiagnostic $row): string => $row->message, $rows));
+        self::assertNotContains('bbcode-styling-dropped', array_map(
+            static fn (MigrationDiagnostic $row): string => $row->code,
+            (new BbcodeToCarve())->convertWithFidelityReport('[code][color=red]x[/color][/code]')->diagnostics,
+        ));
+    }
+
     public function testBbcodeQuoteUserIdsAreReportedAtTheirSourceLines(): void
     {
         $source = "intro\r\n[quote=\"alice\" post_id=12 user_id=3]q[/quote]\n[quote=bob user_id=4]r[/quote]";
