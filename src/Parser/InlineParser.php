@@ -3013,7 +3013,7 @@ class InlineParser
     }
 
     /**
-     * @return array{node: \MarkupCarve\Carve\Node\Inline\Image, pos: int}|null
+     * @return array{node: Image|Text, pos: int}|null
      */
     protected function parseImage(string $text, int $pos): ?array
     {
