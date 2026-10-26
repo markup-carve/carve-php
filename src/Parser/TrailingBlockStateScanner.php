@@ -408,6 +408,7 @@ final class TrailingBlockStateScanner
                 preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
                 || ($column === $state->divColumn && preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedInDiv) === 1)
                 || ($this->getTableParser)()->isTableRow($trimmedInDiv)
+                || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $trimmedInDiv) === 1
             ) {
                 $state->openParagraph = false;
 

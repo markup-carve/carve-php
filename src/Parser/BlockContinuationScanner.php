@@ -1715,7 +1715,7 @@ final class BlockContinuationScanner
             && !$trailingState->quoteParagraph
             && !$isBlockQuoteLazyLine
             && $trailingState->fence === null
-            && !$trailingState->hasOpenDiv()
+            && !$trailingState->hasLiteralDiv()
         ) {
             return false;
         }
@@ -2217,7 +2217,7 @@ final class BlockContinuationScanner
             && IndentationHelper::getLeadingColumns($nextLine) <= $run->authoredTermColumn;
         if (
             $run->nestedNoteBodyColumn === null
-            && $trailingState->fence === null && !$trailingState->hasOpenDiv()
+            && $trailingState->fence === null && !$trailingState->hasLiteralDiv()
             && !$trailingState->quoteParagraph && $run->openCommentLength === null
             && ($run->authoredTermColumn === null || $authoredTermBoundary)
             && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextTrimmed) === 1
