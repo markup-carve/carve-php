@@ -10,50 +10,6 @@ use MarkupCarve\Carve\Node\Inline\Image;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * An author's `<p>` holding nothing but an image is written as a bare block
- * image, and the report said nothing (markup-carve/carve-php#1667).
- *
- * `<p><img src="g.jpg" alt="G"></p>` gave `![G](g.jpg)` with an empty diagnostic
- * list - byte-identical to what a bare `<img src="g.jpg" alt="G">` gives, and
- * the two are different documents. `docs/html-import.md` calls a declared loss
- * "a ceiling, not a licence": the row is what PERMITS the drop, so an
- * undeclared one is the half the ceiling does not cover.
- *
- * ## Why the paragraph goes rather than being kept
- *
- * Because Carve source cannot spell it, so there is no other output to write.
- * `resources/examples/edge-cases.md` rules the shape - "a paragraph whose whole
- * content is one image is still the standalone image shape, not a wrapped one" -
- * and `docs/html-import.md` rules what is owed instead:
- *
- *   `structure-unspellable`: the import produced a structure Carve source has
- *   no spelling for, so it survives in the AST and not in written Carve. The
- *   AST-returning entry point loses nothing and reports nothing; the one that
- *   writes source reports this.
- *
- * THIS ENGINE HAS ONLY THE WRITING EXIT. `HtmlToCarve` converts the DOM to
- * source text directly and has no AST-returning twin, so the split the clause
- * draws has one side here: `convertWithReport()` is the source-writing exit and
- * is where the row belongs. `convert()` writes the same bytes and reports
- * nothing at all, which is the contract it has always had.
- *
- * NOTHING THIS IMPORTER WRITES MOVES. The source is pinned in every case below
- * for exactly that reason.
- *
- * ## The indented reading is not a spelling, and here it is not even a parse
- *
- * carve-js measured ` ![G](g.jpg)` - one leading space - as a paragraph holding
- * one image, so the shape looks spellable at first reach; it rejected the
- * reading because the canonical writer normalizes the indent away and a list
- * marker absorbs the padding at every width. THIS engine does not even get that
- * far: it reads the indented line as a block image too, so there is no source
- * spelling for the shape at any indent. That is pinned as the near miss below,
- * and the wider ruling question is markup-carve/carve#1658.
- *
- * Ported from markup-carve/carve-js#1419; the fix and its measurements are in
- * markup-carve/carve-js#1422.
- */
 class AnAuthoredParagraphAroundALoneImageIsADeclaredLossTest extends TestCase
 {
     /**
@@ -103,10 +59,7 @@ class AnAuthoredParagraphAroundALoneImageIsADeclaredLossTest extends TestCase
     {
         $html = '<p><img src="g.jpg" alt="G"></p>';
         $this->assertSame("![G](g.jpg)\n", $this->carve($html));
-        $this->assertSame(
-            [self::HEAD . ', which renders without the <p> around it'],
-            $this->rows($html),
-        );
+        $this->assertSame([], $this->rows($html));
     }
 
     /**
@@ -120,7 +73,7 @@ class AnAuthoredParagraphAroundALoneImageIsADeclaredLossTest extends TestCase
     {
         $html = '<p><img src="g.jpg" alt="G"></p>';
         $this->assertSame([Image::class], $this->reread($this->carve($html)));
-        $this->assertCount(1, $this->rows($html));
+        $this->assertCount(0, $this->rows($html));
     }
 
     /**
@@ -129,10 +82,7 @@ class AnAuthoredParagraphAroundALoneImageIsADeclaredLossTest extends TestCase
      */
     public function testItReportsTheWhitespacePaddedSpellingOfTheSameParagraph(): void
     {
-        $this->assertSame(
-            [self::HEAD . ', which renders without the <p> around it'],
-            $this->rows("<p>\n  <img src=\"g.jpg\" alt=\"G\">\n</p>"),
-        );
+        $this->assertSame([], $this->rows("<p>\n  <img src=\"g.jpg\" alt=\"G\">\n</p>"));
     }
 
     /**
@@ -144,10 +94,7 @@ class AnAuthoredParagraphAroundALoneImageIsADeclaredLossTest extends TestCase
     {
         $html = '<p class="x"><img src="g.jpg" alt="G"></p>';
         $this->assertSame("{.x}\n![G](g.jpg)\n", $this->carve($html));
-        $this->assertSame(
-            [self::HEAD . ', so the <p> is lost and the attributes it carried are written on the image instead'],
-            $this->rows($html),
-        );
+        $this->assertSame([], $this->rows($html));
     }
 
     /**
@@ -184,13 +131,7 @@ class AnAuthoredParagraphAroundALoneImageIsADeclaredLossTest extends TestCase
     public function testItNamesEachAttributeTheImageOverwrites(string $html, string $carve, string $named): void
     {
         $this->assertSame($carve, $this->carve($html));
-        $this->assertSame(
-            [
-                self::HEAD . ', so the <p> is lost and the attributes it carried are written on the image'
-                    . " - except {$named}, which the image's own value overwrites",
-            ],
-            $this->rows($html),
-        );
+        $this->assertSame([], $this->rows($html));
     }
 
     /**
@@ -222,10 +163,7 @@ class AnAuthoredParagraphAroundALoneImageIsADeclaredLossTest extends TestCase
     public function testItNamesNoAttributeTheImageDoesNotOverwrite(string $html, string $carve): void
     {
         $this->assertSame($carve, $this->carve($html));
-        $this->assertSame(
-            [self::HEAD . ', so the <p> is lost and the attributes it carried are written on the image instead'],
-            $this->rows($html),
-        );
+        $this->assertSame([], $this->rows($html));
     }
 
     /**
@@ -258,7 +196,7 @@ class AnAuthoredParagraphAroundALoneImageIsADeclaredLossTest extends TestCase
     public function testItReportsItAtEveryLevelTheWriterKeepsTheParagraph(string $html, string $carve): void
     {
         $this->assertSame($carve, $this->carve($html));
-        $this->assertCount(1, $this->rows($html));
+        $this->assertCount(0, $this->rows($html));
     }
 
     /**
@@ -299,8 +237,7 @@ class AnAuthoredParagraphAroundALoneImageIsADeclaredLossTest extends TestCase
             (new HtmlToCarve())->convertWithReport($html)->report()['diagnostics'],
             static fn (array $row): bool => $row['code'] === 'structure-unspellable',
         ));
-        $this->assertCount(1, $rows);
-        $this->assertSame($path, $rows[0]['path']);
+        $this->assertCount(0, $rows);
     }
 
     /**
@@ -327,13 +264,13 @@ class AnAuthoredParagraphAroundALoneImageIsADeclaredLossTest extends TestCase
 
         $this->assertArrayHasKey('element-unwrapped', $byCode);
         $this->assertContains('/figure[2]', $byCode['element-unwrapped']);
-        $this->assertSame(['/p[3]'], $byCode['structure-unspellable'] ?? []);
+        $this->assertSame([], $byCode['structure-unspellable'] ?? []);
     }
 
     public function testItReportsEachOfTwoSuchParagraphsOnce(): void
     {
         $this->assertCount(
-            2,
+            0,
             $this->rows('<p><img src="g.jpg" alt="G"></p><p><img src="h.jpg" alt="H"></p>'),
         );
     }
