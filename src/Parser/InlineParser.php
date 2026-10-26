@@ -2793,6 +2793,14 @@ class InlineParser
             if ($refEnd !== false) {
                 $ref = substr($text, $afterBracket + 1, $refEnd - $afterBracket - 1);
 
+                if (str_starts_with($ref, '@')) {
+                    return [
+                        'node' => new Text(substr($text, $pos, $refEnd + 1 - $pos)),
+                        'pos' => $refEnd + 1,
+                        'link_text' => $linkText,
+                    ];
+                }
+
                 if ($ref === '') {
                     $ref = $linkText;
                 }
@@ -3030,6 +3038,12 @@ class InlineParser
         }
 
         $link = $result['node'];
+        if ($link instanceof Text) {
+            return [
+                'node' => new Text('!' . $link->getContent()),
+                'pos' => $result['pos'],
+            ];
+        }
         if (!$link instanceof Link) {
             return null;
         }
