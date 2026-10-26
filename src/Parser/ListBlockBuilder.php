@@ -884,6 +884,11 @@ final class ListBlockBuilder
             }
             /** @var string $itemContent */
             $itemContent = $itemInfo['content'];
+            $markerHead = substr($trimmedLine, 0, strlen($trimmedLine) - strlen($itemContent));
+            $padding = preg_match('/[ \t]+$/', $markerHead, $paddingMatch) === 1 ? $paddingMatch[0] : '';
+            if (str_contains($padding, "\t")) {
+                $itemContent = BlockGrammar::LAZY_FRAME . $itemContent;
+            }
 
             // Collect item content lines (without blank line = tight continuation)
             /** @var array<string> $itemLines */
