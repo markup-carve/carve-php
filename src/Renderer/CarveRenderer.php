@@ -211,7 +211,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * @var array<int, true>
      */
     protected array $edgeCellBreaks = [];
+
     protected ?int $terminalCellBreakId = null;
+
     private bool $flattenCellBreaksForImport = false;
 
     public function flattenCellBreaksForImport(): void
