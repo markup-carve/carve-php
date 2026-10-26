@@ -5055,17 +5055,19 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderInlineFootnote(InlineFootnote $node): string
     {
         $number = $this->registerInlineFootnote(fn (): string => '<p>' . $this->renderChildren($node) . "</p>\n");
+        $refId = $node->getAttribute('id') ?? 'fnref' . $number;
+        $this->getRenderContext()->footnoteRefIds['_inline_]' . $number][1] = $refId;
 
         $parent = $node->getParent();
         while ($parent !== null) {
             if ($parent instanceof Link && UnresolvedReference::renderedSourceOf($parent) === null) {
-                return '<sup id="fnref' . $number . '"'
+                return '<sup id="' . $this->escapeAttribute($refId) . '"'
                     . $this->renderAttributesExcluding($node, ['id', 'href', 'role']) . '>' . $number . '</sup>';
             }
             $parent = $parent->getParent();
         }
 
-        return '<a id="fnref' . $number . '" href="#fn' . $number . '" role="doc-noteref"'
+        return '<a id="' . $this->escapeAttribute($refId) . '" href="#fn' . $number . '" role="doc-noteref"'
             . $this->renderAttributesExcluding($node, ['id', 'href', 'role'])
             . '><sup>' . $number . '</sup></a>';
     }
