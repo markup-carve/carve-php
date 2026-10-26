@@ -3037,15 +3037,11 @@ class InlineParser
             return null;
         }
 
-        if (!isset($result['pos'])) {
-            return null;
-        }
-
         $link = $result['node'];
         if ($link instanceof Text) {
             return [
                 'node' => new Text('!' . $link->getContent()),
-                'pos' => $result['pos'],
+                'pos' => (int) $result['pos'],
             ];
         }
         if (!$link instanceof Link) {
@@ -3074,7 +3070,7 @@ class InlineParser
 
         return [
             'node' => $image,
-            'pos' => $result['pos'],
+            'pos' => (int) $result['pos'],
         ];
     }
 
