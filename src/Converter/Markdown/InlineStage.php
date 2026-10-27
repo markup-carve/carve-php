@@ -92,6 +92,7 @@ final class InlineStage
 
             return "\x00P" . (count($protected) - 1) . "\x00";
         };
+        $line = $this->resolveMarkdownAngleLabelClosers($line, $protect);
         $line = $this->maskDestinationGlyphs($line, $protect);
 
         $definitionPrefix = '[ \t]*(?:>[ \t]*)*' . self::DEFINITION_MARKER;
@@ -528,6 +529,25 @@ final class InlineStage
         $line = $this->escapeFinalInlineText($line, $work, $protect, $hasProtectedEscapeBefore, $table);
 
         return $this->restoreProtectedInlineOutput($line, $work, $table);
+    }
+
+    private function resolveMarkdownAngleLabelClosers(string $line, Closure $protect): string
+    {
+        // CommonMark closes a label at its first unescaped closing bracket,
+        // including one that Carve holds inside an angle run.
+        $line = preg_replace_callback(
+            '/(?<!\\\\)\[([^\[\]\n]*<[^>\n]*)(?<!\\\\)\]([^\[\]\n]+)\]\([^()\n]*\)/',
+            static fn (array $match): string => $protect('\\[') . substr($match[0], 1),
+            $line,
+        ) ?? $line;
+
+        // Carve's angle run already holds a literal bracket, so decode the
+        // Markdown escape after label ownership has been decided.
+        return preg_replace_callback(
+            '/(\[[^\[\]\n]*<[^>\n]*?)\\\\\]([^>\n]*>[^\[\]\n]*\]\([^()\n]*\))/',
+            static fn (array $match): string => $match[1] . ']' . $match[2],
+            $line,
+        ) ?? $line;
     }
 
     /**
