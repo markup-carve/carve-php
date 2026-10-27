@@ -60,9 +60,14 @@ class IncludeConformanceTest extends TestCase
      * => the value this engine now owes. A row fails once the golden already
      * holds that value, so it retires with the spec bump that regenerates it.
      *
-     * @var array<string, array<string, string>>
+     * @var array<string, array<string, mixed>>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        'i01-inverted-line-range' => [
+            'warnings' => [['rule' => 'include-lines-invalid']],
+            'dependencies' => [['id' => 'child', 'resolved' => true]],
+        ],
+    ];
 
     /**
      * @throws \RuntimeException
