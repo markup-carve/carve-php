@@ -395,7 +395,11 @@ class BlockParser
                     $followerColumn = ContinuationMarkerClassifier::columnAt($follower, strspn($follower, " \t"));
                     $sibling = ($followerColumn === 0 || $followerColumn === $firstBlock['column'])
                         && $this->listParser->parseListItemMarker(ltrim($follower, " \t")) !== null;
-                    if ($sibling || $followerColumn !== 0 && $followerColumn !== $firstBlock['column']) {
+                    if (
+                        $sibling || $followerColumn !== 0
+                            && $followerColumn !== $firstBlock['column']
+                            && $followerColumn !== $firstBlock['content']
+                    ) {
                         $markers[] = [
                             'line' => $index + 1,
                             'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,

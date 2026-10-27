@@ -932,16 +932,36 @@ final class BlockContinuationScanner
         if (!$this->continuationFollowerIsEligible($i)) {
             return [$i, [], []];
         }
-        // The attribute lines belong to the block below them (carve#1238), so
-        // a fence after them is still the attached block's first line.
-        $opener = $this->skipLeadingAttributeLines($lines, $i, $count, $transform);
-        $fenced = $this->attachedFencedBlockEnd($lines, $opener, $count, $transform);
-        if ($fenced !== -1) {
-            $take = $fenced - $i + 1;
+        // A refused second marker can be the one-line block that an open
+        // paragraph host reaches. A live second marker still owns its follower;
+        // lists keep their own refusal and sibling rules.
+        $ownerKind = null;
+        if ($i < $count && $this->isContinuationMarker($lines[$i])) {
+            $previous = $this->sourceLineFor($i - 1);
+            $ownerKind = $previous < 0 ? null
+                : ($this->state->session->continuationMarkerDecision(
+                    $this->state->source,
+                    ($this->getListParser)(),
+                    $previous,
+                )['owner']['kind'] ?? null);
+        }
+        if (
+            in_array($ownerKind, ['quote', 'description', 'footnote'], true)
+            && !$this->continuationFollowerIsEligible($i + 1)
+        ) {
+            $take = 1;
         } else {
-            $take = 0;
-            while ($i + $take < $count && !$isBoundary($lines[$i + $take], $i + $take)) {
-                $take++;
+            // The attribute lines belong to the block below them (carve#1238), so
+            // a fence after them is still the attached block's first line.
+            $opener = $this->skipLeadingAttributeLines($lines, $i, $count, $transform);
+            $fenced = $this->attachedFencedBlockEnd($lines, $opener, $count, $transform);
+            if ($fenced !== -1) {
+                $take = $fenced - $i + 1;
+            } else {
+                $take = 0;
+                while ($i + $take < $count && !$isBoundary($lines[$i + $take], $i + $take)) {
+                    $take++;
+                }
             }
         }
         $collected = [];
