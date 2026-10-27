@@ -493,7 +493,7 @@ final class BlockQuoteBuilder
                     && $this->lastQuoteLineIsBareTerm($innerLines))
                 && !(IndentationHelper::getLeadingColumns($currentLine) === 0
                     && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $currentLine) === 1
-                    && (($lazyState['hosts']['termOpen'] ?? false) || $this->lastQuoteLineIsATerm($innerLines)))
+                    && ($lazyState['hosts']['termOpen'] ?? false))
                 && ((($lazyState['hosts']['inlineFenceJustClosed'] ?? false) && !$this->markerLineDiv($innerLines))
                     || !(($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
                         && ($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['base'] ?? 0) > 0))
@@ -536,8 +536,8 @@ final class BlockQuoteBuilder
                 if (!isset($lazyState['hosts']['descriptionColumn'])) {
                     $this->trackBlockQuoteLazyState($currentLine, $lazyState, $lines, $i, $codeCloserMemo);
                 }
-                if ($termOpen && isset($lazyState['hosts'])) {
-                    $lazyState['hosts']['termOpen'] = true;
+                if (isset($lazyState['hosts'])) {
+                    $lazyState['hosts']['termOpen'] = $termOpen;
                 }
                 $i++;
             } else {
@@ -2135,20 +2135,6 @@ final class BlockQuoteBuilder
         $line = ContainerPrefix::afterLeadingQuoteMarkers($line);
 
         return preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($line, " \t")) === 1;
-    }
-
-    /**
-     * @param array<string> $lines
-     */
-    private function lastQuoteLineIsATerm(array $lines): bool
-    {
-        $last = array_key_last($lines);
-        $line = $last === null ? '' : $lines[$last];
-        $line = ContainerPrefix::afterLeadingQuoteMarkers($line);
-        $at = IndentationHelper::pastLeadingWhitespace($line);
-        $at = ($this->getListParser)()->markerWalkOffset($line, $at) ?? $at;
-
-        return preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, substr($line, $at)) === 1;
     }
 
     /**
