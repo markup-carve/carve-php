@@ -144,7 +144,7 @@ class MarkdownImportReadsBackTheAttributedSectionEightCTagsTest extends TestCase
     public function testABareDelIsStillAStrike(): void
     {
         $this->assertSame("f <del> </del> g\n", $this->markdown("f {~ ~} g\n"));
-        $this->assertSame("f ~ ~ g\n", $this->carve("f <del> </del> g\n"));
+        $this->assertSame("f {~ ~} g\n", $this->carve("f <del> </del> g\n"));
         $this->assertSame("a ~x~ b\n", $this->carve("a <del>x</del> b\n"));
         $this->assertStringContainsString('<s>x</s>', $this->html($this->carve("a <del>x</del> b\n")));
     }
