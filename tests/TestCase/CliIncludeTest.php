@@ -168,7 +168,7 @@ class CliIncludeTest extends TestCase
         // and echoing the document back would look like it had no includes.
         $result = $this->runCli(['flatten'], "{{ child.crv }}\n");
 
-        $this->assertSame(1, $result['exit']);
+        $this->assertSame(2, $result['exit']);
         $this->assertStringContainsString('--include-root', $result['err']);
     }
 
@@ -185,7 +185,7 @@ class CliIncludeTest extends TestCase
         // than quietly rendering without includes.
         $result = $this->runCli(['--include-root', $this->root . '/nowhere', $this->root . '/main.crv']);
 
-        $this->assertSame(1, $result['exit']);
+        $this->assertSame(2, $result['exit']);
         $this->assertStringContainsString('Include root does not exist', $result['err']);
     }
 }
