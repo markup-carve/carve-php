@@ -2688,6 +2688,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($out !== '') {
                     $out .= "\n";
                 }
+                if (
+                    $this->listDepth > 1
+                    && $previousEmitted instanceof Paragraph
+                    && $child instanceof CodeBlock
+                    && $this->opensWithAnAttributeLine($rendered)
+                ) {
+                    $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($rendered);
+                    $previous = $child;
+                    $previousEmitted = $child;
+                    $atMarkerColumn = true;
+
+                    continue;
+                }
                 if ($child instanceof ListBlock) {
                     if (!$separated && $previousEmitted !== null && $this->adjacentBlocksMerge($previousEmitted, $child)) {
                         $out .= $this->listBoundary() . $rendered;

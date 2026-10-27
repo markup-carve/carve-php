@@ -33,6 +33,7 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Link;
@@ -45,6 +46,8 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\NodeType;
 use MarkupCarve\Carve\Profile;
 use MarkupCarve\Carve\ProfileViolation;
+use MarkupCarve\Carve\Renderer\CrossReferenceResolver;
+use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 
 /**
  * Filters a document AST according to a Profile
@@ -79,6 +82,8 @@ class ProfileFilter
 
     protected ?string $baseHost = null;
 
+    protected ?HeadingIdTracker $headingIdTracker = null;
+
     /**
      * Set the base host for external link detection
      */
@@ -94,6 +99,14 @@ class ProfileFilter
     {
         $this->violations = [];
         $this->emptied = [];
+        $this->headingIdTracker = null;
+        if (
+            $profile->getDisallowedAction() === Profile::ACTION_TO_TEXT
+            && (!$profile->isInlineAllowed(NodeType::HEADING_REF) || $profile->getMaxNesting() > 0)
+        ) {
+            $this->headingIdTracker = new HeadingIdTracker();
+            (new CrossReferenceResolver())->resolveCrossReferenceTargets($doc, $this->headingIdTracker);
+        }
         $this->filterChildren($doc, $profile, 0);
         $this->cleanupEmptyContainers($doc, 0);
         $this->resolveFootnoteRefs($doc);
@@ -351,6 +364,11 @@ class ProfileFilter
         }
 
         $textContent = $this->extractTextContent($node, 0);
+        if ($node instanceof CodeBlock && str_ends_with($textContent, "\n")) {
+            // The payload's terminating LF closes its final line; it is not
+            // an additional visible line inside the replacement paragraph.
+            $textContent = substr($textContent, 0, -1);
+        }
 
         if ($textContent === '') {
             // extractTextContent has no arm for the node's payload: record it
@@ -564,15 +582,16 @@ class ProfileFilter
             return $prefix . $text;
         }
 
-        // Special handling for code blocks - wrap in backticks
+        // A denied code block contributes its literal payload, not its fence.
         if ($node instanceof CodeBlock) {
-            $content = $node->getContent();
-            // Use single backticks for single-line, triple for multi-line
-            if (str_contains($content, "\n")) {
-                return "```\n" . $content . "\n```";
-            }
+            return $node->getContent();
+        }
 
-            return '`' . $content . '`';
+        if ($node instanceof HeadingRef) {
+            $target = $node->getTargetId();
+            $id = $this->headingIdTracker?->findId($target);
+
+            return $id === null ? $target : ($this->headingIdTracker->getTextForId($id) ?? $target);
         }
 
         // Special handling for links - get child text content

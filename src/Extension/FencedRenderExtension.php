@@ -357,7 +357,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
             // No renderer: keep the source as a language-tagged code block.
             : '<pre' . $attrs . '><code class="language-'
                 . StringUtil::escapeHtml($this->cssClass) . '">'
-                . StringUtil::escapeHtml($source) . "</code></pre>\n";
+                . StringUtil::escapeHtml($node->getContent()) . "</code></pre>\n";
 
         if ($this->wrapInFigure) {
             $element = '<figure class="' . StringUtil::escapeHtml($this->figureClass) . "\">\n"
