@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Parser;
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\CellWrap;
@@ -45,6 +46,7 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Parser\Utility\LinkDestination;
+use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -1098,6 +1100,29 @@ class InlineParser
                 continue;
             }
 
+            if (
+                $char === '{' && $nextChar === '{'
+                && preg_match(IncludeDirectiveSyntax::SCAN, $text, $directive, PREG_OFFSET_CAPTURE, $pos) === 1
+                && $directive[0][1] === $pos
+                && trim($text) === $directive[0][0]
+                && preg_match('/^\{\{ +"/', $directive[0][0]) !== 1
+                && self::isLineRangeCodeInclude($directive[0][0])
+            ) {
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $source = $directive[0][0];
+                $end = $pos + strlen($source);
+                $literal = new Text($source);
+                $this->placeAt($literal, $pos, $end);
+                $parent->appendChild($literal);
+                if ($parent instanceof Paragraph) {
+                    $parent->setRenderHint('includeLiteral', '1');
+                }
+                $pos = $end;
+
+                continue;
+            }
+
             // Delimited inline comment: unlike `%%`, this may begin anywhere
             // in the run and prose resumes after the first `%}`. An opener
             // without a closer is ordinary text. Code and raw spans remain
@@ -1472,6 +1497,16 @@ class InlineParser
 
         $this->flushText($parent, $textBuffer);
         $this->footnoteRecognitionEnabled = $previousFootnoteRecognition;
+    }
+
+    private static function isLineRangeCodeInclude(string $source): bool
+    {
+        $include = IncludeDirectiveSyntax::parse($source);
+
+        return $include !== null
+            && $include['code'] !== null
+            && ($include['error'] === IncludeDirectiveSyntax::ERROR_LINES_INVALID
+                || ($include['error'] === null && $include['lines'] !== null));
     }
 
     protected function parseEscapedOrLineBreak(

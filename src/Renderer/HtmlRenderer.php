@@ -1336,6 +1336,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 || count($item->getChildren()) !== 1
                 || $item->getChildren()[0]::class !== Paragraph::class
                 || $item->getChildren()[0]->isBlockImage()
+                || $item->getChildren()[0]->getRenderHint('includeLiteral') === '1'
                 || $this->getRenderableAttributes($item->getChildren()[0]) !== []
             ) {
                 return false;
@@ -1505,7 +1506,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $children[] = '<figcaption>' . $this->renderChildren($caption) . "</figcaption>\n";
         }
         $compact = $node instanceof BlockQuote && count($visible) === 1
-            && $visible[0] instanceof Paragraph && !$this->isBlockImageParagraph($visible[0]);
+            && $visible[0] instanceof Paragraph && !$this->isBlockImageParagraph($visible[0])
+            && $visible[0]->getRenderHint('includeLiteral') !== '1';
 
         return new ContainerLayout($open, $prefix, $close, $compact, $children, !$node instanceof ListBlock);
     }
@@ -1852,6 +1854,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             count($visible) === 1
             && $visible[0] instanceof Paragraph
             && !$this->isBlockImageParagraph($visible[0])
+            && $visible[0]->getRenderHint('includeLiteral') !== '1'
         ) {
             return '<blockquote' . $attrs . '>' . $inner . "</blockquote>\n";
         }
@@ -2349,9 +2352,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
 
             $isParagraph = $child instanceof Paragraph && !$this->isBlockImageParagraph($child);
-            $renderBare = $tight && $isParagraph
+            $renderBare = $tight && $isParagraph && $child->getRenderHint('includeLiteral') !== '1'
                 && preg_match('/^<p( data-source-line="\d+")?>(.*)<\/p>$/s', $rendered, $pm) === 1;
-            $isLead = !$haveLead && $restParts === [] && $isParagraph;
+            $isLead = !$haveLead && $restParts === [] && $isParagraph
+                && $child->getRenderHint('includeLiteral') !== '1';
 
             if ($isLead) {
                 $lead = $renderBare ? $pm[2] : $rendered;
