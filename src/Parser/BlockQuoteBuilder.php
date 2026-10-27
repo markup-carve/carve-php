@@ -434,10 +434,8 @@ final class BlockQuoteBuilder
                     }
                     $this->trackAttachedParagraph($attached, $attachedRawLineMap, $lazyState, $lines, $codeCloserMemo);
                     $attachedParagraphOpen = $lazyState['paragraphOpen'];
-                    if (!$lazyState['paragraphOpen']) {
-                        $innerLines[] = '';
-                        $innerLineMap[] = -1;
-                    }
+                    $innerLines[] = '';
+                    $innerLineMap[] = -1;
                 }
 
                 continue;
@@ -477,6 +475,9 @@ final class BlockQuoteBuilder
             $lastQuoteSourceLine = $innerLineMap[array_key_last($innerLineMap) ?? 0] ?? -1;
             $lastQuoteLineWasLazy = isset($this->state->session->blockQuoteLazySourceLines[$lastQuoteSourceLine]);
             if ($content !== null) {
+                if ($attachedParagraphOpen) {
+                    $lazyState['paragraphOpen'] = false;
+                }
                 $attachedParagraphOpen = false;
                 $innerLines[] = $content;
                 $innerLineMap[] = $this->sourceLineFor($i);
@@ -499,11 +500,15 @@ final class BlockQuoteBuilder
                 && ((($lazyState['hosts']['inlineFenceJustClosed'] ?? false) && !$this->markerLineDiv($innerLines))
                     || !(($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
                         && ($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['base'] ?? 0) > 0))
-                && !$this->lastQuotedLineBlockClosed($innerLines)
+                && ($attachedParagraphOpen || !$this->lastQuotedLineBlockClosed($innerLines))
                 && ((($lazyState['hosts']['inlineFenceJustClosed'] ?? false) && !$this->markerLineDiv($innerLines))
                     || $this->quotedNestedLineBlockOpen($innerLines, $nestedLineBlock)
                     || !$this->endsBlockQuote($currentLine, $lazyState['paragraphOpen'], $lines, $i))
             ) {
+                if ($attachedParagraphOpen && end($innerLines) === '') {
+                    array_pop($innerLines);
+                    array_pop($innerLineMap);
+                }
                 $unquotedAttributeTail = $lazyState['attrRun'] !== null;
                 if ($unquotedAttributeTail) {
                     $lazyState['attrRun'] = null;
@@ -980,10 +985,8 @@ final class BlockQuoteBuilder
                 $i = $end;
             }
         } else {
-            if (!$lazyState['paragraphOpen']) {
-                $innerLines[] = '';
-                $innerLineMap[] = -1;
-            }
+            $innerLines[] = '';
+            $innerLineMap[] = -1;
         }
 
         return [$i, $innerLines, $innerLineMap, $lazyState, $codeCloserMemo];
@@ -1004,6 +1007,11 @@ final class BlockQuoteBuilder
         foreach ($attached as $index => $line) {
             $this->trackBlockQuoteLazyState($line, $state, $lines, $lineMap[$index], $memo);
         }
+        $state['paragraphOpen'] = $state['paragraphOpen']
+            && $state['mode'] === BlockQuoteLazyMode::Content
+            && $state['divDepth'] === 0
+            && $state['colonClaims'] === []
+            && ($state['hosts']['kinds'] ?? []) === [];
     }
 
     /**
