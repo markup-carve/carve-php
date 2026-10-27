@@ -58,4 +58,12 @@ final class AWrappedAttributeLineInterruptsLikeItsOneLineSpellingTest extends Te
             trim((new CarveConverter())->convert("- a\n{.c\n}\n~~~\ny\n~~~\n")),
         );
     }
+
+    public function testTabAfterOpeningBraceKeepsWrappedTextLiteral(): void
+    {
+        $this->assertSame(
+            "<p>{\tc\n.d}</p>",
+            trim((new CarveConverter())->convert("{\tc\n.d}")),
+        );
+    }
 }
