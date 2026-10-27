@@ -3569,7 +3569,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     protected function renderCriticComment(CriticComment $node): string
     {
-        return '<span class="critic-comment">' . $this->escape($node->getContent()) . '</span>';
+        return '<span class="critic-comment">' . $this->guardVerbatimNewlines($this->escape($node->getContent())) . '</span>';
     }
 
     protected function renderHighlight(Highlight $node): string
