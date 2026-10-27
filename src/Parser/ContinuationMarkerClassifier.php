@@ -278,6 +278,18 @@ final class ContinuationMarkerClassifier
             $this->descriptionLazy = false;
             $this->termColumns = [];
             $this->stack = array_values(array_filter($this->stack, static fn (array $entry): bool => $entry['depth'] <= $depth));
+            $seen = [];
+            $current = [];
+            for ($at = count($this->stack) - 1; $at >= 0; $at--) {
+                $entry = $this->stack[$at];
+                $key = $entry['kind'] . ':' . $entry['depth'] . ':' . $entry['column'];
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $current[] = $entry;
+            }
+            $this->stack = array_reverse($current);
             $quoteStart = $this->quoteStart($line);
             $rest = substr($line, $quoteStart);
             $quoteColumn = self::columnAt($line, $quoteStart);
