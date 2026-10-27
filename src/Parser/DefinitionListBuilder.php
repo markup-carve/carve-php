@@ -147,7 +147,13 @@ final class DefinitionListBuilder
                     : null;
                 $quotedUnclosedFenceIsTermText = $quotedFence !== null
                     && !$this->continuations->sourceFenceCloserInView($lines, $i, $quotedFence, 0);
-                if (preg_match('/^[ \t]+%%/', $nextLine) === 1) {
+                $authoredNext = ContainerPrefix::stripQuoteMarkers(
+                    $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
+                );
+                $belowTermComment = $termColumn !== null
+                    && preg_match('/^[ \t]*%%/', $nextLine) === 1
+                    && IndentationHelper::getLeadingColumns($authoredNext) < $termColumn;
+                if (preg_match('/^[ \t]+%%/', $nextLine) === 1 || $belowTermComment) {
                     $parts[] = $this->foldedTermComment($lines, $i);
 
                     continue;
