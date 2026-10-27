@@ -2256,14 +2256,21 @@ final class InlineStage
             '/<mark>([^<]+)<\/mark>/i' => '{=$1=}',
             '/<u>([^<]+)<\/u>/i' => '{_$1_}',
             '/<ins>([^<]+)<\/ins>/i' => '{+$1+}',
-            '/<del>([^<]+)<\/del>/i' => '~$1~',
-            '/<s>([^<]+)<\/s>/i' => '~$1~',
             '/<sup>([^<]+)<\/sup>/i' => '{^$1^}',
             '/<sub>([^<]+)<\/sub>/i' => '{,$1,}',
         ];
         foreach ($htmlRules as $pattern => $replacement) {
             $line = $replaceNativeInline($pattern, $replacement, $line);
         }
+        $line = preg_replace_callback(
+            '/<(del|s)>([^<]+)<\/\1>/i',
+            static function (array $match) use ($protect): string {
+                $forced = preg_match('/^\s|\s$/u', $match[2]) === 1;
+
+                return $protect($forced ? '{~' : '~') . $match[2] . $protect($forced ? '~}' : '~');
+            },
+            $line,
+        ) ?? $line;
         foreach (['strong|b', 'em|i'] as $tagPattern) {
             $protected = $work->protected;
             $htmlSource = $line;
