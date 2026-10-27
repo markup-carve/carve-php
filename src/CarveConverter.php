@@ -18,6 +18,7 @@ use MarkupCarve\Carve\Exception\RenderLossException;
 use MarkupCarve\Carve\Extension\BeforeRenderContext;
 use MarkupCarve\Carve\Extension\BeforeRenderExtensionInterface;
 use MarkupCarve\Carve\Extension\ExtensionInterface;
+use MarkupCarve\Carve\Extension\FinalRenderDocumentObserverInterface;
 use MarkupCarve\Carve\Extension\FrontmatterExtension;
 use MarkupCarve\Carve\Extension\HeadingReferenceExtension;
 use MarkupCarve\Carve\Extension\MentionsExtension;
@@ -795,6 +796,11 @@ class CarveConverter
         foreach ($this->extensions as $extension) {
             if ($extension instanceof BeforeRenderExtensionInterface) {
                 $document = $extension->beforeRender($document, $context);
+            }
+        }
+        foreach ($this->extensions as $extension) {
+            if ($extension instanceof FinalRenderDocumentObserverInterface) {
+                $extension->observeFinalRenderDocument($document);
             }
         }
 
