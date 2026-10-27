@@ -30,6 +30,9 @@ final class WrappedBlockAttributeScanner
         }
 
         $attrContent = substr($line, 1);
+        if (str_starts_with($attrContent, "\t")) {
+            return null;
+        }
         $openQuote = self::attrPayloadOpenQuote($attrContent, null);
         $count = count($lines);
         for ($i = $start + 1; $i < $count; $i++) {
