@@ -18,7 +18,7 @@ final class AFootnoteDescriptionBoundaryReleasesSiblingBlockTest extends TestCas
         return [
             'quote' => ['> q', '<blockquote><p>q</p></blockquote>'],
             'heading' => ['# h', '<h1 id="h">h</h1>'],
-            'list' => ['- a', "<ul>\n        <li>a</li>\n      </ul>"],
+            'list' => ['- a', "<ul>\n            <li>a</li>\n          </ul>"],
         ];
     }
 
@@ -28,7 +28,7 @@ final class AFootnoteDescriptionBoundaryReleasesSiblingBlockTest extends TestCas
         $source = "[^n]: x\n\n  :: t\n  : d\n\n\n    " . $opener . "\n\na[^n]\n";
         $html = CarveConverter::create()->convert($source);
 
-        self::assertStringContainsString("</dl>\n      " . $expectedHtml, $html);
+        self::assertStringContainsString("<p>d</p>\n          " . $expectedHtml . "\n        </dd>", $html);
     }
 
     public function testOneBlankKeepsIndentedContinuationInDescription(): void

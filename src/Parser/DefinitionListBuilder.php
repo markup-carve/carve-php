@@ -1750,11 +1750,6 @@ final class DefinitionListBuilder
             while ($look < $b->count && IndentationHelper::isBlankLine($b->lines[$look])) {
                 $look++;
             }
-            // Two blanks end the description even when its last
-            // block is an unfinished fence (carve-php#2681).
-            if ($look - $b->i > 1) {
-                return false;
-            }
             $after = $b->lines[$look] ?? null;
             // The SECOND spelling of the same rule, with a different
             // job: this one decides whether the blank is an internal

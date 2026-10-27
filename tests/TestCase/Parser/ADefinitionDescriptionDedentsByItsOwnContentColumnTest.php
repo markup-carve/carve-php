@@ -115,7 +115,7 @@ class ADefinitionDescriptionDedentsByItsOwnContentColumnTest extends TestCase
                 $cases["$blanks blank line(s), continuation at column $indent"] = [
                     $blanks,
                     $indent,
-                    $blanks < 2 && $indent >= 5 ? ['a', 'b'] : ['a'],
+                    $indent >= 5 ? ['a', 'b'] : ['a'],
                 ];
             }
         }
