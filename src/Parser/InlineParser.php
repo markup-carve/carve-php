@@ -45,6 +45,7 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Parser\Utility\LinkDestination;
+use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -1095,6 +1096,25 @@ class InlineParser
             $nextChar = $text[$pos + 1] ?? '';
 
             if ($this->parseEscapedOrLineBreak($parent, $text, $pos, $length, $textBuffer)) {
+                continue;
+            }
+
+            if (
+                $char === '{' && $nextChar === '{'
+                && preg_match(IncludeDirectiveSyntax::SCAN, $text, $directive, PREG_OFFSET_CAPTURE, $pos) === 1
+                && $directive[0][1] === $pos
+                && trim($text) === $directive[0][0]
+                && (IncludeDirectiveSyntax::parse($directive[0][0])['code'] ?? null) !== null
+            ) {
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                $source = $directive[0][0];
+                $end = $pos + strlen($source);
+                $literal = new Text($source);
+                $this->placeAt($literal, $pos, $end);
+                $parent->appendChild($literal);
+                $pos = $end;
+
                 continue;
             }
 
