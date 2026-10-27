@@ -8,7 +8,8 @@ offsets into the source you passed.
 
 `MarkdownHabitLinter` and `TableColumnLinter` read the **source**. Most other
 passes parse and walk the **AST**; `FenceAndContinuationLinter` also reads parser
-events for fences and continuation markers. Each class answers a separate question.
+events for fences and continuation markers. `AuthoringLinter` compares source
+spellings with the parsed blocks and inlines.
 
 `DocumentLinter` runs every pass that `carve lint` runs, sorted by position.
 Integrations should call it rather than list the passes by hand, so a pass added
@@ -119,6 +120,24 @@ since lint cannot know which ids it generates.
 ```php
 (new ReferenceLinter())->lint($source, ['extensions' => ['citations']]);
 ```
+
+## Authoring warnings
+
+`AuthoringLinter` reports these default-on rules when source looks like markup
+but renders differently:
+
+- `table-shaped-paragraph`, `table-row-cell-count`, and
+  `table-separator-near-miss` catch incomplete or irregular pipe tables.
+- `list-marker-without-blank-line` and `markdown-definition-paragraph` catch
+  markers folded into paragraph text.
+- `unclosed-inline-emphasis` and `link-gap-before-destination` catch inline
+  spellings that never form the intended markup.
+- `markdown-italic-underline`, `heading-level-skip`, `bare-html-tag`, and
+  `github-alert-marker` name common syntax that renders with another meaning.
+
+`caption-looking-paragraph` is opt-in because ordinary prose can look like a
+caption. Enable it with `['captionLookingParagraph' => true]` in the
+`DocumentLinter::lint()` options.
 
 ## Markdown habits
 
