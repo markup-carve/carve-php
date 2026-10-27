@@ -1612,7 +1612,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($attrs === '' && $this->isBlockImageParagraph($node)) {
             // Route through renderNode so render-time extensions
             // (e.g. DefaultAttributesExtension) still fire on the image.
-            return rtrim($this->renderNode($children[0]), "\n") . "\n";
+            $image = BlockImagePromotion::loneImage($node);
+            if ($image !== null) {
+                return rtrim($this->renderNode($image), "\n") . "\n";
+            }
         }
 
         $content = $this->renderChildren($node);
