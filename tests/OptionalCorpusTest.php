@@ -19,6 +19,8 @@ use MarkupCarve\Carve\Extension\SmartQuotesExtension;
 use MarkupCarve\Carve\Extension\SocialLinkResolverInput;
 use MarkupCarve\Carve\Extension\SpoilerExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
+use MarkupCarve\Carve\Extension\TocPlacementExtension;
+use MarkupCarve\Carve\Profile;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
@@ -168,6 +170,7 @@ class OptionalCorpusTest extends TestCase
             'semantic-span' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new SemanticSpanExtension()),
             'spoiler' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new SpoilerExtension()),
             'tabs' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new TabsExtension()),
+            'toc-placement' => static fn (?RendererInterface $r): CarveConverter => self::withExtension($r, new TocPlacementExtension()),
             // A SECOND feature for the SAME extension in its other mode. The
             // manifest states `tabs-aria` from markup-carve/carve#1489
             // (Extensions §13.3, case 47), and this engine ships the mode - so
@@ -223,6 +226,8 @@ class OptionalCorpusTest extends TestCase
             // source-mode expectation also passes an engine that never applies
             // typography to that construct in either mode.
             'smart-typography-default' => static fn (?RendererInterface $r): CarveConverter => new CarveConverter(renderer: $r),
+            'profile-comment' => static fn (?RendererInterface $r): CarveConverter => new CarveConverter(renderer: $r, profile: Profile::comment()),
+            'profile-minimal' => static fn (?RendererInterface $r): CarveConverter => new CarveConverter(renderer: $r, profile: Profile::minimal()),
             /*
              * Section wrapping is on by default here (PART 9 §13) and is a
              * property of the HTML renderer, so switching it off means building
