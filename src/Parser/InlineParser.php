@@ -2793,6 +2793,10 @@ class InlineParser
             if ($refEnd !== false) {
                 $ref = substr($text, $afterBracket + 1, $refEnd - $afterBracket - 1);
 
+                if (strpbrk($ref, "\r\n") !== false) {
+                    return null;
+                }
+
                 if (str_starts_with($ref, '@')) {
                     return [
                         'node' => new Text(substr($text, $pos, $refEnd + 1 - $pos)),
