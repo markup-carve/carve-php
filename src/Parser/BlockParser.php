@@ -3742,7 +3742,6 @@ class BlockParser
                 $lines,
                 $i,
                 $count,
-                static fn (string $candidate): bool => (bool)preg_match('/^\[\^[^\]]+\]:/', $candidate),
             );
             if ($attached !== []) {
                 $bodyLines = $attached;
