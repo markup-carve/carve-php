@@ -932,16 +932,22 @@ final class BlockContinuationScanner
         if (!$this->continuationFollowerIsEligible($i)) {
             return [$i, [], []];
         }
-        // The attribute lines belong to the block below them (carve#1238), so
-        // a fence after them is still the attached block's first line.
-        $opener = $this->skipLeadingAttributeLines($lines, $i, $count, $transform);
-        $fenced = $this->attachedFencedBlockEnd($lines, $opener, $count, $transform);
-        if ($fenced !== -1) {
-            $take = $fenced - $i + 1;
+        // A second marker is the first marker's attached paragraph. It is a
+        // boundary only after that first line, as in any other attached block.
+        if ($i < $count && $this->isContinuationMarker($lines[$i])) {
+            $take = 1;
         } else {
-            $take = 0;
-            while ($i + $take < $count && !$isBoundary($lines[$i + $take], $i + $take)) {
-                $take++;
+            // The attribute lines belong to the block below them (carve#1238), so
+            // a fence after them is still the attached block's first line.
+            $opener = $this->skipLeadingAttributeLines($lines, $i, $count, $transform);
+            $fenced = $this->attachedFencedBlockEnd($lines, $opener, $count, $transform);
+            if ($fenced !== -1) {
+                $take = $fenced - $i + 1;
+            } else {
+                $take = 0;
+                while ($i + $take < $count && !$isBoundary($lines[$i + $take], $i + $take)) {
+                    $take++;
+                }
             }
         }
         $collected = [];
