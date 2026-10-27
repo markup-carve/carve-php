@@ -3275,7 +3275,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // (PART 12 §3a, carve-php#1417).
         $rawRef = UnresolvedReference::renderedSourceOf($node);
         if ($rawRef !== null) {
-            return $this->escape($rawRef);
+            return $this->guardVerbatimNewlines($this->escape($rawRef));
         }
 
         $href = $node->getDestination();
@@ -3358,7 +3358,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // (PART 12 §3a, carve-php#1417).
         $rawRef = UnresolvedReference::renderedSourceOf($node);
         if ($rawRef !== null) {
-            return $this->escape($rawRef);
+            return $this->guardVerbatimNewlines($this->escape($rawRef));
         }
 
         $alt = $this->escapeAttribute($node->getAlt());
