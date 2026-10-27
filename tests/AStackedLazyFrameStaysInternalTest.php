@@ -13,7 +13,7 @@ final class AStackedLazyFrameStaysInternalTest extends TestCase
     public function testNestedQuoteDoesNotRenderAStackedFrame(): void
     {
         self::assertSame(
-            "<blockquote>\n  <blockquote><p>{.a\n.b}</p></blockquote>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <blockquote><p>{.a\n.b}</p></blockquote>\n</blockquote>\n"),
             CarveConverter::create()->convert("> > {.a\n.b}\n"),
         );
     }

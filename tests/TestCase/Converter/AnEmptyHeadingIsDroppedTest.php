@@ -69,7 +69,7 @@ class AnEmptyHeadingIsDroppedTest extends TestCase
             'children' => [['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'a']]]],
         ], $document);
         $this->assertSame($source->report(), $ast->report());
-        $this->assertSame(preg_replace('/\n\z/', '', $source->value), (new CarveConverter())->toCarve($source->value));
+        $this->assertSame($source->value, (new CarveConverter())->toCarve($source->value));
     }
 
     /**

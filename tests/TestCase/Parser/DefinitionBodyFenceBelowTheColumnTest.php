@@ -124,7 +124,7 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
         );
         // The two spellings it now agrees with.
         $this->assertSame(
-            "<ul>\n  <li>\n    <pre><code>x\n</code></pre>\n  </li>\n</ul>\n<p>below</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code>x\n</code></pre>\n  </li>\n</ul>\n<p>below</p>\n"),
             $this->html("- ```\n  x\n  ```\nbelow\n"),
         );
         $this->assertSame(
@@ -151,7 +151,7 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
             $this->html("- ```\nx\n```\n"),
         );
         $this->assertSame(
-            "<blockquote>\n  <pre><code></code></pre>\n</blockquote>\n<p>x\n<code></code></p>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <pre><code></code></pre>\n</blockquote>\n<p>x\n<code></code></p>\n"),
             $this->html("> ```\nx\n```\n"),
         );
     }

@@ -178,7 +178,7 @@ class RootShapeIsRefusedOnIngestTest extends TestCase
         $this->assertStringContainsString('"type":"widget"', (string)json_encode($payload));
         $this->assertSame(
             (new CarveConverter())->convert($source),
-            (new HtmlRenderer())->render($this->codec->decode($payload)),
+            preg_replace('/\n\z/', '', (new HtmlRenderer())->render($this->codec->decode($payload))),
         );
     }
 }

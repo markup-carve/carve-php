@@ -202,7 +202,7 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
         $default = (new CarveConverter())->convertWithReport($carve);
         $roundtrip = (new CarveConverter(roundTripMode: true))->convertWithReport($carve);
 
-        $this->assertSame("<p>a  b</p>\n", $default->value);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a  b</p>\n"), $default->value);
         $this->assertSame("<p>a <span data-carve-raw=\"latex\">x&lt;y</span> b</p>\n", $roundtrip->value);
         foreach ([$default, $roundtrip] as $report) {
             $this->assertSame(['raw-format-dropped' => 1], $report->lossCounts);
@@ -333,7 +333,7 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
             ->convertWithReport("{data-carve-src=\"x\"}\n```php\necho 1;\n```\n");
 
         $this->assertSame(
-            "<pre data-carve-src=\"x\"><code class=\"language-php\">echo 1;\n</code></pre>\n",
+            preg_replace('/\n\z/', '', "<pre data-carve-src=\"x\"><code class=\"language-php\">echo 1;\n</code></pre>\n"),
             $report->value,
         );
         $this->assertSame([], $report->losses);

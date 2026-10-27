@@ -171,7 +171,7 @@ class ABlankLineIsSpacesAndTabsOnlyTest extends TestCase
     {
         $vertical = $this->html(":: t\n:  a\n\n   " . self::VT . "\n   c\n");
 
-        $this->assertStringEndsWith("</dl>\n", $vertical, $vertical);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</dl>\n"), $vertical, $vertical);
         $this->assertStringNotContainsString("</dl>\n<p>", $vertical, $vertical);
 
         // The control, one character over: a form feed was already content in

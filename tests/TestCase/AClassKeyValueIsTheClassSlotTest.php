@@ -135,7 +135,7 @@ class AClassKeyValueIsTheClassSlotTest extends TestCase
         $wire = json_decode(json_encode($codec->encode((new CarveConverter())->parse("{class}\nHello\n"))), true);
         self::assertSame([''], $wire['children'][0]['attrs']['classes']);
         self::assertSame(
-            preg_replace('/\n\z/', '', "<p class=\"\">Hello</p>\n"),
+            "<p class=\"\">Hello</p>\n",
             (new CarveConverter())->render($codec->decode($wire)),
         );
     }

@@ -43,7 +43,7 @@ class ADashLineAcceptsOnlySpaceOrTabAfterItTest extends TestCase
             $carve,
         );
         $this->assertSame(
-            "<p>---yaml\na: 1\n" . $rendered . "\n...</p>\n<hr>\n<p>u</p>\n",
+            preg_replace('/\n\z/', '', "<p>---yaml\na: 1\n" . $rendered . "\n...</p>\n<hr>\n<p>u</p>\n"),
             CarveConverter::create()->convert($carve),
         );
     }
@@ -57,7 +57,7 @@ class ADashLineAcceptsOnlySpaceOrTabAfterItTest extends TestCase
         // reader's leniency, not a writer's license, so echoing it left the
         // import failing this engine's own `fmt --check` (carve-php#2998).
         $this->assertSame("---yaml\na: 1\n---\n\n\\.\\.\\.\n\n---\n\nu\n", $carve);
-        $this->assertSame("<p>...</p>\n<hr>\n<p>u</p>\n", CarveConverter::create()->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>...</p>\n<hr>\n<p>u</p>\n"), CarveConverter::create()->convert($carve));
     }
 
     /**
@@ -107,7 +107,7 @@ class ADashLineAcceptsOnlySpaceOrTabAfterItTest extends TestCase
         $carve = (new MarkdownToCarve())->convert($markdown);
 
         $this->assertSame($written, $carve);
-        $this->assertSame($rendered, CarveConverter::create()->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $rendered), CarveConverter::create()->convert($carve));
     }
 
     /**

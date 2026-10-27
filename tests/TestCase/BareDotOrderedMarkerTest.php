@@ -33,7 +33,7 @@ class BareDotOrderedMarkerTest extends TestCase
             $this->html(". a\n2. b\n"),
         );
         $this->assertSame(
-            "<ol>\n  <li>a</li>\n  <li>b</li>\n</ol>\n",
+            preg_replace('/\n\z/', '', "<ol>\n  <li>a</li>\n  <li>b</li>\n</ol>\n"),
             $this->html("1. a\n. b\n"),
         );
     }
@@ -140,7 +140,7 @@ class BareDotOrderedMarkerTest extends TestCase
             preg_replace('/\n\z/', '', "<ol>\n  <li id=\"x\" class=\"k\">text</li>\n</ol>\n"),
             $this->html(".{#x .k} text\n"),
         );
-        $this->assertSame("<p>.{k=v}text</p>\n", $this->html(".{k=v}text\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>.{k=v}text</p>\n"), $this->html(".{k=v}text\n"));
     }
 
     public function testBareMarkerIsRuntimeOnlyAndSetByTheOpener(): void

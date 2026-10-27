@@ -33,7 +33,7 @@ class HtmlConfiguredMarkerCollisionTest extends TestCase
         $converter = new CarveConverter(renderer: $renderer);
         $result = $converter->convertWithReport(':rocket:');
 
-        $this->assertSame("<p><b>{$glyph}</b></p>\n", $result->value);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><b>{$glyph}</b></p>\n"), $result->value);
         $this->assertSame(0, $result->totalLosses);
         $this->assertSame(preg_replace('/\n\z/', '', $result->value), $converter->convert(':rocket:'));
     }

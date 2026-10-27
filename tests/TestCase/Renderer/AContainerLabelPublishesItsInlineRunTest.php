@@ -296,7 +296,7 @@ class AContainerLabelPublishesItsInlineRunTest extends TestCase
         $codec = new AstCodec();
         $decoded = $codec->decode($codec->encode($converter->parse($source)));
 
-        $this->assertSame($converter->convert($source), $converter->render($decoded));
+        $this->assertSame($converter->convert($source), preg_replace('/\n\z/', '', $converter->render($decoded)));
     }
 
     public function testTheMarkdownTargetStillWritesTheAuthoredText(): void

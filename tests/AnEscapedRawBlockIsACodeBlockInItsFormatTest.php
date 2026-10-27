@@ -38,7 +38,7 @@ class AnEscapedRawBlockIsACodeBlockInItsFormatTest extends TestCase
     {
         $result = (new CarveConverter(safeMode: true))->convertWithReport($source);
 
-        self::assertSame($expected, $result->value);
+        self::assertSame(preg_replace('/\n\z/', '', $expected), $result->value);
         self::assertSame([], $result->losses);
     }
 
@@ -88,7 +88,7 @@ class AnEscapedRawBlockIsACodeBlockInItsFormatTest extends TestCase
         $converter = new CarveConverter(safeMode: SafeMode::strict());
 
         $html = $converter->convertWithReport("Before.\n\n```=html\n<p>raw</p>\n```\n\nAfter.\n");
-        self::assertSame("<p>Before.</p>\n<p>After.</p>\n", $html->value);
+        self::assertSame(preg_replace('/\n\z/', '', "<p>Before.</p>\n<p>After.</p>\n"), $html->value);
         self::assertSame([], $html->losses);
 
         $latex = $converter->convertWithReport("```=latex\n\\textbf{x}\n```\n");

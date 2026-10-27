@@ -68,7 +68,7 @@ class AnEmptyFencedPayloadIsWrittenBackAsNoLineTest extends TestCase
     {
         $authored = (new CarveConverter())->convert($source);
 
-        $this->assertSame(preg_replace('/\n\z/', '', $authored), (new CarveConverter())->convert($written));
+        $this->assertSame($authored, (new CarveConverter())->convert($written));
     }
 
     #[DataProvider('fencedPayloads')]
@@ -78,7 +78,7 @@ class AnEmptyFencedPayloadIsWrittenBackAsNoLineTest extends TestCase
         $converter->convert("warm\n");
         $authored = $converter->convert($source);
 
-        $this->assertSame(preg_replace('/\n\z/', '', $authored), $converter->convert($written));
+        $this->assertSame($authored, $converter->convert($written));
     }
 
     /**

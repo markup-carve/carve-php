@@ -35,6 +35,6 @@ class AnUnclosedRunDropsItsLineBreakAtAForcedCloserTest extends TestCase
     #[DataProvider('shapes')]
     public function testTheRunEndsAsTheBlockEndWould(string $source, string $html): void
     {
-        $this->assertSame($html, CarveConverter::create()->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $html), CarveConverter::create()->convert($source));
     }
 }

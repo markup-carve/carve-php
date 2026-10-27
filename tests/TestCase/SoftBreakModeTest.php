@@ -31,7 +31,7 @@ class SoftBreakModeTest extends TestCase
         $renderer = (new MarkdownRenderer())->setSoftBreakMode(SoftBreakMode::Space);
         $converter = CarveConverter::create(renderer: $renderer);
 
-        $this->assertSame(preg_replace('/\n\z/', '', "Line one Line two\n"), $converter->convert("Line one\nLine two"));
+        $this->assertSame("Line one Line two\n", $converter->convert("Line one\nLine two"));
     }
 
     public function testPlainTextRendererSoftBreakMode(): void
@@ -39,6 +39,6 @@ class SoftBreakModeTest extends TestCase
         $renderer = (new PlainTextRenderer())->setSoftBreakMode(SoftBreakMode::Newline);
         $converter = CarveConverter::create(renderer: $renderer);
 
-        $this->assertSame(preg_replace('/\n\z/', '', "Line one\nLine two\n"), $converter->convert("Line one\nLine two"));
+        $this->assertSame("Line one\nLine two\n", $converter->convert("Line one\nLine two"));
     }
 }

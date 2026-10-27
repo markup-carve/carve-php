@@ -12,7 +12,7 @@ final class AQuotedTermRetainsItsColumnAfterLazyTextTest extends TestCase
     public function testDocumentDescriptionMarkerEndsQuotedTermAfterLazyLines(): void
     {
         self::assertSame(
-            "<blockquote>\n  <dl>\n    <dt>t\nline\nmore</dt>\n  </dl>\n</blockquote>\n<p>: d</p>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <dl>\n    <dt>t\nline\nmore</dt>\n  </dl>\n</blockquote>\n<p>: d</p>\n"),
             CarveConverter::create()->convert("> :: t\nline\nmore\n: d\n"),
         );
     }

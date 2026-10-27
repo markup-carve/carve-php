@@ -23,7 +23,7 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
                             . $quote . '  ' . $fence . "\n"
                             . str_repeat(' ', $indent) . "- tail\n";
                         $html = (new CarveConverter())->convert($source);
-                        $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html, $source);
+                        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"), $html, $source);
                         $this->assertSame($depth, substr_count($html, '<blockquote>'));
                     }
                 }
@@ -42,7 +42,7 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
     {
         foreach (["> - tail\n", "+\n- tail\n"] as $tail) {
             $html = (new CarveConverter())->convert("> - ::: box\n>   :::\n" . $tail);
-            $this->assertStringEndsWith("</blockquote>\n", $html);
+            $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n"), $html);
             $this->assertStringContainsString('tail', $html);
         }
     }
@@ -63,7 +63,7 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
             ] as $source
         ) {
             $html = (new CarveConverter())->convert($source);
-            $this->assertStringEndsWith("</blockquote>\n<p>tail</p>\n", $html);
+            $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<p>tail</p>\n"), $html);
         }
     }
 
@@ -86,14 +86,14 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
         $source = "> - ::: box\n>   body\n>   %%%\n>   :::\n>   after\ntail\n";
         $html = (new CarveConverter())->convert($source);
         $this->assertStringContainsString("after\ntail", $html);
-        $this->assertStringEndsWith("</blockquote>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n"), $html);
     }
 
     public function testMalformedColonAbsorptionBelongsToOneItem(): void
     {
         $html = (new CarveConverter())->convert("> - :::bad\n>   :::\n- tail\n");
         $this->assertStringContainsString(":::bad\n:::\n- tail", $html);
-        $this->assertStringEndsWith("</blockquote>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n"), $html);
         $html = (new CarveConverter())->convert("> - prose\n>   :::bad\n> - next\n>   :::\n- tail\n");
         $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
     }

@@ -71,7 +71,7 @@ class ANestedRunOfTheSameCharacterIsReSpelledTest extends TestCase
         $document = $this->paragraph([self::span('emphasis', [self::span('emphasis', [self::text('x')])])]);
 
         $this->assertSame("<em>*x*</em>\n", CarveConverter::markdown()->render($document));
-        $this->assertSame(preg_replace('/\n\z/', '', "<p><em><em>x</em></em></p>\n"), (new CarveConverter())->render($document));
+        $this->assertSame("<p><em><em>x</em></em></p>\n", (new CarveConverter())->render($document));
     }
 
     public function testStrongInsideStrongIsSeparatedWhereEightAsterisksSpellOnlyByLuck(): void

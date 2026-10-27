@@ -56,7 +56,7 @@ class CrossReferenceLabelKeepsItsSourceRunTest extends TestCase
         $renderer = (new PlainTextRenderer())->setSmartTypography(SmartTypographyMode::Source);
 
         $this->assertSame(
-            preg_replace('/\n\z/', '', "The \"quoted\" -- heading\n\nSee The \"quoted\" -- heading\n"),
+            "The \"quoted\" -- heading\n\nSee The \"quoted\" -- heading\n",
             (new CarveConverter(renderer: $renderer))->convert(self::SOURCE),
         );
     }
@@ -66,8 +66,8 @@ class CrossReferenceLabelKeepsItsSourceRunTest extends TestCase
         $renderer = (new MarkdownRenderer())->setSmartTypography(SmartTypographyMode::Source);
 
         $this->assertSame(
-            preg_replace('/\n\z/', '', "# The \"quoted\" -- heading\n"
-            . "\nSee [The \"quoted\" -- heading](#the-quoted----heading)\n"),
+            "# The \"quoted\" -- heading\n"
+            . "\nSee [The \"quoted\" -- heading](#the-quoted----heading)\n",
             (new CarveConverter(renderer: $renderer))->convert(self::SOURCE),
         );
     }
@@ -84,9 +84,9 @@ class CrossReferenceLabelKeepsItsSourceRunTest extends TestCase
         $renderer = (new AnsiRenderer())->setSmartTypography(SmartTypographyMode::Source);
 
         $this->assertSame(
-            preg_replace('/\n\z/', '', "\e[1m\e[95mThe \"quoted\" -- heading\e[0m\n"
+            "\e[1m\e[95mThe \"quoted\" -- heading\e[0m\n"
             . "\e[95m" . str_repeat("\u{2550}", 23) . "\e[0m\n"
-            . "\nSee \e[4m\e[34mThe \"quoted\" -- heading\e[0m\n"),
+            . "\nSee \e[4m\e[34mThe \"quoted\" -- heading\e[0m\n",
             (new CarveConverter(renderer: $renderer))->convert(self::SOURCE),
         );
     }
@@ -117,7 +117,7 @@ class CrossReferenceLabelKeepsItsSourceRunTest extends TestCase
         $renderer = (new PlainTextRenderer())->setSmartTypography(SmartTypographyMode::Source);
 
         $this->assertSame(
-            preg_replace('/\n\z/', '', "The \"quoted\" -- heading\n\nSee The \"quoted\" -- heading\n"),
+            "The \"quoted\" -- heading\n\nSee The \"quoted\" -- heading\n",
             (new CarveConverter(renderer: $renderer))->convert(
                 "# The \"quoted\" -- heading\n\nSee [</#The-quoted-heading>](/u)\n",
             ),
@@ -231,7 +231,7 @@ class CrossReferenceLabelKeepsItsSourceRunTest extends TestCase
         $source = "# A *bold -- run* heading\n\nSee </#A-bold-run-heading>\n";
 
         $this->assertSame(
-            preg_replace('/\n\z/', '', "A bold -- run heading\n\nSee A bold -- run heading\n"),
+            "A bold -- run heading\n\nSee A bold -- run heading\n",
             (new CarveConverter(renderer: $renderer))->convert($source),
         );
     }

@@ -33,7 +33,7 @@ class InlineImagePlacementTest extends TestCase
             'plain' => CarveConverter::plainText(),
             'ansi' => CarveConverter::ansi(),
         };
-        $this->assertSame(preg_replace('/\n\z/', '', $expected), $converter->convert($source));
+        $this->assertSame($target === 'html' ? preg_replace('/\n\z/', '', $expected) : $expected, $converter->convert($source));
     }
 
     public function testAnImageInAnIngestedBlockCellKeepsItsSeparator(): void

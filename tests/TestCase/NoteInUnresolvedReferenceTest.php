@@ -93,14 +93,14 @@ class NoteInUnresolvedReferenceTest extends TestCase
         $this->assertNoEndnotes($unresolved);
 
         $collapsed = (new CarveConverter())->convert("a ![t[^1]][] b\n\n[^1]: n\n");
-        $this->assertSame("<p>a ![t[^1]][] b</p>\n", $collapsed);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a ![t[^1]][] b</p>\n"), $collapsed);
         $this->assertNoEndnotes($collapsed);
 
         // The resolved counterpart: the alt keeps the literal `[^1]` and the
         // document still writes no endnote, which is what makes the two above
         // a property of alt text rather than of the degradation.
         $resolved = (new CarveConverter())->convert("a ![t[^1]][r] b\n\n[r]: /u\n\n[^1]: n\n");
-        $this->assertSame("<p>a <img src=\"/u\" alt=\"t[^1]\"> b</p>\n", $resolved);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a <img src=\"/u\" alt=\"t[^1]\"> b</p>\n"), $resolved);
         $this->assertNoEndnotes($resolved);
     }
 

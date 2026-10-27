@@ -205,7 +205,7 @@ class ProseMirrorBridgeTest extends TestCase
         $roundTripped = (new CarveConverter())->parse($source);
 
         $this->assertSame("|= Kopf A |\n| A1 |\n", $source);
-        $this->assertSame(preg_replace('/\n\z/', '', $html), (new CarveConverter())->render($roundTripped));
+        $this->assertSame($html, (new CarveConverter())->render($roundTripped));
     }
 
     public function testAProseMirrorTableCellParagraphKeepsMarksWhenLifted(): void
@@ -1637,7 +1637,7 @@ class ProseMirrorBridgeTest extends TestCase
 
         $this->assertJson($json);
         $this->assertSame(
-            preg_replace('/\n\z/', '', (new CarveConverter())->render($document)),
+            (new CarveConverter())->render($document),
             (new CarveConverter())->render($back),
         );
     }

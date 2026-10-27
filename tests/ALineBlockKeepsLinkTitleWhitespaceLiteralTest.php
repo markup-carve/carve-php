@@ -12,7 +12,7 @@ final class ALineBlockKeepsLinkTitleWhitespaceLiteralTest extends TestCase
     public function testTabCannotSeparateDestinationAndTitle(): void
     {
         self::assertSame(
-            "<div class=\"line-block\">\n  <p>[a](/u&nbsp;&nbsp;“t”)</p>\n</div>\n",
+            preg_replace('/\n\z/', '', "<div class=\"line-block\">\n  <p>[a](/u&nbsp;&nbsp;“t”)</p>\n</div>\n"),
             CarveConverter::create()->convert("::: |\n[a](/u\t\"t\")\n"),
         );
     }
@@ -20,7 +20,7 @@ final class ALineBlockKeepsLinkTitleWhitespaceLiteralTest extends TestCase
     public function testPreservedSpaceRunCannotSeparateDestinationAndTitle(): void
     {
         self::assertSame(
-            "<div class=\"line-block\">\n  <p>[a](/u&nbsp;&nbsp;“t”)</p>\n</div>\n",
+            preg_replace('/\n\z/', '', "<div class=\"line-block\">\n  <p>[a](/u&nbsp;&nbsp;“t”)</p>\n</div>\n"),
             CarveConverter::create()->convert("::: |\n[a](/u  \"t\")\n"),
         );
     }
@@ -28,7 +28,7 @@ final class ALineBlockKeepsLinkTitleWhitespaceLiteralTest extends TestCase
     public function testSingleSpaceStillSeparatesDestinationAndTitle(): void
     {
         self::assertSame(
-            "<div class=\"line-block\">\n  <p><a href=\"/u\" title=\"t\">a</a></p>\n</div>\n",
+            preg_replace('/\n\z/', '', "<div class=\"line-block\">\n  <p><a href=\"/u\" title=\"t\">a</a></p>\n</div>\n"),
             CarveConverter::create()->convert("::: |\n[a](/u \"t\")\n"),
         );
     }

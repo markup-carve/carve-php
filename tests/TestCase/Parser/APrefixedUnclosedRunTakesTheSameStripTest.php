@@ -75,6 +75,6 @@ class APrefixedUnclosedRunTakesTheSameStripTest extends TestCase
     public function testTheBlockEndIsUnchanged(): void
     {
         $this->assertSame(preg_replace('/\n\z/', '', "<p><span class=\"math inline\" role=\"math\">\\(a\\)</span></p>\n"), $this->html("\$`a \n"));
-        $this->assertSame("<p>a</p>\n", $this->html("!`a \n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a</p>\n"), $this->html("!`a \n"));
     }
 }

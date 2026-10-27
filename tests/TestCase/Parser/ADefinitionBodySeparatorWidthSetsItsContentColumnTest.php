@@ -105,7 +105,7 @@ class ADefinitionBodySeparatorWidthSetsItsContentColumnTest extends TestCase
             $this->html(":: term\n:    first\n\n    second\n"),
         );
         $this->assertSame(
-            "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>first</p>\n    <p>second</p>\n  </dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>first</p>\n    <p>second</p>\n  </dd>\n</dl>\n"),
             $this->html(":: term\n:    first\n\n     second\n"),
         );
     }

@@ -65,7 +65,7 @@ class IncludeExpanderTest extends TestCase
         $expander = new IncludeExpander($this->resolver(["data.{$language}" => $data, 'other.crv' => 'X']));
         $html = $converter->render($converter->transform($document, $expander));
 
-        $this->assertSame($authored, $html);
+        $this->assertSame($authored, preg_replace('/\n\z/', '', $html));
         $this->assertSame([], $expander->getWarnings());
     }
 

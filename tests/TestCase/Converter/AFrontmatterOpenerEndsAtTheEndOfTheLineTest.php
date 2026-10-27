@@ -42,7 +42,7 @@ class AFrontmatterOpenerEndsAtTheEndOfTheLineTest extends TestCase
 
         $this->assertSame($written . "\na: 1\n\n---\n\nt\n", $carve);
         $this->assertSame(
-            '<p>' . $rendered . "\na: 1</p>\n<hr>\n<p>t</p>\n",
+            preg_replace('/\n\z/', '', '<p>' . $rendered . "\na: 1</p>\n<hr>\n<p>t</p>\n"),
             CarveConverter::create()->convert($carve),
         );
     }
@@ -52,7 +52,7 @@ class AFrontmatterOpenerEndsAtTheEndOfTheLineTest extends TestCase
         $corpus = dirname(__DIR__, 2) . '/spec/tests/corpus/487-a-form-feed-or-a-no-break-space-is-content-wherever-whitespace-is-tested-9.html';
         $carve = (new MarkdownToCarve())->convert("---yaml\f" . self::BODY);
 
-        $this->assertSame((string)file_get_contents($corpus), CarveConverter::create()->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', (string)file_get_contents($corpus)), CarveConverter::create()->convert($carve));
     }
 
     /**

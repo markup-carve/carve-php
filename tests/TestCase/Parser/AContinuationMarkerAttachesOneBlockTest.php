@@ -267,13 +267,13 @@ class AContinuationMarkerAttachesOneBlockTest extends TestCase
         // top-level list and every "contains `<li>b</li>`" row still passes.
         $list = $this->html("> quoted\n+\n- a\n- b\n");
         $this->assertSame(
-            "<blockquote>\n"
+            preg_replace('/\n\z/', '', "<blockquote>\n"
             . "  <p>quoted</p>\n"
             . "  <ul>\n"
             . "    <li>a</li>\n"
             . "    <li>b</li>\n"
             . "  </ul>\n"
-            . "</blockquote>\n",
+            . "</blockquote>\n"),
             $list,
         );
     }

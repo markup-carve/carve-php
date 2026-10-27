@@ -20,7 +20,7 @@ class AdjacentDefinitionListsImportAsOneTest extends TestCase
         $result = (new HtmlToCarve())->convertWithReport($html);
 
         $this->assertSame(":: a\n: x\n:: b\n: y\n:: c\n: z\n", $result->value);
-        $this->assertSame(preg_replace('/\n\z/', '', $result->value), (new CarveConverter())->toCarve($result->value));
+        $this->assertSame($result->value, (new CarveConverter())->toCarve($result->value));
         $rows = $result->report()['diagnostics'];
         $this->assertSame(['element-unwrapped', 'element-unwrapped'], array_column($rows, 'code'));
         $this->assertSame(['/dl[3]', '/dl[5]'], array_column($rows, 'path'));

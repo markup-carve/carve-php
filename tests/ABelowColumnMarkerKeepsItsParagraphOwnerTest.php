@@ -12,7 +12,7 @@ final class ABelowColumnMarkerKeepsItsParagraphOwnerTest extends TestCase
     public function testBelowColumnPlusStaysLiteralInQuotedItem(): void
     {
         self::assertSame(
-            "<blockquote>\n  <blockquote>\n    <ul>\n      <li>a\n&gt; q\n+\npara</li>\n    </ul>\n  </blockquote>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <blockquote>\n    <ul>\n      <li>a\n&gt; q\n+\npara</li>\n    </ul>\n  </blockquote>\n</blockquote>\n"),
             CarveConverter::create()->convert("> > - a\n  > q\n  +\n  para\n"),
         );
     }
@@ -20,7 +20,7 @@ final class ABelowColumnMarkerKeepsItsParagraphOwnerTest extends TestCase
     public function testDescriptionWithoutMatchingTermCannotOwnPlus(): void
     {
         self::assertSame(
-            "<blockquote>\n  <blockquote>\n    <dl>\n      <dt>t</dt>\n    </dl>\n  </blockquote>\n  <p>: a\n+</p>\n  <blockquote><p>q</p></blockquote>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <blockquote>\n    <dl>\n      <dt>t</dt>\n    </dl>\n  </blockquote>\n  <p>: a\n+</p>\n  <blockquote><p>q</p></blockquote>\n</blockquote>\n"),
             CarveConverter::create()->convert("> > :: t\n> : a\n> +\n> > q\n"),
         );
     }

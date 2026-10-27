@@ -43,6 +43,6 @@ class AVisibleDescriptionOpenerAfterAnUnclosedRunKeepsItsOwnerTest extends TestC
         self::assertStringContainsString("<code>\nx</code>", $converter->convert("- :: a\n  : p\n    ```\n      x\n"));
         $html = $converter->convert("- :: term\n  : desc\n      ```\n      code\n      ```\nafter\n");
         self::assertStringContainsString("<pre><code>code\n</code></pre>", $html);
-        self::assertStringEndsWith("<p>after</p>\n", $html);
+        self::assertStringEndsWith(preg_replace('/\n\z/', '', "<p>after</p>\n"), $html);
     }
 }

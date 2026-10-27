@@ -91,7 +91,7 @@ class AVerseCommentInAReferenceLabelSurvivesTest extends TestCase
     {
         $source = "::: |\n[x [y\n%% secret\nz][inner] w][outer]\n:::\n";
 
-        $this->assertSame(preg_replace('/\n\z/', '', $source), (new CarveConverter())->toCarve($source));
+        $this->assertSame($source, (new CarveConverter())->toCarve($source));
     }
 
     #[DataProvider('targetProvider')]
@@ -252,7 +252,7 @@ class AVerseCommentInAReferenceLabelSurvivesTest extends TestCase
     {
         $source = "[a /b/ `c`][r]\n\n[r]: /u\n";
 
-        $this->assertSame(preg_replace('/\n\z/', '', $source), (new CarveConverter())->toCarve($source));
+        $this->assertSame($source, (new CarveConverter())->toCarve($source));
     }
 
     private function renderTo(string $target, string $source): string

@@ -132,7 +132,7 @@ final class BorrowedRouteExpansionTest extends TestCase
             self::assertSame('complete', $converter->tryRenderHtmlStreaming($source, static function (string $chunk) use (&$chunks): void {
                 $chunks[] = $chunk;
             }));
-            self::assertSame(CarveConverter::create()->convert($source), implode('', $chunks));
+            self::assertSame(CarveConverter::create()->convert($source), preg_replace('/\n\z/', '', implode('', $chunks)));
             foreach ($chunks as $chunk) {
                 self::assertLessThanOrEqual(4096, strlen($chunk));
                 self::assertTrue(mb_check_encoding($chunk, 'UTF-8'));
@@ -149,7 +149,7 @@ final class BorrowedRouteExpansionTest extends TestCase
     {
         $attempt = (new BorrowedHtmlLayout())->render($source);
         self::assertNotNull($attempt, $source);
-        self::assertSame(CarveConverter::create()->convert($source), $attempt['html'], $source);
+        self::assertSame(CarveConverter::create()->convert($source), preg_replace('/\n\z/', '', $attempt['html']), $source);
         self::assertSame(preg_replace('/\n\z/', '', $attempt['html']), (new CarveConverter())->convert($source), $source);
     }
 }

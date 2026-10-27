@@ -73,6 +73,6 @@ class ABracedQuotePairKeepsItsBracesTest extends TestCase
     public function testAStandaloneMarkerIsUnchanged(): void
     {
         $this->assertSame(preg_replace('/\n\z/', '', "<p>{\u{201C}x</p>\n"), $this->html("{\"x\n"));
-        $this->assertSame("<p>x\u{201D}}</p>\n", $this->html("x\"}\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>x\u{201D}}</p>\n"), $this->html("x\"}\n"));
     }
 }

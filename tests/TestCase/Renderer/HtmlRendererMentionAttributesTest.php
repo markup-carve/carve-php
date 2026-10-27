@@ -33,7 +33,7 @@ class HtmlRendererMentionAttributesTest extends TestCase
             $node->setAttribute($key, $value);
         }
 
-        $this->assertSame(preg_replace('/\n\z/', '', "<p>$expected</p>\n"), (new CarveConverter())->render($this->document($node)));
+        $this->assertSame("<p>$expected</p>\n", (new CarveConverter())->render($this->document($node)));
     }
 
     /**

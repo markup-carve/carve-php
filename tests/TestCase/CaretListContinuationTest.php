@@ -12,7 +12,7 @@ final class CaretListContinuationTest extends TestCase
     public function testUnattachedCaretContinuesOpenItemParagraph(): void
     {
         self::assertSame(
-            "<ul>\n  <li>a\n^ caption</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n^ caption</li>\n</ul>\n"),
             CarveConverter::create()->convert("- a\n^ caption\n"),
         );
     }
@@ -20,7 +20,7 @@ final class CaretListContinuationTest extends TestCase
     public function testHeadingStillEndsItem(): void
     {
         self::assertSame(
-            "<ul>\n  <li>a</li>\n</ul>\n<section id=\"H\">\n  <h1>H</h1>\n</section>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n</ul>\n<section id=\"H\">\n  <h1>H</h1>\n</section>\n"),
             CarveConverter::create()->convert("- a\n# H\n"),
         );
     }

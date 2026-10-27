@@ -52,7 +52,7 @@ class DefinitionBodyColumnBandsTest extends TestCase
             $this->html(":: t\n:  body\n> q\n"),
         );
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>body\ntail</dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>body\ntail</dd>\n</dl>\n"),
             $this->html(":: t\n:  body\ntail\n"),
         );
     }

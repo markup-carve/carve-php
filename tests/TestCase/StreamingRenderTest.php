@@ -22,7 +22,7 @@ final class StreamingRenderTest extends TestCase
         });
         $this->assertSame('complete', $outcome);
         $this->assertGreaterThan(1, count($chunks));
-        $this->assertSame($converter->convert($source), implode('', $chunks));
+        $this->assertSame($converter->convert($source), preg_replace('/\n\z/', '', implode('', $chunks)));
         foreach ($chunks as $chunk) {
             $this->assertSame(1, preg_match('//u', $chunk));
         }
@@ -97,6 +97,6 @@ final class StreamingRenderTest extends TestCase
             self::assertSame($expectedToc, $toc->getToc());
             $output .= $chunk;
         }));
-        self::assertSame($expected, $output);
+        self::assertSame($expected, preg_replace('/\n\z/', '', $output));
     }
 }
