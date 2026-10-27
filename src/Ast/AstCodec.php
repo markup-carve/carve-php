@@ -57,6 +57,43 @@ class AstCodec
     private bool $verifyingDecodedShape = false;
 
     /**
+     * Publish direct images from an array-backed importer tree as block-image paragraphs.
+     *
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, mixed>
+     */
+    public static function canonicalizeBlockImages(array $node): array
+    {
+        $type = $node['type'] ?? null;
+        $class = is_string($type) ? (self::classMap()[ReferenceShape::classTypeFor($type)] ?? null) : null;
+        $blockChildren = $class === Document::class || $class !== null && is_subclass_of($class, BlockNode::class)
+            && !in_array($type, ['paragraph', 'heading', 'figure', 'definition_term', 'line_block', 'caption'], true);
+        foreach ($node as $key => $value) {
+            if (!is_array($value) || !array_is_list($value)) {
+                continue;
+            }
+            foreach ($value as $index => $child) {
+                if (!is_array($child) || !isset($child['type'])) {
+                    continue;
+                }
+                $child = self::canonicalizeBlockImages($child);
+                if ($key === 'children' && $blockChildren && $child['type'] === 'image') {
+                    $paragraph = ['type' => 'paragraph', 'blockImage' => true];
+                    if (isset($child['pos'])) {
+                        $paragraph['pos'] = $child['pos'];
+                    }
+                    $child = $paragraph + ['children' => [$child]];
+                }
+                $value[$index] = $child;
+            }
+            $node[$key] = $value;
+        }
+
+        return $node;
+    }
+
+    /**
      * Encoding version.
      *
      * The CLI publishes the interchange version separately as `astVersion`.

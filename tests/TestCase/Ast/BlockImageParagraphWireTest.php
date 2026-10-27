@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -51,5 +52,14 @@ final class BlockImageParagraphWireTest extends TestCase
 
         self::assertSame('paragraph', $canonical['children'][0]['type']);
         self::assertSame('x', $canonical['children'][0]['children'][0]['src']);
+    }
+
+    public function testHtmlImporterPublishesItsDirectImageAsAParagraph(): void
+    {
+        $wire = (new HtmlToCarve())->convertToAst('<img src="/x.png" alt="x">');
+
+        self::assertSame('paragraph', $wire['children'][0]['type']);
+        self::assertTrue($wire['children'][0]['blockImage']);
+        self::assertSame('/x.png', $wire['children'][0]['children'][0]['src']);
     }
 }

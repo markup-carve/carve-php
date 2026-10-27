@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use LogicException;
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Converter\Html\ImportSession;
 
 // phpcs:disable SlevomatCodingStandard.Namespaces.FullyQualifiedClassNameInAnnotation -- These are PHPStan aliases, not class names.
@@ -60,7 +61,7 @@ final class HtmlAstBuildResult
             $tree[$key] = self::asPublished($value, $this->retainCarrierEscapes);
         }
 
-        return $tree;
+        return AstCodec::canonicalizeBlockImages($tree);
     }
 
     /**
