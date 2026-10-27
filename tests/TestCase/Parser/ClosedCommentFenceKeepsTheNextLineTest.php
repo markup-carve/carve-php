@@ -64,7 +64,7 @@ class ClosedCommentFenceKeepsTheNextLineTest extends TestCase
     {
         $source = "- a\n  %%% x\n  y\n  %%%\n - s\n";
         $expected = PinnedOracleHtml::forSource($source);
-        $this->assertSame((string)preg_replace('/\s+/', ' ', $expected . "\n"), $this->html($source));
+        $this->assertSame((string)preg_replace('/\s+/', ' ', $expected), $this->html($source));
     }
 
     /**

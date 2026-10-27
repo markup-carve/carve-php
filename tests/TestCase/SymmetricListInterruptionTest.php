@@ -39,11 +39,11 @@ class SymmetricListInterruptionTest extends TestCase
     public function testBlankLineStartsEitherList(): void
     {
         $this->assertSame(
-            "<p>intro text</p>\n<ul>\n  <li>a</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<p>intro text</p>\n<ul>\n  <li>a</li>\n</ul>\n"),
             $this->converter->convert("intro text\n\n- a"),
         );
         $this->assertSame(
-            "<p>intro text</p>\n<ol>\n  <li>a</li>\n</ol>\n",
+            preg_replace('/\n\z/', '', "<p>intro text</p>\n<ol>\n  <li>a</li>\n</ol>\n"),
             $this->converter->convert("intro text\n\n1. a"),
         );
     }
@@ -54,7 +54,7 @@ class SymmetricListInterruptionTest extends TestCase
     public function testThematicBreakStillInterrupts(): void
     {
         $this->assertSame(
-            "<p>intro</p>\n<hr>\n<p>more</p>\n",
+            preg_replace('/\n\z/', '', "<p>intro</p>\n<hr>\n<p>more</p>\n"),
             $this->converter->convert("intro\n---\nmore"),
         );
     }
@@ -65,7 +65,7 @@ class SymmetricListInterruptionTest extends TestCase
     public function testTightUnorderedNestingPreserved(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a\n    <ul>\n      <li>tight</li>\n    </ul>\n  </li>\n  <li>list</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <ul>\n      <li>tight</li>\n    </ul>\n  </li>\n  <li>list</li>\n</ul>\n"),
             $this->converter->convert("- a\n  - tight\n- list"),
         );
     }
@@ -76,7 +76,7 @@ class SymmetricListInterruptionTest extends TestCase
     public function testTightOrderedNestingPreserved(): void
     {
         $this->assertSame(
-            "<ol>\n  <li>a\n    <ol start=\"2\">\n      <li>inner</li>\n    </ol>\n  </li>\n  <li>list</li>\n</ol>\n",
+            preg_replace('/\n\z/', '', "<ol>\n  <li>a\n    <ol start=\"2\">\n      <li>inner</li>\n    </ol>\n  </li>\n  <li>list</li>\n</ol>\n"),
             $this->converter->convert("1. a\n   2. inner\n2. list"),
         );
     }
@@ -87,7 +87,7 @@ class SymmetricListInterruptionTest extends TestCase
     public function testMixedNestingPreserved(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a\n    <ol>\n      <li>one</li>\n      <li>two</li>\n    </ol>\n  </li>\n  <li>b</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <ol>\n      <li>one</li>\n      <li>two</li>\n    </ol>\n  </li>\n  <li>b</li>\n</ul>\n"),
             $this->converter->convert("- a\n  1. one\n  2. two\n- b"),
         );
     }
@@ -100,11 +100,11 @@ class SymmetricListInterruptionTest extends TestCase
     public function testListMarkerEndsHeadingAndStartsSiblingList(): void
     {
         $this->assertSame(
-            "<section id=\"T\">\n  <h1>T</h1>\n  <ul>\n    <li>item</li>\n  </ul>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"T\">\n  <h1>T</h1>\n  <ul>\n    <li>item</li>\n  </ul>\n</section>\n"),
             $this->converter->convert("# T\n- item"),
         );
         $this->assertSame(
-            "<section id=\"T\">\n  <h1>T</h1>\n  <ol>\n    <li>one</li>\n  </ol>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"T\">\n  <h1>T</h1>\n  <ol>\n    <li>one</li>\n  </ol>\n</section>\n"),
             $this->converter->convert("# T\n1. one"),
         );
     }
@@ -119,7 +119,7 @@ class SymmetricListInterruptionTest extends TestCase
     public function testListMarkerFoldsIntoOpenQuotedParagraph(): void
     {
         $this->assertSame(
-            "<blockquote><p>quoted\n- item</p></blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>quoted\n- item</p></blockquote>\n"),
             $this->converter->convert("> quoted\n- item"),
         );
     }
@@ -133,23 +133,23 @@ class SymmetricListInterruptionTest extends TestCase
     public function testDedentBelowIndentedBaseStartsSiblingList(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>\n<ul>\n  <li>c</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>\n<ul>\n  <li>c</li>\n</ul>\n"),
             $this->converter->convert("  - a\n  - b\n- c"),
         );
         // A single indented item then a dedented one: still two sibling lists.
         $this->assertSame(
-            "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n"),
             $this->converter->convert("  - a\n- b"),
         );
         // A normal col-0 list with a child then a col-0 sibling is unaffected.
         $this->assertSame(
-            "<ul>\n  <li>a\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n  <li>c</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n  <li>c</li>\n</ul>\n"),
             $this->converter->convert("- a\n  - b\n- c"),
         );
         // Plain text dedented below the base is NOT a marker: it lazily continues
         // the item (CommonMark lazy continuation), it does not end the list.
         $this->assertSame(
-            "<ul>\n  <li>a\ncontinued</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\ncontinued</li>\n</ul>\n"),
             $this->converter->convert("  - a\n continued"),
         );
     }
@@ -162,19 +162,19 @@ class SymmetricListInterruptionTest extends TestCase
     public function testListAfterDefinitionIsNotSwallowed(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>item</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>item</li>\n</ul>\n"),
             $this->converter->convert("[x]: /u\n  - item"),
         );
         $this->assertSame(
-            "<ol>\n  <li>item</li>\n</ol>\n",
+            preg_replace('/\n\z/', '', "<ol>\n  <li>item</li>\n</ol>\n"),
             $this->converter->convert("[x]: /u\n  1. item"),
         );
         $this->assertSame(
-            "<ul>\n  <li>item</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>item</li>\n</ul>\n"),
             $this->converter->convert("*[HTML]: HyperText\n  - item"),
         );
         $this->assertSame(
-            "<ol>\n  <li>item</li>\n</ol>\n",
+            preg_replace('/\n\z/', '', "<ol>\n  <li>item</li>\n</ol>\n"),
             $this->converter->convert("*[HTML]: HyperText\n  1. item"),
         );
     }
@@ -195,7 +195,7 @@ class SymmetricListInterruptionTest extends TestCase
             . "    </ul>\n"
             . "  </li>\n"
             . "</ul>\n";
-        $this->assertSame($expectedBullet, $this->converter->convert("- first\n\n  second\n  - nested\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', $expectedBullet), $this->converter->convert("- first\n\n  second\n  - nested\n"));
 
         $expectedOrdered = "<ul>\n"
             . "  <li><p>first</p>\n"
@@ -205,7 +205,7 @@ class SymmetricListInterruptionTest extends TestCase
             . "    </ol>\n"
             . "  </li>\n"
             . "</ul>\n";
-        $this->assertSame($expectedOrdered, $this->converter->convert("- first\n\n  second\n  1. nested\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', $expectedOrdered), $this->converter->convert("- first\n\n  second\n  1. nested\n"));
     }
 
     /**
@@ -215,11 +215,11 @@ class SymmetricListInterruptionTest extends TestCase
     public function testContinuationParagraphGuards(): void
     {
         $this->assertSame(
-            "<ul>\n  <li><p>first</p>\n    <p>second\nmore prose</p>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>first</p>\n    <p>second\nmore prose</p>\n  </li>\n</ul>\n"),
             $this->converter->convert("- first\n\n  second\n  more prose\n"),
         );
         $this->assertSame(
-            "<ul>\n  <li>fruit\n    <ul>\n      <li>apples</li>\n      <li>oranges</li>\n    </ul>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>fruit\n    <ul>\n      <li>apples</li>\n      <li>oranges</li>\n    </ul>\n  </li>\n</ul>\n"),
             $this->converter->convert("- fruit\n  - apples\n  - oranges\n"),
         );
     }

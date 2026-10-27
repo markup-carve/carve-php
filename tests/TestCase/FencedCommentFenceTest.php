@@ -82,7 +82,7 @@ class FencedCommentFenceTest extends TestCase
     #[DataProvider('pinnedFencedCommentProvider')]
     public function testPinnedFencedCommentCases(string $input, string $expected): void
     {
-        $this->assertSame($expected, (new CarveConverter())->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($input));
     }
 
     public function testFencedCommentTailRoundTripsAsHiddenBodyText(): void
@@ -99,7 +99,7 @@ class FencedCommentFenceTest extends TestCase
     {
         $converter = new CarveConverter(warnings: true);
 
-        $this->assertSame("<p>before</p>\n<p>secret</p>\n", $converter->convert("before\n\n%%% TODO\nsecret\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>before</p>\n<p>secret</p>\n"), $converter->convert("before\n\n%%% TODO\nsecret\n"));
 
         $warnings = $converter->getWarnings();
         $this->assertCount(1, $warnings);
@@ -112,7 +112,7 @@ class FencedCommentFenceTest extends TestCase
         $input = "> before\n>\n> %%% TODO\n> secret\n> %%% end\n>\n> after\n";
 
         $this->assertSame(
-            "<blockquote>\n  <p>before</p>\n  <p>after</p>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <p>before</p>\n  <p>after</p>\n</blockquote>\n"),
             (new CarveConverter())->convert($input),
         );
     }
@@ -122,7 +122,7 @@ class FencedCommentFenceTest extends TestCase
         $input = "# before\n%%% TODO\nsecret\n%%% end\nafter\n";
 
         $this->assertSame(
-            "<section id=\"before\">\n  <h1>before</h1>\n  <p>after</p>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"before\">\n  <h1>before</h1>\n  <p>after</p>\n</section>\n"),
             (new CarveConverter())->convert($input),
         );
     }
@@ -132,7 +132,7 @@ class FencedCommentFenceTest extends TestCase
         $input = "- before\n  %%% TODO\n  secret\n  %%% end\n  after\n";
 
         $this->assertSame(
-            "<ul>\n  <li>before\n    after\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>before\n    after\n  </li>\n</ul>\n"),
             (new CarveConverter())->convert($input),
         );
     }
@@ -253,7 +253,7 @@ class FencedCommentFenceTest extends TestCase
         $input = "> %%% x\n> hidden\n> %%%\n\nafter\n";
 
         $this->assertSame(
-            "<blockquote>\n\n</blockquote>\n<p>after</p>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n\n</blockquote>\n<p>after</p>\n"),
             (new CarveConverter())->convert($input),
         );
     }
@@ -269,7 +269,7 @@ class FencedCommentFenceTest extends TestCase
         $input = "> %%% x\n> visible\n\nafter\n";
 
         $this->assertSame(
-            "<blockquote><p>visible</p></blockquote>\n<p>after</p>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>visible</p></blockquote>\n<p>after</p>\n"),
             (new CarveConverter())->convert($input),
         );
     }
@@ -329,7 +329,7 @@ class FencedCommentFenceTest extends TestCase
     #[DataProvider('quotedCommentDefersEveryKindProvider')]
     public function testQuotedCommentDefersEveryKind(string $input, string $expected): void
     {
-        $this->assertSame($expected, (new CarveConverter())->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($input));
     }
 
     /**
@@ -374,7 +374,7 @@ class FencedCommentFenceTest extends TestCase
     #[DataProvider('unprefixedCommentStillDefersProvider')]
     public function testUnprefixedCommentStillDefers(string $input, string $expected): void
     {
-        $this->assertSame($expected, (new CarveConverter())->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($input));
     }
 
     /**
@@ -411,7 +411,7 @@ class FencedCommentFenceTest extends TestCase
     #[DataProvider('definitionKindStillRegistersProvider')]
     public function testDefinitionKindStillRegisters(string $input, string $expected): void
     {
-        $this->assertSame($expected, (new CarveConverter())->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($input));
     }
 
     /**
@@ -481,7 +481,7 @@ class FencedCommentFenceTest extends TestCase
     #[DataProvider('quotedCommentClosesProvider')]
     public function testQuotedCommentCloses(string $input, string $expected): void
     {
-        $this->assertSame($expected, (new CarveConverter())->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($input));
     }
 
     public function testANestedQuotesFenceDoesNotCloseTheOuterOne(): void
@@ -491,7 +491,7 @@ class FencedCommentFenceTest extends TestCase
         $input = "> %%%\n> > %%%\n> [r]: /url\n> %%%\n\nSee [r][].\n";
 
         $this->assertSame(
-            "<blockquote>\n\n</blockquote>\n<p>See [r][].</p>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n\n</blockquote>\n<p>See [r][].</p>\n"),
             (new CarveConverter())->convert($input),
         );
     }
@@ -504,7 +504,7 @@ class FencedCommentFenceTest extends TestCase
         $input = "> - %%%\n>   [r]: /url\n>   %%%\n\nSee [r][].\n";
 
         $this->assertSame(
-            "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n</blockquote>\n<p>See [r][].</p>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n</blockquote>\n<p>See [r][].</p>\n"),
             (new CarveConverter())->convert($input),
         );
     }
@@ -556,7 +556,7 @@ class FencedCommentFenceTest extends TestCase
     #[DataProvider('nestedPrefixCommentDefersProvider')]
     public function testNestedPrefixCommentDefers(string $input, string $expected): void
     {
-        $this->assertSame($expected, (new CarveConverter())->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($input));
     }
 
     public function testAnItemsQuotedCommentCloses(): void
@@ -569,8 +569,8 @@ class FencedCommentFenceTest extends TestCase
         $input = "- > %%%\n  > hidden\n  > %%%\n\n[r]: /url\n\nSee [r][].\n";
 
         $this->assertSame(
-            "<ul>\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n"
-                . "<p>See <a href=\"/url\">r</a>.</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n"
+                . "<p>See <a href=\"/url\">r</a>.</p>\n"),
             (new CarveConverter())->convert($input),
         );
     }

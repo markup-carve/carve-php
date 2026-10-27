@@ -65,7 +65,7 @@ CRV;
                 $chunks[] = $chunk;
             },
         ));
-        self::assertSame((new CarveConverter())->convert($source), implode('', $chunks));
+        self::assertSame((new CarveConverter())->convert($source), preg_replace('/\n\z/', '', implode('', $chunks)));
 
         self::assertSame('needs-ast', $converter->tryRenderHtmlStreaming(
             "Hey @alice and #release.\n",
@@ -119,7 +119,7 @@ CRV;
 
         $attempt = (new BorrowedHtmlLayout())->render(self::SOURCE, false, $plan);
         self::assertNotNull($attempt);
-        self::assertSame($this->authoritative($extensions)->convert(self::SOURCE), $attempt['html']);
+        self::assertSame($this->authoritative($extensions)->convert(self::SOURCE), preg_replace('/\n\z/', '', $attempt['html']));
     }
 
     public function testActiveDefaultEventsRemainExactWithoutAnAst(): void
@@ -152,7 +152,7 @@ CRV;
         self::assertNotNull($plan);
         $attempt = (new BorrowedHtmlLayout())->render(self::SOURCE, false, $plan);
         self::assertNotNull($attempt);
-        self::assertSame($this->authoritative($extensions)->convert(self::SOURCE), $attempt['html']);
+        self::assertSame($this->authoritative($extensions)->convert(self::SOURCE), preg_replace('/\n\z/', '', $attempt['html']));
     }
 
     public function testCustomMathFenceEventRemainsExact(): void
@@ -230,7 +230,7 @@ CRV;
         self::assertNotNull($attempt);
         self::assertSame(
             $this->authoritative([new ExternalLinksExtension(target: '')])->convert($source),
-            $attempt['html'],
+            preg_replace('/\n\z/', '', $attempt['html']),
         );
         self::assertStringNotContainsString('target=', $attempt['html']);
         self::assertStringContainsString('rel="noopener noreferrer"', $attempt['html']);
@@ -258,7 +258,7 @@ CRV;
                 $acceptedFiles[$profile][] = basename($path);
                 self::assertSame(
                     $this->authoritative($extensions)->convert($source),
-                    $attempt['html'],
+                    preg_replace('/\n\z/', '', $attempt['html']),
                     $profile . ': ' . basename($path),
                 );
             }

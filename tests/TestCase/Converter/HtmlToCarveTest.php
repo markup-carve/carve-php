@@ -113,7 +113,7 @@ class HtmlToCarveTest extends TestCase
         // The attribute survives AND the nesting does - the failure this
         // guards against kept one and lost the other.
         $this->assertSame(
-            "<ul>\n  <li class=\"x\">\n    <ul>\n      <li>a</li>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li class=\"x\">\n    <ul>\n      <li>a</li>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n"),
             (new CarveConverter())->convert($carve),
         );
     }
@@ -2230,7 +2230,7 @@ DJOT;
         $back = trim($this->roundTripConverter->convert($html));
 
         // A generic div imports its first HTML class as its kind; the authored attributes still render unchanged.
-        $this->assertSame($html, $converter->convert($back));
+        $this->assertSame(preg_replace('/\n\z/', '', $html), $converter->convert($back));
     }
 
     public function testGenericDivRoundTripUsesDjotSrc(): void

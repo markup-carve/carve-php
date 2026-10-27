@@ -32,7 +32,7 @@ class AnIncludedChildIsReadWithTheCallersExtensionsTest extends TestCase
 
         $this->assertStringContainsString(
             '<p>Child <a href="p" class="wikilink" data-wikilink="P">P</a>.</p>',
-            $converter->render($document),
+            preg_replace('/\n\z/', '', $converter->render($document)),
         );
     }
 
@@ -48,7 +48,7 @@ class AnIncludedChildIsReadWithTheCallersExtensionsTest extends TestCase
 
         $this->assertSame(
             $oneFile->convert("Root [[P]].\n\nChild [[P]].\n"),
-            $converter->render($document),
+            preg_replace('/\n\z/', '', $converter->render($document)),
         );
     }
 

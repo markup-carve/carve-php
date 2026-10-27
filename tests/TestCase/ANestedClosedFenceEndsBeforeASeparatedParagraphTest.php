@@ -30,7 +30,7 @@ class ANestedClosedFenceEndsBeforeASeparatedParagraphTest extends TestCase
         foreach (["- - ```\n\ntail\n", "- - ```\n+\n\ntail\n"] as $source) {
             $before = (new CarveConverter())->convert($source);
             $formatted = CarveConverter::toCarve($source);
-            $this->assertSame($before, (new CarveConverter())->convert($formatted));
+            $this->assertSame(preg_replace('/\n\z/', '', $before), (new CarveConverter())->convert($formatted));
             $this->assertSame($formatted, CarveConverter::toCarve($formatted));
         }
     }

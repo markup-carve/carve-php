@@ -13,11 +13,11 @@ final class MarkdownHeadingSeparatorFixedPointTest extends TestCase
     public function testAdjacentHeadings(): void
     {
         $rows = [
-            'cm-062' => ["# foo\n## foo\n### foo\n#### foo\n##### foo\n###### foo\n", "# foo\n\n## foo\n\n### foo\n\n#### foo\n\n##### foo\n\n###### foo\n", '44d8325266822c5faf252c292955c603ee7d1186e5ade12dbc7f449d16924ad9'],
-            'cm-068' => [" ### foo\n  ## foo\n   # foo\n", "### foo\n\n## foo\n\n# foo\n", '52294a2d581b67f1eef9cea784284b746df1850eeab72ae5f832f7cd9d9d177b'],
-            'cm-071' => ["## foo ##\n  ###   bar    ###\n", "## foo\n\n### bar\n", '2417aeac297a0c5d555dbd05df9ea074e5b700ab923079183f6773c4f3f3b691'],
-            'cm-072' => ["# foo ##################################\n##### foo ##\n", "# foo\n\n##### foo\n", '5ed580270d4bacdcc0cd4f6baab32712733e56189cce0c53235873b043d6bcfc'],
-            'cm-076' => ["### foo \\###\n## foo #\\##\n# foo \\#\n", "### foo \\###\n\n## foo #\\##\n\n# foo \\#\n", 'fe6062a5dea175b35eeab24e3b7e2fef2ff49b958f5c2952df468295e11982e9'],
+            'cm-062' => ["# foo\n## foo\n### foo\n#### foo\n##### foo\n###### foo\n", "# foo\n\n## foo\n\n### foo\n\n#### foo\n\n##### foo\n\n###### foo\n", '1266860430a1f1c8ecb0b702a32765f3c8a465610716c38ce72e4c2d8dc5f1fc'],
+            'cm-068' => [" ### foo\n  ## foo\n   # foo\n", "### foo\n\n## foo\n\n# foo\n", 'b64e69d021262a6aff9797e131d32d078e68e162b779f06c05ba204953c036ce'],
+            'cm-071' => ["## foo ##\n  ###   bar    ###\n", "## foo\n\n### bar\n", '6ad3ec734f47aa8105aac2311beacf6933cad83be9f004d09d5048aa4bbb0dff'],
+            'cm-072' => ["# foo ##################################\n##### foo ##\n", "# foo\n\n##### foo\n", '0adc4142780de292dad00482c29a3d073104e11f5e27f71d0d1281f35d897b1b'],
+            'cm-076' => ["### foo \\###\n## foo #\\##\n# foo \\#\n", "### foo \\###\n\n## foo #\\##\n\n# foo \\#\n", '7c8a5f4a81e33472923a94d689fba88fad53caf3a133612e6ae1b3ce5b3b555b'],
         ];
 
         foreach ($rows as $id => [$source, $expected, $htmlHash]) {

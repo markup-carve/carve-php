@@ -84,7 +84,7 @@ class MarkdownSmartTypographyModeTest extends TestCase
 
     public function testOtherTargetsAreUnaffected(): void
     {
-        $this->assertSame("<p>a…b</p>\n", (new CarveConverter())->convert('a...b'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a…b</p>\n"), (new CarveConverter())->convert('a...b'));
         $this->assertSame('a…b', trim(CarveConverter::plainText()->convert('a...b')));
     }
 

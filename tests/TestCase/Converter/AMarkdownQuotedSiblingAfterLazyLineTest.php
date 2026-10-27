@@ -30,7 +30,7 @@ final class AMarkdownQuotedSiblingAfterLazyLineTest extends TestCase
 
         self::assertSame($carve, $imported);
         self::assertSame(
-            "<blockquote>\n  <ul>\n    <li>a\nx</li>\n    <li>b</li>\n  </ul>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <ul>\n    <li>a\nx</li>\n    <li>b</li>\n  </ul>\n</blockquote>\n"),
             (new CarveConverter())->convert($imported),
         );
         self::assertSame($imported, CarveConverter::toCarve($imported));
@@ -42,7 +42,7 @@ final class AMarkdownQuotedSiblingAfterLazyLineTest extends TestCase
         $imported = (new MarkdownToCarve())->convert($markdown);
 
         self::assertSame(
-            "<blockquote>\n  <ol start=\"9\">\n    <li><p>a</p></li>\n    <li><p>b</p>\n      <p>y</p>\n    </li>\n  </ol>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <ol start=\"9\">\n    <li><p>a</p></li>\n    <li><p>b</p>\n      <p>y</p>\n    </li>\n  </ol>\n</blockquote>\n"),
             (new CarveConverter())->convert($imported),
         );
     }

@@ -72,7 +72,7 @@ class ACommentSpanClosedBelowTheColumnLeavesTheBlankASeparatorTest extends TestC
     #[DataProvider('theBlankBelowTheCloserSeparates')]
     public function testABelowColumnCloserLeavesTheBlankASeparator(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->converter->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($source));
     }
 
     /**
@@ -119,6 +119,6 @@ class ACommentSpanClosedBelowTheColumnLeavesTheBlankASeparatorTest extends TestC
     #[DataProvider('unmovedByTheFix')]
     public function testTheRowsAroundTheFixDoNotMove(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->converter->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($source));
     }
 }

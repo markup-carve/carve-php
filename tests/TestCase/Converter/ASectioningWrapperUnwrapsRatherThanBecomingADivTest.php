@@ -105,7 +105,7 @@ class ASectioningWrapperUnwrapsRatherThanBecomingADivTest extends TestCase
 
         $this->assertStringNotContainsString('class="article"', $rendered);
         $this->assertStringNotContainsString('<div', $rendered);
-        $this->assertSame("<p>a</p>\n", $rendered);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a</p>\n"), $rendered);
     }
 
     /**

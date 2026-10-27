@@ -276,7 +276,7 @@ code
             $actual = (new MarkdownToCarve())->convert($source);
             self::assertSame($expected, $actual, $id);
             self::assertSame($actual, CarveConverter::toCarve($actual), $id);
-            self::assertSame($html, (new CarveConverter())->convert($actual), $id);
+            self::assertSame(preg_replace('/\n\z/', '', $html), (new CarveConverter())->convert($actual), $id);
         }
     }
 }

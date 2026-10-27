@@ -87,7 +87,7 @@ class ProfileFiltersWhatIsPublishedTest extends TestCase
         // did not get added.
         $html = CarveConverter::create(profile: $this->strictProfile())->convert(self::WITH_CODE);
 
-        $this->assertSame("<p>before</p>\n<p>after</p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>before</p>\n<p>after</p>\n"), $html);
     }
 
     public function testTheViolationSurvivesAConvert(): void

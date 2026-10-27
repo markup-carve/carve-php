@@ -22,52 +22,52 @@ class EmptyContainerBodyTest extends TestCase
 
     public function testABareDivKeepsTheBlankLine(): void
     {
-        $this->assertSame("<div>\n\n</div>\n", $this->converter->convert(":::\n:::"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<div>\n\n</div>\n"), $this->converter->convert(":::\n:::"));
     }
 
     public function testAWordClassDivKeepsTheBlankLine(): void
     {
-        $this->assertSame("<div class=\"b\">\n\n</div>\n", $this->converter->convert("::: b\n:::"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<div class=\"b\">\n\n</div>\n"), $this->converter->convert("::: b\n:::"));
     }
 
     public function testAnAdmonitionKeepsTheBlankLine(): void
     {
         $html = $this->converter->convert("::: note\n:::");
-        $this->assertSame("<aside class=\"admonition note\" aria-label=\"Note\">\n\n</aside>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<aside class=\"admonition note\" aria-label=\"Note\">\n\n</aside>\n"), $html);
     }
 
     public function testAnEmptyBlockquoteKeepsTheBlankLine(): void
     {
-        $this->assertSame("<blockquote>\n\n</blockquote>\n", $this->converter->convert('>'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<blockquote>\n\n</blockquote>\n"), $this->converter->convert('>'));
     }
 
     public function testAnEmptyLineBlockKeepsTheBlankLine(): void
     {
-        $this->assertSame("<div class=\"line-block\">\n\n</div>\n", $this->converter->convert("::: |\n:::"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<div class=\"line-block\">\n\n</div>\n"), $this->converter->convert("::: |\n:::"));
     }
 
     public function testAnEmptyLocalHardBreakBlockKeepsTheBlankLine(): void
     {
-        $this->assertSame("<div class=\"hardbreaks\">\n\n</div>\n", $this->converter->convert("::: \\\n:::"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<div class=\"hardbreaks\">\n\n</div>\n"), $this->converter->convert("::: \\\n:::"));
     }
 
     public function testAnEmptyFigureGroupKeepsTheBlankLine(): void
     {
         $this->assertSame(
-            "<figure class=\"carve-figure-group\">\n\n</figure>\n",
+            preg_replace('/\n\z/', '', "<figure class=\"carve-figure-group\">\n\n</figure>\n"),
             $this->converter->convert("::: figure\n:::"),
         );
     }
 
     public function testAnAttributedBareDivKeepsTheBlankLine(): void
     {
-        $this->assertSame("<div class=\"b\">\n\n</div>\n", $this->converter->convert("{.b}\n:::\n:::"));
-        $this->assertSame("<div id=\"i\">\n\n</div>\n", $this->converter->convert("{#i}\n:::\n:::"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<div class=\"b\">\n\n</div>\n"), $this->converter->convert("{.b}\n:::\n:::"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<div id=\"i\">\n\n</div>\n"), $this->converter->convert("{#i}\n:::\n:::"));
     }
 
     public function testABodyThatRendersNothingIsAnEmptyBody(): void
     {
         // A container holding only a comment takes the empty shape.
-        $this->assertSame("<div class=\"b\">\n\n</div>\n", $this->converter->convert("::: b\n%%% \nc\n%%%\n:::"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<div class=\"b\">\n\n</div>\n"), $this->converter->convert("::: b\n%%% \nc\n%%%\n:::"));
     }
 }

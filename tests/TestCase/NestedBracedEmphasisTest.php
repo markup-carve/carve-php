@@ -278,7 +278,7 @@ class NestedBracedEmphasisTest extends TestCase
         foreach (['{*a `x`{=html}{#id} b*} {# n #}', '{*a <https://a.b>{#id} b*} {#n#}'] as $source) {
             $html = (new CarveConverter())->convert($source);
             $this->assertStringStartsWith('<p><strong>a ', $html);
-            $this->assertSame($html, (new CarveConverter())->convert(CarveConverter::toCarve($source)));
+            $this->assertSame(preg_replace('/\n\z/', '', $html), (new CarveConverter())->convert(CarveConverter::toCarve($source)));
         }
     }
 }

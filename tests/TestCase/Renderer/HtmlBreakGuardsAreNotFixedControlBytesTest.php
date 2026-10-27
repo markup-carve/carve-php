@@ -190,7 +190,7 @@ class HtmlBreakGuardsAreNotFixedControlBytesTest extends TestCase
         // guard mechanism.
         $html = (new CarveConverter())->convert('a' . $char . "b\nc\n");
 
-        $this->assertSame('<p>a' . $char . "b\nc</p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', '<p>a' . $char . "b\nc</p>\n"), $html);
     }
 
     #[DataProvider('guardCandidates')]
@@ -212,7 +212,7 @@ class HtmlBreakGuardsAreNotFixedControlBytesTest extends TestCase
     public function testLiteralPrivateUseUnicodeIsPreserved(): void
     {
         $this->assertSame(
-            "<p>a\u{E000}b\nc</p>\n",
+            preg_replace('/\n\z/', '', "<p>a\u{E000}b\nc</p>\n"),
             (new CarveConverter())->convert("a\u{E000}b\nc\n"),
         );
     }
@@ -224,6 +224,6 @@ class HtmlBreakGuardsAreNotFixedControlBytesTest extends TestCase
 
         self::assertSame('needs-ast', $converter->tryRenderHtmlStreaming($source, static function (string $chunk): void {
         }));
-        self::assertSame($converter->render($converter->parse($source)), $converter->convert($source));
+        self::assertSame(preg_replace('/\n\z/', '', $converter->render($converter->parse($source))), $converter->convert($source));
     }
 }

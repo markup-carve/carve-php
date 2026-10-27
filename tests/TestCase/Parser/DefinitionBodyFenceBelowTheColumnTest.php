@@ -51,13 +51,13 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
     #[DataProvider('belowTheColumnProvider')]
     public function testABelowColumnLineDoesNotFoldIntoAnOpenFence(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     public function testABelowColumnTildeLineDoesNotFoldIntoAnOpenFence(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n<p>body\n~~~</p>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n<p>body\n~~~</p>\n"),
             $this->html(":: t\n:  ~~~\nbody\n~~~\n"),
         );
     }
@@ -90,7 +90,7 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
         string $source,
         string $expected,
     ): void {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     public function testTheGuardIsOnTheOpenFenceNotOnTheMarkerLine(): void
@@ -100,7 +100,7 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
         // a paragraph reopened, so the below-column line folds in as it always
         // did.
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code>x\n</code></pre>\n    <p>para\nbelow</p>\n  </dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code>x\n</code></pre>\n    <p>para\nbelow</p>\n  </dd>\n</dl>\n"),
             $this->html(":: t\n:  ```\n   x\n   ```\n   para\nbelow\n"),
         );
     }
@@ -119,16 +119,16 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
     public function testAClosedFenceWithNoParagraphAfterItEndsTheBody(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code>x\n</code></pre>\n  </dd>\n</dl>\n<p>below</p>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code>x\n</code></pre>\n  </dd>\n</dl>\n<p>below</p>\n"),
             $this->html(":: t\n:  ```\n   x\n   ```\nbelow\n"),
         );
         // The two spellings it now agrees with.
         $this->assertSame(
-            "<ul>\n  <li>\n    <pre><code>x\n</code></pre>\n  </li>\n</ul>\n<p>below</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code>x\n</code></pre>\n  </li>\n</ul>\n<p>below</p>\n"),
             $this->html("- ```\n  x\n  ```\nbelow\n"),
         );
         $this->assertSame(
-            "<blockquote>\n  <pre><code>x\n</code></pre>\n</blockquote>\n<p>below</p>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <pre><code>x\n</code></pre>\n</blockquote>\n<p>below</p>\n"),
             $this->html("> ```\n> x\n> ```\nbelow\n"),
         );
     }
@@ -137,7 +137,7 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
     {
         // CONTROL for lazy continuation surviving the change.
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>para\nbelow</dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>para\nbelow</dd>\n</dl>\n"),
             $this->html(":: t\n:  para\nbelow\n"),
         );
     }
@@ -147,11 +147,11 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
         // The two spellings that already answered this way, so the definition
         // spelling closes the set rather than being enumerated beside them.
         $this->assertSame(
-            "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n"),
             $this->html("- ```\nx\n```\n"),
         );
         $this->assertSame(
-            "<blockquote>\n  <pre><code></code></pre>\n</blockquote>\n<p>x\n<code></code></p>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <pre><code></code></pre>\n</blockquote>\n<p>x\n<code></code></p>\n"),
             $this->html("> ```\nx\n```\n"),
         );
     }

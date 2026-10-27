@@ -56,7 +56,7 @@ class CompactListBlocksTest extends TestCase
             '',
         ]);
 
-        $this->assertSame($expected, $this->converter->convert("- a\n\n  - b\n\n- c"));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert("- a\n\n  - b\n\n- c"));
     }
 
     public function testContinuationMarkerAttachesCodeFlushLeftTight(): void

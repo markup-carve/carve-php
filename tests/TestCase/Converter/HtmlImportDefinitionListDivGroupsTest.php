@@ -81,7 +81,7 @@ class HtmlImportDefinitionListDivGroupsTest extends TestCase
     #[DataProvider('divGroupedListProvider')]
     public function testDivGroupedDefinitionListSurvivesImport(string $html, string $expected): void
     {
-        $this->assertSame($expected, $this->carve->convert($this->converter->convert($html)));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->carve->convert($this->converter->convert($html)));
     }
 
     public function testLeadingDescriptionsRemainScopedToEachListAndConversion(): void
@@ -116,7 +116,7 @@ class HtmlImportDefinitionListDivGroupsTest extends TestCase
         $carve = $this->converter->convert('<dl id="glossary"><div><dt>Term</dt><dd>Definition</dd></div></dl>');
 
         $this->assertSame(
-            "<dl id=\"glossary\">\n  <dt>Term</dt>\n  <dd>Definition</dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl id=\"glossary\">\n  <dt>Term</dt>\n  <dd>Definition</dd>\n</dl>\n"),
             $this->carve->convert($carve),
         );
     }
@@ -129,7 +129,7 @@ class HtmlImportDefinitionListDivGroupsTest extends TestCase
     public function testDirectChildDefinitionListStillConverts(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>Term</dt>\n  <dd>Definition</dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>Term</dt>\n  <dd>Definition</dd>\n</dl>\n"),
             $this->carve->convert($this->converter->convert('<dl><dt>Term</dt><dd>Definition</dd></dl>')),
         );
     }
@@ -153,7 +153,7 @@ class HtmlImportDefinitionListDivGroupsTest extends TestCase
     public function testDivOutsideADefinitionListIsUnaffected(): void
     {
         $this->assertSame(
-            "<p>Loose</p>\n",
+            preg_replace('/\n\z/', '', "<p>Loose</p>\n"),
             $this->carve->convert($this->converter->convert('<div><p>Loose</p></div>')),
         );
     }

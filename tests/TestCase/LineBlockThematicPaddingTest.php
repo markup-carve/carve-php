@@ -13,7 +13,7 @@ class LineBlockThematicPaddingTest extends TestCase
     {
         $formatted = CarveConverter::toCarve("::: |\n---\n");
         $this->assertSame("::: |\n---\n:::\n", $formatted);
-        $this->assertSame("<div class=\"line-block\">\n  <p>—</p>\n</div>\n", (new CarveConverter())->convert($formatted));
+        $this->assertSame(preg_replace('/\n\z/', '', "<div class=\"line-block\">\n  <p>—</p>\n</div>\n"), (new CarveConverter())->convert($formatted));
     }
 
     public function testThematicLookingLinesPreserveLayoutAndSettle(): void

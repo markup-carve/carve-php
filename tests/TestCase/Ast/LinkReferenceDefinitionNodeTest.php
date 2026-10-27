@@ -80,7 +80,7 @@ class LinkReferenceDefinitionNodeTest extends TestCase
     public function testTheNodeRendersNothingInHtml(): void
     {
         $converter = new CarveConverter();
-        $this->assertSame("<p><a href=\"/u\">a</a></p>\n", $converter->convert("[a][r]\n\n[r]: /u\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><a href=\"/u\">a</a></p>\n"), $converter->convert("[a][r]\n\n[r]: /u\n"));
         $this->assertSame('', $converter->convert("[r]: /u\n"));
     }
 
@@ -96,7 +96,7 @@ class LinkReferenceDefinitionNodeTest extends TestCase
             $this->childTypes("a\n\n> [r]: /u\n"),
         );
         $this->assertSame(
-            "<blockquote><p>quoted</p></blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>quoted</p></blockquote>\n"),
             (new CarveConverter())->convert("> quoted\n[r]: /u"),
         );
     }

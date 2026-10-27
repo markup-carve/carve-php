@@ -507,16 +507,23 @@ class CarveConverter
             if ($attempt !== null) {
                 BorrowedExtensionPlan::commit($this->extensions, $attempt['headings']);
 
-                return $attempt['html'];
+                return $this->withoutHtmlDocumentTerminator($attempt['html']);
             }
         }
 
         $this->conversionSource = $djot;
         try {
-            return $this->render($this->parse($djot));
+            return $this->withoutHtmlDocumentTerminator($this->render($this->parse($djot)));
         } finally {
             $this->conversionSource = null;
         }
+    }
+
+    private function withoutHtmlDocumentTerminator(string $html): string
+    {
+        return $this->renderer instanceof HtmlRenderer && str_ends_with($html, "\n")
+            ? substr($html, 0, -1)
+            : $html;
     }
 
     /**
@@ -563,6 +570,10 @@ class CarveConverter
         $dangling = $this->renderer instanceof MarkdownRenderer && !$this->renderer->isRoundTripMode()
             ? $this->parser->getUnattachedBlockAttributes() : [];
         $rendered = $this->renderWithReport($document, false, $maxRenderLosses);
+        $value = $this->withoutHtmlDocumentTerminator($rendered->value);
+        if ($value !== $rendered->value) {
+            $rendered = new RenderResult($value, $rendered->losses, $rendered->totalLosses, $rendered->truncated, $rendered->lossCounts);
+        }
         if ($dangling === []) {
             if ($strictLosses && $rendered->totalLosses > 0) {
                 throw new RenderLossException($rendered);

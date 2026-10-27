@@ -44,7 +44,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
         $imported = (new MarkdownToCarve())->convert($markdown);
 
         $this->assertSame($carve, $imported);
-        $this->assertSame($html, (new CarveConverter())->convert($imported));
+        $this->assertSame(preg_replace('/\n\z/', '', $html), (new CarveConverter())->convert($imported));
         $this->assertSame($imported, CarveConverter::toCarve($imported));
     }
 
@@ -53,21 +53,21 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
         $imported = (new MarkdownToCarve())->convert("a\n\n> [x]: /u\n\nb\n");
 
         $this->assertSame("a\n\n>\n\nb\n\n[x]: /u\n", $imported);
-        $this->assertSame("<p>a</p>\n<blockquote>\n\n</blockquote>\n<p>b</p>\n", (new CarveConverter())->convert($imported));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a</p>\n<blockquote>\n\n</blockquote>\n<p>b</p>\n"), (new CarveConverter())->convert($imported));
     }
 
     public function testADefinitionPartingTwoListsStaysBetweenThem(): void
     {
         $imported = (new MarkdownToCarve())->convert("- a\n\n[x]: /u\n- b [x]\n");
 
-        $this->assertSame("<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b <a href=\"/u\">x</a></li>\n</ul>\n", (new CarveConverter())->convert($imported));
+        $this->assertSame(preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b <a href=\"/u\">x</a></li>\n</ul>\n"), (new CarveConverter())->convert($imported));
     }
 
     public function testALineWithNoDestinationClaimsNoLabel(): void
     {
         $imported = (new MarkdownToCarve())->convert("[x]:\n\n[x]: /v\n\n[x]\n");
 
-        $this->assertSame("<p><a href=\"/v\">x</a>:</p>\n<p><a href=\"/v\">x</a></p>\n", (new CarveConverter())->convert($imported));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><a href=\"/v\">x</a>:</p>\n<p><a href=\"/v\">x</a></p>\n"), (new CarveConverter())->convert($imported));
     }
 
     public function testADefinitionOnANestedItemsMarkerLineStaysADefinition(): void
@@ -76,7 +76,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
 
         $this->assertSame("- a\n  - [x]: /u\n- b [x][]\n", $imported);
         $this->assertSame(
-            "<ul>\n  <li>a\n    <ul>\n      <li></li>\n    </ul>\n  </li>\n  <li>b <a href=\"/u\">x</a></li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <ul>\n      <li></li>\n    </ul>\n  </li>\n  <li>b <a href=\"/u\">x</a></li>\n</ul>\n"),
             (new CarveConverter())->convert($imported),
         );
         $this->assertSame($imported, CarveConverter::toCarve($imported));
@@ -87,7 +87,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
         $imported = (new MarkdownToCarve())->convert("- [x]: <>\n- b\n");
 
         $this->assertSame("- %%\n- b\n\n[x]:\n", $imported);
-        $this->assertSame("<ul>\n  <li></li>\n  <li>b</li>\n</ul>\n", (new CarveConverter())->convert($imported));
+        $this->assertSame(preg_replace('/\n\z/', '', "<ul>\n  <li></li>\n  <li>b</li>\n</ul>\n"), (new CarveConverter())->convert($imported));
     }
 
     public function testAHeadingAfterAnEmptiedDefinitionItemStaysOutsideTheItem(): void
@@ -96,7 +96,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
 
         $this->assertSame("- %%\n\n# H\n\n[x]: /u\n", $imported);
         $this->assertSame(
-            "<ul>\n  <li></li>\n</ul>\n<section id=\"H\">\n  <h1>H</h1>\n</section>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li></li>\n</ul>\n<section id=\"H\">\n  <h1>H</h1>\n</section>\n"),
             (new CarveConverter())->convert($imported),
         );
     }
@@ -107,7 +107,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
 
         $this->assertSame("- a\n  > - %%\n  > - b\n\n[x]: /u\n", $imported);
         $this->assertSame(
-            "<ul>\n  <li>a\n    <blockquote>\n      <ul>\n        <li></li>\n        <li>b</li>\n      </ul>\n    </blockquote>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <blockquote>\n      <ul>\n        <li></li>\n        <li>b</li>\n      </ul>\n    </blockquote>\n  </li>\n</ul>\n"),
             (new CarveConverter())->convert($imported),
         );
     }
@@ -118,7 +118,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
 
         $this->assertSame("- ```\n  ```\n\n```\n```\n\n[b]: /2 \"t\"\n", $imported);
         $this->assertSame(
-            "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<pre><code></code></pre>\n"),
             (new CarveConverter())->convert($imported),
         );
     }
@@ -129,7 +129,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
 
         $this->assertSame("> - q [b]\n>   [c][]: `<x y>`{=html}\n\n[c]: x%20y\n", $imported);
         $this->assertSame(
-            "<blockquote>\n  <ul>\n    <li>q [b]\n<a href=\"x%20y\">c</a>: <x y></li>\n  </ul>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <ul>\n    <li>q [b]\n<a href=\"x%20y\">c</a>: <x y></li>\n  </ul>\n</blockquote>\n"),
             (new CarveConverter())->convert($imported),
         );
     }
@@ -176,8 +176,8 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
             if ($prefix !== '') {
                 $expected = "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <ul>\n    <li>b</li>\n  </ul>\n</blockquote>\n<p><a href=\"\">t</a></p>\n";
             }
-            self::assertSame($expected, (new CarveConverter())->convert($migration->value));
-            self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
+            self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($migration->value));
+            self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
             $losses = array_filter($migration->diagnostics, static fn ($row) => $row->code === 'structure-unspellable');
             self::assertSame([], array_values($losses));
         }
@@ -269,8 +269,8 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
     {
         $migration = (new MarkdownToCarve())->convertWithFidelityReport("> - a\n>\n>  [r]: <>\n>\n> - b\n\n[t][r]");
         $expected = "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <ul>\n    <li>b</li>\n  </ul>\n</blockquote>\n<p><a href=\"\">t</a></p>\n";
-        self::assertSame($expected, (new CarveConverter())->convert($migration->value));
-        self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($migration->value));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
     }
 
     public function testMarkerColumnsDetermineWhetherAnEmptyDefinitionLeavesTheList(): void
@@ -278,13 +278,13 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
         foreach (["-\ta", ' - a', '  - a', '   - a'] as $head) {
             $written = (new MarkdownToCarve())->convert($head . "\n\n[r]: <>\n\n - b\n\n[t][r]");
             $expected = "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<p><a href=\"\">t</a></p>\n";
-            self::assertSame($expected, (new CarveConverter())->convert($written));
-            self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
+            self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($written));
+            self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert(CarveConverter::toCarve($written)));
         }
         $written = (new MarkdownToCarve())->convert("-     code\n\n  [r]: <>\n\n- b\n\n[t][r]");
         $expected = "<ul>\n  <li>\n    <pre><code>code\n</code></pre>\n  </li>\n  <li><p>b</p></li>\n</ul>\n<p><a href=\"\">t</a></p>\n";
-        self::assertSame($expected, (new CarveConverter())->convert($written));
-        self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($written));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert(CarveConverter::toCarve($written)));
     }
 
     public function testSeparateListsSurviveConversionInsideABlockFootnote(): void
@@ -299,24 +299,24 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
     {
         $written = (new MarkdownToCarve())->convert("-   \n  x\n\n  [r]: <>\n\n- b\n\n[t][r]");
         $expected = "<ul>\n  <li><p>x</p></li>\n  <li><p>b</p></li>\n</ul>\n<p><a href=\"\">t</a></p>\n";
-        self::assertSame($expected, (new CarveConverter())->convert($written));
-        self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($written));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert(CarveConverter::toCarve($written)));
     }
 
     public function testStaircaseMarkerIndentationDoesNotInventAnAncestor(): void
     {
         $written = (new MarkdownToCarve())->convert("- a\n - b\n\n  [r]: <>\n\n- c\n\n[t][r]");
         $expected = "<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>\n<ul>\n  <li>c</li>\n</ul>\n<p><a href=\"\">t</a></p>\n";
-        self::assertSame($expected, (new CarveConverter())->convert($written));
-        self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($written));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert(CarveConverter::toCarve($written)));
     }
 
     public function testCompactQuoteMarkersPreserveTheListBoundary(): void
     {
         $written = (new MarkdownToCarve())->convert(">- a\n>\n> [r]: <>\n>\n>- b");
         $expected = "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <ul>\n    <li>b</li>\n  </ul>\n</blockquote>\n";
-        self::assertSame($expected, (new CarveConverter())->convert($written));
-        self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($written));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert(CarveConverter::toCarve($written)));
     }
 
     public function testAnOrderedMarkerOutsideTheItemKeepsThreeLists(): void
@@ -340,8 +340,8 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
 </ul>
 <p><a href="">t</a></p>
 ';
-        self::assertSame($expected, (new CarveConverter())->convert($migration->value));
-        self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($migration->value));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
         $losses = array_filter($migration->diagnostics, static fn ($row) => $row->code === 'structure-unspellable');
         self::assertSame([], array_values($losses));
     }
@@ -367,8 +367,8 @@ more</p></li>
 </blockquote>
 <p><a href="">t</a></p>
 ';
-        self::assertSame($expected, (new CarveConverter())->convert($migration->value));
-        self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($migration->value));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
         $losses = array_filter($migration->diagnostics, static fn ($row) => $row->code === 'structure-unspellable');
         self::assertSame([], array_values($losses));
     }
@@ -378,8 +378,8 @@ more</p></li>
         $cases = json_decode((string)file_get_contents(__DIR__ . '/../../fixtures/markdown_definition_list_boundaries.json'), true, flags: JSON_THROW_ON_ERROR);
         foreach ($cases as $case) {
             $migration = (new MarkdownToCarve())->convertWithFidelityReport($case['source']);
-            self::assertSame($case['html'], (new CarveConverter())->convert($migration->value));
-            self::assertSame($case['html'], (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
+            self::assertSame(preg_replace('/\n\z/', '', $case['html']), (new CarveConverter())->convert($migration->value));
+            self::assertSame(preg_replace('/\n\z/', '', $case['html']), (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
             $losses = array_filter($migration->diagnostics, static fn ($row) => $row->code === 'structure-unspellable');
             self::assertSame([], array_values($losses));
             foreach ($losses as $loss) {

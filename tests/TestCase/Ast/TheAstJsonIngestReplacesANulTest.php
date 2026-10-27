@@ -260,7 +260,7 @@ class TheAstJsonIngestReplacesANulTest extends TestCase
         // the same place.
         $this->assertSame(
             CarveConverter::create()->convert('a' . self::NUL . "b\n"),
-            $this->render($this->textDocument('a' . self::NUL . 'b'), new HtmlRenderer()),
+            preg_replace('/\n\z/', '', $this->render($this->textDocument('a' . self::NUL . 'b'), new HtmlRenderer())),
         );
     }
 

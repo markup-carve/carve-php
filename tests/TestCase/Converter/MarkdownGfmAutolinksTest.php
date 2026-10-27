@@ -55,7 +55,7 @@ final class MarkdownGfmAutolinksTest extends TestCase
             '[link /a [b/c\\]](u)' => '<p>[link /a <a href="u">b/c]</a></p>',
         ];
         foreach ($samples as $markdown => $html) {
-            self::assertSame($html . "\n", $converter->convert((new MarkdownToCarve())->convert($markdown . "\n")));
+            self::assertSame(preg_replace('/\n\z/', '', $html . "\n"), $converter->convert((new MarkdownToCarve())->convert($markdown . "\n")));
         }
     }
 
@@ -96,7 +96,7 @@ final class MarkdownGfmAutolinksTest extends TestCase
     public function testDelimiterRunsPreserveSlashMeaning(string $markdown, string $html): void
     {
         $written = (new MarkdownToCarve())->convert($markdown);
-        self::assertSame($html . "\n", (new CarveConverter())->convert($written));
+        self::assertSame(preg_replace('/\n\z/', '', $html . "\n"), (new CarveConverter())->convert($written));
     }
 
     /**
@@ -132,7 +132,7 @@ final class MarkdownGfmAutolinksTest extends TestCase
     public function testOptInHighlightKeepsGeneratedDelimitersSeparateFromLiteralSymbols(): void
     {
         $written = (new MarkdownToCarve(convertHighlight: true))->convert('==Done!==');
-        self::assertSame('<p><mark>Done!</mark></p>' . "\n", (new CarveConverter())->convert($written));
+        self::assertSame(preg_replace('/\n\z/', '', '<p><mark>Done!</mark></p>' . "\n"), (new CarveConverter())->convert($written));
     }
 
     /**

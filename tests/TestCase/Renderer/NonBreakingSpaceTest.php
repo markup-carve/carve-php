@@ -105,6 +105,6 @@ class NonBreakingSpaceTest extends TestCase
     {
         $html = $this->converter->convert('#' . self::NBSP . 'h');
 
-        $this->assertSame("<p>#&nbsp;h</p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>#&nbsp;h</p>\n"), $html);
     }
 }

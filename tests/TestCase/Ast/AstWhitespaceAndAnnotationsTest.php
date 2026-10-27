@@ -22,7 +22,7 @@ final class AstWhitespaceAndAnnotationsTest extends TestCase
         self::assertSame(['text', 'non_breaking_space', 'text'], array_column($ast['children'][0]['children'], 'type'));
         self::assertSame("a\u{E000}", $ast['children'][0]['children'][0]['value']);
         self::assertSame($ast, $codec->encode($codec->decode($ast)));
-        self::assertSame("<p>a\u{E000}&nbsp;b&nbsp;c</p>\n", $converter->convert($source));
+        self::assertSame(preg_replace('/\n\z/', '', "<p>a\u{E000}&nbsp;b&nbsp;c</p>\n"), $converter->convert($source));
         self::assertSame($source, CarveConverter::carve()->render($converter->parse($source)));
     }
 
@@ -37,7 +37,7 @@ final class AstWhitespaceAndAnnotationsTest extends TestCase
             ],
         ]);
         $source = CarveConverter::carve()->render($doc);
-        self::assertSame("<p><span class=\"gap\">&nbsp;</span></p>\n", CarveConverter::create()->convert($source));
+        self::assertSame(preg_replace('/\n\z/', '', "<p><span class=\"gap\">&nbsp;</span></p>\n"), CarveConverter::create()->convert($source));
     }
 
     public function testLineBlockReferenceFieldsContainNoInternalMarkers(): void

@@ -87,7 +87,7 @@ class ABlankLineLoosensAnItemOnlyWhenAParagraphFollowsItTest extends TestCase
     #[DataProvider('paragraphAfterTheBlank')]
     public function testAParagraphAfterTheBlankLoosensTheItem(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->converter->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($source));
     }
 
     /**
@@ -136,7 +136,7 @@ class ABlankLineLoosensAnItemOnlyWhenAParagraphFollowsItTest extends TestCase
         string $source,
         string $expected,
     ): void {
-        $this->assertSame($expected, $this->converter->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($source));
     }
 
     /**
@@ -186,7 +186,7 @@ class ABlankLineLoosensAnItemOnlyWhenAParagraphFollowsItTest extends TestCase
     public function testAContainerBesideALeadKeepsTheItemTight(string $source): void
     {
         $this->assertSame(
-            "<ul>\n  <li>x\n    <div>\n      <p>a</p>\n      <p>b</p>\n    </div>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>x\n    <div>\n      <p>a</p>\n      <p>b</p>\n    </div>\n  </li>\n</ul>\n"),
             $this->converter->convert($source),
         );
     }
@@ -214,6 +214,6 @@ class ABlankLineLoosensAnItemOnlyWhenAParagraphFollowsItTest extends TestCase
         string $source,
         string $expected,
     ): void {
-        $this->assertSame($expected, $this->converter->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($source));
     }
 }

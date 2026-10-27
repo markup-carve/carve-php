@@ -47,7 +47,7 @@ class MarkerInsideAnOpenFenceIsCodeTextTest extends TestCase
         $source = '- ' . $this->fence() . "\n  - x\n  " . $this->fence() . "\n";
         $expected = "<ul>\n  <li>\n    <pre><code>- x\n</code></pre>\n  </li>\n</ul>\n";
 
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -61,7 +61,7 @@ class MarkerInsideAnOpenFenceIsCodeTextTest extends TestCase
         $source = "- a\n\n  " . $this->fence() . "\n  - x\n  " . $this->fence() . "\n";
         $expected = "<ul>\n  <li>a\n    <pre><code>- x\n</code></pre>\n  </li>\n</ul>\n";
 
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**

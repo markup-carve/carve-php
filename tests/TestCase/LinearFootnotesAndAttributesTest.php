@@ -21,7 +21,7 @@ class LinearFootnotesAndAttributesTest extends TestCase
         $this->assertStringContainsString('<li id="fn3"', $html);
         $this->assertStringContainsString('<li id="fn4"', $html);
         $this->assertStringContainsString('fnref1-2', $html);
-        $this->assertSame("<p>plain</p>\n", $converter->convert('plain'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>plain</p>\n"), $converter->convert('plain'));
     }
 
     public function testLongChainRendersEveryNoteOnce(): void

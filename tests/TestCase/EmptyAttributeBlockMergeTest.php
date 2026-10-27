@@ -37,7 +37,7 @@ class EmptyAttributeBlockMergeTest extends TestCase
     public function testAnEmptyLeadingBlockMakesTheLineLiteral(): void
     {
         $this->assertSame(
-            "<p>{}{x}\ntext</p>\n",
+            preg_replace('/\n\z/', '', "<p>{}{x}\ntext</p>\n"),
             $this->converter->convert("{}{x}\ntext\n"),
         );
     }
@@ -46,13 +46,13 @@ class EmptyAttributeBlockMergeTest extends TestCase
     {
         // The sharp end: with no block to attach to, the consumed line rendered
         // nothing at all and the document came out empty.
-        $this->assertSame("<p>{}{x}</p>\n", $this->converter->convert("{}{x}\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>{}{x}</p>\n"), $this->converter->convert("{}{x}\n"));
     }
 
     public function testAnEmptyTrailingBlockAlsoMakesTheLineLiteral(): void
     {
         $this->assertSame(
-            "<p>{x}{}\ntext</p>\n",
+            preg_replace('/\n\z/', '', "<p>{x}{}\ntext</p>\n"),
             $this->converter->convert("{x}{}\ntext\n"),
         );
     }
@@ -60,7 +60,7 @@ class EmptyAttributeBlockMergeTest extends TestCase
     public function testAnEmptyBlockInTheMiddleAlsoMakesTheLineLiteral(): void
     {
         $this->assertSame(
-            "<p>{x}{}{y}\ntext</p>\n",
+            preg_replace('/\n\z/', '', "<p>{x}{}{y}\ntext</p>\n"),
             $this->converter->convert("{x}{}{y}\ntext\n"),
         );
     }
@@ -69,7 +69,7 @@ class EmptyAttributeBlockMergeTest extends TestCase
     {
         // The fix must not widen: corpus 112 pins that adjacent blocks merge.
         $this->assertSame(
-            "<p a=\"\" x=\"\">text</p>\n",
+            preg_replace('/\n\z/', '', "<p a=\"\" x=\"\">text</p>\n"),
             $this->converter->convert("{a}{x}\ntext\n"),
         );
     }
@@ -77,11 +77,11 @@ class EmptyAttributeBlockMergeTest extends TestCase
     public function testABareEmptyBlockIsStillLiteral(): void
     {
         // Corpus 123, unchanged.
-        $this->assertSame("<p>{}</p>\n", $this->converter->convert("{}\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>{}</p>\n"), $this->converter->convert("{}\n"));
     }
 
     public function testASingleValidBlockStillAttaches(): void
     {
-        $this->assertSame("<p x=\"\">text</p>\n", $this->converter->convert("{x}\ntext\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p x=\"\">text</p>\n"), $this->converter->convert("{x}\ntext\n"));
     }
 }

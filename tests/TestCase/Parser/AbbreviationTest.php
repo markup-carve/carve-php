@@ -206,7 +206,7 @@ DJOT;
         $this->parser->parse($input);
 
         $this->assertSame([], $this->parser->getAbbreviations());
-        $this->assertSame("<p>*[A]:x</p>\n<p>A</p>\n", $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>*[A]:x</p>\n<p>A</p>\n"), $this->converter->convert($input));
     }
 
     public function testInvalidAbbreviationDefinitionDoesNotSplitParagraph(): void
@@ -221,7 +221,7 @@ DJOT;
         $this->parser->parse($input);
 
         $this->assertSame([], $this->parser->getAbbreviations());
-        $this->assertSame("<p>*[A]:x\n*[A]:y</p>\n<p>A</p>\n", $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>*[A]:x\n*[A]:y</p>\n<p>A</p>\n"), $this->converter->convert($input));
     }
 
     public function testAbbreviationTermMayNotContainSpaces(): void
@@ -235,7 +235,7 @@ DJOT;
         $this->parser->parse($input);
 
         $this->assertSame([], $this->parser->getAbbreviations());
-        $this->assertSame("<p>*[A B]: x</p>\n<p>A B</p>\n", $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>*[A B]: x</p>\n<p>A B</p>\n"), $this->converter->convert($input));
     }
 
     public function testAbbreviationDefinitionMultiline(): void

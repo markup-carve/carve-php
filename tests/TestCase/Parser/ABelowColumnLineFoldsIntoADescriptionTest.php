@@ -48,14 +48,14 @@ class ABelowColumnLineFoldsIntoADescriptionTest extends TestCase
     #[DataProvider('folds')]
     public function testTheLineFoldsIntoTheOpenParagraph(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     public function testAMarkerBelowTheColumnFoldsIntoTheBody(): void
     {
         // PART 9 §24 C3 BELOW and §10 I2: lazy text, not a new list.
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>a\nb\n- y</dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>a\nb\n- y</dd>\n</dl>\n"),
             $this->html(":: t\n: a\n  b\n - y\n"),
         );
     }

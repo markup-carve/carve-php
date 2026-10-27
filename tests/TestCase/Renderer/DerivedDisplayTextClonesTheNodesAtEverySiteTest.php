@@ -48,10 +48,10 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
     public function testTheCoreCrossReferenceKeepsTheHeadingsNodes(): void
     {
         $this->assertSame(
-            "<section id=\"code-and-bold-h\">\n"
+            preg_replace('/\n\z/', '', "<section id=\"code-and-bold-h\">\n"
             . "  <h1><code>code()</code> and <strong>bold</strong> h</h1>\n"
             . "  <p>See <a href=\"#code-and-bold-h\"><code>code()</code> and <strong>bold</strong> h</a>.</p>\n"
-            . "</section>\n",
+            . "</section>\n"),
             $this->html(self::SOURCE),
         );
     }
@@ -108,10 +108,10 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         // the label word, the number and the separator are still its text. Only
         // the TITLE part is R4's clone.
         $this->assertSame(
-            "<section id=\"code-and-bold-h\">\n"
+            preg_replace('/\n\z/', '', "<section id=\"code-and-bold-h\">\n"
             . "  <h1><span class=\"section-number\">1</span> <code>code()</code> and <strong>bold</strong> h</h1>\n"
             . "  <p>See <a href=\"#code-and-bold-h\">Section 1 - <code>code()</code> and <strong>bold</strong> h</a>.</p>\n"
-            . "</section>\n",
+            . "</section>\n"),
             $this->html(self::SOURCE, new HeadingNumbersExtension()),
         );
     }
@@ -173,7 +173,7 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         // already correct. A fix that assumed every derivation site was broken
         // would have rewritten a working one.
         $this->assertSame(
-            "<p>See <span class=\"term\"><strong>b</strong> <code>c</code></span>.</p>\n",
+            preg_replace('/\n\z/', '', "<p>See <span class=\"term\"><strong>b</strong> <code>c</code></span>.</p>\n"),
             $this->html("See :term[*b* `c`].\n", new GlossaryExtension()),
         );
     }
@@ -185,10 +185,10 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         // whether the label is nodes or a string. It proves the change is
         // conservative; it cannot prove the change happened.
         $this->assertSame(
-            "<section id=\"Getting-Started\">\n"
+            preg_replace('/\n\z/', '', "<section id=\"Getting-Started\">\n"
             . "  <h1>Getting Started</h1>\n"
             . "  <p>See <a href=\"#Getting-Started\">Getting Started</a>.</p>\n"
-            . "</section>\n",
+            . "</section>\n"),
             $this->html("# Getting Started\n\nSee </#Getting-Started>.\n"),
         );
     }
@@ -253,10 +253,10 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         // id rule's divergence and predates R4 - it is recorded here because
         // this is where it becomes visible, not introduced here.
         $this->assertSame(
-            "<section id=\"h-x\">\n"
+            preg_replace('/\n\z/', '', "<section id=\"h-x\">\n"
             . "  <h1>h <span class=\"section-number\">v1</span> x</h1>\n"
             . "  <p>See <a href=\"#h-x\">h  x</a>.</p>\n"
-            . "</section>\n",
+            . "</section>\n"),
             $this->html("# h [v1]{.section-number} x\n\nSee </#h-x>.\n"),
         );
     }
@@ -267,10 +267,10 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         // every target, which is also what keeps a permalink anchor emitted as
         // raw HTML out of a label.
         $this->assertSame(
-            "<section id=\"h-x\">\n"
+            preg_replace('/\n\z/', '', "<section id=\"h-x\">\n"
             . "  <h1>h <b>z</b> x</h1>\n"
             . "  <p>See <a href=\"#h-x\">h  x</a>.</p>\n"
-            . "</section>\n",
+            . "</section>\n"),
             $this->html("# h `<b>z</b>`{=html} x\n\nSee </#h-x>.\n"),
         );
     }
@@ -280,10 +280,10 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         // LINKS NEVER NEST (PART 12 §3a). The label is placed inside an `<a>`,
         // so a link in it unwraps to its display content.
         $this->assertSame(
-            "<section id=\"h-a-x\">\n"
+            preg_replace('/\n\z/', '', "<section id=\"h-a-x\">\n"
             . "  <h1>h <a href=\"/u\">a</a> x</h1>\n"
             . "  <p>See <a href=\"#h-a-x\">h a x</a>.</p>\n"
-            . "</section>\n",
+            . "</section>\n"),
             $this->html("# h [a](/u) x\n\nSee </#h-a-x>.\n"),
         );
     }
@@ -319,8 +319,8 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         // so a cycle is structurally impossible to follow. Corpus
         // `118-cyclic-cross-reference-resolves-to-one-level` pins these bytes.
         $this->assertSame(
-            "<section id=\"A\">\n  <h1>A <a href=\"#B\">B </a></h1>\n</section>\n"
-            . "<section id=\"B\">\n  <h1>B <a href=\"#A\">A </a></h1>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"A\">\n  <h1>A <a href=\"#B\">B </a></h1>\n</section>\n"
+            . "<section id=\"B\">\n  <h1>B <a href=\"#A\">A </a></h1>\n</section>\n"),
             $this->html("# A </#B>\n\n# B </#A>\n"),
         );
     }
@@ -332,10 +332,10 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         // heading below would lose its own anchor. The deep copy is what makes
         // "clones the same nodes" safe to state.
         $this->assertSame(
-            "<section id=\"h-a-x\">\n"
+            preg_replace('/\n\z/', '', "<section id=\"h-a-x\">\n"
             . "  <h1>h <a href=\"/u\">a</a> x</h1>\n"
             . "  <p><a href=\"/o\">see h a x</a></p>\n"
-            . "</section>\n",
+            . "</section>\n"),
             $this->html("# h [a](/u) x\n\n[see </#h-a-x>](/o)\n"),
         );
     }
@@ -351,10 +351,10 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         $source = "# h [x][missing] y\n\nSee </#h-x-y>.\n";
 
         $this->assertSame(
-            "<section id=\"h-x-y\">\n"
+            preg_replace('/\n\z/', '', "<section id=\"h-x-y\">\n"
             . "  <h1>h [x][missing] y</h1>\n"
             . "  <p>See <a href=\"#h-x-y\">h [x][missing] y</a>.</p>\n"
-            . "</section>\n",
+            . "</section>\n"),
             $this->html($source),
         );
 

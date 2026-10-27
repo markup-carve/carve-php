@@ -42,6 +42,6 @@ class NestedTaskFenceFlushLeftTest extends TestCase
     {
         $html = (new CarveConverter())->convert($source);
         self::assertStringContainsString("<pre><code>$payload</code></pre>", $html);
-        self::assertStringEndsWith("</ul>\n$after", $html);
+        self::assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n$after"), $html);
     }
 }

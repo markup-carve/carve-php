@@ -58,7 +58,7 @@ class AnEmptyInlineElementIsDroppedSilentlyTest extends TestCase
     {
         $imported = (new HtmlToCarve())->convert("<p>a<$tag></$tag>b</p>");
 
-        $this->assertSame("<p>ab</p>\n", (new CarveConverter())->convert($imported));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>ab</p>\n"), (new CarveConverter())->convert($imported));
     }
 
     /**

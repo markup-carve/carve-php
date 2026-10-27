@@ -59,7 +59,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
     {
         $html = $this->converter->convert("a [t[^1]][nope] b\n\n[^1]: n\n");
 
-        $this->assertSame("<p>a [t[^1]][nope] b</p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a [t[^1]][nope] b</p>\n"), $html);
         $this->assertNoEndnotes($html);
     }
 
@@ -70,7 +70,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
     {
         $html = $this->converter->convert("a [t[^1]][] b\n\n[^1]: n\n");
 
-        $this->assertSame("<p>a [t[^1]][] b</p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a [t[^1]][] b</p>\n"), $html);
         $this->assertNoEndnotes($html);
     }
 
@@ -89,18 +89,18 @@ class NoteInUnresolvedReferenceTest extends TestCase
     public function testAnImageReferenceHoldsNoNoteToDiscard(): void
     {
         $unresolved = $this->converter->convert("a ![t[^1]][nope] b\n\n[^1]: n\n");
-        $this->assertSame("<p>a ![t[^1]][nope] b</p>\n", $unresolved);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a ![t[^1]][nope] b</p>\n"), $unresolved);
         $this->assertNoEndnotes($unresolved);
 
         $collapsed = (new CarveConverter())->convert("a ![t[^1]][] b\n\n[^1]: n\n");
-        $this->assertSame("<p>a ![t[^1]][] b</p>\n", $collapsed);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a ![t[^1]][] b</p>\n"), $collapsed);
         $this->assertNoEndnotes($collapsed);
 
         // The resolved counterpart: the alt keeps the literal `[^1]` and the
         // document still writes no endnote, which is what makes the two above
         // a property of alt text rather than of the degradation.
         $resolved = (new CarveConverter())->convert("a ![t[^1]][r] b\n\n[r]: /u\n\n[^1]: n\n");
-        $this->assertSame("<p>a <img src=\"/u\" alt=\"t[^1]\"> b</p>\n", $resolved);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a <img src=\"/u\" alt=\"t[^1]\"> b</p>\n"), $resolved);
         $this->assertNoEndnotes($resolved);
     }
 
@@ -112,7 +112,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
     {
         $html = $this->converter->convert("a [t^[n]][nope] b\n");
 
-        $this->assertSame("<p>a [t^[n]][nope] b</p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a [t^[n]][nope] b</p>\n"), $html);
         $this->assertNoEndnotes($html);
     }
 
@@ -123,7 +123,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
     {
         $html = $this->converter->convert("a [t^[n]][] b\n");
 
-        $this->assertSame("<p>a [t^[n]][] b</p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a [t^[n]][] b</p>\n"), $html);
         $this->assertNoEndnotes($html);
     }
 
@@ -136,7 +136,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
         $html = $this->converter->convert("a [t[^1]][nope] b [^1] c\n\n[^1]: n\n");
 
         $this->assertSame(
-            "<p>a [t[^1]][nope] b <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> c</p>\n"
+            preg_replace('/\n\z/', '', "<p>a [t[^1]][nope] b <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> c</p>\n"
             . "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n"
             . "  <hr>\n"
             . "  <ol>\n"
@@ -144,7 +144,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
             . "      <p>n<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n"
             . "    </li>\n"
             . "  </ol>\n"
-            . "</section>\n",
+            . "</section>\n"),
             $html,
         );
         $this->assertStringNotContainsString('fnref1-2', $html);
@@ -202,7 +202,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
     {
         $html = $this->converter->convert("a [t[z[^1]][no]][r] b\n\n[r]: /u\n\n[^1]: n\n");
 
-        $this->assertSame("<p>a <a href=\"/u\">t[z[^1]][no]</a> b</p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a <a href=\"/u\">t[z[^1]][no]</a> b</p>\n"), $html);
         $this->assertNoEndnotes($html);
     }
 
@@ -214,7 +214,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
     {
         $html = $this->converter->convert("a [t[z[^1]][r]][no] b\n\n[r]: /u\n\n[^1]: n\n");
 
-        $this->assertSame("<p>a [t[z[^1]][r]][no] b</p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a [t[z[^1]][r]][no] b</p>\n"), $html);
         $this->assertNoEndnotes($html);
     }
 
@@ -232,7 +232,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
         $this->assertNoEndnotes($heading);
 
         $quote = (new CarveConverter())->convert("> a [t[^1]][nope] b\n\n[^1]: n\n");
-        $this->assertSame("<blockquote><p>a [t[^1]][nope] b</p></blockquote>\n", $quote);
+        $this->assertSame(preg_replace('/\n\z/', '', "<blockquote><p>a [t[^1]][nope] b</p></blockquote>\n"), $quote);
         $this->assertNoEndnotes($quote);
     }
 
@@ -292,7 +292,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
         $html = $this->converter->convert("a [t[^1]] b\n\n[^1]: n\n");
 
         $this->assertSame(
-            "<p>a [t<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>] b</p>\n"
+            preg_replace('/\n\z/', '', "<p>a [t<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>] b</p>\n"
             . "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n"
             . "  <hr>\n"
             . "  <ol>\n"
@@ -300,7 +300,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
             . "      <p>n<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n"
             . "    </li>\n"
             . "  </ol>\n"
-            . "</section>\n",
+            . "</section>\n"),
             $html,
         );
     }

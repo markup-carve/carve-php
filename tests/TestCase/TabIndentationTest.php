@@ -96,7 +96,7 @@ class TabIndentationTest extends TestCase
         $input = ">\tQuoted with tab";
         $result = $this->converter->convert($input);
 
-        $this->assertSame("<p>&gt;\tQuoted with tab</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>&gt;\tQuoted with tab</p>\n"), $result);
     }
 
     /**
@@ -189,7 +189,7 @@ class TabIndentationTest extends TestCase
         $input = ">\tLine 1\n>\tLine 2";
         $result = $this->converter->convert($input);
 
-        $this->assertSame("<p>&gt;\tLine 1\n&gt;\tLine 2</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>&gt;\tLine 1\n&gt;\tLine 2</p>\n"), $result);
     }
 
     /**

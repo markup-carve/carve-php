@@ -56,7 +56,7 @@ class AFlagShapedHyphenRunIsLiteralTest extends TestCase
     #[DataProvider('literalProvider')]
     public function testAFlagShapedRunStaysLiteral(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -90,7 +90,7 @@ class AFlagShapedHyphenRunIsLiteralTest extends TestCase
     #[DataProvider('convertingProvider')]
     public function testEveryOtherPositionStillConverts(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -104,7 +104,7 @@ class AFlagShapedHyphenRunIsLiteralTest extends TestCase
     {
         foreach (['!', "\x0B", "\x0C"] as $probe) {
             $this->assertSame(
-                '<p>---' . $probe . "</p>\n",
+                preg_replace('/\n\z/', '', '<p>---' . $probe . "</p>\n"),
                 $this->html('---' . $probe . "\n"),
                 'a content character behaved like a space',
             );
@@ -118,8 +118,8 @@ class AFlagShapedHyphenRunIsLiteralTest extends TestCase
      */
     public function testANoBreakSpaceIsASpace(): void
     {
-        $this->assertSame("<p>a&nbsp;--foo</p>\n", $this->html("a\u{00a0}--foo\n"));
-        $this->assertSame("<p>a&nbsp;--foo</p>\n", $this->html("a\\ --foo\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a&nbsp;--foo</p>\n"), $this->html("a\u{00a0}--foo\n"));
+        $this->assertSame('<p>a&nbsp;--foo</p>', $this->html("a\\ --foo\n"));
     }
 
     /**

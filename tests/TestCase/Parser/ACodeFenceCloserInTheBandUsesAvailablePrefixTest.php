@@ -139,6 +139,6 @@ class ACodeFenceCloserInTheBandUsesAvailablePrefixTest extends TestCase
     #[DataProvider('documents')]
     public function testTheCloserUsesItsAvailablePrefix(string $source, string $expected): void
     {
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 }

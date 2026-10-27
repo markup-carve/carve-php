@@ -68,7 +68,7 @@ final class MarkdownImportFixedPointTest extends TestCase
             $actual = (new MarkdownToCarve())->convert($source);
             self::assertSame($expected, $actual, $id);
             self::assertSame($actual, CarveConverter::toCarve($actual), $id);
-            self::assertSame($html, (new CarveConverter())->convert($actual), $id);
+            self::assertSame(preg_replace('/\n\z/', '', $html), (new CarveConverter())->convert($actual), $id);
         }
     }
 
@@ -77,6 +77,6 @@ final class MarkdownImportFixedPointTest extends TestCase
         $actual = (new MarkdownToCarve())->convert("x <b\n  c> y\n");
         self::assertSame("x `<b\nc>`{=html} y\n", $actual);
         self::assertSame($actual, CarveConverter::toCarve($actual));
-        self::assertSame("<p>x <b\nc> y</p>\n", (new CarveConverter())->convert($actual));
+        self::assertSame(preg_replace('/\n\z/', '', "<p>x <b\nc> y</p>\n"), (new CarveConverter())->convert($actual));
     }
 }

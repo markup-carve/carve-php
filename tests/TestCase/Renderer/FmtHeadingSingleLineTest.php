@@ -47,7 +47,7 @@ class FmtHeadingSingleLineTest extends TestCase
         $this->assertSame("# a b\n", $out);
         // The point of the collapse: re-parsing keeps every word in the title.
         $this->assertSame(
-            "<section id=\"a-b\">\n  <h1>a b</h1>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"a-b\">\n  <h1>a b</h1>\n</section>\n"),
             (new CarveConverter())->convert($out),
         );
     }
@@ -62,7 +62,7 @@ class FmtHeadingSingleLineTest extends TestCase
 
         $this->assertSame("# a b\n", $out);
         $this->assertSame(
-            "<section id=\"a-b\">\n  <h1>a b</h1>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"a-b\">\n  <h1>a b</h1>\n</section>\n"),
             (new CarveConverter())->convert($out),
         );
     }
@@ -80,7 +80,7 @@ class FmtHeadingSingleLineTest extends TestCase
 
         $this->assertSame("# a\\\\ b\n", $out);
         $this->assertSame(
-            "<section id=\"a-b\">\n  <h1>a\\ b</h1>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"a-b\">\n  <h1>a\\ b</h1>\n</section>\n"),
             (new CarveConverter())->convert($out),
         );
     }

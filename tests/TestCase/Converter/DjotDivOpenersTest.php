@@ -18,7 +18,7 @@ class DjotDivOpenersTest extends TestCase
         $carve = (new DjotToCarve())->convert("::: note\ncontainer\n:::\n");
 
         $this->assertSame("{class=\"note\"}\n:::\ncontainer\n:::\n", $carve);
-        $this->assertSame("<div class=\"note\">\n  <p>container</p>\n</div>\n", (new CarveConverter())->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', "<div class=\"note\">\n  <p>container</p>\n</div>\n"), (new CarveConverter())->convert($carve));
     }
 
     private function content(DOMNode $node, string $parent = ''): mixed

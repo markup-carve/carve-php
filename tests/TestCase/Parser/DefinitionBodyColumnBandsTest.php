@@ -39,7 +39,7 @@ class DefinitionBodyColumnBandsTest extends TestCase
     #[DataProvider('belowTheColumnProvider')]
     public function testBelowTheColumnFoldsIntoTheOpenBody(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     public function testColumnZeroIsTheOrdinaryCaseNotASpecialOne(): void
@@ -48,11 +48,11 @@ class DefinitionBodyColumnBandsTest extends TestCase
         // `lazy_continuation_line` is written for a FLUSH-LEFT line, so it picks
         // a non-opener up there and nowhere else.
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<blockquote><p>q</p></blockquote>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<blockquote><p>q</p></blockquote>\n"),
             $this->html(":: t\n:  body\n> q\n"),
         );
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>body\ntail</dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>body\ntail</dd>\n</dl>\n"),
             $this->html(":: t\n:  body\ntail\n"),
         );
     }
@@ -60,7 +60,7 @@ class DefinitionBodyColumnBandsTest extends TestCase
     public function testAtTheColumnTheLineIsTheBodysOwnBlockContent(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>body</p>\n    <blockquote><p>q</p></blockquote>\n  </dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>body</p>\n    <blockquote><p>q</p></blockquote>\n  </dd>\n</dl>\n"),
             $this->html(":: t\n:  body\n   > q\n"),
         );
     }
@@ -84,7 +84,7 @@ class DefinitionBodyColumnBandsTest extends TestCase
     public function testPastTheColumnTheLineUsesItsAuthoredBase(string $source): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>body</p>\n    <blockquote><p>q</p></blockquote>\n  </dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>body</p>\n    <blockquote><p>q</p></blockquote>\n  </dd>\n</dl>\n"),
             $this->html($source),
         );
     }
@@ -95,7 +95,7 @@ class DefinitionBodyColumnBandsTest extends TestCase
         // container. Plain text remains the definition paragraph's lazy
         // continuation, as it does at column zero.
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>body\ntail</dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>body\ntail</dd>\n</dl>\n"),
             $this->html(":: t\n:  body\n tail\n"),
         );
     }

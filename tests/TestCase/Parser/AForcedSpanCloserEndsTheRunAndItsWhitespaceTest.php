@@ -39,7 +39,7 @@ class AForcedSpanCloserEndsTheRunAndItsWhitespaceTest extends TestCase
     #[DataProvider('strippedProvider')]
     public function testTheCloserStripsTheRunsTrailingWhitespace(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -47,7 +47,7 @@ class AForcedSpanCloserEndsTheRunAndItsWhitespaceTest extends TestCase
      */
     public function testTheCloserStillBoundsTheRun(): void
     {
-        $this->assertSame("<p><s><code>x</code></s></p>\n", $this->html("{~`x~}\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><s><code>x</code></s></p>\n"), $this->html("{~`x~}\n"));
     }
 
     /**
@@ -55,7 +55,7 @@ class AForcedSpanCloserEndsTheRunAndItsWhitespaceTest extends TestCase
      */
     public function testTheBlockEndIsUnchanged(): void
     {
-        $this->assertSame("<p><code>x</code></p>\n", $this->html("`x \n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><code>x</code></p>\n"), $this->html("`x \n"));
     }
 
     /**
@@ -63,7 +63,7 @@ class AForcedSpanCloserEndsTheRunAndItsWhitespaceTest extends TestCase
      */
     public function testInteriorWhitespaceSurvives(): void
     {
-        $this->assertSame("<p><s><code>a  b</code></s></p>\n", $this->html("{~`a  b~}\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><s><code>a  b</code></s></p>\n"), $this->html("{~`a  b~}\n"));
     }
 
     /**
@@ -72,7 +72,7 @@ class AForcedSpanCloserEndsTheRunAndItsWhitespaceTest extends TestCase
      */
     public function testALeadingSpaceSurvives(): void
     {
-        $this->assertSame("<p><s><code> a</code></s></p>\n", $this->html("{~` a~}\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><s><code> a</code></s></p>\n"), $this->html("{~` a~}\n"));
     }
 
     /**
@@ -80,7 +80,7 @@ class AForcedSpanCloserEndsTheRunAndItsWhitespaceTest extends TestCase
      */
     public function testOnlyTheTrailingEndIsStripped(): void
     {
-        $this->assertSame("<p><s><code>  a</code></s></p>\n", $this->html("{~`  a  ~}\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><s><code>  a</code></s></p>\n"), $this->html("{~`  a  ~}\n"));
     }
 
     /**
@@ -91,7 +91,7 @@ class AForcedSpanCloserEndsTheRunAndItsWhitespaceTest extends TestCase
     public function testALineBreakIsNotStripped(): void
     {
         $this->assertSame(
-            "<div class=\"line-block\">\n  <p><code>\n</code></p>\n</div>\n",
+            preg_replace('/\n\z/', '', "<div class=\"line-block\">\n  <p><code>\n</code></p>\n</div>\n"),
             $this->html("::: |\n`\n%%\n:::\n"),
         );
     }
@@ -102,6 +102,6 @@ class AForcedSpanCloserEndsTheRunAndItsWhitespaceTest extends TestCase
      */
     public function testTheExhaustedCandidateBranchStripsToo(): void
     {
-        $this->assertSame("<p><s><code>a```</code></s></p>\n", $this->html("{~``a``` ~}\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><s><code>a```</code></s></p>\n"), $this->html("{~``a``` ~}\n"));
     }
 }

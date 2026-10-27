@@ -65,7 +65,7 @@ class IncludeExpanderTest extends TestCase
         $expander = new IncludeExpander($this->resolver(["data.{$language}" => $data, 'other.crv' => 'X']));
         $html = $converter->render($converter->transform($document, $expander));
 
-        $this->assertSame($authored, $html);
+        $this->assertSame($authored, preg_replace('/\n\z/', '', $html));
         $this->assertSame([], $expander->getWarnings());
     }
 
@@ -85,7 +85,7 @@ class IncludeExpanderTest extends TestCase
     {
         $converter = new CarveConverter();
 
-        $this->assertSame("<p>See {{ chapter.crv }} here.</p>\n", $converter->convert('See {{ chapter.crv }} here.'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>See {{ chapter.crv }} here.</p>\n"), $converter->convert('See {{ chapter.crv }} here.'));
     }
 
     public function testVerbatimShieldingKeepsCodeBlockAndInlineCodeLiteral(): void

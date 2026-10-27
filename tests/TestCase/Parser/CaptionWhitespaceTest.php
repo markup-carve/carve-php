@@ -26,7 +26,7 @@ class CaptionWhitespaceTest extends TestCase
     public function testEmptyCaptionIsNotACaption(): void
     {
         $this->assertSame(
-            "<p><img src=\"/u\" alt=\"a\">\n^</p>\n",
+            preg_replace('/\n\z/', '', "<p><img src=\"/u\" alt=\"a\">\n^</p>\n"),
             $this->converter->convert("![a](/u)\n^ "),
         );
     }
@@ -34,11 +34,14 @@ class CaptionWhitespaceTest extends TestCase
     public function testCaptionWithContentOnlyOnLaterLineIsNotACaption(): void
     {
         $this->assertSame(
-            // The `^ ` line keeps its caret and LOSES its trailing space: it is
-            // a content line inside the paragraph, and a `whitespace` run at the
-            // end of one is dropped (PART 2, markup-carve/carve#926). What this
-            // case is about - the line not being a caption - is unchanged.
-            "<p><img src=\"/u\" alt=\"a\">\n^\nmore</p>\n",
+            preg_replace('/\n\z/', '', preg_replace(
+                '/\n\z/',
+                '', // The `^ ` line keeps its caret and LOSES its trailing space: it is
+                // a content line inside the paragraph, and a `whitespace` run at the
+                // end of one is dropped (PART 2, markup-carve/carve#926). What this
+                // case is about - the line not being a caption - is unchanged.
+                "<p><img src=\"/u\" alt=\"a\">\n^\nmore</p>\n",
+            )),
             $this->converter->convert("![a](/u)\n^ \nmore"),
         );
     }
@@ -46,7 +49,7 @@ class CaptionWhitespaceTest extends TestCase
     public function testTabAfterCaretIsNotACaptionDelimiter(): void
     {
         $this->assertSame(
-            "<p><img src=\"/u\" alt=\"a\">\n^\tx</p>\n",
+            preg_replace('/\n\z/', '', "<p><img src=\"/u\" alt=\"a\">\n^\tx</p>\n"),
             $this->converter->convert("![a](/u)\n^\tx"),
         );
     }
@@ -54,7 +57,7 @@ class CaptionWhitespaceTest extends TestCase
     public function testExtraLeadingSpacesFoldIntoTheDelimiter(): void
     {
         $this->assertSame(
-            "<figure>\n  <img src=\"/u\" alt=\"a\">\n  <figcaption>x</figcaption>\n</figure>\n",
+            preg_replace('/\n\z/', '', "<figure>\n  <img src=\"/u\" alt=\"a\">\n  <figcaption>x</figcaption>\n</figure>\n"),
             $this->converter->convert("![a](/u)\n^  x"),
         );
     }
@@ -62,7 +65,7 @@ class CaptionWhitespaceTest extends TestCase
     public function testReferenceImageEmptyCaptionIsNotPromoted(): void
     {
         $this->assertSame(
-            "<p><img src=\"/u\" alt=\"a\">\n^</p>\n",
+            preg_replace('/\n\z/', '', "<p><img src=\"/u\" alt=\"a\">\n^</p>\n"),
             $this->converter->convert("![a][r]\n^ \n\n[r]: /u"),
         );
     }
@@ -70,7 +73,7 @@ class CaptionWhitespaceTest extends TestCase
     public function testReferenceImageCaptionOfInlineMarkupIsAFigure(): void
     {
         $this->assertSame(
-            "<figure>\n  <img src=\"/u\" alt=\"a\">\n  <figcaption><strong>b</strong> c</figcaption>\n</figure>\n",
+            preg_replace('/\n\z/', '', "<figure>\n  <img src=\"/u\" alt=\"a\">\n  <figcaption><strong>b</strong> c</figcaption>\n</figure>\n"),
             $this->converter->convert("![a][r]\n^ *b* c\n\n[r]: /u"),
         );
     }
@@ -80,7 +83,7 @@ class CaptionWhitespaceTest extends TestCase
         // A non-breaking space is content everywhere else in the parser, so
         // `^ \u{00a0}` IS a caption ("content" excludes only ASCII whitespace).
         $this->assertSame(
-            "<figure>\n  <img src=\"/u\" alt=\"a\">\n  <figcaption>&nbsp;</figcaption>\n</figure>\n",
+            preg_replace('/\n\z/', '', "<figure>\n  <img src=\"/u\" alt=\"a\">\n  <figcaption>&nbsp;</figcaption>\n</figure>\n"),
             $this->converter->convert("![a](/u)\n^ \u{00A0}"),
         );
     }

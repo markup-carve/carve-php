@@ -46,7 +46,7 @@ class InlineExtensionScanScaleTest extends TestCase
         $html = (new CarveConverter())->convert(":a[b] :_[c]{.k} :9[d] :-[e] :f[g\n");
 
         self::assertSame(
-            "<p><span class=\"ext-a\">b</span> <span class=\"ext-_ k\">c</span> :9[d] :-[e] :f[g</p>\n",
+            preg_replace('/\n\z/', '', "<p><span class=\"ext-a\">b</span> <span class=\"ext-_ k\">c</span> :9[d] :-[e] :f[g</p>\n"),
             $html,
         );
     }

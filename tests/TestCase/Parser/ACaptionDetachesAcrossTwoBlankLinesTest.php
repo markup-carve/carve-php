@@ -98,7 +98,7 @@ class ACaptionDetachesAcrossTwoBlankLinesTest extends TestCase
         // §4 does not merely refuse the attachment, it says what the line
         // BECOMES. Byte-identical to carve-js 62e0e5a.
         $this->assertSame(
-            "<pre><code>x\n</code></pre>\n<p>^ cap</p>\n",
+            preg_replace('/\n\z/', '', "<pre><code>x\n</code></pre>\n<p>^ cap</p>\n"),
             (new CarveConverter())->convert("```\nx\n```\n\n\n^ cap\n"),
         );
     }

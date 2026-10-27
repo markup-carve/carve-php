@@ -17,14 +17,14 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
         $html = (new CarveConverter())->convert(">  - a\n> - next\n>   ::: b\n>   x\n>   :::\ntail\n");
         $this->assertStringContainsString('<div class="b">', $html);
         $this->assertStringContainsString('<p>x</p>', $html);
-        $this->assertStringEndsWith("</blockquote>\n<p>tail</p>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<p>tail</p>\n"), $html);
     }
 
     public function testTheOnlyQuoteItemRetainsItsLazyMarker(): void
     {
         $html = (new CarveConverter())->convert("> - ::: box\n>   body\n>  - next\n>   :::\ntail\n");
         $this->assertStringContainsString("<p>body\n- next</p>", $html);
-        $this->assertStringEndsWith("</blockquote>\n<p>tail</p>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<p>tail</p>\n"), $html);
     }
 
     public function testAnUnquotedDescendantClosesAfterItsLazyBody(): void
@@ -33,7 +33,7 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
             $html = (new CarveConverter())->convert("- a\n  - ::: box\n    body\n" . $lazy . "    :::\ntail\n");
             $this->assertStringContainsString('<div class="box">', $html);
             $this->assertStringContainsString($lazy === '' ? '<p>body</p>' : "<p>body\n- next</p>", $html);
-            $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+            $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n<p>tail</p>\n"), $html);
         }
     }
 
@@ -46,7 +46,7 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
             $this->assertStringContainsString('<p>body</p>', $html);
             $this->assertStringContainsString('<li>sibling', $html);
             $this->assertStringNotContainsString("<p>body\n- sibling</p>", $html);
-            $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+            $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n<p>tail</p>\n"), $html);
         }
     }
 
@@ -55,7 +55,7 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
         foreach (["- - ::: box\n      body\n      :::", "- ::: box\n    ```\n    :::\n    ```\n    :::"] as $body) {
             $html = (new CarveConverter())->convert("- a\n  " . $body . "\ntail\n");
             $this->assertStringContainsString('<div class="box">', $html);
-            $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+            $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n<p>tail</p>\n"), $html);
         }
     }
 
@@ -63,7 +63,7 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
     {
         $html = (new CarveConverter())->convert("- a\n  - ::: box\n    body\n    :::\n    after\ntail\n");
         $this->assertStringContainsString("after\ntail", $html);
-        $this->assertStringEndsWith("</ul>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n"), $html);
     }
 
     public function testTheNewSiblingTracksItsOwnClosedOrOpenDiv(): void
@@ -75,10 +75,10 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
             $this->assertStringContainsString('<li>sibling', $html);
             if ($closed) {
                 $this->assertStringContainsString('<p>inner</p>', $html);
-                $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+                $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n<p>tail</p>\n"), $html);
             } else {
                 $this->assertStringContainsString("<p>inner\ntail</p>", $html);
-                $this->assertStringEndsWith("</ul>\n", $html);
+                $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n"), $html);
             }
         }
     }
@@ -87,7 +87,7 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
     {
         $html = (new CarveConverter())->convert("- a\n  - ::: box\n    body\n  - | x | y |\ntail\n");
         $this->assertStringContainsString('<table>', $html);
-        $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n<p>tail</p>\n"), $html);
     }
 
     public function testADeepMalformedFenceKeepsItsParagraphClaim(): void
@@ -95,7 +95,7 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
         $html = (new CarveConverter())->convert("- a\n  - b\n    - c\n      :::note\n      :::\ntail\n");
         $this->assertStringContainsString("<li>c\n:::note\n:::\ntail</li>", $html);
         $this->assertStringNotContainsString('<div>', $html);
-        $this->assertStringEndsWith("</ul>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n"), $html);
     }
 
     public function testTheDescendantClaimStateSurvivesAClosedDiv(): void
@@ -111,7 +111,7 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
         $html = (new CarveConverter())->convert("> q\n+\n- b\n  ::: note\n  x\n  :::\n");
         $this->assertStringContainsString('<p>x</p>', $html);
         $this->assertStringContainsString('<aside class="admonition note"', $html);
-        $this->assertStringEndsWith("</blockquote>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n"), $html);
     }
 
     public function testAQuoteBeforeTheDivKeepsTheBlankInTheItemBody(): void
@@ -120,14 +120,14 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
         $html = (new CarveConverter())->convert($source);
         $this->assertStringContainsString("<p>x</p>\n      <p>y</p>", $html);
         $this->assertStringNotContainsString('<li><p>a</p>', $html);
-        $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n<p>tail</p>\n"), $html);
     }
 
     public function testABlankInsideTheRealDescendantDivKeepsBothParagraphs(): void
     {
         $html = (new CarveConverter())->convert("- a\n  - ::: box\n    body\n\n    more\n    :::\ntail\n");
         $this->assertStringContainsString("<p>body</p>\n          <p>more</p>", $html);
-        $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n<p>tail</p>\n"), $html);
     }
 
     public function testAMarkerLineOpenerLeavesNoLazyClaim(): void
@@ -140,7 +140,7 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
     public function testAnEmptyContinuationDivLeavesNoClaim(): void
     {
         $html = (new CarveConverter())->convert("- a\n  - b\n    ::: box\nlazy\n");
-        $this->assertStringEndsWith("</ul>\n<p>lazy</p>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n<p>lazy</p>\n"), $html);
     }
 
     public function testNestedCodePayloadKeepsWhitespaceOnlyLines(): void
@@ -161,7 +161,7 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
     {
         foreach ([":::\nlazy", "::: box\n    | x | y |\nlazy"] as $body) {
             $html = (new CarveConverter())->convert("- a\n  - b\n    " . $body . "\n");
-            $this->assertStringEndsWith("</ul>\n<p>lazy</p>\n", $html);
+            $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n<p>lazy</p>\n"), $html);
         }
     }
 

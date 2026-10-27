@@ -427,7 +427,7 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
             $out = $this->html("{$opener}\na: 1\n---\nx\n");
 
             $this->assertStringNotContainsString('a: 1', $out, $opener);
-            $this->assertSame("<p>x</p>\n", $out, $opener);
+            $this->assertSame(preg_replace('/\n\z/', '', "<p>x</p>\n"), $out, $opener);
         }
     }
 

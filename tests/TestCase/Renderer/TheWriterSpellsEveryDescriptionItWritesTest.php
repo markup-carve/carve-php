@@ -71,7 +71,7 @@ class TheWriterSpellsEveryDescriptionItWritesTest extends TestCase
     {
         $rendered = (new CarveConverter())->convert($this->writeWithEmptiedDescription(":: term\n: d\n"));
 
-        $this->assertSame("<dl>\n  <dt>term</dt>\n  <dd></dd>\n</dl>\n", $rendered);
+        $this->assertSame(preg_replace('/\n\z/', '', "<dl>\n  <dt>term</dt>\n  <dd></dd>\n</dl>\n"), $rendered);
         // The sentinel line leaves no colon behind and folds nothing into the
         // term.
         $this->assertStringNotContainsString(':', $rendered);
@@ -185,7 +185,7 @@ class TheWriterSpellsEveryDescriptionItWritesTest extends TestCase
         // `t1` keeps its own empty description rather than acquiring `d2`.
         $this->assertStringNotContainsString("<dt>t1</dt>\n  <dt>t2</dt>", $rendered);
         $this->assertSame(
-            "<dl>\n  <dt>t1</dt>\n  <dd></dd>\n  <dt>t2</dt>\n  <dd>d2</dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t1</dt>\n  <dd></dd>\n  <dt>t2</dt>\n  <dd>d2</dd>\n</dl>\n"),
             $rendered,
         );
     }

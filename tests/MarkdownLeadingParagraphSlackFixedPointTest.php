@@ -17,6 +17,6 @@ final class MarkdownLeadingParagraphSlackFixedPointTest extends TestCase
         $actual = (new MarkdownToCarve())->convert($source);
         self::assertSame($expected, $actual, 'cm-113');
         self::assertSame($actual, CarveConverter::toCarve($actual), 'cm-113');
-        self::assertSame('a34d9e5ed3be954aac55fee4158d0bd2bf23b379e8cd88f261e00592f7cdc15b', hash('sha256', (new CarveConverter())->convert($actual)), 'cm-113');
+        self::assertSame('9e364d763fb0b70e247bee0d86efaa4a615dd8ea92642d89740e8d25dbe422e5', hash('sha256', (new CarveConverter())->convert($actual)), 'cm-113');
     }
 }

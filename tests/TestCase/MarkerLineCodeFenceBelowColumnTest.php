@@ -53,7 +53,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testAColumnZeroBodyClosesTheItem(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n"),
             $this->converter->convert("- ```\nx\n```\n"),
         );
     }
@@ -66,7 +66,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testAColumnOneBodyClosesTheItemToo(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n"),
             $this->converter->convert("- ```\n x\n ```\n"),
         );
     }
@@ -79,7 +79,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testABodyAtTheContentColumnStaysInTheFence(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>\n    <pre><code>x\n</code></pre>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code>x\n</code></pre>\n  </li>\n</ul>\n"),
             $this->converter->convert("- ```\n  x\n  ```\n"),
         );
     }
@@ -93,7 +93,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testTheBlockQuoteAnalogueIsUnchanged(): void
     {
         $this->assertSame(
-            "<blockquote>\n  <pre><code></code></pre>\n</blockquote>\n<p>x\n<code></code></p>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <pre><code></code></pre>\n</blockquote>\n<p>x\n<code></code></p>\n"),
             $this->converter->convert("> ```\nx\n```\n"),
         );
     }
@@ -106,7 +106,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testATildeFenceLeavesPlainTextInTheResidue(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n~~~</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n~~~</p>\n"),
             $this->converter->convert("- ~~~\nx\n~~~\n"),
         );
     }
@@ -121,7 +121,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testACollectedLineAtTheContentColumnDoesNotReopenTheFold(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>\n    <pre><code>x\n</code></pre>\n  </li>\n</ul>\n<p>y\n<code></code></p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code>x\n</code></pre>\n  </li>\n</ul>\n<p>y\n<code></code></p>\n"),
             $this->converter->convert("- ```\n  x\n y\n  ```\n"),
         );
     }
@@ -135,7 +135,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testAFenceOpenedOnAContinuationLineEndsAtTheSameLine(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>y\n<code></code></p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>y\n<code></code></p>\n"),
             $this->converter->convert("- a\n  ```\n  b\n y\n  ```\n"),
         );
     }
@@ -148,7 +148,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testAPostBlankFenceEndsAtAColumnZeroLine(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n"),
             $this->converter->convert("- a\n\n  ```\nx\n```\n"),
         );
     }
@@ -161,7 +161,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testAPostBlankFenceEndsAtAnIntermediateColumnLine(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n"),
             $this->converter->convert("- a\n\n  ```\n x\n ```\n"),
         );
     }
@@ -174,7 +174,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testAClosedPostBlankFenceAlreadyEndedTheItem(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>x</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>x</p>\n"),
             $this->converter->convert("- a\n\n  ```\n  b\n  ```\nx\n"),
         );
     }

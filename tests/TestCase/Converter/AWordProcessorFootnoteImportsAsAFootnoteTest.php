@@ -371,7 +371,7 @@ class AWordProcessorFootnoteImportsAsAFootnoteTest extends TestCase
 
         $this->assertSame(1, substr_count($imported, '[^1]: '));
         $this->assertSame(
-            $html,
+            preg_replace('/\n\z/', '', $html),
             (new CarveConverter())->convert($imported),
             "importing the rendered HTML must reproduce it; imported source was:\n" . $imported,
         );

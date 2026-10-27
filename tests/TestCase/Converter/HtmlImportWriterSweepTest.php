@@ -50,7 +50,7 @@ class HtmlImportWriterSweepTest extends TestCase
             $this->markTestSkipped($id . ' is a sampled repair, pinned by its bytes alone');
         }
 
-        $this->assertSame($htmlBack, (new CarveConverter())->convert($carve), $id);
+        $this->assertSame(preg_replace('/\n\z/', '', $htmlBack), (new CarveConverter())->convert($carve), $id);
     }
 
     public function testTheFixtureCarriesEveryGroup(): void

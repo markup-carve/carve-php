@@ -30,7 +30,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
     public function testBulletMarkerFoldsIntoQuotedParagraph(): void
     {
         $this->assertSame(
-            "<blockquote><p>quoted\n- item</p></blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>quoted\n- item</p></blockquote>\n"),
             $this->converter->convert("> quoted\n- item"),
         );
     }
@@ -38,7 +38,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
     public function testOrderedMarkerFoldsIntoQuotedParagraph(): void
     {
         $this->assertSame(
-            "<blockquote><p>quoted\n1. item</p></blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>quoted\n1. item</p></blockquote>\n"),
             $this->converter->convert("> quoted\n1. item"),
         );
     }
@@ -48,7 +48,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
         // At the top level a list marker folds into an open paragraph rather
         // than interrupting it; the quoted paragraph behaves identically.
         $this->assertSame(
-            "<p>text\n- item</p>\n",
+            preg_replace('/\n\z/', '', "<p>text\n- item</p>\n"),
             $this->converter->convert("text\n- item"),
         );
     }
@@ -56,7 +56,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
     public function testHeadingStillEndsTheQuote(): void
     {
         $this->assertSame(
-            "<blockquote><p>quoted</p></blockquote>\n<section id=\"H\">\n  <h1>H</h1>\n</section>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>quoted</p></blockquote>\n<section id=\"H\">\n  <h1>H</h1>\n</section>\n"),
             $this->converter->convert("> quoted\n# H"),
         );
     }
@@ -67,7 +67,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
         // paragraph for a bullet to fold into, so the list ends the quote and
         // becomes a top-level sibling (mirrors top-level `# h\n- item`).
         $this->assertSame(
-            "<blockquote>\n  <h1 id=\"h\">h</h1>\n</blockquote>\n<ul>\n  <li>item</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <h1 id=\"h\">h</h1>\n</blockquote>\n<ul>\n  <li>item</li>\n</ul>\n"),
             $this->converter->convert("> # h\n- item"),
         );
     }
@@ -75,7 +75,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
     public function testOrderedMarkerAfterQuotedHeadingEndsTheQuote(): void
     {
         $this->assertSame(
-            "<blockquote>\n  <h1 id=\"h\">h</h1>\n</blockquote>\n<ol>\n  <li>item</li>\n</ol>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <h1 id=\"h\">h</h1>\n</blockquote>\n<ol>\n  <li>item</li>\n</ol>\n"),
             $this->converter->convert("> # h\n1. item"),
         );
     }
@@ -85,7 +85,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
         // The heading clears the open-paragraph signal that the preceding
         // paragraph set, so the trailing list marker still ends the quote.
         $this->assertSame(
-            "<blockquote>\n  <p>a</p>\n  <h1 id=\"h\">h</h1>\n</blockquote>\n<ul>\n  <li>item</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <p>a</p>\n  <h1 id=\"h\">h</h1>\n</blockquote>\n<ul>\n  <li>item</li>\n</ul>\n"),
             $this->converter->convert("> a\n> # h\n- item"),
         );
     }
@@ -95,7 +95,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
         // An invisible construct (reference definition) ends the quote and is
         // consumed without rendering.
         $this->assertSame(
-            "<blockquote><p>quoted</p></blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>quoted</p></blockquote>\n"),
             $this->converter->convert("> quoted\n[r]: /u"),
         );
     }
@@ -110,7 +110,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
         // tight shape, and PART 2's LAZY CONTINUATION clause names the two kinds
         // in one breath.
         $this->assertSame(
-            "<blockquote><p>quoted</p></blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>quoted</p></blockquote>\n"),
             $this->converter->convert("> quoted\n%% c"),
         );
     }
@@ -122,7 +122,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
         // of the author's prose attributed to a quotation they did not write it
         // in.
         $this->assertSame(
-            "<blockquote><p>quoted</p></blockquote>\n<p>more</p>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>quoted</p></blockquote>\n<p>more</p>\n"),
             $this->converter->convert("> quoted\n%% c\nmore"),
         );
     }
@@ -130,7 +130,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
     public function testAttributeLineStillEndsTheQuote(): void
     {
         $this->assertSame(
-            "<blockquote><p>quoted</p></blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>quoted</p></blockquote>\n"),
             $this->converter->convert("> quoted\n{.x}"),
         );
     }
@@ -138,7 +138,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
     public function testCaptionStillAttaches(): void
     {
         $this->assertSame(
-            "<figure>\n  <blockquote><p>quoted</p></blockquote>\n  <figcaption>cap</figcaption>\n</figure>\n",
+            preg_replace('/\n\z/', '', "<figure>\n  <blockquote><p>quoted</p></blockquote>\n  <figcaption>cap</figcaption>\n</figure>\n"),
             $this->converter->convert("> quoted\n^ cap"),
         );
     }
@@ -146,7 +146,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
     public function testPrefixedListStaysARealListInTheQuote(): void
     {
         $this->assertSame(
-            "<blockquote>\n  <ul>\n    <li>a</li>\n    <li>b</li>\n  </ul>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <ul>\n    <li>a</li>\n    <li>b</li>\n  </ul>\n</blockquote>\n"),
             $this->converter->convert("> - a\n> - b"),
         );
     }
@@ -154,7 +154,7 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
     public function testContinuationMarkerStillAttachesAList(): void
     {
         $this->assertSame(
-            "<blockquote>\n  <p>q</p>\n  <ul>\n    <li>item</li>\n  </ul>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <p>q</p>\n  <ul>\n    <li>item</li>\n  </ul>\n</blockquote>\n"),
             $this->converter->convert("> q\n+\n- item"),
         );
     }

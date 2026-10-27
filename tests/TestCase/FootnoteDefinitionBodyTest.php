@@ -25,7 +25,7 @@ class FootnoteDefinitionBodyTest extends TestCase
     public function testEmptyMarkerLineIsNotADefinition(): void
     {
         $this->assertSame(
-            "<p>Use [^a].</p>\n<p>[^a]:\nFirst</p>\n",
+            preg_replace('/\n\z/', '', "<p>Use [^a].</p>\n<p>[^a]:\nFirst</p>\n"),
             $this->converter->convert("Use [^a].\n\n[^a]:\n  First\n"),
         );
     }
@@ -33,7 +33,7 @@ class FootnoteDefinitionBodyTest extends TestCase
     public function testMarkerLineWithTrailingWhitespaceOnlyIsNotADefinition(): void
     {
         $this->assertSame(
-            "<p>Use [^a].</p>\n<p>[^a]:</p>\n",
+            preg_replace('/\n\z/', '', "<p>Use [^a].</p>\n<p>[^a]:</p>\n"),
             $this->converter->convert("Use [^a].\n\n[^a]: \n"),
         );
     }

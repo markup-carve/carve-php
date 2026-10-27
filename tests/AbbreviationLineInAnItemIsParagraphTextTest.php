@@ -39,7 +39,7 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
         $html = (new CarveConverter())->convert("- a\n\n  *[A]: a\n");
 
         $this->assertSame(
-            "<ul>\n  <li><p>a</p>\n    <p>*[A]: a</p>\n  </li>\n</ul>\n",
+            "<ul>\n  <li><p>a</p>\n    <p>*[A]: a</p>\n  </li>\n</ul>",
             $html,
         );
     }
@@ -120,7 +120,7 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
     {
         $html = (new CarveConverter())->convert("*[A]: alpha\n\nA here\n");
 
-        $this->assertSame("<p><abbr title=\"alpha\">A</abbr> here</p>\n", $html);
+        $this->assertSame('<p><abbr title="alpha">A</abbr> here</p>', $html);
     }
 
     /**
@@ -155,7 +155,7 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
     public function testAnInvisibleLineAheadOfItDoesNotHideTheParagraph(): void
     {
         $this->assertSame(
-            "<ul>\n  <li><p>a</p>\n    <p>*[A]: a</p>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>a</p>\n    <p>*[A]: a</p>\n  </li>\n</ul>\n"),
             (new CarveConverter())->convert("- a\n\n  %% c\n  *[A]: a\n"),
         );
     }
@@ -169,7 +169,7 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
     public function testAReferenceDefinitionAheadOfItDoesNotHideTheParagraph(): void
     {
         $this->assertSame(
-            "<ul>\n  <li><p>a</p>\n    <p>*[A]: a</p>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>a</p>\n    <p>*[A]: a</p>\n  </li>\n</ul>\n"),
             (new CarveConverter())->convert("- a\n\n  [r]: /u\n  *[A]: a\n"),
         );
     }
@@ -184,7 +184,7 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
     public function testAnAttributeLineAheadOfItAttachesToThatParagraph(): void
     {
         $this->assertSame(
-            "<ul>\n  <li><p>a</p>\n    <p class=\"x\">*[A]: a</p>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>a</p>\n    <p class=\"x\">*[A]: a</p>\n  </li>\n</ul>\n"),
             (new CarveConverter())->convert("- a\n\n  {.x}\n  *[A]: a\n"),
         );
     }
@@ -199,7 +199,7 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
     public function testTwoInvisibleLinesAfterTheBlankStillLeaveTheItemTight(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a</li>\n</ul>\n<p>See <a href=\"/u\">x</a>.</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n</ul>\n<p>See <a href=\"/u\">x</a>.</p>\n"),
             (new CarveConverter())->convert("- a\n\n  %% c\n  [r]: /u\n\nSee [x][r].\n"),
         );
     }

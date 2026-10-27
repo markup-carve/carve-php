@@ -25,7 +25,7 @@ class ContinuationFenceInteriorBlankLoosenessTest extends TestCase
     {
         $html = $this->converter->convert("- text\n\n  ```\n  a\n\n  b\n  ```\n- c");
         $this->assertSame(
-            "<ul>\n  <li>text\n    <pre><code>a\n\nb\n</code></pre>\n  </li>\n  <li>c</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>text\n    <pre><code>a\n\nb\n</code></pre>\n  </li>\n  <li>c</li>\n</ul>\n"),
             $html,
         );
     }
@@ -49,7 +49,7 @@ class ContinuationFenceInteriorBlankLoosenessTest extends TestCase
             foreach (['```', '~~~'] as $fence) {
                 $source = "- item\n\n" . $indent . $fence . "\n" . $indent . "a\n\n" . $indent . "b\n" . $indent . $fence . "\n";
                 self::assertSame(
-                    "<ul>\n  <li>item\n    <pre><code>a\n\nb\n</code></pre>\n  </li>\n</ul>\n",
+                    preg_replace('/\n\z/', '', "<ul>\n  <li>item\n    <pre><code>a\n\nb\n</code></pre>\n  </li>\n</ul>\n"),
                     $this->converter->convert($source),
                 );
             }

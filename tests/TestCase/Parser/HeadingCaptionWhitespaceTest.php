@@ -26,11 +26,11 @@ class HeadingCaptionWhitespaceTest extends TestCase
     public function testHeadingStripsFinalTrailingWhitespace(): void
     {
         $this->assertSame(
-            "<section id=\"x\">\n  <h1>x</h1>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"x\">\n  <h1>x</h1>\n</section>\n"),
             $this->converter->convert('# x '),
         );
         $this->assertSame(
-            "<section id=\"x\">\n  <h1>x</h1>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"x\">\n  <h1>x</h1>\n</section>\n"),
             $this->converter->convert("# x\t"),
         );
     }
@@ -38,7 +38,7 @@ class HeadingCaptionWhitespaceTest extends TestCase
     public function testHeadingKeepsLeadingTabAsContent(): void
     {
         $this->assertSame(
-            "<section id=\"x\">\n  <h1>\tx</h1>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"x\">\n  <h1>\tx</h1>\n</section>\n"),
             $this->converter->convert("# \tx"),
         );
     }
@@ -49,14 +49,14 @@ class HeadingCaptionWhitespaceTest extends TestCase
         // following line is a paragraph (which strips its own trailing run).
         $expected = "<section id=\"a\">\n  <h1>a</h1>\n  <p>b</p>\n</section>\n";
 
-        $this->assertSame($expected, $this->converter->convert("# a \nb"));
-        $this->assertSame($expected, $this->converter->convert("# a\nb "));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert("# a \nb"));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert("# a\nb "));
     }
 
     public function testCaptionStripsFinalTrailingWhitespace(): void
     {
         $this->assertSame(
-            "<figure>\n  <img src=\"/u\" alt=\"a\">\n  <figcaption>x</figcaption>\n</figure>\n",
+            preg_replace('/\n\z/', '', "<figure>\n  <img src=\"/u\" alt=\"a\">\n  <figcaption>x</figcaption>\n</figure>\n"),
             $this->converter->convert("![a](/u)\n^ x "),
         );
     }
@@ -64,7 +64,7 @@ class HeadingCaptionWhitespaceTest extends TestCase
     public function testCaptionKeepsLeadingTabAsContent(): void
     {
         $this->assertSame(
-            "<figure>\n  <img src=\"/u\" alt=\"a\">\n  <figcaption>\tx</figcaption>\n</figure>\n",
+            preg_replace('/\n\z/', '', "<figure>\n  <img src=\"/u\" alt=\"a\">\n  <figcaption>\tx</figcaption>\n</figure>\n"),
             $this->converter->convert("![a](/u)\n^ \tx"),
         );
     }

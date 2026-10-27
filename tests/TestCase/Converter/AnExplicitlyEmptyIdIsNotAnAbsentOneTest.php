@@ -103,7 +103,7 @@ class AnExplicitlyEmptyIdIsNotAnAbsentOneTest extends TestCase
         $html = "<ul>\n  <li>a\n    <h1 id=\"\">H</h1>\n  </li>\n</ul>\n";
         $carve = (new HtmlToCarve())->convert($html);
 
-        $this->assertSame($html, (new CarveConverter())->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $html), (new CarveConverter())->convert($carve));
     }
 
     /**

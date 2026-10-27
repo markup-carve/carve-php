@@ -80,7 +80,7 @@ class EmptyListBlockSpacingTest extends TestCase
     ): void {
         $converter = new CarveConverter();
         $html = $converter->convert($source);
-        $this->assertSame($phpHtml, $html);
+        $this->assertSame(preg_replace('/\n\z/', '', $phpHtml), $html);
         // Against the LIVE render, not against the stored column beside it: the
         // grid held a declared whitespace divergence for 24 of these shapes, and
         // a comparison between two stored columns cannot see the render move.
@@ -93,7 +93,7 @@ class EmptyListBlockSpacingTest extends TestCase
         $formatted = CarveConverter::toCarve($source);
         $this->assertSame($expectedFormatted, $formatted);
         $this->assertSame($formatted, CarveConverter::toCarve($formatted));
-        $this->assertSame($formattedHtml, $converter->convert($formatted));
+        $this->assertSame(preg_replace('/\n\z/', '', $formattedHtml), $converter->convert($formatted));
         $this->assertSame($imported, $importer->convert($converter->convert($formatted)));
     }
 }

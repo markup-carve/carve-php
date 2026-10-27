@@ -82,7 +82,7 @@ class AParenthesizedTitleIsNotATitleTest extends TestCase
     #[DataProvider('literalProvider')]
     public function testAParenthesizedRunFillsNoTitleSlot(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     #[DataProvider('unchangedProvider')]
@@ -90,7 +90,7 @@ class AParenthesizedTitleIsNotATitleTest extends TestCase
         string $source,
         string $expected,
     ): void {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     public function testEveryRowIsStillCovered(): void

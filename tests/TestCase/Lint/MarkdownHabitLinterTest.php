@@ -49,7 +49,7 @@ class MarkdownHabitLinterTest extends TestCase
     {
         $this->assertNotSame('', $rule);
         $this->assertSame(
-            "<p>{$source}</p>\n",
+            preg_replace('/\n\z/', '', "<p>{$source}</p>\n"),
             (new CarveConverter())->convert($source),
         );
     }
@@ -58,8 +58,8 @@ class MarkdownHabitLinterTest extends TestCase
     {
         $converter = new CarveConverter();
 
-        $this->assertSame("<p><strong>bold</strong></p>\n", $converter->convert('*bold*'));
-        $this->assertSame("<p><s>struck</s></p>\n", $converter->convert('~struck~'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><strong>bold</strong></p>\n"), $converter->convert('*bold*'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><s>struck</s></p>\n"), $converter->convert('~struck~'));
     }
 
     public function testCorrectCarveIsNeverReported(): void

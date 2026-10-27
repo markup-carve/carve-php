@@ -30,7 +30,7 @@ class EmptyContainerCleanupTest extends TestCase
         $converter = new CarveConverter();
         $converter->setProfile(Profile::full());
 
-        $this->assertSame($unfiltered, $converter->convert($src));
+        $this->assertSame(preg_replace('/\n\z/', '', $unfiltered), $converter->convert($src));
     }
 
     /**

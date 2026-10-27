@@ -20,7 +20,7 @@ final class ReservedCitationReferenceTailTest extends TestCase
                 }
                 $paragraph = $converter->parse($source)->getChildren()[0];
                 self::assertSame(['text'], array_map(static fn ($node) => $node->getType(), $paragraph->getChildren()), $source);
-                self::assertSame("<p>{$source}</p>\n", $converter->convert($source));
+                self::assertSame(preg_replace('/\n\z/', '', "<p>{$source}</p>\n"), $converter->convert($source));
             }
         }
     }

@@ -96,7 +96,7 @@ class UnresolvedFootnoteAttributesTest extends TestCase
 
         $this->assertSame(
             (new CarveConverter())->convert(self::SOURCE),
-            (new CarveConverter())->render($decoded),
+            preg_replace('/\n\z/', '', (new CarveConverter())->render($decoded)),
         );
     }
 }

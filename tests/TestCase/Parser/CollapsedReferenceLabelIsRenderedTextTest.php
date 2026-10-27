@@ -293,7 +293,7 @@ class CollapsedReferenceLabelIsRenderedTextTest extends TestCase
         $encoded = $codec->encodeJson(
             (new CarveConverter(parser: new BlockParser(false, false, false, true)))->parse($source),
         );
-        $ingested = (new CarveConverter())->render($codec->decodeJson($encoded));
+        $ingested = preg_replace('/\n\z/', '', (new CarveConverter())->render($codec->decodeJson($encoded)));
 
         $this->assertStringContainsString('href="#an-em-heading"', $direct);
         $this->assertSame($direct, $ingested);

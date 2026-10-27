@@ -26,8 +26,8 @@ class AnUnquotedAttributeUsesTheGrammarExclusionsTest extends TestCase
     {
         $converter = new CarveConverter();
         self::assertSame(['k' => 'a{b'], AttributeParser::parse('k=a{b'));
-        self::assertSame("<p><strong k=\"a{b\">x</strong></p>\n", $converter->convert('*x*{k=a{b}'));
-        self::assertSame("<p k=\"a{b\">x</p>\n", $converter->convert("{k=a{b}\nx"));
+        self::assertSame(preg_replace('/\n\z/', '', "<p><strong k=\"a{b\">x</strong></p>\n"), $converter->convert('*x*{k=a{b}'));
+        self::assertSame(preg_replace('/\n\z/', '', "<p k=\"a{b\">x</p>\n"), $converter->convert("{k=a{b}\nx"));
     }
 
     public function testRowAttributeBracesSurviveWritingAndReparsing(): void
@@ -38,7 +38,7 @@ class AnUnquotedAttributeUsesTheGrammarExclusionsTest extends TestCase
             $html = $converter->convert($source);
             self::assertStringContainsString('<tr k=', $html);
             $written = (new CarveRenderer())->render($converter->parse($source));
-            self::assertSame($html, $converter->convert($written));
+            self::assertSame(preg_replace('/\n\z/', '', $html), $converter->convert($written));
         }
     }
 

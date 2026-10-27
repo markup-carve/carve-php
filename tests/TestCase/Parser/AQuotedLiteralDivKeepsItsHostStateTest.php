@@ -19,7 +19,7 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
             $html = (new CarveConverter())->convert($source);
             $this->assertStringContainsString('<p>:::: box</p>', $html);
             $this->assertStringNotContainsString('class="box"', $html);
-            $this->assertStringEndsWith("</blockquote>\n", $html);
+            $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n"), $html);
             $this->assertStringContainsString('tail', $html);
         }
     }
@@ -36,7 +36,7 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
         $source = "> - ::: box\n>   body\n> lazy\n>   :::\n- tail\n";
         $html = (new CarveConverter())->convert($source);
         $this->assertStringContainsString("<div class=\"box\">\n        <p>body\nlazy</p>", $html);
-        $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"), $html);
     }
 
     public function testMarkerBelowAnAncestorColumnKeepsTheActualFence(): void
@@ -51,7 +51,7 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
                         . $quote . '    ' . $fence . "\n- tail\n";
                     $html = (new CarveConverter())->convert($source);
                     $this->assertStringContainsString("<p>body\n- next</p>", $html);
-                    $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
+                    $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"), $html);
                 }
             }
         }
@@ -65,7 +65,7 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
             $html = (new CarveConverter())->convert($source);
             $this->assertStringNotContainsString("<p>body\n- next</p>", $html);
             $this->assertStringContainsString('<li>next', $html);
-            $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
+            $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"), $html);
         }
     }
 
@@ -74,7 +74,7 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
         $source = "> - a\n>   - b\n>     - ::: box\n>       body\n>    - next\n>       :::\n- tail\n";
         $html = (new CarveConverter())->convert($source);
         $this->assertStringContainsString("<p>body\n- next</p>", $html);
-        $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"), $html);
     }
 
     public function testMarkerBeforeTheOutermostHostStaysStructural(): void
@@ -96,7 +96,7 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
             } else {
                 $this->assertStringContainsString("<p>body<br>\n- next</p>", $html);
             }
-            $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
+            $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"), $html);
         }
     }
 
@@ -106,7 +106,7 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
         $html = (new CarveConverter())->convert($source);
         $this->assertStringContainsString('<p>body</p>', $html);
         $this->assertStringContainsString('<li>next', $html);
-        $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"), $html);
     }
 
     public function testHardbreakBodiesStillParseNestedDivs(): void
@@ -123,6 +123,6 @@ CRV;
         $this->assertStringContainsString('class="hardbreaks"', $html);
         $this->assertStringContainsString('class="box"', $html);
         $this->assertStringContainsString('<p>body</p>', $html);
-        $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"), $html);
     }
 }

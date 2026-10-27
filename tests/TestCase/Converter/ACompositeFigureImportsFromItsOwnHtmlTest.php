@@ -23,7 +23,7 @@ class ACompositeFigureImportsFromItsOwnHtmlTest extends TestCase
         $imported = (new HtmlToCarve())->convert($html);
 
         $this->assertSame(
-            $html,
+            preg_replace('/\n\z/', '', $html),
             (new CarveConverter())->convert($imported),
             "importing the rendered HTML must reproduce it; imported source was:\n" . $imported,
         );

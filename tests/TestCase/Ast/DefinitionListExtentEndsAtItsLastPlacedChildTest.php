@@ -136,6 +136,6 @@ class DefinitionListExtentEndsAtItsLastPlacedChildTest extends TestCase
         // corpus fixture cannot see this defect.
         $html = (new CarveConverter())->convert(":: t\n:  d\n   {.k}\ntail\n");
 
-        $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>\n"), $html);
     }
 }

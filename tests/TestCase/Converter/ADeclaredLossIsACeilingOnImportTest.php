@@ -61,7 +61,7 @@ class ADeclaredLossIsACeilingOnImportTest extends TestCase
         $source = $this->import('<dl><dt>term</dt><dd></dd></dl>');
 
         $this->assertSame(":: term\n: {empty}\n", $source);
-        $this->assertSame("<dl>\n  <dt>term</dt>\n  <dd></dd>\n</dl>\n", $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', "<dl>\n  <dt>term</dt>\n  <dd></dd>\n</dl>\n"), $this->html($source));
     }
 
     /**

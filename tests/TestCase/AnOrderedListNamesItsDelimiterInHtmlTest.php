@@ -25,7 +25,7 @@ class AnOrderedListNamesItsDelimiterInHtmlTest extends TestCase
     public function testTheListNamesItsDelimiter(): void
     {
         $this->assertSame(
-            "<ol data-delim=\")\">\n  <li>first</li>\n  <li>second</li>\n</ol>\n",
+            preg_replace('/\n\z/', '', "<ol data-delim=\")\">\n  <li>first</li>\n  <li>second</li>\n</ol>\n"),
             $this->converter->convert("1) first\n2) second\n"),
         );
     }
@@ -55,7 +55,7 @@ class AnOrderedListNamesItsDelimiterInHtmlTest extends TestCase
     public function testANestedListDerivesItsOwn(): void
     {
         $this->assertSame(
-            "<ol>\n  <li>outer\n    <ol data-delim=\")\">\n      <li>inner</li>\n    </ol>\n  </li>\n</ol>\n",
+            preg_replace('/\n\z/', '', "<ol>\n  <li>outer\n    <ol data-delim=\")\">\n      <li>inner</li>\n    </ol>\n  </li>\n</ol>\n"),
             $this->converter->convert("1. outer\n\n   1) inner\n"),
         );
     }

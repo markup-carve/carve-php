@@ -1567,7 +1567,7 @@ class ProseMirrorBridgeTest extends TestCase
         $html = (new CarveConverter())->render($document);
 
         $this->assertStringContainsString('![Plan](/x.png "T")', $source);
-        $this->assertSame($html, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $html), (new CarveConverter())->convert($source));
     }
 
     public function testABlockPositionImageInsideABlockQuoteIsWrapped(): void

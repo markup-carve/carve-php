@@ -45,7 +45,7 @@ class AnEmptyQuoteLineIsItsMarkersTest extends TestCase
 
         $this->assertSame("> ```\n> a\n>  \n> b\n> ```\n", $imported);
         $this->assertSame(
-            "<blockquote>\n  <pre><code>a\n \nb\n</code></pre>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <pre><code>a\n \nb\n</code></pre>\n</blockquote>\n"),
             (new CarveConverter())->convert($imported),
         );
     }

@@ -65,7 +65,7 @@ class HtmlImportRecognitionTest extends TestCase
 
         $this->assertSame("::: details \"More detail\"\nBody\n:::\n", $carve);
         $this->assertSame(
-            "<details>\n  <summary>More detail</summary>\n  <p>Body</p>\n</details>\n",
+            preg_replace('/\n\z/', '', "<details>\n  <summary>More detail</summary>\n  <p>Body</p>\n</details>\n"),
             $this->disclosure->convert($carve),
         );
     }
@@ -255,7 +255,7 @@ class HtmlImportRecognitionTest extends TestCase
     public function testTheQuoteCharactersSurviveTheParse(): void
     {
         $this->assertSame(
-            "<p>He said \u{201C}hi\u{201D}.</p>\n",
+            preg_replace('/\n\z/', '', "<p>He said \u{201C}hi\u{201D}.</p>\n"),
             $this->carve->convert($this->converter->convert('<p>He said <q>hi</q>.</p>')),
         );
     }

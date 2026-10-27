@@ -33,7 +33,7 @@ class MarkerLineFenceBodyColumnTest extends TestCase
         $html = $this->converter->convert("- ::: note\nbody\n:::");
 
         $this->assertSame(
-            '<ul>
+            preg_replace('/\n\z/', '', '<ul>
   <li>
     <aside class="admonition note" aria-label="Note">
 
@@ -44,7 +44,7 @@ class MarkerLineFenceBodyColumnTest extends TestCase
 <div>
 
 </div>
-',
+'),
             $html,
         );
     }
@@ -53,7 +53,7 @@ class MarkerLineFenceBodyColumnTest extends TestCase
     {
         $html = $this->converter->convert("- ::: note\nbody");
 
-        $this->assertSame('<ul>
+        $this->assertSame(preg_replace('/\n\z/', '', '<ul>
   <li>
     <aside class="admonition note" aria-label="Note">
 
@@ -61,7 +61,7 @@ class MarkerLineFenceBodyColumnTest extends TestCase
   </li>
 </ul>
 <p>body</p>
-', $html);
+'), $html);
     }
 
     public function testABodyAtTheContentColumnStillNests(): void

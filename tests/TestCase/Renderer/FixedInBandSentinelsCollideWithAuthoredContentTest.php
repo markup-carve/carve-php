@@ -179,7 +179,7 @@ class FixedInBandSentinelsCollideWithAuthoredContentTest extends TestCase
         // The ordinary typed-div rendering, matching carve-js, rather than the
         // hand-written empty div this used to expect.
         $this->assertSame(
-            "<p>x</p>\n<div class=\"footnotes\">\n\n</div>\n",
+            preg_replace('/\n\z/', '', "<p>x</p>\n<div class=\"footnotes\">\n\n</div>\n"),
             (new CarveConverter())->convert("x\n\n::: footnotes\n:::\n"),
         );
     }
@@ -237,7 +237,7 @@ class FixedInBandSentinelsCollideWithAuthoredContentTest extends TestCase
         // marker rather than a decision about the character: the HTML and plain
         // targets emitted it before this change and still do.
         $this->assertSame(
-            '<p>a' . $character . "b</p>\n",
+            preg_replace('/\n\z/', '', '<p>a' . $character . "b</p>\n"),
             (new CarveConverter())->convert('a' . $character . "b\n"),
         );
         $this->assertSame(
@@ -371,7 +371,7 @@ class FixedInBandSentinelsCollideWithAuthoredContentTest extends TestCase
         $this->assertSame($source, (new CarveConverter())->toCarve($source));
         $this->assertSame($source, CarveConverter::markdown()->convert($source));
         $this->assertSame(
-            '<p>a' . $occupied . "b</p>\n",
+            preg_replace('/\n\z/', '', '<p>a' . $occupied . "b</p>\n"),
             (new CarveConverter())->convert($source),
         );
     }

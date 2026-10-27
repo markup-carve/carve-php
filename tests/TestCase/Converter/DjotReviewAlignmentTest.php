@@ -371,7 +371,7 @@ class DjotReviewAlignmentTest extends TestCase
     {
         $carve = (new DjotToCarve())->convert("foo\\*bar{.c}\n");
         self::assertSame("[foo\\*bar]{.c}\n", $carve);
-        self::assertSame("<p><span class=\"c\">foo*bar</span></p>\n", (new CarveConverter())->convert($carve));
+        self::assertSame(preg_replace('/\n\z/', '', "<p><span class=\"c\">foo*bar</span></p>\n"), (new CarveConverter())->convert($carve));
     }
 
     public function testNativeAttributeValuesAndComments(): void

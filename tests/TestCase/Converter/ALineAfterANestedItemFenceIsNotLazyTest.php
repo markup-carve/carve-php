@@ -59,6 +59,6 @@ class ALineAfterANestedItemFenceIsNotLazyTest extends TestCase
     #[DataProvider('shapes')]
     public function testTheLineRendersOutsideTheNestedItem(string $markdown, string $carve, string $html): void
     {
-        $this->assertSame($html, (new CarveConverter())->convert((new MarkdownToCarve())->convert($markdown)));
+        $this->assertSame(preg_replace('/\n\z/', '', $html), (new CarveConverter())->convert((new MarkdownToCarve())->convert($markdown)));
     }
 }

@@ -34,8 +34,8 @@ class AnEmptyQuoteTakesNoCaptionTest extends TestCase
     public function testEmptyQuoteBetweenTableAndMarkerTakesNoCaption(): void
     {
         $this->assertSame(
-            "<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n"
-            . "<blockquote>\n\n</blockquote>\n<p>^ cap</p>\n",
+            preg_replace('/\n\z/', '', "<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n"
+            . "<blockquote>\n\n</blockquote>\n<p>^ cap</p>\n"),
             $this->converter->convert("| a |\n\n>\n\n^ cap\n"),
         );
     }
@@ -43,7 +43,7 @@ class AnEmptyQuoteTakesNoCaptionTest extends TestCase
     public function testEmptyQuoteAdjacentToTheMarkerTakesNoCaption(): void
     {
         $this->assertSame(
-            "<blockquote>\n\n</blockquote>\n<p>^ cap</p>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n\n</blockquote>\n<p>^ cap</p>\n"),
             $this->converter->convert(">\n^ cap\n"),
         );
     }
@@ -51,7 +51,7 @@ class AnEmptyQuoteTakesNoCaptionTest extends TestCase
     public function testQuoteWithContentStillCaptionsPastATrailingBareMarker(): void
     {
         $this->assertSame(
-            "<figure>\n  <blockquote><p>q</p></blockquote>\n  <figcaption>cap</figcaption>\n</figure>\n",
+            preg_replace('/\n\z/', '', "<figure>\n  <blockquote><p>q</p></blockquote>\n  <figcaption>cap</figcaption>\n</figure>\n"),
             $this->converter->convert("> q\n>\n\n^ cap\n"),
         );
     }

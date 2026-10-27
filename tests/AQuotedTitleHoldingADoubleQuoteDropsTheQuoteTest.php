@@ -79,10 +79,10 @@ class AQuotedTitleHoldingADoubleQuoteDropsTheQuoteTest extends TestCase
 
         self::assertSame($written, CarveConverter::carve()->render($reparsed));
         self::assertSame(
-            "<div class=\"toc\">\n  <p class=\"admonition-title\">say hi now</p>\n</div>\n"
+            preg_replace('/\n\z/', '', "<div class=\"toc\">\n  <p class=\"admonition-title\">say hi now</p>\n</div>\n"
                 . "<aside class=\"admonition note\" aria-labelledby=\"adm-1\">\n"
                 . "  <p class=\"admonition-title\" id=\"adm-1\">say hi now</p>\n  <p>x</p>\n</aside>\n"
-                . "<pre title=\"say hi now\"><code class=\"language-php\">x\n</code></pre>\n",
+                . "<pre title=\"say hi now\"><code class=\"language-php\">x\n</code></pre>\n"),
             (new CarveConverter())->convert($written),
         );
     }
@@ -121,7 +121,7 @@ class AQuotedTitleHoldingADoubleQuoteDropsTheQuoteTest extends TestCase
 
         self::assertSame("::: toc \"\"\n\n:::\n", $written);
         self::assertSame(
-            "<div class=\"toc\">\n  <p class=\"admonition-title\"></p>\n</div>\n",
+            preg_replace('/\n\z/', '', "<div class=\"toc\">\n  <p class=\"admonition-title\"></p>\n</div>\n"),
             (new CarveConverter())->convert($written),
         );
     }

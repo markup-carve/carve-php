@@ -22,17 +22,17 @@ class TrailingBackslashAndHeadingContTest extends TestCase
 
     public function testTrailingBackslashAtEofIsHardBreak(): void
     {
-        $this->assertSame("<p>para<br>\n</p>\n", $this->converter->convert('para\\'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>para<br>\n</p>\n"), $this->converter->convert('para\\'));
     }
 
     public function testNormalHardBreakUnchanged(): void
     {
-        $this->assertSame("<p>a<br>\nb</p>\n", $this->converter->convert("a\\\nb"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a<br>\nb</p>\n"), $this->converter->convert("a\\\nb"));
     }
 
     public function testTrailingEscapedPunctuationUnchanged(): void
     {
-        $this->assertSame("<p>a*</p>\n", $this->converter->convert('a\\*'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a*</p>\n"), $this->converter->convert('a\\*'));
     }
 
     public function testBareSameLevelHashDoesNotContinueAHeading(): void
@@ -40,8 +40,8 @@ class TrailingBackslashAndHeadingContTest extends TestCase
         // Nothing folds into a heading any more, and a bare `#` has no content
         // so it is not a heading itself: it is a paragraph between two of them.
         $this->assertSame(
-            "<section id=\"h\">\n  <h1>h</h1>\n  <p>#</p>\n</section>\n"
-            . "<section id=\"x\">\n  <h1>x</h1>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"h\">\n  <h1>h</h1>\n  <p>#</p>\n</section>\n"
+            . "<section id=\"x\">\n  <h1>x</h1>\n</section>\n"),
             $this->converter->convert("# h\n#\n# x\n"),
         );
     }
@@ -49,8 +49,8 @@ class TrailingBackslashAndHeadingContTest extends TestCase
     public function testDifferentLevelStartsNewHeading(): void
     {
         $this->assertSame(
-            "<section id=\"a\">\n  <h1>a</h1>\n</section>\n"
-            . "<section id=\"b\">\n  <h1>b</h1>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"a\">\n  <h1>a</h1>\n</section>\n"
+            . "<section id=\"b\">\n  <h1>b</h1>\n</section>\n"),
             $this->converter->convert("# a\n\n# b\n"),
         );
     }

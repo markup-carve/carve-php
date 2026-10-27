@@ -31,7 +31,7 @@ class InvisibleContentDoesNotLoosenTest extends TestCase
     public function testACommentAfterABlankKeepsTheItemTight(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n</ul>\n"),
             $this->converter->convert("- a\n\n  %% just a note"),
         );
     }
@@ -39,7 +39,7 @@ class InvisibleContentDoesNotLoosenTest extends TestCase
     public function testADefinitionAfterABlankKeepsTheItemTight(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n</ul>\n"),
             $this->converter->convert("- a\n\n  [r]: /u"),
         );
     }

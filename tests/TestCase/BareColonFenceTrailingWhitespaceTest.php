@@ -27,7 +27,7 @@ class BareColonFenceTrailingWhitespaceTest extends TestCase
     {
         $source = ":::{$whitespace}\ntext\n:::\n";
 
-        $this->assertSame("<div>\n  <p>text</p>\n</div>\n", (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', "<div>\n  <p>text</p>\n</div>\n"), (new CarveConverter())->convert($source));
     }
 
     public function testATabBeforeATypeTokenStillDoesNotOpenAContainer(): void

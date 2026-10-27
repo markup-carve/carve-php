@@ -145,7 +145,7 @@ class AnImportedNestedContainerIsAFormatterFixedPointTest extends TestCase
 
         $this->assertSame("::: |\n\\:::\nb\n:::\n", $imported);
         $this->assertSame(
-            "<div class=\"line-block\">\n  <p>:::<br>\nb</p>\n</div>\n",
+            preg_replace('/\n\z/', '', "<div class=\"line-block\">\n  <p>:::<br>\nb</p>\n</div>\n"),
             (new CarveConverter())->convert($imported),
         );
     }
@@ -160,7 +160,7 @@ class AnImportedNestedContainerIsAFormatterFixedPointTest extends TestCase
         $imported = (new HtmlToCarve())->convert($html);
 
         $this->assertSame(
-            "<div class=\"tabs\">\n  <div class=\"tabs-panel\">\n    <p>a</p>\n  </div>\n</div>\n",
+            preg_replace('/\n\z/', '', "<div class=\"tabs\">\n  <div class=\"tabs-panel\">\n    <p>a</p>\n  </div>\n</div>\n"),
             (new CarveConverter())->convert($imported),
         );
     }

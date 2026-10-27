@@ -31,7 +31,7 @@ final class NestedListFenceCloserTest extends TestCase
         $html = CarveConverter::create()->convert($source);
         self::assertSame(1, substr_count($html, '<pre><code'));
         self::assertSame(1, substr_count($html, '<code'));
-        self::assertStringEndsWith("<p>tail</p>\n", $html);
+        self::assertStringEndsWith(preg_replace('/\n\z/', '', "<p>tail</p>\n"), $html);
     }
 
     /**
@@ -56,7 +56,7 @@ final class NestedListFenceCloserTest extends TestCase
         if ($column === 7) {
             self::assertStringContainsString("<pre><code> ```\n\n</code></pre>", $html);
         }
-        self::assertStringEndsWith("<p>tail</p>\n", $html);
+        self::assertStringEndsWith(preg_replace('/\n\z/', '', "<p>tail</p>\n"), $html);
     }
 
     public function testLongerMarkerFenceKeepsTheShorterRunAsPayload(): void

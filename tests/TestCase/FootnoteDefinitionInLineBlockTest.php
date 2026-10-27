@@ -31,7 +31,7 @@ class FootnoteDefinitionInLineBlockTest extends TestCase
     {
         $html = $this->converter->convert("::: |\n[^f]: a note\n:::");
         $this->assertSame(
-            "<div class=\"line-block\">\n  <p>[^f]: a note</p>\n</div>\n",
+            preg_replace('/\n\z/', '', "<div class=\"line-block\">\n  <p>[^f]: a note</p>\n</div>\n"),
             $html,
         );
     }

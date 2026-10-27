@@ -138,7 +138,7 @@ class IntrawordEmphasisImportsInTheBracedFormTest extends TestCase
         $imported = (new HtmlToCarve())->convert($html);
 
         $this->assertSame($carve, trim($imported));
-        $this->assertSame($rendered . "\n", (new CarveConverter())->convert($imported));
+        $this->assertSame(preg_replace('/\n\z/', '', $rendered . "\n"), (new CarveConverter())->convert($imported));
     }
 
     /**

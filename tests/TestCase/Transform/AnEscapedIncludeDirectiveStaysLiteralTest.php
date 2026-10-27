@@ -23,7 +23,7 @@ class AnEscapedIncludeDirectiveStaysLiteralTest extends TestCase
         $result = $this->expand($source);
 
         $converter = new CarveConverter();
-        $this->assertSame($converter->convert($source), $result['html']);
+        $this->assertSame($converter->convert($source), preg_replace('/\n\z/', '', $result['html']));
         $this->assertSame([], $result['calls']);
         $this->assertSame([], $result['dependencies']);
         $this->assertSame([], $result['warnings']);

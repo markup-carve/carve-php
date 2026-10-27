@@ -39,7 +39,7 @@ DJOT;
 </section>
 HTML;
 
-        $this->assertSame($expected . "\n", $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected . "\n"), $this->converter->convert($input));
     }
 
     public function testInlineContentIsParsed(): void
@@ -157,6 +157,6 @@ DJOT;
     {
         $html = $this->converter->convert('x{^2^}');
 
-        $this->assertSame("<p>x<sup>2</sup></p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>x<sup>2</sup></p>\n"), $html);
     }
 }

@@ -39,7 +39,7 @@ class AMarkdownQuotedLazyLineStaysInItsItemTest extends TestCase
         $imported = (new MarkdownToCarve())->convert($markdown);
 
         $this->assertSame($carve, $imported);
-        $this->assertSame($html, (new CarveConverter())->convert($imported));
+        $this->assertSame(preg_replace('/\n\z/', '', $html), (new CarveConverter())->convert($imported));
         $this->assertSame($imported, CarveConverter::toCarve($imported));
     }
 }

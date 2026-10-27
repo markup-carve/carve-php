@@ -63,7 +63,7 @@ class ABareCloserSkipsOnlyTheConstructsE2aNamesTest extends TestCase
     #[DataProvider('opaqueProvider')]
     public function testABareCloserDoesNotReachInside(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -85,7 +85,7 @@ class ABareCloserSkipsOnlyTheConstructsE2aNamesTest extends TestCase
     #[DataProvider('transparentProvider')]
     public function testABareCloserClosesInside(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     public function testParenthesesAfterAnInlineFootnoteAreNotADestination(): void

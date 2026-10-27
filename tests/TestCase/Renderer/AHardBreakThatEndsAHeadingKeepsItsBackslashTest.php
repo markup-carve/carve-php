@@ -48,7 +48,7 @@ class AHardBreakThatEndsAHeadingKeepsItsBackslashTest extends TestCase
 
     public function testAnInteriorBreakCollapsesToASpace(): void
     {
-        $this->assertSame("<section id=\"a-b\">\n  <h2>a b</h2>\n</section>\n", (new CarveConverter())->convert("## a b\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<section id=\"a-b\">\n  <h2>a b</h2>\n</section>\n"), (new CarveConverter())->convert("## a b\n"));
     }
 
     /**

@@ -38,7 +38,7 @@ class UnresolvedFootnoteRefAttrTest extends TestCase
     {
         $result = $this->converter->convert('Text[^a]{.ref}.');
 
-        $this->assertSame("<p>Text[^a].</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>Text[^a].</p>\n"), $result);
     }
 
     /**
@@ -58,7 +58,7 @@ class UnresolvedFootnoteRefAttrTest extends TestCase
             . "  </ol>\n"
             . "</section>\n";
 
-        $this->assertSame($expected, $result);
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $result);
     }
 
     /**
@@ -68,7 +68,7 @@ class UnresolvedFootnoteRefAttrTest extends TestCase
     {
         $result = $this->converter->convert('A [span]{.c} here.');
 
-        $this->assertSame("<p>A <span class=\"c\">span</span> here.</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>A <span class=\"c\">span</span> here.</p>\n"), $result);
     }
 
     /**
@@ -88,7 +88,7 @@ class UnresolvedFootnoteRefAttrTest extends TestCase
             . "  </ol>\n"
             . "</section>\n";
 
-        $this->assertSame($expected, $result);
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $result);
     }
 
     // ---- boundary cases (verified against carve-js / carve-rs) ----
@@ -101,7 +101,7 @@ class UnresolvedFootnoteRefAttrTest extends TestCase
     {
         $result = $this->converter->convert('Text[^a]{???}.');
 
-        $this->assertSame("<p>Text[^a]{???}.</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>Text[^a]{???}.</p>\n"), $result);
     }
 
     /**
@@ -112,7 +112,7 @@ class UnresolvedFootnoteRefAttrTest extends TestCase
     {
         $result = $this->converter->convert('Text[^a]{}.');
 
-        $this->assertSame("<p>Text[^a]{}.</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>Text[^a]{}.</p>\n"), $result);
     }
 
     /**
@@ -122,7 +122,7 @@ class UnresolvedFootnoteRefAttrTest extends TestCase
     {
         $result = $this->converter->convert('Text[^a]{.ref}{.foo}.');
 
-        $this->assertSame("<p>Text[^a].</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>Text[^a].</p>\n"), $result);
     }
 
     /**
@@ -132,6 +132,6 @@ class UnresolvedFootnoteRefAttrTest extends TestCase
     {
         $result = $this->converter->convert('Text[^a] more.');
 
-        $this->assertSame("<p>Text[^a] more.</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>Text[^a] more.</p>\n"), $result);
     }
 }

@@ -160,7 +160,7 @@ class ReferenceDefinitionIsAnchoredTest extends TestCase
         // paragraph above it - and a fix that tested the anchored line without
         // splitting the attribute block off would stop it doing so.
         $this->assertSame(
-            "<p>text</p>\n<p><a href=\"/u\" class=\"c\">a</a></p>\n",
+            preg_replace('/\n\z/', '', "<p>text</p>\n<p><a href=\"/u\" class=\"c\">a</a></p>\n"),
             $this->html("text\n[a]: /u {.c}\n\n[a][]\n"),
         );
     }
@@ -170,7 +170,7 @@ class ReferenceDefinitionIsAnchoredTest extends TestCase
         // The same predicate, the other direction: the line renders something
         // now, so it belongs to the paragraph above rather than ending it.
         $this->assertSame(
-            "<p>text\n[a]: /u zzz</p>\n<p>[a][]</p>\n",
+            preg_replace('/\n\z/', '', "<p>text\n[a]: /u zzz</p>\n<p>[a][]</p>\n"),
             $this->html("text\n[a]: /u zzz\n\n[a][]\n"),
         );
     }

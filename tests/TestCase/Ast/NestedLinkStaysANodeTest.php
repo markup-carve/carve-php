@@ -197,7 +197,7 @@ class NestedLinkStaysANodeTest extends TestCase
         $converter = new CarveConverter();
 
         $this->assertSame(
-            "<p><a href=\"z\">x</a></p>\n",
+            preg_replace('/\n\z/', '', "<p><a href=\"z\">x</a></p>\n"),
             $converter->convert("[[x](y)](z)\n"),
         );
         // The autolink's display text survives the render seam whole, which is
@@ -205,11 +205,11 @@ class NestedLinkStaysANodeTest extends TestCase
         // email autolink drops its `mailto:` scheme in the display, so the seam
         // has to unwrap to the DISPLAY and not to the destination.
         $this->assertSame(
-            "<p><a href=\"/u\">pre http://h post</a></p>\n",
+            preg_replace('/\n\z/', '', "<p><a href=\"/u\">pre http://h post</a></p>\n"),
             $converter->convert("[pre <http://h> post](/u)\n"),
         );
         $this->assertSame(
-            "<p><a href=\"/u\">pre a@b.example post</a></p>\n",
+            preg_replace('/\n\z/', '', "<p><a href=\"/u\">pre a@b.example post</a></p>\n"),
             $converter->convert("[pre <a@b.example> post](/u)\n"),
         );
     }

@@ -81,7 +81,7 @@ class ATableSpanNeverCoversAnotherCellTest extends TestCase
         $wire = json_decode((string)json_encode($codec->encode($this->converter->parse($source))), true);
         $this->assertIsArray($wire);
 
-        $this->assertSame($this->converter->convert($source), (new HtmlRenderer())->render($codec->decode($wire)));
+        $this->assertSame($this->converter->convert($source), preg_replace('/\n\z/', '', (new HtmlRenderer())->render($codec->decode($wire))));
     }
 
     public function testEveryThreeByThreeTableOfCellsAndMarkersIsAValidGrid(): void

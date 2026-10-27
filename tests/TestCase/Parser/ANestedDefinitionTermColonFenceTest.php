@@ -233,18 +233,18 @@ final class ANestedDefinitionTermColonFenceTest extends TestCase
     #[DataProvider('foldedCases')]
     public function testFenceIndentedUnderTheTermIsTermText(string $source, string $expected): void
     {
-        self::assertSame($expected, (new CarveConverter())->convert($source));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
         $formatted = CarveConverter::toCarve($source);
-        self::assertSame($expected, (new CarveConverter())->convert($formatted));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($formatted));
         self::assertSame($formatted, CarveConverter::toCarve($formatted));
     }
 
     #[DataProvider('fenceCases')]
     public function testFenceBelongsToTheEnclosingContainer(string $source, string $expected): void
     {
-        self::assertSame($expected, (new CarveConverter())->convert($source));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
         $formatted = CarveConverter::toCarve($source);
-        self::assertSame($expected, (new CarveConverter())->convert($formatted));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($formatted));
         self::assertSame($formatted, CarveConverter::toCarve($formatted));
     }
 }

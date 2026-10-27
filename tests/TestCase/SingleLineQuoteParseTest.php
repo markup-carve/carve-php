@@ -16,7 +16,7 @@ final class SingleLineQuoteParseTest extends TestCase
     public function testInlineLinkAndFollowingParagraph(): void
     {
         self::assertSame(
-            "<blockquote><p>A <a href=\"https://example.com\">link</a>.</p></blockquote>\n<p>After.</p>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>A <a href=\"https://example.com\">link</a>.</p></blockquote>\n<p>After.</p>\n"),
             (new CarveConverter())->convert("> A [link](https://example.com).\n\nAfter.\n"),
         );
     }
@@ -41,7 +41,7 @@ final class SingleLineQuoteParseTest extends TestCase
 
         $converter = CarveConverter::create(parser: $parser);
 
-        self::assertSame("<blockquote><p>from matcher</p></blockquote>\n", $converter->convert("> A custom line\n"));
+        self::assertSame(preg_replace('/\n\z/', '', "<blockquote><p>from matcher</p></blockquote>\n"), $converter->convert("> A custom line\n"));
         self::assertSame(1, $calls);
     }
 }

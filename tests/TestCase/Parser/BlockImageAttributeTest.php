@@ -26,7 +26,7 @@ class BlockImageAttributeTest extends TestCase
     public function testLeadingAttrLineOnDirectBlockImage(): void
     {
         $this->assertSame(
-            "<img src=\"/u\" alt=\"a\" id=\"f\">\n",
+            preg_replace('/\n\z/', '', "<img src=\"/u\" alt=\"a\" id=\"f\">\n"),
             $this->converter->convert("{#f}\n![a](/u)"),
         );
     }
@@ -34,7 +34,7 @@ class BlockImageAttributeTest extends TestCase
     public function testLeadingAttrLineOnReferenceBlockImage(): void
     {
         $this->assertSame(
-            "<img src=\"/u\" alt=\"a\" id=\"f\">\n",
+            preg_replace('/\n\z/', '', "<img src=\"/u\" alt=\"a\" id=\"f\">\n"),
             $this->converter->convert("{#f}\n![a][r]\n\n[r]: /u"),
         );
     }
@@ -42,7 +42,7 @@ class BlockImageAttributeTest extends TestCase
     public function testLeadingAttrLineMergesWithImageOwnAttrs(): void
     {
         $this->assertSame(
-            "<img src=\"/u\" alt=\"a\" id=\"f\" class=\"c\">\n",
+            preg_replace('/\n\z/', '', "<img src=\"/u\" alt=\"a\" id=\"f\" class=\"c\">\n"),
             $this->converter->convert("{#f}\n![a][r]{.c}\n\n[r]: /u"),
         );
     }
@@ -50,7 +50,7 @@ class BlockImageAttributeTest extends TestCase
     public function testLeadingAttrLineWithCaptionStaysOnFigure(): void
     {
         $this->assertSame(
-            "<figure id=\"f\">\n  <img src=\"/u\" alt=\"a\">\n  <figcaption>cap</figcaption>\n</figure>\n",
+            preg_replace('/\n\z/', '', "<figure id=\"f\">\n  <img src=\"/u\" alt=\"a\">\n  <figcaption>cap</figcaption>\n</figure>\n"),
             $this->converter->convert("{#f}\n![a](/u)\n^ cap"),
         );
     }
@@ -58,7 +58,7 @@ class BlockImageAttributeTest extends TestCase
     public function testTwoImagesStayAParagraph(): void
     {
         $this->assertSame(
-            "<p id=\"f\"><img src=\"/u\" alt=\"a\">\n<img src=\"/u\" alt=\"b\"></p>\n",
+            preg_replace('/\n\z/', '', "<p id=\"f\"><img src=\"/u\" alt=\"a\">\n<img src=\"/u\" alt=\"b\"></p>\n"),
             $this->converter->convert("{#f}\n![a](/u)\n![b](/u)"),
         );
     }

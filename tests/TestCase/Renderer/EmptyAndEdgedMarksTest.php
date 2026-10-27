@@ -101,7 +101,7 @@ class EmptyAndEdgedMarksTest extends TestCase
         $document = $this->withMarkContent($mark, $children());
         $source = (new CarveRenderer())->render($document);
 
-        $this->assertSame($this->converter->render($document), $this->converter->convert($source), $source);
+        $this->assertSame(preg_replace('/\n\z/', '', $this->converter->render($document)), $this->converter->convert($source), $source);
     }
 
     /**

@@ -46,6 +46,6 @@ final class AQuotedDefinitionClosesTheListItemsParagraphTest extends TestCase
     #[DataProvider('cases')]
     public function testQuotedDefinitionOwnership(string $source, string $expected): void
     {
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 }

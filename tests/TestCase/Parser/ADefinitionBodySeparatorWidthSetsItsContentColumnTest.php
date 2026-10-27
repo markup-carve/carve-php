@@ -79,7 +79,7 @@ class ADefinitionBodySeparatorWidthSetsItsContentColumnTest extends TestCase
     #[DataProvider('corpusPairs')]
     public function testTheSeparatorWidthSetsTheBodySColumn(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     public function testTheTwoSpaceControlKeepsItsWiderColumn(): void
@@ -90,7 +90,7 @@ class ADefinitionBodySeparatorWidthSetsItsContentColumnTest extends TestCase
         // the body and re-parses at document level. An engine that answered
         // "column 2" for every separator would pass every pair above.
         $this->assertSame(
-            "<dl>\n  <dt>term</dt>\n  <dd>first</dd>\n</dl>\n<p>second</p>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>term</dt>\n  <dd>first</dd>\n</dl>\n<p>second</p>\n"),
             $this->html(":: term\n:  first\n\n  second\n"),
         );
     }
@@ -101,11 +101,11 @@ class ADefinitionBodySeparatorWidthSetsItsContentColumnTest extends TestCase
         // at 5 does. No corpus document uses a run wider than two, and this is
         // where a fixed `1 + 2` would still pass everything above.
         $this->assertSame(
-            "<dl>\n  <dt>term</dt>\n  <dd>first</dd>\n</dl>\n<p>second</p>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>term</dt>\n  <dd>first</dd>\n</dl>\n<p>second</p>\n"),
             $this->html(":: term\n:    first\n\n    second\n"),
         );
         $this->assertSame(
-            "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>first</p>\n    <p>second</p>\n  </dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>first</p>\n    <p>second</p>\n  </dd>\n</dl>\n"),
             $this->html(":: term\n:    first\n\n     second\n"),
         );
     }

@@ -30,10 +30,10 @@ class GeneratedWrapperIndentationTest extends TestCase
                     $html = $converter->convert($nested);
                     $start = strpos($html, '<div class="' . $kind . '"');
                     $this->assertNotFalse($start);
-                    $suffix = str_repeat(' ', $depth * 2) . "</div>\n";
+                    $suffix = str_repeat(' ', $depth * 2) . '</div>';
                     $end = strrpos($html, $suffix);
                     $this->assertNotFalse($end);
-                    $fragment = substr($html, $start, $end - $start) . "</div>\n";
+                    $fragment = substr($html, $start, $end - $start) . '</div>';
                     $this->assertSame($top, $fragment, "$mode $kind at depth $depth");
                 }
             }

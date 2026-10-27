@@ -24,6 +24,6 @@ final class MarkdownEmptyQuoteLineFixedPointTest extends TestCase
 
         self::assertSame($expected, $actual);
         self::assertSame($actual, CarveConverter::toCarve($actual));
-        self::assertSame($html, (new CarveConverter())->convert($actual));
+        self::assertSame(preg_replace('/\n\z/', '', $html), (new CarveConverter())->convert($actual));
     }
 }

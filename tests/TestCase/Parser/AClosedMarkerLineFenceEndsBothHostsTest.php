@@ -39,7 +39,7 @@ final class AClosedMarkerLineFenceEndsBothHostsTest extends TestCase
         self::assertCount(2, $children);
         $html = CarveConverter::create()->convert($source);
         self::assertStringEndsWith(
-            $follower === 'x' ? "<p>x</p>\n" : "<pre><code></code></pre>\n",
+            preg_replace('/\n\z/', '', $follower === 'x' ? "<p>x</p>\n" : "<pre><code></code></pre>\n"),
             $html,
         );
     }

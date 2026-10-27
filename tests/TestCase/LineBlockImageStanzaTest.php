@@ -15,7 +15,7 @@ final class LineBlockImageStanzaTest extends TestCase
     {
         $source = "::: |\n![a](i.png)\n:::\n";
         $converter = new CarveConverter();
-        self::assertSame("<div class=\"line-block\">\n  <p><img src=\"i.png\" alt=\"a\"></p>\n</div>\n", $converter->convert($source));
+        self::assertSame(preg_replace('/\n\z/', '', "<div class=\"line-block\">\n  <p><img src=\"i.png\" alt=\"a\"></p>\n</div>\n"), $converter->convert($source));
 
         $lineBlock = $converter->parse($source)->getChildren()[0];
         self::assertInstanceOf(LineBlock::class, $lineBlock);
