@@ -23,7 +23,7 @@ class TheMarkdownRendererTakesASymbolMapTest extends TestCase
         $source = (string)file_get_contents(self::CASE . '.crv');
 
         $this->assertSame(
-            (string)file_get_contents(self::CASE . '.md'),
+            preg_replace('/\n\z/', '', (string)file_get_contents(self::CASE . '.md')),
             CarveConverter::create(renderer: $renderer)->convert($source),
         );
     }
@@ -32,7 +32,7 @@ class TheMarkdownRendererTakesASymbolMapTest extends TestCase
     {
         $renderer = new MarkdownRenderer(symbols: ['rocket' => '<b>R</b>']);
 
-        $this->assertSame("go :rocket:\n", CarveConverter::create(renderer: $renderer)->convert('go :rocket:'));
+        $this->assertSame(preg_replace('/\n\z/', '', "go :rocket:\n"), CarveConverter::create(renderer: $renderer)->convert('go :rocket:'));
     }
 
     public function testTheMapIsReadBack(): void

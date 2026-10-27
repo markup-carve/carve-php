@@ -46,7 +46,7 @@ class DelimitedTableTest extends TestCase
         self::assertSame('csv', $ast['children'][0]['sourceFormat']);
         $written = CarveConverter::toCarve($source);
         self::assertStringContainsString('```csv', $written);
-        self::assertSame($html, $converter->convert($written));
+        self::assertSame(preg_replace('/\n\z/', '', $html), $converter->convert($written));
     }
 
     public function testTsvFieldsStayLiteralAndHeaderCanBeDisabled(): void
@@ -55,7 +55,7 @@ class DelimitedTableTest extends TestCase
         $html = (new CarveConverter())->convert($source);
         self::assertStringContainsString('<td>^</td><td>&lt;x&gt;</td>', $html);
         self::assertStringNotContainsString('<th', $html);
-        self::assertSame($html, (new CarveConverter())->convert(CarveConverter::toCarve($source)));
+        self::assertSame(preg_replace('/\n\z/', '', $html), (new CarveConverter())->convert(CarveConverter::toCarve($source)));
     }
 
     public function testQuotedNewlineStaysInsideOneCell(): void

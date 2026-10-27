@@ -27,7 +27,7 @@ class RawCodeSectionBoundaryTest extends TestCase
     {
         $migration = (new MarkdownToCarve())->convertWithFidelityReport('# <code>a&#10;b');
         $this->assertSame(
-            '<section id="ab">' . "\n  " . '<h1><code>a<!---->&#10;<!---->b</h1></section>' . "\n",
+            preg_replace('/\n\z/', '', '<section id="ab">' . "\n  " . '<h1><code>a<!---->&#10;<!---->b</h1></section>' . "\n"),
             (new CarveConverter())->convert($migration->value),
         );
     }
@@ -57,7 +57,7 @@ class RawCodeSectionBoundaryTest extends TestCase
     {
         $converter = new CarveConverter();
         $converter->convert('# `<code>`{=html}x');
-        $this->assertSame('<section id="Plain">' . "\n  " . '<h1>Plain</h1>' . "\n</section>\n", $converter->convert('# Plain'));
+        $this->assertSame(preg_replace('/\n\z/', '', '<section id="Plain">' . "\n  " . '<h1>Plain</h1>' . "\n</section>\n"), $converter->convert('# Plain'));
     }
 
     public function testNestedFragmentDoesNotChangeTheHeadingTagCount(): void

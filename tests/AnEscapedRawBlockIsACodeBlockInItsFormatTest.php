@@ -74,11 +74,11 @@ class AnEscapedRawBlockIsACodeBlockInItsFormatTest extends TestCase
         $source = "Before.\n\n```=html\n<p>raw</p>\n```\n\nAfter.\n";
 
         self::assertSame(
-            "<p>Before.</p>\n<p>raw</p>\n<p>After.</p>\n",
+            preg_replace('/\n\z/', '', "<p>Before.</p>\n<p>raw</p>\n<p>After.</p>\n"),
             (new CarveConverter())->convert($source),
         );
         self::assertSame(
-            "<p>Before.</p>\n<p>raw</p>\n<p>After.</p>\n",
+            preg_replace('/\n\z/', '', "<p>Before.</p>\n<p>raw</p>\n<p>After.</p>\n"),
             (new CarveConverter(safeMode: SafeMode::defaults()->setRawHtmlMode(SafeMode::RAW_HTML_ALLOW)))->convert($source),
         );
     }
@@ -99,13 +99,13 @@ class AnEscapedRawBlockIsACodeBlockInItsFormatTest extends TestCase
     #[DataProvider('escapedRawBlocks')]
     public function testAProfileThatEscapesARawBlockWritesACodeBlock(string $source, string $expected): void
     {
-        self::assertSame($expected, (new CarveConverter(profile: Profile::article()))->convert($source));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter(profile: Profile::article()))->convert($source));
     }
 
     public function testAProfileNamesTheCodeClassAfterAnyRawFormat(): void
     {
         self::assertSame(
-            "<pre><code class=\"language-latex\">\\textbf{x}\n</code></pre>\n",
+            preg_replace('/\n\z/', '', "<pre><code class=\"language-latex\">\\textbf{x}\n</code></pre>\n"),
             (new CarveConverter(profile: Profile::article()))->convert("```=latex\n\\textbf{x}\n```\n"),
         );
     }
@@ -113,7 +113,7 @@ class AnEscapedRawBlockIsACodeBlockInItsFormatTest extends TestCase
     public function testTheProfileCodeBlockKeepsTheRawBlockAttributes(): void
     {
         self::assertSame(
-            "<pre id=\"i\" class=\"c\"><code class=\"language-html\">&lt;b&gt;x&lt;/b&gt;\n</code></pre>\n",
+            preg_replace('/\n\z/', '', "<pre id=\"i\" class=\"c\"><code class=\"language-html\">&lt;b&gt;x&lt;/b&gt;\n</code></pre>\n"),
             (new CarveConverter(profile: Profile::article()))->convert("{#i .c}\n```=html\n<b>x</b>\n```\n"),
         );
     }
@@ -123,7 +123,7 @@ class AnEscapedRawBlockIsACodeBlockInItsFormatTest extends TestCase
         $profile = Profile::article()->onDisallowed(Profile::ACTION_STRIP);
 
         self::assertSame(
-            "<p>Para.</p>\n",
+            preg_replace('/\n\z/', '', "<p>Para.</p>\n"),
             (new CarveConverter(profile: $profile))->convert("Para.\n\n```=html\n<b>x</b>\n```\n"),
         );
     }
@@ -131,7 +131,7 @@ class AnEscapedRawBlockIsACodeBlockInItsFormatTest extends TestCase
     public function testAProfileThatDeniesCodeBlocksKeepsTheTextFallback(): void
     {
         self::assertSame(
-            "<p>Para.</p>\n<p>&lt;b&gt;x&lt;/b&gt;</p>\n",
+            preg_replace('/\n\z/', '', "<p>Para.</p>\n<p>&lt;b&gt;x&lt;/b&gt;</p>\n"),
             (new CarveConverter(profile: Profile::minimal()))->convert("Para.\n\n```=html\n<b>x</b>\n```\n"),
         );
     }

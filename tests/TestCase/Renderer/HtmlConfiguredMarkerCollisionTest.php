@@ -35,7 +35,7 @@ class HtmlConfiguredMarkerCollisionTest extends TestCase
 
         $this->assertSame("<p><b>{$glyph}</b></p>\n", $result->value);
         $this->assertSame(0, $result->totalLosses);
-        $this->assertSame($result->value, $converter->convert(':rocket:'));
+        $this->assertSame(preg_replace('/\n\z/', '', $result->value), $converter->convert(':rocket:'));
     }
 
     #[DataProvider('guards')]
@@ -69,9 +69,9 @@ class HtmlConfiguredMarkerCollisionTest extends TestCase
         $renderer = new HtmlRenderer(symbols: ['rocket' => $glyphs]);
         $converter = new CarveConverter(renderer: $renderer);
 
-        $this->assertSame("<p>{$glyphs}\nnext</p>\n", $converter->convert(":rocket:\nnext"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>{$glyphs}\nnext</p>\n"), $converter->convert(":rocket:\nnext"));
         $renderer->setSoftBreakMode(SoftBreakMode::Break);
-        $this->assertSame("<p>{$glyphs}<br>\nnext</p>\n", $converter->convert(":rocket:\nnext"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>{$glyphs}<br>\nnext</p>\n"), $converter->convert(":rocket:\nnext"));
     }
 
     public function testDocumentAndConfigurationBothExcludeGuardCandidates(): void
@@ -80,7 +80,7 @@ class HtmlConfiguredMarkerCollisionTest extends TestCase
         $renderer = new HtmlRenderer(symbols: ['rocket' => $glyphs]);
 
         $this->assertSame(
-            "<p>{$glyphs} \u{E005}</p>\n",
+            preg_replace('/\n\z/', '', "<p>{$glyphs} \u{E005}</p>\n"),
             (new CarveConverter(renderer: $renderer))->convert(":rocket: \u{E005}"),
         );
     }

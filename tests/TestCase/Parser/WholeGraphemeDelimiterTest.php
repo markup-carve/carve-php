@@ -31,7 +31,7 @@ final class WholeGraphemeDelimiterTest extends TestCase
             '/*a*/́x' => '<p>/<strong>a</strong>/́x</p>',
         ];
         foreach ($cases as $source => $expected) {
-            self::assertSame($expected . "\n", $converter->convert($source), $source);
+            self::assertSame(preg_replace('/\n\z/', '', $expected . "\n"), $converter->convert($source), $source);
         }
     }
 
@@ -51,7 +51,7 @@ final class WholeGraphemeDelimiterTest extends TestCase
             'a{% y %}b {%ाx%}' => '<p>ab {%ाx%}</p>',
         ];
         foreach ($cases as $source => $expected) {
-            self::assertSame($expected . "\n", $converter->convert($source . "\n"), $source);
+            self::assertSame(preg_replace('/\n\z/', '', $expected . "\n"), $converter->convert($source . "\n"), $source);
             self::assertSame($source . "\n", CarveConverter::toCarve($source . "\n"), $source);
         }
     }
@@ -100,7 +100,7 @@ final class WholeGraphemeDelimiterTest extends TestCase
             "{*\u{200D}x*}",
         ];
         foreach ($cases as $source) {
-            self::assertSame('<p>' . $source . "</p>\n", (new CarveConverter())->convert($source . "\n"), $source);
+            self::assertSame(preg_replace('/\n\z/', '', '<p>' . $source . "</p>\n"), (new CarveConverter())->convert($source . "\n"), $source);
             self::assertSame($source . "\n", CarveConverter::toCarve($source . "\n"), $source);
         }
     }
@@ -108,8 +108,8 @@ final class WholeGraphemeDelimiterTest extends TestCase
     public function testBareSlashAndEqualsTakeTheGuard(): void
     {
         $converter = new CarveConverter();
-        self::assertSame("<p>/\u{0301}x <em>y</em></p>\n", $converter->convert("/\u{0301}x /y/\n"));
-        self::assertSame("<p>=\u{FE0F}x <mark>y</mark></p>\n", $converter->convert("=\u{FE0F}x =y=\n"));
+        self::assertSame(preg_replace('/\n\z/', '', "<p>/\u{0301}x <em>y</em></p>\n"), $converter->convert("/\u{0301}x /y/\n"));
+        self::assertSame(preg_replace('/\n\z/', '', "<p>=\u{FE0F}x <mark>y</mark></p>\n"), $converter->convert("=\u{FE0F}x =y=\n"));
     }
 
     /**
@@ -119,8 +119,8 @@ final class WholeGraphemeDelimiterTest extends TestCase
     public function testAZeroWidthSpaceIsNotAnExtender(): void
     {
         $converter = new CarveConverter();
-        self::assertSame("<p>x <strong>\u{200B}y</strong> z</p>\n", $converter->convert("x *\u{200B}y* z\n"));
-        self::assertSame("<p>x\u{200B}<strong>y</strong>\u{200B}z</p>\n", $converter->convert("x\u{200B}*y*\u{200B}z\n"));
-        self::assertSame("<p>x *\u{200D}y* z</p>\n", $converter->convert("x *\u{200D}y* z\n"));
+        self::assertSame(preg_replace('/\n\z/', '', "<p>x <strong>\u{200B}y</strong> z</p>\n"), $converter->convert("x *\u{200B}y* z\n"));
+        self::assertSame(preg_replace('/\n\z/', '', "<p>x\u{200B}<strong>y</strong>\u{200B}z</p>\n"), $converter->convert("x\u{200B}*y*\u{200B}z\n"));
+        self::assertSame(preg_replace('/\n\z/', '', "<p>x *\u{200D}y* z</p>\n"), $converter->convert("x *\u{200D}y* z\n"));
     }
 }

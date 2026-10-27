@@ -47,7 +47,7 @@ class ASetextHeadingFoldsAnIndentedLineTest extends TestCase
 
         $this->assertSame("> ## foo # bar\n", $imported);
         $this->assertSame(
-            "<blockquote>\n  <h2 id=\"foo-bar\">foo # bar</h2>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <h2 id=\"foo-bar\">foo # bar</h2>\n</blockquote>\n"),
             (new CarveConverter())->convert($imported),
         );
     }

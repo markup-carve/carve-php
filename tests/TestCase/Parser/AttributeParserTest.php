@@ -432,7 +432,7 @@ class AttributeParserTest extends TestCase
         $this->assertFalse(AttributeParser::isValidPayload('.ok xml:lang=en'));
         $this->assertSame(['class' => ['ok']], AttributeParser::parse('.ok xml:lang=en'));
         $this->assertSame(
-            "<p>[x]{.ok xml:lang=en}</p>\n",
+            preg_replace('/\n\z/', '', "<p>[x]{.ok xml:lang=en}</p>\n"),
             $this->converter->convert('[x]{.ok xml:lang=en}'),
         );
     }
@@ -446,7 +446,7 @@ class AttributeParserTest extends TestCase
     public function testColonInAttributeKeyConvertedOutput(): void
     {
         $this->assertSame(
-            "<p>[text]{xml:lang=en}</p>\n",
+            preg_replace('/\n\z/', '', "<p>[text]{xml:lang=en}</p>\n"),
             $this->converter->convert('[text]{xml:lang=en}'),
         );
     }
@@ -456,7 +456,7 @@ class AttributeParserTest extends TestCase
         // The block-attribute carrier follows the same rule: the line is not an
         // attribute block, so it stays a paragraph and joins the next line.
         $this->assertSame(
-            "<p>{.a:b}\npara</p>\n",
+            preg_replace('/\n\z/', '', "<p>{.a:b}\npara</p>\n"),
             $this->converter->convert("{.a:b}\npara\n"),
         );
     }
@@ -466,7 +466,7 @@ class AttributeParserTest extends TestCase
         // A block glued to a bullet marker is a marker only when it is a valid
         // attribute block, so this line is a paragraph, not a list.
         $this->assertSame(
-            "<p>-{.a:b} item</p>\n",
+            preg_replace('/\n\z/', '', "<p>-{.a:b} item</p>\n"),
             $this->converter->convert("-{.a:b} item\n"),
         );
     }
@@ -476,16 +476,16 @@ class AttributeParserTest extends TestCase
         // The marker block is judged as a WHOLE: a good class beside an
         // unrecognized name does not open a list carrying the good half.
         $this->assertSame(
-            "<p>-{.ok xml:lang=en} item</p>\n",
+            preg_replace('/\n\z/', '', "<p>-{.ok xml:lang=en} item</p>\n"),
             $this->converter->convert("-{.ok xml:lang=en} item\n"),
         );
         $this->assertSame(
-            "<p>1.{.ok xml:lang=en} item</p>\n",
+            preg_replace('/\n\z/', '', "<p>1.{.ok xml:lang=en} item</p>\n"),
             $this->converter->convert("1.{.ok xml:lang=en} item\n"),
         );
         // The control: a wholly valid marker block still opens the list.
         $this->assertSame(
-            "<ul>\n  <li class=\"a b\">item</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li class=\"a b\">item</li>\n</ul>\n"),
             $this->converter->convert("-{.a .b} item\n"),
         );
     }
@@ -495,7 +495,7 @@ class AttributeParserTest extends TestCase
         // A row-attribute block that is not valid leaves the line without a
         // trailing `|`, so it is not a table row at all.
         $this->assertSame(
-            "<p>| a | b |{.a:b}</p>\n",
+            preg_replace('/\n\z/', '', "<p>| a | b |{.a:b}</p>\n"),
             $this->converter->convert("| a | b |{.a:b}\n"),
         );
     }

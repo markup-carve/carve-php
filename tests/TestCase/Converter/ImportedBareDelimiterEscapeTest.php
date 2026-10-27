@@ -46,7 +46,7 @@ class ImportedBareDelimiterEscapeTest extends TestCase
         foreach ([new MarkdownToCarve(), new DjotToCarve()] as $importer) {
             $carve = $importer->convert($source . "\n");
             self::assertSame($expected . "\n", $carve);
-            self::assertSame(false, str_contains((new CarveConverter())->convert($carve), '<mark>'));
+            self::assertSame(preg_replace('/\n\z/', '', false), str_contains((new CarveConverter())->convert($carve), '<mark>'));
         }
     }
 

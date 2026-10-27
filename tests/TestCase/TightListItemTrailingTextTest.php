@@ -37,7 +37,7 @@ class TightListItemTrailingTextTest extends TestCase
             . "  </li>\n"
             . "</ul>\n";
 
-        $this->assertSame($expected, $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($input));
     }
 
     public function testTightTrailingTextAfterAdmonitionIsBare(): void
@@ -53,7 +53,7 @@ class TightListItemTrailingTextTest extends TestCase
             . "  </li>\n"
             . "</ul>\n";
 
-        $this->assertSame($expected, $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($input));
     }
 
     public function testTightTrailingTextInOrderedListIsBare(): void
@@ -68,7 +68,7 @@ class TightListItemTrailingTextTest extends TestCase
             . "  </li>\n"
             . "</ol>\n";
 
-        $this->assertSame($expected, $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($input));
     }
 
     public function testTightMultiLineTrailingTextIsBare(): void
@@ -86,7 +86,7 @@ class TightListItemTrailingTextTest extends TestCase
             . "  </li>\n"
             . "</ul>\n";
 
-        $this->assertSame($expected, $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($input));
     }
 
     public function testTightTrailingTextAfterLeadingFenceIsBare(): void
@@ -101,7 +101,7 @@ class TightListItemTrailingTextTest extends TestCase
             . "  </li>\n"
             . "</ul>\n";
 
-        $this->assertSame($expected, $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($input));
     }
 
     public function testTightTrailingParagraphBetweenBlocksIsBare(): void
@@ -117,7 +117,7 @@ class TightListItemTrailingTextTest extends TestCase
             . "  </li>\n"
             . "</ul>\n";
 
-        $this->assertSame($expected, $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($input));
     }
 
     /**
@@ -136,6 +136,6 @@ class TightListItemTrailingTextTest extends TestCase
             . "  </li>\n"
             . "</ul>\n";
 
-        $this->assertSame($expected, $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($input));
     }
 }

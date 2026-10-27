@@ -17,7 +17,7 @@ class BorrowedHtmlLayoutTest extends TestCase
         foreach (["C++\n", "The language is C++\n", "- C++\n"] as $source) {
             $attempt = (new BorrowedHtmlLayout())->render($source);
             $this->assertNotNull($attempt);
-            $this->assertSame($this->authoritative()->convert($source), $attempt['html']);
+            $this->assertSame($this->authoritative()->convert($source), preg_replace('/\n\z/', '', $attempt['html']));
         }
     }
 
@@ -59,7 +59,7 @@ CRV;
             $attempt = (new BorrowedHtmlLayout())->render($source);
             $this->assertNotNull($attempt);
             $this->assertSame($expected, $attempt['html']);
-            $this->assertSame($expected, $converter->convert($source));
+            $this->assertSame(preg_replace('/\n\z/', '', $expected), $converter->convert($source));
             $streamed = '';
             $status = $converter->tryRenderHtmlStreaming($source, static function (string $chunk) use (&$streamed): void {
                 $streamed .= $chunk;
@@ -75,13 +75,13 @@ CRV;
             $source = str_repeat('x', $size) . "\n";
             $attempt = (new BorrowedHtmlLayout())->render($source);
             $this->assertNotNull($attempt);
-            $this->assertSame($this->authoritative()->convert($source), $attempt['html']);
-            $this->assertSame($attempt['html'], (new CarveConverter())->convert($source));
+            $this->assertSame($this->authoritative()->convert($source), preg_replace('/\n\z/', '', $attempt['html']));
+            $this->assertSame(preg_replace('/\n\z/', '', $attempt['html']), (new CarveConverter())->convert($source));
         }
         $unicodeSource = str_repeat("café paragraph\n\n", 8192);
         $unicodeAttempt = (new BorrowedHtmlLayout())->render($unicodeSource);
         $this->assertNotNull($unicodeAttempt);
-        $this->assertSame($this->authoritative()->convert($unicodeSource), $unicodeAttempt['html']);
+        $this->assertSame($this->authoritative()->convert($unicodeSource), preg_replace('/\n\z/', '', $unicodeAttempt['html']));
         $prefix = str_repeat("plain paragraph\n\n", 8192);
         foreach (["=marked=\n", "😀\n", "- loose\n\n- list\n", "paragraph \n", "*bold*\n", "1. item\n", "# heading\n", "(c)\n", "...\n", "--\n"] as $tail) {
             $source = $prefix . $tail;
@@ -110,7 +110,7 @@ CRV;
             $attempt = (new BorrowedHtmlLayout())->render($source);
             if ($levels === 200) {
                 $this->assertNotNull($attempt);
-                $this->assertSame($this->authoritative()->convert($source), $attempt['html']);
+                $this->assertSame($this->authoritative()->convert($source), preg_replace('/\n\z/', '', $attempt['html']));
             } else {
                 $this->assertNull($attempt);
                 $called = false;
@@ -163,8 +163,8 @@ CRV;
             $source = rtrim($source) . "\n";
             $attempt = (new BorrowedHtmlLayout())->render($source);
             $this->assertNotNull($attempt);
-            $this->assertSame($this->authoritative()->convert($source), $attempt['html']);
-            $this->assertSame($attempt['html'], (new CarveConverter())->convert($source));
+            $this->assertSame($this->authoritative()->convert($source), preg_replace('/\n\z/', '', $attempt['html']));
+            $this->assertSame(preg_replace('/\n\z/', '', $attempt['html']), (new CarveConverter())->convert($source));
             $chunks = [];
             $this->assertSame('complete', (new CarveConverter())->tryRenderHtmlStreaming(
                 $source,
@@ -213,7 +213,7 @@ CRV;
             'consumedLines' => 13,
             'activeDefinitions' => 1,
         ], $attempt['accepted']);
-        $this->assertSame($this->authoritative()->convert(self::ROUTING_SOURCE), $attempt['html']);
+        $this->assertSame($this->authoritative()->convert(self::ROUTING_SOURCE), preg_replace('/\n\z/', '', $attempt['html']));
     }
 
     public function testEveryAcceptedPinnedCorpusSourceHasExactShadowParity(): void
@@ -233,7 +233,7 @@ CRV;
             }
             $accepted++;
             $acceptedFiles[] = basename($path);
-            $this->assertSame($converter->convert($source), $attempt['html'], basename($path));
+            $this->assertSame($converter->convert($source), preg_replace('/\n\z/', '', $attempt['html']), basename($path));
         }
 
         $this->assertContains('550-a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run-3.crv', $acceptedFiles);

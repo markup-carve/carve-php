@@ -23,7 +23,7 @@ final class InvisibleImagePromotionTest extends TestCase
                 "{%%}![alt][r]\n\n[r]: x.png",
             ] as $source
         ) {
-            self::assertSame('<img src="x.png" alt="alt">' . "\n", $converter->convert($source));
+            self::assertSame(preg_replace('/\n\z/', '', '<img src="x.png" alt="alt">' . "\n"), $converter->convert($source));
         }
     }
 

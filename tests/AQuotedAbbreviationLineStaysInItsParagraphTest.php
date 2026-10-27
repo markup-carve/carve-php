@@ -12,7 +12,7 @@ final class AQuotedAbbreviationLineStaysInItsParagraphTest extends TestCase
     public function testShallowerQuotedLineKeepsInnerParagraphOpen(): void
     {
         self::assertSame(
-            "<blockquote>\n  <blockquote><p>a\n*[C]: d</p></blockquote>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <blockquote><p>a\n*[C]: d</p></blockquote>\n</blockquote>\n"),
             CarveConverter::create()->convert("> > a\n> *[C]: d\n"),
         );
     }
@@ -20,7 +20,7 @@ final class AQuotedAbbreviationLineStaysInItsParagraphTest extends TestCase
     public function testFlushLeftAbbreviationStillEndsQuote(): void
     {
         self::assertSame(
-            "<blockquote><p>a</p></blockquote>\n<p>next</p>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>a</p></blockquote>\n<p>next</p>\n"),
             CarveConverter::create()->convert("> a\n*[C]: d\nnext\n"),
         );
     }

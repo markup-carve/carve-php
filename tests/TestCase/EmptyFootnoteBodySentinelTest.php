@@ -67,9 +67,9 @@ class EmptyFootnoteBodySentinelTest extends TestCase
         // reference resolves to a numbered noteref, and the note holds the
         // backlink and nothing else.
         $this->assertSame(
-            '<p>r<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p> '
+            preg_replace('/\n\z/', '', '<p>r<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p> '
             . '<section role="doc-endnotes" aria-label="Footnotes"> <hr> <ol> <li id="fn1"> '
-            . '<p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p> </li> </ol> </section>',
+            . '<p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p> </li> </ol> </section>'),
             $this->squash($this->converter->convert($written)),
         );
     }
@@ -108,7 +108,7 @@ class EmptyFootnoteBodySentinelTest extends TestCase
     {
         // The reason the clause says the inertness is a PARSE RULE rather than
         // a property of the word. Same token, one node over, and it renders.
-        $this->assertSame('<p empty="">para</p>', $this->squash($this->converter->convert("{empty}\npara\n")));
+        $this->assertSame(preg_replace('/\n\z/', '', '<p empty="">para</p>'), $this->squash($this->converter->convert("{empty}\npara\n")));
     }
 
     public function testAnOrdinaryBodyIsUnchangedControl(): void

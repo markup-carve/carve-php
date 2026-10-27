@@ -88,7 +88,7 @@ class TwoBacktickRunsAreSeparatedByAnEmptyCommentTest extends TestCase
 
         $this->assertSame($carve, $written);
         $this->assertSame(
-            (new CarveConverter())->render($document),
+            preg_replace('/\n\z/', '', (new CarveConverter())->render($document)),
             (new CarveConverter())->convert($written),
         );
     }

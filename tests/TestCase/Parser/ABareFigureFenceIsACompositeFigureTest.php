@@ -59,7 +59,7 @@ class ABareFigureFenceIsACompositeFigureTest extends TestCase
     public function testAnEmptyGroupRendersTheBareContainerEmptyBodyShape(): void
     {
         $this->assertSame(
-            "<figure class=\"carve-figure-group\">\n\n</figure>\n",
+            preg_replace('/\n\z/', '', "<figure class=\"carve-figure-group\">\n\n</figure>\n"),
             (new CarveConverter())->convert("::: figure\n:::\n"),
         );
     }
@@ -67,7 +67,7 @@ class ABareFigureFenceIsACompositeFigureTest extends TestCase
     public function testAnEmptyCaptionedGroupHoldsOnlyItsFigcaption(): void
     {
         $this->assertSame(
-            "<figure class=\"carve-figure-group\">\n  <figcaption>Figure 1: G</figcaption>\n</figure>\n",
+            preg_replace('/\n\z/', '', "<figure class=\"carve-figure-group\">\n  <figcaption>Figure 1: G</figcaption>\n</figure>\n"),
             (new CarveConverter())->convert("::: figure\n:::\n^ Figure #: G\n"),
         );
     }

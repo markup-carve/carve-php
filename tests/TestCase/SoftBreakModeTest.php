@@ -16,14 +16,14 @@ class SoftBreakModeTest extends TestCase
     {
         $converter = new CarveConverter(softBreakMode: SoftBreakMode::Space);
 
-        $this->assertSame("<p>Line one Line two</p>\n", $converter->convert("Line one\nLine two"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>Line one Line two</p>\n"), $converter->convert("Line one\nLine two"));
     }
 
     public function testConstructorWithBreakMode(): void
     {
         $converter = new CarveConverter(softBreakMode: SoftBreakMode::Break);
 
-        $this->assertSame("<p>Line one<br>\nLine two</p>\n", $converter->convert("Line one\nLine two"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>Line one<br>\nLine two</p>\n"), $converter->convert("Line one\nLine two"));
     }
 
     public function testMarkdownRendererSoftBreakMode(): void

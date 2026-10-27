@@ -51,7 +51,7 @@ class ASetextHeadingFoldsAnIndentedPipeTest extends TestCase
         $imported = (new MarkdownToCarve())->convert("> foo\n>     | bar\n> ---\n");
 
         $this->assertSame(
-            "<blockquote>\n  <h2 id=\"foo-bar\">foo | bar</h2>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <h2 id=\"foo-bar\">foo | bar</h2>\n</blockquote>\n"),
             (new CarveConverter())->convert($imported),
         );
     }

@@ -88,7 +88,7 @@ class AuthoredClassEntriesTest extends TestCase
             self::assertStringContainsString('a  b c', $html, $source);
             self::assertStringNotContainsString('javascript:', $html, $source);
             $written = CarveConverter::carve()->render($document);
-            self::assertSame($html, $converter->convert($written), $source);
+            self::assertSame(preg_replace('/\n\z/', '', $html), $converter->convert($written), $source);
             $pm = (new ProseMirrorRenderer())->render($document);
             self::assertSame($html, $converter->render((new ProseMirrorToCarve())->convert($pm)), $source);
         }

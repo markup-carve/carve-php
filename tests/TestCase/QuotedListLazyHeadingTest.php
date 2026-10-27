@@ -12,7 +12,7 @@ final class QuotedListLazyHeadingTest extends TestCase
     public function testIndentedHeadingShapeStaysInQuotedParagraph(): void
     {
         self::assertSame(
-            "<ul>\n  <li>\n    <blockquote><p>+\n# a\nb</p></blockquote>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote><p>+\n# a\nb</p></blockquote>\n  </li>\n</ul>\n"),
             CarveConverter::create()->convert("- +\n> +\n  # a\nb\n"),
         );
     }
@@ -20,7 +20,7 @@ final class QuotedListLazyHeadingTest extends TestCase
     public function testOrdinaryIndentedContinuationStaysInQuote(): void
     {
         self::assertSame(
-            "<ul>\n  <li>\n    <blockquote><p>+\nb</p></blockquote>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote><p>+\nb</p></blockquote>\n  </li>\n</ul>\n"),
             CarveConverter::create()->convert("- +\n> +\n  b\n"),
         );
     }

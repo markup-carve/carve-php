@@ -38,7 +38,7 @@ class FootnoteDefinitionPrecedenceTest extends TestCase
     public function testAFootnoteLabelIsNotAlsoALinkReference(): void
     {
         $this->assertSame(
-            '<p>see [t][^a].</p>',
+            preg_replace('/\n\z/', '', '<p>see [t][^a].</p>'),
             $this->squash($this->converter->convert("see [t][^a].\n\n[^a]: u\n")),
         );
     }
@@ -57,7 +57,7 @@ class FootnoteDefinitionPrecedenceTest extends TestCase
         // mention, since the citation extension is not enabled here. Pinned as
         // MEASURED: all three engines agree on this exact output.
         $this->assertSame(
-            '<p>see [t][@a].</p> <p>[<span class="mention"><strong>@a</strong></span>]: u</p>',
+            preg_replace('/\n\z/', '', '<p>see [t][@a].</p> <p>[<span class="mention"><strong>@a</strong></span>]: u</p>'),
             $this->squash($this->converter->convert("see [t][@a].\n\n[@a]: u\n")),
         );
     }
@@ -65,7 +65,7 @@ class FootnoteDefinitionPrecedenceTest extends TestCase
     public function testAnOrdinaryLabelStillResolves(): void
     {
         $this->assertSame(
-            '<p>see <a href="u">t</a>.</p>',
+            preg_replace('/\n\z/', '', '<p>see <a href="u">t</a>.</p>'),
             $this->squash($this->converter->convert("see [t][a].\n\n[a]: u\n")),
         );
     }
@@ -74,7 +74,7 @@ class FootnoteDefinitionPrecedenceTest extends TestCase
     {
         // Only a LEADING caret marks a footnote.
         $this->assertSame(
-            '<p>see <a href="u">t</a>.</p>',
+            preg_replace('/\n\z/', '', '<p>see <a href="u">t</a>.</p>'),
             $this->squash($this->converter->convert("see [t][a^b].\n\n[a^b]: u\n")),
         );
     }

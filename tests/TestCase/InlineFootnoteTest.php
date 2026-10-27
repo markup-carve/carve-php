@@ -39,7 +39,7 @@ DJOT;
 </section>
 HTML;
 
-        $this->assertSame($expected . "\n", $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected . "\n"), $this->converter->convert($input));
     }
 
     public function testInlineContentIsParsed(): void

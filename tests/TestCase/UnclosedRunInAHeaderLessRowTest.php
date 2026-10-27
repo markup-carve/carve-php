@@ -47,7 +47,7 @@ class UnclosedRunInAHeaderLessRowTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->converter->convert("| a `b | c d |\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert("| a `b | c d |\n"));
     }
 
     /**
@@ -104,7 +104,7 @@ class UnclosedRunInAHeaderLessRowTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->converter->convert("| a `b` | c d |\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert("| a `b` | c d |\n"));
     }
 
     public function testAnOrdinaryHeaderedTableIsUnchanged(): void
@@ -121,14 +121,14 @@ class UnclosedRunInAHeaderLessRowTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->converter->convert("| a | b |\n|---|---|\n| x | y |\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert("| a | b |\n|---|---|\n| x | y |\n"));
     }
 
     public function testALineThatNeverClosesItsRowIsStillProse(): void
     {
         // The gate that went is about the run, not about the pipe: a line with
         // no closing `|` at all is still a paragraph.
-        $this->assertSame("<p>| a <code>b c d</code></p>\n", $this->converter->convert("| a `b c d\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>| a <code>b c d</code></p>\n"), $this->converter->convert("| a `b c d\n"));
     }
 
     public function testTheRowStillCarriesGluedRowAttributes(): void

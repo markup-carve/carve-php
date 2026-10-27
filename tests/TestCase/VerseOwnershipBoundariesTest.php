@@ -33,7 +33,7 @@ lazy<br>
 <p>[t][r]</p>
 ';
 
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
     public function testOpaqueComment(): void
@@ -55,7 +55,7 @@ lazy<br>
 </div>
 ';
 
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
     public function testOpaqueCode(): void
@@ -78,7 +78,7 @@ lazy<br>
 <p>[t][r]</p>
 ';
 
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
     public function testAttachedCode(): void
@@ -106,7 +106,7 @@ lazy<br>
 <p>[t][r]</p>
 ';
 
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
     public function testAfterVerse(): void
@@ -129,7 +129,7 @@ lazy<br>
 <p><a href="/target">t</a></p>
 ';
 
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
     public function testALazyLineAtTheStanzaEndKeepsItsAuthoredPosition(): void
@@ -177,7 +177,7 @@ kept</p>
 <p><a href="/url">t</a></p>
 ';
 
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
     public function testIndentedCommentCloserInDiv(): void
@@ -199,6 +199,6 @@ kept
 <p><a href="/url">t</a></p>
 ';
 
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 }

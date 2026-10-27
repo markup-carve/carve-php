@@ -54,9 +54,9 @@ class HtmlRendererTest extends TestCase
     {
         $converter = new CarveConverter();
 
-        $this->assertSame("<div class=\"note\">\n  <p>body</p>\n</div>\n", $converter->convert("{.note}\n:::\nbody\n:::\n"));
-        $this->assertSame("<div class=\"foo note\">\n  <p>body</p>\n</div>\n", $converter->convert("{.note}\n::: foo\nbody\n:::\n"));
-        $this->assertSame("<aside class=\"admonition note\" aria-label=\"Note\">\n  <p>body</p>\n</aside>\n", $converter->convert("::: note\nbody\n:::\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<div class=\"note\">\n  <p>body</p>\n</div>\n"), $converter->convert("{.note}\n:::\nbody\n:::\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<div class=\"foo note\">\n  <p>body</p>\n</div>\n"), $converter->convert("{.note}\n::: foo\nbody\n:::\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<aside class=\"admonition note\" aria-label=\"Note\">\n  <p>body</p>\n</aside>\n"), $converter->convert("::: note\nbody\n:::\n"));
     }
 
     public function testRenderHeading(): void
@@ -486,19 +486,19 @@ class HtmlRendererTest extends TestCase
     public function testSymbolMapAndAttributeWrapper(): void
     {
         $this->assertSame(
-            "<p><span class=\"big\">X</span></p>\n",
+            preg_replace('/\n\z/', '', "<p><span class=\"big\">X</span></p>\n"),
             (new CarveConverter(symbols: ['rocket' => 'X']))->convert(':rocket:{.big}'),
         );
         $this->assertSame(
-            "<p><span class=\"big\">:rocket:</span></p>\n",
+            preg_replace('/\n\z/', '', "<p><span class=\"big\">:rocket:</span></p>\n"),
             (new CarveConverter())->convert(':rocket:{.big}'),
         );
         $this->assertSame(
-            "<p>X</p>\n",
+            preg_replace('/\n\z/', '', "<p>X</p>\n"),
             (new CarveConverter(symbols: ['rocket' => 'X']))->convert(':rocket:'),
         );
         $this->assertSame(
-            "<p>:rocket:</p>\n",
+            preg_replace('/\n\z/', '', "<p>:rocket:</p>\n"),
             (new CarveConverter())->convert(':rocket:'),
         );
     }

@@ -650,8 +650,8 @@ DJOT;
         $converter = new CarveConverter();
         $converter->addExtension(new FrontmatterExtension());
 
-        $this->assertSame("<hr>\n<hr>\n", $converter->convert("\n---\n\n---\n"));
-        $this->assertSame("<hr>\n<hr>\n", $converter->convert("\n---\n---\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<hr>\n<hr>\n"), $converter->convert("\n---\n\n---\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<hr>\n<hr>\n"), $converter->convert("\n---\n---\n"));
     }
 
     public function testIsNotClaimedAfterALeadingBlankEvenWithRealMetadata(): void

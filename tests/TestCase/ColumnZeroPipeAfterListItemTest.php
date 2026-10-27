@@ -98,7 +98,7 @@ class ColumnZeroPipeAfterListItemTest extends TestCase
 
     public function testANonRowPipeLineIsStillPlainTextAtTopLevel(): void
     {
-        $this->assertSame("<p>|</p>\n", $this->converter->convert('|'));
-        $this->assertSame("<p>|x</p>\n", $this->converter->convert('|x'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>|</p>\n"), $this->converter->convert('|'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>|x</p>\n"), $this->converter->convert('|x'));
     }
 }

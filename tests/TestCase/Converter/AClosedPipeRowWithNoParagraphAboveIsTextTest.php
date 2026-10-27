@@ -266,7 +266,7 @@ final class AClosedPipeRowWithNoParagraphAboveIsTextTest extends TestCase
         $converter = new CarveConverter();
 
         $this->assertStringContainsString('<table', $converter->convert($bare));
-        $this->assertSame($html, $this->squash($converter->convert($escaped)));
+        $this->assertSame(preg_replace('/\n\z/', '', $html), $this->squash($converter->convert($escaped)));
     }
 
     /**

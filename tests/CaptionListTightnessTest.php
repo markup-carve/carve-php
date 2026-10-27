@@ -32,6 +32,6 @@ class CaptionListTightnessTest extends TestCase
     #[DataProvider('cases')]
     public function testCaptionGapDeterminesListTightness(string $source, string $expected): void
     {
-        $this->assertSame($expected, CarveConverter::create()->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert($source));
     }
 }

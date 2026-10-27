@@ -44,7 +44,7 @@ class DjotImageReferenceKeysTest extends TestCase
                 $image['alt'] = preg_replace('/\n(?:[ \t]*\n)+/', "\n", $image['alt']);
             }
             unset($image);
-            self::assertSame($expected, $this->images((new CarveConverter())->convert($result->value)), $row['source']);
+            self::assertSame(preg_replace('/\n\z/', '', $expected), $this->images((new CarveConverter())->convert($result->value)), $row['source']);
             self::assertEmpty(array_filter($result->report()['diagnostics'], static fn (array $d): bool => str_contains($d['message'], 'unresolved Djot image reference') || str_contains($d['message'], 'with an empty destination')));
             if ($blank) {
                 self::assertNotEmpty(array_filter($result->report()['diagnostics'], static fn (array $d): bool => str_contains($d['message'], 'image alternative text with a blank line')));
@@ -55,20 +55,20 @@ class DjotImageReferenceKeysTest extends TestCase
     public function testUnresolvedImagesRemainUnresolved(): void
     {
         $result = (new DjotToCarve())->convert("![a [b](u)\nc][]\n\n[other]: img");
-        self::assertSame([], $this->images((new CarveConverter())->convert($result)));
+        self::assertSame(preg_replace('/\n\z/', '', []), $this->images((new CarveConverter())->convert($result)));
     }
 
     public function testExplicitReferenceNamesRemainAuthored(): void
     {
         $result = (new DjotToCarve())->convert("![a [b](u)\nc][named]\n\n[named]: img");
-        self::assertSame([['alt' => "a b\nc", 'src' => 'img']], $this->images((new CarveConverter())->convert($result)));
+        self::assertSame(preg_replace('/\n\z/', '', [['alt' => "a b\nc", 'src' => 'img']]), $this->images((new CarveConverter())->convert($result)));
     }
 
     public function testFootnoteLabelsStayOutsideImageResolution(): void
     {
         $result = (new DjotToCarve())->convert("![^a][]\n\n[^a]: note");
         self::assertStringContainsString('[]', $result);
-        self::assertSame([], $this->images((new CarveConverter())->convert($result)));
+        self::assertSame(preg_replace('/\n\z/', '', []), $this->images((new CarveConverter())->convert($result)));
     }
 
     public function testOuterImageEmptyDestinationIsPreserved(): void

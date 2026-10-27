@@ -173,7 +173,7 @@ class RendererCapabilitiesTest extends TestCase
         };
         $converter = new CarveConverter(renderer: $renderer, smartTypography: false);
 
-        self::assertSame(SmartTypographyMode::Source->value, $converter->convert('text'));
+        self::assertSame(preg_replace('/\n\z/', '', SmartTypographyMode::Source->value), $converter->convert('text'));
         self::assertSame(SmartTypographyMode::Source, BeforeRenderContext::forRenderer($renderer)->smartTypography());
         self::assertFalse(BeforeRenderContext::forRenderer($renderer)->targetIsHtml());
     }

@@ -12,14 +12,14 @@ final class EmptyDestinationTabRulingTest extends TestCase
     public function testSpacesPadEmptyDestinations(): void
     {
         $converter = new CarveConverter();
-        self::assertSame('<p><a href="">t</a></p>' . "\n", $converter->convert('[t](  )'));
-        self::assertSame('<img src="" alt="a">' . "\n", $converter->convert('![a](  )'));
+        self::assertSame(preg_replace('/\n\z/', '', '<p><a href="">t</a></p>' . "\n"), $converter->convert('[t](  )'));
+        self::assertSame(preg_replace('/\n\z/', '', '<img src="" alt="a">' . "\n"), $converter->convert('![a](  )'));
     }
 
     public function testTabIsContentForLinksAndImages(): void
     {
         $converter = new CarveConverter();
-        self::assertSame("<p>[t](\t)</p>\n", $converter->convert("[t](\t)"));
-        self::assertSame("<p>![a](\t)</p>\n", $converter->convert("![a](\t)"));
+        self::assertSame(preg_replace('/\n\z/', '', "<p>[t](\t)</p>\n"), $converter->convert("[t](\t)"));
+        self::assertSame(preg_replace('/\n\z/', '', "<p>![a](\t)</p>\n"), $converter->convert("![a](\t)"));
     }
 }

@@ -85,7 +85,7 @@ class AnImportedHeadingKeepsItsElementsAttributeOrderTest extends TestCase
         $html = $converter->convert($source);
         $back = (new HtmlToCarve(importMode: 'roundtrip'))->convert($html);
 
-        $this->assertSame($html, $converter->convert($back));
+        $this->assertSame(preg_replace('/\n\z/', '', $html), $converter->convert($back));
     }
 
     /**

@@ -71,7 +71,7 @@ class AHeadingSLeadingTabSurvivesTheWriterTest extends TestCase
         $converter = new CarveConverter();
 
         self::assertSame(
-            "<section id=\"x\">\n  <h2>\tx</h2>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"x\">\n  <h2>\tx</h2>\n</section>\n"),
             $converter->convert(CarveConverter::toCarve("## \tx\n")),
         );
     }

@@ -68,7 +68,7 @@ class AnInlineOpenerInImportedTextIsEscapedTest extends TestCase
         $imported = (new HtmlToCarve())->convert('<p>' . htmlspecialchars($text, ENT_NOQUOTES) . '</p>');
 
         $this->assertSame(
-            '<p>' . htmlspecialchars($text, ENT_NOQUOTES) . "</p>\n",
+            preg_replace('/\n\z/', '', '<p>' . htmlspecialchars($text, ENT_NOQUOTES) . "</p>\n"),
             (new CarveConverter())->convert($imported),
         );
     }
@@ -85,7 +85,7 @@ class AnInlineOpenerInImportedTextIsEscapedTest extends TestCase
 
         $this->assertSame("x \\[a](u \\\"t\\\") y\n", $imported);
         $this->assertSame(
-            '<p>' . htmlspecialchars($text, ENT_NOQUOTES) . "</p>\n",
+            preg_replace('/\n\z/', '', '<p>' . htmlspecialchars($text, ENT_NOQUOTES) . "</p>\n"),
             (new CarveConverter())->convert($imported),
         );
     }

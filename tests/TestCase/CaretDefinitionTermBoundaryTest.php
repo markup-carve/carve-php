@@ -12,7 +12,7 @@ final class CaretDefinitionTermBoundaryTest extends TestCase
     public function testCaretStartsParagraphAfterTerm(): void
     {
         self::assertSame(
-            "<dl>\n  <dt>term</dt>\n</dl>\n<p>^ caption</p>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>term</dt>\n</dl>\n<p>^ caption</p>\n"),
             CarveConverter::create()->convert(":: term\n^ caption\n"),
         );
     }
@@ -20,7 +20,7 @@ final class CaretDefinitionTermBoundaryTest extends TestCase
     public function testPlainLineStillFoldsIntoTerm(): void
     {
         self::assertSame(
-            "<dl>\n  <dt>term\nplain</dt>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>term\nplain</dt>\n</dl>\n"),
             CarveConverter::create()->convert(":: term\nplain\n"),
         );
     }

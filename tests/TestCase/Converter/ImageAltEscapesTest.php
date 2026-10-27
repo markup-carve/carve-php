@@ -87,7 +87,7 @@ class ImageAltEscapesTest extends TestCase
         $html = $converter->convert($source);
         self::assertStringContainsString('alt="a`b" title="c`d|e"', $html);
         self::assertStringContainsString('<code>x</code>', $html);
-        self::assertSame($html, $converter->convert((new CarveRenderer())->render($converter->parse($source))));
+        self::assertSame(preg_replace('/\n\z/', '', $html), $converter->convert((new CarveRenderer())->render($converter->parse($source))));
     }
 
     public function testPipeBearingEmailAutolinkStaysInOneTableCell(): void

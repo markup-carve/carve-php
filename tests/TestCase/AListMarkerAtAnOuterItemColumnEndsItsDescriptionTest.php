@@ -57,20 +57,20 @@ final class AListMarkerAtAnOuterItemColumnEndsItsDescriptionTest extends TestCas
         }
         $expected = "<ul>\n  {$inner}\n</ul>\n";
 
-        self::assertSame($expected, (new CarveConverter())->convert($source));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
     public function testMarkerOneColumnShortStaysInTheDescription(): void
     {
         $source = "- a\n  :: t\n  :  d\n - b\n";
         $expected = "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n      <dd>d\n- b</dd>\n    </dl>\n  </li>\n</ul>\n";
-        self::assertSame($expected, (new CarveConverter())->convert($source));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
     public function testOpenQuoteParagraphKeepsUnmarkedMarker(): void
     {
         $source = "- a\n  :: t\n  : > q\n    - b\n";
         $expected = "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <blockquote><p>q\n- b</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>\n";
-        self::assertSame($expected, (new CarveConverter())->convert($source));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 }

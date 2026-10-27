@@ -183,7 +183,7 @@ class AMarkdownThematicBreakImportsAsACarveBreakTest extends TestCase
 
         $this->assertSame("a\n\n---\n\nb", $imported);
         $this->assertSame(
-            "<p>a</p>\n<hr>\n<p>b</p>\n",
+            preg_replace('/\n\z/', '', "<p>a</p>\n<hr>\n<p>b</p>\n"),
             (new CarveConverter())->convert($imported),
         );
     }

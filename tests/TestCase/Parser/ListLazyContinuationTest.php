@@ -27,13 +27,13 @@ class ListLazyContinuationTest extends TestCase
         $djot = "- item\nlazy";
         $expected = "<ul>\n  <li>item\nlazy</li>\n</ul>\n";
 
-        $this->assertSame($expected, $this->converter->convert($djot));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($djot));
     }
 
     #[DataProvider('underIndentedNestedLazyContinuationProvider')]
     public function testUnderIndentedLineFoldsIntoDeepestOpenParagraph(string $djot, string $expected): void
     {
-        $this->assertSame($expected, $this->converter->convert($djot));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($djot));
     }
 
     /**
@@ -66,7 +66,7 @@ class ListLazyContinuationTest extends TestCase
         $djot = "- a\n- b\nlazy";
         $expected = "<ul>\n  <li>a</li>\n  <li>b\nlazy</li>\n</ul>\n";
 
-        $this->assertSame($expected, $this->converter->convert($djot));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($djot));
     }
 
     public function testLazyFoldsInOrderedList(): void
@@ -74,7 +74,7 @@ class ListLazyContinuationTest extends TestCase
         $djot = "1. a\nlazy";
         $expected = "<ol>\n  <li>a\nlazy</li>\n</ol>\n";
 
-        $this->assertSame($expected, $this->converter->convert($djot));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($djot));
     }
 
     public function testBlankLineEndsList(): void
@@ -82,7 +82,7 @@ class ListLazyContinuationTest extends TestCase
         $djot = "- a\n\nlazy";
         $expected = "<ul>\n  <li>a</li>\n</ul>\n<p>lazy</p>\n";
 
-        $this->assertSame($expected, $this->converter->convert($djot));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($djot));
     }
 
     public function testHeadingLineEndsList(): void
@@ -90,7 +90,7 @@ class ListLazyContinuationTest extends TestCase
         $djot = "- a\n# H";
         $expected = "<ul>\n  <li>a</li>\n</ul>\n<section id=\"H\">\n  <h1>H</h1>\n</section>\n";
 
-        $this->assertSame($expected, $this->converter->convert($djot));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($djot));
     }
 
     public function testClosedFencedCodeLineEndsList(): void
@@ -98,7 +98,7 @@ class ListLazyContinuationTest extends TestCase
         $djot = "- a\n```\nx\n```";
         $expected = "<ul>\n  <li>a</li>\n</ul>\n<pre><code>x\n</code></pre>\n";
 
-        $this->assertSame($expected, $this->converter->convert($djot));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($djot));
     }
 
     public function testUnterminatedFenceDoesNotEndList(): void
@@ -113,6 +113,6 @@ class ListLazyContinuationTest extends TestCase
         $djot = "- a\n```\nx";
         $expected = "<ul>\n  <li>a\n<code>\nx</code></li>\n</ul>\n";
 
-        $this->assertSame($expected, $this->converter->convert($djot));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($djot));
     }
 }

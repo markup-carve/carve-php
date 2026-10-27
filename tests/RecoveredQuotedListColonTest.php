@@ -15,8 +15,8 @@ class RecoveredQuotedListColonTest extends TestCase
         $converter = new CarveConverter();
         $normalize = static fn (string $html): string => trim(str_replace(['> ', ' <'], ['>', '<'], (string)preg_replace('/\s+/', ' ', (string)preg_replace('/>\s+</', '><', $html))));
         foreach ($cases as $case) {
-            self::assertSame($normalize($case['html']), $normalize($converter->convert($case['source'])), $case['source']);
-            self::assertSame($normalize($case['html']), $normalize($converter->convert($converter->toCarve($case['source']))), $case['source']);
+            self::assertSame(preg_replace('/\n\z/', '', $normalize($case['html'])), $normalize($converter->convert($case['source'])), $case['source']);
+            self::assertSame(preg_replace('/\n\z/', '', $normalize($case['html'])), $normalize($converter->convert($converter->toCarve($case['source']))), $case['source']);
         }
     }
 }

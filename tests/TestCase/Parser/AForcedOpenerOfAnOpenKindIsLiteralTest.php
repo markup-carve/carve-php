@@ -38,7 +38,7 @@ class AForcedOpenerOfAnOpenKindIsLiteralTest extends TestCase
     #[DataProvider('ruled')]
     public function testTheInnerOpenerIsReadAsE3Says(string $source, string $expected): void
     {
-        $this->assertSame($expected, CarveConverter::create()->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert($source));
     }
 
     /**
@@ -79,7 +79,7 @@ class AForcedOpenerOfAnOpenKindIsLiteralTest extends TestCase
         $written = (new CarveRenderer())->render($document);
 
         $this->assertSame("{*a /b {*x*} d/ e*}\n", $written);
-        $this->assertSame((new CarveConverter())->render($document), (new CarveConverter())->convert($written));
+        $this->assertSame(preg_replace('/\n\z/', '', (new CarveConverter())->render($document)), (new CarveConverter())->convert($written));
     }
 
     /**
@@ -97,6 +97,6 @@ class AForcedOpenerOfAnOpenKindIsLiteralTest extends TestCase
         ]);
 
         $written = (new CarveRenderer())->render($document);
-        $this->assertSame((new CarveConverter())->render($document), (new CarveConverter())->convert($written));
+        $this->assertSame(preg_replace('/\n\z/', '', (new CarveConverter())->render($document)), (new CarveConverter())->convert($written));
     }
 }

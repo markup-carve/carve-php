@@ -64,7 +64,7 @@ class DedentedOpenerFoldsAfterSubListTest extends TestCase
         // and that reached the SUB-list's content column on the reparse
         // (carve#603).
         $this->assertSame(
-            "<ul>\n  <li>x\n    <ul>\n      <li>a\n- b</li>\n    </ul>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>x\n    <ul>\n      <li>a\n- b</li>\n    </ul>\n  </li>\n</ul>\n"),
             $this->converter->convert("-   x\n    - a\n  - b"),
         );
     }
@@ -73,7 +73,7 @@ class DedentedOpenerFoldsAfterSubListTest extends TestCase
     {
         // The threshold is the content column, not a distance from column 0.
         $this->assertSame(
-            "<ul>\n  <li>x\n    <ul>\n      <li>a\n- b</li>\n    </ul>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>x\n    <ul>\n      <li>a\n- b</li>\n    </ul>\n  </li>\n</ul>\n"),
             $this->converter->convert("  - x\n    - a\n   - b"),
         );
     }

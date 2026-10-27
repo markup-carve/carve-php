@@ -57,6 +57,6 @@ class ContainerClassDeduplicationTest extends TestCase
     #[DataProvider('cases')]
     public function testStructuralClassPool(string $source, string $expected): void
     {
-        self::assertSame($expected, (new CarveConverter())->convert($source));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 }

@@ -38,7 +38,7 @@ class CodeSourceBoundariesTest extends TestCase
                 $document = $converter->parse($source);
                 $this->replaceCode($document, $value);
                 $written = (new CarveRenderer())->render($document);
-                $this->assertSame($converter->render($document), $converter->convert($written));
+                $this->assertSame(preg_replace('/\n\z/', '', $converter->render($document)), $converter->convert($written));
             }
         }
     }
@@ -50,7 +50,7 @@ class CodeSourceBoundariesTest extends TestCase
             $verse = $converter->parse("::: |\n`Q`\n:::\n");
             $this->replaceCode($verse, $value);
             $written = (new CarveRenderer())->render($verse);
-            $this->assertSame(str_replace(["\r\n", "\r"], "\n", $converter->render($verse)), $converter->convert($written));
+            $this->assertSame(preg_replace('/\n\z/', '', str_replace(["\r\n", "\r"], "\n", $converter->render($verse))), $converter->convert($written));
         }
     }
 
@@ -62,7 +62,7 @@ class CodeSourceBoundariesTest extends TestCase
             $document->getChildren()[0]->setChildren([$first, new Text(''), new Code('b')]);
             $written = (new CarveRenderer())->render($document);
             $this->assertStringContainsString('{%  %}', $written);
-            $this->assertSame($converter->render($document), $converter->convert($written));
+            $this->assertSame(preg_replace('/\n\z/', '', $converter->render($document)), $converter->convert($written));
         }
     }
 
@@ -79,7 +79,7 @@ class CodeSourceBoundariesTest extends TestCase
             $paragraph->setChildren([$wrapper, new Code('b')]);
             $written = (new CarveRenderer())->render($document);
             $this->assertStringContainsString('{%  %}', $written);
-            $this->assertSame($expected, $converter->convert($written));
+            $this->assertSame(preg_replace('/\n\z/', '', $expected), $converter->convert($written));
         }
     }
 }

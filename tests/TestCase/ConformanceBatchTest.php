@@ -98,7 +98,7 @@ class ConformanceBatchTest extends TestCase
     #[DataProvider('fenceInListItemProvider')]
     public function testColonFenceOpenerCapturesNestedListBody(string $input, string $expected): void
     {
-        $this->assertSame($expected, $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($input));
     }
 
     /**

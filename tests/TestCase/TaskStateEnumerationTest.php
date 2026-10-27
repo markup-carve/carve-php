@@ -101,7 +101,7 @@ class TaskStateEnumerationTest extends TestCase
     public function testTwoCharactersWereAlreadyRejected(): void
     {
         $this->assertSame(
-            '<ul> <li>[ab] item</li> </ul>',
+            preg_replace('/\n\z/', '', '<ul> <li>[ab] item</li> </ul>'),
             $this->squash($this->converter->convert("- [ab] item\n")),
         );
     }

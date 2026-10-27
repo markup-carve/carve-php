@@ -35,7 +35,7 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
 
     public function testAnIndentedFenceUnderAParagraphRendersNothing(): void
     {
-        $this->assertSame("<p>a</p>\n", $this->converter->convert("a\n  %%% x\n  b\n  %%%\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a</p>\n"), $this->converter->convert("a\n  %%% x\n  b\n  %%%\n"));
     }
 
     public function testAnIndentedFenceAtTheStartOfADocumentRendersNothing(): void
@@ -47,7 +47,7 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
     {
         // Leading whitespace is not part of the delimiter; the `%` run is.
         $this->assertSame(
-            "<p>a</p>\n<p>c</p>\n",
+            preg_replace('/\n\z/', '', "<p>a</p>\n<p>c</p>\n"),
             $this->converter->convert("a\n %%%% x\n b\n   %%%%\nc\n"),
         );
     }
@@ -56,7 +56,7 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
     {
         // PART 9 §28: without a closer it is not a fenced comment, so the
         // following blocks still render instead of being swallowed to EOF.
-        $this->assertSame("<p>a</p>\n<p>b</p>\n", $this->converter->convert("a\n  %%% x\nb\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a</p>\n<p>b</p>\n"), $this->converter->convert("a\n  %%% x\nb\n"));
     }
 
     public function testInsideAListItemTheWholeSpanIsInvisible(): void
@@ -69,7 +69,7 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
         // The item stays open across it, so `tail` is still item content - a
         // comment closes nothing.
         $this->assertSame(
-            "<ul>\n  <li>a\n    tail\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    tail\n  </li>\n</ul>\n"),
             $this->converter->convert("- a\n %%% n\n x\n %%%\n tail\n"),
         );
     }

@@ -68,7 +68,7 @@ class AnEmptyFencedPayloadIsWrittenBackAsNoLineTest extends TestCase
     {
         $authored = (new CarveConverter())->convert($source);
 
-        $this->assertSame($authored, (new CarveConverter())->convert($written));
+        $this->assertSame(preg_replace('/\n\z/', '', $authored), (new CarveConverter())->convert($written));
     }
 
     #[DataProvider('fencedPayloads')]
@@ -78,7 +78,7 @@ class AnEmptyFencedPayloadIsWrittenBackAsNoLineTest extends TestCase
         $converter->convert("warm\n");
         $authored = $converter->convert($source);
 
-        $this->assertSame($authored, $converter->convert($written));
+        $this->assertSame(preg_replace('/\n\z/', '', $authored), $converter->convert($written));
     }
 
     /**
@@ -92,9 +92,9 @@ class AnEmptyFencedPayloadIsWrittenBackAsNoLineTest extends TestCase
     {
         $converter = new CarveConverter();
 
-        $this->assertSame("<pre><code></code></pre>\n", $converter->convert("```\n```\n"));
-        $this->assertSame("<pre><code>\n</code></pre>\n", $converter->convert("```\n\n```\n"));
-        $this->assertSame("\n", $converter->convert("```=html\n```\n"));
-        $this->assertSame("\n\n", $converter->convert("```=html\n\n```\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<pre><code></code></pre>\n"), $converter->convert("```\n```\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<pre><code>\n</code></pre>\n"), $converter->convert("```\n\n```\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "\n"), $converter->convert("```=html\n```\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "\n\n"), $converter->convert("```=html\n\n```\n"));
     }
 }

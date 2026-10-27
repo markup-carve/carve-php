@@ -367,7 +367,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
         $ordinaryConverter = new CarveConverter();
         self::assertTrue(self::matchesProjection((new AstCodec())->encode($ordinaryConverter->parse($fixture['source'])), $fixture['expectedNodes']));
         $ordinary = $ordinaryConverter->convert($fixture['source']);
-        self::assertSame($ordinary, (new CarveConverter(roundTripMode: false))->convert($fixture['source']));
+        self::assertSame(preg_replace('/\n\z/', '', $ordinary), (new CarveConverter(roundTripMode: false))->convert($fixture['source']));
         foreach (self::attributes($ordinary) as $attribute) {
             self::assertFalse(self::reserved($attribute['name']), $attribute['name']);
         }

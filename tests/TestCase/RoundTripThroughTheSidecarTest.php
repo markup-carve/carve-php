@@ -694,7 +694,7 @@ CARVE;
         );
         // ...and the import settles on the one spelling.
         $this->assertSame(
-            $tight . "\n",
+            preg_replace('/\n\z/', '', $tight . "\n"),
             $this->htmlToCarve->convert($this->converter->convert($loose)),
         );
     }

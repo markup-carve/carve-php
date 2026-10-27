@@ -12,7 +12,7 @@ class WrappedMarkerAttributeContinuationTest extends TestCase
     public function testWrappedMarkerAttributeLeavesNoParagraphOpen(): void
     {
         $this->assertSame(
-            "<ul>\n  <li></li>\n</ul>\n<p>tail</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li></li>\n</ul>\n<p>tail</p>\n"),
             (new CarveConverter())->convert("- {.a\n  .b}\ntail\n"),
         );
     }
@@ -20,7 +20,7 @@ class WrappedMarkerAttributeContinuationTest extends TestCase
     public function testWrappedBodyAttributeLeavesNoParagraphOpen(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>prose</li>\n</ul>\n<p>tail</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>prose</li>\n</ul>\n<p>tail</p>\n"),
             (new CarveConverter())->convert("- prose\n  {.a\n  .b}\ntail\n"),
         );
     }
@@ -28,7 +28,7 @@ class WrappedMarkerAttributeContinuationTest extends TestCase
     public function testUnclosedBraceRunRemainsLiteral(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>{.a\ntail</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>{.a\ntail</li>\n</ul>\n"),
             (new CarveConverter())->convert("- {.a\ntail\n"),
         );
     }

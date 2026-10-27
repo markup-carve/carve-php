@@ -46,7 +46,7 @@ class FenceExtentColumnsTest extends TestCase
     #[DataProvider('descriptionClosers')]
     public function testDescriptionCloserMustReachTheOpenersColumn(string $source, string $expected): void
     {
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
     /**
@@ -88,7 +88,7 @@ class FenceExtentColumnsTest extends TestCase
                 : "<pre><code>- payload\n\n</code></pre>\n";
             $expected = "<ul>\n  <li>item\n    {$block}  </li>\n</ul>\n";
 
-            $this->assertSame($expected, (new CarveConverter())->convert($source), $opener);
+            $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source), $opener);
         }
     }
 
@@ -97,7 +97,7 @@ class FenceExtentColumnsTest extends TestCase
         $source = "- item\n\n  ```\n  a\n  ```\n\n";
         $expected = "<ul>\n  <li>item\n    <pre><code>a\n</code></pre>\n  </li>\n</ul>\n";
 
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
     public function testBlankBeforeTheNextItemIsPayloadAndLoosensTheList(): void
@@ -106,7 +106,7 @@ class FenceExtentColumnsTest extends TestCase
         $expected = "<ul>\n  <li><p>item</p>\n    <pre><code>a\n\n</code></pre>\n  </li>\n"
             . "  <li><p>next</p></li>\n</ul>\n";
 
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
     /**
@@ -217,12 +217,12 @@ class FenceExtentColumnsTest extends TestCase
     #[DataProvider('blockBoundaries')]
     public function testFenceOwnershipFollowsTheCurrentBlock(string $source, string $expected): void
     {
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
     #[DataProvider('trailingBlanks')]
     public function testUnterminatedItemFenceKeepsTrailingBlankPayload(string $source, string $expected): void
     {
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 }

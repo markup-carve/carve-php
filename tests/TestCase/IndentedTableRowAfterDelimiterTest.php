@@ -13,7 +13,7 @@ final class IndentedTableRowAfterDelimiterTest extends TestCase
     #[DataProvider('sources')]
     public function testDefaultConverterEndsTableBeforeIndentedRow(string $source, string $expected): void
     {
-        self::assertSame($expected, (new CarveConverter())->convert($source));
+        self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
     public static function sources(): iterable

@@ -111,7 +111,7 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
             $back = $this->imported($first, 'roundtrip');
 
             $this->assertSame($source, $back, $source);
-            $this->assertSame($first, $converter->convert($back), $source);
+            $this->assertSame(preg_replace('/\n\z/', '', $first), $converter->convert($back), $source);
         }
     }
 

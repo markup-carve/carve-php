@@ -87,7 +87,7 @@ class RawPayloadTerminationTest extends TestCase
         $fixtures = json_decode((string)file_get_contents(__DIR__ . '/fixtures/raw-payload-source-fixtures.json'), true, 512, JSON_THROW_ON_ERROR);
         foreach ($fixtures as $fixture) {
             if (isset($expected[$fixture['id']])) {
-                self::assertSame($expected[$fixture['id']], (new CarveConverter())->convert($fixture['source']), $fixture['id']);
+                self::assertSame(preg_replace('/\n\z/', '', $expected[$fixture['id']]), (new CarveConverter())->convert($fixture['source']), $fixture['id']);
             }
         }
     }

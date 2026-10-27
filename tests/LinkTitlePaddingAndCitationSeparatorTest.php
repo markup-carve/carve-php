@@ -13,8 +13,8 @@ final class LinkTitlePaddingAndCitationSeparatorTest extends TestCase
     public function testAsciiSpacesAfterEitherDestinationTitle(): void
     {
         $converter = new CarveConverter();
-        self::assertSame('<p><a href="" title="T">t</a> and <a href="/u" title="T">t</a></p>' . "\n", $converter->convert('[t]( "T"  ) and [t](/u "T" )'));
-        self::assertSame('<p><a href="/u" title="T">t</a> and <img src="/img" alt="t" title="T"></p>' . "\n", $converter->convert("[t](/u 'T'   ) and ![t](/img \"T\"  )"));
+        self::assertSame(preg_replace('/\n\z/', '', '<p><a href="" title="T">t</a> and <a href="/u" title="T">t</a></p>' . "\n"), $converter->convert('[t]( "T"  ) and [t](/u "T" )'));
+        self::assertSame(preg_replace('/\n\z/', '', '<p><a href="/u" title="T">t</a> and <img src="/img" alt="t" title="T"></p>' . "\n"), $converter->convert("[t](/u 'T'   ) and ![t](/img \"T\"  )"));
     }
 
     public function testTabIsNotTitlePadding(): void

@@ -19,9 +19,9 @@ class CrossImplementationDivergenceTest extends TestCase
         // but the space before it is interior in the source - carve-js and
         // carve-rs keep it. Plain line-end whitespace stays trimmed (corpus
         // case 102).
-        $this->assertSame("<p>foo </p>\n", $converter->convert('foo `x`{=latex}'));
-        $this->assertSame("<p> bar</p>\n", $converter->convert('`x`{=latex} bar'));
-        $this->assertSame("<p>abc</p>\n", $converter->convert("abc \n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>foo </p>\n"), $converter->convert('foo `x`{=latex}'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p> bar</p>\n"), $converter->convert('`x`{=latex} bar'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>abc</p>\n"), $converter->convert("abc \n"));
     }
 
     public function testConstructProducedSpacesSurviveTheTrailingWhitespaceStrip(): void
@@ -34,17 +34,17 @@ class CrossImplementationDivergenceTest extends TestCase
         // output could not tell the two apart and emptied a paragraph whose only
         // content is an all-space verbatim span. carve-js and carve-rs both keep
         // those spaces; these pin the parity.
-        $this->assertSame("<p>  </p>\n", $converter->convert('!`  `'));
-        $this->assertSame("<p> </p>\n", $converter->convert('!` `'));
-        $this->assertSame("<p><code>  </code></p>\n", $converter->convert('`  `'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>  </p>\n"), $converter->convert('!`  `'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p> </p>\n"), $converter->convert('!` `'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><code>  </code></p>\n"), $converter->convert('`  `'));
 
         // ... while authored trailing whitespace is still stripped, including
         // when it follows a construct.
-        $this->assertSame("<p>abc</p>\n", $converter->convert("abc \t \n"));
-        $this->assertSame("<p><code>x</code></p>\n", $converter->convert("`x`  \n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>abc</p>\n"), $converter->convert("abc \t \n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><code>x</code></p>\n"), $converter->convert("`x`  \n"));
 
         // A trailing NBSP is content everywhere in Carve and must survive.
-        $this->assertSame("<p>abc&nbsp;</p>\n", $converter->convert("abc\u{00A0}\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>abc&nbsp;</p>\n"), $converter->convert("abc\u{00A0}\n"));
     }
 
     public function testSeparatorShapedRowIsNeverPromotedToHeader(): void
@@ -55,13 +55,13 @@ class CrossImplementationDivergenceTest extends TestCase
         // not be promoted to a header by a following separator line - both
         // stay ordinary data rows (carve-js / carve-rs behavior).
         $this->assertSame(
-            "<table>\n"
+            preg_replace('/\n\z/', '', "<table>\n"
             . "  <tbody>\n"
             . "    <tr><td>:-:</td></tr>\n"
             . "    <tr><td>:-:</td></tr>\n"
             . "    <tr><td>x</td></tr>\n"
             . "  </tbody>\n"
-            . "</table>\n",
+            . "</table>\n"),
             $converter->convert("|:-:|\n|:-:|\n|x|"),
         );
 
@@ -75,10 +75,10 @@ class CrossImplementationDivergenceTest extends TestCase
     public function testCollapsedReferenceComparesTheHeadingCaseExactly(): void
     {
         $this->assertSame(
-            "<p>See <a href=\"#Name\">Name</a> and [name][]</p>\n"
+            preg_replace('/\n\z/', '', "<p>See <a href=\"#Name\">Name</a> and [name][]</p>\n"
             . "<section id=\"Name\">\n"
             . "  <h1>Name</h1>\n"
-            . "</section>\n",
+            . "</section>\n"),
             (new CarveConverter())->convert("See [Name][] and [name][]\n\n# Name"),
         );
 
@@ -91,12 +91,12 @@ class CrossImplementationDivergenceTest extends TestCase
     public function testCollapsedReferenceFindsMarkerLineListItemHeading(): void
     {
         $this->assertSame(
-            "<p>See <a href=\"#In-an-item\">In an item</a>.</p>\n"
+            preg_replace('/\n\z/', '', "<p>See <a href=\"#In-an-item\">In an item</a>.</p>\n"
             . "<ul>\n"
             . "  <li>\n"
             . "    <h1 id=\"In-an-item\">In an item</h1>\n"
             . "  </li>\n"
-            . "</ul>\n",
+            . "</ul>\n"),
             (new CarveConverter())->convert("See [In an item][].\n\n- # In an item"),
         );
     }
@@ -104,12 +104,12 @@ class CrossImplementationDivergenceTest extends TestCase
     public function testCollapsedReferenceFindsIndentedListItemHeading(): void
     {
         $this->assertSame(
-            "<p>See <a href=\"#Indented\">Indented</a>.</p>\n"
+            preg_replace('/\n\z/', '', "<p>See <a href=\"#Indented\">Indented</a>.</p>\n"
             . "<ul>\n"
             . "  <li>item\n"
             . "    <h1 id=\"Indented\">Indented</h1>\n"
             . "  </li>\n"
-            . "</ul>\n",
+            . "</ul>\n"),
             (new CarveConverter())->convert("See [Indented][].\n\n- item\n  # Indented"),
         );
     }
@@ -117,9 +117,9 @@ class CrossImplementationDivergenceTest extends TestCase
     public function testCollapsedReferenceDeclinesFencedHeadingText(): void
     {
         $this->assertSame(
-            "<p>See [Fenced][].</p>\n"
+            preg_replace('/\n\z/', '', "<p>See [Fenced][].</p>\n"
             . "<pre><code># Fenced\n"
-            . "</code></pre>\n",
+            . "</code></pre>\n"),
             (new CarveConverter())->convert("See [Fenced][].\n\n```\n# Fenced\n```"),
         );
     }
@@ -127,10 +127,10 @@ class CrossImplementationDivergenceTest extends TestCase
     public function testCollapsedReferenceDeclinesBlockquotedHeading(): void
     {
         $this->assertSame(
-            "<p>See [Quoted][].</p>\n"
+            preg_replace('/\n\z/', '', "<p>See [Quoted][].</p>\n"
             . "<blockquote>\n"
             . "  <h1 id=\"Quoted\">Quoted</h1>\n"
-            . "</blockquote>\n",
+            . "</blockquote>\n"),
             (new CarveConverter())->convert("See [Quoted][].\n\n> # Quoted"),
         );
     }
@@ -138,14 +138,14 @@ class CrossImplementationDivergenceTest extends TestCase
     public function testCollapsedReferenceDeclinesListThenBlockquoteHeading(): void
     {
         $this->assertSame(
-            "<p>See [Q][].</p>\n"
+            preg_replace('/\n\z/', '', "<p>See [Q][].</p>\n"
             . "<ul>\n"
             . "  <li>\n"
             . "    <blockquote>\n"
             . "      <h1 id=\"Q\">Q</h1>\n"
             . "    </blockquote>\n"
             . "  </li>\n"
-            . "</ul>\n",
+            . "</ul>\n"),
             (new CarveConverter())->convert("See [Q][].\n\n- > # Q"),
         );
     }
@@ -153,14 +153,14 @@ class CrossImplementationDivergenceTest extends TestCase
     public function testCollapsedReferenceDeclinesBlockquoteThenListHeading(): void
     {
         $this->assertSame(
-            "<p>See [Q][].</p>\n"
+            preg_replace('/\n\z/', '', "<p>See [Q][].</p>\n"
             . "<blockquote>\n"
             . "  <ul>\n"
             . "    <li>\n"
             . "      <h1 id=\"Q\">Q</h1>\n"
             . "    </li>\n"
             . "  </ul>\n"
-            . "</blockquote>\n",
+            . "</blockquote>\n"),
             (new CarveConverter())->convert("See [Q][].\n\n> - # Q"),
         );
     }
@@ -168,13 +168,13 @@ class CrossImplementationDivergenceTest extends TestCase
     public function testCollapsedReferenceStillFindsTopLevelAndDivHeadings(): void
     {
         $this->assertSame(
-            "<p>See <a href=\"#Top\">Top</a> and <a href=\"#Inside\">Inside</a>.</p>\n"
+            preg_replace('/\n\z/', '', "<p>See <a href=\"#Top\">Top</a> and <a href=\"#Inside\">Inside</a>.</p>\n"
             . "<section id=\"Top\">\n"
             . "  <h1>Top</h1>\n"
             . "  <aside class=\"admonition note\" aria-label=\"Note\">\n"
             . "    <h1 id=\"Inside\">Inside</h1>\n"
             . "  </aside>\n"
-            . "</section>\n",
+            . "</section>\n"),
             (new CarveConverter())->convert("See [Top][] and [Inside][].\n\n# Top\n\n::: note\n# Inside\n:::"),
         );
     }

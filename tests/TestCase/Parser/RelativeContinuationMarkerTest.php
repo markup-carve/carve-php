@@ -60,7 +60,7 @@ class RelativeContinuationMarkerTest extends TestCase
         $converter = new CarveConverter();
         $document = $converter->parse($source);
         $written = (new CarveRenderer())->render($document);
-        $this->assertSame($converter->render($document), $converter->convert($written));
+        $this->assertSame(preg_replace('/\n\z/', '', $converter->render($document)), $converter->convert($written));
         $this->assertSame($written, CarveConverter::toCarve($written));
     }
 

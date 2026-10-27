@@ -35,7 +35,7 @@ class UnterminatedNestedLeadFenceKeepsBlankPayloadTest extends TestCase
     public function testNestedLeadKeepsItsBlankBeforeTail(): void
     {
         self::assertSame(
-            "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>\n"),
             (new CarveConverter())->convert("- - ```\n\ntail"),
         );
     }
@@ -43,7 +43,7 @@ class UnterminatedNestedLeadFenceKeepsBlankPayloadTest extends TestCase
     public function testClosedNestedFenceKeepsItsBlank(): void
     {
         self::assertSame(
-            "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>\n"),
             (new CarveConverter())->convert("- - ```\n\n    ```\ntail"),
         );
     }

@@ -13,11 +13,11 @@ class FoldedFenceListLoosenessTest extends TestCase
     public function testBlankSeparatedParagraphsAfterAFoldedFenceAreLoose(): void
     {
         self::assertSame(
-            "<ul>\n  <li><p>h\n<code></code></p>\n    <p>b\n<code></code></p>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>h\n<code></code></p>\n    <p>b\n<code></code></p>\n  </li>\n</ul>\n"),
             (new CarveConverter())->convert("- h\n  ```\n\n  b\n```\n"),
         );
         self::assertSame(
-            "<ul>\n  <li><p>o\n<code>\nx</code></p>\n    <p>t</p>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>o\n<code>\nx</code></p>\n    <p>t</p>\n  </li>\n</ul>\n"),
             (new CarveConverter())->convert("- o\n  ```\nx\n\n  t\n"),
         );
         foreach (['```', '~~~'] as $run) {

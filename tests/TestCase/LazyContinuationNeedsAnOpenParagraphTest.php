@@ -51,7 +51,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
     {
         // The control. Pinned by corpus 82-blockquote-lazy-continuation.
         $this->assertSame(
-            '<blockquote><p>a b</p></blockquote>',
+            preg_replace('/\n\z/', '', '<blockquote><p>a b</p></blockquote>'),
             $this->squash($this->converter->convert("> a\nb\n")),
         );
     }
@@ -62,7 +62,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // exception: a bounded title holds no block and ENDS AT THE NEWLINE,
         // so nothing folds into it at all."
         $this->assertSame(
-            '<blockquote> <h1 id="h">h</h1> </blockquote> <p>b</p>',
+            preg_replace('/\n\z/', '', '<blockquote> <h1 id="h">h</h1> </blockquote> <p>b</p>'),
             $this->squash($this->converter->convert("> # h\nb\n")),
         );
     }
@@ -77,7 +77,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // minute before this file did - so main went red on a test whose own
         // PR had been green against the older base.
         $this->assertSame(
-            '<blockquote> <dl> <dt>t ~</dt> </dl> </blockquote>',
+            preg_replace('/\n\z/', '', '<blockquote> <dl> <dt>t ~</dt> </dl> </blockquote>'),
             $this->squash($this->converter->convert("> :: t\n~\n")),
         );
     }
@@ -86,7 +86,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
     {
         // An invisible construct leaves no paragraph at all.
         $this->assertSame(
-            '<blockquote> </blockquote> <p>/</p>',
+            preg_replace('/\n\z/', '', '<blockquote> </blockquote> <p>/</p>'),
             $this->squash($this->converter->convert("> [f]: ~\n/\n")),
         );
     }
@@ -99,7 +99,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // here; the marker-line branch collected its item without ever reaching
         // the lazy rule (carve-php#693).
         $this->assertSame(
-            '<ul> <li> <ul> <li>a b</li> </ul> </li> </ul>',
+            preg_replace('/\n\z/', '', '<ul> <li> <ul> <li>a b</li> </ul> </li> </ul>'),
             $this->squash($this->converter->convert("- - a\nb\n")),
         );
     }
@@ -111,7 +111,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // lazy line. The lazy line therefore keeps its own indentation into the
         // item's stream; dedenting it would have promoted it to a heading.
         $this->assertSame(
-            '<ul> <li> <ul> <li>a # H</li> </ul> </li> </ul>',
+            preg_replace('/\n\z/', '', '<ul> <li> <ul> <li>a # H</li> </ul> </li> </ul>'),
             $this->squash($this->converter->convert("- - a\n # H\n")),
         );
     }
@@ -120,7 +120,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
     {
         // At column 0 the heading is a heading, so it interrupts as always.
         $this->assertSame(
-            '<ul> <li> <ul> <li>a</li> </ul> </li> </ul> <section id="H"> <h1>H</h1> </section>',
+            preg_replace('/\n\z/', '', '<ul> <li> <ul> <li>a</li> </ul> </li> </ul> <section id="H"> <h1>H</h1> </section>'),
             $this->squash($this->converter->convert("- - a\n# H\n")),
         );
     }
@@ -131,7 +131,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // the line is a document paragraph (carve-php#681 pinned the loosening
         // half of this shape).
         $this->assertSame(
-            '<ul> <li> <ul> <li>a</li> </ul> </li> </ul> <p>b</p>',
+            preg_replace('/\n\z/', '', '<ul> <li> <ul> <li>a</li> </ul> </li> </ul> <p>b</p>'),
             $this->squash($this->converter->convert("- - a\n\nb\n")),
         );
     }
@@ -141,7 +141,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // S4 folds into the INNERMOST open paragraph, which here is inside the
         // sub-item's block quote, not the sub-item itself.
         $this->assertSame(
-            '<ul> <li> <ul> <li> <blockquote><p>q b</p></blockquote> </li> </ul> </li> </ul>',
+            preg_replace('/\n\z/', '', '<ul> <li> <ul> <li> <blockquote><p>q b</p></blockquote> </li> </ul> </li> </ul>'),
             $this->squash($this->converter->convert("- - > q\nb\n")),
         );
     }
@@ -152,7 +152,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // the item instead of being absorbed - the same rule as the quote case
         // below, applied to the marker-line branch.
         $this->assertSame(
-            '<ul> <li> <ul> <li>a</li> </ul> <pre><code>code </code></pre> </li> </ul> <p>c</p>',
+            preg_replace('/\n\z/', '', '<ul> <li> <ul> <li>a</li> </ul> <pre><code>code </code></pre> </li> </ul> <p>c</p>'),
             $this->squash($this->converter->convert("- - a\n  ```\n  code\n  ```\nc\n")),
         );
     }
@@ -235,7 +235,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
     #[DataProvider('everyDepthClosesProvider')]
     public function testEveryDepthCloses(string $input, string $expected): void
     {
-        $this->assertSame($expected, $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($input));
     }
 
     /**
@@ -267,7 +267,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
     #[DataProvider('anOpenParagraphStillFoldsAtEveryDepthProvider')]
     public function testAnOpenParagraphStillFoldsAtEveryDepth(string $input, string $expected): void
     {
-        $this->assertSame($expected, $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($input));
     }
 
     public function testDepthOneWasAlreadyRightAndStaysRight(): void
@@ -278,7 +278,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // off. A change that moved this would mean the walk had started
         // answering a question it is not asked.
         $this->assertSame(
-            "<ul>\n  <li>\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>\n<p>lazy</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>\n<p>lazy</p>\n"),
             $this->converter->convert("- # H\nlazy\n"),
         );
     }
@@ -345,6 +345,6 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
     #[DataProvider('anUnfinishedOpenerStaysProseProvider')]
     public function testAnUnfinishedOpenerStaysProse(string $input, string $expected): void
     {
-        $this->assertSame($expected, $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($input));
     }
 }

@@ -23,8 +23,8 @@ class WrappedTightListFastPathTest extends TestCase
         $this->assertTrue($list->isTight());
         $this->assertCount(2, $list->getChildren());
         $this->assertSame(
-            "<ul>\n  <li>First <strong>emphasis</strong>\ncontinues <a href=\"https://example.test\">link</a></li>\n"
-            . "  <li>Second <code>code</code>\nand more text</li>\n</ul>\n<p>Tail.</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>First <strong>emphasis</strong>\ncontinues <a href=\"https://example.test\">link</a></li>\n"
+            . "  <li>Second <code>code</code>\nand more text</li>\n</ul>\n<p>Tail.</p>\n"),
             $converter->convert($source),
         );
     }
@@ -34,7 +34,7 @@ class WrappedTightListFastPathTest extends TestCase
         $source = "- alpha\n  1. nested\n- gamma\n";
 
         $this->assertSame(
-            "<ul>\n  <li>alpha\n    <ol>\n      <li>nested</li>\n    </ol>\n  </li>\n  <li>gamma</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>alpha\n    <ol>\n      <li>nested</li>\n    </ol>\n  </li>\n  <li>gamma</li>\n</ul>\n"),
             (new CarveConverter())->convert($source),
         );
     }

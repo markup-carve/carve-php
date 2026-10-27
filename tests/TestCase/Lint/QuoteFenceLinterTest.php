@@ -39,7 +39,7 @@ class QuoteFenceLinterTest extends TestCase
     {
         $source = "> a\n::: >\nb\n:::\n";
         $this->assertSame(
-            "<blockquote><p>a</p></blockquote>\n<blockquote><p>b</p></blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>a</p></blockquote>\n<blockquote><p>b</p></blockquote>\n"),
             (new CarveConverter())->convert($source),
         );
 
@@ -86,7 +86,7 @@ class QuoteFenceLinterTest extends TestCase
     {
         $source = "> ::: >\n> b\n> :::\n";
         $this->assertSame(
-            "<blockquote>\n  <blockquote><p>b</p></blockquote>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <blockquote><p>b</p></blockquote>\n</blockquote>\n"),
             (new CarveConverter())->convert($source),
         );
         $this->assertSame([], $this->reports($source));

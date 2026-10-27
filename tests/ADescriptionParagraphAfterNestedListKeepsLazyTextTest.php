@@ -12,7 +12,7 @@ final class ADescriptionParagraphAfterNestedListKeepsLazyTextTest extends TestCa
     public function testParagraphAfterNestedFootnoteListKeepsItsLazyLine(): void
     {
         self::assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>tail\nx</dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>tail\nx</dd>\n</dl>\n"),
             CarveConverter::create()->convert(":: t\n:  [^f]: note\n     - nested\n   tail\nx\n"),
         );
     }

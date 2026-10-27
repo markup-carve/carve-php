@@ -39,7 +39,7 @@ class CodeFenceHeaderTest extends TestCase
         CARVE;
         $expected = "<pre title=\"src/Auth.php\"><code class=\"language-php\">\$ok = true;\n</code></pre>\n";
 
-        $this->assertSame($expected, $this->converter->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
     public function testHeaderAndLabelCombineLabelInert(): void
@@ -51,7 +51,7 @@ class CodeFenceHeaderTest extends TestCase
         CARVE;
         $expected = "<pre title=\"src/Auth.php\"><code class=\"language-php\">composer require x\n</code></pre>\n";
 
-        $this->assertSame($expected, $this->converter->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
     public function testHeaderWithoutLanguage(): void
@@ -63,7 +63,7 @@ class CodeFenceHeaderTest extends TestCase
         CARVE;
         $expected = "<pre title=\"notes.txt\"><code>remember the milk\n</code></pre>\n";
 
-        $this->assertSame($expected, $this->converter->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
     public function testPrecedingTitleAttributeWinsOverHeader(): void
@@ -76,7 +76,7 @@ class CodeFenceHeaderTest extends TestCase
         CARVE;
         $expected = "<pre title=\"from the attribute line\"><code class=\"language-php\">code\n</code></pre>\n";
 
-        $this->assertSame($expected, $this->converter->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
     public function testKeyValuePairStillFallsBackToInlineSpan(): void
@@ -88,7 +88,7 @@ class CodeFenceHeaderTest extends TestCase
         CARVE;
         $expected = "<p><code>js title=\"x\"\ncode\n</code></p>\n";
 
-        $this->assertSame($expected, $this->converter->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
     public function testHeaderLabelWrongOrderFallsBackToInlineSpan(): void
@@ -100,7 +100,7 @@ class CodeFenceHeaderTest extends TestCase
         CARVE;
         $expected = "<p><code>php [Composer] \"x\"\ncode\n</code></p>\n";
 
-        $this->assertSame($expected, $this->converter->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
     public function testMetadataGluedToLanguageFallsBack(): void
@@ -110,7 +110,7 @@ class CodeFenceHeaderTest extends TestCase
         $carve = "```php\"x\"\ncode\n```";
         $expected = "<p><code>php\"x\"\ncode\n</code></p>\n";
 
-        $this->assertSame($expected, $this->converter->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
     public function testLabelGluedToHeaderFallsBack(): void
@@ -118,7 +118,7 @@ class CodeFenceHeaderTest extends TestCase
         $carve = "```php \"x\"[Install]\ncode\n```";
         $expected = "<p><code>php \"x\"[Install]\ncode\n</code></p>\n";
 
-        $this->assertSame($expected, $this->converter->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
     public function testLeadingEqualsLanguageWithHeaderFallsBack(): void
@@ -128,13 +128,13 @@ class CodeFenceHeaderTest extends TestCase
         $carve = "```=html \"x\"\ncode\n```";
         $expected = "<p><code>=html \"x\"\ncode\n</code></p>\n";
 
-        $this->assertSame($expected, $this->converter->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
     public function testLanguageInfoContainingFenceCharacterFallsBack(): void
     {
         $this->assertSame(
-            "<p>~~~~x~~~~</p>\n",
+            preg_replace('/\n\z/', '', "<p>~~~~x~~~~</p>\n"),
             $this->converter->convert('~~~~x~~~~'),
         );
     }
@@ -142,7 +142,7 @@ class CodeFenceHeaderTest extends TestCase
     public function testBlankLinesInsideCodeFenceArePreserved(): void
     {
         $this->assertSame(
-            "<pre><code>\n\n</code></pre>\n",
+            preg_replace('/\n\z/', '', "<pre><code>\n\n</code></pre>\n"),
             $this->converter->convert("```\n\n\n```"),
         );
     }
@@ -150,7 +150,7 @@ class CodeFenceHeaderTest extends TestCase
     public function testColumnZeroCodeFenceOpenerOpensAtDocumentLevel(): void
     {
         $this->assertSame(
-            "<pre><code>code\n</code></pre>\n",
+            preg_replace('/\n\z/', '', "<pre><code>code\n</code></pre>\n"),
             $this->converter->convert("```\ncode\n```"),
         );
     }
@@ -178,7 +178,7 @@ class CodeFenceHeaderTest extends TestCase
         // The opener is not on the marker line but on a later continuation line
         // at the item's content column (spec corpus 84-list-lazy-continuation-7).
         $this->assertSame(
-            "<ul>\n  <li>item\n    <pre><code>c\n</code></pre>\n  </li>\n</ul>\n<p>tail</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>item\n    <pre><code>c\n</code></pre>\n  </li>\n</ul>\n<p>tail</p>\n"),
             $this->converter->convert("- item\n  ```\n  c\n  ```\ntail"),
         );
     }
@@ -201,7 +201,7 @@ class CodeFenceHeaderTest extends TestCase
     public function testCodeFenceCloserIndentedPastOpenerDoesNotClose(): void
     {
         $this->assertSame(
-            "<pre><code>code\n ```\nstill code\n</code></pre>\n",
+            preg_replace('/\n\z/', '', "<pre><code>code\n ```\nstill code\n</code></pre>\n"),
             $this->converter->convert("```\ncode\n ```\nstill code\n```"),
         );
     }
@@ -209,7 +209,7 @@ class CodeFenceHeaderTest extends TestCase
     public function testIndentedBacktickFenceLineSurvivesAsCodeSampleText(): void
     {
         $this->assertSame(
-            "<pre><code>sample:\n ```\n</code></pre>\n",
+            preg_replace('/\n\z/', '', "<pre><code>sample:\n ```\n</code></pre>\n"),
             $this->converter->convert("```\nsample:\n ```\n```"),
         );
     }
@@ -317,7 +317,7 @@ class CodeFenceHeaderTest extends TestCase
             . "  <p>Save early, save often.</p>\n"
             . "</aside>\n";
 
-        $this->assertSame($expected, $this->converter->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
     public function testBareDivWithLabelRendersLabelCaption(): void
@@ -334,7 +334,7 @@ class CodeFenceHeaderTest extends TestCase
             . "  <p>First panel.</p>\n"
             . "</div>\n";
 
-        $this->assertSame($expected, $this->converter->convert($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
     public function testLabelCaptionRendersInMarkdown(): void

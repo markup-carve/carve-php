@@ -117,7 +117,7 @@ final class ATermFoldsAnIndentedBlockOpenerAtEveryDepthTest extends TestCase
         $html = (new CarveConverter())->convert($source);
         $this->assertSame($expected, $flat($html));
         $formatted = CarveConverter::toCarve($source);
-        $this->assertSame($html, (new CarveConverter())->convert($formatted));
+        $this->assertSame(preg_replace('/\n\z/', '', $html), (new CarveConverter())->convert($formatted));
         $this->assertSame($formatted, CarveConverter::toCarve($formatted));
     }
 }

@@ -179,7 +179,7 @@ class AutolinkBodyWhitespaceTest extends TestCase
         $nbsp = "\u{00A0}";
 
         $this->assertSame(
-            "<p><strong>a &lt;http://e&nbsp;.com/</strong>&gt; b*</p>\n",
+            preg_replace('/\n\z/', '', "<p><strong>a &lt;http://e&nbsp;.com/</strong>&gt; b*</p>\n"),
             $this->converter->convert("*a <http://e{$nbsp}.com/*> b*\n"),
             'measured byte-identical on carve-js and carve-rs',
         );

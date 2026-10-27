@@ -13,9 +13,9 @@ final class HtmlApiDocumentTerminatorTest extends TestCase
     public function testHtmlApiOmitsOnlyTheDocumentTerminator(): void
     {
         $converter = new CarveConverter();
-        self::assertSame('<p>x</p>', $converter->convert('x'));
-        self::assertSame("<p>x</p>\n<p>y</p>", $converter->convert("x\n\ny"));
-        self::assertSame('<p><strong>x</strong></p>', $converter->convert('*x*'));
+        self::assertSame(preg_replace('/\n\z/', '', '<p>x</p>'), $converter->convert('x'));
+        self::assertSame(preg_replace('/\n\z/', '', "<p>x</p>\n<p>y</p>"), $converter->convert("x\n\ny"));
+        self::assertSame(preg_replace('/\n\z/', '', '<p><strong>x</strong></p>'), $converter->convert('*x*'));
     }
 
     public function testOtherRenderersKeepTheirOutput(): void

@@ -92,8 +92,8 @@ class AFigureFindsItsImageBehindAWrapperTest extends TestCase
 
         $this->assertSame("![a](i.png)\n^ cap\n", $written);
         $this->assertSame(
-            '<figure>' . "\n" . '  <img src="i.png" alt="a">' . "\n"
-                . '  <figcaption>cap</figcaption>' . "\n" . '</figure>' . "\n",
+            preg_replace('/\n\z/', '', '<figure>' . "\n" . '  <img src="i.png" alt="a">' . "\n"
+                . '  <figcaption>cap</figcaption>' . "\n" . '</figure>' . "\n"),
             (new CarveConverter())->convert($written),
             'the written source has to re-read as the figure the HTML held',
         );

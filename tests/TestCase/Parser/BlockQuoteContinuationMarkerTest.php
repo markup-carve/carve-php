@@ -29,7 +29,7 @@ class BlockQuoteContinuationMarkerTest extends TestCase
     public function testAttachesListToQuote(): void
     {
         $this->assertSame(
-            "<blockquote>\n  <p>quoted</p>\n  <ul>\n    <li>item</li>\n  </ul>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <p>quoted</p>\n  <ul>\n    <li>item</li>\n  </ul>\n</blockquote>\n"),
             $this->converter->convert("> quoted\n+\n- item"),
         );
     }
@@ -37,7 +37,7 @@ class BlockQuoteContinuationMarkerTest extends TestCase
     public function testAttachesFencedCodeToQuote(): void
     {
         $this->assertSame(
-            "<blockquote>\n  <p>quoted</p>\n  <pre><code>code\n</code></pre>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <p>quoted</p>\n  <pre><code>code\n</code></pre>\n</blockquote>\n"),
             $this->converter->convert("> quoted\n+\n```\ncode\n```"),
         );
     }
@@ -45,7 +45,7 @@ class BlockQuoteContinuationMarkerTest extends TestCase
     public function testAttachesTableToQuote(): void
     {
         $this->assertSame(
-            "<blockquote>\n  <p>quoted</p>\n  <table>\n    <tbody>\n      <tr><td>a</td><td>b</td></tr>\n    </tbody>\n  </table>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <p>quoted</p>\n  <table>\n    <tbody>\n      <tr><td>a</td><td>b</td></tr>\n    </tbody>\n  </table>\n</blockquote>\n"),
             $this->converter->convert("> quoted\n+\n| a | b |"),
         );
     }
@@ -53,7 +53,7 @@ class BlockQuoteContinuationMarkerTest extends TestCase
     public function testTwoAttachedBlocks(): void
     {
         $this->assertSame(
-            "<blockquote>\n  <p>q</p>\n  <ul>\n    <li>a</li>\n  </ul>\n  <pre><code>c\n</code></pre>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <p>q</p>\n  <ul>\n    <li>a</li>\n  </ul>\n  <pre><code>c\n</code></pre>\n</blockquote>\n"),
             $this->converter->convert("> q\n+\n- a\n+\n```\nc\n```"),
         );
     }
@@ -61,7 +61,7 @@ class BlockQuoteContinuationMarkerTest extends TestCase
     public function testQuoteResumesAfterAttachedBlock(): void
     {
         $this->assertSame(
-            "<blockquote>\n  <p>q</p>\n  <ul>\n    <li>item</li>\n  </ul>\n  <p>more</p>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <p>q</p>\n  <ul>\n    <li>item</li>\n  </ul>\n  <p>more</p>\n</blockquote>\n"),
             $this->converter->convert("> q\n+\n- item\n> more"),
         );
     }
@@ -71,7 +71,7 @@ class BlockQuoteContinuationMarkerTest extends TestCase
         // A blank line ends the quote; the `+` is then outside any container and
         // stays literal text (with the list marker folding into the paragraph).
         $this->assertSame(
-            "<blockquote><p>q</p></blockquote>\n<p>+\n- item</p>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>q</p></blockquote>\n<p>+\n- item</p>\n"),
             $this->converter->convert("> q\n\n+\n- item"),
         );
     }
@@ -83,7 +83,7 @@ class BlockQuoteContinuationMarkerTest extends TestCase
         // paragraph (a list marker no longer ends the quote), so the whole run
         // stays inside one quoted paragraph.
         $this->assertSame(
-            "<blockquote><p>q\n+\n- item</p></blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>q\n+\n- item</p></blockquote>\n"),
             $this->converter->convert("> q\n  +\n- item"),
         );
     }

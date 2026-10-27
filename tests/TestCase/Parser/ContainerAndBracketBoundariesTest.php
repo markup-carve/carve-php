@@ -41,7 +41,7 @@ class ContainerAndBracketBoundariesTest extends TestCase
     #[DataProvider('bracketRuns')]
     public function testBracketPrecedence(string $source, string $html): void
     {
-        $this->assertSame($html . "\n", (new CarveConverter())->convert($source . "\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', $html . "\n"), (new CarveConverter())->convert($source . "\n"));
     }
 
     public function testNestedBareBracketsKeepTheOuterTriggerScanLinear(): void

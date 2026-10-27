@@ -35,7 +35,7 @@ final class AQuoteFirstBlockPullsNoListTest extends TestCase
         $letter = str_replace('> +', '> x', $source);
         $expected = str_replace('<p>x', '<p>+', (new CarveConverter())->convert($letter));
 
-        $this->assertSame($expected, (new CarveConverter())->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
     #[DataProvider('provider')]

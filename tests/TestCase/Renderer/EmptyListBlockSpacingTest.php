@@ -93,7 +93,7 @@ class EmptyListBlockSpacingTest extends TestCase
         $formatted = CarveConverter::toCarve($source);
         $this->assertSame($expectedFormatted, $formatted);
         $this->assertSame($formatted, CarveConverter::toCarve($formatted));
-        $this->assertSame($formattedHtml, $converter->convert($formatted));
+        $this->assertSame(preg_replace('/\n\z/', '', $formattedHtml), $converter->convert($formatted));
         $this->assertSame($imported, $importer->convert($converter->convert($formatted)));
     }
 }

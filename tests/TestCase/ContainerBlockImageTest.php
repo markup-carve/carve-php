@@ -26,7 +26,7 @@ class ContainerBlockImageTest extends TestCase
     public function testBlockquoteImageIsExpanded(): void
     {
         $this->assertSame(
-            "<blockquote>\n  <img src=\"/u\" alt=\"a\">\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <img src=\"/u\" alt=\"a\">\n</blockquote>\n"),
             $this->converter->convert('> ![a](/u)'),
         );
     }
@@ -34,7 +34,7 @@ class ContainerBlockImageTest extends TestCase
     public function testBlockquoteReferenceImageIsExpanded(): void
     {
         $this->assertSame(
-            "<blockquote>\n  <img src=\"/u\" alt=\"a\">\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <img src=\"/u\" alt=\"a\">\n</blockquote>\n"),
             $this->converter->convert("> ![a][r]\n\n[r]: /u"),
         );
     }
@@ -42,7 +42,7 @@ class ContainerBlockImageTest extends TestCase
     public function testListItemImageIsExpanded(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>\n    <img src=\"/u\" alt=\"a\">\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <img src=\"/u\" alt=\"a\">\n  </li>\n</ul>\n"),
             $this->converter->convert('- ![a](/u)'),
         );
     }
@@ -50,7 +50,7 @@ class ContainerBlockImageTest extends TestCase
     public function testListItemImageThenParagraphKeepsIndent(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>\n    <img src=\"/u\" alt=\"a\">\n    <p>more</p>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <img src=\"/u\" alt=\"a\">\n    <p>more</p>\n  </li>\n</ul>\n"),
             $this->converter->convert("- ![a](/u)\n\n  more"),
         );
     }
@@ -59,7 +59,7 @@ class ContainerBlockImageTest extends TestCase
     {
         // A real (non-image) single paragraph keeps the compact one-line form.
         $this->assertSame(
-            "<blockquote><p>text</p></blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>text</p></blockquote>\n"),
             $this->converter->convert('> text'),
         );
     }

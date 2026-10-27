@@ -178,7 +178,7 @@ class DjotLossReportTest extends TestCase
         foreach (['*a*{}*b*', '*a*{}{}*b*'] as $source) {
             $carve = (new DjotToCarve())->convert($source);
             self::assertSame('*a*{%%}*b*', $carve);
-            self::assertSame("<p><strong>a</strong><strong>b</strong></p>\n", (new CarveConverter())->convert($carve));
+            self::assertSame(preg_replace('/\n\z/', '', "<p><strong>a</strong><strong>b</strong></p>\n"), (new CarveConverter())->convert($carve));
         }
     }
 
@@ -207,7 +207,7 @@ class DjotLossReportTest extends TestCase
         $carve = (new DjotToCarve())->convert($source);
         self::assertSame((new CarveConverter())->convert("[b](/u){title=\"t\"}\n\nnext\n"), (new CarveConverter())->convert($carve));
         self::assertSame("[b][b]\n\n\n[b]: /u {title=t}\n\nnext\n", $carve);
-        self::assertSame("<p><a href=\"/u\" title=\"t\">b</a></p>\n<p>next</p>\n", (new CarveConverter())->convert($carve));
+        self::assertSame(preg_replace('/\n\z/', '', "<p><a href=\"/u\" title=\"t\">b</a></p>\n<p>next</p>\n"), (new CarveConverter())->convert($carve));
     }
 
     public function testNestedLinkReportsRespectParagraphAndCellBoundaries(): void

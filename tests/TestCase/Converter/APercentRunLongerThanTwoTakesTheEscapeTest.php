@@ -47,7 +47,7 @@ class APercentRunLongerThanTwoTakesTheEscapeTest extends TestCase
     #[DataProvider('runs')]
     public function testTheWrittenSpellingReadsBackAsTheSourceText(string $markdown, string $carve): void
     {
-        $this->assertSame('<p>' . $markdown . "</p>\n", (new CarveConverter())->convert($carve . "\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', '<p>' . $markdown . "</p>\n"), (new CarveConverter())->convert($carve . "\n"));
     }
 
     /**
@@ -55,6 +55,6 @@ class APercentRunLongerThanTwoTakesTheEscapeTest extends TestCase
      */
     public function testTheBareRunSwallowsTheRestOfTheLine(): void
     {
-        $this->assertSame("<p>a</p>\n", (new CarveConverter())->convert("a %%%c b\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a</p>\n"), (new CarveConverter())->convert("a %%%c b\n"));
     }
 }

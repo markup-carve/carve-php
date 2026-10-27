@@ -38,7 +38,7 @@ class MarkdownMarkAttributesTest extends TestCase
             $after = str_replace(['<s ', '</s>'], ['<del ', '</del>'], $converter->convert((new MarkdownToCarve())->convert($markdown)));
             $this->assertSame($before, $after);
             $renderer = (new MarkdownRenderer())->setAttributeFallback(AttributeFallback::Drop);
-            $this->assertSame($dropped . "\n", CarveConverter::create(renderer: $renderer)->convert($source));
+            $this->assertSame(preg_replace('/\n\z/', '', $dropped . "\n"), CarveConverter::create(renderer: $renderer)->convert($source));
         }
     }
 
@@ -88,7 +88,7 @@ class MarkdownMarkAttributesTest extends TestCase
             }
         }
         $renderer = (new MarkdownRenderer())->setAttributeFallback(AttributeFallback::Drop);
-        $this->assertSame("~~x~~\n", CarveConverter::create(renderer: $renderer)->convert('~x~{.critic-delete}'));
+        $this->assertSame(preg_replace('/\n\z/', '', "~~x~~\n"), CarveConverter::create(renderer: $renderer)->convert('~x~{.critic-delete}'));
         $this->assertSame("<strong class=\"critic-delete\">x</strong>\n", CarveConverter::markdown()->convert('*x*{.critic-delete}'));
         $this->assertSame("<del class=\"critic-delete\">x</del>\n", CarveConverter::markdown()->convert('{-x-}'));
     }
@@ -105,7 +105,7 @@ class MarkdownMarkAttributesTest extends TestCase
                 return parent::htmlAttributes($node, $exclude);
             }
         };
-        $this->assertSame("<strong k=\"a\tb\">x</strong>\n", CarveConverter::create(renderer: $renderer)->convert("*x*{k=\"a\tb\"}"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<strong k=\"a\tb\">x</strong>\n"), CarveConverter::create(renderer: $renderer)->convert("*x*{k=\"a\tb\"}"));
         $this->assertGreaterThan(0, $renderer->calls);
     }
 

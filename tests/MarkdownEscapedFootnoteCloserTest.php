@@ -28,6 +28,6 @@ final class MarkdownEscapedFootnoteCloserTest extends TestCase
     {
         $carve = (new MarkdownToCarve())->convert($markdown);
 
-        self::assertSame($expectedHtml, CarveConverter::create()->convert($carve));
+        self::assertSame(preg_replace('/\n\z/', '', $expectedHtml), CarveConverter::create()->convert($carve));
     }
 }

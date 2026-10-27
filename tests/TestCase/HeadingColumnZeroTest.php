@@ -56,7 +56,7 @@ class HeadingColumnZeroTest extends TestCase
     #[DataProvider('columnZeroProvider')]
     public function testColumnZeroRule(string $input, string $expected): void
     {
-        $this->assertSame($expected, $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($input));
     }
 
     /**
@@ -72,6 +72,6 @@ class HeadingColumnZeroTest extends TestCase
         $input = "## H\n   ## indented";
         $expected = "<section id=\"H\">\n  <h2>H</h2>\n  <p>## indented</p>\n</section>\n";
 
-        $this->assertSame($expected, $this->converter->convert($input));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($input));
     }
 }

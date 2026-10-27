@@ -94,7 +94,7 @@ class AClassKeyValueIsTheClassSlotTest extends TestCase
         ];
         foreach ($cases as $attrLine => $classes) {
             self::assertSame(
-                '<div class="' . $classes . "\">\n  <p>y</p>\n</div>\n",
+                preg_replace('/\n\z/', '', '<div class="' . $classes . "\">\n  <p>y</p>\n</div>\n"),
                 (new CarveConverter())->convert($attrLine . "\n:::\ny\n:::\n"),
                 $attrLine,
             );
@@ -114,7 +114,7 @@ class AClassKeyValueIsTheClassSlotTest extends TestCase
         // A span takes the same slot, so the inline path answers alike.
         self::assertSame(1, substr_count((new CarveConverter())->convert("[t]{class=a .b}\n"), 'class='));
         self::assertSame(
-            "<p><span class=\"a b\">t</span></p>\n",
+            preg_replace('/\n\z/', '', "<p><span class=\"a b\">t</span></p>\n"),
             (new CarveConverter())->convert("[t]{class=a .b}\n"),
         );
     }
@@ -177,7 +177,7 @@ class AClassKeyValueIsTheClassSlotTest extends TestCase
                 $written = (new CarveRenderer())->render((new CarveConverter())->parse($source));
                 // What the writer emits has to render the same document, which it
                 // cannot do if this engine's own parser refuses the bytes.
-                self::assertSame($html, (new CarveConverter())->convert($written), $source . ' -> ' . $written);
+                self::assertSame(preg_replace('/\n\z/', '', $html), (new CarveConverter())->convert($written), $source . ' -> ' . $written);
                 // And idempotent, so a second pass is not a third document.
                 self::assertSame(
                     $written,
