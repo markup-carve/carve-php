@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
@@ -33,5 +34,25 @@ final class InvisibleImagePromotionTest extends TestCase
         $result = (new HtmlToCarve())->convertWithFidelityReport('<p><img src="x.png" alt="alt"></p>');
         self::assertSame('![alt](x.png)', rtrim($result->value));
         self::assertSame([], $result->diagnostics);
+    }
+
+    public function testInvisibleChildSurvivesPromotionAndAstIngest(): void
+    {
+        $converter = new CarveConverter();
+        $codec = new AstCodec();
+        $tree = $codec->encode($converter->parse('{%%}![alt](x.png)'));
+
+        self::assertSame('paragraph', $tree['children'][0]['type']);
+        self::assertTrue($tree['children'][0]['blockImage']);
+        self::assertCount(2, $tree['children'][0]['children']);
+        self::assertSame('<img src="x.png" alt="alt">' . "\n", $converter->render($codec->decode($tree)));
+    }
+
+    public function testTaskItemRetainsPromotedParagraph(): void
+    {
+        $tree = (new AstCodec())->encode((new CarveConverter())->parse("- [ ] ![alt][r]\n\n[r]: x.png\n"));
+
+        self::assertSame('paragraph', $tree['children'][0]['items'][0]['children'][0]['type']);
+        self::assertTrue($tree['children'][0]['items'][0]['children'][0]['blockImage']);
     }
 }

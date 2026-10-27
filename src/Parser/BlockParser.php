@@ -1297,6 +1297,8 @@ class BlockParser
                 if (
                     $image instanceof Image
                     && !($node instanceof LineBlock)
+                    && count($child->getChildren()) === 1
+                    && !($node instanceof ListItem && $node->isTask())
                     && !isset($this->state->session->paragraphsAboveContentColumn[spl_object_id($child)])
                 ) {
                     if ($child->getAttributeEntries() !== []) {
