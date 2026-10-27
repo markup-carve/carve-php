@@ -652,6 +652,7 @@ class MarkdownToCarve
                     $result[] = $this->closeFence($result, $fence->outputIndex, $fence->length, $fence->info, $fence->itemColumn);
                     if (
                         $i + 1 < $lineCount && trim($lines[$i + 1]) !== ''
+                        && !($fence->itemColumn > 0 && $this->indentWidth($lines[$i + 1]) >= $fence->itemColumn)
                         && !(preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])(?=[ \t]|$)/', $lines[$i + 1]) === 1
                             && $this->indentWidth($lines[$i + 1]) < $fence->itemColumn)
                     ) {
