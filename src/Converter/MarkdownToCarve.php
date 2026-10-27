@@ -939,21 +939,33 @@ class MarkdownToCarve
                 $inlineRun = strpbrk($line, '/=~[`<') !== false ? $this->collectInlineParagraph($lines, $i, $line, $contentCol) : null;
                 if ($inlineRun !== null) {
                     $i = $inlineRun['end'];
-                    $parts = explode("\n", $this->inlineStage->convertInlineFormatting($inlineRun['body']));
+                    $previousBreakable = $this->inlineContext->breakableCodeSlot;
+                    $this->inlineContext->breakableCodeSlot = true;
+                    try {
+                        $parts = explode("\n", $this->inlineStage->convertInlineFormatting($inlineRun['body']));
+                    } finally {
+                        $this->inlineContext->breakableCodeSlot = $previousBreakable;
+                    }
                     foreach ($parts as $at => $part) {
                         $result[] = ($at === 0 ? $inlineRun['first'] : $inlineRun['next']) . $part;
                     }
                 } else {
-                    $result[] = $this->inlineStage->convertInlineFormatting(
-                        $this->escapeRowContinuation(
-                            $this->escapeDefinitionContinuation($line, $lines[$i - 1] ?? '', (string)end($result)),
-                            $lines,
-                            $i,
-                            $listCols->all(),
-                            (string)end($result),
-                        ),
-                        !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', $isList),
-                    );
+                    $previousBreakable = $this->inlineContext->breakableCodeSlot;
+                    $this->inlineContext->breakableCodeSlot = true;
+                    try {
+                        $result[] = $this->inlineStage->convertInlineFormatting(
+                            $this->escapeRowContinuation(
+                                $this->escapeDefinitionContinuation($line, $lines[$i - 1] ?? '', (string)end($result)),
+                                $lines,
+                                $i,
+                                $listCols->all(),
+                                (string)end($result),
+                            ),
+                            !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', $isList),
+                        );
+                    } finally {
+                        $this->inlineContext->breakableCodeSlot = $previousBreakable;
+                    }
                 }
                 $this->trackItemParagraph($line, $isList, $contentCol, $itemParagraph, $itemQuote);
                 $prevLineType = 'list';
@@ -2042,7 +2054,7 @@ class MarkdownToCarve
             $previousBreakable = $this->inlineContext->breakableCodeSlot;
             $previousPointyStrip = $this->inlineContext->pointyContinuationStrip;
             $this->inlineContext->pointyContinuationStrip = $inlineRun['stripPointyIndent'];
-            $this->inlineContext->breakableCodeSlot = $listCols->isEmpty() && preg_match('/^[ \t]*>/', $line) !== 1;
+            $this->inlineContext->breakableCodeSlot = preg_match('/^[ \t]*>/', $line) !== 1;
             try {
                 $parts = explode("\n", $this->inlineStage->convertInlineFormatting($body));
             } finally {
@@ -2058,7 +2070,7 @@ class MarkdownToCarve
             $previousCodeSlot = $this->inlineContext->nativeCodeSlot;
             $previousBreakable = $this->inlineContext->breakableCodeSlot;
             $this->inlineContext->nativeCodeSlot = !$isHeading && !$isList && $listCols->isEmpty() && preg_match('/^[ \t]*>/', $body) !== 1;
-            $this->inlineContext->breakableCodeSlot = $this->inlineContext->nativeCodeSlot;
+            $this->inlineContext->breakableCodeSlot = !$isHeading && preg_match('/^[ \t]*>/', $body) !== 1;
             try {
                 $converted = $this->inlineStage->convertInlineFormatting($body, $isHeading || !$this->nextLineContinuesThisParagraph($body, $lines[$i + 1] ?? '', $isList));
             } finally {
