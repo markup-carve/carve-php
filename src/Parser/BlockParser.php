@@ -2275,6 +2275,7 @@ class BlockParser
         $childrenBeforeBlank = null;
         $blankFollowerColumn = null;
         $blankFollowerLine = null;
+        $blankRun = 0;
 
         while ($i < $count) {
             if ($childrenBeforeBlank !== null && count($parent->getChildren()) > $childrenBeforeBlank) {
@@ -2287,6 +2288,7 @@ class BlockParser
 
             // Skip blank lines
             if (IndentationHelper::isBlankLine($line)) {
+                $blankRun++;
                 if ($parent instanceof ListItem && $childrenBeforeBlank === null && $parent->hasChildren()) {
                     $childrenBeforeBlank = count($parent->getChildren());
                 }
@@ -2294,6 +2296,24 @@ class BlockParser
 
                 continue;
             }
+            if ($parent instanceof Footnote && $blankRun >= 2 && $parent->hasChildren()) {
+                $children = $parent->getChildren();
+                if ($children[array_key_last($children)] instanceof DefinitionList) {
+                    // The closed description has released the next block. Keep
+                    // its relative indentation while rebasing it in the note.
+                    $base = IndentationHelper::getLeadingColumns($line);
+                    if ($base > 0) {
+                        for ($at = $i; $at < $count && !IndentationHelper::isBlankLine($lines[$at]); $at++) {
+                            if (IndentationHelper::getLeadingColumns($lines[$at]) < $base) {
+                                break;
+                            }
+                            $lines[$at] = IndentationHelper::stripLeadingColumns($lines[$at], $base);
+                        }
+                        $line = $lines[$i];
+                    }
+                }
+            }
+            $blankRun = 0;
             if ($childrenBeforeBlank !== null) {
                 $blankFollowerColumn = $this->authoredColumnOf($i, $line)
                     ?? IndentationHelper::getLeadingColumns($line);
