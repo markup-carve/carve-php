@@ -1141,16 +1141,29 @@ trait BlockListMethods
                 if ($refusedAfterCloser) {
                     $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($index), 'list item');
                 }
+                $continuationBoundary = $this->isContinuationMarker($trimmed);
+                if ($continuationBoundary && $index > 0 && $this->isContinuationMarker(ltrim($lines[$index - 1], " \t"))) {
+                    $markerLine = $this->sourceLineFor($index);
+                    $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $markerLine);
+                    $priorDecision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($index - 1));
+                    $continuationBoundary = !(
+                        $decision['reason'] !== null
+                        && $priorDecision['reason'] === null
+                        && ($decision['owner']['kind'] ?? null) === 'list'
+                        && ($priorDecision['owner']['kind'] ?? null) === 'list'
+                        && $decision['column'] === $priorDecision['column']
+                    );
+                }
                 if (
                     IndentationHelper::isBlankLine($line)
                     // The attached block starts at document column zero even
                     // when its marker sits in an indented list.
                     || ($lineIndent < $baseIndent
                         && ($this->listParser->parseListItemMarker($trimmed) !== null
-                            || $this->isContinuationMarker($trimmed)))
+                            || $continuationBoundary))
                     || ($lineIndent === $baseIndent
                         && $trailingState->fence === null
-                        && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed) && !$refusedAfterCloser))
+                        && ($this->listParser->parseListItemMarker($trimmed) !== null || $continuationBoundary && !$refusedAfterCloser))
                 ) {
                     return true;
                 }
