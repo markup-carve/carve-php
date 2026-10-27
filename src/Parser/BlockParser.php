@@ -5177,6 +5177,12 @@ class BlockParser
 
         $lastChild = $children[count($children) - 1];
 
+        // A held slot already owns this paragraph. Replacing it would lose
+        // the first slot's source if the image remains unresolved.
+        if ($this->deferredImageCaptions !== null && isset($this->deferredImageCaptions[$lastChild])) {
+            return null;
+        }
+
         $linesConsumed = $i - $start;
 
         // Handle FigureGroup - §4's SIXTH host (PART 9 §4c): a caption after
