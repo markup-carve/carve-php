@@ -657,6 +657,7 @@ final class HtmlAstBuilder
                 $this->session->endnoteLabels[$target] = $this->session->endnoteItemLabels[$item];
             }
         }
+        $authoredAbbreviations = [];
         foreach ($root->getElementsByTagName('template') as $template) {
             if (!CarrierNames::consumePresence($template, 'data-carve-abbreviations')) {
                 continue;
@@ -665,15 +666,18 @@ final class HtmlAstBuilder
                 continue;
             }
             foreach ($matches as $match) {
-                $this->session->abbreviationDefinitions[$match[1]] ??= $match[2];
+                $abbr = (string)$match[1];
+                $expansion = $match[2];
+                $authoredAbbreviations[] = ['abbr' => $abbr, 'expansion' => $expansion];
+                $this->session->abbreviationDefinitions[$abbr] = $expansion;
             }
         }
         $children = $this->blocks($this->children($root));
-        foreach (array_reverse($this->session->abbreviationDefinitions, true) as $abbr => $expansion) {
+        foreach (array_reverse($authoredAbbreviations) as $definition) {
             $definition = [
                 'type' => 'abbreviation_def',
-                'abbr' => (string)$abbr,
-                'expansion' => $expansion,
+                'abbr' => $definition['abbr'],
+                'expansion' => $definition['expansion'],
             ];
             $this->addHint($definition, "\0carve-compact-definition");
             array_unshift($children, $definition);

@@ -976,9 +976,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         // Add abbreviation definitions for round-trip support
         if ($this->roundTripMode) {
-            $abbreviations = $document->getAbbreviations();
-            if ($abbreviations !== []) {
-                $html .= $this->renderAbbreviationDefinitions($abbreviations);
+            $definitions = $document->getAbbreviationDefinitions();
+            if ($definitions !== []) {
+                $html .= $this->renderAbbreviationDefinitions($definitions);
             }
         }
 
@@ -1089,13 +1089,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     /**
      * Render abbreviation definitions as a hidden element for round-trip
      *
-     * @param array<string, string> $abbreviations
+     * @param array<int, array<string, string>> $definitions
      */
-    protected function renderAbbreviationDefinitions(array $abbreviations): string
+    protected function renderAbbreviationDefinitions(array $definitions): string
     {
         $defs = [];
-        foreach ($abbreviations as $abbr => $definition) {
-            $defs[] = '*[' . $abbr . ']: ' . $definition;
+        foreach ($definitions as $definition) {
+            $defs[] = '*[' . $definition['abbr'] . ']: ' . $definition['expansion'];
         }
         $content = implode("\n", $defs);
 
