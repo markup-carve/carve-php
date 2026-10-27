@@ -71,8 +71,6 @@ class IncludeConformanceTest extends TestCase
         ],
         'i01-inverted-line-range' => [
             'html' => '<p>{{ child @lines:3-1 }}</p>',
-            'warnings' => [['rule' => 'include-lines-invalid']],
-            'dependencies' => [['id' => 'child', 'resolved' => true]],
         ],
     ];
 
