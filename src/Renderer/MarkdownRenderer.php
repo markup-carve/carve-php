@@ -4751,8 +4751,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $last = 0;
         foreach ($matches[0] as $index => $match) {
             [$marker, $offset] = $match;
+            $marker = '</#' . $this->escapeHtml($matches[1][$index][0]) . '>';
             $out .= $this->escapeText(substr($text, $last, $offset - $last))
-                . '</#' . $this->escapeHtml($matches[1][$index][0]) . '>';
+                . ($this->linkTextDepth > 0 ? str_replace(']', '\\]', $marker) : $marker);
             $last = $offset + strlen($marker);
         }
 

@@ -92,6 +92,20 @@ final class InlineStage
 
             return "\x00P" . (count($protected) - 1) . "\x00";
         };
+        // CommonMark closes a label at its first unescaped closing bracket.
+        // If a later bracket has the destination, the earlier opener is text.
+        $line = preg_replace_callback(
+            '/(?<!\\\\)\[([^\[\]\n]*)(?<!\\\\)\](?!\()([^\[\]\n]+)\]\([^()\n]*\)/',
+            static fn (array $match): string => $protect('\\[') . substr($match[0], 1),
+            $line,
+        ) ?? $line;
+        // Carve's angle run already holds a literal bracket. Remove the
+        // Markdown escape after label ownership has been decided above.
+        $line = preg_replace_callback(
+            '/(\[[^\[\]\n]*<[^>\n]*?)\\\\\]([^>\n]*>[^\[\]\n]*\]\([^()\n]*\))/',
+            static fn (array $match): string => $match[1] . ']' . $match[2],
+            $line,
+        ) ?? $line;
         $line = $this->maskDestinationGlyphs($line, $protect);
 
         $definitionPrefix = '[ \t]*(?:>[ \t]*)*' . self::DEFINITION_MARKER;
