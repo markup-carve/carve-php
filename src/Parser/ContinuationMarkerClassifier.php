@@ -337,19 +337,33 @@ final class ContinuationMarkerClassifier
         ) {
             $this->carriedOwner = null;
         }
+        $next = $this->lines[$index + 1] ?? '';
+        [$nextBody, $nextDepth, $nextPrefix] = $this->quoteBody($next);
+        if (
+            $this->paragraphOpen && $depth === 0 && $nextDepth === 0
+            && !str_starts_with(ltrim($body, " \t"), ':')
+            && self::isPlus(ltrim($nextBody, " \t"))
+        ) {
+            $nextColumn = self::columnAt($next, $nextPrefix + strspn($nextBody, " \t"));
+            foreach ($this->stack as $entry) {
+                if ($entry['kind'] === 'quote' && $entry['depth'] === $nextDepth && $entry['column'] === $nextColumn) {
+                    return;
+                }
+            }
+        }
+        if ($this->carriedOwner === null) {
+            $this->stack = array_values(array_filter($this->stack, static fn (array $entry): bool => $entry['kind'] !== 'quote'));
+        }
         if (
             $this->paragraphOpen && $this->stack !== []
             && ($column < $this->stack[array_key_last($this->stack)]['column']
                 || $column === $this->stack[array_key_last($this->stack)]['column']
-                    && in_array($this->stack[array_key_last($this->stack)]['kind'], ['list', 'quote'], true))
+                    && $this->stack[array_key_last($this->stack)]['kind'] === 'list')
             && $this->lists->parseListItemMarker(ltrim($body, " \t")) === null
             && !str_starts_with(ltrim($body, " \t"), '#')
             && !str_starts_with(ltrim($body, " \t"), '>')
         ) {
             return;
-        }
-        if ($this->carriedOwner === null) {
-            $this->stack = array_values(array_filter($this->stack, static fn (array $entry): bool => $entry['kind'] !== 'quote'));
         }
         $head = ltrim($body, " \t");
         if ($this->paragraphOpen && (str_starts_with($head, ':: ') || str_starts_with($head, ': '))) {
