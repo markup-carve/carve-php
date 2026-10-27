@@ -63,6 +63,12 @@ class IncludeConformanceTest extends TestCase
      * @var array<string, array<string, mixed>>
      */
     protected const AHEAD_OF_PIN = [
+        'i01-lines-bom-only-file-has-no-lines' => [
+            'html' => '<p>{{ bom.txt @lines:1-1 @code }}</p>',
+        ],
+        'i01-lines-start-past-the-end-code' => [
+            'html' => '<p>{{ two.txt @lines:3-3 @code }}</p>',
+        ],
         'i01-inverted-line-range' => [
             'warnings' => [['rule' => 'include-lines-invalid']],
             'dependencies' => [['id' => 'child', 'resolved' => true]],

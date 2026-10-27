@@ -58,6 +58,17 @@ class IncludeDirectiveLiteralTest extends TestCase
         $this->assertStringContainsString('<span class="mention"><strong>@code</strong></span>', $html);
     }
 
+    public function testOtherInvalidOptionsKeepOrdinaryInlineParsing(): void
+    {
+        $html = CarveConverter::create()->convert('{{ a.js @code:js @code:py }}');
+
+        $this->assertSame(
+            '<p>{{ a.js <span class="mention"><strong>@code</strong></span>:js '
+            . '<span class="mention"><strong>@code</strong></span>:py }}</p>',
+            $html,
+        );
+    }
+
     public function testStandaloneCodeIncludeKeepsItsBlockShapeInContainers(): void
     {
         $directive = '{{ data/p2.csv @code:csv @lines:0-2 }}';

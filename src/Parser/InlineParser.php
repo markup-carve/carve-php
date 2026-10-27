@@ -1106,7 +1106,7 @@ class InlineParser
                 && $directive[0][1] === $pos
                 && trim($text) === $directive[0][0]
                 && preg_match('/^\{\{ +"/', $directive[0][0]) !== 1
-                && (IncludeDirectiveSyntax::parse($directive[0][0])['code'] ?? null) !== null
+                && self::isLineRangeCodeInclude($directive[0][0])
             ) {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
@@ -1497,6 +1497,16 @@ class InlineParser
 
         $this->flushText($parent, $textBuffer);
         $this->footnoteRecognitionEnabled = $previousFootnoteRecognition;
+    }
+
+    private static function isLineRangeCodeInclude(string $source): bool
+    {
+        $include = IncludeDirectiveSyntax::parse($source);
+
+        return $include !== null
+            && $include['code'] !== null
+            && ($include['error'] === IncludeDirectiveSyntax::ERROR_LINES_INVALID
+                || ($include['error'] === null && $include['lines'] !== null));
     }
 
     protected function parseEscapedOrLineBreak(
