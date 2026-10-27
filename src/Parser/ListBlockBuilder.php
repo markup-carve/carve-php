@@ -420,9 +420,11 @@ final class ListBlockBuilder
     ): array {
         $itemSource = $this->state->source->sourceLines[$sourceLine] ?? '';
         $marker = ltrim($listLine, " \t");
-        $markerColumn = str_ends_with($itemSource, $marker)
-            ? strlen($itemSource) - strlen($marker)
-            : $listOpeningColumn;
+        $markerColumn = $laterItem
+            ? $this->resolveMarkerColumn($sourceLine, $itemLine)
+            : (str_ends_with($itemSource, $marker)
+                ? strlen($itemSource) - strlen($marker)
+                : $listOpeningColumn);
         $openingColumn = $listOpeningColumn;
         if (!$parent instanceof Document && $laterItem) {
             $prefix = substr($itemSource, 0, $markerColumn);
