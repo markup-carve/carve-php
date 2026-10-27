@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Comment;
+
 /**
  * Reports Markdown habits that parse as valid Carve but render as something the
  * author did not intend.
@@ -84,6 +87,7 @@ class MarkdownHabitLinter
     {
         $warnings = [];
         $lines = explode("\n", $source);
+        $habitLines = explode("\n", $this->maskComments($source));
         $platforms = $this->selectedPlatforms($options['platforms'] ?? []);
         $platformSkipLines = $platforms === [] ? [] : $this->platformSkipLines($lines);
         $offset = 0;
@@ -119,7 +123,7 @@ class MarkdownHabitLinter
             // shipped rule that has nothing to do with the platform pass. The
             // platform pass keeps its own tracker in platformSkipLines(), which
             // is where the container-aware reading belongs.
-            $fence = $this->fenceDelimiter($line);
+            $fence = $this->fenceDelimiter($habitLines[$index]);
 
             if ($fence !== null) {
                 if (!$inFence) {
@@ -136,7 +140,7 @@ class MarkdownHabitLinter
                 continue;
             }
 
-            $habitSource .= ($inFence ? str_repeat(' ', strlen($line)) : $line) . "\n";
+            $habitSource .= ($inFence ? str_repeat(' ', strlen($line)) : $habitLines[$index]) . "\n";
 
             if ($platforms !== [] && !isset($platformSkipLines[$index])) {
                 foreach ($this->platformWarnings($line, $lineNumber, $offset, $platforms) as $warning) {
@@ -164,6 +168,39 @@ class MarkdownHabitLinter
         }
 
         return $warnings;
+    }
+
+    private function maskComments(string $source): string
+    {
+        if (!str_contains($source, '%%')) {
+            return $source;
+        }
+
+        $converter = new CarveConverter();
+        $converter->getParser()->enablePositionTracking();
+        $pending = [$converter->parse($source)];
+        $masked = $source;
+        $map = SourceOffsets::map($source);
+        $length = strlen($source);
+
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            $pos = $node->getPos();
+            if ($node instanceof Comment && $pos !== null) {
+                $start = SourceOffsets::toByte($pos->startOffset, $map, $length);
+                $end = SourceOffsets::toByte($pos->endOffset, $map, $length);
+                for ($at = $start; $at < $end; ++$at) {
+                    if ($masked[$at] !== "\n") {
+                        $masked[$at] = ' ';
+                    }
+                }
+            }
+            foreach ($node->getChildren() as $child) {
+                $pending[] = $child;
+            }
+        }
+
+        return $masked;
     }
 
     /**
