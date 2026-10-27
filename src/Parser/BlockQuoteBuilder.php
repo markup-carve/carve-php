@@ -490,6 +490,7 @@ final class BlockQuoteBuilder
                 $i++;
             } elseif (
                 ($lazyState['paragraphOpen'] || $this->quotedNestedLineBlockOpen($innerLines, $nestedLineBlock))
+                && !$this->nestedQuotedFootnoteEnds($innerLines)
                 && !($attachedParagraphOpen && ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null)
                 && !(($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
                     && $this->lastQuoteLineIsBareTerm($innerLines))
@@ -572,6 +573,65 @@ final class BlockQuoteBuilder
         $parent->appendChild($blockQuote);
 
         return $i - $start;
+    }
+
+    /**
+     * A nested quote's note definition leaves no paragraph for an outer quote
+     * to continue after its body. The outer lazy tracker only sees quote lines.
+     *
+     * @param array<string> $lines
+     */
+    private function nestedQuotedFootnoteEnds(array $lines): bool
+    {
+        $last = count($lines) - 1;
+        if ($last < 0) {
+            return false;
+        }
+        $depth = ContainerPrefix::countLeadingQuoteMarkers($lines[$last]);
+        if ($depth === 0) {
+            return false;
+        }
+        for ($at = $last; $at >= 0; $at--) {
+            if (ContainerPrefix::countLeadingQuoteMarkers($lines[$at]) !== $depth) {
+                break;
+            }
+            $content = ContainerPrefix::afterLeadingQuoteMarkers($lines[$at]);
+            if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($content, " \t")) === 1) {
+                $column = IndentationHelper::getLeadingColumns($content);
+                if ($column > 0) {
+                    $listOwnsDefinition = false;
+                    for ($host = $at - 1; $host >= 0; $host--) {
+                        if (ContainerPrefix::countLeadingQuoteMarkers($lines[$host]) !== $depth) {
+                            break;
+                        }
+                        $hostLine = ContainerPrefix::afterLeadingQuoteMarkers($lines[$host]);
+                        $marker = ($this->getListParser)()->parseListItemMarker(ltrim($hostLine, " \t"));
+                        if (
+                            $marker !== null && IndentationHelper::getLeadingColumns($hostLine)
+                            + ($this->listMarkerWidthCallback)(ltrim($hostLine, " \t"), $marker) <= $column
+                        ) {
+                            $listOwnsDefinition = true;
+
+                            break;
+                        }
+                    }
+                    if (!$listOwnsDefinition) {
+                        return false;
+                    }
+                }
+                $floor = $column + BlockGrammar::FOOTNOTE_BODY_COLUMN;
+                for ($body = $at + 1; $body <= $last; $body++) {
+                    $line = ContainerPrefix::afterLeadingQuoteMarkers($lines[$body]);
+                    if (!IndentationHelper::isBlankLine($line) && IndentationHelper::getLeadingColumns($line) < $floor) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function mayOpenQuotedHost(string $content): bool
