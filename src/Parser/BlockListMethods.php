@@ -1141,16 +1141,23 @@ trait BlockListMethods
                 if ($refusedAfterCloser) {
                     $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($index), 'list item');
                 }
+                $continuationBoundary = false;
+                if ($this->isContinuationMarker($trimmed)) {
+                    $markerLine = $this->sourceLineFor($index);
+                    $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $markerLine);
+                    $continuationBoundary = $decision['reason'] === null
+                        || $this->state->session->firstBlockMarkerOwner($this->state->source, $this->listParser, $markerLine) !== null;
+                }
                 if (
                     IndentationHelper::isBlankLine($line)
                     // The attached block starts at document column zero even
                     // when its marker sits in an indented list.
                     || ($lineIndent < $baseIndent
                         && ($this->listParser->parseListItemMarker($trimmed) !== null
-                            || $this->isContinuationMarker($trimmed)))
+                            || $continuationBoundary))
                     || ($lineIndent === $baseIndent
                         && $trailingState->fence === null
-                        && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed) && !$refusedAfterCloser))
+                        && ($this->listParser->parseListItemMarker($trimmed) !== null || $continuationBoundary && !$refusedAfterCloser))
                 ) {
                     return true;
                 }
