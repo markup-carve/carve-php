@@ -113,13 +113,13 @@ class ALinkTitleMayContainAClosingParenthesisTest extends TestCase
     #[DataProvider('titleProvider')]
     public function testTheTitleKeepsItsParenthesis(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     #[DataProvider('noTitleProvider')]
     public function testAQuoteOutsideTheSlotOpensNoTitle(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**

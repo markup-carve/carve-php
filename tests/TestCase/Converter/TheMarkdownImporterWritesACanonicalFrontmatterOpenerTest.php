@@ -124,6 +124,6 @@ class TheMarkdownImporterWritesACanonicalFrontmatterOpenerTest extends TestCase
     {
         $html = (new CarveConverter())->convert($this->convert("---\n---\n"));
 
-        $this->assertSame("<hr>\n<hr>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<hr>\n<hr>\n"), $html);
     }
 }

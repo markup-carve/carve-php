@@ -46,7 +46,7 @@ class ASmartSymbolInImportedTextIsEscapedTest extends TestCase
 
         $rendered = (new CarveConverter())->convert($imported);
         $this->assertSame(
-            '<p>' . htmlspecialchars($text, ENT_NOQUOTES) . "</p>\n",
+            preg_replace('/\n\z/', '', '<p>' . htmlspecialchars($text, ENT_NOQUOTES) . "</p>\n"),
             $rendered,
         );
     }

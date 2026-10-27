@@ -180,7 +180,7 @@ class CaptionTrailingWhitespaceTest extends TestCase
     public function testAnAllSpaceInlineLiteralSurvivesInACaption(): void
     {
         $paragraph = $this->converter->convert("x !`  `\n");
-        $this->assertSame("<p>x   </p>\n", $paragraph);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>x   </p>\n"), $paragraph);
 
         $this->assertSame(
             preg_replace('/\n\z/', '', "<table>\n  <caption>x   </caption>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n"),

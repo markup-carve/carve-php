@@ -153,11 +153,11 @@ class ANestedNoteFloorIsMeasuredAtItsAuthoredMarkerTest extends TestCase
     public function testANoteInADescriptionBodyIsUnaffected(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>b</dd>\n</dl>\n"
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>b</dd>\n</dl>\n"
                 . "<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n"
                 . "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n"
                 . "      <p>a<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">\u{21a9}</a></p>\n"
-                . "    </li>\n  </ol>\n</section>\n",
+                . "    </li>\n  </ol>\n</section>\n"),
             $this->converter->convert(":: t\n:  [^1]: a\n    b\n\nsee[^1]\n"),
         );
     }

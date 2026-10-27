@@ -39,7 +39,7 @@ class AnAttributeBlockReachesANestedListTest extends TestCase
         $result = $this->converter->convert("- a\n  {.x}\n  - b\n");
 
         $this->assertSame(
-            "<ul>\n  <li>a\n    <ul class=\"x\">\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <ul class=\"x\">\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n"),
             $result,
         );
     }
@@ -93,7 +93,7 @@ class AnAttributeBlockReachesANestedListTest extends TestCase
         $result = $this->converter->convert("- a\n\n  {.x}\n  - b\n");
 
         $this->assertSame(
-            "<ul>\n  <li>a\n    <ul class=\"x\">\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <ul class=\"x\">\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n"),
             $result,
         );
     }
@@ -124,7 +124,7 @@ class AnAttributeBlockReachesANestedListTest extends TestCase
         // Row A.
         $result = $this->converter->convert("{.x}\n- b\n");
 
-        $this->assertSame("<ul class=\"x\">\n  <li>b</li>\n</ul>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<ul class=\"x\">\n  <li>b</li>\n</ul>\n"), $result);
     }
 
     public function testAttributeLineAfterAParagraphStillReachesAListAtTopLevel(): void
@@ -132,7 +132,7 @@ class AnAttributeBlockReachesANestedListTest extends TestCase
         // Row H: the identical three lines as the fixed shape, one level up.
         $result = $this->converter->convert("para\n{.x}\n- b\n");
 
-        $this->assertSame("<p>para</p>\n<ul class=\"x\">\n  <li>b</li>\n</ul>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>para</p>\n<ul class=\"x\">\n  <li>b</li>\n</ul>\n"), $result);
     }
 
     public function testTheMarkerAbuttingFormStillAttributesTheItem(): void
@@ -140,7 +140,7 @@ class AnAttributeBlockReachesANestedListTest extends TestCase
         // A different mechanism targeting a different element.
         $result = $this->converter->convert("-{.x} item\n");
 
-        $this->assertSame("<ul>\n  <li class=\"x\">item</li>\n</ul>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<ul>\n  <li class=\"x\">item</li>\n</ul>\n"), $result);
     }
 
     public function testTheMarkerAbuttingFormStillAttributesANestedItem(): void
@@ -162,7 +162,7 @@ class AnAttributeBlockReachesANestedListTest extends TestCase
         $result = $this->converter->convert("- a\n\n   {.c}\n");
 
         $this->assertSame(
-            "<ul>\n  <li>a</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n</ul>\n"),
             $result,
         );
     }
@@ -171,7 +171,7 @@ class AnAttributeBlockReachesANestedListTest extends TestCase
     {
         $result = $this->converter->convert("- {.notattr} Milk\n");
 
-        $this->assertSame("<ul>\n  <li>{.notattr} Milk</li>\n</ul>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<ul>\n  <li>{.notattr} Milk</li>\n</ul>\n"), $result);
     }
 
     // ---- the run is scoped to the ITEM, and still ends with it ----
@@ -181,14 +181,14 @@ class AnAttributeBlockReachesANestedListTest extends TestCase
         // §15 A4 (carve-php#757): the item boundary IS an end for the run.
         $result = $this->converter->convert("- a\n  {.x}\n- b\n");
 
-        $this->assertSame("<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>\n"), $result);
     }
 
     public function testARunWithNoBlockLeftInTheItemDoesNotReachPastTheList(): void
     {
         $result = $this->converter->convert("- a\n  {.x}\n\npara\n");
 
-        $this->assertSame("<ul>\n  <li>a</li>\n</ul>\n<p>para</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n</ul>\n<p>para</p>\n"), $result);
     }
 
     public function testARunLeftInANestedItemDoesNotReachTheNextOuterItem(): void
@@ -223,7 +223,7 @@ class AnAttributeBlockReachesANestedListTest extends TestCase
         $result = $this->converter->convert("- a\n\n  {.x}\n  para\n- c\n");
 
         $this->assertSame(
-            "<ul>\n  <li><p>a</p>\n    <p class=\"x\">para</p>\n  </li>\n  <li><p>c</p></li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>a</p>\n    <p class=\"x\">para</p>\n  </li>\n  <li><p>c</p></li>\n</ul>\n"),
             $result,
         );
     }

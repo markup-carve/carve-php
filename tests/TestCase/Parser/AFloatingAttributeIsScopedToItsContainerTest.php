@@ -84,7 +84,7 @@ class AFloatingAttributeIsScopedToItsContainerTest extends TestCase
     {
         $html = $this->html("d\n{.k\n#x}\ntail\n");
 
-        $this->assertSame("<p>d</p>\n<p class=\"k\" id=\"x\">tail</p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>d</p>\n<p class=\"k\" id=\"x\">tail</p>\n"), $html);
     }
 
     /**
@@ -100,7 +100,7 @@ class AFloatingAttributeIsScopedToItsContainerTest extends TestCase
     {
         $html = $this->html(">  {.k}\ntail\n");
 
-        $this->assertSame("<blockquote><p>{.k}\ntail</p></blockquote>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<blockquote><p>{.k}\ntail</p></blockquote>\n"), $html);
     }
 
     /**
@@ -117,7 +117,7 @@ class AFloatingAttributeIsScopedToItsContainerTest extends TestCase
     {
         $html = $this->html("> q\n> {.k\n> #x}\ntail\n");
 
-        $this->assertSame("<blockquote><p>q</p></blockquote>\n<p>tail</p>\n", $html, $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<blockquote><p>q</p></blockquote>\n<p>tail</p>\n"), $html, $html);
     }
 
     /**
@@ -131,7 +131,7 @@ class AFloatingAttributeIsScopedToItsContainerTest extends TestCase
         $html = $this->html("> > q\n> > {.k\n> > #x}\ntail\n");
 
         $this->assertSame(
-            "<blockquote>\n  <blockquote><p>q</p></blockquote>\n</blockquote>\n<p>tail</p>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <blockquote><p>q</p></blockquote>\n</blockquote>\n<p>tail</p>\n"),
             $html,
             $html,
         );

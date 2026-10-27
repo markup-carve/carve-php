@@ -84,13 +84,13 @@ class HtmlImportTableFidelityTest extends TestCase
             $this->converter->convert($html),
         );
         $this->assertSame(
-            "<table>\n"
+            preg_replace('/\n\z/', '', "<table>\n"
             . "  <thead>\n    <tr><th scope=\"col\">H1</th><th scope=\"col\">H2</th></tr>\n  </thead>\n"
             . "  <tbody>\n"
             . "    <tr><th scope=\"row\">R1</th><td>a</td></tr>\n"
             . "    <tr><th scope=\"row\">R2</th><td>b</td></tr>\n"
             . "  </tbody>\n"
-            . "</table>\n",
+            . "</table>\n"),
             $this->reimport($html),
         );
     }
@@ -378,12 +378,12 @@ class HtmlImportTableFidelityTest extends TestCase
     public function testTwoLeadingHeaderRowsBothReachTheHead(): void
     {
         $this->assertSame(
-            "<table>\n"
+            preg_replace('/\n\z/', '', "<table>\n"
             . "  <thead>\n    <tr><th scope=\"col\">A</th></tr>\n    <tr><th scope=\"col\">B</th></tr>\n  </thead>\n"
             . "  <tbody>\n"
             . "    <tr><td>1</td></tr>\n"
             . "  </tbody>\n"
-            . "</table>\n",
+            . "</table>\n"),
             $this->reimport('<table><thead><tr><th>A</th></tr><tr><th>B</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>'),
         );
     }
@@ -401,12 +401,12 @@ class HtmlImportTableFidelityTest extends TestCase
 
         $this->assertSame("|={.k} A |= B |\n| 1 | 2 |\n", $this->converter->convert($html));
         $this->assertSame(
-            "<table>\n"
+            preg_replace('/\n\z/', '', "<table>\n"
             . "  <thead>\n    <tr><th scope=\"col\" class=\"k\">A</th><th scope=\"col\">B</th></tr>\n  </thead>\n"
             . "  <tbody>\n"
             . "    <tr><td>1</td><td>2</td></tr>\n"
             . "  </tbody>\n"
-            . "</table>\n",
+            . "</table>\n"),
             $this->reimport($html),
         );
     }
@@ -440,13 +440,13 @@ class HtmlImportTableFidelityTest extends TestCase
             . '<tr><td>1</td><td>2</td></tr></table>';
 
         $this->assertSame(
-            "<table>\n"
+            preg_replace('/\n\z/', '', "<table>\n"
             . "  <thead>\n    <tr><th scope=\"col\">A</th><th scope=\"col\">B</th></tr>\n"
             . "    <tr><th scope=\"col\" class=\"k\">C</th><th scope=\"col\">D</th></tr>\n  </thead>\n"
             . "  <tbody>\n"
             . "    <tr><td>1</td><td>2</td></tr>\n"
             . "  </tbody>\n"
-            . "</table>\n",
+            . "</table>\n"),
             $this->reimport($html),
         );
         $this->assertSame([], $this->diagnosticCodes($html));

@@ -53,11 +53,11 @@ class AContinuationMarkerAttachesOneBlockTest extends TestCase
         $html = $this->html("> q\n+\npara\n- item\n");
 
         $this->assertSame(
-            "<blockquote>\n"
+            preg_replace('/\n\z/', '', "<blockquote>\n"
             . "  <p>q</p>\n"
             . "  <p>para\n"
             . "- item</p>\n"
-            . "</blockquote>\n",
+            . "</blockquote>\n"),
             $html,
         );
     }
@@ -174,11 +174,11 @@ class AContinuationMarkerAttachesOneBlockTest extends TestCase
         $html = $this->html("- +\n{.a\n.b}\n# H\n");
 
         $this->assertSame(
-            "<ul>\n"
+            preg_replace('/\n\z/', '', "<ul>\n"
             . "  <li>\n"
             . '    <h1 class="a b" id="H">H</h1>' . "\n"
             . "  </li>\n"
-            . "</ul>\n",
+            . "</ul>\n"),
             $html,
         );
     }
@@ -256,10 +256,10 @@ class AContinuationMarkerAttachesOneBlockTest extends TestCase
     {
         $attr = $this->html("> quoted\n+\n{.x}\n# H\n");
         $this->assertSame(
-            "<blockquote>\n"
+            preg_replace('/\n\z/', '', "<blockquote>\n"
             . "  <p>quoted</p>\n"
             . '  <h1 class="x" id="H">H</h1>' . "\n"
-            . "</blockquote>\n",
+            . "</blockquote>\n"),
             $attr,
         );
 

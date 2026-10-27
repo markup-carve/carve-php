@@ -70,7 +70,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert($source));
     }
 
     public function testTheCommentTextNeverReachesTheOutput(): void
@@ -106,7 +106,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert($source));
     }
 
     public function testTheFirstLineStillDrops(): void
@@ -130,7 +130,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert($source));
     }
 
     public function testASoleCommentLineLeavesAnEmptyStanza(): void
@@ -149,7 +149,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert($source));
     }
 
     public function testTwoCommentLinesLeaveTwoEmptyLines(): void
@@ -170,7 +170,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert($source));
     }
 
     public function testEachStanzaKeepsItsOwnShape(): void
@@ -200,7 +200,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert($source));
     }
 
     public function testACommentWithNoSeparatingSpaceIsStillAComment(): void
@@ -225,7 +225,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert($source));
     }
 
     public function testABareMarkerIsAnEmptyComment(): void
@@ -248,7 +248,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert($source));
     }
 
     public function testATrailingCommentAfterTextStillStripsOnALaterLine(): void
@@ -273,7 +273,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert($source));
     }
 
     public function testAnIndentedCommentLineStaysVerse(): void
@@ -317,7 +317,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert($source));
     }
 
     public function testAPercentRunThatIsNotAMarkerIsUntouched(): void
@@ -340,7 +340,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert($source));
     }
 
     public function testACodeSpanReachingTheLineCannotClaimIt(): void
@@ -371,7 +371,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert($source));
     }
 
     /**
@@ -398,7 +398,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert($source));
         $this->assertStringNotContainsString('secret', $this->convert($source));
     }
 
@@ -794,7 +794,7 @@ class LineBlockCommentOnlyLineTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert($source));
     }
 
     public function testTheRuleHoldsInsideAQuote(): void

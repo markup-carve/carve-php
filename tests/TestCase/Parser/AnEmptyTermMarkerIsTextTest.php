@@ -60,7 +60,7 @@ class AnEmptyTermMarkerIsTextTest extends TestCase
     #[DataProvider('emptyMarkers')]
     public function testAnEmptyMarkerWithTrailingWhitespaceIsText(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -87,6 +87,6 @@ class AnEmptyTermMarkerIsTextTest extends TestCase
     #[DataProvider('controls')]
     public function testTheControlsDoNotMove(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 }

@@ -173,13 +173,13 @@ class AutolinkExtensionTest extends TestCase
     #[DataProvider('escapedUrlProvider')]
     public function testDecodesBackslashEscapes(string $source, string $url): void
     {
-        $this->assertSame("<p>See <a href=\"{$url}\">{$url}</a> now.</p>\n", $this->autolinked($source));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>See <a href=\"{$url}\">{$url}</a> now.</p>\n"), $this->autolinked($source));
     }
 
     public function testEscapedTrailingPeriodStaysOutsideTheLink(): void
     {
         $this->assertSame(
-            "<p>See <a href=\"http://e.com/a\">http://e.com/a</a>.</p>\n",
+            preg_replace('/\n\z/', '', "<p>See <a href=\"http://e.com/a\">http://e.com/a</a>.</p>\n"),
             $this->autolinked('See http://e.com/a\.'),
         );
     }
@@ -187,7 +187,7 @@ class AutolinkExtensionTest extends TestCase
     public function testLoneBackslashIsKept(): void
     {
         $this->assertSame(
-            "<p>See <a href=\"http://e.com/a\\b\">http://e.com/a\\b</a> now.</p>\n",
+            preg_replace('/\n\z/', '', "<p>See <a href=\"http://e.com/a\\b\">http://e.com/a\\b</a> now.</p>\n"),
             $this->autolinked('See http://e.com/a\b now.'),
         );
     }

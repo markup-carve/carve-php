@@ -135,7 +135,7 @@ class DenyingADefinitionReachesEveryTargetTest extends TestCase
         // already agreed on both; the assertion is here so a fix to the
         // definition half cannot quietly change the inline half.
         if ($action === Profile::ACTION_STRIP) {
-            $this->assertSame("<p> is fine.</p>\n", $inlineDenied);
+            $this->assertSame(preg_replace('/\n\z/', '', "<p> is fine.</p>\n"), $inlineDenied);
         } else {
             $this->assertStringContainsString('HTML is fine.', $inlineDenied);
         }

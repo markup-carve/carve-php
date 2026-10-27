@@ -21,7 +21,7 @@ class BareDotOrderedMarkerTest extends TestCase
     public function testBareDotRendersAsDecimalOrderedList(): void
     {
         $this->assertSame(
-            "<ol>\n  <li>first</li>\n  <li>second</li>\n</ol>\n",
+            preg_replace('/\n\z/', '', "<ol>\n  <li>first</li>\n  <li>second</li>\n</ol>\n"),
             $this->html(". first\n. second\n"),
         );
     }
@@ -29,7 +29,7 @@ class BareDotOrderedMarkerTest extends TestCase
     public function testBareDotMixesWithExplicitDecimalDot(): void
     {
         $this->assertSame(
-            "<ol>\n  <li>a</li>\n  <li>b</li>\n</ol>\n",
+            preg_replace('/\n\z/', '', "<ol>\n  <li>a</li>\n  <li>b</li>\n</ol>\n"),
             $this->html(". a\n2. b\n"),
         );
         $this->assertSame(
@@ -41,7 +41,7 @@ class BareDotOrderedMarkerTest extends TestCase
     public function testDifferentOrderedDelimiterStartsSiblingList(): void
     {
         $this->assertSame(
-            "<ol>\n  <li>a</li>\n</ol>\n<ol data-delim=\")\">\n  <li>b</li>\n</ol>\n",
+            preg_replace('/\n\z/', '', "<ol>\n  <li>a</li>\n</ol>\n<ol data-delim=\")\">\n  <li>b</li>\n</ol>\n"),
             $this->html(". a\n1) b\n"),
         );
         $this->assertCount(2, (new CarveConverter())->parse(". a\n1) b\n")->getChildren());
@@ -59,12 +59,12 @@ class BareDotOrderedMarkerTest extends TestCase
         // line and not just a paragraph's last (markup-carve/carve#926). What
         // this case is about - a bare marker not opening a list - is unchanged,
         // and the four `assertInstanceOf` rows above say so directly.
-        $this->assertSame("<p>.\n.\n.x\n.. text</p>\n", $this->html(".\n.   \n.x\n.. text\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>.\n.\n.x\n.. text</p>\n"), $this->html(".\n.   \n.x\n.. text\n"));
     }
 
     public function testBareDotDoesNotInterruptParagraph(): void
     {
-        $this->assertSame("<p>text\n. a</p>\n", $this->html("text\n. a\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>text\n. a</p>\n"), $this->html("text\n. a\n"));
     }
 
     /**
@@ -104,7 +104,7 @@ class BareDotOrderedMarkerTest extends TestCase
         // sit in different blocks: the expansion inside the item's own text and
         // the expansion in the paragraph two lines later. Checking only the
         // paragraph would pass for an engine that still rewrote the item.
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -117,7 +117,7 @@ class BareDotOrderedMarkerTest extends TestCase
     public function testATopLevelAbbreviationStillRegisters(): void
     {
         $this->assertSame(
-            "<p><abbr title=\"d\">A</abbr> here</p>\n",
+            preg_replace('/\n\z/', '', "<p><abbr title=\"d\">A</abbr> here</p>\n"),
             $this->html("*[A]: d\n\nA here\n"),
         );
     }
@@ -129,7 +129,7 @@ class BareDotOrderedMarkerTest extends TestCase
     public function testAnAbbreviationAfterTheListEndsStillRegisters(): void
     {
         $this->assertSame(
-            "<ol>\n  <li>x</li>\n</ol>\n<p><abbr title=\"d\">A</abbr> here</p>\n",
+            preg_replace('/\n\z/', '', "<ol>\n  <li>x</li>\n</ol>\n<p><abbr title=\"d\">A</abbr> here</p>\n"),
             $this->html(". x\n\n*[A]: d\n\nA here\n"),
         );
     }
@@ -137,7 +137,7 @@ class BareDotOrderedMarkerTest extends TestCase
     public function testAttributesAttachToTheListItem(): void
     {
         $this->assertSame(
-            "<ol>\n  <li id=\"x\" class=\"k\">text</li>\n</ol>\n",
+            preg_replace('/\n\z/', '', "<ol>\n  <li id=\"x\" class=\"k\">text</li>\n</ol>\n"),
             $this->html(".{#x .k} text\n"),
         );
         $this->assertSame("<p>.{k=v}text</p>\n", $this->html(".{k=v}text\n"));

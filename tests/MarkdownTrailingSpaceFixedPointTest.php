@@ -13,14 +13,14 @@ final class MarkdownTrailingSpaceFixedPointTest extends TestCase
     public function testNonverbatimLineEnds(): void
     {
         $rows = [
-            'cm-067' => ["#                  foo                     \n", "# foo\n", '0e73f00198c80928510363224ebb3357fa5795e92bba20cfef913718f903e1e0'],
-            'cm-226' => ["aaa     \nbbb     \n", "aaa\\\nbbb\n", '642018f9a5f2ae6457707e55ea615de28317ee3bbd171bec4fea60036ae381bd'],
-            'cm-556' => ["[foo] \n[]\n\n[foo]: /url \"title\"\n", "[foo][]\n[]\n\n[foo]: /url \"title\"\n", 'ce71fc28fbf1de53830705fedabee05e1ce22ff935213d357f687cc520d78024'],
-            'cm-587' => ["![foo] \n[]\n\n[foo]: /url \"title\"\n", "![foo][]\n[]\n\n[foo]: /url \"title\"\n", 'c7c78316a5bafd3387daa5b69280452e8cf63bcf95a8efb4ccaa57d9a729aac7'],
-            'cm-642' => ["<a href=\"foo  \nbar\">\n", "`<a href=\"foo\nbar\">`{=html}\n", 'd4644c8bbedb0388c3cd16d46cfbe50345e6b9acaf4710d104aa696a64e0de1d'],
-            'cm-645' => ["foo  \n", "foo\n", '8fc9cc9ebfa70f9adc31e7f662fd13127a9e08838b716ab62f15bb80a7b7cd0b'],
-            'cm-647' => ["### foo  \n", "### foo\n", '5677eeaae658952b68618b0e75b626f406136b2d157de00c6630fa20b898f4bb'],
-            'cm-649' => ["foo \n baz\n", "foo\nbaz\n", '6e3b6ec9a1263b516d56f63f41a7379e6c0039f00ee382165531bcc92472b396'],
+            'cm-067' => ["#                  foo                     \n", "# foo\n", 'afd925a8f2ede75725b17110cabe4eaad91468d6246260b5f56cdd534ed36681'],
+            'cm-226' => ["aaa     \nbbb     \n", "aaa\\\nbbb\n", '585175a30835ff90bf7aacc9524cac6dbeed9f4f6c5cc2fd48ef1f97fbaae13d'],
+            'cm-556' => ["[foo] \n[]\n\n[foo]: /url \"title\"\n", "[foo][]\n[]\n\n[foo]: /url \"title\"\n", 'e973185bebf483880a6c586a0473346c256ab6a72e24722e741ba87900502829'],
+            'cm-587' => ["![foo] \n[]\n\n[foo]: /url \"title\"\n", "![foo][]\n[]\n\n[foo]: /url \"title\"\n", 'ae4f76e9bf1f9f43e80074e074e55bba2c3cacc226b159ec9c550a912d1df7d8'],
+            'cm-642' => ["<a href=\"foo  \nbar\">\n", "`<a href=\"foo\nbar\">`{=html}\n", '738cf760ba33b9796be7a965b4a4364e9a06667eb2f1762ef9d80708a4292129'],
+            'cm-645' => ["foo  \n", "foo\n", '3d96946706274ad7cdbc5e28f4efbae7639377496d9081b28c68c4715da07f53'],
+            'cm-647' => ["### foo  \n", "### foo\n", 'aec201cf819d3c1bf7d3a5043b1a92d44022c687494ee66c64ce64913e743c6f'],
+            'cm-649' => ["foo \n baz\n", "foo\nbaz\n", '3459d1385d5f118ce383fb4cc3556204abcdfb5e3603e6df0b4dc393859684d9'],
         ];
 
         foreach ($rows as $id => [$source, $expected, $htmlHash]) {

@@ -78,7 +78,7 @@ class AColonFenceLeadDoesNotDecideLoosenessTest extends TestCase
         string $source,
         string $expected,
     ): void {
-        $this->assertSame($expected, $this->converter->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($source));
     }
 
     /**
@@ -163,6 +163,6 @@ class AColonFenceLeadDoesNotDecideLoosenessTest extends TestCase
     #[DataProvider('tightShapes')]
     public function testTheItemStaysTight(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->converter->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($source));
     }
 }

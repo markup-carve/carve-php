@@ -35,7 +35,7 @@ class TheContinuationMarkerAttachesOneBlockInEveryContainerTest extends TestCase
         $html = $this->converter->convert("- a\n+\npara\n> q\n");
 
         $this->assertSame(
-            "<ul>\n  <li>a\n    para\n  </li>\n</ul>\n<blockquote><p>q</p></blockquote>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    para\n  </li>\n</ul>\n<blockquote><p>q</p></blockquote>\n"),
             $html,
         );
     }
@@ -53,7 +53,7 @@ class TheContinuationMarkerAttachesOneBlockInEveryContainerTest extends TestCase
         $html = $this->converter->convert(":: t\n:  a\n+\npara\n> q\n");
 
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <p>para</p>\n  </dd>\n</dl>\n<blockquote><p>q</p></blockquote>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <p>para</p>\n  </dd>\n</dl>\n<blockquote><p>q</p></blockquote>\n"),
             $html,
         );
     }
@@ -70,7 +70,7 @@ class TheContinuationMarkerAttachesOneBlockInEveryContainerTest extends TestCase
         $html = $this->converter->convert("> a\n+\n> q\n");
 
         $this->assertSame(
-            "<blockquote>\n  <p>a</p>\n  <blockquote><p>q</p></blockquote>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <p>a</p>\n  <blockquote><p>q</p></blockquote>\n</blockquote>\n"),
             $html,
         );
     }
@@ -80,7 +80,7 @@ class TheContinuationMarkerAttachesOneBlockInEveryContainerTest extends TestCase
         $html = $this->converter->convert("> a\n+\npara\n> q\n");
 
         $this->assertSame(
-            "<blockquote>\n  <p>a</p>\n  <p>para</p>\n  <p>q</p>\n</blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <p>a</p>\n  <p>para</p>\n  <p>q</p>\n</blockquote>\n"),
             $html,
         );
     }

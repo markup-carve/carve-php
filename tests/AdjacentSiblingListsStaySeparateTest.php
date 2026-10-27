@@ -122,7 +122,7 @@ class AdjacentSiblingListsStaySeparateTest extends TestCase
     public function testOneBlankLineStillLoosens(): void
     {
         $this->assertSame(
-            "<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>\n"),
             $this->converter->convert("- a\n\n- b\n"),
         );
     }
@@ -132,7 +132,7 @@ class AdjacentSiblingListsStaySeparateTest extends TestCase
         // The threshold is three precisely so the run lengths documents already
         // contain -- changelog spacing, generator output -- keep their meaning.
         $this->assertSame(
-            "<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>\n"),
             $this->converter->convert("- a\n\n\n- b\n"),
         );
     }

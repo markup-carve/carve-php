@@ -33,7 +33,7 @@ class EmptyContainerBodyTest extends TestCase
     public function testAnAdmonitionKeepsTheBlankLine(): void
     {
         $html = $this->converter->convert("::: note\n:::");
-        $this->assertSame("<aside class=\"admonition note\" aria-label=\"Note\">\n\n</aside>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<aside class=\"admonition note\" aria-label=\"Note\">\n\n</aside>\n"), $html);
     }
 
     public function testAnEmptyBlockquoteKeepsTheBlankLine(): void

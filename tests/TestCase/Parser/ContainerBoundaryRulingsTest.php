@@ -105,7 +105,7 @@ class ContainerBoundaryRulingsTest extends TestCase
     public function testAContinuationRowWithNoTableAboveIsProse(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a\n+ b |\ntail</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n+ b |\ntail</li>\n</ul>\n"),
             $this->html("- a\n  + b |\ntail\n"),
         );
     }
@@ -147,7 +147,7 @@ class ContainerBoundaryRulingsTest extends TestCase
         string $source,
         string $expected,
     ): void {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -295,7 +295,7 @@ class ContainerBoundaryRulingsTest extends TestCase
     public function testAOneLevelQuoteStillFoldsWhenItsLastBlockIsProse(): void
     {
         $this->assertSame(
-            "<blockquote><p>p\ntail</p></blockquote>\n",
+            preg_replace('/\n\z/', '', "<blockquote><p>p\ntail</p></blockquote>\n"),
             $this->html("> p\ntail\n"),
         );
     }

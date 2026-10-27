@@ -104,7 +104,7 @@ class TrailingWhitespaceIsDroppedTest extends TestCase
     public function testAnAllSpaceVerbatimTermKeepsItsSpaces(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt><code>  </code></dt>\n  <dd>d</dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt><code>  </code></dt>\n  <dd>d</dd>\n</dl>\n"),
             $this->html(":: `  `\n:  d\n"),
         );
     }
@@ -116,7 +116,7 @@ class TrailingWhitespaceIsDroppedTest extends TestCase
     public function testAnInteriorRunOnAFoldedTermLineSurvives(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt><code>a\nb  </code></dt>\n  <dd>d</dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt><code>a\nb  </code></dt>\n  <dd>d</dd>\n</dl>\n"),
             $this->html(":: `a\nb  `\n:  d\n"),
         );
     }
@@ -124,7 +124,7 @@ class TrailingWhitespaceIsDroppedTest extends TestCase
     #[DataProvider('softBreakProvider')]
     public function testTheRunIsDroppedBeforeASoftBreak(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     public function testAFootnoteBodyLineDropsItToo(): void
@@ -178,7 +178,7 @@ class TrailingWhitespaceIsDroppedTest extends TestCase
      */
     public function testTheBomIsContentAndTheSpaceIsWhatGoes(): void
     {
-        $this->assertSame("<p>\u{FEFF}</p>\n", $this->html(" \u{FEFF} \n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>\u{FEFF}</p>\n"), $this->html(" \u{FEFF} \n"));
     }
 
     /**
@@ -204,7 +204,7 @@ class TrailingWhitespaceIsDroppedTest extends TestCase
     #[DataProvider('outOfReachProvider')]
     public function testTheRuleDoesNotReachIt(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -219,7 +219,7 @@ class TrailingWhitespaceIsDroppedTest extends TestCase
     public function testALineBlockDropsOnlyItsOneColumnTrailingRun(): void
     {
         $this->assertSame(
-            "<div class=\"line-block\">\n  <p>abc&nbsp;&nbsp;<br>\ndef</p>\n</div>\n",
+            preg_replace('/\n\z/', '', "<div class=\"line-block\">\n  <p>abc&nbsp;&nbsp;<br>\ndef</p>\n</div>\n"),
             $this->html("::: |\nabc  \ndef \n:::\n"),
         );
     }

@@ -21,14 +21,14 @@ final class MarkdownEarlyLabelCloserTest extends TestCase
     {
         $importer = new MarkdownToCarve();
         $html = (new CarveConverter())->convert($importer->convert('[</#x]>](u)'));
-        self::assertSame("<p>[&lt;/#x]&gt;](u)</p>\n", $html);
+        self::assertSame('<p>[&lt;/#x]&gt;](u)</p>', $html);
     }
 
     public function testEscapedCloserStillAllowsTheLink(): void
     {
         $importer = new MarkdownToCarve();
         $html = (new CarveConverter())->convert($importer->convert('[</#x\\]>](u)'));
-        self::assertSame("<p><a href=\"u\">&lt;/#x]&gt;</a></p>\n", $html);
+        self::assertSame('<p><a href="u">&lt;/#x]&gt;</a></p>', $html);
         self::assertSame('[a </#x]> b](u)', $importer->convert('[a </#x\\]> b](u)'));
     }
 }

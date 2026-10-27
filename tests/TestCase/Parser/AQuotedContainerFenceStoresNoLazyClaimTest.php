@@ -124,7 +124,7 @@ JSON
                         $closer = str_starts_with($fence, '~') ? '~~~' : '```';
                         $ending = $closed ? "{$quote}{$pad}{$closer}\n" : '';
                         $source = "{$quote}{$marker}a\n" . rtrim($quote) . "\n{$quote}{$pad}{$fence}\n{$quote}{$pad}x\n{$ending}flush\n";
-                        $this->assertStringEndsWith("</blockquote>\n<p>flush</p>\n", $converter->convert($source), $source);
+                        $this->assertStringEndsWith("</blockquote>\n<p>flush</p>", $converter->convert($source), $source);
                     }
                 }
             }

@@ -14,7 +14,7 @@ class IndentedTableContinuationIsParagraphTest extends TestCase
         $html = (new CarveConverter())->convert("| a |\n  + |\n");
 
         $this->assertSame(
-            "<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n<p>+ |</p>\n",
+            preg_replace('/\n\z/', '', "<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n<p>+ |</p>\n"),
             $html,
         );
     }
@@ -23,6 +23,6 @@ class IndentedTableContinuationIsParagraphTest extends TestCase
     {
         $html = (new CarveConverter())->convert("| a |\n+ |\n");
 
-        $this->assertSame("<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n"), $html);
     }
 }

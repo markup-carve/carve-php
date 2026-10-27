@@ -86,6 +86,6 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
         $html = $this->converter->convert("- a\n %%% n\n");
 
         $this->assertStringNotContainsString('%%%', $html);
-        $this->assertSame("<ul>\n  <li>a</li>\n</ul>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n</ul>\n"), $html);
     }
 }

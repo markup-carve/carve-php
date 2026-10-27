@@ -136,13 +136,13 @@ class ADefinitionBodyInAnItemHoldsItsPayloadAcrossABlankTest extends TestCase
     #[DataProvider('insideTheDescription')]
     public function testPayloadAtTheBodyColumnIsInsideTheDescription(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     #[DataProvider('outsideTheDescription')]
     public function testPayloadOutsideTheBodyStaysOutsideTheDescription(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -156,8 +156,8 @@ class ADefinitionBodyInAnItemHoldsItsPayloadAcrossABlankTest extends TestCase
         // second PARAGRAPH, and `:: term` opens a block. The `tail` cases above
         // are the other half of that predicate and do loosen.
         $this->assertSame(
-            "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>\n        <p>definition</p>\n"
-                . "        <blockquote><p>quote</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>\n        <p>definition</p>\n"
+                . "        <blockquote><p>quote</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>\n"),
             $this->html("- intro\n\n  :: term\n  : definition\n\n    > quote\n"),
         );
     }
@@ -170,8 +170,8 @@ class ADefinitionBodyInAnItemHoldsItsPayloadAcrossABlankTest extends TestCase
     public function testAnItemEndingAtTheBlankHoldsNothingMore(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n"
-                . "    </dl>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n"
+                . "    </dl>\n  </li>\n</ul>\n"),
             $this->html("- intro\n  :: term\n  : definition\n\n"),
         );
     }

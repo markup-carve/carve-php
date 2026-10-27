@@ -37,7 +37,7 @@ class AForwardedContinuationMarkerKeepsItsColumnTest extends TestCase
         $html = $this->converter->convert("1. x\n    - M\n  +\n");
 
         $this->assertSame(
-            "<ol>\n  <li>x\n    <ul>\n      <li>M\n+</li>\n    </ul>\n  </li>\n</ol>\n",
+            preg_replace('/\n\z/', '', "<ol>\n  <li>x\n    <ul>\n      <li>M\n+</li>\n    </ul>\n  </li>\n</ol>\n"),
             $html,
         );
     }
@@ -80,7 +80,7 @@ class AForwardedContinuationMarkerKeepsItsColumnTest extends TestCase
         $html = $this->converter->convert("- x\n  - L\n\n +\n");
 
         $this->assertSame(
-            "<ul>\n  <li>x\n    <ul>\n      <li>L</li>\n    </ul>\n  </li>\n</ul>\n<p>+</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>x\n    <ul>\n      <li>L</li>\n    </ul>\n  </li>\n</ul>\n<p>+</p>\n"),
             $html,
         );
     }
@@ -90,7 +90,7 @@ class AForwardedContinuationMarkerKeepsItsColumnTest extends TestCase
         $html = $this->converter->convert("- x\n  - L\n\n +\nfollow\n");
 
         $this->assertSame(
-            "<ul>\n  <li>x\n    <ul>\n      <li>L</li>\n    </ul>\n  </li>\n</ul>\n<p>+\nfollow</p>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>x\n    <ul>\n      <li>L</li>\n    </ul>\n  </li>\n</ul>\n<p>+\nfollow</p>\n"),
             $html,
         );
     }

@@ -160,7 +160,7 @@ class LineBlockHardBreakBackslashTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert("::: |\na \\\nb\n:::\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert("::: |\na \\\nb\n:::\n"));
     }
 
     public function testABackslashOnlyLineIsOneEmptyVerseLine(): void
@@ -174,7 +174,7 @@ class LineBlockHardBreakBackslashTest extends TestCase
 
         HTML;
 
-        $this->assertSame($expected, $this->convert("::: |\na\n\\\nb\n:::\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->convert("::: |\na\n\\\nb\n:::\n"));
     }
 
     /**

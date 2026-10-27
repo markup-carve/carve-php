@@ -157,6 +157,6 @@ DJOT;
     {
         $html = $this->converter->convert('x{^2^}');
 
-        $this->assertSame("<p>x<sup>2</sup></p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>x<sup>2</sup></p>\n"), $html);
     }
 }

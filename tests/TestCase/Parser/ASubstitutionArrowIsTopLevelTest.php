@@ -38,7 +38,7 @@ class ASubstitutionArrowIsTopLevelTest extends TestCase
     #[DataProvider('strikes')]
     public function testAPairWithNoTopLevelArrowIsAStrike(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -61,6 +61,6 @@ class ASubstitutionArrowIsTopLevelTest extends TestCase
     #[DataProvider('substitutions')]
     public function testATopLevelArrowSplitsThePair(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 }

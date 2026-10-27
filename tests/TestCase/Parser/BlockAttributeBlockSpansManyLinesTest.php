@@ -207,7 +207,7 @@ class BlockAttributeBlockSpansManyLinesTest extends TestCase
     public function testTheAttributesLandOnTheFollowingBlock(): void
     {
         $this->assertSame(
-            "<p class=\"a b c\">para</p>\n",
+            preg_replace('/\n\z/', '', "<p class=\"a b c\">para</p>\n"),
             $this->html("{.a\n.b\n.c}\npara\n"),
         );
     }

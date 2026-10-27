@@ -676,6 +676,6 @@ DJOT;
 
         $this->assertTrue($ext->hasFrontmatter());
         $this->assertStringNotContainsString('title: X', $html);
-        $this->assertSame("<p>Body</p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>Body</p>\n"), $html);
     }
 }

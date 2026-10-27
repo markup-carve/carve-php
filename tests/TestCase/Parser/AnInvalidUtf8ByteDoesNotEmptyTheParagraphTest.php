@@ -116,7 +116,7 @@ class AnInvalidUtf8ByteDoesNotEmptyTheParagraphTest extends TestCase
         // provider exists rather than one HTML row.
         $converter = $factory === 'convert' ? new CarveConverter() : CarveConverter::$factory();
 
-        $this->assertSame($expected, $converter->convert("hello \x9b world\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $converter->convert("hello \x9b world\n"));
     }
 
     #[DataProvider('targets')]
@@ -126,7 +126,7 @@ class AnInvalidUtf8ByteDoesNotEmptyTheParagraphTest extends TestCase
         $converter = $factory === 'convert' ? new CarveConverter() : CarveConverter::$factory();
         $expected = str_replace("\u{FFFD}", '', $expected);
 
-        $this->assertSame($expected, $converter->convert("hello  world\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $converter->convert("hello  world\n"));
     }
 
     /**

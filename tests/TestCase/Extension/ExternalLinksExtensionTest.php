@@ -70,7 +70,7 @@ class ExternalLinksExtensionTest extends TestCase
         $html = $converter->convert('[a](https://elsewhere.test/x)');
 
         $this->assertSame(
-            "<p><a href=\"https://elsewhere.test/x\" rel=\"noopener noreferrer\">a</a></p>\n",
+            preg_replace('/\n\z/', '', "<p><a href=\"https://elsewhere.test/x\" rel=\"noopener noreferrer\">a</a></p>\n"),
             $html,
         );
     }

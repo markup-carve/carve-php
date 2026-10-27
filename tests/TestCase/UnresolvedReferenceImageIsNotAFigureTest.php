@@ -31,7 +31,7 @@ class UnresolvedReferenceImageIsNotAFigureTest extends TestCase
     {
         $html = $this->converter->convert("![a][nope]\n^ cap");
 
-        $this->assertSame("<p>![a][nope]\n^ cap</p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>![a][nope]\n^ cap</p>\n"), $html);
         $this->assertStringNotContainsString('<figure>', $html);
     }
 

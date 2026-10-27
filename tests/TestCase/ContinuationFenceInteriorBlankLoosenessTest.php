@@ -25,7 +25,7 @@ class ContinuationFenceInteriorBlankLoosenessTest extends TestCase
     {
         $html = $this->converter->convert("- text\n\n  ```\n  a\n\n  b\n  ```\n- c");
         $this->assertSame(
-            "<ul>\n  <li>text\n    <pre><code>a\n\nb\n</code></pre>\n  </li>\n  <li>c</li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>text\n    <pre><code>a\n\nb\n</code></pre>\n  </li>\n  <li>c</li>\n</ul>\n"),
             $html,
         );
     }

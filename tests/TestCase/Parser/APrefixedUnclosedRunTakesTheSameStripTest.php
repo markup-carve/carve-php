@@ -39,7 +39,7 @@ class APrefixedUnclosedRunTakesTheSameStripTest extends TestCase
     #[DataProvider('strippedProvider')]
     public function testTheCloserStripsTheRunsTrailingWhitespace(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -65,7 +65,7 @@ class APrefixedUnclosedRunTakesTheSameStripTest extends TestCase
     #[DataProvider('keptProvider')]
     public function testWhatTheStripDoesNotTake(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -74,7 +74,7 @@ class APrefixedUnclosedRunTakesTheSameStripTest extends TestCase
      */
     public function testTheBlockEndIsUnchanged(): void
     {
-        $this->assertSame("<p><span class=\"math inline\" role=\"math\">\\(a\\)</span></p>\n", $this->html("\$`a \n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><span class=\"math inline\" role=\"math\">\\(a\\)</span></p>\n"), $this->html("\$`a \n"));
         $this->assertSame("<p>a</p>\n", $this->html("!`a \n"));
     }
 }

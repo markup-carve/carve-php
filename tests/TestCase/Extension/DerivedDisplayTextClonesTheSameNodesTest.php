@@ -36,7 +36,7 @@ class DerivedDisplayTextClonesTheSameNodesTest extends TestCase
         // typed run, which is the failure carve-php#1004 fixed for the plain
         // cross-reference, reintroduced at a second derivation site.
         $this->assertSame(
-            "<section id=\"The-quoted-heading\">\n  <h1><span class=\"section-number\">1</span> The \"quoted\" -- heading</h1>\n  <p>See <a href=\"#The-quoted-heading\">Section 1 - The \"quoted\" -- heading</a></p>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"The-quoted-heading\">\n  <h1><span class=\"section-number\">1</span> The \"quoted\" -- heading</h1>\n  <p>See <a href=\"#The-quoted-heading\">Section 1 - The \"quoted\" -- heading</a></p>\n</section>\n"),
             $this->html(
                 self::SOURCE,
                 SmartTypographyMode::Source,
@@ -50,7 +50,7 @@ class DerivedDisplayTextClonesTheSameNodesTest extends TestCase
         // The CONTROL - the default mode is unchanged, so the fix moved the
         // decision to the renderer rather than moving the answer.
         $this->assertSame(
-            "<section id=\"The-quoted-heading\">\n  <h1><span class=\"section-number\">1</span> The \u{201C}quoted\u{201D} \u{2013} heading</h1>\n  <p>See <a href=\"#The-quoted-heading\">Section 1 - The \u{201C}quoted\u{201D} \u{2013} heading</a></p>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"The-quoted-heading\">\n  <h1><span class=\"section-number\">1</span> The \u{201C}quoted\u{201D} \u{2013} heading</h1>\n  <p>See <a href=\"#The-quoted-heading\">Section 1 - The \u{201C}quoted\u{201D} \u{2013} heading</a></p>\n</section>\n"),
             $this->html(
                 self::SOURCE,
                 SmartTypographyMode::Glyph,
@@ -67,7 +67,7 @@ class DerivedDisplayTextClonesTheSameNodesTest extends TestCase
         // second time by the list builder, which published `&quot;` where the
         // heading published `"`; carve-js emits the bare quote.
         $this->assertSame(
-            "<nav class=\"toc\" aria-label=\"Table of contents\">\n<ul>\n<li><a href=\"#The-quoted-heading\">The \"quoted\" -- heading</a></li>\n</ul>\n</nav>\n<section id=\"The-quoted-heading\">\n  <h1>The \"quoted\" -- heading</h1>\n</section>\n",
+            preg_replace('/\n\z/', '', "<nav class=\"toc\" aria-label=\"Table of contents\">\n<ul>\n<li><a href=\"#The-quoted-heading\">The \"quoted\" -- heading</a></li>\n</ul>\n</nav>\n<section id=\"The-quoted-heading\">\n  <h1>The \"quoted\" -- heading</h1>\n</section>\n"),
             $this->html(
                 "::: toc\n:::\n\n# The \"quoted\" -- heading\n",
                 SmartTypographyMode::Source,
@@ -96,7 +96,7 @@ class DerivedDisplayTextClonesTheSameNodesTest extends TestCase
         // already answered this way; it is pinned because the clause makes it
         // normative and because this extension is the thing doing the injecting.
         $this->assertSame(
-            "<section id=\"Alpha\">\n  <h1><span class=\"section-number\">1</span> Alpha</h1>\n  <section id=\"Beta\">\n    <h2><span class=\"section-number\">1.1</span> Beta</h2>\n    <p>See <a href=\"#Beta\">Beta</a></p>\n  </section>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"Alpha\">\n  <h1><span class=\"section-number\">1</span> Alpha</h1>\n  <section id=\"Beta\">\n    <h2><span class=\"section-number\">1.1</span> Beta</h2>\n    <p>See <a href=\"#Beta\">Beta</a></p>\n  </section>\n</section>\n"),
             $this->html(
                 "# Alpha\n\n## Beta\n\nSee </#Beta>\n",
                 SmartTypographyMode::Glyph,
@@ -114,7 +114,7 @@ class DerivedDisplayTextClonesTheSameNodesTest extends TestCase
         // source-run half and left its markup half unanswered - and it is the
         // node that carries both, so one seam settles them together.
         $this->assertSame(
-            "<section id=\"The-code-heading\">\n  <h1><span class=\"section-number\">1</span> The <code>code</code> heading</h1>\n  <p>See <a href=\"#The-code-heading\">The <code>code</code> heading</a></p>\n</section>\n",
+            preg_replace('/\n\z/', '', "<section id=\"The-code-heading\">\n  <h1><span class=\"section-number\">1</span> The <code>code</code> heading</h1>\n  <p>See <a href=\"#The-code-heading\">The <code>code</code> heading</a></p>\n</section>\n"),
             $this->html(
                 "# The `code` heading\n\nSee </#The-code-heading>\n",
                 SmartTypographyMode::Glyph,

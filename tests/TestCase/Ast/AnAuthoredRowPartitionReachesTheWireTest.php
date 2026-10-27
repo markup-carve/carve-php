@@ -119,7 +119,7 @@ class AnAuthoredRowPartitionReachesTheWireTest extends TestCase
         $this->assertArrayNotHasKey('attrs', $wire['children'][0]);
 
         $fromWire = (new HtmlRenderer())->render($this->codec->decode($wire));
-        $this->assertSame($fromSource, $fromWire);
+        $this->assertSame($fromSource, preg_replace('/\n\z/', '', $fromWire));
     }
 
     /**

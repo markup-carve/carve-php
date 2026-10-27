@@ -352,7 +352,7 @@ class ExtensionHtmlStructureTest extends TestCase
         $fence = "```mermaid\ngraph TD; A-->B;\n```\n";
         $this->assertSameTree($fence, (new HtmlToCarve())->convert($this->export($fence, FencedRenderExtension::mermaid())));
         $plain = $this->export($fence, FencedRenderExtension::mermaid(), false, false);
-        $this->assertSame("<pre class=\"mermaid\" role=\"img\" aria-label=\"mermaid\">graph TD; A-->B;</pre>\n", $plain);
+        $this->assertSame(preg_replace('/\n\z/', '', "<pre class=\"mermaid\" role=\"img\" aria-label=\"mermaid\">graph TD; A-->B;</pre>\n"), $plain);
         $this->assertSameTree($classed, (new HtmlToCarve())->convert($plain));
     }
 

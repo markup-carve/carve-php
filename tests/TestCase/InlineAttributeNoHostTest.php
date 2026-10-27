@@ -31,14 +31,14 @@ class InlineAttributeNoHostTest extends TestCase
     {
         $result = $this->converter->convert("para {.c} more\n");
 
-        $this->assertSame("<p>para {.c} more</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>para {.c} more</p>\n"), $result);
     }
 
     public function testHostlessBlockAtStartStaysLiteral(): void
     {
         $result = $this->converter->convert("{.c} text\n");
 
-        $this->assertSame("<p>{.c} text</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>{.c} text</p>\n"), $result);
     }
 
     public function testListItemSpaceFormBlockIsLiteralContent(): void
@@ -47,14 +47,14 @@ class InlineAttributeNoHostTest extends TestCase
         // block ordinary item content, not a list-item attribute.
         $result = $this->converter->convert("- {.c} text\n");
 
-        $this->assertSame("<ul>\n  <li>{.c} text</li>\n</ul>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<ul>\n  <li>{.c} text</li>\n</ul>\n"), $result);
     }
 
     public function testListItemHostlessBlockAfterWordWithSpace(): void
     {
         $result = $this->converter->convert("- a {.c} text\n");
 
-        $this->assertSame("<ul>\n  <li>a {.c} text</li>\n</ul>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<ul>\n  <li>a {.c} text</li>\n</ul>\n"), $result);
     }
 
     // ---- reference behavior: bare words stay literal; explicit hosts attach ----
@@ -63,20 +63,20 @@ class InlineAttributeNoHostTest extends TestCase
     {
         $result = $this->converter->convert("word{.c} x\n");
 
-        $this->assertSame("<p>word{.c} x</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>word{.c} x</p>\n"), $result);
     }
 
     public function testBareWordAttributeValueStaysLiteralWithSmartQuotes(): void
     {
         $result = $this->converter->convert("p{data-x=\"y z\"}\n");
 
-        $this->assertSame("<p>p{data-x=“y z”}</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>p{data-x=“y z”}</p>\n"), $result);
     }
 
     public function testAbuttingBracketSpanStillAttaches(): void
     {
         $result = $this->converter->convert("[s]{.c} x\n");
 
-        $this->assertSame("<p><span class=\"c\">s</span> x</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><span class=\"c\">s</span> x</p>\n"), $result);
     }
 }

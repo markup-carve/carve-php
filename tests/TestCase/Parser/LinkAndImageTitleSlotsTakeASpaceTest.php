@@ -149,7 +149,7 @@ class LinkAndImageTitleSlotsTakeASpaceTest extends TestCase
     #[DataProvider('titleSlotProvider')]
     public function testANonSpaceRunLeavesTheBracketRunLiteral(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     #[DataProvider('spacedTitleSlotProvider')]
@@ -190,7 +190,7 @@ class LinkAndImageTitleSlotsTakeASpaceTest extends TestCase
         // failure PART 7 asks for is the bracket run surviving as text; a link
         // that opened with its title silently dropped would satisfy a
         // `assertStringNotContainsString('title=')` and is a different outcome.
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -205,7 +205,7 @@ class LinkAndImageTitleSlotsTakeASpaceTest extends TestCase
     public function testALineBreakDoesNotFillTheTitleSlot(): void
     {
         $this->assertSame(
-            "<p>[t](/u\n\u{201C}T\u{201D})</p>\n",
+            preg_replace('/\n\z/', '', "<p>[t](/u\n\u{201C}T\u{201D})</p>\n"),
             $this->html("[t](/u\n\"T\")"),
         );
     }

@@ -28,7 +28,7 @@ class MarkerLineFenceInteriorBlankTest extends TestCase
     {
         $html = $this->converter->convert("- ```\n  a\n\n  b\n  ```");
         $this->assertSame(
-            "<ul>\n  <li>\n    <pre><code>a\n\nb\n</code></pre>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code>a\n\nb\n</code></pre>\n  </li>\n</ul>\n"),
             $html,
         );
     }
@@ -37,7 +37,7 @@ class MarkerLineFenceInteriorBlankTest extends TestCase
     {
         $html = $this->converter->convert("- ```\n  a\n\n\n  b\n  ```");
         $this->assertSame(
-            "<ul>\n  <li>\n    <pre><code>a\n\n\nb\n</code></pre>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code>a\n\n\nb\n</code></pre>\n  </li>\n</ul>\n"),
             $html,
         );
     }

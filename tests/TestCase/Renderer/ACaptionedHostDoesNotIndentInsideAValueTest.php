@@ -32,7 +32,7 @@ class ACaptionedHostDoesNotIndentInsideAValueTest extends TestCase
     public function testTheFiguresIndentDoesNotReachInsideAnAttributeValue(): void
     {
         $this->assertSame(
-            "<figure>\n  <img src=\"/i\" alt=\"a\nb\">\n  <figcaption>cap</figcaption>\n</figure>\n",
+            preg_replace('/\n\z/', '', "<figure>\n  <img src=\"/i\" alt=\"a\nb\">\n  <figcaption>cap</figcaption>\n</figure>\n"),
             $this->html("![a\nb](/i)\n^ cap\n"),
         );
     }
@@ -94,7 +94,7 @@ class ACaptionedHostDoesNotIndentInsideAValueTest extends TestCase
     public function testDisplayMathSpanningALineBoundaryIsNotCaptionable(): void
     {
         $this->assertSame(
-            "<p><span class=\"math display\" role=\"math\">\\[a\nb\\]</span>\n^ cap</p>\n",
+            preg_replace('/\n\z/', '', "<p><span class=\"math display\" role=\"math\">\\[a\nb\\]</span>\n^ cap</p>\n"),
             $this->html("$$`a\nb`\n^ cap\n"),
         );
     }

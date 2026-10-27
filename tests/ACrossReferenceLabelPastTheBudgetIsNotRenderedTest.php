@@ -118,11 +118,11 @@ class ACrossReferenceLabelPastTheBudgetIsNotRenderedTest extends TestCase
         $html = (new CarveConverter())->convert("# A `b` _c_\n\n</#A-b-c> </#A-b-c>\n");
 
         $this->assertSame(
-            '<section id="A-b-c">' . "\n"
+            preg_replace('/\n\z/', '', '<section id="A-b-c">' . "\n"
             . '  <h1>A <code>b</code> <u>c</u></h1>' . "\n"
             . '  <p><a href="#A-b-c">A <code>b</code> <u>c</u></a>'
             . ' <a href="#A-b-c">A <code>b</code> <u>c</u></a></p>' . "\n"
-            . '</section>' . "\n",
+            . '</section>' . "\n"),
             $html,
         );
     }

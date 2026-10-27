@@ -90,7 +90,7 @@ class BlankBeforeASiblingMarkerSeparatesTheItemsTest extends TestCase
     #[DataProvider('unterminatedContainers')]
     public function testABlankBeforeASiblingMarkerLoosensTheList(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->converter->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($source));
     }
 
     /**
@@ -120,7 +120,7 @@ class BlankBeforeASiblingMarkerSeparatesTheItemsTest extends TestCase
     #[DataProvider('terminatedContainers')]
     public function testTheClosedSpellingStillLoosens(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->converter->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($source));
     }
 
     /**
@@ -185,6 +185,6 @@ class BlankBeforeASiblingMarkerSeparatesTheItemsTest extends TestCase
     #[DataProvider('tightShapes')]
     public function testTheListStaysTight(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->converter->convert($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($source));
     }
 }

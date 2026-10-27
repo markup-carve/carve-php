@@ -90,14 +90,14 @@ class ADefinitionDestinationIsALinkDestinationTest extends TestCase
     #[DataProvider('prosaicProvider')]
     public function testARunThatIsNotADestinationLeavesTheLineAsProse(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     #[DataProvider('destinationProvider')]
     public function testTheDefinitionCarriesTheResolvedDestination(string $source, string $href): void
     {
         $this->assertSame(
-            '<p><a href="' . $href . '">x</a></p>' . "\n",
+            preg_replace('/\n\z/', '', '<p><a href="' . $href . '">x</a></p>' . "\n"),
             $this->html($source),
         );
     }
@@ -120,7 +120,7 @@ class ADefinitionDestinationIsALinkDestinationTest extends TestCase
     #[DataProvider('inlineControlProvider')]
     public function testTheInlineTailReadsTheSameRun(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -130,7 +130,7 @@ class ADefinitionDestinationIsALinkDestinationTest extends TestCase
     public function testAnImageReferenceTakesTheResolvedDestination(): void
     {
         $this->assertSame(
-            '<img src="/i(x.png" alt="alt">' . "\n",
+            preg_replace('/\n\z/', '', '<img src="/i(x.png" alt="alt">' . "\n"),
             $this->html("![alt][a]\n\n[a]: /i\\(x.png\n"),
         );
     }

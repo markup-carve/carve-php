@@ -154,11 +154,11 @@ class ADefinitionDescriptionDedentsByItsOwnContentColumnTest extends TestCase
     public function testAFootnoteDefinitionIsNotJoinedToTheLineBelowIt(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>b</dd>\n</dl>\n"
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>b</dd>\n</dl>\n"
                 . "<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n"
                 . "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n"
                 . "      <p>a<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">\u{21a9}</a></p>\n"
-                . "    </li>\n  </ol>\n</section>\n",
+                . "    </li>\n  </ol>\n</section>\n"),
             $this->html(":: t\n:  [^1]: a\n    b\n\nsee[^1]\n"),
         );
     }
@@ -171,7 +171,7 @@ class ADefinitionDescriptionDedentsByItsOwnContentColumnTest extends TestCase
     public function testALinkReferenceDefinitionIsNotJoinedToTheLineBelowItEither(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>b</dd>\n</dl>\n<p><a href=\"/u\">see</a></p>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>b</dd>\n</dl>\n<p><a href=\"/u\">see</a></p>\n"),
             $this->html(":: t\n:  [r]: /u\n    b\n\n[see][r]\n"),
         );
     }
@@ -188,7 +188,7 @@ class ADefinitionDescriptionDedentsByItsOwnContentColumnTest extends TestCase
     public function testAnAbbreviationShapeInsideADescriptionStillFolds(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>*[H]: Hyper\nb</dd>\n</dl>\n<p>H</p>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>*[H]: Hyper\nb</dd>\n</dl>\n<p>H</p>\n"),
             $this->html(":: t\n:  *[H]: Hyper\n    b\n\nH\n"),
         );
     }
@@ -200,8 +200,8 @@ class ADefinitionDescriptionDedentsByItsOwnContentColumnTest extends TestCase
     public function testANestedListInADescriptionKeepsItsNesting(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <ul>\n      <li>x\n"
-                . "        <ul>\n          <li>y</li>\n        </ul>\n      </li>\n    </ul>\n  </dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <ul>\n      <li>x\n"
+                . "        <ul>\n          <li>y</li>\n        </ul>\n      </li>\n    </ul>\n  </dd>\n</dl>\n"),
             $this->html(":: t\n:  a\n\n   - x\n     - y\n"),
         );
     }
@@ -237,6 +237,6 @@ class ADefinitionDescriptionDedentsByItsOwnContentColumnTest extends TestCase
     #[DataProvider('unmovedShapes')]
     public function testDefinitionBodyColumnBands(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 }

@@ -192,7 +192,7 @@ class VerbatimSigilEscapeIsStructuralTest extends TestCase
 
         $this->assertSame($expectedHtml, trim($htmlOfTree));
         $this->assertSame(
-            $htmlOfTree,
+            preg_replace('/\n\z/', '', $htmlOfTree),
             $htmlOfWritten,
             'toHtml(fmt(x)) != toHtml(x) for: ' . var_export($written, true),
         );

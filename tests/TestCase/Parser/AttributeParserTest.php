@@ -310,7 +310,7 @@ class AttributeParserTest extends TestCase
         // matching carve-js / carve-rs. The `[text]` span is not applied either.
         $result = $this->converter->convert('[text]{.class % this is a comment %}');
 
-        $this->assertSame("<p>[text]{.class % this is a comment %}</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>[text]{.class % this is a comment %}</p>\n"), $result);
     }
 
     /**
@@ -515,7 +515,7 @@ class AttributeParserTest extends TestCase
         // whole block is invalid and stays literal (§14), matching carve-js.
         $result = $this->converter->convert('[text]{a=1 -b=2}');
 
-        $this->assertSame("<p>[text]{a=1 -b=2}</p>\n", $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>[text]{a=1 -b=2}</p>\n"), $result);
     }
 
     /**

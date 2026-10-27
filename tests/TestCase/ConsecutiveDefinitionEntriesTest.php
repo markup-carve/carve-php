@@ -34,7 +34,7 @@ class ConsecutiveDefinitionEntriesTest extends TestCase
     public function testTwoEntriesWithNoBlankLineAreOneList(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t1</dt>\n  <dd>d1</dd>\n  <dt>t2</dt>\n  <dd>d2</dd>\n</dl>\n",
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t1</dt>\n  <dd>d1</dd>\n  <dt>t2</dt>\n  <dd>d2</dd>\n</dl>\n"),
             $this->html(":: t1\n:  d1\n:: t2\n:  d2\n"),
         );
     }

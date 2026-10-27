@@ -37,7 +37,7 @@ final class AstWhitespaceAndAnnotationsTest extends TestCase
             ],
         ]);
         $source = CarveConverter::carve()->render($doc);
-        self::assertSame("<p><span class=\"gap\">&nbsp;</span></p>\n", CarveConverter::create()->convert($source));
+        self::assertSame(preg_replace('/\n\z/', '', "<p><span class=\"gap\">&nbsp;</span></p>\n"), CarveConverter::create()->convert($source));
     }
 
     public function testLineBlockReferenceFieldsContainNoInternalMarkers(): void

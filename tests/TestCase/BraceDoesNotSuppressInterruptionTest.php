@@ -38,7 +38,7 @@ class BraceDoesNotSuppressInterruptionTest extends TestCase
         $html = $this->converter->convert("{\n%% internal note: do not ship\n");
 
         $this->assertStringNotContainsString('internal note', $html);
-        $this->assertSame("<p>{</p>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>{</p>\n"), $html);
     }
 
     public function testACommentFenceAfterAnUnclosedBraceIsNotPublished(): void

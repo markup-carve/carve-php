@@ -22,7 +22,7 @@ class AContinuationMarkerOffEveryMarkerColumnIsTextTest extends TestCase
         $html = $this->converter->convert("- x\n  - L\n +\n");
 
         $this->assertSame(
-            "<ul>\n  <li>x\n    <ul>\n      <li>L\n+</li>\n    </ul>\n  </li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li>x\n    <ul>\n      <li>L\n+</li>\n    </ul>\n  </li>\n</ul>\n"),
             $html,
         );
     }
@@ -80,6 +80,6 @@ class AContinuationMarkerOffEveryMarkerColumnIsTextTest extends TestCase
     {
         $html = $this->converter->convert("- x\n +\n");
 
-        $this->assertSame("<ul>\n  <li>x\n+</li>\n</ul>\n", $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<ul>\n  <li>x\n+</li>\n</ul>\n"), $html);
     }
 }

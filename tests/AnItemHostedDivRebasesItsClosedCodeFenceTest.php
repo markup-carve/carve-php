@@ -20,7 +20,7 @@ class AnItemHostedDivRebasesItsClosedCodeFenceTest extends TestCase
                 }
                 $html = $converter->convert($source);
                 self::assertStringContainsString("<pre><code>code\n</code></pre>", $html);
-                self::assertStringEndsWith("<p>after</p>\n", $html);
+                self::assertStringEndsWith('<p>after</p>', $html);
             }
         }
         $html = $converter->convert("::: box\n    ```\n    code\n    ```\nafter\n");

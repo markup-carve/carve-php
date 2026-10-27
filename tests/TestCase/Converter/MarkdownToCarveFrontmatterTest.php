@@ -69,7 +69,7 @@ class MarkdownToCarveFrontmatterTest extends TestCase
 
     public function testKeepsFrontmatterOutOfTheRenderedBody(): void
     {
-        $this->assertSame("<p>text</p>\n", $this->html("---\ntitle: X\n---\n\ntext\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>text</p>\n"), $this->html("---\ntitle: X\n---\n\ntext\n"));
     }
 
     public function testHandlesAFrontmatterOnlyDocument(): void
@@ -81,27 +81,27 @@ class MarkdownToCarveFrontmatterTest extends TestCase
     public function testAnUnclosedLeadingFenceStaysAThematicBreak(): void
     {
         // No closing fence, so Carve would not read frontmatter either.
-        $this->assertSame("<hr>\n<p>text</p>\n", $this->html("---\n\ntext\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<hr>\n<p>text</p>\n"), $this->html("---\n\ntext\n"));
     }
 
     public function testAnEmptyFencePairStaysTwoThematicBreaks(): void
     {
         // An empty fence carries no metadata, so the CommonMark reading - two
         // rules - is the meaning-preserving one.
-        $this->assertSame("<hr>\n<hr>\n", $this->html("---\n---\n"));
-        $this->assertSame("<hr>\n<hr>\n", $this->html("---\n\n---\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<hr>\n<hr>\n"), $this->html("---\n---\n"));
+        $this->assertSame("<hr>\n<hr>", $this->html("---\n\n---\n"));
     }
 
     public function testARuleLineIsNotConsumedAsSetextHeadingText(): void
     {
         // CommonMark: `***\n---` is two thematic breaks, not an h2 titled `***`.
-        $this->assertSame("<hr>\n<hr>\n", $this->html("***\n---\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<hr>\n<hr>\n"), $this->html("***\n---\n"));
     }
 
     public function testADocumentOpeningWithARuleDoesNotVanishIntoFrontmatter(): void
     {
-        $this->assertSame("<hr>\n<hr>\n", $this->html("***\n\n***\n"));
-        $this->assertSame("<hr>\n<p>text</p>\n<hr>\n", $this->html("***\n\ntext\n\n***\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<hr>\n<hr>\n"), $this->html("***\n\n***\n"));
+        $this->assertSame("<hr>\n<p>text</p>\n<hr>", $this->html("***\n\ntext\n\n***\n"));
     }
 
     public function testAnImmediateFrontMatterBodyIsSeparatedAndCanonical(): void

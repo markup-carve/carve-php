@@ -71,7 +71,7 @@ class LineBlockInlineRunReachesTheBlockEndTest extends TestCase
     #[DataProvider('runProvider')]
     public function testAnUnclosedRunCrossesTheLineEnding(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -126,7 +126,7 @@ class LineBlockInlineRunReachesTheBlockEndTest extends TestCase
     public function testAnUnclaimedBreakIsStillHard(): void
     {
         $this->assertSame(
-            "<div class=\"line-block\">\n  <p>a b<br>\nc d</p>\n</div>\n",
+            preg_replace('/\n\z/', '', "<div class=\"line-block\">\n  <p>a b<br>\nc d</p>\n</div>\n"),
             $this->html("::: |\na b\nc d\n:::\n"),
         );
     }
@@ -141,7 +141,7 @@ class LineBlockInlineRunReachesTheBlockEndTest extends TestCase
      */
     public function testTheParagraphFormIsUnchanged(): void
     {
-        $this->assertSame("<p>a <code>b\nc d</code></p>\n", $this->html("a `b\nc d\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a <code>b\nc d</code></p>\n"), $this->html("a `b\nc d\n"));
     }
 
     /**
@@ -188,7 +188,7 @@ class LineBlockInlineRunReachesTheBlockEndTest extends TestCase
     #[DataProvider('whitespaceProvider')]
     public function testPreservedWhitespaceIsUnchanged(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     public function testEveryRowIsStillCovered(): void

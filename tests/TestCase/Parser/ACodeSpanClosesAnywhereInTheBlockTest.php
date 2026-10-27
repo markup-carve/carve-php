@@ -49,7 +49,7 @@ class ACodeSpanClosesAnywhereInTheBlockTest extends TestCase
     #[DataProvider('ruled')]
     public function testTheRunReachesItsCloserInTheBlock(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -77,7 +77,7 @@ class ACodeSpanClosesAnywhereInTheBlockTest extends TestCase
     #[DataProvider('bounds')]
     public function testWhatTheRuleDoesNotChange(string $source, string $expected): void
     {
-        $this->assertSame($expected, $this->html($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }
 
     /**
@@ -87,7 +87,7 @@ class ACodeSpanClosesAnywhereInTheBlockTest extends TestCase
     public function testTheBareCloserScanReadsTheSameEnd(): void
     {
         $this->assertSame(
-            "<p><s>a{</s><code>b~}~ </code>c<code></code></p>\n",
+            preg_replace('/\n\z/', '', "<p><s>a{</s><code>b~}~ </code>c<code></code></p>\n"),
             $this->html("~a{~`b~}~ `c`\n"),
         );
     }

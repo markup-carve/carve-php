@@ -32,7 +32,7 @@ class AttributeDoesNotCrossItemBoundaryTest extends TestCase
         $html = $this->converter->convert("- a\n\n  {.c}\n- b");
 
         $this->assertSame(
-            "<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>\n",
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>\n"),
             $html,
         );
         $this->assertStringNotContainsString('class="c"', $html);
