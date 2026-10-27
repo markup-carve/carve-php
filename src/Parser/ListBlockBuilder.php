@@ -384,7 +384,7 @@ final class ListBlockBuilder
         $previous = null;
         foreach ($itemLines as $line) {
             if ($line === '') {
-                $foldedBeforeBlank = $foldedBeforeBlank || ($previous !== null && str_contains($previous, "\n"));
+                $foldedBeforeBlank = $foldedBeforeBlank || $previous !== null;
             } elseif ($foldedBeforeBlank) {
                 return count(array_filter($item->getChildren(), static fn (Node $child): bool => $child instanceof Paragraph)) > 1;
             } else {
