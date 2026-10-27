@@ -24,4 +24,12 @@ final class AFirstBlockMarkerInASiblingListItemTest extends TestCase
             CarveConverter::create()->convert("- > > +\n  - s\n"),
         );
     }
+
+    public function testFoldedFirstBlockMarkerKeepsQuotedItemParagraphOpen(): void
+    {
+        self::assertSame(
+            "<blockquote>\n  <blockquote>\n    <ul>\n      <li>foo\n- +\nb</li>\n    </ul>\n  </blockquote>\n</blockquote>\n",
+            CarveConverter::create()->convert("> > - foo\n> - +\n> > b\n"),
+        );
+    }
 }

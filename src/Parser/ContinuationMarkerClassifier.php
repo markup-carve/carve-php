@@ -301,7 +301,7 @@ final class ContinuationMarkerClassifier
         $deepest = $this->stack[array_key_last($this->stack) ?? 0] ?? null;
         $unmarkedHead = ltrim($body, " \t");
         if (
-            $this->paragraphOpen && $depth === 0 && $deepest !== null && $deepest['depth'] > 0
+            $this->paragraphOpen && $deepest !== null && $depth < $deepest['depth']
             && $column < $deepest['column']
             && ($this->lists->parseListItemMarker($unmarkedHead) !== null
                 || ContainerPrefix::quoteContent($unmarkedHead) !== null)
