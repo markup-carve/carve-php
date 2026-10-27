@@ -5546,7 +5546,8 @@ class BlockParser
             return true;
         }
 
-        if ($this->isInvisibleOrAttributeLine($line)) {
+        $authoredLine = $index === null ? '' : ($this->state->source->sourceLines[$this->sourceLineFor($index)] ?? '');
+        if ($this->isInvisibleOrAttributeLine($line, !str_starts_with(ltrim($authoredLine, " \t"), '>'))) {
             return true;
         }
         if ($lines !== null && $index !== null && $this->startsWrappedBlockAttributes(ltrim($line, " \t"), $lines, $index)) {
