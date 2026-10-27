@@ -337,6 +337,22 @@ final class ContinuationMarkerClassifier
         ) {
             $this->carriedOwner = null;
         }
+        if (
+            $this->paragraphOpen && $depth === 0
+            && !str_starts_with(ltrim($body, " \t"), ':')
+            && str_contains($this->lines[$index + 1] ?? '', '+')
+        ) {
+            $next = $this->lines[$index + 1];
+            [$nextBody, $nextDepth, $nextPrefix] = $this->quoteBody($next);
+            if ($nextDepth === 0 && self::isPlus(ltrim($nextBody, " \t"))) {
+                $nextColumn = self::columnAt($next, $nextPrefix + strspn($nextBody, " \t"));
+                foreach ($this->stack as $entry) {
+                    if ($entry['kind'] === 'quote' && $entry['depth'] === 0 && $entry['column'] === $nextColumn) {
+                        return;
+                    }
+                }
+            }
+        }
         if ($this->carriedOwner === null) {
             $this->stack = array_values(array_filter($this->stack, static fn (array $entry): bool => $entry['kind'] !== 'quote'));
         }
