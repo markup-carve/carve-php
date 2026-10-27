@@ -306,7 +306,17 @@ final class ContinuationMarkerClassifier
             && ($this->lists->parseListItemMarker($unmarkedHead) !== null
                 || ContainerPrefix::quoteContent($unmarkedHead) !== null)
         ) {
-            return;
+            $siblingList = false;
+            foreach ($this->stack as $entry) {
+                if ($entry['kind'] === 'list' && $entry['column'] === $column && $entry['depth'] === $depth) {
+                    $siblingList = true;
+
+                    break;
+                }
+            }
+            if (!$siblingList) {
+                return;
+            }
         }
         if (
             $this->carriedOwner !== null && ($column < $this->carriedOwner['column']
