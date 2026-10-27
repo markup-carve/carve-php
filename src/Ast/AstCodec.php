@@ -9,6 +9,7 @@ use JsonException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\AstDecodeException;
 use MarkupCarve\Carve\Node\Block\BlockExtension;
+use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Footnote as FootnoteBlock;
@@ -52,6 +53,8 @@ use SplFileInfo;
 class AstCodec
 {
     private bool $decodeImporterHints = false;
+
+    private bool $verifyingDecodedShape = false;
 
     /**
      * Encoding version.
@@ -983,7 +986,13 @@ class AstCodec
     private function verifyNothingWasLost(array $input, Document $document): void
     {
         $lost = [];
-        $this->compareNode($input, $this->encodeDocument($document), '', $lost);
+        $this->verifyingDecodedShape = true;
+        try {
+            $encoded = $this->encodeDocument($document);
+        } finally {
+            $this->verifyingDecodedShape = false;
+        }
+        $this->compareNode($input, $encoded, '', $lost);
 
         if ($lost !== []) {
             throw new AstDecodeException(sprintf(
@@ -1966,7 +1975,26 @@ class AstCodec
             ));
         }
 
-        return self::citationShape(self::captionShape(self::spanShape(self::substitutionShape(self::figureShape(self::listMarkerShape($encoded))))));
+        $encoded = self::citationShape(self::captionShape(self::spanShape(self::substitutionShape(self::figureShape(self::listMarkerShape($encoded))))));
+
+        // The parser keeps a block image as a direct child for its writers.
+        // PART 12 §23 publishes that same image inside a marked paragraph.
+        $parent = $node->getParent();
+        if (
+            !$this->verifyingDecodedShape && $node instanceof Image
+            && ($parent instanceof Document || $parent instanceof BlockNode
+                && !in_array($parent->getType(), ['paragraph', 'heading', 'figure', 'definition_term', 'line_block', 'caption'], true))
+        ) {
+            $paragraph = ['type' => 'paragraph', 'blockImage' => true];
+            if (isset($encoded['pos'])) {
+                $paragraph['pos'] = $encoded['pos'];
+            }
+            $paragraph['children'] = [$encoded];
+
+            return $paragraph;
+        }
+
+        return $encoded;
     }
 
     /**

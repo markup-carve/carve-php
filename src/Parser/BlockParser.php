@@ -1287,7 +1287,9 @@ class BlockParser
 
     protected function promoteBlockImages(Node $node): void
     {
-        foreach ($node->getChildren() as $child) {
+        $children = $node->getChildren();
+        $replaced = false;
+        foreach ($children as $index => $child) {
             if ($child instanceof Paragraph) {
                 $image = BlockImagePromotion::loneImage($child);
                 $child->setBlockImage(!($node instanceof LineBlock) && BlockImagePromotion::isBlockImage($child));
@@ -1305,11 +1307,24 @@ class BlockParser
                             $child->removeAttribute((string)$key);
                         }
                     }
-                    // Keep the paragraph as the AST host of blockImage while
-                    // its authored attributes follow the emitted image.
+                    // The AST vocabulary states it in the `image` node's own
+                    // description: "Also valid in BLOCK position: a lone image
+                    // paragraph is a block-level image." carve-js and carve-rs
+                    // publish the image; this engine published the paragraph
+                    // and unwrapped it again in the HTML renderer, so the
+                    // output matched while the tree did not - which no HTML
+                    // gate can see (#633).
+                    $image->setPos($image->getPos() ?? $child->getPos());
+                    $children[$index] = $image;
+                    $replaced = true;
+
+                    continue;
                 }
             }
             $this->promoteBlockImages($child);
+        }
+        if ($replaced) {
+            $node->setChildren($children);
         }
     }
 

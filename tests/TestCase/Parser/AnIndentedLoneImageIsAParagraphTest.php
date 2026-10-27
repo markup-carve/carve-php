@@ -67,7 +67,7 @@ class AnIndentedLoneImageIsAParagraphTest extends TestCase
     {
         // The control. Without it a reader that stopped promoting anything at
         // all passes every other case in this file.
-        $this->assertSame(['paragraph'], $this->kinds($this->parse("![a](u)\n")));
+        $this->assertSame(['image'], $this->kinds($this->parse("![a](u)\n")));
         $this->assertSame('<img src="u" alt="a">', $this->html("![a](u)\n"));
     }
 
@@ -125,7 +125,7 @@ class AnIndentedLoneImageIsAParagraphTest extends TestCase
         // Its flush-left twin still promotes, which is what makes the row above
         // a measurement rather than a statement that references never promote.
         $this->assertSame(
-            ['paragraph', 'link_reference_definition'],
+            ['image', 'link_reference_definition'],
             $this->kinds($this->parse("![a][r]\n\n[r]: u\n")),
         );
     }
@@ -137,7 +137,7 @@ class AnIndentedLoneImageIsAParagraphTest extends TestCase
         // pass everything above and fail here.
         $atColumn = $this->parse("> ![a](u)\n");
         $pastColumn = $this->parse(">  ![a](u)\n");
-        $this->assertSame(['paragraph'], $this->kinds($atColumn->getChildren()[0]));
+        $this->assertSame(['image'], $this->kinds($atColumn->getChildren()[0]));
         $this->assertSame(['paragraph'], $this->kinds($pastColumn->getChildren()[0]));
 
         // And the quote keeps the EXPANDED layout for both, rather than the
@@ -162,7 +162,7 @@ class AnIndentedLoneImageIsAParagraphTest extends TestCase
             $source = '-' . str_repeat(' ', $width) . "![a](u)\n";
             $list = $this->parse($source)->getChildren()[0];
             $item = $list->getChildren()[0];
-            $this->assertSame(['paragraph'], $this->kinds($item), "padding width {$width}");
+            $this->assertSame(['image'], $this->kinds($item), "padding width {$width}");
         }
     }
 
@@ -199,7 +199,7 @@ class AnIndentedLoneImageIsAParagraphTest extends TestCase
         // them is one line, so the first line and the last line are the same
         // line and a fix reading the wrong one still passes.
         $source = "![a\nb](/i)\n";
-        $this->assertSame(['paragraph'], $this->kinds($this->parse($source)));
+        $this->assertSame(['image'], $this->kinds($this->parse($source)));
         $this->assertSame("<img src=\"/i\" alt=\"a\nb\">", $this->html($source));
 
         // And the same document indented folds, which is what makes the row

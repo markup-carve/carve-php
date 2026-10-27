@@ -39,4 +39,17 @@ final class BlockImageParagraphWireTest extends TestCase
         self::assertTrue($wire['blockImage']);
         self::assertSame('image', $wire['children'][0]['type']);
     }
+
+    public function testLegacyDirectImageDecodesWithoutLosingItsFields(): void
+    {
+        $codec = new AstCodec();
+        $wire = $codec->encode((new CarveConverter())->parse("![x](x)\n"));
+        $wire['children'][0] = $wire['children'][0]['children'][0];
+
+        $decoded = $codec->decode($wire);
+        $canonical = $codec->encode($decoded);
+
+        self::assertSame('paragraph', $canonical['children'][0]['type']);
+        self::assertSame('x', $canonical['children'][0]['children'][0]['src']);
+    }
 }
