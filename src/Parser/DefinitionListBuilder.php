@@ -1000,7 +1000,12 @@ final class DefinitionListBuilder
             )
         ) {
             $this->advanceDescriptionBodyTracker($b);
-            if (!$b->bodyState->openParagraph) {
+            $lastBodyLine = $b->bodyMap[array_key_last($b->body) ?? 0] ?? -1;
+            $lastBodyColumn = IndentationHelper::getLeadingColumns($this->state->source->sourceLines[$lastBodyLine] ?? '');
+            if (
+                !$b->bodyState->openParagraph
+                || $lastBodyColumn >= $b->continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+            ) {
                 return false;
             }
         }
