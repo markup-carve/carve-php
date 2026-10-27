@@ -25,4 +25,12 @@ final class ANestedQuotedFootnoteClosesOuterQuoteTest extends TestCase
 
         self::assertStringContainsString("<p>later\nsee", $html);
     }
+
+    public function testIndentedDefinitionShapeWithoutListRemainsParagraphText(): void
+    {
+        $source = "> > para\n> > more\n> >  [^p]: n\ntail\n";
+        $html = CarveConverter::create()->convert($source);
+
+        self::assertStringContainsString("<p>para\nmore\n[^p]: n\ntail</p>", $html);
+    }
 }

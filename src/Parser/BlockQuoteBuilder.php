@@ -597,7 +597,29 @@ final class BlockQuoteBuilder
             }
             $content = ContainerPrefix::afterLeadingQuoteMarkers($lines[$at]);
             if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($content, " \t")) === 1) {
-                $floor = IndentationHelper::getLeadingColumns($content) + BlockGrammar::FOOTNOTE_BODY_COLUMN;
+                $column = IndentationHelper::getLeadingColumns($content);
+                if ($column > 0) {
+                    $listOwnsDefinition = false;
+                    for ($host = $at - 1; $host >= 0; $host--) {
+                        if (ContainerPrefix::countLeadingQuoteMarkers($lines[$host]) !== $depth) {
+                            break;
+                        }
+                        $hostLine = ContainerPrefix::afterLeadingQuoteMarkers($lines[$host]);
+                        $marker = ($this->getListParser)()->parseListItemMarker(ltrim($hostLine, " \t"));
+                        if (
+                            $marker !== null && IndentationHelper::getLeadingColumns($hostLine)
+                            + ($this->listMarkerWidthCallback)(ltrim($hostLine, " \t"), $marker) <= $column
+                        ) {
+                            $listOwnsDefinition = true;
+
+                            break;
+                        }
+                    }
+                    if (!$listOwnsDefinition) {
+                        return false;
+                    }
+                }
+                $floor = $column + BlockGrammar::FOOTNOTE_BODY_COLUMN;
                 for ($body = $at + 1; $body <= $last; $body++) {
                     $line = ContainerPrefix::afterLeadingQuoteMarkers($lines[$body]);
                     if (!IndentationHelper::isBlankLine($line) && IndentationHelper::getLeadingColumns($line) < $floor) {
