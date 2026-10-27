@@ -229,6 +229,7 @@ final class BlockQuoteBuilder
         $parts = [];
         $this->state->session->nestedQuoteOpenerOffsets = null;
         [$i, $innerLines, $innerLineMap, $lazyState, $codeCloserMemo] = $this->collectBlockQuoteOpening($lines, $start, $content);
+        $attachedParagraphOpen = $i > $start + 1 && $lazyState['paragraphOpen'];
         $nestedOpenerOffsets = $this->takeNestedOpenerOffsets();
         $lazyStateActive = $i !== $start + 1
             || in_array('note', $lazyState['hosts']['kinds'] ?? [], true)
@@ -431,11 +432,12 @@ final class BlockQuoteBuilder
                         $innerLines[] = $attachedLine;
                         $innerLineMap[] = $attachedLineMap[$attachedIndex];
                     }
-                    $innerLines[] = '';
-                    $innerLineMap[] = -1;
-                    // The attached block closed any open paragraph: a following
-                    // unmarked line no longer lazily continues the quote.
-                    $lazyState['paragraphOpen'] = false;
+                    $this->trackAttachedParagraph($attached, $attachedRawLineMap, $lazyState, $lines, $codeCloserMemo);
+                    $attachedParagraphOpen = $lazyState['paragraphOpen'];
+                    if (!$lazyState['paragraphOpen']) {
+                        $innerLines[] = '';
+                        $innerLineMap[] = -1;
+                    }
                 }
 
                 continue;
@@ -475,6 +477,7 @@ final class BlockQuoteBuilder
             $lastQuoteSourceLine = $innerLineMap[array_key_last($innerLineMap) ?? 0] ?? -1;
             $lastQuoteLineWasLazy = isset($this->state->session->blockQuoteLazySourceLines[$lastQuoteSourceLine]);
             if ($content !== null) {
+                $attachedParagraphOpen = false;
                 $innerLines[] = $content;
                 $innerLineMap[] = $this->sourceLineFor($i);
                 if ($lazyStateActive) {
@@ -486,6 +489,7 @@ final class BlockQuoteBuilder
                 $i++;
             } elseif (
                 ($lazyState['paragraphOpen'] || $this->quotedNestedLineBlockOpen($innerLines, $nestedLineBlock))
+                && !($attachedParagraphOpen && ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null)
                 && !(($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
                     && $this->lastQuoteLineIsBareTerm($innerLines))
                 && !(IndentationHelper::getLeadingColumns($currentLine) === 0
@@ -904,6 +908,9 @@ final class BlockQuoteBuilder
             }
             $innerLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $rawLineMap);
             $firstBlock = $innerLines !== [];
+            if ($firstBlock) {
+                $this->trackAttachedParagraph($innerLines, $rawLineMap, $lazyState, $lines, $codeCloserMemo);
+            }
         }
         if (!$firstBlock) {
             $innerLines[] = $content;
@@ -973,12 +980,30 @@ final class BlockQuoteBuilder
                 $i = $end;
             }
         } else {
-            $innerLines[] = '';
-            $innerLineMap[] = -1;
-            $lazyState['paragraphOpen'] = false;
+            if (!$lazyState['paragraphOpen']) {
+                $innerLines[] = '';
+                $innerLineMap[] = -1;
+            }
         }
 
         return [$i, $innerLines, $innerLineMap, $lazyState, $codeCloserMemo];
+    }
+
+    /**
+     * Keep the final paragraph state of a block attached by a continuation marker.
+     *
+     * @param array<string> $attached
+     * @param array<int, int> $lineMap
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,itemParagraph:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, inlineFenceJustClosed?:bool, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool,plainBeforeFence?:bool,sawFence?:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, initialMarkerColumn?:int, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, inlineFenceJustClosed?:bool, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool,plainBeforeFence?:bool,sawFence?:bool,descriptionColumn?:int,termOpen?:bool}} $state
+     * @param array<string> $lines
+     * @param array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool, inlineChecked:bool}> $memo
+     */
+    private function trackAttachedParagraph(array $attached, array $lineMap, array &$state, array $lines, array &$memo): void
+    {
+        $state['paragraphOpen'] = false;
+        foreach ($attached as $index => $line) {
+            $this->trackBlockQuoteLazyState($line, $state, $lines, $lineMap[$index], $memo);
+        }
     }
 
     /**
