@@ -1580,6 +1580,15 @@ class MarkdownToCarve
                 if (str_contains($quotedText, "\t") && str_starts_with($line, $quoted[1]) && preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]/', $quotedText) === 1) {
                     $quotedText = substr($this->spaceMarkerPadding(str_repeat(' ', strlen($quoted[1])) . $quotedText), strlen($quoted[1]));
                 }
+                $quotedItemFence = $this->collectQuotedItemFence($lines, $i, $quoted[1], $quotedText);
+                if ($quotedItemFence !== null) {
+                    $result[] = $this->respellQuotedLine($lines, $i, $quoted[1], $quotedText, $prevLineType === 'blockquote', $quoteState, $result);
+                    array_push($result, ...$quotedItemFence['lines']);
+                    $i = $quotedItemFence['end'];
+                    $quoteState->clearPrevious();
+
+                    return [$i, 'blockquote', $body, true];
+                }
                 $itemTable = $this->tableStage->collectQuotedItemBlock($lines, $i, $quoted[1], $quotedText, $contentCol, $prevLineType === 'blockquote', $quoteState, $result);
                 if ($itemTable !== null) {
                     array_push($result, ...$itemTable['lines']);
@@ -3560,6 +3569,10 @@ class MarkdownToCarve
         // (carve-php#2348, #2350).
         $openBefore = $list->openItemContentColumn();
         $itemQuote = $state->previous['itemQuote'] ?? null;
+        if (preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]*$/', $text) === 1) {
+            $text = rtrim($text, " \t") . ' +';
+            $written = $text;
+        }
         $opensItem = preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]/', $text) === 1;
         if ($opensItem) {
             $itemQuote = null;
@@ -4642,6 +4655,42 @@ class MarkdownToCarve
         }
 
         return substr($line, $i);
+    }
+
+    /**
+     * Keep a closed fence inside the quoted list item that opened it.
+     *
+     * @param array<int, string> $lines
+     * @param int $start
+     * @param string $prefix
+     * @param string $text
+     *
+     * @return array{lines: array<int, string>, end: int}|null
+     */
+    private function collectQuotedItemFence(array $lines, int $start, string $prefix, string $text): ?array
+    {
+        $opener = $this->opensItemFence($text, true);
+        if ($opener === null) {
+            return null;
+        }
+        $contentColumn = $this->indentWidth($opener[1]);
+        $fence = $opener[2];
+        $kept = [];
+        for ($at = $start + 1, $count = count($lines); $at < $count; $at++) {
+            $content = $this->quotedText($lines[$at], $prefix);
+            if ($content === null || trim($content) !== '' && $this->indentWidth($content) < $contentColumn) {
+                return null;
+            }
+            $kept[] = $prefix . $content;
+            if (
+                $this->indentWidth($content) <= $contentColumn + 3
+                && preg_match('/^[ \t]*' . preg_quote($fence[0], '/') . '{' . strlen($fence) . ',}[ \t]*$/', $content) === 1
+            ) {
+                return ['lines' => $kept, 'end' => $at];
+            }
+        }
+
+        return null;
     }
 
     /**
