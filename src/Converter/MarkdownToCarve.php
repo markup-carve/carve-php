@@ -3569,7 +3569,10 @@ class MarkdownToCarve
         // (carve-php#2348, #2350).
         $openBefore = $list->openItemContentColumn();
         $itemQuote = $state->previous['itemQuote'] ?? null;
-        if (preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]*$/', $text) === 1) {
+        if (
+            ($openBefore === null || $this->indentWidth($text) < $openBefore)
+            && preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]*$/', $text) === 1
+        ) {
             $text = rtrim($text, " \t") . ' +';
             $written = $text;
         }
