@@ -135,6 +135,11 @@ final class InlineStage
             return $protectCode($codeWriter->spellImportedCodeSpan($value), $span);
         };
         $line = $this->protectCodeSpans($line, $writeCodeSpan);
+        $line = preg_replace_callback(
+            '/(?<!\\\\)\[(\^[^\[\]\n]*?)\\\\\]/',
+            static fn (array $match): string => $protect('\\[', '[') . $match[1] . '\\]',
+            $line,
+        ) ?? $line;
         $line = preg_replace_callback('/(?<!\\\\)\[(?!\^)([^\[\]\n]+)\](?=\[\^([^\[\]\n]+)\])/', function (array $match) use ($protect): string {
             $first = $this->normalizeReferenceLabel($match[1]);
 
