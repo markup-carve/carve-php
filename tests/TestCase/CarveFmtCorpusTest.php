@@ -656,24 +656,11 @@ class CarveFmtCorpusTest extends TestCase
     }
 
     /**
-     * THE PART 11 §1c EXEMPTION IS REACHED, so it cannot rot unnoticed.
-     *
-     * The per-document test above takes the exemption branch silently: if the
-     * corpus or this engine changed so that no document's pinned canonical form
-     * re-parsed differently from its source, every document would fall through
-     * to the plain invariant, the whole branch would stop executing, and nothing
-     * would say so. The carve-out would then sit in the file describing a
-     * ceiling that no longer exists - which is how a guard stops guarding.
-     *
-     * Asked once, over the corpus, because it is a question about the corpus.
-     * It fails in the direction the per-document `assertNotSame` could not: the
-     * day a lone indented image round-trips cleanly, this goes red and both the
-     * branch and this test are deleted together.
-     *
-     * The message names the documents rather than only counting them, so a
-     * corpus renumbering reads as the rename it is.
+     * The AST image mapping now makes every pinned canonical form re-parse to
+     * the same published tree. Keep this baseline assertion so a future image
+     * encoding change cannot quietly restore the old wrapper difference.
      */
-    public function testThePartElevenOneCCeilingIsReached(): void
+    public function testThePartElevenOneCCeilingIsNoLongerReached(): void
     {
         $reached = [];
         foreach (self::pinnedProvider() as $slug => $case) {
@@ -683,11 +670,10 @@ class CarveFmtCorpusTest extends TestCase
             }
         }
 
-        $this->assertNotSame(
+        $this->assertSame(
             [],
             $reached,
-            'no pinned canonical form re-parses differently from its source: the PART 11 §1c '
-            . 'exemption in testTheFormattedDocumentParsesToTheSameTree is dead and should be deleted',
+            'a pinned canonical form still re-parses differently from its source',
         );
     }
 

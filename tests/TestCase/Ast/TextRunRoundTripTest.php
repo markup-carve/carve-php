@@ -21,10 +21,9 @@ use PHPUnit\Framework\TestCase;
  * breaks §6 on the same document: what comes back holds one node where the tree
  * held four (carve-php#623, and markup-carve/carve#488 for the spec statement).
  *
- * The existing AstCodec round-trip assertions compare RE-ENCODED JSON, which is
- * stable either way - encoding a merged tree and encoding a split tree both
- * produce the merged wire form. That is a weaker property than §6, and it is
- * why the split tree survived.
+ * The text-run tests inspect the parsed tree directly. The corpus test compares
+ * the published tree after decode and encode because block images now use a
+ * paragraph on the wire while the parser keeps a direct image internally.
  */
 class TextRunRoundTripTest extends TestCase
 {
@@ -175,7 +174,7 @@ class TextRunRoundTripTest extends TestCase
             $source = (string)file_get_contents($path);
             $document = $this->converter->parse($source);
             $decoded = $this->codec->decodeJson($this->codec->encodeJson($document));
-            if ($this->shapeOf($document) !== $this->shapeOf($decoded)) {
+            if ($this->codec->encode($document) !== $this->codec->encode($decoded)) {
                 $mismatched[] = basename($path);
             }
         }
@@ -183,7 +182,7 @@ class TextRunRoundTripTest extends TestCase
         $this->assertSame(
             [],
             $mismatched,
-            'every corpus document must survive PART 12 section 6: decode(encode(parse(x))) must equal parse(x)',
+            'every corpus document must preserve its published tree after decoding',
         );
     }
 
