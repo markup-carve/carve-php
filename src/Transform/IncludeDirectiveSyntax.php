@@ -89,6 +89,11 @@ class IncludeDirectiveSyntax
     /**
      * @var string
      */
+    public const ERROR_LINES_INVALID = 'lines-invalid';
+
+    /**
+     * @var string
+     */
     public const ERROR_MALFORMED = 'malformed';
 
     /**
@@ -261,10 +266,7 @@ class IncludeDirectiveSyntax
                 }
 
                 if (str_starts_with($part, '@lines:')) {
-                    // Line numbers are 1-based and the range must run forward. A
-                    // leading-zero, zero, or inverted range is NOT a valid
-                    // option: it falls through to the invalid-option handling
-                    // below (Warning + literal), matching the reference engine.
+                    // Line numbers are 1-based and the range must run forward.
                     if (
                         preg_match('/^@lines:([1-9]\d*)-([1-9]\d*)$/', $part, $lineMatch) === 1
                         && (int)$lineMatch[2] >= (int)$lineMatch[1]
@@ -275,6 +277,12 @@ class IncludeDirectiveSyntax
 
                         continue;
                     }
+                    if ($error === null) {
+                        $error = static::ERROR_LINES_INVALID;
+                        $errorPart = $part;
+                    }
+
+                    continue;
                 }
 
                 if (preg_match('/^@region:([A-Za-z_][A-Za-z0-9_-]*)$/', $part, $regionMatch)) {

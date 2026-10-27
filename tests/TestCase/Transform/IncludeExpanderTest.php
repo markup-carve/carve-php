@@ -859,7 +859,7 @@ class IncludeExpanderTest extends TestCase
     /**
      * An inverted line range (`@lines:3-1`) is not a valid option: the
      * directive must NOT expand. It warns with the machine-stable
-     * `include-unknown-option` rule, records no dependency, and stays literal -
+     * `include-lines-invalid` rule, records a resolved dependency, and stays literal -
      * matching the reference engine, which requires 1-based, forward ranges.
      */
     public function testInvertedLineRangeIsInvalidOptionAndStaysLiteral(): void
@@ -871,10 +871,10 @@ class IncludeExpanderTest extends TestCase
         $html = $converter->render($converter->transform($document, $expander));
 
         $this->assertStringContainsString('{{ child', $html);
-        $this->assertSame([], $this->dependencyRows($expander->getDependencies()));
+        $this->assertSame([['target' => 'child', 'resolved' => true]], $this->dependencyRows($expander->getDependencies()));
         $this->assertCount(1, $expander->getWarnings());
         $this->assertSame(
-            IncludeExpander::RULE_UNKNOWN_OPTION,
+            IncludeExpander::RULE_LINES_INVALID,
             $expander->getWarnings()[0]->getRule(),
         );
     }
