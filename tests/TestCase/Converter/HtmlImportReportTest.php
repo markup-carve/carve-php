@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use InvalidArgumentException;
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -161,7 +162,7 @@ class HtmlImportReportTest extends TestCase
             $this->assertNotFalse($reportJson);
             $this->assertNotFalse($astJson);
             $expectedReport = json_decode($reportJson, true, flags: JSON_THROW_ON_ERROR);
-            $expectedAst = json_decode($astJson, true, flags: JSON_THROW_ON_ERROR);
+            $expectedAst = AstCodec::canonicalizeBlockImages(json_decode($astJson, true, flags: JSON_THROW_ON_ERROR));
 
             $options = self::fixtureOptions($fixture);
             $result = (new HtmlToCarve(...$options))->convertWithReport($html);

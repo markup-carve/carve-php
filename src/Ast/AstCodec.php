@@ -59,7 +59,7 @@ class AstCodec
     /**
      * Publish direct images from an array-backed importer tree as block-image paragraphs.
      *
-     * @param array<string, mixed> $node
+     * @param array<mixed, mixed> $node
      *
      * @return array<string, mixed>
      */
