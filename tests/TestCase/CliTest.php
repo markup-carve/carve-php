@@ -48,15 +48,15 @@ class CliTest extends TestCase
     {
         $result = $this->runCliInput(['--markdown', '--carry-markers'], self::SRC);
 
-        $this->assertSame(1, $result['exit']);
+        $this->assertSame(2, $result['exit']);
         $this->assertStringContainsString('Unknown option: --carry-markers', $result['err']);
     }
 
     public function testRoundTripRejectsPlainOutput(): void
     {
         $result = $this->runCliInput(['--plain', '--roundtrip'], self::SRC);
-        $this->assertSame(1, $result['exit']);
-        $this->assertSame("Error: --roundtrip applies to --html or --markdown output only\n", $result['err']);
+        $this->assertSame(2, $result['exit']);
+        $this->assertSame("carve[usage]: Error: --roundtrip applies to --html or --markdown output only\n", $result['err']);
     }
 
     public function testRoundTripPreservesHtmlBreakCharacters(): void
@@ -415,7 +415,7 @@ class CliTest extends TestCase
     {
         $result = $this->runCliInput(['lint', '--platform', 'gihub'], "See #42\n");
 
-        $this->assertSame(1, $result['exit']);
+        $this->assertSame(2, $result['exit']);
         $this->assertSame('', $result['out']);
         $this->assertStringContainsString('--platform', $result['err']);
         $this->assertStringContainsString('github', $result['err']);
@@ -512,7 +512,7 @@ class CliTest extends TestCase
         ) {
             $res = $this->runCliInput(['--from-json'], (string)$input);
 
-            $this->assertSame(1, $res['exit'], 'malformed input must exit 1, not fatal');
+            $this->assertSame(2, $res['exit'], 'malformed input must exit 2, not fatal');
             $this->assertStringContainsString($expected, $res['err']);
             $this->assertStringNotContainsString('Stack trace', $res['err']);
         }
@@ -561,7 +561,7 @@ class CliTest extends TestCase
         // keeps hitting: output that looks configured and is not.
         $result = $this->runCliInput(['--html', '--smart-typography', 'bogus'], "a...b\n");
 
-        $this->assertSame(1, $result['exit']);
+        $this->assertSame(2, $result['exit']);
         $this->assertStringContainsString('expected glyph|source', $result['err']);
     }
 
@@ -569,7 +569,7 @@ class CliTest extends TestCase
     {
         $result = $this->runCliInput(['--html', '--smart-typography'], "a...b\n");
 
-        $this->assertSame(1, $result['exit']);
+        $this->assertSame(2, $result['exit']);
         $this->assertStringContainsString('requires a mode', $result['err']);
     }
 

@@ -80,6 +80,17 @@ use MarkupCarve\Carve\Stamp;
 use MarkupCarve\Carve\Transform\FilesystemIncludeResolver;
 use MarkupCarve\Carve\Transform\IncludeExpander;
 
+function cliDiagnostic(string $category, string $message): void
+{
+    fwrite(STDERR, "carve[$category]: $message\n");
+}
+
+function cliError(string $category, string $message): never
+{
+    cliDiagnostic($category, $message);
+    exit(2);
+}
+
 /**
  * Write rendered output, ending in exactly one newline.
  *
@@ -152,8 +163,7 @@ function runFlattenCommand(array $argv): never
         $arg = $argv[$i];
         if ($arg === '--include-root') {
             if (!isset($argv[$i + 1])) {
-                fwrite(STDERR, "Error: --include-root requires a directory\n");
-                exit(1);
+                cliError('usage', 'Error: --include-root requires a directory');
             }
             // The spec constrains the ROOT, not what a front end computes: a
             // non-absolute spec is refused by the resolver, so `--include-root .`
@@ -164,11 +174,9 @@ function runFlattenCommand(array $argv): never
             showHelp();
             exit(0);
         } elseif (str_starts_with($arg, '-') && $arg !== '-') {
-            fwrite(STDERR, "Error: Unknown option: $arg\n");
-            exit(1);
+            cliError('usage', "Error: Unknown option: $arg");
         } elseif ($input !== null) {
-            fwrite(STDERR, "Error: Multiple input files specified\n");
-            exit(1);
+            cliError('usage', 'Error: Multiple input files specified');
         } else {
             $input = $arg;
         }
@@ -176,13 +184,18 @@ function runFlattenCommand(array $argv): never
 
     if ($input !== null && $input !== '-') {
         if (!is_readable($input)) {
-            fwrite(STDERR, "Error: Cannot read file: $input\n");
-            exit(1);
+            cliError('input-unreadable', "Error: Cannot read file: $input");
         }
-        $source = (string)file_get_contents($input);
+        $source = @file_get_contents($input);
+        if ($source === false) {
+            cliError('input-unreadable', "Error: Cannot read file: $input");
+        }
         $sourcePath = realpath($input) ?: $input;
     } else {
-        $source = (string)stream_get_contents(STDIN);
+        $source = stream_get_contents(STDIN);
+        if ($source === false) {
+            cliError('input-unreadable', 'Error: Failed to read from stdin');
+        }
         $sourcePath = null;
     }
 
@@ -190,18 +203,13 @@ function runFlattenCommand(array $argv): never
     if ($root === null) {
         // "Flatten this" with nothing to resolve against cannot be honoured,
         // and echoing the document back would look like it had no includes.
-        fwrite(
-            STDERR,
-            "Error: stdin has no directory to resolve includes against; pass --include-root DIR\n",
-        );
-        exit(1);
+        cliError('usage', 'Error: stdin has no directory to resolve includes against; pass --include-root DIR');
     }
 
     try {
         $resolver = new FilesystemIncludeResolver($root);
     } catch (RuntimeException $exception) {
-        fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
-        exit(1);
+        cliError('usage', 'Error: ' . $exception->getMessage());
     }
 
     // POSITIONS ON, via the writer's own factory: the expander collects a
@@ -239,28 +247,24 @@ function runMergeCommand(array $argv): never
             fwrite(STDOUT, "Usage: carve merge [--json] base ours theirs\n");
             exit(0);
         } elseif (str_starts_with($arg, '-')) {
-            fwrite(STDERR, "carve merge: unknown option: $arg\n");
-            exit(2);
+            cliError('usage', "carve merge: unknown option: $arg");
         } else {
             $files[] = $arg;
         }
     }
     if (count($files) !== 3) {
-        fwrite(STDERR, "carve merge: takes exactly three files (base, ours, theirs)\n");
-        exit(2);
+        cliError('usage', 'carve merge: takes exactly three files (base, ours, theirs)');
     }
     $codec = new AstCodec();
     $converter = new CarveConverter(parser: new BlockParser(false, false, false, true));
     $trees = [];
     foreach ($files as $file) {
         if (!is_file($file) || !is_readable($file)) {
-            fwrite(STDERR, "carve merge: cannot read $file\n");
-            exit(2);
+            cliError('input-unreadable', "carve merge: cannot read $file");
         }
-        $source = file_get_contents($file);
+        $source = @file_get_contents($file);
         if ($source === false) {
-            fwrite(STDERR, "carve merge: cannot read $file\n");
-            exit(2);
+            cliError('input-unreadable', "carve merge: cannot read $file");
         }
         $trees[] = $codec->encode($converter->parse($source));
     }
@@ -875,8 +879,7 @@ function runMigrateCommand(array $argv): never
         $arg = $argv[$i];
         if (in_array($arg, ['--from', '--mode', '--adapter', '--report', '--directory', '--output'], true)) {
             if (!isset($argv[$i + 1])) {
-                fwrite(STDERR, "carve migrate: $arg requires a value\n");
-                exit(2);
+                cliError('usage', "carve migrate: $arg requires a value");
             }
             $value = $argv[++$i];
             if ($arg === '--mode') {
@@ -900,31 +903,25 @@ function runMigrateCommand(array $argv): never
         } elseif ($arg === '--djot-php') {
             $djotPhp = true;
         } elseif (str_starts_with($arg, '-') && $arg !== '-') {
-            fwrite(STDERR, "carve migrate: unknown option: $arg\n");
-            exit(2);
+            cliError('usage', "carve migrate: unknown option: $arg");
         } elseif ($input !== null) {
-            fwrite(STDERR, "carve migrate: takes at most one input file\n");
-            exit(2);
+            cliError('usage', 'carve migrate: takes at most one input file');
         } else {
             $input = $arg;
         }
     }
     if ($from === null) {
-        fwrite(STDERR, "carve migrate: --from html, markdown, djot or bbcode is required\n");
-        exit(2);
+        cliError('usage', 'carve migrate: --from html, markdown, djot or bbcode is required');
     }
     if (!in_array($from, ['html', 'markdown', 'md', 'djot', 'bbcode'], true)) {
-        fwrite(STDERR, "carve migrate: unknown source format $from\n");
-        exit(2);
+        cliError('usage', "carve migrate: unknown source format $from");
     }
     if ($djotPhp && $from !== 'djot') {
-        fwrite(STDERR, "carve migrate: --djot-php requires --from djot\n");
-        exit(2);
+        cliError('usage', 'carve migrate: --djot-php requires --from djot');
     }
     if ($directory !== null || $output !== null) {
         if (!in_array($from, ['markdown', 'md'], true) || $directory === null || $output === null || $input !== null || $report !== null || $listTable || $modeSet || $adapterSet) {
-            fwrite(STDERR, "carve migrate: folder mode requires --from markdown --directory SOURCE --output TARGET; single-file options are not allowed\n");
-            exit(2);
+            cliError('usage', 'carve migrate: folder mode requires --from markdown --directory SOURCE --output TARGET; single-file options are not allowed');
         }
         try {
             $counts = migrateMarkdownDirectory($directory, $output);
@@ -937,8 +934,7 @@ function runMigrateCommand(array $argv): never
     }
     $source = $input === null || $input === '-' ? stream_get_contents(STDIN) : @file_get_contents($input);
     if ($source === false) {
-        fwrite(STDERR, "carve migrate: cannot read input\n");
-        exit(2);
+        cliError('input-unreadable', 'carve migrate: cannot read input');
     }
     $source = (string)$source;
     try {
@@ -953,6 +949,8 @@ function runMigrateCommand(array $argv): never
             };
             $result = $converter->convertWithFidelityReport($source);
         }
+    } catch (InvalidArgumentException $exception) {
+        cliError('usage', 'carve migrate: ' . $exception->getMessage());
     } catch (Throwable $exception) {
         fwrite(STDERR, 'carve migrate: ' . $exception->getMessage() . "\n");
         exit(2);
@@ -1058,34 +1056,29 @@ function parseArgs(array $argv): array
             $options['strictLosses'] = true;
         } elseif ($arg === '--report-losses') {
             if (!isset($argv[$i + 1])) {
-                fwrite(STDERR, "Error: --report-losses requires a filename or -\n");
-                exit(2);
+                cliError('usage', 'Error: --report-losses requires a filename or -');
             }
             $options['reportLosses'] = $argv[++$i];
         } elseif ($arg === '--report-conversion-diagnostics') {
             if (!isset($argv[$i + 1])) {
-                fwrite(STDERR, "Error: --report-conversion-diagnostics requires a filename or -\n");
-                exit(2);
+                cliError('usage', 'Error: --report-conversion-diagnostics requires a filename or -');
             }
             $options['reportConversionDiagnostics'] = $argv[++$i];
         } elseif ($arg === '--max-conversion-diagnostics') {
             $value = $argv[$i + 1] ?? null;
             if ($value === null || !ctype_digit($value)) {
-                fwrite(STDERR, "Error: --max-conversion-diagnostics requires a non-negative integer\n");
-                exit(2);
+                cliError('usage', 'Error: --max-conversion-diagnostics requires a non-negative integer');
             }
             $options['maxConversionDiagnostics'] = (int)$argv[++$i];
         } elseif ($arg === '--allow-loss') {
             if (!in_array(($argv[$i + 1] ?? null), ['raw-format-dropped', 'ruby-flattened', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped', 'list-delimiter-changed', 'table-span-flattened', 'table-header-row-demoted', 'table-header-row-hoisted', 'table-header-cell-demoted', 'fence-title-dropped'], true)) {
-                fwrite(STDERR, "Error: --allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened, carrier-attribute-dropped, list-style-dropped, list-delimiter-changed, table-span-flattened, table-header-row-demoted, table-header-row-hoisted or table-header-cell-demoted or fence-title-dropped\n");
-                exit(2);
+                cliError('usage', 'Error: --allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened, carrier-attribute-dropped, list-style-dropped, list-delimiter-changed, table-span-flattened, table-header-row-demoted, table-header-row-hoisted or table-header-cell-demoted or fence-title-dropped');
             }
             $options['allowLoss'][] = $argv[++$i];
         } elseif ($arg === '--max-render-losses') {
             $value = $argv[$i + 1] ?? null;
             if ($value === null || !ctype_digit($value)) {
-                fwrite(STDERR, "Error: --max-render-losses requires a non-negative integer\n");
-                exit(2);
+                cliError('usage', 'Error: --max-render-losses requires a non-negative integer');
             }
             $i++;
             $options['maxRenderLosses'] = (int)$value;
@@ -1096,36 +1089,29 @@ function parseArgs(array $argv): array
             // for machine-facing output - text piped into something that
             // re-parses it - which is the shape of a CLI invocation.
             if (!isset($argv[$i + 1])) {
-                fwrite(STDERR, "Error: --smart-typography requires a mode (glyph|source|quotes-source)\n");
-                exit(1);
+                cliError('usage', 'Error: --smart-typography requires a mode (glyph|source|quotes-source)');
             }
             $mode = $argv[++$i];
             if ($mode !== 'glyph' && $mode !== 'source' && $mode !== 'quotes-source') {
-                fwrite(STDERR, "Error: Unknown smart typography mode: $mode (expected glyph|source|quotes-source)\n");
-                exit(1);
+                cliError('usage', "Error: Unknown smart typography mode: $mode (expected glyph|source|quotes-source)");
             }
             $options['smartTypography'] = $mode;
         } elseif ($arg === '--include-root') {
             if (!isset($argv[$i + 1])) {
-                fwrite(STDERR, "Error: --include-root requires a directory\n");
-                exit(1);
+                cliError('usage', 'Error: --include-root requires a directory');
             }
             // Expanded here for the same reason as in runFlattenCommand().
             $options['includeRoot'] = absoluteIncludeRoot($argv[++$i]);
         } elseif ($arg === '-o' || $arg === '--output') {
             if (!isset($argv[$i + 1])) {
-                fwrite(STDERR, "Error: --output requires a filename\n");
-                exit(1);
+                cliError('usage', 'Error: --output requires a filename');
             }
             $options['output'] = $argv[++$i];
         } elseif (str_starts_with($arg, '-')) {
-            fwrite(STDERR, "Error: Unknown option: $arg\n");
-            fwrite(STDERR, "Try 'carve --help' for more information.\n");
-            exit(1);
+            cliError('usage', "Error: Unknown option: $arg");
         } else {
             if ($input !== null) {
-                fwrite(STDERR, "Error: Multiple input files specified\n");
-                exit(1);
+                cliError('usage', 'Error: Multiple input files specified');
             }
             $input = $arg;
         }
@@ -1153,8 +1139,7 @@ function parseLintArgs(array $argv): array
             $options['help'] = true;
         } elseif ($arg === '--platform') {
             if (!isset($argv[$i + 1])) {
-                fwrite(STDERR, "Error: --platform requires a name\n");
-                exit(1);
+                cliError('usage', 'Error: --platform requires a name');
             }
             $platform = $argv[++$i];
             assertKnownLintPlatform($platform);
@@ -1166,19 +1151,16 @@ function parseLintArgs(array $argv): array
         } elseif ($arg === '--extension' || str_starts_with($arg, '--extension=')) {
             $extension = $arg === '--extension' ? ($argv[++$i] ?? null) : substr($arg, strlen('--extension='));
             if ($extension !== 'citations') {
-                fwrite(STDERR, "Error: --extension expects citations\n");
-                exit(1);
+                cliError('usage', 'Error: --extension expects citations');
             }
             $options['extensions'][] = $extension;
         } elseif ($arg === '--include-root') {
             $options['includeRoot'] = $argv[++$i] ?? null;
             if ($options['includeRoot'] === null) {
-                fwrite(STDERR, "Error: --include-root requires a directory\n");
-                exit(2);
+                cliError('usage', 'Error: --include-root requires a directory');
             }
         } elseif (str_starts_with($arg, '-')) {
-            fwrite(STDERR, "Error: Unknown lint option: $arg\n");
-            exit(1);
+            cliError('usage', "Error: Unknown lint option: $arg");
         } else {
             $options['files'][] = $arg;
         }
@@ -1200,15 +1182,7 @@ function assertKnownLintPlatform(string $platform): void
         return;
     }
 
-    fwrite(
-        STDERR,
-        sprintf(
-            "Error: Unknown --platform value: %s (known: %s)\n",
-            $platform,
-            implode(', ', $known),
-        ),
-    );
-    exit(1);
+    cliError('usage', sprintf('Error: Unknown --platform value: %s (known: %s)', $platform, implode(', ', $known)));
 }
 
 function parseFmtArgs(array $argv): array
@@ -1245,15 +1219,13 @@ function parseFmtArgs(array $argv): array
             $options['stamp'] = true;
             $options['stampForm'] = 'block';
         } elseif (str_starts_with($arg, '-')) {
-            fwrite(STDERR, "Error: Unknown fmt option: $arg\n");
-            exit(1);
+            cliError('usage', "Error: Unknown fmt option: $arg");
         } else {
             $files[] = $arg;
         }
     }
     if ($options['write'] && $options['check']) {
-        fwrite(STDERR, "Error: fmt --write and --check are mutually exclusive\n");
-        exit(1);
+        cliError('usage', 'Error: fmt --write and --check are mutually exclusive');
     }
     $options['files'] = $files;
 
@@ -1415,8 +1387,7 @@ if (($options['command'] ?? null) === 'lint') {
         try {
             $resolver = new FilesystemIncludeResolver(absoluteIncludeRoot($root));
         } catch (RuntimeException) {
-            fwrite(STDERR, "Error: cannot use include root {$root}\n");
-            exit(2);
+            cliError('usage', "Error: cannot use include root {$root}");
         }
     }
     $linter = new IncludeLinter();
@@ -1425,17 +1396,19 @@ if (($options['command'] ?? null) === 'lint') {
     if ($options['files'] === []) {
         $stdin = stream_get_contents(STDIN);
         if ($stdin === false) {
-            fwrite(STDERR, "Error: Failed to read from stdin\n");
-            exit(1);
+            cliError('input-unreadable', 'Error: Failed to read from stdin');
         }
         $sources['-'] = $stdin;
     } else {
         foreach ($options['files'] as $file) {
-            if (!is_file($file)) {
-                fwrite(STDERR, "Error: File not found: $file\n");
-                exit(1);
+            if (!is_file($file) || !is_readable($file)) {
+                cliError('input-unreadable', "Error: Cannot read file: $file");
             }
-            $sources[$file] = (string)file_get_contents($file);
+            $source = @file_get_contents($file);
+            if ($source === false) {
+                cliError('input-unreadable', "Error: Cannot read file: $file");
+            }
+            $sources[$file] = $source;
         }
     }
 
@@ -1483,8 +1456,7 @@ if (($options['command'] ?? null) === 'fmt') {
     if ($files === []) {
         $input = stream_get_contents(STDIN);
         if ($input === false) {
-            fwrite(STDERR, "Error: Failed to read from stdin\n");
-            exit(1);
+            cliError('input-unreadable', 'Error: Failed to read from stdin');
         }
         $formatted = CarveConverter::toCarve(
             $options['migrate'] ? (new ReferenceLinter())->rewriteCaseOnlyReferences($input) : $input,
@@ -1498,15 +1470,15 @@ if (($options['command'] ?? null) === 'fmt') {
     }
     foreach ($files as $file) {
         if (!is_string($file) || !is_file($file) || !is_readable($file)) {
-            fwrite(STDERR, "Error: Cannot read file: $file\n");
-            $exitCode = 1;
+            cliDiagnostic('input-unreadable', "Error: Cannot read file: $file");
+            $exitCode = 2;
 
             continue;
         }
-        $input = file_get_contents($file);
+        $input = @file_get_contents($file);
         if ($input === false) {
-            fwrite(STDERR, "Error: Failed to read file: $file\n");
-            $exitCode = 1;
+            cliDiagnostic('input-unreadable', "Error: Failed to read file: $file");
+            $exitCode = 2;
 
             continue;
         }
@@ -1551,17 +1523,14 @@ if ($options['version']) {
 // Read input
 if ($inputFile !== null) {
     if (!file_exists($inputFile)) {
-        fwrite(STDERR, "Error: File not found: $inputFile\n");
-        exit(1);
+        cliError('input-unreadable', "Error: File not found: $inputFile");
     }
     if (!is_readable($inputFile)) {
-        fwrite(STDERR, "Error: Cannot read file: $inputFile\n");
-        exit(1);
+        cliError('input-unreadable', "Error: Cannot read file: $inputFile");
     }
-    $input = file_get_contents($inputFile);
+    $input = @file_get_contents($inputFile);
     if ($input === false) {
-        fwrite(STDERR, "Error: Failed to read file: $inputFile\n");
-        exit(1);
+        cliError('input-unreadable', "Error: Failed to read file: $inputFile");
     }
 } else {
     // Read from stdin
@@ -1570,15 +1539,12 @@ if ($inputFile !== null) {
     }
     $input = stream_get_contents(STDIN);
     if ($input === false) {
-        fwrite(STDERR, "Error: Failed to read from stdin\n");
-        exit(1);
+        cliError('input-unreadable', 'Error: Failed to read from stdin');
     }
 }
 
 if ($options['roundTripMode'] && !in_array($options['format'], ['html', 'markdown'], true)) {
-    fwrite(STDERR, "Error: --roundtrip applies to --html or --markdown output only\n");
-
-    exit(1);
+    cliError('usage', 'Error: --roundtrip applies to --html or --markdown output only');
 }
 
 // The stamp modes answer a question about the document rather than rendering it,
@@ -1678,12 +1644,10 @@ if ($options['format'] === 'html') {
 $codec = new AstCodec();
 try {
     $document = $options['fromJson'] ? $codec->decodeJson($input) : null;
-} catch (JsonException | RuntimeException $exception) {
+} catch (JsonException|RuntimeException $exception) {
     // A malformed tree is user input like any other: report it on stderr and
-    // exit 1 rather than dumping a PHP stack trace.
-    fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
-
-    exit(1);
+    // exit 2 rather than dumping a PHP stack trace.
+    cliError('ast-json-invalid', 'Error: ' . $exception->getMessage());
 }
 
 // File inclusion (PART 9 section 19). Opt-in by construction: the parser never
@@ -1721,8 +1685,7 @@ if ($wantIncludes) {
         // all (a deleted parent directory, say), so it degrades to the plain
         // render rather than failing a render nobody asked to change.
         if ($options['includeRoot'] !== null) {
-            fwrite(STDERR, 'Error: ' . $exception->getMessage() . "\n");
-            exit(1);
+            cliError('usage', 'Error: ' . $exception->getMessage());
         }
         $resolver = null;
     }
@@ -1752,8 +1715,7 @@ try {
     if ($options['reportConversionDiagnostics'] !== null) {
         $renderer = $converter->getRenderer();
         if (!$renderer instanceof ConversionDiagnosticCollector) {
-            fwrite(STDERR, "Error: --report-conversion-diagnostics requires --carve, --markdown, --plain or --ansi\n");
-            exit(2);
+            cliError('usage', 'Error: --report-conversion-diagnostics requires --carve, --markdown, --plain or --ansi');
         }
         $conversionWriter = $renderer;
         $conversionWriter->beginConversionDiagnosticCollection($options['maxConversionDiagnostics']);
@@ -1771,7 +1733,7 @@ try {
         $checked = $converter->convertWithReport($input, false, $options['maxRenderLosses']);
         $output = $checked->value;
     }
-} catch (RenderDepthExceededException | SourceUnspellableException $exception) {
+} catch (RenderDepthExceededException|SourceUnspellableException $exception) {
     // A renderer that reaches its ceiling REFUSES (PART 9 §25). The CLI reports
     // the refusal and exits non-zero rather than printing a partial document -
     // or a PHP stack trace, which tells the caller as little as truncation did.
