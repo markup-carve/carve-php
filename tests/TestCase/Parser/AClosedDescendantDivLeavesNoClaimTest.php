@@ -75,7 +75,7 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
             $this->assertStringContainsString('<li>sibling', $html);
             if ($closed) {
                 $this->assertStringContainsString('<p>inner</p>', $html);
-                $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+                $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n<p>tail</p>\n"), $html);
             } else {
                 $this->assertStringContainsString("<p>inner\ntail</p>", $html);
                 $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n"), $html);

@@ -19,7 +19,7 @@ class RawCodeSectionBoundaryTest extends TestCase
         foreach (['<code>', '<CODE>', '<code class="x">', '<code title="<code>">', '<code/>'] as $tag) {
             $source = '# `' . $tag . '`{=html}x';
             $html = (new CarveConverter())->convert($source);
-            $this->assertStringContainsString('<h1>' . $tag . 'x</h1></section>' . "\n", $html);
+            $this->assertStringContainsString('<h1>' . $tag . 'x</h1></section>', $html);
         }
     }
 
@@ -35,13 +35,13 @@ class RawCodeSectionBoundaryTest extends TestCase
     public function testClosedCodeKeepsTheSectionLayout(): void
     {
         $source = '# `<code>`{=html}x`</code>`{=html}';
-        $this->assertStringContainsString('</code></h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+        $this->assertStringContainsString('</code></h1>' . "\n</section>", (new CarveConverter())->convert($source));
     }
 
     public function testCodeInsideAnOpaqueRawFragmentDoesNotOpenTheCounter(): void
     {
         $source = '# `<script>"<code>"</script>`{=html}x';
-        $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+        $this->assertStringContainsString('</h1>' . "\n</section>", (new CarveConverter())->convert($source));
     }
 
     public function testStrippedAndEscapedCodeKeepTheSectionLayout(): void
@@ -49,7 +49,7 @@ class RawCodeSectionBoundaryTest extends TestCase
         foreach ([SafeMode::RAW_HTML_STRIP, SafeMode::RAW_HTML_ESCAPE] as $mode) {
             $safe = SafeMode::defaults()->setRawHtmlMode($mode);
             $html = (new CarveConverter(safeMode: $safe))->convert('# `<code>`{=html}x');
-            $this->assertStringContainsString('</h1>' . "\n</section>\n", $html);
+            $this->assertStringContainsString('</h1>' . "\n</section>", $html);
         }
     }
 
@@ -57,7 +57,7 @@ class RawCodeSectionBoundaryTest extends TestCase
     {
         $converter = new CarveConverter();
         $converter->convert('# `<code>`{=html}x');
-        $this->assertSame(preg_replace('/\n\z/', '', '<section id="Plain">' . "\n  " . '<h1>Plain</h1>' . "\n</section>\n"), $converter->convert('# Plain'));
+        $this->assertSame(preg_replace('/\n\z/', '', '<section id="Plain">' . "\n  " . '<h1>Plain</h1>' . "\n</section>"), $converter->convert('# Plain'));
     }
 
     public function testNestedFragmentDoesNotChangeTheHeadingTagCount(): void
@@ -73,33 +73,33 @@ class RawCodeSectionBoundaryTest extends TestCase
         $converter = new CarveConverter(renderer: $renderer);
         $html = $converter->convert('# `<code>`{=html}x`</code>`{=html}');
         $this->assertTrue($fragmentRendered);
-        $this->assertStringContainsString('</code></h1>' . "\n</section>\n", $html);
+        $this->assertStringContainsString('</code></h1>' . "\n</section>", $html);
     }
 
     public function testRawCodeInATableDoesNotChangeALaterHeadingSeparator(): void
     {
         $html = (new CarveConverter())->convert('| `<code>`{=html} |' . "\n\n# Plain\n");
-        $this->assertStringContainsString('<h1>Plain</h1>' . "\n</section>\n", $html);
+        $this->assertStringContainsString('<h1>Plain</h1>' . "\n</section>", $html);
     }
 
     public function testCodeInsideSplitRawTextTagsDoesNotChangeTheSeparator(): void
     {
         foreach (['script', 'style', 'title', 'textarea', 'xmp'] as $tag) {
             $source = '# `<' . $tag . '>`{=html}`<code>`{=html}`</' . $tag . '>`{=html}x';
-            $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+            $this->assertStringContainsString('</h1>' . "\n</section>", (new CarveConverter())->convert($source));
         }
     }
 
     public function testCodeInsideASplitCommentDoesNotChangeTheSeparator(): void
     {
         $source = '# `<!--`{=html}`<code>`{=html}`-->`{=html}x';
-        $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+        $this->assertStringContainsString('</h1>' . "\n</section>", (new CarveConverter())->convert($source));
     }
 
     public function testCodeInsideASplitAttributeDoesNotChangeTheSeparator(): void
     {
         $source = '# `<span title="`{=html}`<code>`{=html}`">`{=html}x';
-        $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+        $this->assertStringContainsString('</h1>' . "\n</section>", (new CarveConverter())->convert($source));
     }
 
     public function testReentrantRenderKeepsTheHeadingSeparator(): void
@@ -133,17 +133,17 @@ class RawCodeSectionBoundaryTest extends TestCase
             $event->setHtml('<h1><code>x</h1>' . "\n");
         });
         $html = (new CarveConverter(renderer: $renderer))->convert('# x');
-        $this->assertStringContainsString('</h1>' . "\n</section>\n", $html);
+        $this->assertStringContainsString('</h1>' . "\n</section>", $html);
     }
 
     public function testComplexRawScopesKeepTheirClosingSeparator(): void
     {
         foreach (['select', 'template', 'object', 'noscript', 'svg'] as $tag) {
             $source = '# `<' . $tag . '>`{=html}`<code>`{=html}x';
-            $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+            $this->assertStringContainsString('</h1>' . "\n</section>", (new CarveConverter())->convert($source));
         }
         $source = '# `<code>`{=html}`<code>`{=html}`<code>`{=html}`<code>`{=html}x';
-        $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+        $this->assertStringContainsString('</h1>' . "\n</section>", (new CarveConverter())->convert($source));
     }
 
     public function testReentryOnAClosingTagKeepsTheHeadingSeparator(): void
@@ -160,20 +160,20 @@ class RawCodeSectionBoundaryTest extends TestCase
         });
         $html = (new CarveConverter(renderer: $renderer))->convert('# `<code>`{=html}x`</code>`{=html}');
         $this->assertTrue($reentered);
-        $this->assertStringContainsString('</code></h1>' . "\n</section>\n", $html);
+        $this->assertStringContainsString('</code></h1>' . "\n</section>", $html);
     }
 
     public function testInvisibleSectionContentDoesNotAddAClosingSeparator(): void
     {
         $source = '# `<code>`{=html}x' . "\n\n%% hidden\n";
-        $this->assertStringContainsString('<h1><code>x</h1></section>' . "\n", (new CarveConverter())->convert($source));
+        $this->assertStringContainsString('<h1><code>x</h1></section>', (new CarveConverter())->convert($source));
     }
 
     public function testCompoundRawTextClosersKeepTheHeadingSeparator(): void
     {
         foreach (['style', 'title', 'textarea', 'xmp', 'iframe', 'noembed', 'noframes'] as $tag) {
             $source = '# `<code>`{=html}`<' . $tag . '>`{=html}`</' . $tag . '></code>`{=html}x';
-            $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+            $this->assertStringContainsString('</h1>' . "\n</section>", (new CarveConverter())->convert($source));
         }
     }
 
@@ -181,7 +181,7 @@ class RawCodeSectionBoundaryTest extends TestCase
     {
         foreach (['<!--', '<script>', '<style>', '<title>', '<textarea>', '<xmp>'] as $tag) {
             $source = '# `<code>`{=html}`' . $tag . '`{=html}x';
-            $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+            $this->assertStringContainsString('</h1>' . "\n</section>", (new CarveConverter())->convert($source));
         }
     }
 
@@ -196,21 +196,21 @@ class RawCodeSectionBoundaryTest extends TestCase
             }
         });
         $html = (new CarveConverter(renderer: $renderer))->convert('# `<code>`{=html}x`</code>`{=html}');
-        $this->assertStringContainsString('</code></h1>' . "\n</section>\n", $html);
+        $this->assertStringContainsString('</code></h1>' . "\n</section>", $html);
     }
 
     public function testRawCodeIsOmittedFromAnAutomaticCrossReferenceLabel(): void
     {
         $source = "# Target `</code>`{=html}\n\n# `<code>`{=html}x</#Target>";
         $html = (new CarveConverter())->convert($source);
-        $this->assertStringContainsString('<code>x<a href="#Target">Target </a></h1></section>' . "\n", $html);
+        $this->assertStringContainsString('<code>x<a href="#Target">Target </a></h1></section>', $html);
     }
 
     public function testRawCloserInASymbolMapKeepsTheSeparator(): void
     {
         $converter = new CarveConverter(symbols: ['close' => '</code>']);
         $html = $converter->convert('# `<code>`{=html}x :close:');
-        $this->assertStringContainsString('</code></h1>' . "\n</section>\n", $html);
+        $this->assertStringContainsString('</code></h1>' . "\n</section>", $html);
     }
 
     public function testHtmlFromANestedFragmentKeepsTheSeparator(): void
@@ -225,6 +225,6 @@ class RawCodeSectionBoundaryTest extends TestCase
         });
         $html = (new CarveConverter(renderer: $renderer))->convert('# `<code>`{=html}x');
         $this->assertTrue($fragmentRendered);
-        $this->assertStringContainsString('</h1>' . "\n</section>\n", $html);
+        $this->assertStringContainsString('</h1>' . "\n</section>", $html);
     }
 }

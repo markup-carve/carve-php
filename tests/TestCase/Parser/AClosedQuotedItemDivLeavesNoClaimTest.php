@@ -95,7 +95,7 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
         $this->assertStringContainsString(":::bad\n:::\n- tail", $html);
         $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n"), $html);
         $html = (new CarveConverter())->convert("> - prose\n>   :::bad\n> - next\n>   :::\n- tail\n");
-        $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"), $html);
     }
 
     public function testTheCodePayloadAndFollowingBodyStayInsideTheDiv(): void

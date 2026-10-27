@@ -128,7 +128,7 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
             $this->html("- ```\n  x\n  ```\nbelow\n"),
         );
         $this->assertSame(
-            "<blockquote>\n  <pre><code>x\n</code></pre>\n</blockquote>\n<p>below</p>\n",
+            preg_replace('/\n\z/', '', "<blockquote>\n  <pre><code>x\n</code></pre>\n</blockquote>\n<p>below</p>\n"),
             $this->html("> ```\n> x\n> ```\nbelow\n"),
         );
     }

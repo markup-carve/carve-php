@@ -68,7 +68,7 @@ class UnterminatedNestedLeadFenceKeepsBlankPayloadTest extends TestCase
             self::fail('Expected a fenced code block in the rendered HTML.');
         }
         self::assertSame($payload, $matches[1]);
-        self::assertStringContainsString("<p>tail</p>\n", $html);
+        self::assertStringEndsWith("<p>tail</p>", $html);
     }
 
     /**

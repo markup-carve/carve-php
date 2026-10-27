@@ -203,7 +203,7 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
         $roundtrip = (new CarveConverter(roundTripMode: true))->convertWithReport($carve);
 
         $this->assertSame(preg_replace('/\n\z/', '', "<p>a  b</p>\n"), $default->value);
-        $this->assertSame("<p>a <span data-carve-raw=\"latex\">x&lt;y</span> b</p>\n", $roundtrip->value);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a <span data-carve-raw=\"latex\">x&lt;y</span> b</p>\n"), $roundtrip->value);
         foreach ([$default, $roundtrip] as $report) {
             $this->assertSame(['raw-format-dropped' => 1], $report->lossCounts);
             $this->assertSame('latex', $report->losses[0]['format']);
