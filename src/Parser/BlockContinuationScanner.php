@@ -932,9 +932,23 @@ final class BlockContinuationScanner
         if (!$this->continuationFollowerIsEligible($i)) {
             return [$i, [], []];
         }
-        // A second marker is the first marker's attached paragraph. It is a
-        // boundary only after that first line, as in any other attached block.
+        // A refused second marker can be the one-line block that an open
+        // paragraph host reaches. A live second marker still owns its follower;
+        // lists keep their own refusal and sibling rules.
+        $ownerKind = null;
         if ($i < $count && $this->isContinuationMarker($lines[$i])) {
+            $previous = $this->sourceLineFor($i - 1);
+            $ownerKind = $previous < 0 ? null
+                : ($this->state->session->continuationMarkerDecision(
+                    $this->state->source,
+                    ($this->getListParser)(),
+                    $previous,
+                )['owner']['kind'] ?? null);
+        }
+        if (
+            in_array($ownerKind, ['quote', 'description', 'footnote'], true)
+            && !$this->continuationFollowerIsEligible($i + 1)
+        ) {
             $take = 1;
         } else {
             // The attribute lines belong to the block below them (carve#1238), so

@@ -28,4 +28,23 @@ final class ASecondContinuationMarkerStartsItsOwnParagraphTest extends TestCase
     {
         self::assertSame($expected, CarveConverter::create()->convert($source));
     }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function quoteFollowers(): array
+    {
+        return [
+            'paragraph' => ['text', '<p>text</p>'],
+            'list' => ['- s', "<ul>\n    <li>s</li>\n  </ul>"],
+            'heading' => ['# h', '<h1 id="h">h</h1>'],
+        ];
+    }
+
+    #[DataProvider('quoteFollowers')]
+    public function testFirstMarkerRemainsQuoteTextWhenSecondAttaches(string $follower, string $expected): void
+    {
+        $source = "> q\n+\n+\n{$follower}\n";
+        self::assertSame("<blockquote>\n  <p>q\n+</p>\n  {$expected}\n</blockquote>", CarveConverter::create()->convert($source));
+    }
 }

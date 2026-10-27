@@ -415,6 +415,17 @@ final class BlockQuoteBuilder
                 $decision['column'] >= 0
                 && $this->continuationMarkerSitsAtQuoteColumn($i, $quoteOpeningColumn)
             ) {
+                if (
+                    $i + 1 < $count
+                    && $this->continuationMarkerSitsAtQuoteColumn($i + 1, $quoteOpeningColumn)
+                ) {
+                    $innerLines[] = '+';
+                    $innerLineMap[] = $this->sourceLineFor($i);
+                    $this->trackBlockQuoteLazyState('+', $lazyState, $lines, $i, $codeCloserMemo);
+                    $i++;
+
+                    continue;
+                }
                 $i++; // consume the `+` marker
                 [$i, $attached, $attachedRawLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
                 $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
