@@ -19,7 +19,7 @@ final class IndentedListAttachedParagraphTest extends TestCase
     public function testFlushLeftLineAttachesToEmptyItem(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', self::TABLE . "<ul>\n  <li>line two</li>\n</ul>\n"),
+            self::TABLE . "<ul>\n  <li>line two</li>\n</ul>\n",
             CarveConverter::create()->convert("| a | b |\n  - +\nline two\n"),
         );
     }
@@ -27,7 +27,7 @@ final class IndentedListAttachedParagraphTest extends TestCase
     public function testIndentedLineDoesNotAttach(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', self::TABLE . "<ul>\n  <li>line two</li>\n</ul>\n"),
+            self::TABLE . "<ul>\n  <li>line two</li>\n</ul>\n",
             CarveConverter::create()->convert("| a | b |\n  - +\n  line two\n"),
         );
     }
@@ -35,11 +35,11 @@ final class IndentedListAttachedParagraphTest extends TestCase
     public function testFlushLeftListMarkersEndTheAttachedParagraph(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>para</li>\n</ul>\n<ol>\n  <li>c</li>\n</ol>\n"),
+            "<ul>\n  <li>para</li>\n</ul>\n<ol>\n  <li>c</li>\n</ol>\n",
             CarveConverter::create()->convert("  - +\npara\n1. c\n"),
         );
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>para</li>\n</ul>\n<ul>\n  <li>c</li>\n</ul>\n"),
+            "<ul>\n  <li>para</li>\n</ul>\n<ul>\n  <li>c</li>\n</ul>\n",
             CarveConverter::create()->convert("  - +\npara\n- c\n"),
         );
     }

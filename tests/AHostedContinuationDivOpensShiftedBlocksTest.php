@@ -74,9 +74,9 @@ final class AHostedContinuationDivOpensShiftedBlocksTest extends TestCase
                     static fn (string $line): string => str_repeat(' ', $offset) . $line,
                     $lines,
                 )) . "\n";
-                self::assertSame(preg_replace('/\n\z/', '', $expected), self::compact($converter->convert($body)), "$kind/$offset/root");
+                self::assertSame($expected, self::compact($converter->convert($body)), "$kind/$offset/root");
                 self::assertSame(
-                    preg_replace('/\n\z/', '', '<div class="box">' . $expected . '</div>'),
+                    '<div class="box">' . $expected . '</div>',
                     self::compact($converter->convert("::: box\n" . $body . ":::\n")),
                     "$kind/$offset/box",
                 );

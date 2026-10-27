@@ -46,7 +46,7 @@ class ATableSpanNeverCoversAnotherCellTest extends TestCase
     #[DataProvider('bodyProvider')]
     public function testBodyRows(string $source, string $expected): void
     {
-        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->body($this->converter->convert($source)));
+        $this->assertSame($expected, $this->body($this->converter->convert($source)));
     }
 
     public function testAHeaderRowKeepsItsColspanPlaceholderInTheHead(): void
@@ -96,7 +96,7 @@ class ATableSpanNeverCoversAnotherCellTest extends TestCase
             for ($r = 0; $r < 3; $r++) {
                 $source .= '| ' . implode(' | ', array_slice($cells, $r * 3, 3)) . " |\n";
             }
-            $this->assertSame(preg_replace('/\n\z/', '', []), $this->gridErrors($this->converter->convert($source)), $source);
+            $this->assertSame([], $this->gridErrors($this->converter->convert($source)), $source);
         }
     }
 

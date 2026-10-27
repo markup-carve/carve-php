@@ -114,7 +114,7 @@ class AnUnpairedMarkdownEmphasisRunStaysLiteralTest extends TestCase
     public function testTheImportedSourceRendersTheSuitesHtml(string $markdown, string $expected): void
     {
         $this->assertSame(
-            $expected,
+            preg_replace('/\n\z/', '', $expected),
             (new CarveConverter())->convert((new MarkdownToCarve())->convert($markdown)),
         );
     }

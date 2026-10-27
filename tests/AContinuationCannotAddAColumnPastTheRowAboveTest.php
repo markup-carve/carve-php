@@ -14,7 +14,7 @@ class AContinuationCannotAddAColumnPastTheRowAboveTest extends TestCase
     {
         $source = "| `a | z |\n+ b` | w |\n";
         $this->assertSame(1, $this->cellCount($source));
-        $this->assertSame(preg_replace('/\n\z/', '', "<table>\n  <tbody>\n    <tr><td><code>a | z b</code></td></tr>\n  </tbody>\n</table>\n"), CarveConverter::create()->convert($source));
+        $this->assertSame("<table>\n  <tbody>\n    <tr><td><code>a | z b</code></td></tr>\n  </tbody>\n</table>\n", CarveConverter::create()->convert($source));
     }
 
     public function testAnExtraContinuationCellCannotCreateAColumn(): void

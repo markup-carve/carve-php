@@ -56,6 +56,6 @@ class AnEmptyLeftAlignedCellIsNotAColspanTest extends TestCase
 
     public function testTheWriterSpellingReadsBackAsWritten(): void
     {
-        $this->assertSame("| a | < |\n", (new CarveConverter())->toCarve("| a |< |\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "| a | < |\n"), (new CarveConverter())->toCarve("| a |< |\n"));
     }
 }

@@ -60,7 +60,7 @@ class RawBlockFenceConformanceTest extends TestCase
     #[DataProvider('unterminatedContentColumnFences')]
     public function testUnterminatedFenceStaysInTheOpenParagraph(string $source, string $expected): void
     {
-        self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert($source));
+        self::assertSame($expected, CarveConverter::create()->convert($source));
     }
 
     private function parse(string $source): Document

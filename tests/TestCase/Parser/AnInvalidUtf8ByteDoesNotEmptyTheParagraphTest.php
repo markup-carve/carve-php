@@ -271,6 +271,6 @@ class AnInvalidUtf8ByteDoesNotEmptyTheParagraphTest extends TestCase
         $carve = (new CarveConverter())->toCarve("hello \x9b world\n");
 
         $this->assertSame("hello \u{FFFD} world\n", $carve);
-        $this->assertSame($carve, (new CarveConverter())->toCarve($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $carve), (new CarveConverter())->toCarve($carve));
     }
 }

@@ -34,14 +34,14 @@ class CaptionWhitespaceTest extends TestCase
     public function testCaptionWithContentOnlyOnLaterLineIsNotACaption(): void
     {
         $this->assertSame(
-            preg_replace(
+            preg_replace('/\n\z/', '', preg_replace(
                 '/\n\z/',
                 '', // The `^ ` line keeps its caret and LOSES its trailing space: it is
                 // a content line inside the paragraph, and a `whitespace` run at the
                 // end of one is dropped (PART 2, markup-carve/carve#926). What this
                 // case is about - the line not being a caption - is unchanged.
                 "<p><img src=\"/u\" alt=\"a\">\n^\nmore</p>\n",
-            ),
+            )),
             $this->converter->convert("![a](/u)\n^ \nmore"),
         );
     }

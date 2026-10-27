@@ -46,7 +46,7 @@ class AbbreviationExpansionRequiredTest extends TestCase
 
     public function testAnEmptyExpansionIsNotADefinition(): void
     {
-        $this->assertSame(preg_replace('/\n\z/', '', '<p>*[A]:</p>'), $this->squash($this->converter->convert("*[A]: \n")));
+        $this->assertSame('<p>*[A]:</p>', $this->squash($this->converter->convert("*[A]: \n")));
     }
 
     public function testNothingIsSilentlyDropped(): void
@@ -63,7 +63,7 @@ class AbbreviationExpansionRequiredTest extends TestCase
         // (see below), but a tab that is ALL that follows leaves the line blank
         // too, so it goes the same way.
         foreach (["*[A]:  \n", "*[A]:   \n", "*[A]: \t\n", "*[A]: \t \n"] as $source) {
-            $this->assertSame(preg_replace('/\n\z/', '', '<p>*[A]:</p>'), $this->squash($this->converter->convert($source)), $source);
+            $this->assertSame('<p>*[A]:</p>', $this->squash($this->converter->convert($source)), $source);
         }
     }
 
@@ -123,6 +123,6 @@ class AbbreviationExpansionRequiredTest extends TestCase
 
     public function testNoSeparatorSpaceIsUnchanged(): void
     {
-        $this->assertSame(preg_replace('/\n\z/', '', '<p>*[A]:</p>'), $this->squash($this->converter->convert("*[A]:\n")));
+        $this->assertSame('<p>*[A]:</p>', $this->squash($this->converter->convert("*[A]:\n")));
     }
 }

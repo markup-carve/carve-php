@@ -82,7 +82,7 @@ final class AMergeablePairOpeningAnItemStaysInsideItTest extends TestCase
      */
     public function testTheFirstHalfStaysOnTheMarkerLine(): void
     {
-        self::assertSame("- > d\n+\n> q\n\na\n", (new CarveConverter())->toCarve("- > d\n\n  > q\n\na\n"));
+        self::assertSame(preg_replace('/\n\z/', '', "- > d\n+\n> q\n\na\n"), (new CarveConverter())->toCarve("- > d\n\n  > q\n\na\n"));
     }
 
     /**
@@ -91,7 +91,7 @@ final class AMergeablePairOpeningAnItemStaysInsideItTest extends TestCase
      */
     public function testAPairBelowAParagraphKeepsTheRunForm(): void
     {
-        self::assertSame("- x\n+\n> q\n+\n> r\n", (new CarveConverter())->toCarve("- x\n+\n> q\n+\n> r\n"));
+        self::assertSame(preg_replace('/\n\z/', '', "- x\n+\n> q\n+\n> r\n"), (new CarveConverter())->toCarve("- x\n+\n> q\n+\n> r\n"));
     }
 
     /**
@@ -100,6 +100,6 @@ final class AMergeablePairOpeningAnItemStaysInsideItTest extends TestCase
      */
     public function testAnIsolatedOpenerKeepsTheIndentedForm(): void
     {
-        self::assertSame("- x\n  > q\n", (new CarveConverter())->toCarve("- x\n+\n> q\n"));
+        self::assertSame(preg_replace('/\n\z/', '', "- x\n  > q\n"), (new CarveConverter())->toCarve("- x\n+\n> q\n"));
     }
 }

@@ -29,7 +29,7 @@ class MarkdownHtmlCodePayloadTest extends TestCase
                 if ($case['value'] !== '' && strpbrk($case['value'], "\r\n") === false) {
                     $this->assertCount(0, $fallback);
                     $safe = SafeMode::defaults()->setRawHtmlMode(SafeMode::RAW_HTML_STRIP);
-                    $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->records((new CarveConverter(safeMode: $safe))->convert($result->value))['codes']);
+                    $this->assertSame($expected, $this->records((new CarveConverter(safeMode: $safe))->convert($result->value))['codes']);
                 }
                 foreach ($fallback as $row) {
                     $this->assertSame('degraded', $row->fidelity);

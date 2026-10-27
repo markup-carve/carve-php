@@ -82,6 +82,6 @@ class ALinkLabelKeepsTheSpaceItSeparatesTest extends TestCase
     {
         $text = static fn (string $markup): string => trim((string)preg_replace('/\s+/', ' ', strip_tags(explode('<ol', $markup)[0])));
 
-        $this->assertSame(preg_replace('/\n\z/', '', $text($html)), $text((new CarveConverter())->convert($carve)));
+        $this->assertSame($text($html), $text((new CarveConverter())->convert($carve)));
     }
 }

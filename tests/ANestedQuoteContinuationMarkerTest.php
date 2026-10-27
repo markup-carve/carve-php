@@ -73,7 +73,7 @@ final class ANestedQuoteContinuationMarkerTest extends TestCase
         $source = "- a\n  > q\n  +\n  - b\n";
         $expected = "<ul>\n  <li>a\n    <blockquote><p>q\n+\n- b</p></blockquote>\n  </li>\n</ul>\n";
 
-        self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert($source));
+        self::assertSame($expected, CarveConverter::create()->convert($source));
     }
 
     public function testFirstBlockPlusDoesNotAttachListInsideListItem(): void
@@ -81,7 +81,7 @@ final class ANestedQuoteContinuationMarkerTest extends TestCase
         $source = "- x\n\n  > +\n  - a\n";
         $expected = "<ul>\n  <li>x\n    <blockquote><p>+\n- a</p></blockquote>\n  </li>\n</ul>\n";
 
-        self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert($source));
+        self::assertSame($expected, CarveConverter::create()->convert($source));
     }
 
     public function testMarkerAfterBlankCannotReachIndentedQuotedList(): void
@@ -90,7 +90,7 @@ final class ANestedQuoteContinuationMarkerTest extends TestCase
         $expected = "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n"
             . "<blockquote>\n  <ul>\n    <li>b\n      <ul>\n        <li>c\n+</li>\n      </ul>\n    </li>\n  </ul>\n  <blockquote><p>z</p></blockquote>\n</blockquote>\n";
 
-        self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert($source));
+        self::assertSame($expected, CarveConverter::create()->convert($source));
     }
 
     public function testShallowerLineEndsAttachedQuotedFence(): void
@@ -100,6 +100,6 @@ final class ANestedQuoteContinuationMarkerTest extends TestCase
             . "      <pre><code></code></pre>\n    </blockquote>\n  </blockquote>\n"
             . "  <p>x</p>\n  <blockquote>\n    <pre><code></code></pre>\n  </blockquote>\n</blockquote>\n";
 
-        self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert($source));
+        self::assertSame($expected, CarveConverter::create()->convert($source));
     }
 }

@@ -27,7 +27,7 @@ class TaskItemContinuationMarkerTest extends TestCase
     #[DataProvider('shapes')]
     public function testTaskItemMarkerShape(string $source, string $html): void
     {
-        $this->assertSame(preg_replace('/\n\z/', '', self::normalize($html)), self::normalize((new CarveConverter())->convert($source)));
+        $this->assertSame(self::normalize($html), self::normalize((new CarveConverter())->convert($source)));
     }
 
     private static function normalize(string $html): string

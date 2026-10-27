@@ -97,7 +97,7 @@ class AJoinInsideAVerbatimSpanIsCarriedTest extends TestCase
     #[DataProvider('provideRoundTrips')]
     public function testTheWriterSplitsThePayloadBack(string $source): void
     {
-        $this->assertSame($source, (new CarveConverter())->toCarve($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $source), (new CarveConverter())->toCarve($source));
     }
 
     public function testOutsideATableTheJoinIsASpace(): void

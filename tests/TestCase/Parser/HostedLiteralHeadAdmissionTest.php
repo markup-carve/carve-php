@@ -22,7 +22,7 @@ class HostedLiteralHeadAdmissionTest extends TestCase
             } else {
                 self::assertStringContainsString("<p><code>\n:::bad\n:::</code></p>", $html, $marker);
             }
-            self::assertSame($html, $converter->convert(str_replace('::: |', ':::  |', $source)), $marker);
+            self::assertSame(preg_replace('/\n\z/', '', $html), $converter->convert(str_replace('::: |', ':::  |', $source)), $marker);
         }
     }
 

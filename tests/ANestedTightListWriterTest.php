@@ -31,7 +31,7 @@ final class ANestedTightListWriterTest extends TestCase
             self::assertDoesNotMatchRegularExpression('/^[ \t]+\+[ \t]*$/m', $written);
         }
         $converter = new CarveConverter();
-        self::assertSame(preg_replace('/\n\z/', '', self::normalize($expectedHtml)), self::normalize($converter->convert($written)));
+        self::assertSame(self::normalize($expectedHtml), self::normalize($converter->convert($written)));
         self::assertSame($written, CarveConverter::toCarve($written));
     }
 

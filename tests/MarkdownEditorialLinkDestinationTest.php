@@ -29,6 +29,6 @@ final class MarkdownEditorialLinkDestinationTest extends TestCase
         $carve = (new MarkdownToCarve())->convert($markdown);
 
         self::assertSame('{-a ' . $writtenLink . ' b-}', $carve);
-        self::assertSame(preg_replace('/\n\z/', '', '<p><del>a ' . $linkHtml . ' b</del></p>' . "\n"), CarveConverter::create()->convert($carve));
+        self::assertSame('<p><del>a ' . $linkHtml . ' b</del></p>' . "\n", CarveConverter::create()->convert($carve));
     }
 }

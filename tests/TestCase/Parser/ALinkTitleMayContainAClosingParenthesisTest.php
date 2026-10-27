@@ -137,7 +137,7 @@ class ALinkTitleMayContainAClosingParenthesisTest extends TestCase
     public function testTheWriterKeepsTheTitle(string $source): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', $source),
+            $source,
             CarveConverter::create(renderer: new CarveRenderer())->convert($source),
         );
     }

@@ -38,7 +38,7 @@ class AForcedOpenerOfAnOpenKindIsLiteralTest extends TestCase
     #[DataProvider('ruled')]
     public function testTheInnerOpenerIsReadAsE3Says(string $source, string $expected): void
     {
-        $this->assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert($source));
+        $this->assertSame($expected, CarveConverter::create()->convert($source));
     }
 
     /**

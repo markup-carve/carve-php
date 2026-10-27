@@ -292,7 +292,7 @@ class ADecodedLeadingWhitespaceIsDroppedAndReportedTest extends TestCase
         $result = (new MarkdownToCarve())->convertWithFidelityReport($markdown);
 
         $this->assertSame($carve, $result->value);
-        $this->assertSame(preg_replace('/\n\z/', '', $html), CarveConverter::create()->convert($result->value));
+        $this->assertSame($html, CarveConverter::create()->convert($result->value));
         $this->assertSame([], array_values(array_filter(
             $result->diagnostics,
             static fn (MigrationDiagnostic $row): bool => $row->fidelity === 'dropped',

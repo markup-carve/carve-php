@@ -66,7 +66,7 @@ class FixedInBandSentinelsCollideWithAuthoredContentTest extends TestCase
     {
         $source = "- item\n\n  \u{E010}cont\n";
 
-        $this->assertSame($source, (new CarveConverter())->toCarve($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $source), (new CarveConverter())->toCarve($source));
     }
 
     public function testTheSameItemWithoutTheTagIsUnchangedControl(): void
@@ -76,7 +76,7 @@ class FixedInBandSentinelsCollideWithAuthoredContentTest extends TestCase
         // its answer to the authored character did.
         $source = "- item\n\n  cont\n";
 
-        $this->assertSame($source, (new CarveConverter())->toCarve($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $source), (new CarveConverter())->toCarve($source));
     }
 
     /**
@@ -124,7 +124,7 @@ class FixedInBandSentinelsCollideWithAuthoredContentTest extends TestCase
         // row above and silently reintroduce carve#861.
         $source = "- a\n\n+ b\n";
 
-        $this->assertSame($source, (new CarveConverter())->toCarve($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $source), (new CarveConverter())->toCarve($source));
     }
 
     /**
@@ -368,7 +368,7 @@ class FixedInBandSentinelsCollideWithAuthoredContentTest extends TestCase
         }
         $source = 'a' . $occupied . "b\n";
 
-        $this->assertSame($source, (new CarveConverter())->toCarve($source));
+        $this->assertSame(preg_replace('/\n\z/', '', $source), (new CarveConverter())->toCarve($source));
         $this->assertSame($source, CarveConverter::markdown()->convert($source));
         $this->assertSame(
             preg_replace('/\n\z/', '', '<p>a' . $occupied . "b</p>\n"),

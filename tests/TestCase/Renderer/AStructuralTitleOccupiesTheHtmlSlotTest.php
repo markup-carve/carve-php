@@ -12,7 +12,7 @@ class AStructuralTitleOccupiesTheHtmlSlotTest extends TestCase
     public function testLinkDestinationTitleWinsTheHtmlSlot(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', '<p><a href="/u" title="T">E</a></p>' . "\n"),
+            '<p><a href="/u" title="T">E</a></p>' . "\n",
             CarveConverter::create()->convert('[E](/u "T"){TITLE=Z}'),
         );
     }
@@ -20,7 +20,7 @@ class AStructuralTitleOccupiesTheHtmlSlotTest extends TestCase
     public function testImageDestinationTitleWinsTheHtmlSlot(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', '<img src="/i" alt="A" title="T">' . "\n"),
+            '<img src="/i" alt="A" title="T">' . "\n",
             CarveConverter::create()->convert('![A](/i "T"){title=Z}'),
         );
     }
@@ -28,7 +28,7 @@ class AStructuralTitleOccupiesTheHtmlSlotTest extends TestCase
     public function testAttributeTitleSurvivesWithoutADestinationTitle(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', '<p><a href="/u" title="Z">E</a></p>' . "\n"),
+            '<p><a href="/u" title="Z">E</a></p>' . "\n",
             CarveConverter::create()->convert('[E](/u){title=Z}'),
         );
     }

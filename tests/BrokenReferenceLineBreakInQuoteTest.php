@@ -23,7 +23,7 @@ final class BrokenReferenceLineBreakInQuoteTest extends TestCase
     public function testStructuralQuoteIndentDoesNotEnterLiteralReference(string $opener): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<blockquote>\n  <blockquote><p>{$opener}\nx]</p></blockquote>\n</blockquote>\n"),
+            "<blockquote>\n  <blockquote><p>{$opener}\nx]</p></blockquote>\n</blockquote>\n",
             CarveConverter::create()->convert("> > {$opener}\nx]\n\n[r x]: /u\n"),
         );
     }

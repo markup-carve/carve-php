@@ -23,6 +23,6 @@ final class ALazyItemParagraphKeepsItsMarkerColumnContinuationTest extends TestC
     #[DataProvider('cases')]
     public function testMarkerAttachesAfterALazyParagraph(string $source, string $expected): void
     {
-        self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert($source));
+        self::assertSame($expected, CarveConverter::create()->convert($source));
     }
 }

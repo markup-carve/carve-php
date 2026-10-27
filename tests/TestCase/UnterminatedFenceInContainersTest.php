@@ -37,13 +37,13 @@ class UnterminatedFenceInContainersTest extends TestCase
     public function testTopLevelIsUnchanged(): void
     {
         // Corpus 81-paragraph-interruption-18, already correct.
-        $this->assertSame(preg_replace('/\n\z/', '', '<p>a <code></code></p>'), $this->squash($this->converter->convert("a\n```\n")));
+        $this->assertSame('<p>a <code></code></p>', $this->squash($this->converter->convert("a\n```\n")));
     }
 
     public function testInAListItem(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', '<ul> <li>a <code></code></li> </ul>'),
+            '<ul> <li>a <code></code></li> </ul>',
             $this->squash($this->converter->convert("* a\n```\n")),
         );
     }
@@ -51,7 +51,7 @@ class UnterminatedFenceInContainersTest extends TestCase
     public function testInABlockquote(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', '<blockquote><p>a <code></code></p></blockquote>'),
+            '<blockquote><p>a <code></code></p></blockquote>',
             $this->squash($this->converter->convert("> a\n```\n")),
         );
     }

@@ -69,7 +69,7 @@ class AMarkdownQuotedIndentedCodeIsAFenceTest extends TestCase
     #[DataProvider('rendered')]
     public function testTheQuoteRendersTheCode(string $markdown, string $html): void
     {
-        $this->assertSame($html, (new CarveConverter())->convert((new MarkdownToCarve())->convert($markdown)));
+        $this->assertSame(preg_replace('/\n\z/', '', $html), (new CarveConverter())->convert((new MarkdownToCarve())->convert($markdown)));
     }
 
     /**

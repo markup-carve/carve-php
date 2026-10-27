@@ -12,7 +12,7 @@ final class FigureGroupCommentLayoutTest extends TestCase
     public function testCommentBeforeContentAddsNoEmptyHtmlLine(): void
     {
         $expected = "<figure class=\"carve-figure-group\">\n  <p>~~~</p>\n</figure>\n";
-        self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert("::: figure\n  %%%\n ~~~\n"));
-        self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert("::: figure\n ~~~\n"));
+        self::assertSame($expected, CarveConverter::create()->convert("::: figure\n  %%%\n ~~~\n"));
+        self::assertSame($expected, CarveConverter::create()->convert("::: figure\n ~~~\n"));
     }
 }

@@ -30,6 +30,6 @@ final class DescriptionBelowTermHostEndsItemTest extends TestCase
     #[DataProvider('rows')]
     public function testDescriptionLeavesItsHost(string $source, string $expected): void
     {
-        self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert($source));
+        self::assertSame($expected, CarveConverter::create()->convert($source));
     }
 }

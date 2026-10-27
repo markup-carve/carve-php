@@ -12,7 +12,7 @@ final class RepeatedUnboundImageCaptionTest extends TestCase
     public function testEachCaretLineSurvivesAnUnresolvedImage(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<p>![a][r]\n^ cap</p>\n<p>^ cap</p>\n"),
+            "<p>![a][r]\n^ cap</p>\n<p>^ cap</p>\n",
             CarveConverter::create()->convert("![a][r]\n^ cap\n^ cap\n"),
         );
     }

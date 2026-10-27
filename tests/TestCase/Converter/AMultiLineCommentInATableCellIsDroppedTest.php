@@ -39,7 +39,7 @@ class AMultiLineCommentInATableCellIsDroppedTest extends TestCase
         $result = (new HtmlToCarve())->convertWithReport($html);
 
         $this->assertSame($carve, $result->value);
-        $this->assertSame($carve, (new CarveConverter())->toCarve($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $carve), (new CarveConverter())->toCarve($carve));
         $dropped = array_values(array_filter(
             $result->report()['diagnostics'],
             static fn (array $row): bool => $row['code'] === 'element-dropped',

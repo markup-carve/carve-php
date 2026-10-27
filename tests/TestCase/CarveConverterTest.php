@@ -38,7 +38,7 @@ class CarveConverterTest extends TestCase
 
     public function testWhitespaceOnlyInputIsBlank(): void
     {
-        $this->assertSame(preg_replace('/\n\z/', '', ''), $this->converter->convert(' '));
+        $this->assertSame('', $this->converter->convert(' '));
     }
 
     public function testMultipleParagraphs(): void

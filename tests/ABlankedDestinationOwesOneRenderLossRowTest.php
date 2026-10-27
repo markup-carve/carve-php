@@ -65,7 +65,7 @@ class ABlankedDestinationOwesOneRenderLossRowTest extends TestCase
         $result = CarveConverter::create()->convertWithReport(self::TWO_SINKS);
 
         self::assertSame(
-            '<p><a href="">report me</a> and <img src="" alt="report me too"></p>' . "\n",
+            '<p><a href="">report me</a> and <img src="" alt="report me too"></p>',
             $result->value,
         );
         self::assertSame(2, $result->totalLosses);
@@ -96,7 +96,7 @@ class ABlankedDestinationOwesOneRenderLossRowTest extends TestCase
         $result = $converter->convertWithReport(self::TWO_SINKS);
 
         self::assertSame(
-            '<p><a href="">report me</a> and <img src="" alt="report me too"></p>' . "\n",
+            '<p><a href="">report me</a> and <img src="" alt="report me too"></p>',
             $result->value,
         );
         self::assertSame(2, $result->totalLosses);

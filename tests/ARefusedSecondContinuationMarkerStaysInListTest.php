@@ -12,7 +12,7 @@ final class ARefusedSecondContinuationMarkerStaysInListTest extends TestCase
     public function testRefusedSecondMarkerIsItemTextBeforeSibling(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    +\n  </li>\n  <li>b</li>\n</ul>\n"),
+            "<ul>\n  <li>a\n    +\n  </li>\n  <li>b</li>\n</ul>\n",
             CarveConverter::create()->convert("- a\n+\n+\n- b\n"),
         );
     }
@@ -20,7 +20,7 @@ final class ARefusedSecondContinuationMarkerStaysInListTest extends TestCase
     public function testSecondMarkerCanAttachItsOwnFollower(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    text\n  </li>\n</ul>\n"),
+            "<ul>\n  <li>a\n    text\n  </li>\n</ul>\n",
             CarveConverter::create()->convert("- a\n+\n+\ntext\n"),
         );
     }
@@ -28,7 +28,7 @@ final class ARefusedSecondContinuationMarkerStaysInListTest extends TestCase
     public function testRefusedSecondMarkerStaysInItemAtEndOfInput(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    +\n  </li>\n</ul>\n"),
+            "<ul>\n  <li>a\n    +\n  </li>\n</ul>\n",
             CarveConverter::create()->convert("- a\n+\n+\n"),
         );
     }

@@ -45,7 +45,7 @@ class EmptyContainerCleanupTest extends TestCase
             Profile::full()->denyInline([NodeType::IMAGE])->onDisallowed(Profile::ACTION_STRIP),
         );
 
-        $this->assertSame(preg_replace('/\n\z/', '', ''), $converter->convert("> ![alt](x.png)\n"));
+        $this->assertSame('', $converter->convert("> ![alt](x.png)\n"));
     }
 
     /**

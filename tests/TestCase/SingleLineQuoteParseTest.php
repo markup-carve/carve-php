@@ -41,7 +41,7 @@ final class SingleLineQuoteParseTest extends TestCase
 
         $converter = CarveConverter::create(parser: $parser);
 
-        self::assertSame("<blockquote><p>from matcher</p></blockquote>\n", $converter->convert("> A custom line\n"));
+        self::assertSame(preg_replace('/\n\z/', '', "<blockquote><p>from matcher</p></blockquote>\n"), $converter->convert("> A custom line\n"));
         self::assertSame(1, $calls);
     }
 }

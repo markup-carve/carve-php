@@ -61,7 +61,7 @@ class DefinitionTermRequiresContentTest extends TestCase
     #[DataProvider('contentLessMarkers')]
     public function testAContentLessMarkerIsParagraphText(string $source): void
     {
-        $this->assertSame(preg_replace('/\n\z/', '', '<p>::</p>'), $this->squash($this->converter->convert($source)));
+        $this->assertSame('<p>::</p>', $this->squash($this->converter->convert($source)));
     }
 
     public function testStrippingATrailingSpaceCannotChangeTheStructure(): void
@@ -69,14 +69,14 @@ class DefinitionTermRequiresContentTest extends TestCase
         // The rule's own rationale. These three must be indistinguishable.
         $bare = $this->squash($this->converter->convert("::\n"));
 
-        $this->assertSame(preg_replace('/\n\z/', '', $bare), $this->squash($this->converter->convert(":: \n")));
-        $this->assertSame(preg_replace('/\n\z/', '', $bare), $this->squash($this->converter->convert("::  \n")));
+        $this->assertSame($bare, $this->squash($this->converter->convert(":: \n")));
+        $this->assertSame($bare, $this->squash($this->converter->convert("::  \n")));
     }
 
     public function testATermWithContentStillWorks(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', '<dl> <dt>t</dt> <dd>d</dd> </dl>'),
+            '<dl> <dt>t</dt> <dd>d</dd> </dl>',
             $this->squash($this->converter->convert(":: t\n:  d\n")),
         );
     }
@@ -84,7 +84,7 @@ class DefinitionTermRequiresContentTest extends TestCase
     public function testATermWithExtraSeparatorWhitespaceStillWorks(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', '<dl> <dt>x</dt> </dl>'),
+            '<dl> <dt>x</dt> </dl>',
             $this->squash($this->converter->convert("::  x\n")),
         );
     }

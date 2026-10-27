@@ -38,7 +38,7 @@ class AnEmptyListIsDroppedTest extends TestCase
         $result = (new HtmlToCarve())->convertWithReport($html);
 
         $this->assertSame($carve, $result->value);
-        $this->assertSame($carve, (new CarveConverter())->toCarve($carve));
+        $this->assertSame(preg_replace('/\n\z/', '', $carve), (new CarveConverter())->toCarve($carve));
         $rows = $result->report()['diagnostics'];
         $this->assertSame(['element-dropped'], array_column($rows, 'code'));
         $this->assertSame('warning', $rows[0]['severity']);

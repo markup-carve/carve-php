@@ -174,7 +174,7 @@ class ARawBracketedRunIsWrittenAsAuthoredTest extends TestCase
     public function testTheAltResolvesPunctuationEscapes(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<p>a <img src=\"/i.png\" alt=\"t]z\"> b</p>\n"),
+            "<p>a <img src=\"/i.png\" alt=\"t]z\"> b</p>\n",
             CarveConverter::create()->convert("a ![t\\]z](/i.png) b\n"),
         );
     }

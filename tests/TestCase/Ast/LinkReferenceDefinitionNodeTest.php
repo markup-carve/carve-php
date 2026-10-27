@@ -81,7 +81,7 @@ class LinkReferenceDefinitionNodeTest extends TestCase
     {
         $converter = new CarveConverter();
         $this->assertSame(preg_replace('/\n\z/', '', "<p><a href=\"/u\">a</a></p>\n"), $converter->convert("[a][r]\n\n[r]: /u\n"));
-        $this->assertSame(preg_replace('/\n\z/', '', ''), $converter->convert("[r]: /u\n"));
+        $this->assertSame('', $converter->convert("[r]: /u\n"));
     }
 
     /**

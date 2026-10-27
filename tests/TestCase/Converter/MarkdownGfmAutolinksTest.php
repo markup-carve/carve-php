@@ -55,7 +55,7 @@ final class MarkdownGfmAutolinksTest extends TestCase
             '[link /a [b/c\\]](u)' => '<p>[link /a <a href="u">b/c]</a></p>',
         ];
         foreach ($samples as $markdown => $html) {
-            self::assertSame($html . "\n", $converter->convert((new MarkdownToCarve())->convert($markdown . "\n")));
+            self::assertSame(preg_replace('/\n\z/', '', $html . "\n"), $converter->convert((new MarkdownToCarve())->convert($markdown . "\n")));
         }
     }
 
@@ -85,8 +85,8 @@ final class MarkdownGfmAutolinksTest extends TestCase
         $migration = (new MarkdownToCarve())->convertWithFidelityReport($markdown);
         $converter = new CarveConverter();
         $expected = self::htmlShape($html);
-        self::assertSame(preg_replace('/\n\z/', '', $expected), self::htmlShape($converter->convert($migration->value)));
-        self::assertSame(preg_replace('/\n\z/', '', $expected), self::htmlShape($converter->convert(CarveConverter::toCarve($migration->value))));
+        self::assertSame($expected, self::htmlShape($converter->convert($migration->value)));
+        self::assertSame($expected, self::htmlShape($converter->convert(CarveConverter::toCarve($migration->value))));
         foreach ($migration->diagnostics as $row) {
             self::assertFalse($row->confidence === 'exact' && $row->fidelity === 'dropped');
         }
@@ -207,7 +207,7 @@ final class MarkdownGfmAutolinksTest extends TestCase
         foreach (['', "\n", "\n\n"] as $ending) {
             $source = (new MarkdownToCarve())->convert('a@example.test' . $ending);
             self::assertSame($ending !== '', str_ends_with($source, "\n"));
-            self::assertSame(preg_replace('/\n\z/', '', self::htmlShape('<p><a href="mailto:a@example.test">a@example.test</a></p>')), self::htmlShape((new CarveConverter())->convert($source)));
+            self::assertSame(self::htmlShape('<p><a href="mailto:a@example.test">a@example.test</a></p>'), self::htmlShape((new CarveConverter())->convert($source)));
         }
     }
 
@@ -236,7 +236,7 @@ final class MarkdownGfmAutolinksTest extends TestCase
     public function testSlashInAnAngleEmailKeepsTheWholeAddress(): void
     {
         $carve = (new MarkdownToCarve())->convert('*x* <a/b@example.test>');
-        self::assertSame(preg_replace('/\n\z/', '', self::htmlShape('<p><em>x</em> <a href="mailto:a/b@example.test">a/b@example.test</a></p>')), self::htmlShape((new CarveConverter())->convert($carve)));
+        self::assertSame(self::htmlShape('<p><em>x</em> <a href="mailto:a/b@example.test">a/b@example.test</a></p>'), self::htmlShape((new CarveConverter())->convert($carve)));
     }
 
     public function testEmailPassKeepsBreaksAfterFrontmatter(): void

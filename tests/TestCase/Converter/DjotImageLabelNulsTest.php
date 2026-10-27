@@ -44,14 +44,14 @@ class DjotImageLabelNulsTest extends TestCase
         $renderer = new CarveConverter();
         foreach ($controls as $row) {
             $converted = $converter->convert($row['source']);
-            $this->assertSame(preg_replace('/\n\z/', '', $this->images($row['html'])), $this->images($renderer->convert($converted)), $row['source']);
+            $this->assertSame($this->images($row['html']), $this->images($renderer->convert($converted)), $row['source']);
             $report = $converter->convertWithFidelityReport($row['source']);
             $this->assertSame($converted, $report->value, $row['source']);
             foreach ($report->diagnostics as $diagnostic) {
                 $this->assertNotSame('An unresolved Djot image reference has no src; Carve cannot spell that image.', $diagnostic->message, $row['source']);
             }
         }
-        $this->assertSame(preg_replace('/\n\z/', '', 'plain'), $converter->convert('plain'));
+        $this->assertSame('plain', $converter->convert('plain'));
     }
 
     public function testNulOnlyReferenceLabelsKeepTheirIdentity(): void

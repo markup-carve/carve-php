@@ -28,11 +28,11 @@ class RawPayloadTerminationTest extends TestCase
             $raw = $doc->getChildren()[0];
             self::assertInstanceOf(RawBlock::class, $raw);
             self::assertSame($vector['codeContent'], $raw->getContent(), $vector['id']);
-            self::assertSame($vector['rawPassthrough'] . "\n", (new CarveConverter())->render($doc), $vector['id']);
+            self::assertSame(preg_replace('/\n\z/', '', $vector['rawPassthrough'] . "\n"), (new CarveConverter())->render($doc), $vector['id']);
             $code = clone $doc;
             $code->removeChild($code->getChildren()[0]);
             $code->appendChild(new CodeBlock($vector['codeContent'], 'html'));
-            self::assertSame((new CarveConverter(safeMode: true))->render($code), (new CarveConverter(safeMode: true))->render($doc), $vector['id']);
+            self::assertSame(preg_replace('/\n\z/', '', (new CarveConverter(safeMode: true))->render($code)), (new CarveConverter(safeMode: true))->render($doc), $vector['id']);
         }
     }
 

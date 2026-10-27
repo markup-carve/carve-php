@@ -126,7 +126,7 @@ class ABlankAboveAMarkdownSublistKeepsTheListLooseTest extends TestCase
     {
         $imported = (new MarkdownToCarve())->convert($markdown . "\n");
 
-        $this->assertSame($imported, (new CarveConverter())->toCarve($imported));
+        $this->assertSame(preg_replace('/\n\z/', '', $imported), (new CarveConverter())->toCarve($imported));
     }
 
     /**

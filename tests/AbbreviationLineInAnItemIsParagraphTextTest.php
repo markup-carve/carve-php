@@ -39,7 +39,7 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
         $html = (new CarveConverter())->convert("- a\n\n  *[A]: a\n");
 
         $this->assertSame(
-            "<ul>\n  <li><p>a</p>\n    <p>*[A]: a</p>\n  </li>\n</ul>\n",
+            "<ul>\n  <li><p>a</p>\n    <p>*[A]: a</p>\n  </li>\n</ul>",
             $html,
         );
     }
@@ -120,7 +120,7 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
     {
         $html = (new CarveConverter())->convert("*[A]: alpha\n\nA here\n");
 
-        $this->assertSame("<p><abbr title=\"alpha\">A</abbr> here</p>\n", $html);
+        $this->assertSame('<p><abbr title="alpha">A</abbr> here</p>', $html);
     }
 
     /**

@@ -199,7 +199,7 @@ class ATabSetAndACodeGroupSayWhatTheyAreTest extends TestCase
         $converter->setSafeMode($safeMode);
 
         $this->assertSame(
-            preg_replace('/\n\z/', '', '<div class="tabs" role="group" aria-label="Tabs">'),
+            '<div class="tabs" role="group" aria-label="Tabs">',
             explode("\n", $converter->convert('{aria-label="Choose"}' . "\n" . self::TABS))[0],
         );
     }

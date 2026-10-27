@@ -32,19 +32,19 @@ class CommentUnderDefinitionTermTest extends TestCase
 
     public function testABareCommentDoesNotJoinTheTerm(): void
     {
-        $this->assertSame(preg_replace('/\n\z/', '', '<dl> <dt>t</dt> </dl>'), $this->squash($this->converter->convert(":: t\n%%\n")));
+        $this->assertSame('<dl> <dt>t</dt> </dl>', $this->squash($this->converter->convert(":: t\n%%\n")));
     }
 
     public function testACommentWithContentDoesNotJoinTheTerm(): void
     {
-        $this->assertSame(preg_replace('/\n\z/', '', '<dl> <dt>t</dt> </dl>'), $this->squash($this->converter->convert(":: t\n%% c\n")));
+        $this->assertSame('<dl> <dt>t</dt> </dl>', $this->squash($this->converter->convert(":: t\n%% c\n")));
     }
 
     public function testACommentBlockIsUnchanged(): void
     {
         // Already correct; here so a fix cannot regress the case that worked.
         $this->assertSame(
-            preg_replace('/\n\z/', '', '<dl> <dt>t</dt> </dl>'),
+            '<dl> <dt>t</dt> </dl>',
             $this->squash($this->converter->convert(":: t\n%%%\nx\n%%%\n")),
         );
     }
@@ -54,7 +54,7 @@ class CommentUnderDefinitionTermTest extends TestCase
         // The rule the comment was being mistaken for: "A term folds a
         // following plain line as a soft break."
         $this->assertSame(
-            preg_replace('/\n\z/', '', '<dl> <dt>t plain</dt> </dl>'),
+            '<dl> <dt>t plain</dt> </dl>',
             $this->squash($this->converter->convert(":: t\nplain\n")),
         );
     }
@@ -70,7 +70,7 @@ class CommentUnderDefinitionTermTest extends TestCase
         // it. But three engines agree, so changing it is a language decision and
         // not this fix's business. Recorded so the agreement is deliberate.
         $this->assertSame(
-            preg_replace('/\n\z/', '', '<dl> <dt>t</dt> </dl> <p>: d</p>'),
+            '<dl> <dt>t</dt> </dl> <p>: d</p>',
             $this->squash($this->converter->convert(":: t\n%%\n:  d\n")),
         );
     }
@@ -78,7 +78,7 @@ class CommentUnderDefinitionTermTest extends TestCase
     public function testADefinitionStillAttachesWithNoCommentBetween(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', '<dl> <dt>t</dt> <dd>d</dd> </dl>'),
+            '<dl> <dt>t</dt> <dd>d</dd> </dl>',
             $this->squash($this->converter->convert(":: t\n:  d\n")),
         );
     }
