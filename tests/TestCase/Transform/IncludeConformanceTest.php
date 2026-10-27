@@ -70,6 +70,7 @@ class IncludeConformanceTest extends TestCase
             'html' => '<p>{{ two.txt @lines:3-3 @code }}</p>',
         ],
         'i01-inverted-line-range' => [
+            'html' => '<p>{{ child @lines:3-1 }}</p>',
             'warnings' => [['rule' => 'include-lines-invalid']],
             'dependencies' => [['id' => 'child', 'resolved' => true]],
         ],
