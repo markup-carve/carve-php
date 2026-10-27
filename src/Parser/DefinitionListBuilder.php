@@ -150,9 +150,11 @@ final class DefinitionListBuilder
                 $authoredNext = ContainerPrefix::stripQuoteMarkers(
                     $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 );
+                $authoredColumn = IndentationHelper::getLeadingColumns($authoredNext);
                 $belowTermComment = $termColumn !== null
                     && preg_match('/^[ \t]*%%/', $nextLine) === 1
-                    && IndentationHelper::getLeadingColumns($authoredNext) < $termColumn;
+                    && $authoredColumn > IndentationHelper::getLeadingColumns($termSourceLine)
+                    && $authoredColumn < $termColumn;
                 if (preg_match('/^[ \t]+%%/', $nextLine) === 1 || $belowTermComment) {
                     $parts[] = $this->foldedTermComment($lines, $i);
 
