@@ -1728,10 +1728,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($language !== null) {
             $langClass = 'class="language-' . $this->escapeAttribute($language) . '"';
 
-            return '<pre' . $carrierAttrs . $attrs . '><code ' . $langClass . '>' . $code . "</code></pre>\n";
+            return '<pre' . $attrs . $carrierAttrs . '><code ' . $langClass . '>' . $code . "</code></pre>\n";
         }
 
-        return '<pre' . $carrierAttrs . $attrs . '><code>' . $code . "</code></pre>\n";
+        return '<pre' . $attrs . $carrierAttrs . '><code>' . $code . "</code></pre>\n";
     }
 
     /**
