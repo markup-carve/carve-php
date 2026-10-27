@@ -573,9 +573,31 @@ class TableParser
      */
     public function cellMarkerRunLength(string $cell): int
     {
+        $scan = $this->scanCellMarkerRun($cell);
+        if ($scan === null) {
+            return 0;
+        }
+
+        return $scan['terminated'] ? $scan['runEnd'] : 0;
+    }
+
+    /**
+     * The marker run at the start of a cell, measured before PART 9 §5 T11
+     * decides whether it survives: `kind` is whether it opens with `=`,
+     * `glyphEnd` where the contiguous alignment glyphs stop, `runEnd` where the
+     * VALID run stops (equal to `glyphEnd` unless the glyphs are not a run),
+     * `blockEnd` the end of a glued attribute block, and `terminated` whether a
+     * space follows. Null for a bare span glyph and for a cell with no marker
+     * and no block. Lint reads this to report a run whose only fault is the
+     * missing space.
+     *
+     * @return array{kind: bool, glyphEnd: int, runEnd: int, blockEnd: int|null, terminated: bool}|null
+     */
+    public function scanCellMarkerRun(string $cell): ?array
+    {
         // A bare span glyph takes precedence over an empty alignment run.
         if (trim($cell, ' ') === '<' || trim($cell, ' ') === '^') {
-            return 0;
+            return null;
         }
         $length = ($cell[0] ?? '') === '=' ? 1 : 0;
         $start = $length;
@@ -637,16 +659,20 @@ class TableParser
         // cell holding `hot=`. The closing pipe is not a terminator (`|= |` is
         // the empty header cell) and neither is a tab, which PART 7 gives no
         // padding role inline.
-        $afterBlock = $this->cellAttrBlockEnd($cell, $runEnd) ?? $runEnd;
+        $blockEnd = $this->cellAttrBlockEnd($cell, $runEnd);
+        $afterBlock = $blockEnd ?? $runEnd;
         if ($afterBlock === 0) {
             // No marker and no block: the unpadded cell is unchanged.
-            return 0;
-        }
-        if (($cell[$afterBlock] ?? '') !== ' ') {
-            return 0;
+            return null;
         }
 
-        return $runEnd;
+        return [
+            'kind' => $start === 1,
+            'glyphEnd' => $length,
+            'runEnd' => $runEnd,
+            'blockEnd' => $blockEnd,
+            'terminated' => ($cell[$afterBlock] ?? '') === ' ',
+        ];
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Lint;
 
 use MarkupCarve\Carve\Parser\Block\TableParser;
+use MarkupCarve\Carve\Parser\BlockParser;
 
 class TableColumnLinter
 {
@@ -24,37 +25,14 @@ class TableColumnLinter
                 $prefixCounts[$index] = SourceOffsets::asciiPrefixCounts($text);
             }
         }
+        $parser = new TableParser();
         foreach ($lines as $lineIndex => $line) {
             if (str_starts_with(ltrim($line), '|')) {
-                if (preg_match_all('/(?:\||\|=)([<>~^v?]{1,2})(?![<>~^v?\s])/', $line, $matches, PREG_OFFSET_CAPTURE)) {
-                    foreach ($matches[1] as [$run, $offset]) {
-                        $runEnd = $offset + strlen($run);
-                        // A whole-cell ^ or < is a span marker, not an unpadded alignment run.
-                        if (($run === '^' || $run === '<') && ($line[$offset - 1] ?? '') === '|' && ($line[$runEnd] ?? '') === '|') {
-                            continue;
-                        }
-                        // Ask the PARSER where the block ends rather than
-                        // matching braces here: a `}` inside a quoted value is
-                        // content, and a hand-rolled regex reports a terminated
-                        // run as unterminated on exactly those cells.
-                        $blockEnd = (new TableParser())->cellAttrBlockEnd($line, $runEnd);
-                        $block = $blockEnd !== null;
-                        $runEnd = $blockEnd ?? $runEnd;
-                        if (($line[$runEnd] ?? '') !== ' ') {
-                            $suffix = $block ? ' and its attribute block' : '';
-                            $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $offset, strlen($run), 'table-marker-run-padding', sprintf('The table alignment run "%s" has no terminating space, so it is literal cell content. Add a space after the run%s to make it alignment.', $run, $suffix));
-                        }
-                    }
-                }
-
-                if (preg_match_all('/\|=(?=[^<>~^v?\s])/', $line, $kindMatches, PREG_OFFSET_CAPTURE)) {
-                    foreach ($kindMatches[0] as [$spelling, $offset]) {
-                        $runEnd = $offset + 2;
-                        $blockEnd = (new TableParser())->cellAttrBlockEnd($line, $runEnd);
-                        $runEnd = $blockEnd ?? $runEnd;
-                        if (($line[$runEnd] ?? '') !== ' ') {
-                            $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $offset + 1, $runEnd - $offset - 1, 'table-marker-run-padding', 'The table kind marker has no terminating space, so it is literal cell content. Add a space after the marker run to make it a header.');
-                        }
+                $indent = strlen($line) - strlen(ltrim($line));
+                foreach ($parser->splitCells(substr($line, $indent)) as $cell) {
+                    $warning = $this->unpaddedRun($parser, $rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $indent + $cell['offset'], $cell['content']);
+                    if ($warning !== null) {
+                        $warnings[] = $warning;
                     }
                 }
 
@@ -104,6 +82,57 @@ class TableColumnLinter
         }
 
         return $warnings;
+    }
+
+    /**
+     * Reports a cell that is literal only because its marker run lacks the
+     * terminating space (PART 9 §5 T11). A run that is invalid for another
+     * reason (`^a`, `=<<`) stays literal with the space added, so it is not
+     * reported; a block glued before `<`, `>` or `~` is the retired order,
+     * which RetiredSpellingLinter reports.
+     *
+     * @param \MarkupCarve\Carve\Parser\Block\TableParser $parser
+     * @param list<array{string, int}> $rows
+     * @param array<int, int>|null $byteAt
+     * @param bool $validUtf8
+     * @param array<int, array<int, int>> $prefixCounts
+     * @param int $lineIndex
+     * @param int $offset Byte offset of the cell content in the line.
+     * @param string $cell
+     */
+    private function unpaddedRun(
+        TableParser $parser,
+        array $rows,
+        ?array $byteAt,
+        bool $validUtf8,
+        array $prefixCounts,
+        int $lineIndex,
+        int $offset,
+        string $cell,
+    ): ?LintWarning {
+        $scan = $parser->scanCellMarkerRun($cell);
+        if ($scan === null || $scan['terminated'] || $scan['runEnd'] !== $scan['glyphEnd']) {
+            return null;
+        }
+        $kindEnd = $scan['kind'] ? 1 : 0;
+        $block = $scan['blockEnd'] !== null;
+        $suffix = $block ? ' and its attribute block' : '';
+        $rule = RetiredSpellingLinter::RULE_TABLE_MARKER_RUN_PADDING;
+        if ($scan['runEnd'] > $kindEnd) {
+            $run = substr($cell, $kindEnd, $scan['runEnd'] - $kindEnd);
+
+            return $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $offset + $kindEnd, strlen($run), $rule, sprintf('The table alignment run "%s" has no terminating space, so it is literal cell content. Add a space after the run%s to make it alignment.', $run, $suffix));
+        }
+        if ($scan['kind']) {
+            return $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $offset, $scan['blockEnd'] ?? 1, $rule, sprintf('The table kind marker has no terminating space, so it is literal cell content. Add a space after the marker run%s to make it a header.', $suffix));
+        }
+        $blockEnd = (int)$scan['blockEnd'];
+        if (isset(BlockParser::TABLE_ALIGNMENT_MARKERS[$cell[$blockEnd] ?? ''])) {
+            return null;
+        }
+        $attributes = substr($cell, 0, $blockEnd);
+
+        return $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $offset, $blockEnd, $rule, sprintf('The table cell attribute block "%s" has no terminating space, so it is literal cell content. Add a space after the block to apply it to the cell.', $attributes));
     }
 
     /**
