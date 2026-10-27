@@ -2881,11 +2881,14 @@ final class BlockContinuationScanner
             && ($nextTrimmed[0] ?? '') !== '`' && ($nextTrimmed[0] ?? '') !== '~'
             && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed)
                 || $this->isBlockAttributeLine($nextTrimmed));
+        $quotedLazyMarker = $trailingState->quoteParagraph && $wasOpenParagraph
+            && $column === $contentIndent
+            && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null;
         if ($retainedQuoteFence) {
             return $trailingState;
         }
         if (
-            $quotedLazyOpener || $failedReplayFence || $descendantParagraphFence
+            $quotedLazyOpener || $quotedLazyMarker || $failedReplayFence || $descendantParagraphFence
             || ($authoredTermContinuation && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0))
         ) {
             return $this->advanceTrailingState($trailingState, 'text', true);
