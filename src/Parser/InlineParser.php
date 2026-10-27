@@ -5379,7 +5379,7 @@ class InlineParser
             return $this->destinationScans[$urlStart] = $notADestination;
         }
         if ($this->destinationWhitespace === null) {
-            preg_match_all('/[\p{Z}\x{0009}-\x{000D}\x{0085}]/u', $text, $whitespace, PREG_OFFSET_CAPTURE);
+            preg_match_all('/[\p{Z}\x{0000}\x{0009}-\x{000D}\x{0085}]/u', $text, $whitespace, PREG_OFFSET_CAPTURE);
             $this->destinationWhitespace = array_column($whitespace[0], 1);
         }
         $low = 0;
@@ -5476,7 +5476,7 @@ class InlineParser
         // (carve-php#2641).
         if (
             $url === ''
-            || preg_match('/[\p{Z}\x{0009}-\x{000D}\x{0085}]/u', $url)
+            || preg_match('/[\p{Z}\x{0000}\x{0009}-\x{000D}\x{0085}]/u', $url)
         ) {
             return $this->destinationScans[$urlStart] = $notADestination;
         }
