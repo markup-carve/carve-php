@@ -61,6 +61,18 @@ class AttributeHardeningTest extends TestCase
         );
     }
 
+    public function testBlanksControlSplitSchemesInAttributes(): void
+    {
+        foreach (["\x7f", "\u{0085}"] as $control) {
+            $source = "[x]{background=\"java{$control}script:alert(1)\"}";
+            $this->assertSame('<p><span background="">x</span></p>', $this->render($source));
+            $this->assertSame(
+                '<p><span background="">x</span></p>',
+                trim((new CarveConverter(safeMode: true))->convert($source)),
+            );
+        }
+    }
+
     public function testBlanksCssExpressionButKeepsPlainStyle(): void
     {
         $this->assertSame(

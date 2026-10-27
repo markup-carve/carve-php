@@ -4155,18 +4155,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * `safe.png 1x, javascript:` by splitting on it. Neither subsumes the
      * other, which is why both run.
      *
-     * The scheme is normalized (C0 controls + spaces removed) before comparison
-     * to defeat `java\tscript:` style evasion.
+     * Use the destination scheme probe for the same control and space handling.
      */
     private static function hasLeadingDangerousScheme(string $value): bool
     {
-        $colon = strpos($value, ':');
-        if ($colon === false) {
-            return false;
-        }
-        $scheme = strtolower((string)preg_replace('/[\x00-\x20]+/', '', substr($value, 0, $colon)));
-
-        return in_array($scheme, self::DANGEROUS_VALUE_SCHEMES, true);
+        return $value !== '' && self::blankDangerousScheme($value) === '';
     }
 
     /**
