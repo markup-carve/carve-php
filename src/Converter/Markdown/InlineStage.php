@@ -3407,7 +3407,7 @@ final class InlineStage
             // wrapped. Carve wants a space or a line end after the colons, so
             // `:::note` is already literal.
             $line = preg_replace_callback(
-                '/^([ \t]*(?:(?:>[ \t]?|[-*+][ \t]+|\d{1,9}[.)][ \t]+)[ \t]*)*)(?=:{2,}(?:[ \t]|$))/m',
+                '/^([ \t]*(?:(?:>[ \t]?|[-*+][ \t]+|\d{1,9}[.)][ \t]+)[ \t]*)*)(?=(?:\^|:{2,})(?:[ \t]|$))/m',
                 static fn (array $match): string => $match[1] . '\\',
                 $line,
             ) ?? $line;
