@@ -3476,7 +3476,29 @@ final class InlineStage
      */
     protected function breaksOutOfACriticBody(string $body): bool
     {
-        return preg_match('/[{}\\\\\n]|~>/', $body) === 1;
+        $brackets = 0;
+        for ($at = 0, $length = strlen($body); $at < $length; $at++) {
+            $char = $body[$at];
+            if ($char === '[') {
+                $brackets++;
+            } elseif ($char === ']' && $brackets > 0) {
+                $brackets--;
+                $end = $this->markdownActivationTailEnd($body, $at + 1);
+                if ($end !== null) {
+                    $at = $end;
+
+                    continue;
+                }
+            }
+            if (
+                $char === '{' || $char === '}' || $char === '\\' || $char === "\n"
+                || $char === '~' && ($body[$at + 1] ?? '') === '>'
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
