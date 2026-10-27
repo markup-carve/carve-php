@@ -38,11 +38,17 @@ class IncludeDirectiveLiteralTest extends TestCase
             '{{ missing.crv @code:php @lines:0-2 }}',
             '{{ missing.crv @code:php @lines:0-2 }}',
         ];
+    }
 
-        yield 'quoted path in quote' => [
-            '> {{ "missing file.crv" @code:php @lines:01-2 }}',
-            '{{ "missing file.crv" @code:php @lines:01-2 }}',
-        ];
+    public function testUnresolvedQuotedPathKeepsInlineSyntax(): void
+    {
+        $html = CarveConverter::create()->convert('{{ "missing file.crv" @code:php @lines:01-2 }}');
+
+        $this->assertSame(
+            '<p>{{ “missing file.crv” <span class="mention"><strong>@code</strong></span>:php '
+            . '<span class="mention"><strong>@lines</strong></span>:01-2 }}</p>',
+            $html,
+        );
     }
 
     public function testEmbeddedDirectiveKeepsOrdinaryInlineParsing(): void
@@ -50,6 +56,21 @@ class IncludeDirectiveLiteralTest extends TestCase
         $html = CarveConverter::create()->convert('Before {{ data/p2.csv @code:csv @lines:01-2 }} after.');
 
         $this->assertStringContainsString('<span class="mention"><strong>@code</strong></span>', $html);
+    }
+
+    public function testStandaloneCodeIncludeKeepsItsBlockShapeInContainers(): void
+    {
+        $directive = '{{ data/p2.csv @code:csv @lines:0-2 }}';
+        $converter = CarveConverter::create();
+
+        $this->assertSame(
+            "<blockquote>\n  <p>{$directive}</p>\n</blockquote>",
+            $converter->convert('> ' . $directive),
+        );
+        $this->assertSame(
+            "<ul>\n  <li>\n    <p>{$directive}</p>\n  </li>\n</ul>",
+            $converter->convert('- ' . $directive),
+        );
     }
 
     public function testLiteralMultilineReferenceUsesSoftBreakInPlainAndAnsi(): void

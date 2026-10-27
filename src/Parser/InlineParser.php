@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Parser;
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\CellWrap;
@@ -1104,6 +1105,7 @@ class InlineParser
                 && preg_match(IncludeDirectiveSyntax::SCAN, $text, $directive, PREG_OFFSET_CAPTURE, $pos) === 1
                 && $directive[0][1] === $pos
                 && trim($text) === $directive[0][0]
+                && preg_match('/^\{\{ +"/', $directive[0][0]) !== 1
                 && (IncludeDirectiveSyntax::parse($directive[0][0])['code'] ?? null) !== null
             ) {
                 $this->flushText($parent, $textBuffer);
@@ -1113,6 +1115,9 @@ class InlineParser
                 $literal = new Text($source);
                 $this->placeAt($literal, $pos, $end);
                 $parent->appendChild($literal);
+                if ($parent instanceof Paragraph) {
+                    $parent->setRenderHint('includeLiteral', '1');
+                }
                 $pos = $end;
 
                 continue;
