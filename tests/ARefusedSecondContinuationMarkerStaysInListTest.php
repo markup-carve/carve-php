@@ -24,4 +24,12 @@ final class ARefusedSecondContinuationMarkerStaysInListTest extends TestCase
             CarveConverter::create()->convert("- a\n+\n+\ntext\n"),
         );
     }
+
+    public function testRefusedSecondMarkerStaysInItemAtEndOfInput(): void
+    {
+        self::assertSame(
+            "<ul>\n  <li>a\n    +\n  </li>\n</ul>\n",
+            CarveConverter::create()->convert("- a\n+\n+\n"),
+        );
+    }
 }

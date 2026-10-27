@@ -1141,12 +1141,18 @@ trait BlockListMethods
                 if ($refusedAfterCloser) {
                     $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($index), 'list item');
                 }
-                $continuationBoundary = false;
-                if ($this->isContinuationMarker($trimmed)) {
+                $continuationBoundary = $this->isContinuationMarker($trimmed);
+                if ($continuationBoundary && $index > 0 && $this->isContinuationMarker(ltrim($lines[$index - 1], " \t"))) {
                     $markerLine = $this->sourceLineFor($index);
                     $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $markerLine);
-                    $continuationBoundary = $decision['reason'] === null
-                        || $this->state->session->firstBlockMarkerOwner($this->state->source, $this->listParser, $markerLine) !== null;
+                    $priorDecision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($index - 1));
+                    $continuationBoundary = !(
+                        $decision['reason'] !== null
+                        && $priorDecision['reason'] === null
+                        && ($decision['owner']['kind'] ?? null) === 'list'
+                        && ($priorDecision['owner']['kind'] ?? null) === 'list'
+                        && $decision['column'] === $priorDecision['column']
+                    );
                 }
                 if (
                     IndentationHelper::isBlankLine($line)

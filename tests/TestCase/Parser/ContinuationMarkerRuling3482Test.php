@@ -33,9 +33,9 @@ class ContinuationMarkerRuling3482Test extends TestCase
             "<ul>\n  <li><p>a</p>\n    <ul>\n      <li>\n        <pre><code>x\n\n</code></pre>\n        <blockquote><p>q</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>",
         ];
 
-        yield 'ordinary double marker keeps second outside the item' => [
+        yield 'ordinary double marker keeps second in the item' => [
             "- a\n+\n+\n\ntail\n",
-            "<ul>\n  <li>a</li>\n</ul>\n<p>+</p>\n<p>tail</p>",
+            "<ul>\n  <li>a\n    +\n  </li>\n</ul>\n<p>tail</p>",
         ];
     }
 
