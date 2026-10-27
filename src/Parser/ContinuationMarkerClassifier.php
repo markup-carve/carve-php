@@ -301,12 +301,22 @@ final class ContinuationMarkerClassifier
         $deepest = $this->stack[array_key_last($this->stack) ?? 0] ?? null;
         $unmarkedHead = ltrim($body, " \t");
         if (
-            $this->paragraphOpen && $depth === 0 && $deepest !== null && $deepest['depth'] > 0
+            $this->paragraphOpen && $deepest !== null && $depth < $deepest['depth']
             && $column < $deepest['column']
             && ($this->lists->parseListItemMarker($unmarkedHead) !== null
                 || ContainerPrefix::quoteContent($unmarkedHead) !== null)
         ) {
-            return;
+            $siblingList = false;
+            foreach ($this->stack as $entry) {
+                if ($entry['kind'] === 'list' && $entry['column'] === $column && $entry['depth'] === $depth) {
+                    $siblingList = true;
+
+                    break;
+                }
+            }
+            if (!$siblingList) {
+                return;
+            }
         }
         if (
             $this->carriedOwner !== null && ($column < $this->carriedOwner['column']
