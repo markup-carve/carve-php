@@ -26,7 +26,7 @@ final class BlockQuoteBuilder
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\ListParser $getListParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\TableParser $getTableParser
      * @param \Closure(): (void) $endContainerAttributeScopeCallback
-     * @param \Closure(string, bool, array<string>|null, int|null, bool): (bool) $endsBlockQuoteCallback
+     * @param \Closure(string, bool, array<string>|null, int|null): (bool) $endsBlockQuoteCallback
      * @param \Closure(array<string>, int, int): (bool) $hasClosingCommentFenceAheadInBlockQuoteCallback
      * @param \Closure(string): (bool) $isAbbreviationDefinitionLineCallback
      * @param \Closure(string): (bool) $isBlockAttributeLineCallback
@@ -136,7 +136,7 @@ final class BlockQuoteBuilder
                 || ($this->lastQuoteLineIsBareTerm([$lines[$end]])
                     && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t")) !== null)
                 || ($state['colonClaims'][array_key_last($state['colonClaims']) ?? 0]['literal'] ?? false)
-                || $this->endsBlockQuote($line, true, $lines, $j, $this->authoredInsideQuote($j))
+                || $this->endsBlockQuote($line, true, $lines, $j)
             ) {
                 break;
             }
@@ -503,7 +503,7 @@ final class BlockQuoteBuilder
                 && ($attachedParagraphOpen || !$this->lastQuotedLineBlockClosed($innerLines))
                 && ((($lazyState['hosts']['inlineFenceJustClosed'] ?? false) && !$this->markerLineDiv($innerLines))
                     || $this->quotedNestedLineBlockOpen($innerLines, $nestedLineBlock)
-                    || !$this->endsBlockQuote($currentLine, $lazyState['paragraphOpen'], $lines, $i, $this->authoredInsideQuote($i)))
+                    || !$this->endsBlockQuote($currentLine, $lazyState['paragraphOpen'], $lines, $i))
             ) {
                 if ($attachedParagraphOpen && end($innerLines) === '') {
                     array_pop($innerLines);
@@ -1127,7 +1127,7 @@ final class BlockQuoteBuilder
         $lazyMarker = $this->isLazyQuotedMarker($paragraph, $leftOfOutermost, $text, $column, $host['markers'], $host['columns']);
         $foldedText = $paragraph
             && (($this->getListParser)()->parseListItemMarker($text) === null || $lazyMarker)
-            && !$this->endsBlockQuote($content, true, $lines, $index, true);
+            && !$this->endsBlockQuote($content, true, $lines, $index);
         // A note body can indent the next quote marker beyond the quote prefix.
         $nextQuoted = isset($lines[$index + 1]) ? $this->blockQuoteLineContent(ltrim($lines[$index + 1], " \t")) : null;
         if ($this->quotedDefinitionEndsParagraph($host['markers'], $host['columns'], $host['descriptionColumn'] ?? null, $column, $text, $nextQuoted)) {
@@ -1605,7 +1605,7 @@ final class BlockQuoteBuilder
                             $opener['length'],
                             $codeCloserMemo,
                         )
-                        : $this->endsBlockQuote($leaf, true, $sourceLines, $sourceIndex, true);
+                        : $this->endsBlockQuote($leaf, true, $sourceLines, $sourceIndex);
                     if (!IndentationHelper::isBlankLine($leaf) && !$interrupts) {
                         $state['colonClaims'] = array_values(array_filter($state['colonClaims'], static fn (array $claim): bool => $claim['body']));
 
@@ -2159,23 +2159,14 @@ final class BlockQuoteBuilder
      * @param bool $paragraphOpen Whether an open paragraph precedes this line.
      * @param array<string>|null $lines
      * @param int|null $index
-     * @param bool $insideQuote
      */
     private function endsBlockQuote(
         string $line,
         bool $paragraphOpen,
         ?array $lines = null,
         ?int $index = null,
-        bool $insideQuote = false,
     ): bool {
-        return ($this->endsBlockQuoteCallback)($line, $paragraphOpen, $lines, $index, $insideQuote);
-    }
-
-    private function authoredInsideQuote(int $index): bool
-    {
-        $line = $this->state->source->sourceLines[$this->sourceLineFor($index)] ?? '';
-
-        return str_starts_with(ltrim($line, " \t"), '>');
+        return ($this->endsBlockQuoteCallback)($line, $paragraphOpen, $lines, $index);
     }
 
     /**

@@ -5533,14 +5533,12 @@ class BlockParser
      * @param bool $paragraphOpen Whether an open paragraph precedes this line.
      * @param array<string>|null $lines
      * @param int|null $index
-     * @param bool $insideQuote
      */
     protected function endsBlockQuote(
         string $line,
         bool $paragraphOpen,
         ?array $lines = null,
         ?int $index = null,
-        bool $insideQuote = false,
     ): bool {
         // A list marker ends the quote only when there is no open paragraph to
         // fold into; with an open paragraph it folds (does not end the quote).
@@ -5548,7 +5546,8 @@ class BlockParser
             return true;
         }
 
-        if ($this->isInvisibleOrAttributeLine($line, !$insideQuote)) {
+        $authoredLine = $index === null ? '' : ($this->state->source->sourceLines[$this->sourceLineFor($index)] ?? '');
+        if ($this->isInvisibleOrAttributeLine($line, !str_starts_with(ltrim($authoredLine, " \t"), '>'))) {
             return true;
         }
         if ($lines !== null && $index !== null && $this->startsWrappedBlockAttributes(ltrim($line, " \t"), $lines, $index)) {
