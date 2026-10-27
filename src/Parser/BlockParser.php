@@ -5157,7 +5157,24 @@ class BlockParser
             if ($this->isInvisibleOrAttributeLine($nextLine)) {
                 break;
             }
-            $captionLines[] = BlockGrammar::stripLazyFrame($nextLine);
+            $captionLine = BlockGrammar::stripLazyFrame($nextLine);
+            $sourceLine = $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? null;
+            if ($sourceLine !== null) {
+                $authored = ltrim($sourceLine, " \t");
+                $quoted = ContainerPrefix::quoteContent($authored);
+                if ($quoted !== null) {
+                    $authored = ContainerPrefix::stripQuoteMarkers($authored);
+                    $authoredIndent = strspn($authored, " \t");
+                } else {
+                    $opener = $this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '';
+                    $authoredIndent = max(0, strspn($sourceLine, " \t") - strspn($opener, " \t"));
+                }
+                $excess = strspn($captionLine, " \t") - $authoredIndent;
+                if ($excess > 0) {
+                    $captionLine = substr($captionLine, $excess);
+                }
+            }
+            $captionLines[] = $captionLine;
             $i++;
         }
 
