@@ -10,16 +10,7 @@ use MarkupCarve\Carve\Node\Inline\Image;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The AST vocabulary says so directly, in the `image` node's own description:
- *
- *   "Also valid in BLOCK position: a lone image paragraph is a block-level
- *    image."
- *
- * carve-js and carve-rs publish a block `image` node. This engine published
- * `paragraph > image` and unwrapped it again in the HTML renderer, so the
- * rendered output matched while the tree did not - which is exactly the kind of
- * difference PART 12 §1 exists to rule out, and the kind every HTML gate is
- * blind to.
+ * CARVE-P12-043 publishes a block image as a paragraph with blockImage: true.
  */
 class BlockImageNodeTest extends TestCase
 {
@@ -30,20 +21,24 @@ class BlockImageNodeTest extends TestCase
         $this->converter = new CarveConverter();
     }
 
-    public function testALoneImageIsABlockImageNode(): void
+    public function testALoneImageStaysInABlockImageParagraph(): void
     {
         $document = $this->converter->parse("![alt](img.png)\n");
 
-        $this->assertInstanceOf(Image::class, $document->getChildren()[0]);
+        $paragraph = $document->getChildren()[0];
+        $this->assertInstanceOf(Paragraph::class, $paragraph);
+        $this->assertTrue($paragraph->isBlockImage());
+        $this->assertInstanceOf(Image::class, $paragraph->getChildren()[0]);
     }
 
-    public function testALoneImageWithAttributesIsABlockImageNode(): void
+    public function testALoneImageWithAttributesStaysInABlockImageParagraph(): void
     {
         $document = $this->converter->parse("![alt](img.png){.x}\n");
-        $image = $document->getChildren()[0];
+        $paragraph = $document->getChildren()[0];
 
-        $this->assertInstanceOf(Image::class, $image);
-        $this->assertTrue($image->hasClass('x'));
+        $this->assertInstanceOf(Paragraph::class, $paragraph);
+        $this->assertTrue($paragraph->isBlockImage());
+        $this->assertTrue($paragraph->getChildren()[0]->hasClass('x'));
     }
 
     public function testAnImageWithTextBesideItStaysInItsParagraph(): void
@@ -60,7 +55,10 @@ class BlockImageNodeTest extends TestCase
         $document = $this->converter->parse("> ![alt](img.png)\n");
         $quote = $document->getChildren()[0];
 
-        $this->assertInstanceOf(Image::class, $quote->getChildren()[0]);
+        $paragraph = $quote->getChildren()[0];
+        $this->assertInstanceOf(Paragraph::class, $paragraph);
+        $this->assertTrue($paragraph->isBlockImage());
+        $this->assertInstanceOf(Image::class, $paragraph->getChildren()[0]);
     }
 
     public function testTheRenderedHtmlIsUnchanged(): void
