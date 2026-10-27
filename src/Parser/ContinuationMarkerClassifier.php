@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser;
 
+use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Block\ListParser;
 use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 
@@ -16,6 +17,18 @@ final class ContinuationMarkerClassifier
      * @var list<array{kind: string, column: int, depth: int, content: int, first: bool, itemLine?: true}>
      */
     private array $stack = [];
+
+    /**
+     * @var list<array{length: int, column: int}>
+     */
+    private array $divStack = [];
+
+    /**
+     * @var array{char: string, length: int, column: int}|null
+     */
+    private ?array $codeFence = null;
+
+    private FencedBlockParser $fences;
 
     /**
      * @var array<int, array{owner: array{kind: string, column: int, depth: int, content: int, first: bool}|null, reason: string|null, column: int, depth: int, stale: bool, open: bool}>
@@ -73,6 +86,7 @@ final class ContinuationMarkerClassifier
      */
     public function __construct(private array $lines, private ListParser $lists)
     {
+        $this->fences = new FencedBlockParser();
     }
 
     /**
@@ -137,6 +151,7 @@ final class ContinuationMarkerClassifier
             }
         }
         $line = $this->lines[$index];
+        $this->trackDivFence($line);
         [$body, $depth, $prefix] = $this->quoteBody($line);
         $column = self::columnAt($line, $prefix + strspn($body, " \t"));
         if (self::isPlus(ltrim($body, " \t"))) {
@@ -243,8 +258,9 @@ final class ContinuationMarkerClassifier
                 }
             }
             if ($reason === null) {
-                if (trim($followerBody) === '') {
-                    $reason = 'blank';
+                $boundary = $this->followerBoundary($followerBody, $follower);
+                if ($boundary !== null) {
+                    $reason = $boundary;
                 } elseif ($followerColumn < $column) {
                     $reason = 'left';
                 } elseif ($followerColumn > $column) {
@@ -522,6 +538,60 @@ final class ContinuationMarkerClassifier
         $this->paragraphOpen = $inner !== '' && !str_starts_with($inner, '```')
             && !str_starts_with($inner, '~~~') && !str_starts_with($inner, '#')
             && !str_starts_with($inner, '%%');
+    }
+
+    private function trackDivFence(string $line): void
+    {
+        $at = strspn($line, " \t");
+        $body = substr($line, $at);
+        $column = self::columnAt($line, $at);
+        if ($this->codeFence !== null) {
+            if (
+                $column === $this->codeFence['column']
+                && $this->fences->isCodeFenceCloser($body, $this->codeFence['char'], $this->codeFence['length'])
+            ) {
+                $this->codeFence = null;
+            }
+
+            return;
+        }
+        $code = $this->fences->parseRawBlockOpener($body) ?? $this->fences->parseCodeFenceOpener($body);
+        if ($code !== null) {
+            $this->codeFence = ['char' => $code['fence'][0], 'length' => $code['length'], 'column' => $column];
+
+            return;
+        }
+        $top = $this->divStack[array_key_last($this->divStack) ?? 0] ?? null;
+        if ($top !== null && $top['column'] === $column && $this->fences->isDivFenceCloser($body, $top['length'])) {
+            array_pop($this->divStack);
+
+            return;
+        }
+        $opener = $this->fences->parseDivFenceOpener($body);
+        if ($opener !== null) {
+            $this->divStack[] = ['length' => $opener['length'], 'column' => $column];
+        }
+    }
+
+    private function followerClosesDiv(?string $follower): bool
+    {
+        if ($follower === null || $this->divStack === []) {
+            return false;
+        }
+        $top = $this->divStack[array_key_last($this->divStack)];
+        $at = strspn($follower, " \t");
+
+        return self::columnAt($follower, $at) === $top['column']
+            && $this->fences->isDivFenceCloser(substr($follower, $at), $top['length']);
+    }
+
+    private function followerBoundary(string $body, ?string $follower): ?string
+    {
+        if (trim($body) === '') {
+            return 'blank';
+        }
+
+        return $this->followerClosesDiv($follower) ? 'host-closer' : null;
     }
 
     private function pushQuote(int $column, int $depth): void
