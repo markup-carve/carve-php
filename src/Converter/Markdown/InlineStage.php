@@ -3406,7 +3406,11 @@ final class InlineStage
             // disappear from the render and everything between them is
             // wrapped. Carve wants a space or a line end after the colons, so
             // `:::note` is already literal.
-            $line = preg_replace_callback('/^(?=:{3,}([ \t]|$))/m', static fn (): string => '\\', $line) ?? $line;
+            $line = preg_replace_callback(
+                '/^([ \t]*(?:(?:>[ \t]?|[-*+][ \t]+|\d{1,9}[.)][ \t]+)[ \t]*)*)(?=:{2,}(?:[ \t]|$))/m',
+                static fn (array $match): string => $match[1] . '\\',
+                $line,
+            ) ?? $line;
         }
 
         return $line;
