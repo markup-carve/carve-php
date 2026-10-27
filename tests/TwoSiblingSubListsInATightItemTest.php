@@ -218,7 +218,7 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
         $this->assertRoundTrips("- x\n\n  > - a\n  >\n  >\n  >\n  > - b\n");
         $this->assertRoundTrips("- x\n\n  > - o\n  >\n  >   - a\n  >\n  >\n  >\n  >   - b\n");
         $this->assertSame(
-            ":: t\n: - a\n\n- b\n",
+            ":: t\n: - a\n\n   - b\n",
             $this->converter->toCarve(":: t\n: - a\n\n\n\n  - b\n"),
         );
         $this->assertRoundTrips(":: t\n: - a\n\n\n\n  - b\n");

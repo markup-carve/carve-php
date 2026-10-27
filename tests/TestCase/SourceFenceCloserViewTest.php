@@ -145,7 +145,7 @@ class SourceFenceCloserViewTest extends TestCase
                                     $look++;
                                 }
                                 $after = $lines[$look] ?? null;
-                                if ($look - $j > 1 || $after === null || IndentationHelper::getLeadingColumns($after, $bodyColumn) < $bodyColumn) {
+                                if ($after === null || IndentationHelper::getLeadingColumns($after, $bodyColumn) < $bodyColumn) {
                                     break;
                                 }
                                 $j = $look - 1;

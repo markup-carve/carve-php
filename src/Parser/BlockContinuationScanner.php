@@ -4440,6 +4440,15 @@ final class BlockContinuationScanner
                 $frame->descriptionVisibleBoundaryView = new RangeMaximum();
                 $frame->descriptionVisibleBoundaryPositions = [];
                 $count = count($lines);
+                $blankFollowers = [];
+                $nextContent = $count;
+                for ($j = $count - 1; $j >= 0; $j--) {
+                    if (IndentationHelper::isBlankLine($lines[$j])) {
+                        $blankFollowers[$j] = $nextContent;
+                    } else {
+                        $nextContent = $j;
+                    }
+                }
                 for ($j = 0; $j < $count; $j++) {
                     $threshold = 0;
                     if (
@@ -4448,8 +4457,8 @@ final class BlockContinuationScanner
                     ) {
                         $threshold = PHP_INT_MAX;
                     } elseif (IndentationHelper::isBlankLine($lines[$j])) {
-                        $after = $lines[$j + 1] ?? null;
-                        $threshold = $after === null || IndentationHelper::isBlankLine($after)
+                        $after = $lines[$blankFollowers[$j]] ?? null;
+                        $threshold = $after === null
                             ? PHP_INT_MAX
                             : PHP_INT_MAX - IndentationHelper::getLeadingColumns($after) - 1;
                     } else {
@@ -4547,8 +4556,7 @@ final class BlockContinuationScanner
                 }
                 $after = $lines[$look] ?? null;
                 if (
-                    $look - $j > 1
-                    || $after === null
+                    $after === null
                     || IndentationHelper::getLeadingColumns($after, $bodyColumn) < $bodyColumn
                 ) {
                     return false;

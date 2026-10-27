@@ -27,21 +27,14 @@ class TwoBlanksEndADescriptionFenceTest extends TestCase
                         $past = str_repeat(' ', $offset);
                         $source = ":: term\n:  desc\n\n{$indent}{$opener}\n{$indent}a\n"
                             . str_repeat("\n", $blanks) . "{$indent}{$past}{$run}\n";
-                        $payload = "a\n";
-                        if ($blanks === 1) {
-                            $payload .= "\n";
-                            if ($offset > 0) {
-                                $payload .= "{$past}{$run}\n";
-                            }
+                        $payload = "a\n" . str_repeat("\n", $blanks);
+                        if ($offset > 0) {
+                            $payload .= "{$past}{$run}\n";
                         }
                         $block = str_ends_with($opener, '=html')
                             ? $payload
                             : "<pre><code>{$payload}</code></pre>\n";
                         $expected = "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>desc</p>\n    {$block}  </dd>\n</dl>\n";
-                        if ($blanks > 1) {
-                            $outside = $run === '```' ? '<code></code>' : '~~~';
-                            $expected .= "<p>{$outside}</p>\n";
-                        }
 
                         yield "{$opener} column {$column} blanks {$blanks} offset {$offset}" => [$source, $expected];
                     }
@@ -53,7 +46,8 @@ class TwoBlanksEndADescriptionFenceTest extends TestCase
     public function testACloserBeyondTwoBlanksCannotInterruptTheParagraph(): void
     {
         $source = ":: term\n:  desc\n   ```\nlazy\n\n\n   ```\n";
-        $expected = "<dl>\n  <dt>term</dt>\n  <dd>desc\n<code>\nlazy</code></dd>\n</dl>\n<p><code></code></p>\n";
+        $expected = "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>desc</p>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n"
+            . "<p>lazy</p>\n<p><code></code></p>\n";
         $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
@@ -68,7 +62,7 @@ class TwoBlanksEndADescriptionFenceTest extends TestCase
     public function testTheSameBoundaryAppliesWithoutAFence(): void
     {
         $source = ":: term\n:  desc\n\n\n   tail\n";
-        $expected = "<dl>\n  <dt>term</dt>\n  <dd>desc</dd>\n</dl>\n<p>tail</p>\n";
+        $expected = "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>desc</p>\n    <p>tail</p>\n  </dd>\n</dl>\n";
         $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
