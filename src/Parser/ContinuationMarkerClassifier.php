@@ -56,6 +56,13 @@ final class ContinuationMarkerClassifier
     private bool $descriptionLazy = false;
 
     /**
+     * Term columns keyed by their quote depth.
+     *
+     * @var array<int, int>
+     */
+    private array $termColumns = [];
+
+    /**
      * @var array{kind: string, column: int, depth: int, content: int, first: bool}|null
      */
     private ?array $carriedOwner = null;
@@ -269,6 +276,7 @@ final class ContinuationMarkerClassifier
             $this->carriedOwner = null;
             $this->paragraphOpen = false;
             $this->descriptionLazy = false;
+            $this->termColumns = [];
             $this->stack = array_values(array_filter($this->stack, static fn (array $entry): bool => $entry['depth'] <= $depth));
             $quoteStart = $this->quoteStart($line);
             $rest = substr($line, $quoteStart);
@@ -289,6 +297,16 @@ final class ContinuationMarkerClassifier
         $first = $this->firstBlocks[$index - 1] ?? null;
         if ($first !== null && $column === $first['column'] && $this->lists->parseListItemMarker(ltrim($body, " \t")) === null) {
             $this->carriedOwner = $first;
+        }
+        $deepest = $this->stack[array_key_last($this->stack) ?? 0] ?? null;
+        $unmarkedHead = ltrim($body, " \t");
+        if (
+            $this->paragraphOpen && $depth === 0 && $deepest !== null && $deepest['depth'] > 0
+            && $column < $deepest['column']
+            && ($this->lists->parseListItemMarker($unmarkedHead) !== null
+                || ContainerPrefix::quoteContent($unmarkedHead) !== null)
+        ) {
+            return;
         }
         if (
             $this->carriedOwner !== null && ($column < $this->carriedOwner['column']
@@ -419,6 +437,10 @@ final class ContinuationMarkerClassifier
                 continue;
             }
             if (str_starts_with($inner, ': ')) {
+                if (($this->termColumns[$depth] ?? null) !== $innerColumn) {
+                    break;
+                }
+                unset($this->termColumns[$depth]);
                 $this->descriptionLazy = false;
                 $bodyOffset = 1 + strspn(substr($inner, 1), " \t");
                 $content = ltrim(substr($inner, $bodyOffset), " \t");
@@ -451,6 +473,10 @@ final class ContinuationMarkerClassifier
 
                     continue;
                 }
+            }
+
+            if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $inner) === 1) {
+                $this->termColumns[$depth] = $innerColumn;
             }
 
             break;
