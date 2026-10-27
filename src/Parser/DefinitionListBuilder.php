@@ -999,7 +999,10 @@ final class DefinitionListBuilder
                 ) >= $b->continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
             )
         ) {
-            return false;
+            $this->advanceDescriptionBodyTracker($b);
+            if (!$b->bodyState->openParagraph) {
+                return false;
+            }
         }
         $commentText = ltrim($l->contLine, " \t");
         if (IndentationHelper::isBlankLine($l->contLine)) {
