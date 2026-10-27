@@ -180,7 +180,7 @@ final class Emphasis
             if ($frame['keep']) {
                 $content = implode('', array_slice($output, $frame['slot'] + 1));
                 $previous = $frame['slot'] > 0 ? substr($output[$frame['slot'] - 1], -1) : '';
-                if ($previous === "\x00" && $pair['scope'] !== -1) {
+                if ($previous === "\x00") {
                     $previous = $neighbor($pair['open'], true);
                 }
                 $followingOffset = $pair['close'] + $pair['width'];
