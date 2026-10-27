@@ -8,7 +8,7 @@ final class DocumentLinter
 {
     /**
      * @param string $source
-     * @param array{platforms?: list<string>, extensions?: list<\MarkupCarve\Carve\Extension\ExtensionInterface|string>} $options
+     * @param array{platforms?: list<string>, extensions?: list<\MarkupCarve\Carve\Extension\ExtensionInterface|string>, captionLookingParagraph?: bool} $options
      *
      * @return list<\MarkupCarve\Carve\Lint\LintWarning>
      */
@@ -16,6 +16,7 @@ final class DocumentLinter
     {
         $warnings = array_merge(
             (new MarkdownHabitLinter())->lint($source, ['platforms' => $options['platforms'] ?? []]),
+            (new AuthoringLinter())->lint($source, $options['captionLookingParagraph'] ?? false),
             (new SemanticAttributeLinter())->lint($source),
             (new ReferenceLinter())->lint($source, ['extensions' => $options['extensions'] ?? []]),
             (new SourceLinter())->lint($source),

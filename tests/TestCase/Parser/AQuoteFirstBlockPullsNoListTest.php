@@ -53,7 +53,11 @@ final class AQuoteFirstBlockPullsNoListTest extends TestCase
             (new DocumentLinter())->lint($source),
         );
 
-        $this->assertSame(['continuation-marker-refused@' . $line . ':' . strlen($lines[$line - 1])], $found);
+        $expected = ['continuation-marker-refused@' . $line . ':' . strlen($lines[$line - 1])];
+        if ($source === "- a\n  > +\n  - b\n") {
+            $expected[] = 'list-marker-without-blank-line@3:3';
+        }
+        $this->assertSame($expected, $found);
     }
 
     public function testTheListLineFoldsIntoTheQuotedPlus(): void
