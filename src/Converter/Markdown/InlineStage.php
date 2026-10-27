@@ -2297,7 +2297,10 @@ final class InlineStage
                         }
                     }
                     $after = $htmlSource[$offset + strlen($match[0][0])] ?? '';
-                    $forced = preg_match('/[A-Za-z0-9]/', $before . $after) === 1 || preg_match('/^\s|\s$/u', $body) === 1
+                    if ($marker === '*') {
+                        $body = preg_replace('/(?<!\\\\)\*([^*]+)(?<!\\\\)\*/', '{*$1*}', $body) ?? $body;
+                    }
+                    $forced = preg_match('/[A-Za-z0-9*\/]/', $before . $after) === 1 || preg_match('/^\s|\s$/u', $body) === 1
                         || preg_match('/^[*\/]|[*\/]$/', $body) === 1 || ($marker === '/' && $before === '/');
                     $written = $marker . $body . $marker;
 
