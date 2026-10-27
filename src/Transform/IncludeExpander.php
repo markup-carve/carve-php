@@ -170,6 +170,11 @@ class IncludeExpander implements TransformerInterface
     /**
      * @var string
      */
+    public const RULE_LINES_INVALID = 'include-lines-invalid';
+
+    /**
+     * @var string
+     */
     public const RULE_CALL_LIMIT = 'include-call-limit';
 
     /**
@@ -726,7 +731,7 @@ class IncludeExpander implements TransformerInterface
     }
 
     /**
-     * @param array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, code: array{lang: string|null}|null, shift: int|'auto'} $directive
+     * @param array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, code: array{lang: string|null}|null, shift: int|'auto', invalidLines: string|null} $directive
      * @param string|null $currentPath
      * @param bool $block
      * @param list<string> $stack
@@ -836,6 +841,11 @@ class IncludeExpander implements TransformerInterface
         // surfaced through a Warning instead. Downgrading the flag here would
         // leave a host watching fewer files than it should.
         $this->recordDependency($id, true);
+        if ($directive['invalidLines'] !== null) {
+            $this->warn("Include has an invalid line range '{$directive['invalidLines']}'", self::RULE_LINES_INVALID);
+
+            return null;
+        }
         // The cycle guard compares canonical ids after resolution, so a resolver
         // that supplies ids catches 'b.crv' vs './b.crv' spellings of one file.
         if (in_array($id, $stack, true)) {
@@ -1063,7 +1073,7 @@ class IncludeExpander implements TransformerInterface
      * inline markers is split by core parsing and remains literal by design
      * (corpus pin: bare-path directive with no active inline markers).
      *
-     * @return array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, code: array{lang: string|null}|null, shift: int|'auto'}|null
+     * @return array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, code: array{lang: string|null}|null, shift: int|'auto', invalidLines: string|null}|null
      */
     protected function parseDirective(string $text): ?array
     {
@@ -1072,7 +1082,7 @@ class IncludeExpander implements TransformerInterface
             return null;
         }
 
-        if ($parts['error'] !== null) {
+        if ($parts['error'] !== null && $parts['error'] !== IncludeDirectiveSyntax::ERROR_LINES_INVALID) {
             // A directive-shaped run whose options are wrong is worth telling
             // the author about; a run that is not directive-shaped at all is
             // just text and stays silent.
@@ -1100,6 +1110,7 @@ class IncludeExpander implements TransformerInterface
             'region' => $parts['region'],
             'code' => $parts['code'],
             'shift' => $parts['shift'],
+            'invalidLines' => $parts['error'] === IncludeDirectiveSyntax::ERROR_LINES_INVALID ? $parts['errorPart'] : null,
         ];
     }
 
