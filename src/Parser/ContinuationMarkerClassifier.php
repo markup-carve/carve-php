@@ -258,10 +258,9 @@ final class ContinuationMarkerClassifier
                 }
             }
             if ($reason === null) {
-                if (trim($followerBody) === '') {
-                    $reason = 'blank';
-                } elseif ($this->followerClosesDiv($follower)) {
-                    $reason = 'host-closer';
+                $boundary = $this->followerBoundary($followerBody, $follower);
+                if ($boundary !== null) {
+                    $reason = $boundary;
                 } elseif ($followerColumn < $column) {
                     $reason = 'left';
                 } elseif ($followerColumn > $column) {
@@ -584,6 +583,15 @@ final class ContinuationMarkerClassifier
 
         return self::columnAt($follower, $at) === $top['column']
             && $this->fences->isDivFenceCloser(substr($follower, $at), $top['length']);
+    }
+
+    private function followerBoundary(string $body, ?string $follower): ?string
+    {
+        if (trim($body) === '') {
+            return 'blank';
+        }
+
+        return $this->followerClosesDiv($follower) ? 'host-closer' : null;
     }
 
     private function pushQuote(int $column, int $depth): void
