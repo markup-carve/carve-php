@@ -155,12 +155,10 @@ class AMarkerOnAQuoteLazyContinuationIsTextTest extends TestCase
                 "- >\n  - s\ntail\n",
                 '<ul> <li> <blockquote> </blockquote> <ul> <li>s tail</li> </ul> </li> </ul>',
             ],
-            // ONE MARKER, NOT EVERY MARKER. The folded marker line is itself a
-            // marker line, so it leaves the quote holding nothing for the next
-            // one - which is where carve-js lands too.
+            // A folded marker keeps the quote paragraph open for the next one.
             'a second marker below the folded one' => [
                 "- > q\n  - s\n  - t\ntail\n",
-                '<ul> <li> <blockquote><p>q - s</p></blockquote> <ul> <li>t tail</li> </ul> </li> </ul>',
+                '<ul> <li> <blockquote><p>q - s - t tail</p></blockquote> </li> </ul>',
             ],
         ];
     }
