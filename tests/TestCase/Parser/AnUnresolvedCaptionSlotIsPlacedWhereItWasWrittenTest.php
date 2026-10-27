@@ -98,8 +98,8 @@ class AnUnresolvedCaptionSlotIsPlacedWhereItWasWrittenTest extends TestCase
             // corpus 352-a-bracketed-construct-s-identifiers-stay-on-one-line-3
             'below an image whose label ran over two lines' => [
                 "![a][r\nx]\n^ cap\n",
-                [[9, 10]],
-                [[10, 15]],
+                [[6, 7], [9, 10]],
+                [[0, 6], [7, 9], [10, 15]],
             ],
             // corpus 434-an-unresolved-image-gives-its-whole-caption-slot-back-at-any-depth
             'over two slot lines' => [
