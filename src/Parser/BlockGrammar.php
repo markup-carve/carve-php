@@ -99,9 +99,14 @@ final class BlockGrammar
 
     public static function stripLazyFrame(string $line): string
     {
-        return str_starts_with($line, self::LAZY_FRAME)
-            ? substr($line, strlen(self::LAZY_FRAME))
-            : $line;
+        $indent = strspn($line, " \t");
+        $offset = $indent;
+        $frameWidth = strlen(self::LAZY_FRAME);
+        while (substr_compare($line, self::LAZY_FRAME, $offset, $frameWidth) === 0) {
+            $offset += $frameWidth;
+        }
+
+        return $offset === $indent ? $line : substr($line, 0, $indent) . substr($line, $offset);
     }
 
     /**
