@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Parser;
 
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
@@ -382,9 +383,11 @@ final class ListBlockBuilder
     {
         $foldedBeforeBlank = false;
         $previous = null;
+        $hasQuote = count(array_filter($item->getChildren(), static fn (Node $child): bool => $child instanceof BlockQuote)) > 0;
+        $singleBlankAfterQuote = $hasQuote && count(array_filter($itemLines, static fn (string $line): bool => $line === '')) === 1;
         foreach ($itemLines as $line) {
             if ($line === '') {
-                $foldedBeforeBlank = $foldedBeforeBlank || $previous !== null;
+                $foldedBeforeBlank = $foldedBeforeBlank || ($previous !== null && ($singleBlankAfterQuote || str_contains($previous, "\n")));
             } elseif ($foldedBeforeBlank) {
                 return count(array_filter($item->getChildren(), static fn (Node $child): bool => $child instanceof Paragraph)) > 1;
             } else {
