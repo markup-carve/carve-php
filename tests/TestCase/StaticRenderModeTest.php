@@ -283,7 +283,7 @@ class StaticRenderModeTest extends TestCase
 
         // `>` survives as escaped text; source kept readable, never blank.
         $this->assertSame(
-            '<pre class="mermaid"><code class="language-mermaid">graph TD; A--&gt;B</code></pre>',
+            '<pre class="mermaid"><code class="language-mermaid">graph TD; A--&gt;B' . "\n" . '</code></pre>',
             $html,
         );
     }
@@ -315,7 +315,7 @@ class StaticRenderModeTest extends TestCase
         })());
         $this->assertSame(
             '<pre id="diagram" class="mermaid wide" data-x="1">'
-            . '<code class="language-mermaid">graph TD</code></pre>',
+            . '<code class="language-mermaid">graph TD' . "\n" . '</code></pre>',
             $noRenderer,
         );
 
@@ -353,7 +353,7 @@ class StaticRenderModeTest extends TestCase
         $html = trim($converter->convert("```graphviz\ndigraph { A -> B }\n```\n"));
 
         $this->assertSame(
-            '<pre class="graphviz"><code class="language-graphviz">digraph { A -&gt; B }</code></pre>',
+            '<pre class="graphviz"><code class="language-graphviz">digraph { A -&gt; B }' . "\n" . '</code></pre>',
             $html,
         );
     }
@@ -395,7 +395,7 @@ class StaticRenderModeTest extends TestCase
 
         $this->assertSame(
             '<pre class="plantuml"><code class="language-plantuml">@startuml' . "\n"
-                . 'A -&gt; B' . "\n" . '@enduml</code></pre>',
+                . 'A -&gt; B' . "\n" . '@enduml' . "\n" . '</code></pre>',
             $html,
         );
     }
@@ -452,7 +452,7 @@ class StaticRenderModeTest extends TestCase
         $html = trim($converter->convert("```myuml\nA -> B\n```\n"));
 
         $this->assertSame(
-            '<pre class="myuml"><code class="language-myuml">A -&gt; B</code></pre>',
+            '<pre class="myuml"><code class="language-myuml">A -&gt; B' . "\n" . '</code></pre>',
             $html,
         );
     }
