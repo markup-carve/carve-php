@@ -46,6 +46,8 @@ class AnHtmlCodeElementTheSourceCanSpellImportsAsCodeTest extends TestCase
                 "a\nb <code>c<!---->&#10;<!---->d</code>\ne\n",
                 [['code', "c\nd"]],
             ],
+            'line break in a list item' => ["- <code>a<!---->&#10;<!---->b</code>\n", [['code', "a\nb"]]],
+            'leading line break after list text' => ["- q\n  <code><!---->&#10;<!---->tail</code>\n", [['code', "\ntail"]]],
         ];
     }
 
@@ -93,7 +95,6 @@ class AnHtmlCodeElementTheSourceCanSpellImportsAsCodeTest extends TestCase
             'empty inside emphasis' => ["~~<code></code>~~\n"],
             'empty with text after it' => ["<code></code> z\n"],
             'line break in a quote' => ["> <code>a<!---->&#10;<!---->b</code>\n"],
-            'line break in a list item' => ["- <code>a<!---->&#10;<!---->b</code>\n"],
             'blank line in the value' => ["a <code>b<!---->&#10;<!----><!---->&#10;<!---->c</code>\n"],
             'line break in a heading' => ["# a <code>b<!---->&#10;<!---->c</code>\n"],
         ];
