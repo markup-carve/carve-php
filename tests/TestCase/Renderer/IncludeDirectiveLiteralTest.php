@@ -40,22 +40,21 @@ class IncludeDirectiveLiteralTest extends TestCase
         ];
     }
 
-    public function testUnresolvedQuotedPathKeepsInlineSyntax(): void
+    public function testUnresolvedQuotedPathWithInvalidRangeStaysLiteral(): void
     {
         $html = CarveConverter::create()->convert('{{ "missing file.crv" @code:php @lines:01-2 }}');
 
         $this->assertSame(
-            '<p>{{ “missing file.crv” <span class="mention"><strong>@code</strong></span>:php '
-            . '<span class="mention"><strong>@lines</strong></span>:01-2 }}</p>',
+            '<p>{{ "missing file.crv" @code:php @lines:01-2 }}</p>',
             $html,
         );
     }
 
-    public function testEmbeddedDirectiveKeepsOrdinaryInlineParsing(): void
+    public function testEmbeddedInvalidRangeDirectiveStaysLiteral(): void
     {
         $html = CarveConverter::create()->convert('Before {{ data/p2.csv @code:csv @lines:01-2 }} after.');
 
-        $this->assertStringContainsString('<span class="mention"><strong>@code</strong></span>', $html);
+        $this->assertSame('<p>Before {{ data/p2.csv @code:csv @lines:01-2 }} after.</p>', $html);
     }
 
     public function testOtherInvalidOptionsKeepOrdinaryInlineParsing(): void

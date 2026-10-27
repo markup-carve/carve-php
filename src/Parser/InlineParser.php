@@ -1104,9 +1104,7 @@ class InlineParser
                 $char === '{' && $nextChar === '{'
                 && preg_match(IncludeDirectiveSyntax::SCAN, $text, $directive, PREG_OFFSET_CAPTURE, $pos) === 1
                 && $directive[0][1] === $pos
-                && trim($text) === $directive[0][0]
-                && preg_match('/^\{\{ +"/', $directive[0][0]) !== 1
-                && self::isLineRangeCodeInclude($directive[0][0])
+                && self::shouldKeepIncludeLiteral($directive[0][0], $text)
             ) {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
@@ -1115,7 +1113,7 @@ class InlineParser
                 $literal = new Text($source);
                 $this->placeAt($literal, $pos, $end);
                 $parent->appendChild($literal);
-                if ($parent instanceof Paragraph) {
+                if ($parent instanceof Paragraph && trim($text) === $source) {
                     $parent->setRenderHint('includeLiteral', '1');
                 }
                 $pos = $end;
@@ -1499,14 +1497,17 @@ class InlineParser
         $this->footnoteRecognitionEnabled = $previousFootnoteRecognition;
     }
 
-    private static function isLineRangeCodeInclude(string $source): bool
+    private static function shouldKeepIncludeLiteral(string $source, string $host): bool
     {
         $include = IncludeDirectiveSyntax::parse($source);
 
         return $include !== null
-            && $include['code'] !== null
-            && ($include['error'] === IncludeDirectiveSyntax::ERROR_LINES_INVALID
-                || ($include['error'] === null && $include['lines'] !== null));
+            && ($include['invalidLines']
+                || ($include['code'] !== null
+                    && $include['error'] === null
+                    && $include['lines'] !== null
+                    && trim($host) === $source
+                    && preg_match('/^\{\{ +"/', $source) !== 1));
     }
 
     protected function parseEscapedOrLineBreak(
