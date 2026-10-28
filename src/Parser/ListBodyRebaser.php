@@ -952,6 +952,7 @@ final class ListBodyRebaser
         bool $includeSublists,
         ?int $unclosedFenceBase,
     ): bool {
+        $shiftedSeparator = $this->shiftedTermSeparatorIndex($lines);
         // An uninterrupted marker-line descendant owns the entire chunk. Its
         // own recursive item parse will see any opener that reaches that item's
         // minimum; the parent has no authored-base decision to make until a
@@ -978,16 +979,55 @@ final class ListBodyRebaser
                     break;
                 }
             }
-            if (!$quoteReleasesDefinition) {
+            if (!$quoteReleasesDefinition && $shiftedSeparator === null) {
                 return false;
             }
         }
 
-        if ($unclosedFenceBase === null && !$this->hasAuthoredBaseCandidate($lines, $eligible, $leadNestedColumn, $includeSublists, $hasBlank)) {
+        if ($unclosedFenceBase === null && $shiftedSeparator === null && !$this->hasAuthoredBaseCandidate($lines, $eligible, $leadNestedColumn, $includeSublists, $hasBlank)) {
             return false;
         }
 
         return true;
+    }
+
+    /**
+     * A separator below a marker-line term's item column returns ownership to
+     * the enclosing item. Later openers must be read there.
+     *
+     * @param array<string> $lines
+     */
+    private function shiftedTermSeparatorIndex(array $lines): ?int
+    {
+        $first = $this->firstContentLine($lines);
+        if ($first === null) {
+            return null;
+        }
+        $lead = $lines[$first];
+        $offset = ($this->getListParser)()->markerWalkOffset($lead);
+        if ($offset === null || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, substr($lead, $offset)) !== 1) {
+            return null;
+        }
+        $column = $this->containerContentColumn($lead, 0);
+        if ($column === null) {
+            return null;
+        }
+        for ($i = $first + 1, $count = count($lines); $i < $count; $i++) {
+            $line = $lines[$i];
+            if (IndentationHelper::isBlankLine($line)) {
+                return null;
+            }
+            $base = IndentationHelper::getLeadingColumns($line);
+            $subject = ltrim($line, " \t");
+            if ($base < $column && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $subject) === 1) {
+                return $i;
+            }
+            if (($this->lineOpensBlockForLoosenessCallback)($subject, true)) {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -1288,6 +1328,8 @@ final class ListBodyRebaser
         $nestedInlineParagraph = false;
         $childContentFloor = $leadNestedColumn ?? 0;
         $foldedChildFence = false;
+        $shiftedSeparator = $this->shiftedTermSeparatorIndex($lines);
+        $shiftedOwner = false;
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
             $lineMarker = ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t"));
@@ -1362,6 +1404,10 @@ final class ListBodyRebaser
                 continue;
             }
             $base = IndentationHelper::getLeadingColumns($line);
+            if ($i === $shiftedSeparator) {
+                $nestedColumns = [];
+                $shiftedOwner = true;
+            }
             if (
                 $foldedChildFence && !$afterBlank && $base < $childContentFloor
                 && ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($line, " \t"), 0)
@@ -1419,7 +1465,7 @@ final class ListBodyRebaser
             if ($marker !== null && $i <= $leadNoteTextEnd) {
                 $beforeLeadNote ??= $nestedColumns;
             }
-            if ($marker !== null && (!$includeSublists || $base === 0 || $nestedColumns !== [])) {
+            if ($marker !== null && (!$includeSublists || $base === 0 || $nestedColumns !== []) && !($shiftedOwner && $base > 0 && $nestedColumns === [])) {
                 $nestedColumns[] = $base + ($this->listMarkerWidthCallback)($trimmed, $marker);
                 $afterBlank = false;
 
@@ -1591,7 +1637,7 @@ final class ListBodyRebaser
             }
             if (
                 !($this->lineOpensBlockForLoosenessCallback)($opener, true)
-                || (!$includeSublists && ($this->getListParser)()->parseListItemMarker($opener) !== null)
+                || (!$includeSublists && !$shiftedOwner && ($this->getListParser)()->parseListItemMarker($opener) !== null)
             ) {
                 $afterBlank = false;
 
