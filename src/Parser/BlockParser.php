@@ -3965,6 +3965,15 @@ class BlockParser
                 $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
                 $retainedBelowComment = false;
                 $i++;
+            } elseif (
+                $trailingState->openParagraph
+                && !$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i)
+            ) {
+                $bodyLine = ltrim($nextLine, " \t");
+                $bodyLines[] = $bodyLine;
+                $bodyLineMap[] = $this->sourceLineFor($i);
+                $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
+                $i++;
             } else {
                 break;
             }
