@@ -16,21 +16,21 @@ final class APlusBelowAMarkerLineNoteIsItemTextTest extends TestCase
     public static function itemTextShapes(): array
     {
         return [
-            'paragraph' => ["- [^a]: a\n  +\n  b\n\nr[^a]\n", "<li>+\nb</li>"],
-            'quote' => ["- [^a]: a\n  +\n  > r\n\nr[^a]\n", "<li>+\n    <blockquote><p>r</p></blockquote>"],
-            'list' => ["- [^a]: a\n  +\n  - s\n\nr[^a]\n", "<li>+\n    <ul>\n      <li>s</li>"],
-            'heading' => ["- [^a]: a\n  +\n  # h\n\nr[^a]\n", "<li>+\n"],
-            'ordered item' => ["1. [^a]: a\n   +\n   b\n\nr[^a]\n", "<li>+\nb</li>"],
+            'paragraph' => ["- [^a]: a\n  +\n  b\n\nr[^a]\n", "<li></li>\n</ul>"],
+            'quote' => ["- [^a]: a\n  +\n  > r\n\nr[^a]\n", "<li>\n    <blockquote><p>r</p></blockquote>"],
+            'list' => ["- [^a]: a\n  +\n  - s\n\nr[^a]\n", "<li>\n    <ul>\n      <li>s</li>"],
+            'heading' => ["- [^a]: a\n  +\n  # h\n\nr[^a]\n", "<li>\n    <h1 id=\"h\">h</h1>"],
+            'ordered item' => ["1. [^a]: a\n   +\n   b\n\nr[^a]\n", "<li></li>\n</ol>"],
         ];
     }
 
     #[DataProvider('itemTextShapes')]
-    public function testThePlusStaysInTheItem(string $source, string $item): void
+    public function testThePlusFollowsTheOpenNoteParagraph(string $source, string $item): void
     {
         $html = (new CarveConverter())->convert($source);
 
         self::assertStringContainsString($item, $html);
-        self::assertStringContainsString('<li id="fn1">' . "\n" . '      <p>a<a href="#fnref1"', $html);
+        self::assertStringContainsString('<li id="fn1">' . "\n" . '      <p>a' . "\n" . '+', $html);
     }
 
     /**

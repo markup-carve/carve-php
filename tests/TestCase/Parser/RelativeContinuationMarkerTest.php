@@ -21,7 +21,7 @@ class RelativeContinuationMarkerTest extends TestCase
         yield 'quote prefix' => ["> - a\n> +\n> # H", "<blockquote>\n  <ul>\n    <li>a\n      <h1 id=\"H\">H</h1>\n    </li>\n  </ul>\n</blockquote>"];
         yield 'quote absent prefix' => ["> - a\n  +", "<blockquote>\n  <ul>\n    <li>a\n+</li>\n  </ul>\n</blockquote>"];
         yield 'description' => [":: t\n: a\n+\n# H", "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <h1 id=\"H\">H</h1>\n  </dd>\n</dl>"];
-        yield 'footnote refused' => ["[^a]: a\n+\n  > q", "<p>+\n&gt; q</p>"];
+        yield 'footnote refused' => ["[^a]: a\n+\n  > q", ''];
         yield 'table before marker' => ["- a\n  | a |\n  +\n  # H", "<ul>\n  <li>a\n    <table>\n      <tbody>\n        <tr><td>a</td></tr>\n      </tbody>\n    </table>\n    +\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>"];
         yield 'tab columns' => ["- a\n\t+\n\t# H", "<ul>\n  <li>a\n+\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>"];
         yield 'stacked list' => ["- - +\n# H", "<ul>\n  <li>\n    <ul>\n      <li>\n        <h1 id=\"H\">H</h1>\n      </li>\n    </ul>\n  </li>\n</ul>"];

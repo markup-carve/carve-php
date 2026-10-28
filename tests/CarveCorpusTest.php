@@ -1360,11 +1360,6 @@ class CarveCorpusTest extends TestCase
         '358-what-a-content-column-block-does-not-reach-2' => 'carve-php#4164',
         '374-a-collected-definition-closes-the-item-paragraph-3' => 'carve-php#4164',
         '620-generated-container-documents-16' => 'carve-php#4164',
-        '435-the-continuation-marker-s-column-gate-reaches-every-container-2' => 'carve-php#4165',
-        '435-the-continuation-marker-s-column-gate-reaches-every-container-4' => 'carve-php#4165',
-        '437-a-leading-continuation-marker-in-a-footnote-body-or-a-quote-is-text-2' => 'carve-php#4165',
-        '629-a-dangling-plus-marker-adds-nothing-and-a-nested-quote-reads-it-like-an-unnested-one-4' => 'carve-php#4165',
-        '629-a-dangling-plus-marker-adds-nothing-and-a-nested-quote-reads-it-like-an-unnested-one-8' => 'carve-php#4165',
     ];
 
     /**

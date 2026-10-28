@@ -22,11 +22,9 @@ use PHPUnit\Framework\TestCase;
  * body, a definition description and a block quote each reached out for a line
  * the clause leaves where the author wrote it.
  *
- * THE CLAUSE NAMES ITS OWN CONTROL, so the rule is a RELATION between two
- * documents and no single golden can express it: for every container, the
- * marker spelling and the comment spelling of the same document must render
- * the same thing. A change that fixes three containers and drifts the fourth
- * passes every golden it did not touch.
+ * The marker and comment spellings still test the column gate. Under PART 0
+ * O3, a refused marker folds into an open note paragraph; a comment closes
+ * that paragraph, so those two spellings have different owners.
  *
  * The QUOTE row uses the blank-line control as well. A comment line at column 0
  * under an OPEN quoted paragraph is folded into it as lazy text rather than
@@ -89,12 +87,18 @@ class TheContinuationMarkerSColumnGateReachesEveryContainerTest extends TestCase
     }
 
     #[DataProvider('bandProvider')]
-    public function testTheMarkerAndCommentFollowTheirOwnColumnRules(string $src): void
+    public function testTheMarkerAndCommentRespectTheirOwners(string $src): void
     {
         $marker = str_replace('@', '+', $src);
         $comment = str_replace('@', '%% c', $src);
 
         foreach ([$marker, $comment] as $source) {
+            if ($source === $marker && str_contains($src, '[^a]: intro')) {
+                self::assertStringContainsString('<p>intro + more', $this->html($source));
+                self::assertStringNotContainsString('<p>+ more</p>', $this->html($source));
+
+                continue;
+            }
             $expected = PinnedOracleHtml::forSource($source);
             $expected = (string)preg_replace('/\s+/', ' ', $expected);
             $expected = str_replace('> <', '><', $expected);

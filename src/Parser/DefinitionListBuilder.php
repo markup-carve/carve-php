@@ -848,6 +848,21 @@ final class DefinitionListBuilder
         $belowColumn = ltrim($l->contLine, " \t");
         $belowDefinition = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $belowColumn) === 1
             || $this->isReferenceDefinitionLine($belowColumn);
+        if (
+            $b->detachedFootnote === null
+            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) === 1
+            && $l->contColumn >= $b->continuationColumn
+            && $l->contColumn < $b->continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+            && ($this->getListParser)()->parseListItemMarker(ltrim($l->contLine, " \t")) !== null
+        ) {
+            $b->detachedFootnote = $b->body;
+            $b->detachedFootnoteMap = $b->bodyMap;
+            $b->body = [ltrim($l->contLine, " \t")];
+            $b->bodyMap = [$this->sourceLineFor($b->i)];
+            $b->i++;
+
+            return true;
+        }
         // A below-column line stays lazy text under the open leaf.
         if (
             $lastBodyKey !== null && $l->contColumn > 0 && $l->contColumn < $b->continuationColumn
@@ -900,7 +915,15 @@ final class DefinitionListBuilder
             && $b->body !== []
             && !IndentationHelper::isBlankLine($l->contLine)
         ) {
-            $b->body[array_key_last($b->body)] .= "\n" . ltrim(BlockGrammar::stripLazyFrame($l->contLine), " \t");
+            if (
+                $b->detachedFootnote !== null
+                && ($this->getListParser)()->parseListItemMarker(ltrim($b->body[array_key_last($b->body)], " \t")) !== null
+            ) {
+                $b->body[] = ltrim(BlockGrammar::stripLazyFrame($l->contLine), " \t");
+                $b->bodyMap[] = $sourceLine;
+            } else {
+                $b->body[array_key_last($b->body)] .= "\n" . ltrim(BlockGrammar::stripLazyFrame($l->contLine), " \t");
+            }
             $b->i++;
 
             return true;
