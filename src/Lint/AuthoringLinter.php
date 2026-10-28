@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Lint;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Parser\LabelKey;
+use MarkupCarve\Carve\Transform\VisibleFootnotes;
 
 final class AuthoringLinter
 {
@@ -22,6 +25,7 @@ final class AuthoringLinter
         $converter = new CarveConverter();
         $converter->getParser()->enablePositionTracking();
         $document = $converter->parse($source);
+        $visibleFootnotes = VisibleFootnotes::labels($document, VisibleFootnotes::definitions($document));
         $rows = preg_split('/\r\n|\r|\n/', $source, flags: PREG_SPLIT_OFFSET_CAPTURE) ?: [];
         $paragraphs = [];
         $paragraphEnds = [];
@@ -29,6 +33,8 @@ final class AuthoringLinter
         $headings = [];
         $tables = [];
         $listItems = [];
+        $itemBodyLines = [];
+        $footnoteLines = [];
         $verbatim = [];
         $protectedRanges = [];
         $emptyLinks = [];
@@ -49,6 +55,15 @@ final class AuthoringLinter
                     $tables[] = $node;
                 } elseif ($node instanceof ListItem) {
                     $listItems[$pos->startLine] = true;
+                    for ($line = $pos->startLine; $line <= $pos->endLine; ++$line) {
+                        $itemBodyLines[$line] = true;
+                    }
+                } elseif ($node instanceof Footnote) {
+                    if (!isset($visibleFootnotes[LabelKey::normalize($node->getLabel())])) {
+                        for ($line = $pos->startLine; $line <= $pos->endLine; ++$line) {
+                            $footnoteLines[$line] = true;
+                        }
+                    }
                 } elseif ($node instanceof Link && $node->getReferenceLabel() === null && !$node->isAutolink()) {
                     $destinationStart = self::inlineDestinationStart($source, $pos->startOffset, $pos->endOffset);
                     if ($destinationStart !== null) {
@@ -160,14 +175,14 @@ final class AuthoringLinter
                         $tableColumn = $contentOffset + 1;
                     }
                 }
-                if (preg_match('/^\s*\|(?:=|\s|[^\s|])/', $tableSource) && !self::isTableRow(ltrim($tableSource)) && str_contains(substr($tableSource, 1), '|')) {
+                if (preg_match('/^\s*\|(?:=|\s|[^\s|])/', $tableSource) && !self::isTableRow(ltrim($tableSource))) {
                     $prior = $rows[$index - 1][0] ?? '';
                     $prior = self::stripPrefixes($prior);
                     if ($index === 0 || !preg_match('/^\s*\|/', $prior) || self::isTableRow(ltrim($prior))) {
                         $emit($at, $tableColumn, 1, 'table-shaped-paragraph', 'This table-shaped line lacks a closing pipe and renders as paragraph text; close the table row.');
                     }
                 }
-                if ($index > 0 && !isset($listItems[$at]) && preg_match('/^(?:\s*> ?)*\s*(?:[-*]|\d+[.)])\s+\S/', $raw) && !preg_match('/^(?:\s*> ?)*\s*(?:[-*]|\d+[.)])\s+\S/', $rows[$index - 1][0]) && trim($rows[$index - 1][0]) !== '' && isset($paragraphs[$at - 1])) {
+                if ($index > 0 && !isset($listItems[$at]) && !isset($itemBodyLines[$at]) && !isset($footnoteLines[$at]) && preg_match('/^(?:\s*> ?)*\s*(?:[-*]|\d+[.)])\s+\S/', $raw) && !preg_match('/^(?:\s*> ?)*\s*(?:[-*]|\d+[.)])\s+\S/', $rows[$index - 1][0]) && trim($rows[$index - 1][0]) !== '' && isset($paragraphs[$at - 1]) && $paragraphEnds[$at - 1] === $paragraphEnds[$at]) {
                     preg_match('/^(?:\s*> ?)*\s*/', $raw, $marker);
                     $emit($at, strlen($marker[0] ?? '') + 1, 1, 'list-marker-without-blank-line', 'This list marker is part of the preceding paragraph; add a blank line before the list.');
                 }
