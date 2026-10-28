@@ -1298,13 +1298,11 @@ class BlockParser
             if ($child instanceof Paragraph) {
                 $image = BlockImagePromotion::loneImage($child);
                 $child->setBlockImage(!($node instanceof LineBlock) && BlockImagePromotion::isBlockImage($child));
-                // Only resolved images at the container's content column become block nodes.
                 if (
                     $image instanceof Image
                     && !($node instanceof LineBlock)
                     && count($child->getChildren()) === 1
                     && !($node instanceof ListItem && $node->isTask())
-                    && !isset($this->state->session->paragraphsAboveContentColumn[spl_object_id($child)])
                 ) {
                     if ($child->getAttributeEntries() !== []) {
                         $image->mergeLeadingAttributes($child->getAttributeEntries(), $child->getAttributeOrder());
@@ -4190,13 +4188,6 @@ class BlockParser
         $standaloneCodeInclude = $openingDirective !== null
             && $openingDirective['code'] !== null
             && $openingDirective['error'] === null;
-        // WHERE THE PARAGRAPH BEGAN, relative to its container's content column,
-        // captured HERE because both variables above are reassigned by the fold
-        // loop below - reading them at the construction site answered a question
-        // about whichever line the paragraph stopped on. `$lines` is already
-        // dedented to the container's content column, so a leading space here is
-        // one the author put ABOVE it.
-        $firstLineIsAboveContentColumn = $line !== $content;
         /** @var list<string> $contentParts */
         $contentParts = [$content];
         $hasUnclaimedColonFenceLine = $this->paragraphHasUnclaimedColonFenceLine($content);
@@ -4316,9 +4307,6 @@ class BlockParser
         }
 
         $paragraph = new Paragraph();
-        if ($firstLineIsAboveContentColumn) {
-            $this->state->session->paragraphsAboveContentColumn[spl_object_id($paragraph)] = true;
-        }
         // Set here rather than leaving it to the block-loop stamp, which spans
         // whole lines: a folded paragraph knows exactly which lines it took and
         // where its content starts and ends within them.

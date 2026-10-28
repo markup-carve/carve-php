@@ -6,7 +6,6 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
-use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Image;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -155,59 +154,30 @@ class AnAuthoredParagraphAroundALoneImageBoundsTest extends TestCase
     }
 
     /**
-     * THE NEAR MISS, and it is now genuinely near - this provider used to assert
-     * the opposite and the premise was wrong.
+     * PART 9R R7 promotes a lone resolved image at every source column.
+     * Indentation cannot preserve an authored paragraph wrapper for import.
      *
-     * It read: "carve-js parses ` ![G](g.jpg)` as a paragraph holding one image.
-     * carve-php reads it as a block image, so there is no indent at which the
-     * source says paragraph here at all." markup-carve/carve#1660 ruled carve-js
-     * right and moved this engine and carve-rs: a block image is a top-level
-     * block construct, so PART 9 section 15's strict column-0 rule reaches it.
-     *
-     * So an indented spelling DOES exist, and the ceiling stands anyway - which
-     * is the stronger form of the same point. The writer declines to reach for
-     * it, because indenting would emit meaning-bearing leading whitespace to
-     * preserve a wrapper, so the loss is DECLARED rather than routed around.
-     * {@see testTheWriterNormalizesRatherThanIndentingOrRefusing()} pins that
-     * half; this one pins that it had a choice.
-     *
-     * @return array<string, array{string, string}>
+     * @return array<string, array{string}>
      */
     public static function indentProvider(): array
     {
         return [
-            'at column 0' => ['![G](g.jpg)', 'image'],
-            'indented one space' => [' ![G](g.jpg)', 'paragraph'],
-            'indented three spaces' => ['   ![G](g.jpg)', 'paragraph'],
+            'at column 0' => ['![G](g.jpg)'],
+            'indented one space' => [' ![G](g.jpg)'],
+            'indented three spaces' => ['   ![G](g.jpg)'],
         ];
     }
 
     #[DataProvider('indentProvider')]
-    public function testAnIndentSpellsAParagraphHoldingOneImageAndColumnZeroDoesNot(
-        string $carve,
-        string $expected,
-    ): void {
+    public function testEveryIndentPromotesTheResolvedImage(string $carve): void
+    {
         $children = (new CarveConverter())->parse($carve)->getChildren();
         $this->assertCount(1, $children);
-        $this->assertSame($expected, $children[0]->getType());
-        if ($expected === 'image') {
-            $this->assertInstanceOf(Image::class, $children[0]);
-
-            return;
-        }
-        // The image has to be INLINE inside the surviving paragraph. A paragraph
-        // holding something else would satisfy the type assertion and mean
-        // nothing.
-        $this->assertInstanceOf(Paragraph::class, $children[0]);
-        $inlines = $children[0]->getChildren();
-        $this->assertCount(1, $inlines);
-        $this->assertInstanceOf(Image::class, $inlines[0]);
+        $this->assertInstanceOf(Image::class, $children[0]);
     }
 
     /**
-     * AND THE WRITER STILL DOES NOT USE IT. The spelling exists in the SOURCE
-     * and not in what the writer produces, which is what makes the ceiling a
-     * choice rather than a limit of the language.
+     * The writer emits the canonical flush-left spelling.
      */
     public function testTheWriterDoesNotReachForTheIndentedSpelling(): void
     {
