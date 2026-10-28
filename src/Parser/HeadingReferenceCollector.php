@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Transform\VisibleFootnotes;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -45,12 +48,22 @@ class HeadingReferenceCollector
      * The key is the NFC-normalized label (labelKey()); the label as authored
      * serves diagnostics that name the exact spelling.
      *
+     * @param \MarkupCarve\Carve\Node\Node $root
+     * @param array<string, \MarkupCarve\Carve\Node\Block\Footnote> $footnotes
+     *
      * @return array<string, array{0: string, 1: \MarkupCarve\Carve\Parser\ReferenceDefinition}>
      */
-    public function collect(Node $root): array
+    public function collect(Node $root, array $footnotes = []): array
     {
         $this->references = [];
+        if ($root instanceof Document) {
+            $footnotes += VisibleFootnotes::definitions($root);
+        }
+        $visible = VisibleFootnotes::labels($root, $footnotes);
         $this->walk($root, false);
+        foreach ($visible as $label => $_present) {
+            $this->walk($footnotes[$label], false);
+        }
 
         return $this->references;
     }
@@ -58,6 +71,9 @@ class HeadingReferenceCollector
     protected function walk(Node $node, bool $inBlockQuote): void
     {
         foreach ($node->getChildren() as $child) {
+            if ($child instanceof Footnote) {
+                continue;
+            }
             if ($child instanceof Heading) {
                 // EVERY heading draws an id, declined or not. The renderer
                 // numbers all of them in document order, so skipping the
