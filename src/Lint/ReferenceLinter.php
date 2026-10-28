@@ -52,6 +52,7 @@ class ReferenceLinter
         $targets = $this->labelTargets($document, $nodes);
         $map = SourceOffsets::map($source);
         $length = strlen($source);
+        $sourceRows = preg_split('/\r\n|\r|\n/', $source, flags: PREG_SPLIT_OFFSET_CAPTURE) ?: [];
         $warnings = [];
         $definitions = [];
         $linkDefinitions = [];
@@ -216,7 +217,13 @@ class ReferenceLinter
         }
         foreach ($linkDefinitions as $key => $node) {
             if (!isset($usedLinks[$key])) {
-                $warnings[] = $this->warning($node, 'unused-link-reference-definition', 'Link reference definition [' . $node->getLabel() . '] is never used by a rendered reference link or image.', $map, $length);
+                $warnings[] = $this->unusedLinkDefinitionWarning(
+                    $node,
+                    'Link reference definition [' . $node->getLabel() . '] is never used by a rendered reference link or image.',
+                    $sourceRows,
+                    $map,
+                    $length,
+                );
             }
         }
         foreach ($this->brokenFragmentLinks($source, $fragmentLinks, $options['extensions'] ?? []) as [$node, $message]) {
@@ -680,6 +687,46 @@ class ReferenceLinter
     private function foldId(string $id): string
     {
         return (string)preg_replace_callback('/./us', static fn (array $m): string => mb_strtolower($m[0], 'UTF-8'), $id);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\LinkReferenceDefinition $node
+     * @param string $message
+     * @param array<int, array{string, int}> $sourceRows
+     * @param array<int, int>|null $map
+     * @param int $length
+     */
+    private function unusedLinkDefinitionWarning(
+        LinkReferenceDefinition $node,
+        string $message,
+        array $sourceRows,
+        ?array $map,
+        int $length,
+    ): LintWarning {
+        $pos = $node->getPos();
+        if ($pos === null || !isset($sourceRows[$pos->startLine - 1])) {
+            return $this->warning($node, 'unused-link-reference-definition', $message, $map, $length);
+        }
+
+        [$row, $rowByte] = $sourceRows[$pos->startLine - 1];
+        $bracket = strpos($row, '[' . $node->getLabel() . ']:');
+        if ($bracket === false && preg_match('/\[[^\]]*\]:/', $row, $match, PREG_OFFSET_CAPTURE) === 1) {
+            $bracket = $match[0][1];
+        }
+        if ($bracket === false) {
+            return $this->warning($node, 'unused-link-reference-definition', $message, $map, $length);
+        }
+
+        $start = $rowByte + $bracket;
+
+        return new LintWarning(
+            $pos->startLine,
+            mb_strlen(substr($row, 0, $bracket), 'UTF-8') + 1,
+            'unused-link-reference-definition',
+            $message,
+            $start,
+            max($start + 1, SourceOffsets::toByte($pos->endOffset, $map, $length)),
+        );
     }
 
     /**
