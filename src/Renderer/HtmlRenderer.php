@@ -3235,7 +3235,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return $this->frameBlockContainer('<' . $tag . $attributes . '>', $body, '</' . $tag . '>');
         }
 
-        return '<' . $tag . $attributes . '>' . $this->renderChildren($node) . '</' . $tag . ">\n";
+        return '<' . $tag . $attributes . '>' . $this->guardVerbatimNewlines($this->renderChildren($node)) . '</' . $tag . ">\n";
     }
 
     protected function renderText(Text $node): string
