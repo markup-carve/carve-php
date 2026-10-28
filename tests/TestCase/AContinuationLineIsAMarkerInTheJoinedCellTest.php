@@ -91,7 +91,7 @@ class AContinuationLineIsAMarkerInTheJoinedCellTest extends TestCase
     {
         $source = "| a |\n+ b |\n|---|\n| c |\n";
 
-        $this->assertSame($source, (new CarveConverter())->toCarve($source));
+        $this->assertSame("|= a |\n+ b |\n| c |\n", (new CarveConverter())->toCarve($source));
     }
 
     /**

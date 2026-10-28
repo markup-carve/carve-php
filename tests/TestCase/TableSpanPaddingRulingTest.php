@@ -53,7 +53,7 @@ class TableSpanPaddingRulingTest extends TestCase
         [$document] = self::tableWithEmptyCell(true, true);
         $writer = new CarveRenderer();
         $writer->beginConversionDiagnosticCollection();
-        self::assertSame("| |\n|:---|\n", $writer->render($document));
+        self::assertSame("|=< |\n", $writer->render($document));
         self::assertSame([], $writer->finishConversionDiagnosticCollection()['diagnostics']);
     }
 

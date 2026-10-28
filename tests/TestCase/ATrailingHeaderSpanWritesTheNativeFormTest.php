@@ -18,11 +18,7 @@ use PHPUnit\Framework\TestCase;
 class ATrailingHeaderSpanWritesTheNativeFormTest extends TestCase
 {
     /**
-     * The probe starts from the NATIVE form, which is the only input that can
-     * measure this: a source carrying a separator row now keeps it, because
-     * `table.separatorWidths` makes the authored row reproducible
-     * (markup-carve/carve#2894), so such an input would pass whether the
-     * trailing colspan forced a fallback or not.
+     * The native input keeps its header form after formatting.
      */
     public function testTheWriterKeepsTheNativeFormForATrailingColspanHeader(): void
     {
@@ -32,14 +28,13 @@ class ATrailingHeaderSpanWritesTheNativeFormTest extends TestCase
     }
 
     /**
-     * The same table written with a separator row keeps THAT, which is the
-     * other authored spelling rather than a fallback.
+     * The authored separator form formats to the same native header.
      */
     public function testAnAuthoredSeparatorRowIsKeptForTheSameTable(): void
     {
         $carve = (new CarveConverter())->toCarve("| Engine | Timing | < |\n|---|---|---|\n| carve-js | 12ms | ok |\n");
 
-        self::assertSame("| Engine | Timing | < |\n|---|---|---|\n| carve-js | 12ms | ok |\n", $carve);
+        self::assertSame("|= Engine |= Timing | < |\n| carve-js | 12ms | ok |\n", $carve);
     }
 
     public function testTheImporterWritesATrailingColspanHeaderAsNative(): void

@@ -108,12 +108,12 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
     }
 
     // =========================================================================
-    // The writer reproduces both halves
+    // Source-preserving output reproduces both halves
     // =========================================================================
 
     private function write(string $source): string
     {
-        return (new CarveRenderer())->render($this->codec->decode($this->codec->encode($this->parse($source))));
+        return (new CarveRenderer())->setPreserveTableSeparators(true)->render($this->codec->decode($this->codec->encode($this->parse($source))));
     }
 
     public function testTheWriterReproducesTheAuthoredSeparatorRow(): void
@@ -156,7 +156,7 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
         $this->assertInstanceOf(Table::class, $table);
         $table->setSeparatorWidths([4, 2, 9]);
 
-        $written = (new CarveRenderer())->render($document);
+        $written = (new CarveRenderer())->setPreserveTableSeparators(true)->render($document);
         $this->assertSame("| a | b |\n|----|--|---------|\n| 1 | 2 |\n", $written);
     }
 
@@ -178,7 +178,7 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
         $this->assertInstanceOf(Table::class, $table);
         $table->setSeparatorWidths([3, 3]);
 
-        $written = (new CarveRenderer())->render($document);
+        $written = (new CarveRenderer())->setPreserveTableSeparators(true)->render($document);
         $this->assertSame("| a |\n|:---:|---|\n| 1 |\n", $written);
 
         $reparsed = $this->codec->encode($this->parse($written))['children'][0];
@@ -200,7 +200,7 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
         $this->assertInstanceOf(Table::class, $table);
         $table->setSeparatorWidths([2, 4, 6]);
 
-        $written = (new CarveRenderer())->render($document);
+        $written = (new CarveRenderer())->setPreserveTableSeparators(true)->render($document);
         $this->assertSame("| a |\n|--|----|------|\n| 1 |\n", $written);
         $this->assertSame(
             [2, 4, 6],
@@ -217,7 +217,7 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
     public function testAShorterSeparatorRowThanTheHeaderIsKeptShort(): void
     {
         $source = "| |x |\n|---|\n| y |\n";
-        $written = (new CarveRenderer())->render($this->parse($source));
+        $written = (new CarveRenderer())->setPreserveTableSeparators(true)->render($this->parse($source));
 
         $this->assertSame("| | x |\n|---|\n| y |\n", $written);
         $this->assertSame(

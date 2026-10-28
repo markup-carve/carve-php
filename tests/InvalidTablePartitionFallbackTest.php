@@ -18,8 +18,8 @@ final class InvalidTablePartitionFallbackTest extends TestCase
         yield 'invalid footer count' => ["{footer-rows=>}\n|= A |\n", true];
         yield 'invalid header count' => ["{header-rows=>}\n|= A |\n", true];
         yield 'overlapping counts' => ["{header-rows=1 footer-rows=1}\n|= A |\n", true];
-        yield 'invalid body counts retain implicit head' => ["{body-rows=>}\n|= A |\n", false];
-        yield 'invalid body headers retain implicit head' => ["{body-header-rows=>}\n|= A |\n", false];
+        yield 'invalid body counts use one body' => ["{body-rows=>}\n|= A |\n", true];
+        yield 'invalid body headers use one body' => ["{body-header-rows=>}\n|= A |\n", true];
         yield 'no partition metadata' => ["|= A |\n", false];
     }
 
