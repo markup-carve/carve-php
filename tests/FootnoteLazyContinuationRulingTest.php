@@ -32,6 +32,8 @@ final class FootnoteLazyContinuationRulingTest extends TestCase
     public static function hostedNotes(): iterable
     {
         yield 'list item' => ["- parent\n  [^n]: note\n  tail\n\nsee[^n]\n"];
+        yield 'list item, one column short' => ["- parent\n  [^n]: note\n   tail\n\nsee[^n]\n"];
+        yield 'nested list item' => ["- outer\n  - inner\n    [^n]: note\n    tail\n\nsee[^n]\n"];
         yield 'quote' => ["> [^n]: note\n> tail\n\nsee[^n]\n"];
         yield 'description' => [":: term\n:  [^n]: note\n   tail\n\nsee[^n]\n"];
     }
