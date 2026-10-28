@@ -56,16 +56,13 @@ final class AuthoringLinter
                     $tables[] = $node;
                 } elseif ($node instanceof ListItem) {
                     $listItems[$pos->startLine] = true;
-                } elseif ($node instanceof Code || $node instanceof HeadingRef || ($node instanceof Link && $node->isAutolink())) {
+                } elseif ($node instanceof Code || $node instanceof HeadingRef || $node instanceof Image || ($node instanceof Link && $node->isAutolink())) {
                     $protectedRanges[] = [$startByte, $endByte];
-                } elseif (
-                    ($node instanceof Link && $node->getReferenceLabel() === null && !$node->isAutolink())
-                    || ($node instanceof Image && $node->getReferenceLabel() === null)
-                ) {
+                } elseif ($node instanceof Link && $node->getReferenceLabel() === null && !$node->isAutolink()) {
                     $destinationStart = self::inlineDestinationStart($source, $startByte, $endByte);
                     if ($destinationStart !== null) {
                         $protectedRanges[] = [$destinationStart, $endByte];
-                        if ($node instanceof Link && $node->getDestination() === '') {
+                        if ($node->getDestination() === '') {
                             $emptyLinks[] = $pos;
                         }
                     }
