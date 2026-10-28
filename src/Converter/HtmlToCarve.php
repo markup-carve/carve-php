@@ -3784,6 +3784,7 @@ class HtmlToCarve
         $document = (new AstCodec())->decodeImporterTree($tree);
 
         $renderer = new CarveRenderer();
+        $renderer->setPreserveTableSeparators(true);
         $renderer->flattenCellBreaksForImport();
         if ($this->captureImportIdentity) {
             $renderer->beginConversionDiagnosticCollection();

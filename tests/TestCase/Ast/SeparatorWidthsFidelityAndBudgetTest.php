@@ -24,7 +24,7 @@ class SeparatorWidthsFidelityAndBudgetTest extends TestCase
     {
         $document = (new BlockParser())->parse($source);
         $document->getChildren()[0]->setSeparatorWidths([3, 3]);
-        $writer = new CarveRenderer();
+        $writer = (new CarveRenderer())->setPreserveTableSeparators(true);
         $writer->beginConversionDiagnosticCollection();
         $written = $writer->render($document);
         $report = $writer->finishConversionDiagnosticCollection();
@@ -53,7 +53,7 @@ class SeparatorWidthsFidelityAndBudgetTest extends TestCase
         $source = "| a |> b |\n|---|\n| x | y |\n";
         $parser = new BlockParser();
         $document = $parser->parse($source);
-        $written = (new CarveRenderer())->render($document);
+        $written = (new CarveRenderer())->setPreserveTableSeparators(true)->render($document);
         $codec = new AstCodec();
 
         self::assertSame($source, $written);
@@ -102,7 +102,7 @@ class SeparatorWidthsFidelityAndBudgetTest extends TestCase
             'bottom' => 'v',
         };
         $document = $parser->parse('|?' . $marker . " a |\n|" . $separator . "|\n| x |\n");
-        $written = (new CarveRenderer())->render($document);
+        $written = (new CarveRenderer())->setPreserveTableSeparators(true)->render($document);
         $reparsed = $parser->parse($written);
 
         self::assertSame((new HtmlRenderer())->render($document), (new HtmlRenderer())->render($reparsed));
@@ -134,7 +134,7 @@ class SeparatorWidthsFidelityAndBudgetTest extends TestCase
 
         $this->expectException(SourceUnspellableException::class);
         $this->expectExceptionMessage('document expansion budget');
-        (new CarveRenderer())->render($document);
+        (new CarveRenderer())->setPreserveTableSeparators(true)->render($document);
     }
 
     public function testCompactProseMirrorWidthsCannotAllocateAnUnpaidSeparator(): void
@@ -145,7 +145,7 @@ class SeparatorWidthsFidelityAndBudgetTest extends TestCase
 
         $this->expectException(SourceUnspellableException::class);
         $this->expectExceptionMessage('document expansion budget');
-        (new CarveRenderer())->render($document);
+        (new CarveRenderer())->setPreserveTableSeparators(true)->render($document);
     }
 
     #[DataProvider('includedSources')]
@@ -164,7 +164,7 @@ class SeparatorWidthsFidelityAndBudgetTest extends TestCase
         $root = (new BlockParser())->parse("{{ c.crv }}\n");
         $expanded = (new IncludeExpander($resolver))->transform($root);
         self::assertSame($root->getSourceLength(), $expanded->getSourceLength());
-        self::assertSame($source, (new CarveRenderer())->render($expanded));
+        self::assertSame($source, (new CarveRenderer())->setPreserveTableSeparators(true)->render($expanded));
         self::assertSame((new HtmlRenderer())->render($expanded), (new HtmlRenderer())->render((new BlockParser())->parse($source)));
         self::assertArrayNotHasKey('admittedIncludeLength', (new AstCodec())->encode($expanded));
     }
@@ -195,6 +195,6 @@ class SeparatorWidthsFidelityAndBudgetTest extends TestCase
         $source = "Before\n\n| a |\n|" . str_repeat('-', 1000000) . "|\n| x |\n\nAfter\n";
         $document = (new BlockParser())->parse($source);
 
-        self::assertSame($source, (new CarveRenderer())->render($document));
+        self::assertSame($source, (new CarveRenderer())->setPreserveTableSeparators(true)->render($document));
     }
 }

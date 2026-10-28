@@ -61,7 +61,7 @@ final class TableColumnEditSeparatorWidthsTest extends TestCase
 
         $document = (new ProseMirrorToCarve())->convert($bridge);
         self::assertSame($expected, $document->getChildren()[0]->getSeparatorWidths());
-        $written = (new CarveRenderer())->render($document);
+        $written = (new CarveRenderer())->setPreserveTableSeparators(true)->render($document);
         self::assertCount(count($expected), (new BlockParser())->parse($written)->getChildren()[0]->getChildren()[0]->getChildren());
     }
 
@@ -75,7 +75,7 @@ final class TableColumnEditSeparatorWidthsTest extends TestCase
         unset($row);
         $document = (new ProseMirrorToCarve())->convert($bridge);
         self::assertSame([5], $document->getChildren()[0]->getSeparatorWidths());
-        self::assertSame(1, substr_count(explode("\n", (new CarveRenderer())->render($document))[1], '|') - 1);
+        self::assertSame(1, substr_count(explode("\n", (new CarveRenderer())->setPreserveTableSeparators(true)->render($document))[1], '|') - 1);
     }
 
     public function testAnUneditedRaggedTableKeepsItsShortSeparatorRow(): void
@@ -100,6 +100,6 @@ final class TableColumnEditSeparatorWidthsTest extends TestCase
         unset($row);
         $document = (new ProseMirrorToCarve())->convert($bridge);
         self::assertCount(3, $document->getChildren()[0]->getSeparatorWidths());
-        self::assertStringContainsString("|--:|--|:--:|\n", (new CarveRenderer())->render($document));
+        self::assertStringContainsString("|--:|--|:--:|\n", (new CarveRenderer())->setPreserveTableSeparators(true)->render($document));
     }
 }

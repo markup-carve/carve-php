@@ -343,6 +343,10 @@ class CarveFmtCorpusTest extends TestCase
         }
 
         unset($value['srcByteLength'], $value['pos']);
+        if (($value['type'] ?? null) === 'table') {
+            // PART 11 §6h treats the recorded separator as source spelling in fmt.
+            unset($value['separatorWidths']);
+        }
         if (($value['type'] ?? null) === 'escaped_text') {
             $value['type'] = 'text';
         }

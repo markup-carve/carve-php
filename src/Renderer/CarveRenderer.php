@@ -497,6 +497,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     private bool $alignTables = false;
 
+    private bool $preserveTableSeparators = false;
+
+    public function setPreserveTableSeparators(bool $enabled): self
+    {
+        $this->preserveTableSeparators = $enabled;
+
+        return $this;
+    }
+
     public function setAlignTables(bool $enabled): self
     {
         $this->alignTables = $enabled;
@@ -3409,12 +3418,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $rows = [];
         $rowSlots = [];
         $tableRows = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof TableRow));
-        // `separatorWidths` is an AUTHOR-CHOICE field (PART 12 §3): its PRESENCE
-        // says the author wrote a separator row rather than `|=` header cells,
-        // and its entries say how wide each cell was spelled. Both halves are
-        // reproduced here, the way `list.bulletChar` and `thematic_break.marker`
-        // are.
-        $columnWidths = $node->getSeparatorWidths() ?? [];
+        // Recorded separator widths describe source spelling. Canonical output
+        // chooses native headers; source-preserving output retains the row.
+        $columnWidths = $this->preserveTableSeparators ? ($node->getSeparatorWidths() ?? []) : [];
         foreach ($columnWidths as $width) {
             if ($width < 1) {
                 throw new SourceUnspellableException('table', 'separator widths must be positive integers');
@@ -3500,7 +3506,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 for ($column = $firstSpan; $column < $headerCellCount; $column++) {
                     // '<' is the colspan marker (rowspan is '^'); a real `|=` cell after a run keeps the form.
                     $marker = $headerCellsRow[$column]->getSpanMarker();
-                    if ($marker !== null && $marker !== '<') {
+                    if (($marker !== null && $marker !== '<') || ($node->getSeparatorWidths() !== null && $marker === null)) {
                         $trailingColspansOnly = false;
 
                         break;

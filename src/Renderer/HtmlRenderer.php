@@ -2994,7 +2994,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($stated !== null) {
             $headerRowCount = $stated['headRows'];
             $footerRowCount = $stated['footRows'];
-        } elseif ($hasBodyMetadata || !$node->hasStatedRowGroupAttributes()) {
+        } elseif (!$node->hasStatedRowGroupAttributes()) {
             foreach ($tableRows as $index => $row) {
                 if ($row->isHeader() && $headerRowCount === $index) {
                     $headerRowCount++;

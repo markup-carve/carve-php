@@ -63,6 +63,9 @@ class IncludeConformanceTest extends TestCase
      * @var array<string, array<string, mixed>>
      */
     protected const AHEAD_OF_PIN = [
+        'i02-directive-in-a-table-cell' => [
+            'fmt' => "|= A |= {{ c.crv }} |\n| 1 | 2 |\n",
+        ],
         'i01-lines-bom-only-file-has-no-lines' => [
             'html' => '<p>{{ bom.txt @lines:1-1 @code }}</p>',
         ],

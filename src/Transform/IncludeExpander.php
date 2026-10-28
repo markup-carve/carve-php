@@ -516,7 +516,8 @@ class IncludeExpander implements TransformerInterface
                     if ($directive['code'] !== null && isset($replacement[0]) && $replacement[0] instanceof CodeBlock) {
                         $replacement[0]->setAttributesWithOrder($paragraph->getAttributeEntries(), $paragraph->getAttributeOrder());
                         // `{table}` converts a csv/tsv code include as it does an authored fence (I1c).
-                        $table = DelimitedTable::fromCode($replacement[0]);
+                        $table = $replacement[0]->getRenderHint('includePartialDelimitedRecord') === '1'
+                            ? null : DelimitedTable::fromCode($replacement[0]);
                         if ($table !== null) {
                             BlockParser::applyTableColumns($table);
                             if ($hostOffset !== null) {
@@ -1123,13 +1124,26 @@ class IncludeExpander implements TransformerInterface
         $allRows = array_values($table->getChildren());
         $headCount = count(array_filter($allRows, static fn ($row): bool => $row instanceof TableRow && $row->isHeader()));
         $recordStarts = [];
+        $recordSpans = [];
         $previous = 0;
         $lineNumber = 1;
-        DelimitedTable::rows($normalized, $directive['code']['lang'] === 'csv' ? ',' : "\t", null, static function (int $start) use (&$recordStarts, &$previous, &$lineNumber, $normalized): void {
+        DelimitedTable::rows($normalized, $directive['code']['lang'] === 'csv' ? ',' : "\t", null, static function (int $start, int $end) use (&$recordStarts, &$recordSpans, &$previous, &$lineNumber, $normalized): void {
             $lineNumber += substr_count($normalized, "\n", $previous, $start - $previous);
             $previous = $start;
             $recordStarts[] = $lineNumber;
+            $recordSpans[] = [$lineNumber, $lineNumber + substr_count($normalized, "\n", $start, $end - $start)];
         });
+        if ($directive['lines'] !== null) {
+            $firstLine = $directive['lines']['start'];
+            $lastLine = $directive['lines']['end'];
+            foreach ($recordSpans as [$recordFirst, $recordLast]) {
+                if ($recordFirst <= $lastLine && $recordLast >= $firstLine && ($recordFirst < $firstLine || $recordLast > $lastLine)) {
+                    $selectedCode->setRenderHint('includePartialDelimitedRecord', '1');
+
+                    return $selectedCode;
+                }
+            }
+        }
         if ($directive['rows'] !== null && $directive['rows']['start'] > count($allRows)) {
             $this->warn("Include record range starts past the end of file: {$directive['path']}", 'include-rows-out-of-range');
 
