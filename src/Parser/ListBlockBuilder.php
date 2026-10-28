@@ -2161,6 +2161,7 @@ final class ListBlockBuilder
             // Attribute lines and their fence use one local base after item rebasing.
             $lines = $this->alignAttributeFenceRun($lines, $lineMap);
         }
+        $lines = $this->rebaseOwnedFirstBlockMarkers($lines, $lineMap);
         // THESE LINES ARE THE ITEM'S BODY, so their column 0 IS the item's
         // content column and a marker reaching it opens a sublist (PART 9 §24
         // C3, markup-carve/carve#1517). Passed the way `$topLevel` is passed and
@@ -2192,6 +2193,48 @@ final class ListBlockBuilder
                 unset($this->suffixRepairLineCounts[$sourceLine]);
             }
         }
+    }
+
+    /**
+     * A nested first-block item is rebased to column zero with its host.
+     * Rebase later continuation markers owned at that same authored column.
+     *
+     * @param array<string> $lines
+     * @param array<int, int>|null $lineMap
+     *
+     * @return array<string>
+     */
+    private function rebaseOwnedFirstBlockMarkers(array $lines, ?array $lineMap): array
+    {
+        if ($lineMap === null) {
+            return $lines;
+        }
+
+        $firstBlockColumn = null;
+        foreach ($lines as $index => $line) {
+            $sourceLine = $lineMap[$index] ?? -1;
+            if ($sourceLine < 0) {
+                continue;
+            }
+            if (($this->getListParser)()->parseListItemMarker($line) !== null) {
+                $owner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $sourceLine);
+                $firstBlockColumn = ($owner['kind'] ?? null) === 'list' ? $owner['column'] : null;
+
+                continue;
+            }
+            if ($firstBlockColumn === null || trim($line, " \t") !== '+' || $line === '+') {
+                continue;
+            }
+            $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);
+            if (
+                $decision['reason'] === null && ($decision['owner']['kind'] ?? null) === 'list'
+                && $decision['owner']['column'] === $firstBlockColumn
+            ) {
+                $lines[$index] = '+';
+            }
+        }
+
+        return $lines;
     }
 
     /**
