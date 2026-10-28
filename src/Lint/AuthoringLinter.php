@@ -210,7 +210,7 @@ final class AuthoringLinter
             if (preg_match('/\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/', $visible, $match, PREG_OFFSET_CAPTURE) && preg_match('/^\s*>/', $raw)) {
                 $emit($at, $prefix + $match[0][1] + 1, strlen($match[0][0]), 'github-alert-marker', 'This github alert marker stays literal in a Carve quote; use an admonition fence.');
             }
-            if ($paragraph && preg_match_all('/(^|[\s([{])([*\/])(?=\w)/', $visible, $matches, PREG_OFFSET_CAPTURE)) {
+            if ($paragraph && preg_match_all('/(^|[\s([{])([*\/])(?=\w)/u', $visible, $matches, PREG_OFFSET_CAPTURE)) {
                 foreach ($matches[0] as $i => [$match, $offset]) {
                     $start = $offset + strlen($matches[1][$i][0]);
                     $delimiter = $matches[2][$i][0];
@@ -220,7 +220,7 @@ final class AuthoringLinter
                     }
                     if (!str_contains($remainder, $delimiter)) {
                         $kind = $delimiter === '*' ? 'strong' : 'emphasis';
-                        $emit($at, $prefix + $start + 1, 1, 'unclosed-inline-emphasis', "This {$kind} opener is unclosed in its paragraph; add a closer.");
+                        $emit($at, $prefix + mb_strlen(substr($visible, 0, $start), 'UTF-8') + 1, 1, 'unclosed-inline-emphasis', "This {$kind} opener is unclosed in its paragraph; add a closer.");
                     }
                 }
             }
