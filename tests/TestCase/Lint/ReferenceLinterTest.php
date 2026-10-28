@@ -364,9 +364,23 @@ class ReferenceLinterTest extends TestCase
     #[DataProvider('caseOnlyMisses')]
     public function testACaseOnlyMissNamesTheExactSpelling(string $source, string $rule, string $message): void
     {
-        $warnings = (new ReferenceLinter())->lint($source);
+        $warnings = array_values(array_filter((new ReferenceLinter())->lint($source), static fn ($warning): bool => $warning->rule === $rule));
         $this->assertSame([$rule], array_column($warnings, 'rule'));
         $this->assertSame($message, $warnings[0]->message);
+    }
+
+    public function testUnusedWinningDefinitionsOnlyCountRenderedReferenceUses(): void
+    {
+        $source = "[used]: /u\n\n[unused]: /v\n\n[used][]\n";
+        $warnings = (new ReferenceLinter())->lint($source);
+        $this->assertSame(['unused-link-reference-definition'], array_column($warnings, 'rule'));
+        $this->assertSame(3, $warnings[0]->line);
+
+        $source = "[label]: /u\n\n[Label][]\n";
+        $warnings = (new ReferenceLinter())->lint($source);
+        $this->assertSame(['unused-link-reference-definition', 'unresolved-reference-link'], array_column($warnings, 'rule'));
+
+        $this->assertSame([], (new ReferenceLinter())->lint("![x][img]\n\n[img]: image.png\n"));
     }
 
     /**
