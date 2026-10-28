@@ -3765,6 +3765,7 @@ class BlockParser
         $termScan = null;
         $commentSpan = new CollectedCommentSpan();
         $bodyLineMap = [$this->sourceLineFor($start)];
+        $lastFoldedSourceLine = null;
         if (
             trim($content, " \t") === '+' && isset($lines[$i])
             && !IndentationHelper::isBlankLine($lines[$i])
@@ -3836,10 +3837,8 @@ class BlockParser
             if (
                 $markerDecision !== null
                 && (new IndentedContainerColumn(self::FOOTNOTE_BODY_COLUMN))->ownsContinuation($markerDecision, 'footnote')
+                && $this->continuationFollowerIsEligible($i + 1)
             ) {
-                if (!$this->continuationFollowerIsEligible($i + 1)) {
-                    break;
-                }
                 $i++;
                 // ...AND THE NOTE ENDS WHERE A COMMENT ENDS IT
                 // (markup-carve/carve#1814). The gate below decides
@@ -3970,6 +3969,18 @@ class BlockParser
                 $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
                 $retainedBelowComment = false;
                 $i++;
+            } elseif (
+                $trailingState->openParagraph
+                && !$this->startsInterruptingBlock($nextLine, $lines, $i)
+                && !ReferenceDefinitionExtractor::isDefinitionHead($nextLine)
+                && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $nextLine) !== 1
+                && !$this->isBlockAttributeLine($nextLine)
+                && !(($parent instanceof ListItem || trim($content, " \t") === '+')
+                    && $this->listParser->parseListItemMarker(ltrim($nextLine, " \t")) !== null)
+            ) {
+                $bodyLines[array_key_last($bodyLines)] .= "\n" . ltrim($nextLine, " \t");
+                $lastFoldedSourceLine = $this->sourceLineFor($i);
+                $i++;
             } else {
                 break;
             }
@@ -3994,7 +4005,7 @@ class BlockParser
             );
             $lastLine = end($bodyLineMap);
             if (is_int($lastLine) && $lastLine >= 0) {
-                $this->extendFootnoteDefinitionToLineStart($key, $lastLine + 1);
+                $this->extendFootnoteDefinitionToLineStart($key, max($lastLine, $lastFoldedSourceLine ?? $lastLine) + 1);
             }
             $this->state->session->footnotes[$key] = $footnote;
             $this->state->session->discoveredFootnoteBodies[$key] = [
