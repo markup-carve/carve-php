@@ -921,6 +921,7 @@ final class DefinitionListBuilder
             && !$this->lineOpensBlockForLooseness(ltrim($l->contLine, " \t"), true)
             && preg_match('/^\|.*\|[ \t]*$/', ltrim($l->contLine, " \t")) !== 1
             && $this->bodyEntryStartsParagraph($b->body[array_key_last($b->body)])
+            && ($this->getListParser)()->parseListItemMarker(ltrim($l->lastBody, " \t")) === null
         ) {
             $b->body[array_key_last($b->body)] .= "\n" . ltrim($l->contLine, " \t");
             $b->i++;
@@ -2044,6 +2045,19 @@ final class DefinitionListBuilder
         $paragraphOpen = !$l->noteReleased && ($b->nestedLeadFence->length > 0
             ? ($b->nestedLeadFence->closed && $b->nestedLeadFence->trailing->openParagraph)
             : ($b->bodyState->openParagraph || $b->nestedLazyParagraph || $bodyTermOpen));
+        if (
+            $b->nestedDescriptionBodyColumn !== null
+            && $l->contColumn < $b->nestedDescriptionBodyColumn
+            && $b->bodyNestedState->openParagraph
+            && $l->marker !== null
+            && $l->lastBodyKey !== null
+            && !$this->startsInterruptingBlock($l->trimmedCont, $b->lines, $b->i)
+        ) {
+            $b->body[$l->lastBodyKey] .= "\n" . $l->trimmedCont;
+            $b->i++;
+
+            return true;
+        }
         $lastBodySource = $b->body === [] ? -1 : ($b->bodyMap[array_key_last($b->body)] ?? -1);
         $attributeColumn = IndentationHelper::getLeadingColumns(
             $this->state->source->sourceLines[$lastBodySource] ?? '',
