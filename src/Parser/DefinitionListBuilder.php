@@ -243,6 +243,11 @@ final class DefinitionListBuilder
                 if (str_starts_with($nextLine, BlockGrammar::LAZY_FRAME)) {
                     $nextLine = substr($nextLine, strlen(BlockGrammar::LAZY_FRAME));
                 }
+                // A containing item can leave a residual prefix in its rebased
+                // line. At the term's source column, that prefix is not text.
+                if (!$lazy && !$literalDefinition && !$pastColumnDefinitionOpen && $termColumn !== null && $authoredColumn === $termColumn) {
+                    $nextLine = ltrim($nextLine, " \t");
+                }
                 $nextLine = $lazy ? trim($nextLine, " \t") : rtrim($nextLine, " \t");
                 $last = count($parts) - 1;
                 if ($parts[$last] instanceof Comment) {
@@ -1236,12 +1241,13 @@ final class DefinitionListBuilder
         }
         $markerColumn = $l->marker === null || $b->definitionColumn === null
             ? null : self::authoredSubjectColumn($l->authoredLine, $l->trimmedCont);
+        // A quote-shaped line folded into a term is term text. The nested
+        // tracker can still report a quote paragraph for that spelling.
         if (
             $markerColumn !== null
             && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers($b->authoredDefinition)) > 0
-            && $markerColumn >= $b->definitionColumn
             && $markerColumn < $b->definitionColumn + $b->continuationColumn
-            && !$b->bodyNestedState->quoteParagraph
+            && (!$b->bodyNestedState->quoteParagraph || $this->bodyTermIsOpen($b->body, $b->termScan, $b->lines, $b->i))
             && !str_starts_with($b->lead(), '>')
         ) {
             // CARVE-P2-017: a reached outer column owns this marker.
