@@ -68,17 +68,17 @@ class IncludeDirectiveLiteralTest extends TestCase
         );
     }
 
-    public function testStandaloneCodeIncludeKeepsItsBlockShapeInContainers(): void
+    public function testInvalidCodeIncludeUsesOrdinaryContainerParagraphs(): void
     {
         $directive = '{{ data/p2.csv @code:csv @lines:0-2 }}';
         $converter = CarveConverter::create();
 
         $this->assertSame(
-            "<blockquote>\n  <p>{$directive}</p>\n</blockquote>",
+            "<blockquote><p>{$directive}</p></blockquote>",
             $converter->convert('> ' . $directive),
         );
         $this->assertSame(
-            "<ul>\n  <li>\n    <p>{$directive}</p>\n  </li>\n</ul>",
+            "<ul>\n  <li>{$directive}</li>\n</ul>",
             $converter->convert('- ' . $directive),
         );
     }

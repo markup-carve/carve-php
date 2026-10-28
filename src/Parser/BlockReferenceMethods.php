@@ -138,6 +138,11 @@ trait BlockReferenceMethods
         return $this->state->session->references[LabelKey::normalize($label)] ?? null;
     }
 
+    public function isCollectingDefinitions(): bool
+    {
+        return $this->state->session->discoveringDefinitions;
+    }
+
     public function getCollapsedReference(string $label): ?ReferenceDefinition
     {
         if (!LabelKey::isSingleLine($label)) {

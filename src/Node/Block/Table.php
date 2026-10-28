@@ -103,11 +103,7 @@ class Table extends BlockNode
      */
     public function statedRowGroups(): ?array
     {
-        if (
-            $this->getAttribute('header-rows') === null && $this->getAttribute('footer-rows') === null
-            && $this->getAttribute('body-rows') === null && $this->getAttribute('body-header-rows') === null
-            && $this->getAttribute('body-header-cols') === null
-        ) {
+        if (!$this->hasStatedRowGroupAttributes()) {
             return null;
         }
 
@@ -169,6 +165,18 @@ class Table extends BlockNode
             'bodies' => $rows > $head + $foot ? [['headRows' => 0, 'bodyRows' => $rows - $head - $foot]] : [],
             'footRows' => $foot,
         ];
+    }
+
+    public function hasStatedRowGroupAttributes(): bool
+    {
+        return $this->getAttribute('header-rows') !== null || $this->getAttribute('footer-rows') !== null
+            || $this->hasBodyRowGroupAttributes();
+    }
+
+    public function hasBodyRowGroupAttributes(): bool
+    {
+        return $this->getAttribute('body-rows') !== null || $this->getAttribute('body-header-rows') !== null
+            || $this->getAttribute('body-header-cols') !== null;
     }
 
     private static function bodyCount(string $value): ?int
