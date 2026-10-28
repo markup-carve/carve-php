@@ -98,6 +98,11 @@ class InlineParser
     protected int $textOrigin = 0;
 
     /**
+     * The unsliced inline source for delimiter-sensitive typography.
+     */
+    private string $blockInlineSource = '';
+
+    /**
      * The source line and 1-based column of `$pos` in the text being parsed.
      *
      * `$currentLine` is the line the BLOCK starts on, and a block can be many
@@ -658,6 +663,7 @@ class InlineParser
         $this->delimiterStack = [];
         $this->currentLine = $sourceLine;
         $this->textOrigin = 0;
+        $this->blockInlineSource = $text;
         // Only when a diagnostic can actually be kept: this is one pass over
         // the block, and the default parse has no use for it.
         $this->lineBreakOffsets = [];
@@ -1882,7 +1888,15 @@ class InlineParser
      */
     public function expandLateAbbreviations(Node $node, array $abbreviations, int $depth = 0): void
     {
-        if ($depth >= self::MAX_INLINE_DEPTH || $node instanceof Abbreviation) {
+        if ($depth >= self::MAX_INLINE_DEPTH) {
+            return;
+        }
+        if ($node instanceof Abbreviation) {
+            $label = $node->getChildren()[0] ?? null;
+            if ($label instanceof Text && isset($abbreviations[$label->getContent()])) {
+                $node->setTitle($abbreviations[$label->getContent()]);
+            }
+
             return;
         }
         foreach ($node->getChildren() as $child) {
@@ -4186,6 +4200,9 @@ class InlineParser
     protected function parseSmartQuote(string $prevConverted, string $text, int $pos, string $quote): string
     {
         $nextChar = $this->quoteCharacterAt($text, $pos + 1);
+        if ($nextChar === '' && $this->inlineDepth > 1) {
+            $nextChar = $this->quoteCharacterAt($this->blockInlineSource, $this->textOrigin + $pos + 1);
+        }
         $openContext = $this->isQuoteOpenContext($prevConverted);
         if (
             in_array($prevConverted, ['-', '–', '—', '/'], true)

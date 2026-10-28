@@ -45,6 +45,7 @@ use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
+use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use MarkupCarve\Carve\Util\CycleCollection;
 use MarkupCarve\Carve\Util\StringUtil;
 use MarkupCarve\Carve\Util\TableWidth;
@@ -4151,6 +4152,11 @@ class BlockParser
         $line = self::stripLazyFrame($lines[$start]);
         // Strip leading whitespace from first line (matching JS reference)
         $content = ltrim($line, " \t");
+        $openingDirective = str_starts_with($content, '{{ ')
+            ? IncludeDirectiveSyntax::parse($content) : null;
+        $standaloneCodeInclude = $openingDirective !== null
+            && $openingDirective['code'] !== null
+            && $openingDirective['error'] === null;
         // WHERE THE PARAGRAPH BEGAN, relative to its container's content column,
         // captured HERE because both variables above are reassigned by the fold
         // loop below - reading them at the construction site answered a question
@@ -4192,6 +4198,10 @@ class BlockParser
 
         while ($i < $count) {
             $nextLine = $lines[$i];
+
+            if ($standaloneCodeInclude) {
+                break;
+            }
 
             if (IndentationHelper::isBlankLine($nextLine)) {
                 break;
