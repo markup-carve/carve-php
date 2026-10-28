@@ -2807,7 +2807,7 @@ HTML;
         // class was cell content rather than an attribute.
         $this->assertStringContainsString('|{.wide} Content | < | < |', $result);
         $this->assertStringContainsString(
-            '<td class="wide" colspan="3">Content</td>',
+            '<td colspan="3" class="wide">Content</td>',
             (new CarveConverter())->convert($result),
         );
     }
