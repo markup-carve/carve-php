@@ -3789,6 +3789,7 @@ class BlockParser
         foreach ($bodyLines as $bodyLine) {
             $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
         }
+        $plusContinuationOpen = trim(end($bodyLines) ?: '', " \t") === '+';
         $retainedBelowComment = false;
         $footnoteColumn = new IndentedContainerColumn(self::FOOTNOTE_BODY_COLUMN);
         foreach (
@@ -3925,6 +3926,9 @@ class BlockParser
                 $bodyLines[] = $bodyLine;
                 $bodyLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
+                if (trim($bodyLine, " \t") === '+') {
+                    $plusContinuationOpen = true;
+                }
                 $i++;
             } elseif (
                 // A COMMENT INSIDE A SPAN THE BODY ALREADY HOLDS IS NOT "A
@@ -3981,7 +3985,8 @@ class BlockParser
                 $retainedBelowComment = false;
                 $i++;
             } elseif (
-                $trailingState->openParagraph
+                ($plusContinuationOpen || trim($nextLine, " \t") === '+')
+                && $trailingState->openParagraph
                 && $this->listParser->parseListItemMarker(ltrim($nextLine, " \t")) === null
                 && $this->fencedBlockParser->parseCodeFenceOpener(ltrim($nextLine, " \t")) === null
                 && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, ltrim($nextLine, " \t")) !== 1
@@ -3991,6 +3996,7 @@ class BlockParser
                 $bodyLines[] = $bodyLine;
                 $bodyLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
+                $plusContinuationOpen = true;
                 $i++;
             } else {
                 break;
