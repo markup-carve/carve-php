@@ -133,6 +133,31 @@ final class ContinuationMarkerClassifier
         return $this->footnoteColumnBefore[$index] ?? null;
     }
 
+    private function descriptionKeepsLazyLine(string $head, int $column, int $depth): bool
+    {
+        $lastOwner = $this->stack[array_key_last($this->stack) ?? 0] ?? null;
+
+        return $this->paragraphOpen && ($lastOwner['kind'] ?? null) === 'description'
+            && $lastOwner['column'] === $column && $lastOwner['depth'] === $depth
+            && $head !== ''
+            && $this->lists->parseListItemMarker($head) === null
+            && preg_match('/^(?:#{1,6}(?:[ \t]|$)|>|\||::?[ \t]|`{3,}|~{3,}|(?:[-*_][ \t]*){3,}$)/', $head) !== 1;
+    }
+
+    private function paragraphKeepsBelowColumnLine(string $body, int $column): bool
+    {
+        if (!$this->paragraphOpen || $this->stack === []) {
+            return false;
+        }
+        $lastOwner = $this->stack[array_key_last($this->stack)];
+        $head = ltrim($body, " \t");
+
+        return ($column < $lastOwner['column'] || $column === $lastOwner['column'] && $lastOwner['kind'] === 'list')
+            && $this->lists->parseListItemMarker($head) === null
+            && !str_starts_with($head, '#')
+            && !str_starts_with($head, '>');
+    }
+
     private function step(int $index): void
     {
         $this->listColumnsBefore[$index] = null;
@@ -372,18 +397,10 @@ final class ContinuationMarkerClassifier
         if ($this->carriedOwner === null) {
             $this->stack = array_values(array_filter($this->stack, static fn (array $entry): bool => $entry['kind'] !== 'quote'));
         }
-        if (
-            $this->paragraphOpen && $this->stack !== []
-            && ($column < $this->stack[array_key_last($this->stack)]['column']
-                || $column === $this->stack[array_key_last($this->stack)]['column']
-                    && $this->stack[array_key_last($this->stack)]['kind'] === 'list')
-            && $this->lists->parseListItemMarker(ltrim($body, " \t")) === null
-            && !str_starts_with(ltrim($body, " \t"), '#')
-            && !str_starts_with(ltrim($body, " \t"), '>')
-        ) {
+        $head = ltrim($body, " \t");
+        if ($this->paragraphKeepsBelowColumnLine($body, $column) || $this->descriptionKeepsLazyLine($head, $column, $depth)) {
             return;
         }
-        $head = ltrim($body, " \t");
         if ($this->paragraphOpen && (str_starts_with($head, ':: ') || str_starts_with($head, ': '))) {
             for ($at = count($this->stack) - 1; $at >= 0; $at--) {
                 $entry = $this->stack[$at];

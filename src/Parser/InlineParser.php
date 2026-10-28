@@ -1113,7 +1113,8 @@ class InlineParser
                 $literal = new Text($source);
                 $this->placeAt($literal, $pos, $end);
                 $parent->appendChild($literal);
-                if ($parent instanceof Paragraph && trim($text) === $source) {
+                $include = IncludeDirectiveSyntax::parse($source);
+                if ($parent instanceof Paragraph && trim($text) === $source && $include !== null && ($include['lines'] !== null || $include['invalidLines'])) {
                     $parent->setRenderHint('includeLiteral', '1');
                 }
                 $pos = $end;
@@ -1505,7 +1506,8 @@ class InlineParser
             && ($include['invalidLines']
                 || ($include['code'] !== null
                     && $include['error'] === null
-                    && $include['lines'] !== null
+                    && $include['section'] === null
+                    && $include['region'] === null
                     && trim($host) === $source
                     && preg_match('/^\{\{ +"/', $source) !== 1));
     }

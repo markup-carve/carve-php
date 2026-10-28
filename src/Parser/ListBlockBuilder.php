@@ -377,10 +377,42 @@ final class ListBlockBuilder
 
     /**
      * @param array<string> $itemLines
+     * @param array<int, int> $itemLineMap
      * @param \MarkupCarve\Carve\Node\Block\ListItem $item
      */
-    private function foldedBlankLoosensList(array $itemLines, ListItem $item): bool
+    private function foldedBlankLoosensList(array $itemLines, array $itemLineMap, ListItem $item): bool
     {
+        $directParagraphs = array_filter($item->getChildren(), static fn (Node $child): bool => $child instanceof Paragraph);
+        if (count($directParagraphs) > 1) {
+            foreach ($itemLines as $index => $line) {
+                if ($line !== '' || $index === 0 || $index === count($itemLines) - 1) {
+                    continue;
+                }
+                $openerSource = $this->state->source->sourceLines[$itemLineMap[$index - 1] ?? -1] ?? '';
+                $followerSource = $this->state->source->sourceLines[$itemLineMap[$index + 1] ?? -1] ?? '';
+                while (
+                    ($openerBody = ContainerPrefix::quoteContent($openerSource)) !== null
+                    && ($followerBody = ContainerPrefix::quoteContent($followerSource)) !== null
+                ) {
+                    $openerSource = $openerBody;
+                    $followerSource = $followerBody;
+                }
+                if (IndentationHelper::getLeadingColumns($followerSource) <= IndentationHelper::getLeadingColumns($openerSource)) {
+                    continue;
+                }
+                $follower = ltrim($followerSource, " \t");
+                if (preg_match('/^#{1,6}(?:[ \t]|$)/', $follower) === 1 || $this->isBlockElementStart($follower) || $this->startsNewBlock($follower)) {
+                    continue;
+                }
+                $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($itemLines[$index - 1], " \t"));
+                if ($opener === null) {
+                    continue;
+                }
+                if (!$this->itemFenceCloserAhead($itemLines, $index - 1, $opener, 0)) {
+                    return true;
+                }
+            }
+        }
         $foldedBeforeBlank = false;
         $previous = null;
         $hasQuote = count(array_filter($item->getChildren(), static fn (Node $child): bool => $child instanceof BlockQuote)) > 0;
@@ -1145,7 +1177,7 @@ final class ListBlockBuilder
             if ($this->state->session->itemHasParsedBlankBeforeParagraph($listItem)) {
                 $list->setTight(false);
             }
-            if ($list->isTight() && $this->foldedBlankLoosensList($itemLines, $listItem)) {
+            if ($list->isTight() && $this->foldedBlankLoosensList($itemLines, $itemLineMap, $listItem)) {
                 $list->setTight(false);
             }
 

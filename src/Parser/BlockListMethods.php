@@ -1142,6 +1142,23 @@ trait BlockListMethods
                     $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($index), 'list item');
                 }
                 $continuationBoundary = $this->isContinuationMarker($trimmed);
+                if (
+                    $attachedKind === self::ATTACHED_PENDING
+                    && $continuationBoundary
+                    && $index > 0
+                    && ($this->state->session->firstBlockMarkerOwner($this->state->source, $this->listParser, $this->sourceLineFor($index - 1))['kind'] ?? null) === 'list'
+                    && $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($index))['reason'] !== null
+                ) {
+                    $continuationBoundary = false;
+                }
+                if (
+                    $attachedKind === self::ATTACHED_SPANNING . ':table'
+                    && $this->tableParser->isContinuationRow($trimmed)
+                    && $index > 0
+                    && $this->tableParser->analyzeSeparatorRow(ltrim($lines[$index - 1], " \t")) !== null
+                ) {
+                    return true;
+                }
                 if ($continuationBoundary && $index > 0 && $this->isContinuationMarker(ltrim($lines[$index - 1], " \t"))) {
                     $markerLine = $this->sourceLineFor($index);
                     $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $markerLine);
@@ -1397,7 +1414,8 @@ trait BlockListMethods
         }
 
         return $baseIndent === 0
-            && $this->flushLineEndsListContinuation($nextTrimmed, $lines, $index);
+            ? $this->flushLineEndsListContinuation($nextTrimmed, $lines, $index)
+            : $this->tableParser->isTableRow($nextTrimmed);
     }
 
     /**
