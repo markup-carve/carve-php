@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Inline\Link;
 
 final class AuthoringLinter
 {
@@ -24,16 +25,20 @@ final class AuthoringLinter
         $rows = preg_split('/\r\n|\r|\n/', $source, flags: PREG_SPLIT_OFFSET_CAPTURE) ?: [];
         $paragraphs = [];
         $paragraphEnds = [];
+        $paragraphStarts = [];
         $headings = [];
         $tables = [];
         $listItems = [];
         $verbatim = [];
+        $protectedRanges = [];
+        $emptyLinks = [];
         $pending = [$document];
         while ($pending !== []) {
             $node = array_pop($pending);
             $pos = $node->getPos();
             if ($pos !== null) {
                 if ($node instanceof Paragraph) {
+                    $paragraphStarts[$pos->startLine] = $pos->startOffset;
                     for ($line = $pos->startLine; $line <= $pos->endLine; ++$line) {
                         $paragraphs[$line] = true;
                         $paragraphEnds[$line] = $pos->endLine;
@@ -44,6 +49,20 @@ final class AuthoringLinter
                     $tables[] = $node;
                 } elseif ($node instanceof ListItem) {
                     $listItems[$pos->startLine] = true;
+                } elseif ($node instanceof Link && $node->getReferenceLabel() === null && !$node->isAutolink()) {
+                    $destinationStart = self::inlineDestinationStart($source, $pos->startOffset, $pos->endOffset);
+                    if ($destinationStart !== null) {
+                        $protectedRanges[] = [$destinationStart, $pos->endOffset];
+                        if ($node->getDestination() === '') {
+                            $emptyLinks[] = $pos;
+                        }
+                    }
+                } elseif (
+                    $node->getType() === 'code'
+                    && $pos->startLine < $pos->endLine
+                    && preg_match('/^(?:`{3,}|~{3,})/', substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset)) === 1
+                ) {
+                    $protectedRanges[] = [$pos->startOffset, $pos->endOffset];
                 }
                 if (in_array($node->getType(), ['code_block', 'raw_block', 'comment', 'frontmatter'], true)) {
                     for ($line = $pos->startLine; $line <= $pos->endLine; ++$line) {
@@ -66,6 +85,11 @@ final class AuthoringLinter
             $byte = strlen(mb_substr($raw, 0, max(0, $column - 1), 'UTF-8'));
             $warnings[] = new LintWarning($line, $column, $rule, $message, $start + $byte, min($start + $byte + $size, $length));
         };
+        foreach ($emptyLinks as $pos) {
+            $emit($pos->startLine, $pos->startColumn, 1, 'empty-link-destination', 'This inline link has an empty destination; add a URL or use plain text.');
+        }
+        usort($protectedRanges, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        $firstProtected = 0;
 
         $tableRows = [];
         foreach ($tables as $table) {
@@ -102,7 +126,7 @@ final class AuthoringLinter
             $previous = $level;
         }
 
-        foreach ($rows as $index => [$raw]) {
+        foreach ($rows as $index => [$raw, $rowStart]) {
             $at = $index + 1;
             if (isset($verbatim[$at])) {
                 continue;
@@ -111,21 +135,43 @@ final class AuthoringLinter
             $prefix = strlen($raw) - strlen($stripped);
             $column = $prefix + strspn($stripped, " \t") + 1;
             $visible = self::visible($stripped);
+            $visibleStart = $rowStart + $prefix;
+            $visibleEnd = $rowStart + strlen($raw);
+            while (isset($protectedRanges[$firstProtected]) && $protectedRanges[$firstProtected][1] <= $visibleStart) {
+                $firstProtected++;
+            }
+            for ($protected = $firstProtected; isset($protectedRanges[$protected]) && $protectedRanges[$protected][0] < $visibleEnd; $protected++) {
+                [$start, $end] = $protectedRanges[$protected];
+                $from = max(0, $start - $visibleStart);
+                $to = min(strlen($visible), $end - $visibleStart);
+                if ($to > $from) {
+                    $visible = substr_replace($visible, str_repeat(' ', $to - $from), $from, $to - $from);
+                }
+            }
             $paragraph = isset($paragraphs[$at]);
             $row = isset($tableRows[$at]);
             if ($paragraph) {
-                if (preg_match('/^\s*\|(?:=|\s|[^\s|])/', $stripped) && !self::isTableRow(ltrim($stripped)) && str_contains(substr($stripped, 1), '|')) {
+                $tableSource = $stripped;
+                $tableColumn = $column;
+                if (isset($listItems[$at], $paragraphStarts[$at])) {
+                    $contentOffset = $paragraphStarts[$at] - $rowStart;
+                    if ($contentOffset >= 0 && $contentOffset < strlen($raw)) {
+                        $tableSource = substr($raw, $contentOffset);
+                        $tableColumn = $contentOffset + 1;
+                    }
+                }
+                if (preg_match('/^\s*\|(?:=|\s|[^\s|])/', $tableSource) && !self::isTableRow(ltrim($tableSource)) && str_contains(substr($tableSource, 1), '|')) {
                     $prior = $rows[$index - 1][0] ?? '';
                     $prior = self::stripPrefixes($prior);
                     if ($index === 0 || !preg_match('/^\s*\|/', $prior) || self::isTableRow(ltrim($prior))) {
-                        $emit($at, $column, 1, 'table-shaped-paragraph', 'This table-shaped line lacks a closing pipe and renders as paragraph text; close the table row.');
+                        $emit($at, $tableColumn, 1, 'table-shaped-paragraph', 'This table-shaped line lacks a closing pipe and renders as paragraph text; close the table row.');
                     }
                 }
                 if ($index > 0 && !isset($listItems[$at]) && preg_match('/^(?:\s*> ?)*\s*(?:[-*]|\d+[.)])\s+\S/', $raw) && !preg_match('/^(?:\s*> ?)*\s*(?:[-*]|\d+[.)])\s+\S/', $rows[$index - 1][0]) && trim($rows[$index - 1][0]) !== '' && isset($paragraphs[$at - 1])) {
                     preg_match('/^(?:\s*> ?)*\s*/', $raw, $marker);
                     $emit($at, strlen($marker[0] ?? '') + 1, 1, 'list-marker-without-blank-line', 'This list marker is part of the preceding paragraph; add a blank line before the list.');
                 }
-                if (preg_match('/^\s*:\s+\S/', $stripped) && $index > 0 && isset($paragraphs[$at - 1]) && !preg_match('/^\s*::\s/', self::stripPrefixes($rows[$index - 1][0]))) {
+                if (preg_match('/^\s*:\s+\S/', $stripped) && $index > 0 && isset($paragraphs[$at - 1]) && !preg_match('/^[ \t]*:: /', self::stripPrefixes($rows[$index - 1][0]))) {
                     $emit($at, $column, 1, 'markdown-definition-paragraph', 'This markdown definition remains paragraph text; use a :: term line before the definition.');
                 }
                 if ($captionLookingParagraph && preg_match('/^(?:\*?\s*(?:Caption|Table|Tabelle|Figure|Image)(?:\s+\d+)?\s*:|:\s+\S)/i', ltrim($stripped)) && (isset($tableRows[$at - 2]) || isset($tableRows[$at - 1]) || isset($tableRows[$at + 1]) || isset($tableRows[$at + 2]) || str_contains($rows[$index - 2][0] ?? '', '![') || str_contains($rows[$index - 1][0] ?? '', '!['))) {
@@ -188,9 +234,38 @@ final class AuthoringLinter
         return $line;
     }
 
+    private static function inlineDestinationStart(string $source, int $start, int $end): ?int
+    {
+        $depth = 0;
+        $escaped = false;
+        for ($i = $start; $i + 1 < $end; $i++) {
+            $char = $source[$i];
+            if ($escaped) {
+                $escaped = false;
+
+                continue;
+            }
+            if ($char === '\\') {
+                $escaped = true;
+
+                continue;
+            }
+            if ($char === '[') {
+                $depth++;
+            } elseif ($char === ']' && $depth > 0) {
+                $depth--;
+                if ($depth === 0 && $source[$i + 1] === '(') {
+                    return $i + 2;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private static function isTableRow(string $line): bool
     {
-        return str_starts_with($line, '|') && preg_match('/\|\s*$/', $line) === 1 && strlen(trim($line)) > 1;
+        return str_starts_with($line, '|') && preg_match('/\|[ \t]*$/', $line) === 1 && strlen(trim($line)) > 1;
     }
 
     private static function visible(string $line): string
