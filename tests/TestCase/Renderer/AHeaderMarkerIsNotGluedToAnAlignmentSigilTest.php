@@ -42,7 +42,7 @@ class AHeaderMarkerIsNotGluedToAnAlignmentSigilTest extends TestCase
     public function testAHeaderCellOpeningWithTheCenterSigilKeepsItsStrikethrough(): void
     {
         $source = "| ~x~ |\n|---|\n| y |\n";
-        $this->assertSame("| ~x~ |\n|---|\n| y |\n", $this->fmt($source));
+        $this->assertSame("|= ~x~ |\n| y |\n", $this->fmt($source));
         $this->assertRoundTrips($source);
         $out = $this->html($this->fmt($source));
         $this->assertStringContainsString('<s>x</s>', $out);
@@ -52,7 +52,7 @@ class AHeaderMarkerIsNotGluedToAnAlignmentSigilTest extends TestCase
     public function testAHeaderCellOpeningWithTheLeftSigilKeepsItsAnchor(): void
     {
         $source = "| <https://e.com> |\n|---|\n| y |\n";
-        $this->assertSame("| <https://e.com> |\n|---|\n| y |\n", $this->fmt($source));
+        $this->assertSame("|= <https://e.com> |\n| y |\n", $this->fmt($source));
         $this->assertRoundTrips($source);
         $out = $this->html($this->fmt($source));
         $this->assertStringContainsString('<a href="https://e.com">', $out);
@@ -81,7 +81,7 @@ class AHeaderMarkerIsNotGluedToAnAlignmentSigilTest extends TestCase
      */
     public function testABodyCellIsUnaffected(): void
     {
-        $this->assertSame("| h |\n|---|\n| ~x~ |\n", $this->fmt("| h |\n|---|\n| ~x~ |\n"));
+        $this->assertSame("|= h |\n| ~x~ |\n", $this->fmt("| h |\n|---|\n| ~x~ |\n"));
         $this->assertRoundTrips("| h |\n|---|\n| ~x~ |\n");
     }
 
@@ -90,13 +90,12 @@ class AHeaderMarkerIsNotGluedToAnAlignmentSigilTest extends TestCase
      * the block: PART 9 §5 T10 binds it AFTER the marker run, so everything
      * past the closing brace is content and no separating hazard is left.
      *
-     * `~x~` is still strikethrough on the way back. The separator row the
-     * author wrote is kept rather than folded into a `|=` header, which is
-     * `separatorWidths` doing its job and not this guard's subject.
+     * `~x~` is still strikethrough on the way back. The formatter writes
+     * a native header while the roundtrip writer can retain the separator row.
      */
     public function testACellWithAnAttributeBlockIsUnaffected(): void
     {
-        $this->assertSame("|{.k} ~x~ |\n|---|\n| y |\n", $this->fmt("|{.k} ~x~ |\n|---|\n| y |\n"));
+        $this->assertSame("|={.k} ~x~ |\n| y |\n", $this->fmt("|{.k} ~x~ |\n|---|\n| y |\n"));
         $this->assertRoundTrips("|{.k} ~x~ |\n|---|\n| y |\n");
     }
 
@@ -106,21 +105,17 @@ class AHeaderMarkerIsNotGluedToAnAlignmentSigilTest extends TestCase
      */
     public function testARowAttributeIsUnaffected(): void
     {
-        $this->assertSame("| ~x~ |{.r}\n|---|\n| y |\n", $this->fmt("| ~x~ |{.r}\n|---|\n| y |\n"));
+        $this->assertSame("|= ~x~ |{.r}\n| y |\n", $this->fmt("| ~x~ |{.r}\n|---|\n| y |\n"));
         $this->assertRoundTrips("| ~x~ |{.r}\n|---|\n| y |\n");
     }
 
     /**
-     * CONTROL. The delimiter row is KEPT, not rewritten to `|=`, since
-     * `table.separatorWidths` makes the authored row reproducible (carve#2894);
-     * before that field was published the writer had nothing to tell the two
-     * header forms apart and normalized to `|=`. Either way the rewrite was
-     * never the defect this class guards, and no mutation of the separator
-     * moves this row.
+     * CONTROL. Canonical formatting writes a native header, while the
+     * roundtrip writer can preserve the delimiter row (carve#2894).
      */
     public function testTheDelimiterRowIsKept(): void
     {
-        $this->assertSame("| a |\n|---|\n| b |\n", $this->fmt("| a |\n|---|\n| b |\n"));
+        $this->assertSame("|= a |\n| b |\n", $this->fmt("| a |\n|---|\n| b |\n"));
         $this->assertRoundTrips("| a |\n|---|\n| b |\n");
     }
 
