@@ -291,6 +291,32 @@ final class BlockContinuationScanner
             }
 
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
+            $isBlockQuoteLazyLine = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
+            $first = ltrim($nextLine, " \t");
+            // An attribute past an item's minimum column opens there, even
+            // when a marker-line child supplied the preceding paragraph.
+            if (
+                str_starts_with($first, '{')
+                && $nextIndent >= $contentIndent
+                && !$isBlockQuoteLazyLine
+                && $trailingState->fence === null
+                && !$trailingState->hasOpenDiv()
+                && $openCommentLength === null
+            ) {
+                $attributeLength = $this->wrappedItemAttributeLength($first, $lines, $i + 1, $count, $contentIndent);
+                if ($attributeLength !== null) {
+                    for ($end = $i + $attributeLength; $i < $end; $i++) {
+                        $itemLines[] = IndentationHelper::getLeadingColumns($lines[$i], $contentIndent) >= $contentIndent
+                            ? IndentationHelper::stripLeadingColumns($lines[$i], $contentIndent)
+                            : ltrim($lines[$i], " \t");
+                        $itemLineMap[] = $this->sourceLineFor($i);
+                    }
+                    $trailingState->openParagraph = false;
+                    $trailingState->afterInvisible = true;
+
+                    continue;
+                }
+            }
             // A LAZY QUOTE LINE REACHES NO CONTENT COLUMN. It carries no `>`,
             // so it extends an open paragraph and nothing else; the quote hands
             // it down unstripped, which is the only reason its own indentation
@@ -298,7 +324,6 @@ final class BlockContinuationScanner
             // asks this before dedenting - without it here, `> - - x` over an
             // indented block opener opened the block inside the item where
             // every other engine folds it.
-            $isBlockQuoteLazyLine = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
             if ($nextIndent < $contentIndent || $isBlockQuoteLazyLine) {
                 $nextTrimmed = ltrim($nextLine, " \t");
                 $previousSource = $this->state->source->sourceLines[$this->sourceLineFor($i) - 1] ?? '';
