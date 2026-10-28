@@ -1277,8 +1277,23 @@ final class BlockContinuationScanner
         // A span opened on the MARKER LINE is the item's first block
         // (`CARVE-P0-007`), so it retains nothing for a below-column follower.
         $run->spanFromMarkerLine = $run->openCommentLength !== null;
+        $itemMarkerColumn = $this->authoredItemMarkerColumn(
+            $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
+            $itemLines[0] ?? '',
+        );
         while ($i < $count) {
             $nextLine = $lines[$i];
+            // The source marker column ends the nested item even when its
+            // term is still open. The collected line has lost that column.
+            if (
+                $run->pendingDefinitionTerm && $itemMarkerColumn !== null
+                && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($nextLine, " \t")) === 1
+                && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
+                    $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
+                )) === $itemMarkerColumn
+            ) {
+                break;
+            }
             if (
                 $descriptionHost
                 && $run->openCommentLength === null
@@ -5517,6 +5532,29 @@ final class BlockContinuationScanner
     public function listMarkerWidth(string $stripped, array $info): int
     {
         return ($this->listMarkerWidthCallback)($stripped, $info);
+    }
+
+    private function authoredItemMarkerColumn(string $source, string $lead): ?int
+    {
+        // Walk authored markers: a task checkbox is content, so subtracting
+        // the parser's content width from the term's column is not reliable.
+        $source = ContainerPrefix::stripQuoteMarkers($source);
+        if ($lead === '' || !str_ends_with($source, $lead)) {
+            return null;
+        }
+        $target = strlen($source) - strlen($lead);
+        $offset = strspn($source, " \t");
+        $markerColumn = null;
+        while ($offset < $target) {
+            $head = ($this->getListParser)()->markerHeadAt($source, $offset);
+            if ($head === null || $head['content'] > $target) {
+                return null;
+            }
+            $markerColumn = ContinuationMarkerClassifier::columnAt($source, $offset);
+            $offset = $head['content'];
+        }
+
+        return $offset === $target ? $markerColumn : null;
     }
 
     private function markerFreeContent(string $line): string
