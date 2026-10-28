@@ -2282,9 +2282,9 @@ final class ListBlockBuilder
                 ? ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($lines[1], " \t"))
                 : null;
             $sourceFenceLine = $lineMap[$i + 1] ?? -1;
-            $fenceBase = $divOpener === null ? 0 : IndentationHelper::getLeadingColumns(
-                $this->state->source->sourceLines[$sourceFenceLine] ?? $lines[$i + 1],
-            );
+            $sourceFence = $this->state->source->sourceLines[$sourceFenceLine] ?? $lines[$i + 1];
+            $quotedFence = count(ContainerPrefix::quoteStages(ltrim($sourceFence, " \t"))) > 1;
+            $fenceBase = IndentationHelper::getLeadingColumns($sourceFence);
             $lines[$i] = ltrim($lines[$i], " \t");
             $lines[++$i] = ltrim($lines[$i], " \t");
             for ($j = $i + 1; $j < $count; $j++) {
@@ -2296,7 +2296,7 @@ final class ListBlockBuilder
                 }
                 $sourcePayloadLine = $lineMap[$j] ?? -1;
                 $authoredPayload = $this->state->source->sourceLines[$sourcePayloadLine] ?? $lines[$j];
-                $content = $divOpener === null
+                $content = $divOpener === null && $quotedFence
                     ? ltrim($lines[$j], " \t")
                     : IndentationHelper::stripLeadingColumns($authoredPayload, $fenceBase);
                 if (
