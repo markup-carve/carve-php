@@ -278,23 +278,6 @@ final class BlockParseSession
     public array $unplaceableNodeIds = [];
 
     /**
-     * Paragraphs whose FIRST LINE sat above their container's content column.
-     *
-     * A block image is a top-level block construct, so PART 9 section 15's
-     * strict column-0 rule reaches it: an INDENTED lone image is a paragraph
-     * holding an inline image, never a block image (markup-carve/carve#1660).
-     * {@see \MarkupCarve\Carve\Parser\BlockParser::promoteBlockImages()} is the only reader.
-     *
-     * PARSER-LOCAL, keyed by object id like `$unplaceableNodeIds` above, rather
-     * than a property on `Paragraph`: {@see \MarkupCarve\Carve\Ast\AstCodec}
-     * publishes every non-static property a node declares, so a flag on the node
-     * would put a parse internal on the wire that no other engine emits.
-     *
-     * @var array<int, true>
-     */
-    public array $paragraphsAboveContentColumn = [];
-
-    /**
      * Abbreviation definitions: maps abbreviation text to its definition
      *
      * @var array<string, string>
