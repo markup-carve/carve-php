@@ -1551,6 +1551,9 @@ final class BlockContinuationScanner
                 $unclosedFenceBase,
             );
         }
+        if (str_starts_with($nextTrimmed, '%%') && $run->openCommentLength === null && $trailingState->fence === null) {
+            return false;
+        }
         $step = $this->belowColumnFenceStep($run, $lines, $i, $contentIndent, $itemLines, $itemLineMap, $trailingState, $nextIndent, $nextTrimmed);
         if ($step !== null) {
             return $step;

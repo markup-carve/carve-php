@@ -988,6 +988,13 @@ class BlockParser
             $input = substr($input, 3);
         }
         $lines = $this->splitLines($input);
+        $lines = (new BlockOwnershipWalk(
+            $this->listParser,
+            $this->fencedBlockParser,
+            $this->tableParser,
+            fn (string $line): bool => $this->isReferenceDefinitionLine($line),
+            fn (string $line): bool => $this->isBlockAttributeLine($line),
+        ))->own($lines);
 
         // Each physical byte may be inspected a small constant number of times
         // by the parser-backed marker probe below. Exhaustion deliberately
