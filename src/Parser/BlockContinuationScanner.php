@@ -188,6 +188,10 @@ final class BlockContinuationScanner
         $sourceLead = $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '';
         $sourceLead = ltrim(ContainerPrefix::stripQuoteMarkers(ltrim($sourceLead, " \t")), " \t");
         $nestedFence->releaseAtListAncestor = ($this->getListParser)()->parseListItemMarker($sourceLead) !== null;
+        [$nestedMarkerColumn, $nestedContentColumn] = $this->authoredItemColumns(
+            $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
+            $bottom,
+        );
         $openCommentLength = null;
         $openCommentColumn = 0;
         while ($i < $count) {
@@ -511,6 +515,17 @@ final class BlockContinuationScanner
             // column. Recorded so the authored-base pass can tell them apart
             // (markup-carve/carve#1896).
             $stripped = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+            if (
+                $nestedMarkerColumn !== null && $nestedMarkerColumn > $baseIndent && $nestedContentColumn !== null
+                && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($nextLine, " \t")) === 1
+            ) {
+                $authoredColumn = IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
+                    $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
+                ), $nestedContentColumn);
+                if ($authoredColumn >= $nestedMarkerColumn && $authoredColumn < $nestedContentColumn) {
+                    $stripped = ltrim($stripped, " \t");
+                }
+            }
             if (
                 $nextIndent === $contentIndent
                 && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $bottom) === 1
@@ -1302,7 +1317,7 @@ final class BlockContinuationScanner
         // A span opened on the MARKER LINE is the item's first block
         // (`CARVE-P0-007`), so it retains nothing for a below-column follower.
         $run->spanFromMarkerLine = $run->openCommentLength !== null;
-        $itemMarkerColumn = $this->authoredItemMarkerColumn(
+        [$itemMarkerColumn, $itemContentColumn] = $this->authoredItemColumns(
             $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
             $itemLines[0] ?? '',
         );
@@ -1316,6 +1331,19 @@ final class BlockContinuationScanner
                 && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
                     $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 )) === $itemMarkerColumn
+            ) {
+                break;
+            }
+            // A new term in the band before the nested item's content column
+            // belongs to an enclosing item. Compare the authored column: the
+            // local stream has already stripped the enclosing task marker.
+            if (
+                $run->pendingDefinitionTerm && $itemMarkerColumn !== null
+                && $itemMarkerColumn > $baseIndent && $itemContentColumn !== null
+                && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($nextLine, " \t")) === 1
+                && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
+                    $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
+                ), $itemContentColumn) < $itemContentColumn
             ) {
                 break;
             }
@@ -1351,6 +1379,22 @@ final class BlockContinuationScanner
                 }
 
                 break;
+            }
+
+            // A description-shaped line in the marker/content band is lazy
+            // text of the open term. Its extra source indentation selects the
+            // owner; it is not prose indentation inside that term.
+            if (
+                $run->pendingDefinitionTerm && $itemMarkerColumn !== null
+                && $itemMarkerColumn > $baseIndent && $itemContentColumn !== null
+                && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($nextLine, " \t")) === 1
+            ) {
+                $authoredColumn = IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
+                    $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
+                ), $itemContentColumn);
+                if ($authoredColumn > $itemMarkerColumn && $authoredColumn < $itemContentColumn) {
+                    $lines[$i] = str_repeat(' ', $contentIndent) . BlockGrammar::LAZY_FRAME . ltrim($nextLine, " \t");
+                }
             }
 
             if (
@@ -5559,13 +5603,18 @@ final class BlockContinuationScanner
         return ($this->listMarkerWidthCallback)($stripped, $info);
     }
 
-    private function authoredItemMarkerColumn(string $source, string $lead): ?int
+    /**
+     * Marker column and content column in the authored source.
+     *
+     * @return array{?int, ?int}
+     */
+    private function authoredItemColumns(string $source, string $lead): array
     {
         // Walk authored markers: a task checkbox is content, so subtracting
         // the parser's content width from the term's column is not reliable.
         $source = ContainerPrefix::stripQuoteMarkers($source);
         if ($lead === '' || !str_ends_with($source, $lead)) {
-            return null;
+            return [null, null];
         }
         $target = strlen($source) - strlen($lead);
         $offset = strspn($source, " \t");
@@ -5573,13 +5622,15 @@ final class BlockContinuationScanner
         while ($offset < $target) {
             $head = ($this->getListParser)()->markerHeadAt($source, $offset);
             if ($head === null || $head['content'] > $target) {
-                return null;
+                return [null, null];
             }
             $markerColumn = ContinuationMarkerClassifier::columnAt($source, $offset);
             $offset = $head['content'];
         }
 
-        return $offset === $target ? $markerColumn : null;
+        return $offset === $target
+            ? [$markerColumn, ContinuationMarkerClassifier::columnAt($source, $offset)]
+            : [null, null];
     }
 
     private function markerFreeContent(string $line): string

@@ -2909,7 +2909,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $carriesWidths = $separatorWidths !== null && self::carrierStatesEveryWidth($separatorWidths);
         $tableAttrs = $this->attributesBesideCarriers($node, $carriesWidths ? ['data-carve-col-widths'] : []);
         unset($tableAttrs['aligns'], $tableAttrs['valigns'], $tableAttrs['widths']);
-        $hasBodyMetadata = isset($tableAttrs['body-rows']) || isset($tableAttrs['body-header-rows']) || isset($tableAttrs['body-header-cols']);
+        $hasBodyMetadata = $node->hasBodyRowGroupAttributes();
         if (!$hasBodyMetadata || $node->getRowGroups() !== null || $node->statedRowGroups() !== null) {
             unset($tableAttrs['header-rows'], $tableAttrs['footer-rows']);
         }
@@ -2994,7 +2994,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($stated !== null) {
             $headerRowCount = $stated['headRows'];
             $footerRowCount = $stated['footRows'];
-        } else {
+        } elseif ($hasBodyMetadata || !$node->hasStatedRowGroupAttributes()) {
             foreach ($tableRows as $index => $row) {
                 if ($row->isHeader() && $headerRowCount === $index) {
                     $headerRowCount++;

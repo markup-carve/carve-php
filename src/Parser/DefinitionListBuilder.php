@@ -645,6 +645,24 @@ final class DefinitionListBuilder
         } else {
             $body = [trim($m[2], StringUtil::WHITESPACE_CHARS)];
             $bodyMap = [$this->sourceLineFor($definitionStart)];
+            if (
+                ($firstBlockOwner['kind'] ?? null) === 'list'
+                && $definitionColumn !== null
+                && $firstBlockOwner['column'] >= $definitionColumn + $continuationColumn
+            ) {
+                [$i, $attached, $attachedRawMap] = $this->collectAttachedBlock(
+                    $lines,
+                    $i,
+                    $count,
+                    static fn (string $line): bool => IndentationHelper::isBlankLine($line)
+                        || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $line) === 1
+                        || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $line) === 1,
+                );
+                foreach ($attached as $at => $line) {
+                    $body[] = $line;
+                    $bodyMap[] = $this->sourceLineFor($attachedRawMap[$at]);
+                }
+            }
         }
         // A nested item owns lines that reach its column; a document or quote body keeps its own band.
         $descriptionAtDocumentOrQuote = $definitionColumn === 0
@@ -861,10 +879,15 @@ final class DefinitionListBuilder
                 return true;
             }
         }
-        // At the description column, caret text folds into its body.
+        // At the description column, caret text needs an open paragraph
+        // inside a quoted body. An empty quote cannot carry it.
+        $quotedBody = str_starts_with($b->body[0] ?? '', '>');
+        if ($quotedBody) {
+            $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+        }
         if (
             $b->body !== [] && preg_match('/^\^ +\S/', $l->contLine) === 1
-            && (str_starts_with($b->body[0], '![') || str_starts_with($b->body[0], '>'))
+            && (str_starts_with($b->body[0], '![') || $quotedBody && $b->bodyNestedState->openParagraph)
         ) {
             $b->body[array_key_last($b->body)] .= "\n" . $l->contLine;
             $b->i++;
@@ -1081,11 +1104,14 @@ final class DefinitionListBuilder
             )
         ) {
             $this->advanceDescriptionBodyTracker($b);
+            $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+            $nestedItemParagraph = $b->bodyNestedState->nestedListSeen
+                && $b->bodyNestedState->openParagraph;
             $lastBodyLine = $b->bodyMap[array_key_last($b->body) ?? 0] ?? -1;
             $lastBodyColumn = IndentationHelper::getLeadingColumns($this->state->source->sourceLines[$lastBodyLine] ?? '');
             if (
-                !$b->bodyState->openParagraph
-                || $lastBodyColumn >= $b->continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                (!$b->bodyState->openParagraph || $lastBodyColumn >= $b->continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN)
+                && !$nestedItemParagraph
             ) {
                 return false;
             }
@@ -1779,8 +1805,20 @@ final class DefinitionListBuilder
         $reachesOuterBody = false;
         $opensBlock = false;
         if ($b->bodyFrames->hasListAbove($entryColumn)) {
+            $prior = $this->sourceLineFor($b->i - 1);
+            $firstBlockFollower = $prior >= 0
+                && ($this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $prior)['kind'] ?? null) === 'list'
+                && $this->continuationFollowerIsEligible($b->i);
+            $previousEntry = $b->body === [] ? '' : $b->body[array_key_last($b->body)];
+            $leadMarker = ($this->getListParser)()->parseListItemMarker($b->lead());
+            $belowLeadItem = $leadMarker !== null
+                && $entryColumn < $this->continuations->listMarkerWidth($b->lead(), $leadMarker)
+                && IndentationHelper::getLeadingColumns($previousEntry) === $entryColumn
+                && ($this->getListParser)()->parseListItemMarker(ltrim($previousEntry, " \t")) !== null;
+            $belowOpenItem = $b->bodyNestedState->openParagraph
+                && $b->bodyNestedState->nestedColumn > $entryColumn || $belowLeadItem;
             $opensBlock = $this->startsInterruptingBlock($l->trimmedCont, $b->lines, $b->i);
-            if ($opensBlock || $entryMarker !== null) {
+            if (($opensBlock || $entryMarker !== null) && !$firstBlockFollower && !$belowOpenItem) {
                 // CARVE-P2-017: leave each nested body whose content column the opener misses.
                 $b->bodyFrames->releaseListsAt($entryColumn);
                 $reachesOuterBody = true;

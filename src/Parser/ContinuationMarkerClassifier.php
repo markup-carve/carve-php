@@ -158,6 +158,13 @@ final class ContinuationMarkerClassifier
             && !str_starts_with($head, '>');
     }
 
+    private function clearTermColumnsUnlessDescription(string $head): void
+    {
+        if (!str_starts_with($head, ': ')) {
+            $this->termColumns = [];
+        }
+    }
+
     private function step(int $index): void
     {
         $this->listColumnsBefore[$index] = null;
@@ -317,7 +324,8 @@ final class ContinuationMarkerClassifier
             $this->carriedOwner = null;
             $this->paragraphOpen = false;
             $this->descriptionLazy = false;
-            $this->termColumns = [];
+            // A blank may separate a term from its description. The next
+            // nonblank construct decides whether the saved column survives.
             $this->stack = array_values(array_filter($this->stack, static fn (array $entry): bool => $entry['depth'] <= $depth));
             $seen = [];
             $current = [];
@@ -398,6 +406,7 @@ final class ContinuationMarkerClassifier
             $this->stack = array_values(array_filter($this->stack, static fn (array $entry): bool => $entry['kind'] !== 'quote'));
         }
         $head = ltrim($body, " \t");
+        $this->clearTermColumnsUnlessDescription($head);
         if ($this->paragraphKeepsBelowColumnLine($body, $column) || $this->descriptionKeepsLazyLine($head, $column, $depth)) {
             return;
         }
@@ -419,8 +428,7 @@ final class ContinuationMarkerClassifier
                 $entry = $this->stack[$at];
                 if (
                     $entry['kind'] === 'description' && $column >= $entry['column']
-                    && ($this->lists->parseListItemMarker($head) !== null
-                        || $entry['column'] === 0 && $column < $entry['content'])
+                    && $column < $entry['content']
                 ) {
                     $this->descriptionLazy = $this->descriptionLazy || str_starts_with($head, '>');
 

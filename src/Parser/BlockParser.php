@@ -1432,19 +1432,24 @@ class BlockParser
 
         if (UnresolvedReference::sourceOf($image) !== null) {
             $reach = null;
-            foreach (array_values($deferred['rawLines']) as $offset => $rawLine) {
-                $spans = $deferred['rawSpans'][$offset] ?? ['break' => null, 'text' => null];
-
-                $softBreak = new SoftBreak();
-                $softBreak->setPos($spans['break']);
-                $paragraph->appendChild($softBreak);
-
-                $text = new Text($rawLine);
-                $text->setPos($spans['text']);
-                $paragraph->appendChild($text);
-
-                $reach = $spans['text'] ?? $reach;
+            $rawLines = array_values($deferred['rawLines']);
+            $folded = [];
+            foreach ($rawLines as $offset => $rawLine) {
+                $span = $deferred['rawSpans'][$offset]['text'] ?? null;
+                if ($span !== null) {
+                    $folded[] = [$span->startLine - 1, 0, strlen($rawLine), $rawLine];
+                    $reach = $span;
+                }
             }
+            $softBreak = new SoftBreak();
+            $softBreak->setPos($deferred['rawSpans'][0]['break'] ?? null);
+            $paragraph->appendChild($softBreak);
+            $this->inlineParser->parse(
+                $paragraph,
+                implode("\n", $rawLines),
+                ($deferred['rawSpans'][0]['text']->startLine ?? 1) - 1,
+                sourceMap: $folded !== [] ? $this->foldedLinesMap($folded) : null,
+            );
 
             // The paragraph and every container holding it stopped at the
             // image, because that was the last child they had when the walk
@@ -2305,7 +2310,7 @@ class BlockParser
             }
             if ($parent instanceof Footnote && $blankRun >= 2 && $parent->hasChildren()) {
                 $children = $parent->getChildren();
-                if ($children[array_key_last($children)] instanceof DefinitionList) {
+                if ($children !== [] && $children[array_key_last($children)] instanceof DefinitionList) {
                     // The closed description has released the next block. Keep
                     // its relative indentation while rebasing it in the note.
                     $base = IndentationHelper::getLeadingColumns($line);

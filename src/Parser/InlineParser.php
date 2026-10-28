@@ -1120,7 +1120,10 @@ class InlineParser
                 $this->placeAt($literal, $pos, $end);
                 $parent->appendChild($literal);
                 if ($parent instanceof Paragraph && trim($text) === $source) {
-                    $parent->setRenderHint('includeLiteral', '1');
+                    $include = IncludeDirectiveSyntax::parse($source);
+                    if ($include !== null && !$include['invalidLines']) {
+                        $parent->setRenderHint('includeLiteral', '1');
+                    }
                 }
                 $pos = $end;
 
@@ -2878,6 +2881,12 @@ class InlineParser
                 $refDef = $originalRefBracket === ''
                     ? $this->blockParser->getCollapsedReference($ref)
                     : $this->blockParser->getReference($ref);
+                // A later definition of this label can still replace the one
+                // collected so far. Resolve authored references after the
+                // structural walk has collected the whole document.
+                if ($this->blockParser->isCollectingDefinitions() && $refDef !== null && !$refDef->fromHeading) {
+                    $refDef = null;
+                }
                 // getCollapsedReference() answers from the definitions AND the
                 // heading index, so the heading can win on the first lookup
                 // without the retry below ever running.
@@ -3103,6 +3112,13 @@ class InlineParser
         }
 
         $alt = AttributeParser::processEscapes(str_replace("\0", "\u{00A0}", $result['link_text']));
+
+        // A collapsed image derives its reference label from the alt text.
+        // With no alt text it is not an image; leave the remaining brackets
+        // for the ordinary inline parser to read as a link.
+        if ($alt === '' && str_starts_with((string)$link->getRawReferenceLabel(), '[][]')) {
+            return ['node' => new Text('!'), 'pos' => $pos + 1];
+        }
 
         $image = new Image($link->getDestination() ?? '', $alt, $link->getTitle());
         if (UnresolvedReference::isResolvedEmpty($link)) {
