@@ -1316,6 +1316,18 @@ class CarveCorpusTest extends TestCase
         'a-bare-dot-starts-a-list-after-a-blank-line',
         'a-bang-before-a-link-is-escaped',
         'a-hard-break-in-a-pipe-table-cell-survives-markdown-export',
+        // The spec pin for table include selection also carries these categories.
+        // Their passing rows match the pinned HTML; 744 has one tracked gap.
+        'model-syntax-boundaries-and-ownership',
+        'model-inline-frames-and-html-attributes',
+        'invalid-table-metadata-keeps-the-table',
+        'opaque-reference-and-inline-bounds',
+        'lazy-quote-owners',
+        'visible-footnote-headings',
+        'lint-directives-are-invisible-in-rendered-content',
+        'a-later-term-after-a-shifted-separator-opens-in-the-outer-item',
+        'a-task-item-uses-the-ordered-item-column-rule',
+        'the-deepest-quoted-paragraph-takes-a-lazy-line-across-missed-prefixes',
     ];
 
     /**
@@ -1324,8 +1336,8 @@ class CarveCorpusTest extends TestCase
      * not a regression. Remove once the construct lands.
      *
      * An entry here is an EXCLUSION: the document is named, its assertion is
-     * skipped, and the suite goes green around it. Nothing in the pins may
-     * be excluded, so a new gap is closed rather than listed.
+     * skipped, and the suite goes green around it. Each declaration is tied
+     * to an open issue and fails when the engine catches up to the pin.
      *
      * The thirteen entries that stood here up to the bump to carve d0b6c92 all
      * rendered byte-identically to their pinned HTML - measured one document at
@@ -1336,7 +1348,25 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [];
+    protected const KNOWN_GAPS = [
+        '212-a-flush-left-line-after-a-footnote-definition-belongs-to-the-document' => 'carve-php#4163',
+        '219-a-definition-below-a-footnote-body-s-column-is-the-document-s-own-text' => 'carve-php#4163',
+        '228-a-line-at-a-footnote-definition-s-own-column-followed-by-non-blank-text-forms-its-own-tight-block' => 'carve-php#4163',
+        '454-a-block-opener-past-a-nested-footnote-definition-opens-in-the-item-3' => 'carve-php#4163',
+        '461-a-column-0-line-after-a-description-hosted-note-is-a-document-sibling-3' => 'carve-php#4163',
+        '461-a-column-0-line-after-a-description-hosted-note-is-a-document-sibling-4' => 'carve-php#4163',
+        '279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-4' => 'carve-php#4164',
+        '287-a-column-zero-definition-ends-an-open-list-item-2' => 'carve-php#4164',
+        '358-what-a-content-column-block-does-not-reach-2' => 'carve-php#4164',
+        '374-a-collected-definition-closes-the-item-paragraph-3' => 'carve-php#4164',
+        '620-generated-container-documents-16' => 'carve-php#4164',
+        '435-the-continuation-marker-s-column-gate-reaches-every-container-2' => 'carve-php#4165',
+        '435-the-continuation-marker-s-column-gate-reaches-every-container-4' => 'carve-php#4165',
+        '437-a-leading-continuation-marker-in-a-footnote-body-or-a-quote-is-text-2' => 'carve-php#4165',
+        '629-a-dangling-plus-marker-adds-nothing-and-a-nested-quote-reads-it-like-an-unnested-one-4' => 'carve-php#4165',
+        '629-a-dangling-plus-marker-adds-nothing-and-a-nested-quote-reads-it-like-an-unnested-one-8' => 'carve-php#4165',
+        '744-a-task-item-uses-the-ordered-item-column-rule' => 'carve-php#4166',
+    ];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED
