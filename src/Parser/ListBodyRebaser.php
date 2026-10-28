@@ -952,7 +952,7 @@ final class ListBodyRebaser
         bool $includeSublists,
         ?int $unclosedFenceBase,
     ): bool {
-        $shiftedSeparator = $this->shiftedTermSeparatorIndex($lines);
+        $shiftedSeparator = $this->shiftedTermSeparatorIndex($lines, $eligible);
         // An uninterrupted marker-line descendant owns the entire chunk. Its
         // own recursive item parse will see any opener that reaches that item's
         // minimum; the parent has no authored-base decision to make until a
@@ -996,8 +996,9 @@ final class ListBodyRebaser
      * the enclosing item. Later openers must be read there.
      *
      * @param array<string> $lines
+     * @param array<int, true>|null $eligible
      */
-    private function shiftedTermSeparatorIndex(array $lines): ?int
+    private function shiftedTermSeparatorIndex(array $lines, ?array $eligible): ?int
     {
         $first = $this->firstContentLine($lines);
         if ($first === null) {
@@ -1012,6 +1013,8 @@ final class ListBodyRebaser
         if ($column === null) {
             return null;
         }
+        $sourceLead = $this->state->source->sourceLines[($this->sourceLineForCallback)($first)] ?? '';
+        $markerColumn = $this->sourceColumnOfSuffix($sourceLead, $lead);
         for ($i = $first + 1, $count = count($lines); $i < $count; $i++) {
             $line = $lines[$i];
             if (IndentationHelper::isBlankLine($line)) {
@@ -1019,8 +1022,11 @@ final class ListBodyRebaser
             }
             $base = IndentationHelper::getLeadingColumns($line);
             $subject = ltrim($line, " \t");
-            if ($base < $column && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $subject) === 1) {
-                return $i;
+            if ($base < $column && ($eligible === null || isset($eligible[$i])) && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $subject) === 1) {
+                $sourceLine = $this->state->source->sourceLines[($this->sourceLineForCallback)($i)] ?? '';
+                if ($markerColumn !== null && $this->sourceColumnOfSuffix($sourceLine, $subject) === $markerColumn) {
+                    return $i;
+                }
             }
             if (($this->lineOpensBlockForLoosenessCallback)($subject, true)) {
                 return null;
@@ -1028,6 +1034,25 @@ final class ListBodyRebaser
         }
 
         return null;
+    }
+
+    private function sourceColumnOfSuffix(string $line, string $suffix): ?int
+    {
+        $line = rtrim($line, " \t");
+        if ($suffix === '' || !str_ends_with($line, $suffix)) {
+            return null;
+        }
+        $column = 0;
+        $end = strlen($line) - strlen($suffix);
+        for ($i = 0; $i < $end; $i++) {
+            if ($line[$i] === "\t") {
+                $column += IndentationHelper::TAB_STOP - ($column % IndentationHelper::TAB_STOP);
+            } elseif ((ord($line[$i]) & 0xC0) !== 0x80) {
+                $column++;
+            }
+        }
+
+        return $column;
     }
 
     /**
@@ -1328,7 +1353,7 @@ final class ListBodyRebaser
         $nestedInlineParagraph = false;
         $childContentFloor = $leadNestedColumn ?? 0;
         $foldedChildFence = false;
-        $shiftedSeparator = $this->shiftedTermSeparatorIndex($lines);
+        $shiftedSeparator = $this->shiftedTermSeparatorIndex($lines, $eligible);
         $shiftedOwner = false;
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
@@ -1556,8 +1581,9 @@ final class ListBodyRebaser
                     !$skipOpaqueAtMinimum
                     || ($code === null && $comment === null)
                 ) {
+                    // A released separator is paragraph text in the surviving item.
                     if (
-                        $this->containerContentColumn($line, 0) !== null
+                        ($i !== $shiftedSeparator && $this->containerContentColumn($line, 0) !== null)
                         || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $line) === 1
                     ) {
                         $i = $this->innermostContainerExtent($lines, $i, $count);
