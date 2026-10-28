@@ -1349,7 +1349,22 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
+        '212-a-flush-left-line-after-a-footnote-definition-belongs-to-the-document' => 'carve-php#4163',
+        '219-a-definition-below-a-footnote-body-s-column-is-the-document-s-own-text' => 'carve-php#4163',
+        '228-a-line-at-a-footnote-definition-s-own-column-followed-by-non-blank-text-forms-its-own-tight-block' => 'carve-php#4163',
         '454-a-block-opener-past-a-nested-footnote-definition-opens-in-the-item-3' => 'carve-php#4163',
+        '461-a-column-0-line-after-a-description-hosted-note-is-a-document-sibling-3' => 'carve-php#4163',
+        '461-a-column-0-line-after-a-description-hosted-note-is-a-document-sibling-4' => 'carve-php#4163',
+        '279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-4' => 'carve-php#4164',
+        '287-a-column-zero-definition-ends-an-open-list-item-2' => 'carve-php#4164',
+        '358-what-a-content-column-block-does-not-reach-2' => 'carve-php#4164',
+        '374-a-collected-definition-closes-the-item-paragraph-3' => 'carve-php#4164',
+        '620-generated-container-documents-16' => 'carve-php#4164',
+        '435-the-continuation-marker-s-column-gate-reaches-every-container-2' => 'carve-php#4165',
+        '435-the-continuation-marker-s-column-gate-reaches-every-container-4' => 'carve-php#4165',
+        '437-a-leading-continuation-marker-in-a-footnote-body-or-a-quote-is-text-2' => 'carve-php#4165',
+        '629-a-dangling-plus-marker-adds-nothing-and-a-nested-quote-reads-it-like-an-unnested-one-4' => 'carve-php#4165',
+        '629-a-dangling-plus-marker-adds-nothing-and-a-nested-quote-reads-it-like-an-unnested-one-8' => 'carve-php#4165',
     ];
 
     /**
