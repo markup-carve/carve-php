@@ -1968,11 +1968,19 @@ final class BlockQuoteBuilder
             // quote holds no open paragraph and a flush-left line below ends it -
             // the container kind is not a parameter (carve#920).
             $hostColumns = $state['hosts']['columns'] ?? [0];
-            $hostFloor = $hostColumns[array_key_last($hostColumns)];
-            $hostKinds = $state['hosts']['kinds'] ?? [];
-            $attributeContent = end($hostKinds) === 'item'
-                && IndentationHelper::getLeadingColumns($content) === $hostFloor
-                ? ltrim($content, " \t") : $content;
+            $authoredColumn = IndentationHelper::getLeadingColumns($content);
+            $reachesMarkerBody = false;
+            foreach ($state['hosts']['kinds'] ?? [] as $hostIndex => $hostKind) {
+                if (
+                    ($hostKind === 'item' || $hostKind === 'note')
+                    && $authoredColumn >= ($hostColumns[$hostIndex + 1] ?? PHP_INT_MAX)
+                ) {
+                    $reachesMarkerBody = true;
+
+                    break;
+                }
+            }
+            $attributeContent = $reachesMarkerBody ? ltrim($content, " \t") : $content;
             if ($this->trackWrappedAttributeRun($state, $attributeContent)) {
                 $state['paragraphOpen'] = false;
 
@@ -1980,8 +1988,7 @@ final class BlockQuoteBuilder
             }
 
             $trimmed = ltrim($content, " \t");
-            $atContentColumn = $trimmed === $content
-                || IndentationHelper::getLeadingColumns($content) === $hostFloor;
+            $atContentColumn = $trimmed === $content || $reachesMarkerBody;
             // A QUOTED DESCRIPTION BODY IS AN INDENTATION HOST TOO: a block at
             // or past its content column ends its paragraph (CARVE-P0-011).
             if (isset($state['hosts'])) {
@@ -2057,11 +2064,8 @@ final class BlockQuoteBuilder
         // was missing. The list-item spelling of the tracker gained it with the
         // S4 sweep; leaving it out here made `> q` / `> {.k}` / `tail` fold
         // `tail` into the quote - where the attribute then landed ON it.
-        // AT THE CONTENT COLUMN, like the three rows above it.
-        // `tryParseBlockAttributes()` requires the line to BEGIN with `{`, so
-        // `>  {.k}` - a space of indentation inside the quote - is ordinary
-        // paragraph text and a flush-left line lazily continues it. Read
-        // ltrimmed, this closed a paragraph the parser had built.
+        // At or past a marker body's content column, like the three rows above
+        // it. Without a marker body, `>  {.k}` is ordinary quote text.
             $isAttributeLine = $atContentColumn && $this->isBlockAttributeLine($trimmed);
         // A COMMENT IS A BLOCK AT EVERY COLUMN (PART 9 §24 C3), so this row
         // asks no column question where the two above it do. A `%%` reaching
