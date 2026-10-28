@@ -1762,7 +1762,10 @@ final class BlockContinuationScanner
         if ($run->unclosedFenceColumn === null && $this->isBlockAttributeLine($nextTrimmed)) {
             $run->itemOwnFenceRuns = false;
         }
-        if ($run->nestedNoteBodyColumn !== null && IndentationHelper::getLeadingColumns($nextLine, $run->nestedNoteBodyColumn) < $run->nestedNoteBodyColumn) {
+        $priorSourceLine = $this->sourceLineFor($i) - 1;
+        $firstBlockNoteFollower = $priorSourceLine >= 0
+            && ($this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $priorSourceLine)['kind'] ?? null) === 'footnote';
+        if ($run->nestedNoteBodyColumn !== null && !$firstBlockNoteFollower && IndentationHelper::getLeadingColumns($nextLine, $run->nestedNoteBodyColumn) < $run->nestedNoteBodyColumn) {
             $run->authoredFenceOwnsLazy = false;
             if ($run->nestedNoteBodyColumn >= $contentIndent + 2 * BlockGrammar::FOOTNOTE_BODY_COLUMN) {
                 if ($trailingState->fence !== null && $trailingState->fence->column >= $run->nestedNoteBodyColumn - $contentIndent) {

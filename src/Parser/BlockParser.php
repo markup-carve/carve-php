@@ -3785,7 +3785,10 @@ class BlockParser
         // an open fence a whitespace-only source line is a verbatim line, so
         // what lies past the body column is content rather than a blank
         // (CARVE-P11-016, PART 9 section 24 C5).
-        $trailingState = $this->advanceFootnoteBodyFenceState(new TrailingBlockState(), $content);
+        $trailingState = new TrailingBlockState();
+        foreach ($bodyLines as $bodyLine) {
+            $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
+        }
         $retainedBelowComment = false;
         $footnoteColumn = new IndentedContainerColumn(self::FOOTNOTE_BODY_COLUMN);
         foreach (
@@ -3885,6 +3888,13 @@ class BlockParser
             $authoredFloor = $parent->getType() === 'list_item' && $start === 0
                 ? null : $this->authoredFootnoteBodyFloor($start, $lines[$start]);
             $authoredNext = $this->authoredColumnOf($i, $nextLine);
+            if (
+                $authoredFloor !== null && $authoredFloor > self::FOOTNOTE_BODY_COLUMN
+                && $authoredNext !== null && $authoredNext < $authoredFloor
+                && $this->listParser->parseListItemMarker(ltrim($nextLine, " \t")) !== null
+            ) {
+                break;
+            }
             $containerColumn = new IndentedContainerColumn(self::FOOTNOTE_BODY_COLUMN, $authoredFloor);
             $reaches = $containerColumn->classify($nextLine, $authoredNext) === 'content';
             if ($reaches) {
@@ -3969,6 +3979,18 @@ class BlockParser
                 $bodyLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
                 $retainedBelowComment = false;
+                $i++;
+            } elseif (
+                $trailingState->openParagraph
+                && $this->listParser->parseListItemMarker(ltrim($nextLine, " \t")) === null
+                && $this->fencedBlockParser->parseCodeFenceOpener(ltrim($nextLine, " \t")) === null
+                && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, ltrim($nextLine, " \t")) !== 1
+                && !$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i)
+            ) {
+                $bodyLine = ltrim($nextLine, " \t");
+                $bodyLines[] = $bodyLine;
+                $bodyLineMap[] = $this->sourceLineFor($i);
+                $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
                 $i++;
             } else {
                 break;
