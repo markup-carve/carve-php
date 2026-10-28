@@ -51,6 +51,19 @@ final class IncludeLinter
         foreach ($expander->getIncluded() as $entry) {
             $file = $entry['file'];
             $chain = $entry['includedBy'];
+            if ($entry['tableLinesHint']) {
+                $site = $chain[count($chain) - 1];
+                $this->add($findings, $seen, new LintWarning(
+                    $site['line'],
+                    $site['column'],
+                    'include-lines-table-rows-hint',
+                    'Use @rows to select complete CSV/TSV records.',
+                    0,
+                    0,
+                    count($chain) > 1 ? $site['file'] : null,
+                    count($chain) > 1 ? array_slice($chain, 0, -1) : null,
+                ));
+            }
             if ($entry['payload'] === null) {
                 foreach ($linter->lint($entry['source'], $options) as $warning) {
                     $line = $warning->line + $entry['lineBase'];
