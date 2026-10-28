@@ -160,7 +160,7 @@ final class AuthoringLinter
                         $tableColumn = $contentOffset + 1;
                     }
                 }
-                if (preg_match('/^\s*\|(?:=|\s|[^\s|])/', $tableSource) && !self::isTableRow(ltrim($tableSource)) && str_contains(substr($tableSource, 1), '|')) {
+                if (preg_match('/^\s*\|(?:=|\s|[^\s|])/', $tableSource) && !self::isTableRow(ltrim($tableSource))) {
                     $prior = $rows[$index - 1][0] ?? '';
                     $prior = self::stripPrefixes($prior);
                     if ($index === 0 || !preg_match('/^\s*\|/', $prior) || self::isTableRow(ltrim($prior))) {
