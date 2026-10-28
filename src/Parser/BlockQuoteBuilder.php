@@ -804,6 +804,14 @@ final class BlockQuoteBuilder
             $nextDepth++;
         }
         $owner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $this->sourceLineFor($start));
+        // An indented line in an ancestor quote is lazy text, not a block
+        // attached to a deeper quote's first-block marker.
+        if (
+            $nextDepth > 0 && $nextDepth < ($owner['depth'] ?? $openingDepth) - 1
+            && IndentationHelper::getLeadingColumns($nextBody) > 0
+        ) {
+            return false;
+        }
         if (
             $openingDepth > 0 && ($nextDepth > ($owner['depth'] ?? $openingDepth)
             || ($owner['depth'] ?? $openingDepth) === $openingDepth && $nextDepth >= $openingDepth)
@@ -812,7 +820,7 @@ final class BlockQuoteBuilder
         }
         $column = IndentationHelper::getLeadingColumns($next);
         // The first-block form pulls only non-list blocks, at any eligible column (CARVE-P9-067).
-        if (($this->getListParser)()->parseListItemMarker(ltrim($next, " \t")) !== null) {
+        if (($this->getListParser)()->parseListItemMarker(ltrim($nextBody, " \t")) !== null) {
             return false;
         }
         if (self::isStackedFirstBlockQuoteMarker($opening)) {
@@ -1046,16 +1054,22 @@ final class BlockQuoteBuilder
                     }
                     $this->state->session->nestedQuoteOpenerOffsets = [$openerLine, $openerOffsets];
                 }
+                $attachedInnerLines = [];
                 foreach ($attached as $index => $attachedLine) {
-                    $innerLines[] = $quoteFollower
+                    $innerLine = $quoteFollower
                         ? str_repeat('> ', $contentQuoteDepth) . $attachedLine
                         : ContainerPrefix::quoteContent($attachedLine) ?? $attachedLine;
+                    $attachedInnerLines[] = $innerLine;
+                    $innerLines[] = $innerLine;
                     $innerLineMap[] = $this->sourceLineFor($attachedLineMap[$index]);
                 }
                 if ($attached !== []) {
+                    $this->trackAttachedParagraph($attachedInnerLines, $attachedLineMap, $lazyState, $lines, $codeCloserMemo);
+                }
+                // The last attached block can leave a paragraph open for O3.
+                if ($attached !== [] && !$lazyState['paragraphOpen']) {
                     $innerLines[] = '';
                     $innerLineMap[] = -1;
-                    $lazyState['paragraphOpen'] = false;
                 }
                 $i = $end;
             }
