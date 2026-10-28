@@ -35,6 +35,7 @@ use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\CrossReferenceResolver;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Transform\VisibleFootnotes;
 use MarkupCarve\Carve\Util\StringUtil;
 
 class ReferenceLinter
@@ -53,6 +54,7 @@ class ReferenceLinter
         $length = strlen($source);
         $warnings = [];
         $definitions = [];
+        $linkDefinitions = [];
         $referenced = [];
         $usedIds = [];
         $idKinds = [];
@@ -83,6 +85,9 @@ class ReferenceLinter
             }
             if ($node instanceof LinkReferenceDefinition && $node->getHref() === '') {
                 $warnings[] = $this->warning($node, 'empty-reference-definition', 'Bare empty reference definition may remove intended body text.', $map, $length);
+            }
+            if ($node instanceof LinkReferenceDefinition) {
+                $linkDefinitions[LabelKey::normalize($node->getLabel())] ??= $node;
             }
             if (!$node instanceof Heading) {
                 continue;
@@ -188,6 +193,30 @@ class ReferenceLinter
                 } else {
                     $warnings[] = $this->warning($node, 'unused-footnote-definition', $message, $map, $length);
                 }
+            }
+        }
+        $usedLinks = [];
+        $visibleFootnotes = VisibleFootnotes::labels($document, VisibleFootnotes::definitions($document));
+        $pending = [$document];
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            if ($node instanceof Footnote && !isset($visibleFootnotes[LabelKey::normalize($node->getLabel())])) {
+                continue;
+            }
+            if (
+                ($node instanceof Link || $node instanceof Image) && $node->getReferenceLabel() !== null
+                && !($node instanceof Link && $node->isFromHeadingReference())
+                && UnresolvedReference::sourceOf($node) === null
+            ) {
+                $usedLinks[LabelKey::normalize($node->getReferenceLabel())] = true;
+            }
+            foreach ($node->getChildren() as $child) {
+                $pending[] = $child;
+            }
+        }
+        foreach ($linkDefinitions as $key => $node) {
+            if (!isset($usedLinks[$key])) {
+                $warnings[] = $this->warning($node, 'unused-link-reference-definition', 'Link reference definition [' . $node->getLabel() . '] is never used by a rendered reference link or image.', $map, $length);
             }
         }
         foreach ($this->brokenFragmentLinks($source, $fragmentLinks, $options['extensions'] ?? []) as [$node, $message]) {
