@@ -18,6 +18,7 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Util\StringUtil;
+use WeakMap;
 
 /**
  * Builds definition lists and their bodies.
@@ -27,6 +28,13 @@ use MarkupCarve\Carve\Util\StringUtil;
 final class DefinitionListBuilder
 {
     private WrappedAttributeRunScanner $wrappedAttributeScanner;
+
+    /**
+     * Content columns of descriptions whose bodies are being parsed.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\DefinitionDescription, int>
+     */
+    private WeakMap $descriptionContentColumns;
 
     /**
      * @param \MarkupCarve\Carve\Parser\BlockParserState $state
@@ -87,6 +95,7 @@ final class DefinitionListBuilder
         private Closure $wrappedBlockAttributeLengthCallback,
     ) {
         $this->wrappedAttributeScanner = new WrappedAttributeRunScanner($state, $source, $isBlockAttributeLineCallback, $wrappedBlockAttributeLengthCallback);
+        $this->descriptionContentColumns = new WeakMap();
     }
 
     /**
@@ -94,8 +103,9 @@ final class DefinitionListBuilder
      * @param array<string> $lines
      * @param int $i
      * @param int $count
+     * @param int|null $descriptionContentColumn
      */
-    public function appendDefinitionTerms(DefinitionList $dl, array &$lines, int &$i, int $count): void
+    public function appendDefinitionTerms(DefinitionList $dl, array &$lines, int &$i, int $count, ?int $descriptionContentColumn): void
     {
         while ($i < $count && preg_match(BlockGrammar::DEFINITION_TERM_PATTERN . 's', $lines[$i], $m)) {
             $termStart = $i;
@@ -114,8 +124,45 @@ final class DefinitionListBuilder
             // break), so a wrapped term line does not strand the definition.
             // A blank line, a new marker (`::` / `:  `), or a block opener /
             // list marker ends the term.
+            $pastColumnDefinitionOpen = false;
             while ($i < $count) {
                 $nextLine = $lines[$i];
+                $authoredNext = ContainerPrefix::stripQuoteMarkers(
+                    $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
+                );
+                $authoredColumn = IndentationHelper::getLeadingColumns($authoredNext);
+                $literalDefinition = $descriptionContentColumn !== null && $termColumn !== null
+                    && $authoredColumn > $descriptionContentColumn
+                    && (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($authoredNext, " \t")) === 1
+                        || $this->isReferenceDefinitionLine(ltrim($authoredNext, " \t")));
+                if ($literalDefinition) {
+                    $baseColumn = $authoredColumn > $termColumn ? $termColumn : $descriptionContentColumn;
+                    $nextLine = IndentationHelper::stripLeadingColumns($authoredNext, $baseColumn);
+                    $pastColumnDefinitionOpen = true;
+                } elseif ($pastColumnDefinitionOpen && $termColumn !== null && $authoredColumn > $termColumn) {
+                    $nextLine = IndentationHelper::stripLeadingColumns($authoredNext, $termColumn);
+                }
+                // Preserve the source offset of a quote that the enclosing
+                // description owns as text under this open term.
+                if (
+                    $descriptionContentColumn !== null && $termColumn !== null
+                    && $authoredColumn > $descriptionContentColumn && $authoredColumn < $termColumn
+                    && str_starts_with(ltrim($authoredNext, " \t"), '> ')
+                    && str_starts_with(ltrim($nextLine, " \t"), '> ')
+                ) {
+                    $nextLine = IndentationHelper::stripLeadingColumns($authoredNext, $descriptionContentColumn);
+                }
+                // A separator at the enclosing description's column cannot
+                // describe this deeper term.
+                if ($descriptionContentColumn !== null && $termColumn !== null && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($nextLine, " \t")) === 1) {
+                    $nextColumn = self::authoredSubjectColumn(
+                        ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? ''),
+                        trim($nextLine, " \t"),
+                    );
+                    if ($nextColumn !== null && $nextColumn <= $descriptionContentColumn && $nextColumn < $termColumn) {
+                        break;
+                    }
+                }
                 if ($termHasOwnColumn && $termColumn !== null && $nextLine !== ltrim($nextLine, " \t")) {
                     $nextColumn = self::authoredSubjectColumn(
                         ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? ''),
@@ -147,10 +194,6 @@ final class DefinitionListBuilder
                     : null;
                 $quotedUnclosedFenceIsTermText = $quotedFence !== null
                     && !$this->continuations->sourceFenceCloserInView($lines, $i, $quotedFence, 0);
-                $authoredNext = ContainerPrefix::stripQuoteMarkers(
-                    $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
-                );
-                $authoredColumn = IndentationHelper::getLeadingColumns($authoredNext);
                 $belowTermComment = $termColumn !== null
                     && preg_match('/^[ \t]*%%/', $nextLine) === 1
                     && $authoredColumn > IndentationHelper::getLeadingColumns($termSourceLine)
@@ -164,7 +207,7 @@ final class DefinitionListBuilder
                     IndentationHelper::isBlankLine($nextLine)
                     || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextLine)
                     || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $nextLine)
-                    || (!$lazySeparator && !$quotedUnclosedFenceIsTermText && $this->endsDefinitionTerm($nextLine, $lines, $i))
+                    || (!$literalDefinition && !$lazySeparator && !$quotedUnclosedFenceIsTermText && $this->endsDefinitionTerm($nextLine, $lines, $i))
                     || (($nextLine[0] ?? '') === '{'
                         && $this->wrappedBlockAttributeLength($lines, $i) !== null)
                     // A construct that renders nothing is not term text. The
@@ -183,7 +226,7 @@ final class DefinitionListBuilder
                     // dropped the authored line from the output altogether
                     // (markup-carve/carve-php#2632). The flag exists for this
                     // distinction and three other scans already pass it.
-                    || $this->isInvisibleOrAttributeLine($nextLine, false)
+                    || (!$literalDefinition && $this->isInvisibleOrAttributeLine($nextLine, false))
                 ) {
                     break;
                 }
@@ -468,7 +511,13 @@ final class DefinitionListBuilder
         while ($i < $count && preg_match(BlockGrammar::DEFINITION_TERM_PATTERN . 's', $lines[$i])) {
             $lastTerm = $i;
             // An entry: one or more terms, then one or more definitions.
-            $this->appendDefinitionTerms($dl, $lines, $i, $count);
+            $this->appendDefinitionTerms(
+                $dl,
+                $lines,
+                $i,
+                $count,
+                $parent instanceof DefinitionDescription ? ($this->descriptionContentColumns[$parent] ?? null) : null,
+            );
             // The separator answers to the term it follows, not the first of the entry.
             for ($t = $i - 1; $t > $lastTerm; $t--) {
                 if (preg_match(BlockGrammar::DEFINITION_TERM_PATTERN . 's', $lines[$t]) === 1) {
@@ -770,7 +819,23 @@ final class DefinitionListBuilder
      */
     private function foldDescriptionLazyLine(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?bool
     {
-        $l->lastBody = $b->body === [] ? '' : $b->body[array_key_last($b->body)];
+        $lastBodyKey = array_key_last($b->body);
+        $l->lastBody = $lastBodyKey === null ? '' : $b->body[$lastBodyKey];
+        $belowColumn = ltrim($l->contLine, " \t");
+        $belowDefinition = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $belowColumn) === 1
+            || $this->isReferenceDefinitionLine($belowColumn);
+        // A below-column line stays lazy text under the open leaf.
+        if (
+            $lastBodyKey !== null && $l->contColumn > 0 && $l->contColumn < $b->continuationColumn
+            && ((preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($l->lastBody, " \t")) === 1
+                    && (str_starts_with($belowColumn, '> ') || $belowDefinition))
+                || ($belowDefinition && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($l->lastBody, " \t")) === 1))
+        ) {
+            $b->body[$lastBodyKey] .= "\n" . $belowColumn;
+            $b->i++;
+
+            return true;
+        }
         if (
             $b->termHasOwnColumn && $b->termColumn !== null
             && str_starts_with($l->contLine, BlockGrammar::LAZY_FRAME)
@@ -822,6 +887,8 @@ final class DefinitionListBuilder
             && !IndentationHelper::isBlankLine($l->contLine)
             && $l->contColumn > 0
             && $l->contColumn < $b->continuationColumn
+            && !(preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($l->lastBody, " \t")) === 1
+                && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($l->contLine, " \t")) === 1)
             && !$this->lineOpensBlockForLooseness(ltrim($l->contLine, " \t"), true)
             && preg_match('/^\|.*\|[ \t]*$/', ltrim($l->contLine, " \t")) !== 1
             && $this->bodyEntryStartsParagraph($b->body[array_key_last($b->body)])
@@ -2242,12 +2309,18 @@ final class DefinitionListBuilder
     {
         $dd = new DefinitionDescription();
         $this->stampNodeSourceLine($dd, $this->sourceLineFor($b->definitionStart));
+        $source = ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($b->definitionStart)] ?? '');
+        $markerColumn = self::authoredSubjectColumn($source, trim($b->lines[$b->definitionStart], " \t"));
+        if ($markerColumn !== null) {
+            $this->descriptionContentColumns[$dd] = $markerColumn + $b->continuationColumn;
+        }
         if ($b->detachedFootnote !== null) {
             $this->parseBlocks($dd, $b->detachedFootnote, 0, $b->detachedFootnoteMap);
         }
         if (count($b->body) !== 1 || rtrim($b->body[0], " \t") !== '{empty}') {
             $this->parseBlocks($dd, $b->body, 0, $b->bodyMap);
         }
+        unset($this->descriptionContentColumns[$dd]);
         // The description is a container too, and its boundary ends the
         // pending run for the same reason a quote's does.
         $this->endContainerAttributeScope();
