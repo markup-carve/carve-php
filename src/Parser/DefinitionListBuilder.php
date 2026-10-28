@@ -245,7 +245,8 @@ final class DefinitionListBuilder
                 }
                 // A containing item can leave a residual prefix in its rebased
                 // line. At the term's source column, that prefix is not text.
-                if (!$lazy && !$literalDefinition && !$pastColumnDefinitionOpen && $termColumn !== null && $authoredColumn === $termColumn) {
+                $continuationColumn = self::authoredSubjectColumn($authoredNext, ltrim($nextLine, " \t"));
+                if (!$lazy && !$literalDefinition && !$pastColumnDefinitionOpen && $termColumn !== null && $continuationColumn === $termColumn) {
                     $nextLine = ltrim($nextLine, " \t");
                 }
                 $nextLine = $lazy ? trim($nextLine, " \t") : rtrim($nextLine, " \t");
