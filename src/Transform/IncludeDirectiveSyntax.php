@@ -94,6 +94,21 @@ class IncludeDirectiveSyntax
     /**
      * @var string
      */
+    public const ERROR_ROWS_INVALID = 'rows-invalid';
+
+    /**
+     * @var string
+     */
+    public const ERROR_COLS_INVALID = 'cols-invalid';
+
+    /**
+     * @var string
+     */
+    public const ERROR_TABLE_OPTION_REPEATED = 'table-option-repeated';
+
+    /**
+     * @var string
+     */
     public const ERROR_MALFORMED = 'malformed';
 
     /**
@@ -179,7 +194,7 @@ class IncludeDirectiveSyntax
      * CarveRenderer::emitDirective) - so option order, spacing and the author's
      * exact spelling are preserved without this having to carry them.
      *
-     * @return array{path: string, section: string|null, lines: array{start: int, end: int}|null, invalidLines: bool, region: string|null, code: array{lang: string|null}|null, shift: int|'auto', error: string|null, errorPart: string|null}|null
+     * @return array{path: string, section: string|null, lines: array{start: int, end: int}|null, invalidLines: bool, rows: array{start: int, end: int}|null, cols: list<string>|array{start: int, end: int}|null, invalidRows: bool, invalidCols: bool, region: string|null, code: array{lang: string|null}|null, shift: int|'auto', error: string|null, errorPart: string|null}|null
      */
     public static function parse(string $text): ?array
     {
@@ -211,6 +226,10 @@ class IncludeDirectiveSyntax
         $section = null;
         $lines = null;
         $invalidLines = false;
+        $rows = null;
+        $cols = null;
+        $invalidRows = false;
+        $invalidCols = false;
         $region = null;
         $code = null;
         $shift = 0;
@@ -287,6 +306,37 @@ class IncludeDirectiveSyntax
                     continue;
                 }
 
+                if (preg_match('/^@rows(?::(.*))?$/s', $part, $rowOption)) {
+                    if ($repeats('rows', $part)) {
+                        $error = self::ERROR_TABLE_OPTION_REPEATED;
+
+                        continue;
+                    }
+                    $rows = self::positiveRange($rowOption[1] ?? '');
+                    if ($rows === null) {
+                        $invalidRows = true;
+                        $error ??= self::ERROR_ROWS_INVALID;
+                    }
+
+                    continue;
+                }
+
+                if (preg_match('/^@cols(?::(.*))?$/s', $part, $colOption)) {
+                    if ($repeats('cols', $part)) {
+                        $error = self::ERROR_TABLE_OPTION_REPEATED;
+
+                        continue;
+                    }
+                    $raw = $colOption[1] ?? '';
+                    $cols = self::positiveRange($raw) ?? self::columnNames($raw);
+                    if ($cols === null) {
+                        $invalidCols = true;
+                        $error ??= self::ERROR_COLS_INVALID;
+                    }
+
+                    continue;
+                }
+
                 if (preg_match('/^@region:([A-Za-z_][A-Za-z0-9_-]*)$/', $part, $regionMatch)) {
                     if (!$repeats('region', $part)) {
                         $region = $regionMatch[1];
@@ -325,12 +375,61 @@ class IncludeDirectiveSyntax
             'section' => $section,
             'lines' => $lines,
             'invalidLines' => $invalidLines,
+            'rows' => $rows,
+            'cols' => $cols,
+            'invalidRows' => $invalidRows,
+            'invalidCols' => $invalidCols,
             'region' => $region,
             'code' => $code,
             'shift' => $shift,
             'error' => $error,
             'errorPart' => $errorPart,
         ];
+    }
+
+    /**
+     * @return array{start: int, end: int}|null
+     */
+    private static function positiveRange(string $raw): ?array
+    {
+        if (preg_match('/^([1-9]\d*)-([1-9]\d*)$/', $raw, $match) !== 1) {
+            return null;
+        }
+        $start = filter_var($match[1], FILTER_VALIDATE_INT);
+        $end = filter_var($match[2], FILTER_VALIDATE_INT);
+
+        return $start !== false && $end !== false && $start <= $end
+            ? ['start' => $start, 'end' => $end] : null;
+    }
+
+    /**
+     * @return list<string>|null
+     */
+    private static function columnNames(string $raw): ?array
+    {
+        if (strlen($raw) < 2 || $raw[0] !== '"' || substr($raw, -1) !== '"') {
+            return null;
+        }
+        $names = [];
+        $name = '';
+        for ($i = 1, $end = strlen($raw) - 1; $i < $end; $i++) {
+            if ($raw[$i] === '\\') {
+                if (++$i >= $end) {
+                    return null;
+                }
+                $name .= $raw[$i];
+            } elseif ($raw[$i] === '"') {
+                return null;
+            } elseif ($raw[$i] === ',') {
+                $names[] = $name;
+                $name = '';
+            } else {
+                $name .= $raw[$i];
+            }
+        }
+        $names[] = $name;
+
+        return in_array('', $names, true) ? null : $names;
     }
 
     /**

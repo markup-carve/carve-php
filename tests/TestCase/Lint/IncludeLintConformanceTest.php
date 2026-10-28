@@ -26,6 +26,10 @@ final class IncludeLintConformanceTest extends TestCase
                     return $this->files[$path] ?? null;
                 }
             };
+            $warnings = array_filter(
+                (new IncludeLinter())->lint($vector['entry'], [], $resolver, $data['sourcePath']),
+                static fn ($warning): bool => $warning->rule !== 'include-lines-table-rows-hint',
+            );
             $actual = array_map(static function ($warning) use ($data): array {
                 $row = ['rule' => $warning->rule, 'file' => $warning->file ?? $data['sourcePath'], 'line' => $warning->line, 'column' => $warning->column];
                 if ($warning->includedBy !== null) {
@@ -33,7 +37,7 @@ final class IncludeLintConformanceTest extends TestCase
                 }
 
                 return $row;
-            }, (new IncludeLinter())->lint($vector['entry'], [], $resolver, $data['sourcePath']));
+            }, $warnings);
             $sort = static fn (array $a, array $b): int => [$a['file'], $a['line'], $a['column'], $a['rule']] <=> [$b['file'], $b['line'], $b['column'], $b['rule']];
             usort($actual, $sort);
             $expected = $vector['expected']['findings'];

@@ -43,6 +43,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\DelimitedTable;
+use MarkupCarve\Carve\Parser\SourceMap;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\Utility\DocumentRenderOrder;
 use Throwable;
@@ -242,7 +243,7 @@ class IncludeExpander implements TransformerInterface
     protected array $warningSite = ['line' => 1, 'column' => 1];
 
     /**
-     * @var list<array{file: string, includedBy: list<array{file: string, line: int, column: int}>, source: string, lineBase: int, section: array{start: int, end: int}|null, block: \MarkupCarve\Carve\Node\Block\CodeBlock|\MarkupCarve\Carve\Node\Block\Table|null, payload: string|null}>
+     * @var list<array{file: string, includedBy: list<array{file: string, line: int, column: int}>, source: string, lineBase: int, section: array{start: int, end: int}|null, block: \MarkupCarve\Carve\Node\Block\CodeBlock|\MarkupCarve\Carve\Node\Block\Table|null, payload: string|null, tableLinesHint: bool}>
      */
     protected array $included = [];
 
@@ -254,7 +255,7 @@ class IncludeExpander implements TransformerInterface
     }
 
     /**
-     * @return list<array{file: string, includedBy: list<array{file: string, line: int, column: int}>, source: string, lineBase: int, section: array{start: int, end: int}|null, block: \MarkupCarve\Carve\Node\Block\CodeBlock|\MarkupCarve\Carve\Node\Block\Table|null, payload: string|null}>
+     * @return list<array{file: string, includedBy: list<array{file: string, line: int, column: int}>, source: string, lineBase: int, section: array{start: int, end: int}|null, block: \MarkupCarve\Carve\Node\Block\CodeBlock|\MarkupCarve\Carve\Node\Block\Table|null, payload: string|null, tableLinesHint: bool}>
      */
     public function getIncluded(): array
     {
@@ -527,6 +528,23 @@ class IncludeExpander implements TransformerInterface
                             $this->included[$slot]['block'] = $replacement[0];
                         }
                     }
+                    if ($directive['code'] !== null && isset($replacement[0]) && $replacement[0] instanceof Table) {
+                        $siblings = array_values($parent->getChildren());
+                        $next = $siblings[array_search($paragraph, $siblings, true) + 1] ?? null;
+                        if ($next instanceof Paragraph) {
+                            $captionText = $this->textLikeContent(array_values($next->getChildren()));
+                            if (str_starts_with($captionText, '^ ')) {
+                                $caption = new Caption();
+                                $caption->appendChild(new Text(substr($captionText, 2)));
+                                $caption->setPos($next->getPos());
+                                $replacement[0]->setCaption($caption);
+                                $parent->removeChild($next);
+                            }
+                        }
+                        if ($this->collectIncluded && isset($this->included[$slot])) {
+                            $this->included[$slot]['block'] = $replacement[0];
+                        }
+                    }
                     $parent->replaceChildWithMany($paragraph, $replacement);
                 }
 
@@ -731,7 +749,7 @@ class IncludeExpander implements TransformerInterface
     }
 
     /**
-     * @param array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, code: array{lang: string|null}|null, shift: int|'auto', invalidLines: string|null} $directive
+     * @param array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, rows: array{start: int, end: int}|null, cols: list<string>|array{start: int, end: int}|null, invalidRows: bool, invalidCols: bool, repeatedTableOption: bool, region: string|null, code: array{lang: string|null}|null, shift: int|'auto', invalidLines: string|null} $directive
      * @param string|null $currentPath
      * @param bool $block
      * @param list<string> $stack
@@ -752,7 +770,8 @@ class IncludeExpander implements TransformerInterface
         ?Node $contextParent = null,
         ?Node $contextNode = null,
     ): ?array {
-        if (count(array_filter([$directive['section'], $directive['lines'], $directive['region']], static fn ($value) => $value !== null)) > 1 || ($directive['section'] !== null && $directive['code'] !== null)) {
+        $hasLinesOption = $directive['lines'] !== null;
+        if ($directive['rows'] === null && (count(array_filter([$directive['section'], $directive['lines'], $directive['region']], static fn ($value) => $value !== null)) > 1 || ($directive['section'] !== null && $directive['code'] !== null))) {
             $this->warn('Include directive cannot combine selectors', self::RULE_SELECTION_CONFLICT);
 
             return null;
@@ -841,6 +860,26 @@ class IncludeExpander implements TransformerInterface
         // surfaced through a Warning instead. Downgrading the flag here would
         // leave a host watching fewer files than it should.
         $this->recordDependency($id, true);
+        if ($directive['rows'] !== null && ($directive['section'] !== null || $directive['lines'] !== null || $directive['region'] !== null)) {
+            $this->warn('Include directive cannot combine selectors', self::RULE_SELECTION_CONFLICT);
+
+            return null;
+        }
+        if ($directive['invalidRows'] || $directive['invalidCols'] || $directive['repeatedTableOption']) {
+            $rule = $directive['repeatedTableOption'] ? self::RULE_DUPLICATE_OPTION : ($directive['invalidRows'] ? 'include-rows-invalid' : 'include-cols-invalid');
+            $this->warn("Include table option is invalid: {$directive['path']}", $rule);
+
+            return null;
+        }
+        if (
+            ($directive['rows'] !== null || $directive['cols'] !== null)
+            && (!$block || !$contextNode instanceof Paragraph || $contextNode->getAttribute('table') !== ''
+                || !in_array($directive['code']['lang'] ?? null, ['csv', 'tsv'], true))
+        ) {
+            $this->warn("Include table option requires a marked CSV or TSV block: {$directive['path']}", $directive['rows'] !== null ? 'include-rows-invalid' : 'include-cols-invalid');
+
+            return null;
+        }
         if ($directive['invalidLines'] !== null) {
             $this->warn("Include has an invalid line range '{$directive['invalidLines']}'", self::RULE_LINES_INVALID);
 
@@ -923,6 +962,20 @@ class IncludeExpander implements TransformerInterface
             }
             $document = new Document();
             $document->appendChild($code);
+            if (
+                $block && $contextNode instanceof Paragraph && $contextNode->getAttribute('table') === ''
+                && in_array($directive['code']['lang'], ['csv', 'tsv'], true)
+                && ($directive['rows'] !== null || $directive['cols'] !== null || $directive['lines'] !== null || $directive['region'] !== null)
+            ) {
+                $projected = $this->projectIncludedTable($completeSource, $directive, $contextNode, $code);
+                if ($projected === null) {
+                    return null;
+                }
+                $document->setChildren([$projected]);
+                if ($projected instanceof Table) {
+                    $code = $projected;
+                }
+            }
         } else {
             $document = $this->parseChild($source);
             if ($directive['lines'] !== null) {
@@ -965,6 +1018,9 @@ class IncludeExpander implements TransformerInterface
                 'section' => $section,
                 'block' => $directive['code'] !== null ? $code : null,
                 'payload' => $directive['code'] !== null ? $content : null,
+                'tableLinesHint' => $hasLinesOption && $block && $contextNode instanceof Paragraph
+                    && $contextNode->getAttribute('table') === ''
+                    && in_array($directive['code']['lang'] ?? null, ['csv', 'tsv'], true),
             ];
         }
         $scope = $directive['path'] . '#' . (++$this->scopeSeq);
@@ -1014,6 +1070,136 @@ class IncludeExpander implements TransformerInterface
         }
 
         return null;
+    }
+
+    /**
+     * @param string $source
+     * @param array{path: string, code: array{lang: string}, lines: array{start: int, end: int}|null, rows: array{start: int, end: int}|null, cols: list<string>|array{start: int, end: int}|null} $directive
+     * @param \MarkupCarve\Carve\Node\Block\Paragraph $host
+     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $selectedCode
+     */
+    private function projectIncludedTable(string $source, array $directive, Paragraph $host, CodeBlock $selectedCode): Table|CodeBlock|null
+    {
+        $selectedCode->setAttributesWithOrder($host->getAttributeEntries(), $host->getAttributeOrder());
+        if ($directive['lines'] !== null && DelimitedTable::fromCode($selectedCode) === null) {
+            return $selectedCode;
+        }
+        $payload = preg_replace('/^\x{FEFF}/u', '', $source) ?? $source;
+        $normalized = str_replace(["\r\n", "\r"], "\n", $payload);
+        if ($normalized !== '' && !str_ends_with($normalized, "\n")) {
+            $normalized .= "\n";
+        }
+        $fullCode = new CodeBlock($normalized, $directive['code']['lang']);
+        $fullCode->setAttributesWithOrder($host->getAttributeEntries(), $host->getAttributeOrder());
+        $map = null;
+        if ($this->trackPositions) {
+            $map = new SourceMap();
+            $parts = preg_split('/(\r\n|\r|\n)/', $source, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [];
+            $built = 0;
+            $original = 0;
+            $line = 1;
+            $partCount = count($parts);
+            for ($i = 0; $i < $partCount; $i += 2) {
+                $text = $parts[$i];
+                $bom = $line === 1 && str_starts_with($text, "\xEF\xBB\xBF") ? 3 : 0;
+                $text = substr($text, $bom);
+                $map->add($built, $original + $bom, strlen($text), $line, 1 + (int)($bom > 0));
+                $built += strlen($text);
+                $original += strlen($parts[$i]);
+                $ending = $parts[$i + 1] ?? '';
+                if ($ending !== '') {
+                    $map->addFallback($built, $original, 1, $line, 1 + mb_strlen($text, 'UTF-8'));
+                    $built++;
+                    $original += strlen($ending);
+                    $line++;
+                }
+            }
+            $map->withSource($source);
+        }
+        $table = DelimitedTable::fromCode($fullCode, $map);
+        if ($table === null) {
+            return $directive['rows'] !== null || $directive['cols'] !== null ? $fullCode : $selectedCode;
+        }
+        $allRows = array_values($table->getChildren());
+        $headCount = count(array_filter($allRows, static fn ($row): bool => $row instanceof TableRow && $row->isHeader()));
+        $recordStarts = [];
+        $previous = 0;
+        $lineNumber = 1;
+        DelimitedTable::rows($normalized, $directive['code']['lang'] === 'csv' ? ',' : "\t", null, static function (int $start) use (&$recordStarts, &$previous, &$lineNumber, $normalized): void {
+            $lineNumber += substr_count($normalized, "\n", $previous, $start - $previous);
+            $previous = $start;
+            $recordStarts[] = $lineNumber;
+        });
+        if ($directive['rows'] !== null && $directive['rows']['start'] > count($allRows)) {
+            $this->warn("Include record range starts past the end of file: {$directive['path']}", 'include-rows-out-of-range');
+
+            return null;
+        }
+        $body = [];
+        foreach ($allRows as $index => $row) {
+            if ($index < $headCount) {
+                continue;
+            }
+            if ($directive['rows'] !== null && ($index + 1 < $directive['rows']['start'] || $index + 1 > $directive['rows']['end'])) {
+                continue;
+            }
+            if ($directive['lines'] !== null && (($recordStarts[$index] ?? 0) < $directive['lines']['start'] || ($recordStarts[$index] ?? 0) > $directive['lines']['end'])) {
+                continue;
+            }
+            $body[] = $row;
+        }
+        $kept = [...array_slice($allRows, 0, $headCount), ...$body];
+        if ($directive['cols'] !== null) {
+            $columns = [];
+            if (!isset($directive['cols']['start'], $directive['cols']['end'])) {
+                if ($headCount === 0) {
+                    $this->warn('Named include columns require a header row', 'include-cols-invalid');
+
+                    return null;
+                }
+                $headers = array_map(static function ($cell): string {
+                    $first = $cell->getChildren()[0] ?? null;
+
+                    return $first instanceof Text ? $first->getContent() : '';
+                }, $allRows[0]->getChildren());
+                foreach ($directive['cols'] as $name) {
+                    $matches = array_keys($headers, $name, true);
+                    if (count($matches) !== 1) {
+                        $this->warn("Include column is missing or ambiguous: {$name}", 'include-cols-invalid');
+
+                        return null;
+                    }
+                    if (in_array($matches[0], $columns, true)) {
+                        $this->warn("Include column is duplicated: {$name}", 'include-cols-duplicate');
+
+                        return null;
+                    }
+                    $columns[] = $matches[0];
+                }
+            } else {
+                $columnStart = $directive['cols']['start'];
+                $columnEnd = $directive['cols']['end'];
+                if (
+                    !is_int($columnStart) || !is_int($columnEnd)
+                    || $host->getAttribute('header-rows') !== '0' || $columnEnd > count($allRows[0]->getChildren())
+                ) {
+                    $this->warn('Numeric include columns require header-rows=0 and must fit the table', 'include-cols-invalid');
+
+                    return null;
+                }
+                $columns = range($columnStart - 1, $columnEnd - 1);
+            }
+            foreach ($kept as $row) {
+                $cells = array_values($row->getChildren());
+                $row->setChildren(array_values(array_filter(array_map(static fn ($index) => $cells[$index] ?? null, $columns))));
+            }
+        }
+        $table->setChildren($kept);
+        $table->setSourceRecordWidths(array_map(static fn ($row): int => count($row->getChildren()), $kept));
+        $table->setRowGroups($table->statedRowGroups());
+        BlockParser::applyTableColumns($table);
+
+        return $table;
     }
 
     /**
@@ -1073,7 +1259,7 @@ class IncludeExpander implements TransformerInterface
      * inline markers is split by core parsing and remains literal by design
      * (corpus pin: bare-path directive with no active inline markers).
      *
-     * @return array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, code: array{lang: string|null}|null, shift: int|'auto', invalidLines: string|null}|null
+     * @return array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, rows: array{start: int, end: int}|null, cols: list<string>|array{start: int, end: int}|null, invalidRows: bool, invalidCols: bool, repeatedTableOption: bool, region: string|null, code: array{lang: string|null}|null, shift: int|'auto', invalidLines: string|null}|null
      */
     protected function parseDirective(string $text): ?array
     {
@@ -1082,7 +1268,7 @@ class IncludeExpander implements TransformerInterface
             return null;
         }
 
-        if ($parts['error'] !== null && $parts['error'] !== IncludeDirectiveSyntax::ERROR_LINES_INVALID) {
+        if ($parts['error'] !== null && !in_array($parts['error'], [IncludeDirectiveSyntax::ERROR_LINES_INVALID, IncludeDirectiveSyntax::ERROR_ROWS_INVALID, IncludeDirectiveSyntax::ERROR_COLS_INVALID, IncludeDirectiveSyntax::ERROR_TABLE_OPTION_REPEATED], true)) {
             // A directive-shaped run whose options are wrong is worth telling
             // the author about; a run that is not directive-shaped at all is
             // just text and stays silent.
@@ -1107,6 +1293,11 @@ class IncludeExpander implements TransformerInterface
             'path' => $parts['path'],
             'section' => $parts['section'],
             'lines' => $parts['lines'],
+            'rows' => $parts['rows'],
+            'cols' => $parts['cols'],
+            'invalidRows' => $parts['invalidRows'],
+            'invalidCols' => $parts['invalidCols'],
+            'repeatedTableOption' => $parts['error'] === IncludeDirectiveSyntax::ERROR_TABLE_OPTION_REPEATED,
             'region' => $parts['region'],
             'code' => $parts['code'],
             'shift' => $parts['shift'],
