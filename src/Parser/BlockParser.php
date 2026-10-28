@@ -6075,6 +6075,7 @@ class BlockParser
         $source = new SourceLines($input, $this->state->source->originalSource);
         $this->state->source->sourceLines = $source->lines;
         $this->state->source->normalizedSource = $source->normalized;
+        $this->state->source->hasTableDelimiter = str_contains($source->normalized, '|');
         $this->state->source->lineStartOffsets = $source->byteLineStarts;
         $this->state->source->positionIndex = $this->state->source->trackPositions ? new PositionIndex($source->original) : null;
 

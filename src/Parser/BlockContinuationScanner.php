@@ -488,11 +488,11 @@ final class BlockContinuationScanner
             $stripped = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
             if (
                 $nextIndent === $contentIndent
+                && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $bottom) === 1
                 && (
                     preg_match('/^[-*.] /', $lead) === 1
                     || IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '')) > 0
                 )
-                && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $bottom) === 1
                 && !$this->isBlockElementStart($stripped, $lines, $i)
                 && !$this->startsNewBlock($stripped, $lines, $i)
             ) {

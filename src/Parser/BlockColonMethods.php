@@ -596,6 +596,7 @@ trait BlockColonMethods
         if (
             $this->state->frame->listHostedColonFences
             && $parent instanceof Div
+            && $this->state->source->hasTableDelimiter
         ) {
             $base = PHP_INT_MAX;
             foreach ($lines as $line) {
