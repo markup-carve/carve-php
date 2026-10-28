@@ -36,6 +36,11 @@ final class BlockSourceState
     public string $normalizedSource = '';
 
     /**
+     * Whether this source can contain a table row.
+     */
+    public bool $hasTableDelimiter = false;
+
+    /**
      * Maps byte positions to Unicode codepoint positions.
      */
     public ?PositionIndex $positionIndex = null;

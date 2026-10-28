@@ -593,6 +593,42 @@ trait BlockColonMethods
      */
     private function parseColonBlocks(Node $parent, array $lines, array $lineMap, int $start, int $lineMapBase = 0): void
     {
+        if (
+            $this->state->frame->listHostedColonFences
+            && $parent instanceof Div
+            && $this->state->source->hasTableDelimiter
+        ) {
+            $base = PHP_INT_MAX;
+            foreach ($lines as $line) {
+                if (!IndentationHelper::isBlankLine($line)) {
+                    $base = min($base, IndentationHelper::getLeadingColumns($line));
+                }
+            }
+            $listContentColumn = null;
+            $tableRowsToRebase = [];
+            foreach ($lines as $index => $line) {
+                $lineColumn = IndentationHelper::getLeadingColumns($line);
+                $content = ltrim($line, " \t");
+                $marker = $lineColumn === $base ? $this->listParser->parseListItemMarker($content) : null;
+                if ($marker !== null) {
+                    $listContentColumn = $base + strlen($content) - strlen($marker['content']);
+                } elseif (
+                    $listContentColumn !== null
+                    && $lineColumn >= $base
+                    && $lineColumn < $listContentColumn
+                    && $this->tableParser->isTableRow($content)
+                ) {
+                    $tableRowsToRebase[] = $index;
+                }
+            }
+            if ($base > 0 && $base < PHP_INT_MAX && $tableRowsToRebase !== []) {
+                foreach ($tableRowsToRebase as $index) {
+                    $line = $lines[$index];
+                    $lines[$index] = IndentationHelper::stripLeadingColumns($line, IndentationHelper::getLeadingColumns($line) - $base);
+                }
+                $lines = array_map(static fn (string $line): string => IndentationHelper::stripLeadingColumns($line, $base), $lines);
+            }
+        }
         $source = $this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '';
         $unquoted = preg_replace('/^(?:[ \t]*>[ \t]?)+/', '', $source) ?? $source;
         // The first item continuation and its nested divs own this rebase.

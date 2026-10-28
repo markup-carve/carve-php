@@ -380,13 +380,9 @@ class ListParser
         // editor export carries a quote in reaches this pattern.
         $block = '(?P<attrs>\{(?:[^{}"\']|"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\')*\})';
         // THE STRIP'S OWN TAIL, asserted where it sits. `parseListItemMarker()`
-        // only strips a block that is followed by ` +NON_WHITESPACE`, and then
-        // hands the base parser the marker spliced onto that tail - so a TAB
-        // after the spaces means no strip at all, where the head's own
-        // ` +[ \t]*` gap would have accepted one. Without this the two forms
-        // disagreed on `-{.k} <tab>x`, which a 44,100-document sweep caught and
-        // the single-marker matrix did not.
-        $strippable = '(?= +' . StringUtil::NON_WHITESPACE_CLASS . ')';
+        // strips a block only when the remaining gap has a leading space and
+        // nonempty content. Tabs within that gap are content indentation.
+        $strippable = '(?= +[ \t]*' . StringUtil::NON_WHITESPACE_CLASS . ')';
         // The parser's abutting-attribute pre-step reads the live bullet class,
         // so this offset-only spelling must do the same. Otherwise the parser
         // accepts `+{.k} x` with PlusBulletExtension while the marker walk
@@ -635,7 +631,7 @@ class ListParser
         $bullet = '[' . $this->bulletMarkerClass . ']';
         if (
             preg_match(
-                '/^(' . $bullet . '|\.|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\')*\})( +' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/',
+                '/^(' . $bullet . '|\.|[0-9]+[.)]|[a-zA-Z]+[.)])(\{(?:[^{}"\']|"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\')*\})( +[ \t]*' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/',
                 $line,
                 $am,
             )

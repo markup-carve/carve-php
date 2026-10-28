@@ -486,6 +486,18 @@ final class BlockContinuationScanner
             // column. Recorded so the authored-base pass can tell them apart
             // (markup-carve/carve#1896).
             $stripped = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+            if (
+                $nextIndent === $contentIndent
+                && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $bottom) === 1
+                && (
+                    preg_match('/^[-*.] /', $lead) === 1
+                    || IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '')) > 0
+                )
+                && !$this->isBlockElementStart($stripped, $lines, $i)
+                && !$this->startsNewBlock($stripped, $lines, $i)
+            ) {
+                $stripped = ' ' . $stripped;
+            }
             $inlineCodeCandidate = ltrim($stripped, " \t");
             $inlineCodeOpener = $trailingState->openParagraph && !$trailingState->hasLiteralDiv()
                 && str_starts_with($inlineCodeCandidate, '````')
