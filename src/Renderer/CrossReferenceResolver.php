@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\FigureGroup;
+use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
@@ -32,10 +33,46 @@ use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\LabelKey;
+use MarkupCarve\Carve\Transform\VisibleFootnotes;
 use ReflectionMethod;
 
 class CrossReferenceResolver
 {
+    /**
+     * @var array<string, true>
+     */
+    private array $visibleFootnotes = [];
+
+    private function isVisible(Node $node): bool
+    {
+        return !$node instanceof Footnote
+            || isset($this->visibleFootnotes[LabelKey::normalize($node->getLabel())]);
+    }
+
+    /**
+     * @return array<\MarkupCarve\Carve\Node\Node>
+     */
+    private function visibleChildren(Node $node): array
+    {
+        if (!$node instanceof Document) {
+            return $node->getChildren();
+        }
+
+        $children = [];
+        foreach ($node->getChildren() as $child) {
+            if (!$child instanceof Footnote) {
+                $children[] = $child;
+            }
+        }
+        $definitions = VisibleFootnotes::definitions($node);
+        foreach ($this->visibleFootnotes as $label => $_present) {
+            $children[] = $definitions[$label];
+        }
+
+        return $children;
+    }
+
     /**
      * @var int
      */
@@ -73,6 +110,7 @@ class CrossReferenceResolver
 
     public function resolve(Document $document, HeadingIdTracker $tracker): void
     {
+        $this->visibleFootnotes = VisibleFootnotes::labels($document, VisibleFootnotes::definitions($document));
         if ($this::class === self::class) {
             $headings = [];
             $references = [];
@@ -163,7 +201,7 @@ class CrossReferenceResolver
             $hasNestedLink = true;
         }
         $childInsideLink = $node instanceof InlineFootnote ? false : $insideLink || $node instanceof Link;
-        foreach ($node->getChildren() as $child) {
+        foreach ($this->visibleChildren($node) as $child) {
             $this->scanForRender(
                 $child,
                 $tracker,
@@ -202,7 +240,7 @@ class CrossReferenceResolver
             return;
         }
 
-        foreach ($node->getChildren() as $child) {
+        foreach ($this->visibleChildren($node) as $child) {
             if ($child instanceof HeadingRef) {
                 $id = $tracker->findId($child->getTargetId());
                 $child->setHref($id === null ? null : '#' . $id);
@@ -230,6 +268,7 @@ class CrossReferenceResolver
      */
     public function resolveCrossReferenceTargets(Document $document, HeadingIdTracker $tracker): void
     {
+        $this->visibleFootnotes = VisibleFootnotes::labels($document, VisibleFootnotes::definitions($document));
         $this->trackIdFromNode($document, $tracker);
         $this->preresolveHeadingIds($document, $tracker);
         $this->resolveNumberedCaptions($document, $tracker);
@@ -286,6 +325,9 @@ class CrossReferenceResolver
         $rewritten = null;
         $replacements = [];
         foreach ($children as $index => $child) {
+            if (!$this->isVisible($child)) {
+                continue;
+            }
             if ($child instanceof Link) {
                 // Recurse the link's own label first (insideLink = true), so a
                 // link buried deeper in the label is unwrapped too.
@@ -447,7 +489,7 @@ class CrossReferenceResolver
             $tracker->trackId($id);
         }
 
-        foreach ($node->getChildren() as $child) {
+        foreach ($this->visibleChildren($node) as $child) {
             $this->trackIdFromNode($child, $tracker, $depth + 1);
         }
     }
@@ -462,7 +504,7 @@ class CrossReferenceResolver
             return;
         }
 
-        foreach ($node->getChildren() as $child) {
+        foreach ($this->visibleChildren($node) as $child) {
             if ($child instanceof Heading) {
                 $tracker->getIdForHeading($child);
             } else {
@@ -503,7 +545,7 @@ class CrossReferenceResolver
             // caption stays literal - so they are skipped below, while stray
             // non-panel content inside the group still numbers normally.
             $this->resolveFigureGroupCaption($node, $tracker, $counters);
-            foreach ($node->getChildren() as $child) {
+            foreach ($this->visibleChildren($node) as $child) {
                 if (FigureGroup::isPanel($child)) {
                     continue;
                 }
@@ -525,7 +567,7 @@ class CrossReferenceResolver
             }
         }
 
-        foreach ($node->getChildren() as $child) {
+        foreach ($this->visibleChildren($node) as $child) {
             if ($child instanceof Caption) {
                 continue;
             }

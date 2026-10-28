@@ -1026,7 +1026,7 @@ class BlockParser
         // happens to use (#572).
         if ($this->state->session->sawUnresolvedCollapsedReference) {
             $headingReferences = (new HeadingReferenceCollector($this->headingIdTrackerForReferences()))
-                ->collect($document);
+                ->collect($document, $this->state->session->footnotes);
             // Only re-parse for headings the first pass could not already
             // reach. Without this a single typo'd reference in a document full
             // of top-level headings would pay for a second parse that changes
