@@ -3186,6 +3186,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // different Carve attribute and still reaches the output as `Scope`,
         // but HTML attribute names are not case-sensitive, so emitting the
         // default beside it is the same collision by another spelling.
+        $structuralAttrs = [];
         if ($tag === 'th') {
             $authored = false;
             foreach (array_keys($attrs) as $key) {
@@ -3196,17 +3197,18 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 }
             }
             if (!$authored) {
-                $attrs = ['scope' => $inHeaderRun ? 'col' : 'row'] + $attrs;
+                $structuralAttrs['scope'] = $inHeaderRun ? 'col' : 'row';
             }
         }
 
         if ($rowspan > 1) {
-            $attrs['rowspan'] = (string)$rowspan;
+            $structuralAttrs['rowspan'] = (string)$rowspan;
         }
 
         if ($colspan > 1) {
-            $attrs['colspan'] = (string)$colspan;
+            $structuralAttrs['colspan'] = (string)$colspan;
         }
+        $attrs = $structuralAttrs + $attrs;
 
         $alignment = $node->getAlignment();
         if ($alignment === TableCell::ALIGN_DEFAULT && isset($column['align'])) {

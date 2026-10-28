@@ -233,7 +233,7 @@ class DjotReviewAlignmentTest extends TestCase
         return [
             ['{.a % .bogus #bogus title=bogus %}', '', '<p><a href="/u" class="a">x</a></p>'],
             ['{.a title="a .bogus #bogus % comment %" key="a b"}', '', '<p><a href="/u" class="a" title="a .bogus #bogus % comment %" key="a b">x</a></p>'],
-            ['{.a title=base key="a b"}', '{.b % .bogus key=bogus % title="own .c #d % value %"}', '<p><a href="/u" class="b" title="own .c #d % value %" key="a b">x</a></p>'],
+            ['{.a title=base key="a b"}', '{.b % .bogus key=bogus % title="own .c #d % value %"}', '<p><a href="/u" key="a b" class="b" title="own .c #d % value %">x</a></p>'],
             ['{.a title="a \\"quoted\\" .b #c %"}', '', '<p><a href="/u" class="a" title="a &quot;quoted&quot; .b #c %">x</a></p>'],
             ['{.a class=b .c}', '', '<p><a href="/u" class="b c">x</a></p>'],
         ];

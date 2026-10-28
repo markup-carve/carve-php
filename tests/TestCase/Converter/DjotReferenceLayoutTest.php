@@ -160,8 +160,8 @@ class DjotReferenceLayoutTest extends TestCase
         $method = new ReflectionMethod($converter, 'normalizeDjotReferenceUses');
         foreach (
             [
-                ["[a][r]{title=first}{title=last}\n\n{.base}\n[r]: /u", '[a](/u){title=last class=base}'],
-                ["[a][r]{.a}{.b}\n\n{title=base}\n[r]: /u", '[a](/u){class="a b" title=base}'],
+                ["[a][r]{title=first}{title=last}\n\n{.base}\n[r]: /u", '[a](/u){class=base title=last}'],
+                ["[a][r]{.a}{.b}\n\n{title=base}\n[r]: /u", '[a](/u){title=base class="a b"}'],
                 ["[a][r]{.a title=x}{.b title=y}\n\n{.base title=z}\n[r]: /u", '[a](/u){class="a b" title=y}'],
                 ["[a][r]\n\n{.a}\n{.b}\n[r]: /u", '[a](/u){class="a b"}'],
             ] as [$source, $expected]

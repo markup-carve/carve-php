@@ -170,22 +170,15 @@ final class BlockReferenceResolver
         if ($definitionAttributes === []) {
             return;
         }
-        $authored = $node->getAttributeEntries();
-        $authoredOrder = $node->getAttributeOrder();
-        $definition = $definitionAttributes;
-        if (isset($definition['class'], $authored['class'])) {
-            $authored['class'] = [...(array)$definition['class'], ...(array)$authored['class']];
-            unset($definition['class']);
-        }
         $order = array_map(
             static fn (string $name): string => match ($name) {
                 'id' => '#id',
                 'class' => '.class',
                 default => $name,
             },
-            array_keys($definition),
+            array_keys($definitionAttributes),
         );
-        $node->setAttributesWithOrder(array_merge($definition, $authored), [...$order, ...$authoredOrder]);
+        $node->mergeLeadingAttributes($definitionAttributes, $order);
     }
 
     public function appendLinkReferenceDefinitions(Document $document): void
