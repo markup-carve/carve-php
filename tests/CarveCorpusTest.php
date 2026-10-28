@@ -1317,7 +1317,7 @@ class CarveCorpusTest extends TestCase
         'a-bang-before-a-link-is-escaped',
         'a-hard-break-in-a-pipe-table-cell-survives-markdown-export',
         // The spec pin for table include selection also carries these categories.
-        // Their passing rows match the pinned HTML; 744 has one tracked gap.
+        // Their rows match the pinned HTML on the current main integration.
         'model-syntax-boundaries-and-ownership',
         'model-inline-frames-and-html-attributes',
         'invalid-table-metadata-keeps-the-table',
@@ -1365,7 +1365,6 @@ class CarveCorpusTest extends TestCase
         '437-a-leading-continuation-marker-in-a-footnote-body-or-a-quote-is-text-2' => 'carve-php#4165',
         '629-a-dangling-plus-marker-adds-nothing-and-a-nested-quote-reads-it-like-an-unnested-one-4' => 'carve-php#4165',
         '629-a-dangling-plus-marker-adds-nothing-and-a-nested-quote-reads-it-like-an-unnested-one-8' => 'carve-php#4165',
-        '744-a-task-item-uses-the-ordered-item-column-rule' => 'carve-php#4166',
     ];
 
     /**

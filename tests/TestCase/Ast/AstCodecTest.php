@@ -402,7 +402,9 @@ class AstCodecTest extends TestCase
      * The documents a JSON round trip does not return to their authored form,
      * and the only ones.
      *
-     * EMPTY now. `173` was the implicit-heading-reference gap: the parsed link
+     * The current spec pin adds four authored-form losses tracked in
+     * carve-php#4168 (shifted separators) and carve-php#4166 (task item).
+     * `173` was the implicit-heading-reference gap: the parsed link
      * records that its destination was derived from a heading, and that flag is
      * not on the wire, so `[label][]` came back as `[label](#id)`.
      *
@@ -423,7 +425,14 @@ class AstCodecTest extends TestCase
      *
      * @var array<string>
      */
-    private const AUTHORED_FORM_NOT_ON_THE_WIRE = [];
+    private const AUTHORED_FORM_NOT_ON_THE_WIRE = [
+        // carve-php#4168
+        '743-a-later-term-after-a-shifted-separator-opens-in-the-outer-item-2.crv',
+        '743-a-later-term-after-a-shifted-separator-opens-in-the-outer-item-3.crv',
+        '743-a-later-term-after-a-shifted-separator-opens-in-the-outer-item.crv',
+        // carve-php#4166
+        '744-a-task-item-uses-the-ordered-item-column-rule-2.crv',
+    ];
 
     /**
      * @return array<string, mixed>
