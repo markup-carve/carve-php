@@ -1598,7 +1598,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     {
         return $node instanceof Paragraph
             && $node->isBlockImage()
-            && $this->renderAttributes($node) === '';
+            && ($this->renderAttributes($node) === '' || $node->getAttributeEntries() !== []);
     }
 
     protected function renderParagraph(Paragraph $node): string
@@ -1611,11 +1611,16 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // parser (promoteBlockImages), so the paragraph is attr-free
         // here -- render-time extension attrs stay on the <p> as before.
         $children = $node->getChildren();
-        if ($attrs === '' && $this->isBlockImageParagraph($node)) {
+        if ($this->isBlockImageParagraph($node)) {
             // Route through renderNode so render-time extensions
             // (e.g. DefaultAttributesExtension) still fire on the image.
             $image = BlockImagePromotion::loneImage($node);
             if ($image !== null) {
+                if ($node->getAttributeEntries() !== []) {
+                    $image = clone $image;
+                    $image->mergeLeadingAttributes($node->getAttributeEntries(), $node->getAttributeOrder());
+                }
+
                 return rtrim($this->renderNode($image), "\n") . "\n";
             }
         }
