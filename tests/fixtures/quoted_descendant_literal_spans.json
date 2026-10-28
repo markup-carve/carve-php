@@ -132,7 +132,7 @@
   {
     "id": "M1 far closer after blank, same col",
     "source": "- ::: |\n  ```\n  :::\n  p\nlazy\n\n  ```\n",
-    "html": "<ul><li><div class=\"line-block\"><p><code></code></p></div>\n    p\n  </li></ul><p>lazy</p><p><code></code></p>"
+    "html": "<ul><li><div class=\"line-block\"><p><code></code></p></div>\n    p\nlazy\n  </li></ul><pre><code></code></pre>"
   },
   {
     "id": "M2 far closer in later item",
@@ -152,17 +152,17 @@
   {
     "id": "M5 quoted far closer",
     "source": "> - ::: |\n>   ```\n>   :::\n>   p\nlazy\n\n>   ```\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p><code></code></p></div>\n      p\nlazy\n    </li></ul></blockquote><blockquote><p><code></code></p></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p><code></code></p></div>\n      p\nlazy\n    </li></ul></blockquote><blockquote><pre><code></code></pre></blockquote>"
   },
   {
     "id": "M6 tilde far closer",
     "source": "- ::: |\n  ~~~\n  :::\n  p\nlazy\n\n  ~~~\n",
-    "html": "<ul><li><div class=\"line-block\"><p>~~~</p></div>\n    p\n  </li></ul><p>lazy</p><p>~~~</p>"
+    "html": "<ul><li><div class=\"line-block\"><p>~~~</p></div>\n    p\nlazy\n  </li></ul><pre><code></code></pre>"
   },
   {
     "id": "M7 nested desc far closer",
     "source": "- ::: box\n  - ::: |\n    ```\n    :::\n    p\n  :::\nlazy\n\n    ```\n",
-    "html": "<ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div>\n          p\n        </li></ul></div></li></ul><p>lazy</p><p><code></code></p>"
+    "html": "<ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div>\n          p\n        </li></ul></div></li></ul><p>lazy</p><pre><code></code></pre>"
   },
   {
     "id": "M8 far closer, tail item",

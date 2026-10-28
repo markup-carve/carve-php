@@ -152,7 +152,7 @@
   {
     "id": "comment-controls/band-marker",
     "source": "- t\n\n  %% c\n - b\n- s\n",
-    "html": "<ul>\n  <li>t</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<ul>\n  <li>s</li>\n</ul>"
+    "html": "<ul>\n  <li><p>t</p></li>\n  <li><p>b</p></li>\n  <li><p>s</p></li>\n</ul>"
   },
   {
     "id": "comment-controls/column-gate/0/marker",
@@ -212,7 +212,7 @@
   {
     "id": "comment-controls/column-gate/5/comment",
     "source": "- intro\n%% c\n  more\n",
-    "html": "<ul>\n  <li>intro\n    more\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>intro</li>\n</ul>\n<p>more</p>"
   },
   {
     "id": "comment-controls/column-gate/6/marker",
@@ -307,12 +307,12 @@
   {
     "id": "comment-item/line-heading",
     "source": "- a\n  %% x\n # h\n\n- b\n",
-    "html": "<ul>\n  <li>a</li>\n</ul>\n<p># h</p>\n<ul>\n  <li>b</li>\n</ul>"
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<section id=\"h\">\n  <h1>h</h1>\n  <ul>\n    <li>b</li>\n  </ul>\n</section>"
   },
   {
     "id": "comment-item/open-span-heading",
     "source": "- a\n  %%% x\n # h\n\n- b\n",
-    "html": "<ul>\n  <li>a</li>\n</ul>\n<p># h</p>\n<ul>\n  <li>b</li>\n</ul>"
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<section id=\"h\">\n  <h1>h</h1>\n  <ul>\n    <li>b</li>\n  </ul>\n</section>"
   },
   {
     "id": "comment-item/closed-span-plain",
@@ -327,7 +327,7 @@
   {
     "id": "comment-item/closed-span-marker",
     "source": "- a\n  %%% x\n  y\n  %%%\n - s\n",
-    "html": "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>s</li>\n</ul>"
+    "html": "<ul>\n  <li>a</li>\n  <li>s</li>\n</ul>"
   },
   {
     "id": "comment-controls/lazy-bullet",
@@ -347,17 +347,17 @@
   {
     "id": "comment-controls/quoted-claim-lazy",
     "source": "> - ::: box\ntail\n>   :::\nmore\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>\n<blockquote><p>:::\nmore</p></blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>\n<blockquote>\n  <div>\n\n  </div>\n</blockquote>\n<p>more</p>"
   },
   {
     "id": "comment-controls/quoted-claim-nested",
     "source": "> > - ::: box\n> tail\n> >   :::\nmore\n",
-    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <div class=\"box\">\n\n        </div>\n      </li>\n    </ul>\n  </blockquote>\n  <p>tail</p>\n  <blockquote><p>:::\nmore</p></blockquote>\n</blockquote>"
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <div class=\"box\">\n\n        </div>\n      </li>\n    </ul>\n  </blockquote>\n  <p>tail</p>\n  <blockquote>\n    <div>\n\n    </div>\n  </blockquote>\n</blockquote>\n<p>more</p>"
   },
   {
     "id": "comment-controls/comment-marker",
     "source": "- a\n  %%%\n  x\n  %%%\n - s\n",
-    "html": "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>s</li>\n</ul>"
+    "html": "<ul>\n  <li>a</li>\n  <li>s</li>\n</ul>"
   },
   {
     "id": "comment-controls/hosted-link-definition",

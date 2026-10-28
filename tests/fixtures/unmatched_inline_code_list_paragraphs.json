@@ -2,62 +2,62 @@
   {
     "id": "inline-run-0",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        ~~~\n        three\n        ~~~\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~\nthree\n~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><pre><code>three\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "inline-run-1",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        ~~~\n        three\n        ~~~\n    ending ``` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~\nthree\n~~~\nending </code> done\nafter\n  </li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><pre><code>three\n</code></pre>\n    ending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-2",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        ~~~\n        three\n        ~~~\n    ending ```` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~\nthree\n~~~\nending ```` done\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><pre><code>three\n</code></pre>\n    ending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-3",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        ~~~~ js\n        three\n        ~~~~\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~~ js\nthree\n~~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><pre><code class=\"language-js\">three\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "inline-run-4",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        ~~~~ js\n        three\n        ~~~~\n    ending ``` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~~ js\nthree\n~~~~\nending </code> done\nafter\n  </li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><pre><code class=\"language-js\">three\n</code></pre>\n    ending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-5",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        ~~~~ js\n        three\n        ~~~~\n    ending ```` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~~ js\nthree\n~~~~\nending ```` done\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><pre><code class=\"language-js\">three\n</code></pre>\n    ending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-6",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        # heading\n        three\n        plain\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n# heading\nthree\nplain\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><h1 id=\"heading\">heading</h1>\n    three\nplain\nafter\n  </li></ul>"
   },
   {
     "id": "inline-run-7",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        # heading\n        three\n        plain\n    ending ``` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n# heading\nthree\nplain\nending </code> done\nafter\n  </li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><h1 id=\"heading\">heading</h1>\n    three\nplain\nending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-8",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        # heading\n        three\n        plain\n    ending ```` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n# heading\nthree\nplain\nending ```` done\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><h1 id=\"heading\">heading</h1>\n    three\nplain\nending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-9",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        :: term\n        : body\n        plain\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n:: term\n: body\nplain\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><dl><dt>term</dt><dd>body\nplain\nafter</dd></dl></li></ul>"
   },
   {
     "id": "inline-run-10",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        :: term\n        : body\n        plain\n    ending ``` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n:: term\n: body\nplain\nending </code> done\nafter\n  </li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><dl><dt>term</dt><dd>body\nplain\nending <code> done\nafter</code></dd></dl></li></ul>"
   },
   {
     "id": "inline-run-11",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        :: term\n        : body\n        plain\n    ending ```` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n:: term\n: body\nplain\nending ```` done\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><dl><dt>term</dt><dd>body\nplain\nending <code> done\nafter</code></dd></dl></li></ul>"
   },
   {
     "id": "inline-run-12",
@@ -92,77 +92,77 @@
   {
     "id": "inline-run-18",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        ~~~ =html\n        <b>raw</b>\n        ~~~\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><b>raw</b></li></ul><p>after</p>"
   },
   {
     "id": "inline-run-19",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        ~~~ =html\n        <b>raw</b>\n        ~~~\n    ending ``` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nending </code> done\nafter\n  </li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><b>raw</b>\n    ending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-20",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        ~~~ =html\n        <b>raw</b>\n        ~~~\n    ending ```` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nending ```` done\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><b>raw</b>\n    ending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-21",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        ~~~\n        three\n        ~~~\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~\nthree\n~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><pre><code>three\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "inline-run-22",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        ~~~\n        three\n        ~~~\n    ending ``` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~\nthree\n~~~\nending </code> done\nafter\n  </li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><pre><code>three\n</code></pre>\n    ending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-23",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        ~~~\n        three\n        ~~~\n    ending ```` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~\nthree\n~~~\nending ```` done\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><pre><code>three\n</code></pre>\n    ending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-24",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        ~~~~ js\n        three\n        ~~~~\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~~ js\nthree\n~~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><pre><code class=\"language-js\">three\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "inline-run-25",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        ~~~~ js\n        three\n        ~~~~\n    ending ``` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~~ js\nthree\n~~~~\nending </code> done\nafter\n  </li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><pre><code class=\"language-js\">three\n</code></pre>\n    ending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-26",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        ~~~~ js\n        three\n        ~~~~\n    ending ```` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~~ js\nthree\n~~~~\nending ```` done\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><pre><code class=\"language-js\">three\n</code></pre>\n    ending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-27",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        # heading\n        three\n        plain\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n# heading\nthree\nplain\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><h1 id=\"heading\">heading</h1>\n    three\nplain\nafter\n  </li></ul>"
   },
   {
     "id": "inline-run-28",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        # heading\n        three\n        plain\n    ending ``` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n# heading\nthree\nplain\nending </code> done\nafter\n  </li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><h1 id=\"heading\">heading</h1>\n    three\nplain\nending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-29",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        # heading\n        three\n        plain\n    ending ```` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n# heading\nthree\nplain\nending ```` done\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><h1 id=\"heading\">heading</h1>\n    three\nplain\nending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-30",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        :: term\n        : body\n        plain\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n:: term\n: body\nplain\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><dl><dt>term</dt><dd>body\nplain\nafter</dd></dl></li></ul>"
   },
   {
     "id": "inline-run-31",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        :: term\n        : body\n        plain\n    ending ``` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n:: term\n: body\nplain\nending </code> done\nafter\n  </li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><dl><dt>term</dt><dd>body\nplain\nending <code> done\nafter</code></dd></dl></li></ul>"
   },
   {
     "id": "inline-run-32",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        :: term\n        : body\n        plain\n    ending ```` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n:: term\n: body\nplain\nending ```` done\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><dl><dt>term</dt><dd>body\nplain\nending <code> done\nafter</code></dd></dl></li></ul>"
   },
   {
     "id": "inline-run-33",
@@ -197,77 +197,77 @@
   {
     "id": "inline-run-39",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        ~~~ =html\n        <b>raw</b>\n        ~~~\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><b>raw</b></li></ul><p>after</p>"
   },
   {
     "id": "inline-run-40",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        ~~~ =html\n        <b>raw</b>\n        ~~~\n    ending ``` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nending </code> done\nafter\n  </li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><b>raw</b>\n    ending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-41",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n  \t```\n        ~~~ =html\n        <b>raw</b>\n        ~~~\n    ending ```` done\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nending ```` done\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><b>raw</b>\n    ending <code> done\nafter</code></li></ul>"
   },
   {
     "id": "inline-run-42",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         ~~~\n>         three\n>         ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~\nthree\n~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><pre><code>three\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "inline-run-43",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         ~~~\n>         three\n>         ~~~\n>     ending ``` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~\nthree\n~~~\nending </code> done\nafter\n    </li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><pre><code>three\n</code></pre>\n      ending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-44",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         ~~~\n>         three\n>         ~~~\n>     ending ```` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~\nthree\n~~~\nending ```` done\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><pre><code>three\n</code></pre>\n      ending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-45",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         ~~~~ js\n>         three\n>         ~~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~~ js\nthree\n~~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><pre><code class=\"language-js\">three\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "inline-run-46",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         ~~~~ js\n>         three\n>         ~~~~\n>     ending ``` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~~ js\nthree\n~~~~\nending </code> done\nafter\n    </li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><pre><code class=\"language-js\">three\n</code></pre>\n      ending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-47",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         ~~~~ js\n>         three\n>         ~~~~\n>     ending ```` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~~ js\nthree\n~~~~\nending ```` done\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><pre><code class=\"language-js\">three\n</code></pre>\n      ending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-48",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         # heading\n>         three\n>         plain\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n# heading\nthree\nplain\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><h1 id=\"heading\">heading</h1>\n      three\nplain\nafter\n    </li></ul></blockquote>"
   },
   {
     "id": "inline-run-49",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         # heading\n>         three\n>         plain\n>     ending ``` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n# heading\nthree\nplain\nending </code> done\nafter\n    </li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><h1 id=\"heading\">heading</h1>\n      three\nplain\nending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-50",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         # heading\n>         three\n>         plain\n>     ending ```` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n# heading\nthree\nplain\nending ```` done\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><h1 id=\"heading\">heading</h1>\n      three\nplain\nending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-51",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         :: term\n>         : body\n>         plain\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n:: term\n: body\nplain\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><dl><dt>term</dt><dd>body\nplain\nafter</dd></dl></li></ul></blockquote>"
   },
   {
     "id": "inline-run-52",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         :: term\n>         : body\n>         plain\n>     ending ``` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n:: term\n: body\nplain\nending </code> done\nafter\n    </li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><dl><dt>term</dt><dd>body\nplain\nending <code> done\nafter</code></dd></dl></li></ul></blockquote>"
   },
   {
     "id": "inline-run-53",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         :: term\n>         : body\n>         plain\n>     ending ```` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n:: term\n: body\nplain\nending ```` done\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><dl><dt>term</dt><dd>body\nplain\nending <code> done\nafter</code></dd></dl></li></ul></blockquote>"
   },
   {
     "id": "inline-run-54",
@@ -302,77 +302,77 @@
   {
     "id": "inline-run-60",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         ~~~ =html\n>         <b>raw</b>\n>         ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><b>raw</b></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "inline-run-61",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         ~~~ =html\n>         <b>raw</b>\n>         ~~~\n>     ending ``` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nending </code> done\nafter\n    </li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><b>raw</b>\n      ending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-62",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         ~~~ =html\n>         <b>raw</b>\n>         ~~~\n>     ending ```` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nending ```` done\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><b>raw</b>\n      ending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-63",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         ~~~\n>         three\n>         ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~\nthree\n~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><pre><code>three\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "inline-run-64",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         ~~~\n>         three\n>         ~~~\n>     ending ``` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~\nthree\n~~~\nending </code> done\nafter\n    </li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><pre><code>three\n</code></pre>\n      ending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-65",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         ~~~\n>         three\n>         ~~~\n>     ending ```` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~\nthree\n~~~\nending ```` done\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><pre><code>three\n</code></pre>\n      ending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-66",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         ~~~~ js\n>         three\n>         ~~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~~ js\nthree\n~~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><pre><code class=\"language-js\">three\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "inline-run-67",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         ~~~~ js\n>         three\n>         ~~~~\n>     ending ``` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~~ js\nthree\n~~~~\nending </code> done\nafter\n    </li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><pre><code class=\"language-js\">three\n</code></pre>\n      ending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-68",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         ~~~~ js\n>         three\n>         ~~~~\n>     ending ```` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~~ js\nthree\n~~~~\nending ```` done\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><pre><code class=\"language-js\">three\n</code></pre>\n      ending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-69",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         # heading\n>         three\n>         plain\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n# heading\nthree\nplain\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><h1 id=\"heading\">heading</h1>\n      three\nplain\nafter\n    </li></ul></blockquote>"
   },
   {
     "id": "inline-run-70",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         # heading\n>         three\n>         plain\n>     ending ``` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n# heading\nthree\nplain\nending </code> done\nafter\n    </li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><h1 id=\"heading\">heading</h1>\n      three\nplain\nending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-71",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         # heading\n>         three\n>         plain\n>     ending ```` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n# heading\nthree\nplain\nending ```` done\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><h1 id=\"heading\">heading</h1>\n      three\nplain\nending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-72",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         :: term\n>         : body\n>         plain\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n:: term\n: body\nplain\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><dl><dt>term</dt><dd>body\nplain\nafter</dd></dl></li></ul></blockquote>"
   },
   {
     "id": "inline-run-73",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         :: term\n>         : body\n>         plain\n>     ending ``` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n:: term\n: body\nplain\nending </code> done\nafter\n    </li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><dl><dt>term</dt><dd>body\nplain\nending <code> done\nafter</code></dd></dl></li></ul></blockquote>"
   },
   {
     "id": "inline-run-74",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         :: term\n>         : body\n>         plain\n>     ending ```` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n:: term\n: body\nplain\nending ```` done\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><dl><dt>term</dt><dd>body\nplain\nending <code> done\nafter</code></dd></dl></li></ul></blockquote>"
   },
   {
     "id": "inline-run-75",
@@ -407,77 +407,77 @@
   {
     "id": "inline-run-81",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         ~~~ =html\n>         <b>raw</b>\n>         ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><b>raw</b></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "inline-run-82",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         ~~~ =html\n>         <b>raw</b>\n>         ~~~\n>     ending ``` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nending </code> done\nafter\n    </li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><b>raw</b>\n      ending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-83",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n>   \t```\n>         ~~~ =html\n>         <b>raw</b>\n>         ~~~\n>     ending ```` done\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nending ```` done\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><b>raw</b>\n      ending <code> done\nafter</code></li></ul></blockquote>"
   },
   {
     "id": "inline-run-84",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         ~~~\n> >         three\n> >         ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~\nthree\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><pre><code>three\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "inline-run-85",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         ~~~\n> >         three\n> >         ~~~\n> >     ending ``` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~\nthree\n~~~\nending </code> done\nafter\n      </li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><pre><code>three\n</code></pre>\n        ending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-86",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         ~~~\n> >         three\n> >         ~~~\n> >     ending ```` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~\nthree\n~~~\nending ```` done\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><pre><code>three\n</code></pre>\n        ending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-87",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         ~~~~ js\n> >         three\n> >         ~~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~~ js\nthree\n~~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><pre><code class=\"language-js\">three\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "inline-run-88",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         ~~~~ js\n> >         three\n> >         ~~~~\n> >     ending ``` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~~ js\nthree\n~~~~\nending </code> done\nafter\n      </li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><pre><code class=\"language-js\">three\n</code></pre>\n        ending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-89",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         ~~~~ js\n> >         three\n> >         ~~~~\n> >     ending ```` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~~ js\nthree\n~~~~\nending ```` done\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><pre><code class=\"language-js\">three\n</code></pre>\n        ending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-90",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         # heading\n> >         three\n> >         plain\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n# heading\nthree\nplain\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><h1 id=\"heading\">heading</h1>\n        three\nplain\nafter\n      </li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-91",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         # heading\n> >         three\n> >         plain\n> >     ending ``` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n# heading\nthree\nplain\nending </code> done\nafter\n      </li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><h1 id=\"heading\">heading</h1>\n        three\nplain\nending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-92",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         # heading\n> >         three\n> >         plain\n> >     ending ```` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n# heading\nthree\nplain\nending ```` done\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><h1 id=\"heading\">heading</h1>\n        three\nplain\nending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-93",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         :: term\n> >         : body\n> >         plain\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n:: term\n: body\nplain\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><dl><dt>term</dt><dd>body\nplain\nafter</dd></dl></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-94",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         :: term\n> >         : body\n> >         plain\n> >     ending ``` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n:: term\n: body\nplain\nending </code> done\nafter\n      </li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><dl><dt>term</dt><dd>body\nplain\nending <code> done\nafter</code></dd></dl></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-95",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         :: term\n> >         : body\n> >         plain\n> >     ending ```` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n:: term\n: body\nplain\nending ```` done\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><dl><dt>term</dt><dd>body\nplain\nending <code> done\nafter</code></dd></dl></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-96",
@@ -512,77 +512,77 @@
   {
     "id": "inline-run-102",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         ~~~ =html\n> >         <b>raw</b>\n> >         ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><b>raw</b></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "inline-run-103",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         ~~~ =html\n> >         <b>raw</b>\n> >         ~~~\n> >     ending ``` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nending </code> done\nafter\n      </li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><b>raw</b>\n        ending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-104",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         ~~~ =html\n> >         <b>raw</b>\n> >         ~~~\n> >     ending ```` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nending ```` done\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><b>raw</b>\n        ending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-105",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         ~~~\n> >         three\n> >         ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~\nthree\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><pre><code>three\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "inline-run-106",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         ~~~\n> >         three\n> >         ~~~\n> >     ending ``` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~\nthree\n~~~\nending </code> done\nafter\n      </li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><pre><code>three\n</code></pre>\n        ending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-107",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         ~~~\n> >         three\n> >         ~~~\n> >     ending ```` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~\nthree\n~~~\nending ```` done\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><pre><code>three\n</code></pre>\n        ending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-108",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         ~~~~ js\n> >         three\n> >         ~~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~~ js\nthree\n~~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><pre><code class=\"language-js\">three\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "inline-run-109",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         ~~~~ js\n> >         three\n> >         ~~~~\n> >     ending ``` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~~ js\nthree\n~~~~\nending </code> done\nafter\n      </li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><pre><code class=\"language-js\">three\n</code></pre>\n        ending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-110",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         ~~~~ js\n> >         three\n> >         ~~~~\n> >     ending ```` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~~ js\nthree\n~~~~\nending ```` done\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><pre><code class=\"language-js\">three\n</code></pre>\n        ending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-111",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         # heading\n> >         three\n> >         plain\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n# heading\nthree\nplain\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><h1 id=\"heading\">heading</h1>\n        three\nplain\nafter\n      </li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-112",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         # heading\n> >         three\n> >         plain\n> >     ending ``` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n# heading\nthree\nplain\nending </code> done\nafter\n      </li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><h1 id=\"heading\">heading</h1>\n        three\nplain\nending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-113",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         # heading\n> >         three\n> >         plain\n> >     ending ```` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n# heading\nthree\nplain\nending ```` done\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><h1 id=\"heading\">heading</h1>\n        three\nplain\nending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-114",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         :: term\n> >         : body\n> >         plain\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n:: term\n: body\nplain\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><dl><dt>term</dt><dd>body\nplain\nafter</dd></dl></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-115",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         :: term\n> >         : body\n> >         plain\n> >     ending ``` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n:: term\n: body\nplain\nending </code> done\nafter\n      </li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><dl><dt>term</dt><dd>body\nplain\nending <code> done\nafter</code></dd></dl></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-116",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         :: term\n> >         : body\n> >         plain\n> >     ending ```` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n:: term\n: body\nplain\nending ```` done\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><dl><dt>term</dt><dd>body\nplain\nending <code> done\nafter</code></dd></dl></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-117",
@@ -617,47 +617,47 @@
   {
     "id": "inline-run-123",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         ~~~ =html\n> >         <b>raw</b>\n> >         ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><b>raw</b></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "inline-run-124",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         ~~~ =html\n> >         <b>raw</b>\n> >         ~~~\n> >     ending ``` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nending </code> done\nafter\n      </li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><b>raw</b>\n        ending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "inline-run-125",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> >   \t```\n> >         ~~~ =html\n> >         <b>raw</b>\n> >         ~~~\n> >     ending ```` done\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~ =html\n&lt;b&gt;raw&lt;/b&gt;\n~~~\nending ```` done\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><b>raw</b>\n        ending <code> done\nafter</code></li></ul></blockquote></blockquote>"
   },
   {
     "id": "reported-126",
     "source": "- a\n    ```\n    one\n    ```\n    two\n    ```\n        ~~~\n        three\n        ~~~\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~\nthree\n~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><pre><code>three\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "reported-127",
     "source": "- a\n  \t```\n  \tone\n  \t```\n  \ttwo\n\t```\n        ~~~\n        three\n        ~~~\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code>\n~~~\nthree\n~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n    <pre><code>one\n</code></pre>\n    two\n<code></code><pre><code>three\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "reported-128",
     "source": "> - a\n>     ```\n>     one\n>     ```\n>     two\n>     ```\n>         ~~~\n>         three\n>         ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~\nthree\n~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><pre><code>three\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "reported-129",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n>   \ttwo\n> \t```\n>         ~~~\n>         three\n>         ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code>\n~~~\nthree\n~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre>\n      two\n<code></code><pre><code>three\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "reported-130",
     "source": "> > - a\n> >     ```\n> >     one\n> >     ```\n> >     two\n> >     ```\n> >         ~~~\n> >         three\n> >         ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~\nthree\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><pre><code>three\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "reported-131",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> >   \ttwo\n> > \t```\n> >         ~~~\n> >         three\n> >         ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code>\n~~~\nthree\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre>\n        two\n<code></code><pre><code>three\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "boundary-0",
@@ -672,7 +672,7 @@
   {
     "id": "boundary-2",
     "source": "- a\n    ```\n        > %% c\n        c\n\nafter\n",
-    "html": "<ul><li>a\n<code>\n&gt; %% c\nc</code></li></ul><p>after</p>"
+    "html": "<ul><li>a\n<code></code><blockquote></blockquote>\n    c\n  </li></ul><p>after</p>"
   },
   {
     "id": "boundary-3",
@@ -702,7 +702,7 @@
   {
     "id": "boundary-8",
     "source": "- a\n    ```\n        ::: note\n        c\n\nafter\n",
-    "html": "<ul><li>a\n<code>\n::: note\nc</code></li></ul><p>after</p>"
+    "html": "<ul><li>a\n<code></code><aside class=\"admonition note\" aria-label=\"Note\"><p>c</p></aside></li></ul><p>after</p>"
   },
   {
     "id": "boundary-9",
@@ -717,7 +717,7 @@
   {
     "id": "boundary-11",
     "source": "- a\n    ```\n        :: term\n        c\n\nafter\n",
-    "html": "<ul><li>a\n<code>\n:: term\nc</code></li></ul><p>after</p>"
+    "html": "<ul><li>a\n<code></code><dl><dt>term\nc</dt></dl></li></ul><p>after</p>"
   },
   {
     "id": "boundary-12",
@@ -762,7 +762,7 @@
   {
     "id": "boundary-20",
     "source": "> - a\n>     ```\n>         > %% c\n>         c\n> \n> after\n",
-    "html": "<blockquote><ul><li>a\n<code>\n&gt; %% c\nc</code></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a\n<code></code><blockquote></blockquote>\n      c\n    </li></ul><p>after</p></blockquote>"
   },
   {
     "id": "boundary-21",
@@ -792,7 +792,7 @@
   {
     "id": "boundary-26",
     "source": "> - a\n>     ```\n>         ::: note\n>         c\n> \n> after\n",
-    "html": "<blockquote><ul><li>a\n<code>\n::: note\nc</code></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a\n<code></code><aside class=\"admonition note\" aria-label=\"Note\"><p>c</p></aside></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "boundary-27",
@@ -807,7 +807,7 @@
   {
     "id": "boundary-29",
     "source": "> - a\n>     ```\n>         :: term\n>         c\n> \n> after\n",
-    "html": "<blockquote><ul><li>a\n<code>\n:: term\nc</code></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a\n<code></code><dl><dt>term\nc</dt></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "boundary-30",
@@ -852,7 +852,7 @@
   {
     "id": "boundary-38",
     "source": "> > - a\n> >     ```\n> >         > %% c\n> >         c\n> > \n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code>\n&gt; %% c\nc</code></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n<code></code><blockquote></blockquote>\n        c\n      </li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "boundary-39",
@@ -882,7 +882,7 @@
   {
     "id": "boundary-44",
     "source": "> > - a\n> >     ```\n> >         ::: note\n> >         c\n> > \n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code>\n::: note\nc</code></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n<code></code><aside class=\"admonition note\" aria-label=\"Note\"><p>c</p></aside></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "boundary-45",
@@ -897,7 +897,7 @@
   {
     "id": "boundary-47",
     "source": "> > - a\n> >     ```\n> >         :: term\n> >         c\n> > \n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code>\n:: term\nc</code></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n<code></code><dl><dt>term\nc</dt></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "boundary-48",
@@ -957,12 +957,12 @@
   {
     "id": "inline-following-code-14",
     "source": "- a\n    ```\n      ~~~\n      code\n      ~~~\nafter\n",
-    "html": "<ul><li>a\n<code>\n~~~\ncode\n~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n<code></code><pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "inline-following-code-16",
     "source": "- a\n    ```\n      ~~~ =html\n      code\n      ~~~\nafter\n",
-    "html": "<ul><li>a\n<code>\n~~~ =html\ncode\n~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n<code></code>\n    code\n  </li></ul><p>after</p>"
   },
   {
     "id": "inline-following-code-18",
@@ -972,12 +972,12 @@
   {
     "id": "inline-following-code-20",
     "source": "- a\n    ```\n        ~~~\n        code\n        ~~~\nafter\n",
-    "html": "<ul><li>a\n<code>\n~~~\ncode\n~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n<code></code><pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "inline-following-code-22",
     "source": "- a\n    ```\n        ~~~ =html\n        code\n        ~~~\nafter\n",
-    "html": "<ul><li>a\n<code>\n~~~ =html\ncode\n~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n<code></code>\n    code\n  </li></ul><p>after</p>"
   },
   {
     "id": "inline-following-code-24",
@@ -1007,12 +1007,12 @@
   {
     "id": "inline-following-code-38",
     "source": "- a\n  \t```\n      ~~~\n      code\n      ~~~\nafter\n",
-    "html": "<ul><li>a\n<code>\n~~~\ncode\n~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n<code></code><pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "inline-following-code-40",
     "source": "- a\n  \t```\n      ~~~ =html\n      code\n      ~~~\nafter\n",
-    "html": "<ul><li>a\n<code>\n~~~ =html\ncode\n~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n<code></code>\n    code\n  </li></ul><p>after</p>"
   },
   {
     "id": "inline-following-code-42",
@@ -1022,12 +1022,12 @@
   {
     "id": "inline-following-code-44",
     "source": "- a\n  \t```\n        ~~~\n        code\n        ~~~\nafter\n",
-    "html": "<ul><li>a\n<code>\n~~~\ncode\n~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n<code></code><pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "inline-following-code-46",
     "source": "- a\n  \t```\n        ~~~ =html\n        code\n        ~~~\nafter\n",
-    "html": "<ul><li>a\n<code>\n~~~ =html\ncode\n~~~\nafter</code></li></ul>"
+    "html": "<ul><li>a\n<code></code>\n    code\n  </li></ul><p>after</p>"
   },
   {
     "id": "inline-following-code-48",
@@ -1057,12 +1057,12 @@
   {
     "id": "inline-following-code-62",
     "source": "> - a\n>     ```\n>       ~~~\n>       code\n>       ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code>\n~~~\ncode\n~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n<code></code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "inline-following-code-64",
     "source": "> - a\n>     ```\n>       ~~~ =html\n>       code\n>       ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code>\n~~~ =html\ncode\n~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n<code></code>\n      code\n    </li></ul><p>after</p></blockquote>"
   },
   {
     "id": "inline-following-code-66",
@@ -1072,12 +1072,12 @@
   {
     "id": "inline-following-code-68",
     "source": "> - a\n>     ```\n>         ~~~\n>         code\n>         ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code>\n~~~\ncode\n~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n<code></code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "inline-following-code-70",
     "source": "> - a\n>     ```\n>         ~~~ =html\n>         code\n>         ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code>\n~~~ =html\ncode\n~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n<code></code>\n      code\n    </li></ul><p>after</p></blockquote>"
   },
   {
     "id": "inline-following-code-72",
@@ -1107,12 +1107,12 @@
   {
     "id": "inline-following-code-86",
     "source": "> - a\n>   \t```\n>       ~~~\n>       code\n>       ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code>\n~~~\ncode\n~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n<code></code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "inline-following-code-88",
     "source": "> - a\n>   \t```\n>       ~~~ =html\n>       code\n>       ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code>\n~~~ =html\ncode\n~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n<code></code>\n      code\n    </li></ul><p>after</p></blockquote>"
   },
   {
     "id": "inline-following-code-90",
@@ -1122,12 +1122,12 @@
   {
     "id": "inline-following-code-92",
     "source": "> - a\n>   \t```\n>         ~~~\n>         code\n>         ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code>\n~~~\ncode\n~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n<code></code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "inline-following-code-94",
     "source": "> - a\n>   \t```\n>         ~~~ =html\n>         code\n>         ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code>\n~~~ =html\ncode\n~~~\nafter</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n<code></code>\n      code\n    </li></ul><p>after</p></blockquote>"
   },
   {
     "id": "inline-following-code-96",
@@ -1157,12 +1157,12 @@
   {
     "id": "inline-following-code-110",
     "source": "> > - a\n> >     ```\n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code>\n~~~\ncode\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n<code></code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "inline-following-code-112",
     "source": "> > - a\n> >     ```\n> >       ~~~ =html\n> >       code\n> >       ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code>\n~~~ =html\ncode\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n<code></code>\n        code\n      </li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "inline-following-code-114",
@@ -1172,12 +1172,12 @@
   {
     "id": "inline-following-code-116",
     "source": "> > - a\n> >     ```\n> >         ~~~\n> >         code\n> >         ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code>\n~~~\ncode\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n<code></code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "inline-following-code-118",
     "source": "> > - a\n> >     ```\n> >         ~~~ =html\n> >         code\n> >         ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code>\n~~~ =html\ncode\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n<code></code>\n        code\n      </li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "inline-following-code-120",
@@ -1207,12 +1207,12 @@
   {
     "id": "inline-following-code-134",
     "source": "> > - a\n> >   \t```\n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code>\n~~~\ncode\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n<code></code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "inline-following-code-136",
     "source": "> > - a\n> >   \t```\n> >       ~~~ =html\n> >       code\n> >       ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code>\n~~~ =html\ncode\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n<code></code>\n        code\n      </li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "inline-following-code-138",
@@ -1222,12 +1222,12 @@
   {
     "id": "inline-following-code-140",
     "source": "> > - a\n> >   \t```\n> >         ~~~\n> >         code\n> >         ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code>\n~~~\ncode\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n<code></code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "inline-following-code-142",
     "source": "> > - a\n> >   \t```\n> >         ~~~ =html\n> >         code\n> >         ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code>\n~~~ =html\ncode\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n<code></code>\n        code\n      </li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "2",

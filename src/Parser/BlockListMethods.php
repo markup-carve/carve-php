@@ -756,16 +756,10 @@ trait BlockListMethods
             $origin = IndentationHelper::getLeadingColumns($opener);
         }
         $column = ContinuationMarkerClassifier::columnAt($line, strlen($line) - strlen($body) + strspn($body, " \t"));
-        if ($column !== 0 && $column !== $origin && $column !== $first['column']) {
+        if ($column !== 0 && $column !== $origin) {
             return false;
         }
         $trimmed = ltrim($body, " \t");
-        if (
-            $column === $first['column'] && $column !== $origin
-            && !$this->startsNewBlock($trimmed) && !$this->isBlockElementStart($trimmed)
-        ) {
-            return false;
-        }
 
         return $this->listParser->parseListItemMarker($trimmed) === null;
     }

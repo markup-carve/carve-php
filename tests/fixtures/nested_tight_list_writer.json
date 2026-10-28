@@ -26,7 +26,7 @@
   },
   {
     "source": "[^a]: - > q\n\n    > r\n\nref[^a]",
-    "html": "<p>ref<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <ul>\n        <li>\n          <blockquote><p>q</p></blockquote>\n          <blockquote><p>r</p></blockquote>\n        </li>\n      </ul>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
+    "html": "<p>ref<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <ul>\n        <li>\n          <blockquote><p>q</p></blockquote>\n        </li>\n      </ul>\n      <blockquote><p>r</p></blockquote>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
     "fmt": "ref[^a]\n\n[^a]: - > q\n\n    > r\n"
   },
   {

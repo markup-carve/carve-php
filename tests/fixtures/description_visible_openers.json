@@ -52,7 +52,7 @@
   {
     "id": "lazy-below-fence",
     "source": "- :: t\n  : p\n    ```\n ```\n    > q\n",
-    "html": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>p\n<code>\n</code></p>\n        <blockquote><p>q</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>p\n<code>\n</code></dd>\n    </dl>\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>"
   },
   {
     "id": "lazy-below-text",

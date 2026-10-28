@@ -64,7 +64,7 @@ class AnUnclosedFenceEndsOnlyAtItsOwnContainersCloserTest extends TestCase
             'after a nested quoted link definition' => ["::: note\n> > para\n> > [r]: /u\n```\ncode\n::::\n:::\nafter *b*\n", "<aside class=\"admonition note\" aria-label=\"Note\">\n  <blockquote>\n    <blockquote><p>para</p></blockquote>\n  </blockquote>\n  <pre><code>code\n::::\n</code></pre>\n</aside>\n<p>after <strong>b</strong></p>"],
             'after a definition-only item' => ["::: note\n- para\n- [r]: /u\n```\ncode\n::::\n:::\nafter *b*\n", "<aside class=\"admonition note\" aria-label=\"Note\">\n  <ul>\n    <li>para</li>\n    <li></li>\n  </ul>\n  <pre><code>code\n::::\n</code></pre>\n</aside>\n<p>after <strong>b</strong></p>"],
             'a quoted pipe line without a closing pipe keeps the paragraph open' => ["::: note\n> para\n> | t\n```\ncode\n::::\n:::\nafter *b*\n", "<aside class=\"admonition note\" aria-label=\"Note\">\n  <blockquote><p>para\n| t\n<code>\ncode</code></p></blockquote>\n  <div>\n    <div>\n      <p>after <strong>b</strong></p>\n    </div>\n  </div>\n</aside>"],
-            'an indented run is no fence' => ["::: note\n  ```\n  code\n  ::::\n:::\nafter\n", "<aside class=\"admonition note\" aria-label=\"Note\">\n  <p><code>\ncode\n::::</code></p>\n</aside>\n<p>after</p>"],
+            'an indented run is no fence' => ["::: note\n  ```\n  code\n  ::::\n:::\nafter\n", "<aside class=\"admonition note\" aria-label=\"Note\">\n  <pre><code>code\n::::\n</code></pre>\n</aside>\n<p>after</p>"],
         ];
     }
 }

@@ -10,9 +10,9 @@
   {
     "id": "dedented-code-1",
     "source": "- para\n  ```\n  code\n## heading\n  ```\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p><code></code></p></section>",
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -32,9 +32,9 @@
   {
     "id": "dedented-code-4",
     "source": "- para\n  ```\n  code\n::: box\n  ```\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div>",
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -48,26 +48,22 @@
   {
     "id": "dedented-code-6",
     "source": "- para\n    ```\n    code\ntext\n    ```\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><p>text\n<code></code></p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>\ncode\ntext\n</code></li></ul>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-7",
     "source": "- para\n    ```\n    code\n## heading\n    ```\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p><code></code></p></section>",
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-8",
     "source": "- para\n    ```\n    code\n> quote\n    ```\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-9",
@@ -78,42 +74,36 @@
   {
     "id": "dedented-code-10",
     "source": "- para\n    ```\n    code\n::: box\n    ```\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div>",
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-11",
     "source": "- para\n    ```\n    code\n:: term\n    ```\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><dl><dt>term\n    <code></code></dt></dl>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><dl><dt>term\n    <code></code></dt></dl>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-12",
     "source": "- para\n      ```\n      code\ntext\n      ```\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><p>text\n<code></code></p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>\ncode\ntext\n</code></li></ul>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-13",
     "source": "- para\n      ```\n      code\n## heading\n      ```\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p><code></code></p></section>",
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-14",
     "source": "- para\n      ```\n      code\n> quote\n      ```\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-15",
@@ -124,18 +114,16 @@
   {
     "id": "dedented-code-16",
     "source": "- para\n      ```\n      code\n::: box\n      ```\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div>",
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-17",
     "source": "- para\n      ```\n      code\n:: term\n      ```\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><dl><dt>term\n      <code></code></dt></dl>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><dl><dt>term\n      <code></code></dt></dl>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-18",
@@ -148,9 +136,9 @@
   {
     "id": "dedented-code-19",
     "source": "- para\n  ```php\n  code\n## heading\n  ```\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-php\">code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p><code></code></p></section>",
+    "html": "<ul><li>para\n<code>php\ncode</code></li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -170,9 +158,9 @@
   {
     "id": "dedented-code-22",
     "source": "- para\n  ```php\n  code\n::: box\n  ```\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-php\">code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div>",
+    "html": "<ul><li>para\n<code>php\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -186,26 +174,22 @@
   {
     "id": "dedented-code-24",
     "source": "- para\n    ```php\n    code\ntext\n    ```\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-php\">code\n</code></pre></li></ul><p>text\n<code></code></p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>php\ncode\ntext\n</code></li></ul>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-25",
     "source": "- para\n    ```php\n    code\n## heading\n    ```\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-php\">code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p><code></code></p></section>",
+    "html": "<ul><li>para\n<code>php\ncode</code></li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-26",
     "source": "- para\n    ```php\n    code\n> quote\n    ```\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-php\">code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>php\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-27",
@@ -216,42 +200,36 @@
   {
     "id": "dedented-code-28",
     "source": "- para\n    ```php\n    code\n::: box\n    ```\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-php\">code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div>",
+    "html": "<ul><li>para\n<code>php\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-29",
     "source": "- para\n    ```php\n    code\n:: term\n    ```\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-php\">code\n</code></pre></li></ul><dl><dt>term\n    <code></code></dt></dl>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>php\ncode</code></li></ul><dl><dt>term\n    <code></code></dt></dl>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-30",
     "source": "- para\n      ```php\n      code\ntext\n      ```\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-php\">code\n</code></pre></li></ul><p>text\n<code></code></p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>php\ncode\ntext\n</code></li></ul>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-31",
     "source": "- para\n      ```php\n      code\n## heading\n      ```\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-php\">code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p><code></code></p></section>",
+    "html": "<ul><li>para\n<code>php\ncode</code></li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-32",
     "source": "- para\n      ```php\n      code\n> quote\n      ```\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-php\">code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>php\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-33",
@@ -262,18 +240,16 @@
   {
     "id": "dedented-code-34",
     "source": "- para\n      ```php\n      code\n::: box\n      ```\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-php\">code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div>",
+    "html": "<ul><li>para\n<code>php\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-35",
     "source": "- para\n      ```php\n      code\n:: term\n      ```\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-php\">code\n</code></pre></li></ul><dl><dt>term\n      <code></code></dt></dl>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>php\ncode</code></li></ul><dl><dt>term\n      <code></code></dt></dl>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-36",
@@ -286,9 +262,9 @@
   {
     "id": "dedented-code-37",
     "source": "- para\n  ````\n  code\n## heading\n  ````\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p><code></code></p></section>",
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -308,9 +284,9 @@
   {
     "id": "dedented-code-40",
     "source": "- para\n  ````\n  code\n::: box\n  ````\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div>",
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -324,26 +300,22 @@
   {
     "id": "dedented-code-42",
     "source": "- para\n    ````\n    code\ntext\n    ````\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><p>text\n<code></code></p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>\ncode\ntext\n</code></li></ul>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-43",
     "source": "- para\n    ````\n    code\n## heading\n    ````\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p><code></code></p></section>",
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-44",
     "source": "- para\n    ````\n    code\n> quote\n    ````\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-45",
@@ -354,42 +326,36 @@
   {
     "id": "dedented-code-46",
     "source": "- para\n    ````\n    code\n::: box\n    ````\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div>",
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-47",
     "source": "- para\n    ````\n    code\n:: term\n    ````\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><dl><dt>term\n    <code></code></dt></dl>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><dl><dt>term\n    <code></code></dt></dl>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-48",
     "source": "- para\n      ````\n      code\ntext\n      ````\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><p>text\n<code></code></p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>\ncode\ntext\n</code></li></ul>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-49",
     "source": "- para\n      ````\n      code\n## heading\n      ````\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p><code></code></p></section>",
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-50",
     "source": "- para\n      ````\n      code\n> quote\n      ````\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-51",
@@ -400,18 +366,16 @@
   {
     "id": "dedented-code-52",
     "source": "- para\n      ````\n      code\n::: box\n      ````\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div>",
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-53",
     "source": "- para\n      ````\n      code\n:: term\n      ````\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><dl><dt>term\n      <code></code></dt></dl>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n<code>\ncode</code></li></ul><dl><dt>term\n      <code></code></dt></dl>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-54",
@@ -424,9 +388,9 @@
   {
     "id": "dedented-code-55",
     "source": "- para\n  ~~~\n  code\n## heading\n  ~~~\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p>~~~</p></section>",
+    "html": "<ul><li>para\n~~~\ncode</li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -446,9 +410,9 @@
   {
     "id": "dedented-code-58",
     "source": "- para\n  ~~~\n  code\n::: box\n  ~~~\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div>",
+    "html": "<ul><li>para\n~~~\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -462,26 +426,22 @@
   {
     "id": "dedented-code-60",
     "source": "- para\n    ~~~\n    code\ntext\n    ~~~\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><p>text\n~~~</p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n~~~\ncode\ntext\n~~~</li></ul>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-61",
     "source": "- para\n    ~~~\n    code\n## heading\n    ~~~\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p>~~~</p></section>",
+    "html": "<ul><li>para\n~~~\ncode</li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-62",
     "source": "- para\n    ~~~\n    code\n> quote\n    ~~~\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n~~~</p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n~~~\ncode</li></ul><blockquote><p>quote\n~~~</p></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-63",
@@ -492,42 +452,36 @@
   {
     "id": "dedented-code-64",
     "source": "- para\n    ~~~\n    code\n::: box\n    ~~~\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div>",
+    "html": "<ul><li>para\n~~~\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-65",
     "source": "- para\n    ~~~\n    code\n:: term\n    ~~~\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><dl><dt>term\n    ~~~</dt></dl>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n~~~\ncode</li></ul><dl><dt>term\n    ~~~</dt></dl>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-66",
     "source": "- para\n      ~~~\n      code\ntext\n      ~~~\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><p>text\n~~~</p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n~~~\ncode\ntext\n~~~</li></ul>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-67",
     "source": "- para\n      ~~~\n      code\n## heading\n      ~~~\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p>~~~</p></section>",
+    "html": "<ul><li>para\n~~~\ncode</li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-68",
     "source": "- para\n      ~~~\n      code\n> quote\n      ~~~\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n~~~</p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n~~~\ncode</li></ul><blockquote><p>quote\n~~~</p></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-69",
@@ -538,18 +492,16 @@
   {
     "id": "dedented-code-70",
     "source": "- para\n      ~~~\n      code\n::: box\n      ~~~\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div>",
+    "html": "<ul><li>para\n~~~\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-71",
     "source": "- para\n      ~~~\n      code\n:: term\n      ~~~\n",
-    "html": "<ul><li>para\n    <pre><code>code\n</code></pre></li></ul><dl><dt>term\n      ~~~</dt></dl>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n~~~\ncode</li></ul><dl><dt>term\n      ~~~</dt></dl>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-72",
@@ -562,9 +514,9 @@
   {
     "id": "dedented-code-73",
     "source": "- para\n  ~~~js\n  code\n## heading\n  ~~~\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-js\">code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p>~~~</p></section>",
+    "html": "<ul><li>para\n~~~js\ncode</li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -584,9 +536,9 @@
   {
     "id": "dedented-code-76",
     "source": "- para\n  ~~~js\n  code\n::: box\n  ~~~\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-js\">code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div>",
+    "html": "<ul><li>para\n~~~js\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -600,26 +552,22 @@
   {
     "id": "dedented-code-78",
     "source": "- para\n    ~~~js\n    code\ntext\n    ~~~\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-js\">code\n</code></pre></li></ul><p>text\n~~~</p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n~~~js\ncode\ntext\n~~~</li></ul>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-79",
     "source": "- para\n    ~~~js\n    code\n## heading\n    ~~~\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-js\">code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p>~~~</p></section>",
+    "html": "<ul><li>para\n~~~js\ncode</li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-80",
     "source": "- para\n    ~~~js\n    code\n> quote\n    ~~~\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-js\">code\n</code></pre></li></ul><blockquote><p>quote\n~~~</p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n~~~js\ncode</li></ul><blockquote><p>quote\n~~~</p></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-81",
@@ -630,42 +578,36 @@
   {
     "id": "dedented-code-82",
     "source": "- para\n    ~~~js\n    code\n::: box\n    ~~~\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-js\">code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div>",
+    "html": "<ul><li>para\n~~~js\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-83",
     "source": "- para\n    ~~~js\n    code\n:: term\n    ~~~\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-js\">code\n</code></pre></li></ul><dl><dt>term\n    ~~~</dt></dl>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n~~~js\ncode</li></ul><dl><dt>term\n    ~~~</dt></dl>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-84",
     "source": "- para\n      ~~~js\n      code\ntext\n      ~~~\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-js\">code\n</code></pre></li></ul><p>text\n~~~</p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n~~~js\ncode\ntext\n~~~</li></ul>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-85",
     "source": "- para\n      ~~~js\n      code\n## heading\n      ~~~\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-js\">code\n</code></pre></li></ul><section id=\"heading\"><h2>heading</h2><p>~~~</p></section>",
+    "html": "<ul><li>para\n~~~js\ncode</li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-86",
     "source": "- para\n      ~~~js\n      code\n> quote\n      ~~~\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-js\">code\n</code></pre></li></ul><blockquote><p>quote\n~~~</p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n~~~js\ncode</li></ul><blockquote><p>quote\n~~~</p></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-87",
@@ -676,18 +618,16 @@
   {
     "id": "dedented-code-88",
     "source": "- para\n      ~~~js\n      code\n::: box\n      ~~~\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-js\">code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div>",
+    "html": "<ul><li>para\n~~~js\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-89",
     "source": "- para\n      ~~~js\n      code\n:: term\n      ~~~\n",
-    "html": "<ul><li>para\n    <pre><code class=\"language-js\">code\n</code></pre></li></ul><dl><dt>term\n      ~~~</dt></dl>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li>para\n~~~js\ncode</li></ul><dl><dt>term\n      ~~~</dt></dl>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-90",
@@ -698,8 +638,10 @@
   {
     "id": "dedented-code-91",
     "source": "- para\n  ```=html\n  code\n## heading\n  ```\n",
-    "html": "<ul><li>para\n    code\n  </li></ul><section id=\"heading\"><h2>heading</h2><p><code></code></p></section>",
-    "codePayloads": []
+    "html": "<ul><li>para\n<code>=html\ncode</code></li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-92",
@@ -716,8 +658,10 @@
   {
     "id": "dedented-code-94",
     "source": "- para\n  ```=html\n  code\n::: box\n  ```\n",
-    "html": "<ul><li>para\n    code\n  </li></ul><div class=\"box\"><p><code></code></p></div>",
-    "codePayloads": []
+    "html": "<ul><li>para\n<code>=html\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-95",
@@ -728,19 +672,21 @@
   {
     "id": "dedented-code-96",
     "source": "- para\n    ```=html\n    code\ntext\n    ```\n",
-    "html": "<ul><li>para\n    code\n  </li></ul><p>text\n<code></code></p>",
+    "html": "<ul><li>para\n<code>=html\ncode\ntext\n</code></li></ul>",
     "codePayloads": []
   },
   {
     "id": "dedented-code-97",
     "source": "- para\n    ```=html\n    code\n## heading\n    ```\n",
-    "html": "<ul><li>para\n    code\n  </li></ul><section id=\"heading\"><h2>heading</h2><p><code></code></p></section>",
-    "codePayloads": []
+    "html": "<ul><li>para\n<code>=html\ncode</code></li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-98",
     "source": "- para\n    ```=html\n    code\n> quote\n    ```\n",
-    "html": "<ul><li>para\n    code\n  </li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
+    "html": "<ul><li>para\n<code>=html\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
     "codePayloads": []
   },
   {
@@ -752,31 +698,35 @@
   {
     "id": "dedented-code-100",
     "source": "- para\n    ```=html\n    code\n::: box\n    ```\n",
-    "html": "<ul><li>para\n    code\n  </li></ul><div class=\"box\"><p><code></code></p></div>",
-    "codePayloads": []
+    "html": "<ul><li>para\n<code>=html\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-101",
     "source": "- para\n    ```=html\n    code\n:: term\n    ```\n",
-    "html": "<ul><li>para\n    code\n  </li></ul><dl><dt>term\n    <code></code></dt></dl>",
+    "html": "<ul><li>para\n<code>=html\ncode</code></li></ul><dl><dt>term\n    <code></code></dt></dl>",
     "codePayloads": []
   },
   {
     "id": "dedented-code-102",
     "source": "- para\n      ```=html\n      code\ntext\n      ```\n",
-    "html": "<ul><li>para\n    code\n  </li></ul><p>text\n<code></code></p>",
+    "html": "<ul><li>para\n<code>=html\ncode\ntext\n</code></li></ul>",
     "codePayloads": []
   },
   {
     "id": "dedented-code-103",
     "source": "- para\n      ```=html\n      code\n## heading\n      ```\n",
-    "html": "<ul><li>para\n    code\n  </li></ul><section id=\"heading\"><h2>heading</h2><p><code></code></p></section>",
-    "codePayloads": []
+    "html": "<ul><li>para\n<code>=html\ncode</code></li></ul><section id=\"heading\"><h2>heading</h2><pre><code></code></pre></section>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-104",
     "source": "- para\n      ```=html\n      code\n> quote\n      ```\n",
-    "html": "<ul><li>para\n    code\n  </li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
+    "html": "<ul><li>para\n<code>=html\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote>",
     "codePayloads": []
   },
   {
@@ -788,13 +738,15 @@
   {
     "id": "dedented-code-106",
     "source": "- para\n      ```=html\n      code\n::: box\n      ```\n",
-    "html": "<ul><li>para\n    code\n  </li></ul><div class=\"box\"><p><code></code></p></div>",
-    "codePayloads": []
+    "html": "<ul><li>para\n<code>=html\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-107",
     "source": "- para\n      ```=html\n      code\n:: term\n      ```\n",
-    "html": "<ul><li>para\n    code\n  </li></ul><dl><dt>term\n      <code></code></dt></dl>",
+    "html": "<ul><li>para\n<code>=html\ncode</code></li></ul><dl><dt>term\n      <code></code></dt></dl>",
     "codePayloads": []
   },
   {
@@ -808,9 +760,9 @@
   {
     "id": "dedented-code-109",
     "source": "> - para\n>   ```\n>   code\n> ## heading\n>   ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -830,9 +782,9 @@
   {
     "id": "dedented-code-112",
     "source": "> - para\n>   ```\n>   code\n> ::: box\n>   ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -846,26 +798,22 @@
   {
     "id": "dedented-code-114",
     "source": "> - para\n>     ```\n>     code\n> text\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><p>text\n<code></code></p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>\ncode\ntext\n</code></li></ul></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-115",
     "source": "> - para\n>     ```\n>     code\n> ## heading\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-116",
     "source": "> - para\n>     ```\n>     code\n> > quote\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-117",
@@ -876,42 +824,36 @@
   {
     "id": "dedented-code-118",
     "source": "> - para\n>     ```\n>     code\n> ::: box\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-119",
     "source": "> - para\n>     ```\n>     code\n> :: term\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-120",
     "source": "> - para\n>       ```\n>       code\n> text\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><p>text\n<code></code></p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>\ncode\ntext\n</code></li></ul></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-121",
     "source": "> - para\n>       ```\n>       code\n> ## heading\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-122",
     "source": "> - para\n>       ```\n>       code\n> > quote\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-123",
@@ -922,18 +864,16 @@
   {
     "id": "dedented-code-124",
     "source": "> - para\n>       ```\n>       code\n> ::: box\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-125",
     "source": "> - para\n>       ```\n>       code\n> :: term\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-126",
@@ -946,9 +886,9 @@
   {
     "id": "dedented-code-127",
     "source": "> - para\n>   ```php\n>   code\n> ## heading\n>   ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-php\">code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>php\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -968,9 +908,9 @@
   {
     "id": "dedented-code-130",
     "source": "> - para\n>   ```php\n>   code\n> ::: box\n>   ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-php\">code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>php\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -984,26 +924,22 @@
   {
     "id": "dedented-code-132",
     "source": "> - para\n>     ```php\n>     code\n> text\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-php\">code\n</code></pre></li></ul><p>text\n<code></code></p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>php\ncode\ntext\n</code></li></ul></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-133",
     "source": "> - para\n>     ```php\n>     code\n> ## heading\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-php\">code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>php\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-134",
     "source": "> - para\n>     ```php\n>     code\n> > quote\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-php\">code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>php\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-135",
@@ -1014,42 +950,36 @@
   {
     "id": "dedented-code-136",
     "source": "> - para\n>     ```php\n>     code\n> ::: box\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-php\">code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>php\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-137",
     "source": "> - para\n>     ```php\n>     code\n> :: term\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-php\">code\n</code></pre></li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>php\ncode</code></li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-138",
     "source": "> - para\n>       ```php\n>       code\n> text\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-php\">code\n</code></pre></li></ul><p>text\n<code></code></p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>php\ncode\ntext\n</code></li></ul></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-139",
     "source": "> - para\n>       ```php\n>       code\n> ## heading\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-php\">code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>php\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-140",
     "source": "> - para\n>       ```php\n>       code\n> > quote\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-php\">code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>php\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-141",
@@ -1060,18 +990,16 @@
   {
     "id": "dedented-code-142",
     "source": "> - para\n>       ```php\n>       code\n> ::: box\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-php\">code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>php\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-143",
     "source": "> - para\n>       ```php\n>       code\n> :: term\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-php\">code\n</code></pre></li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>php\ncode</code></li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-144",
@@ -1084,9 +1012,9 @@
   {
     "id": "dedented-code-145",
     "source": "> - para\n>   ````\n>   code\n> ## heading\n>   ````\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -1106,9 +1034,9 @@
   {
     "id": "dedented-code-148",
     "source": "> - para\n>   ````\n>   code\n> ::: box\n>   ````\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -1122,26 +1050,22 @@
   {
     "id": "dedented-code-150",
     "source": "> - para\n>     ````\n>     code\n> text\n>     ````\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><p>text\n<code></code></p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>\ncode\ntext\n</code></li></ul></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-151",
     "source": "> - para\n>     ````\n>     code\n> ## heading\n>     ````\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-152",
     "source": "> - para\n>     ````\n>     code\n> > quote\n>     ````\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-153",
@@ -1152,42 +1076,36 @@
   {
     "id": "dedented-code-154",
     "source": "> - para\n>     ````\n>     code\n> ::: box\n>     ````\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-155",
     "source": "> - para\n>     ````\n>     code\n> :: term\n>     ````\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-156",
     "source": "> - para\n>       ````\n>       code\n> text\n>       ````\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><p>text\n<code></code></p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>\ncode\ntext\n</code></li></ul></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-157",
     "source": "> - para\n>       ````\n>       code\n> ## heading\n>       ````\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-158",
     "source": "> - para\n>       ````\n>       code\n> > quote\n>       ````\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-159",
@@ -1198,18 +1116,16 @@
   {
     "id": "dedented-code-160",
     "source": "> - para\n>       ````\n>       code\n> ::: box\n>       ````\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-161",
     "source": "> - para\n>       ````\n>       code\n> :: term\n>       ````\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n<code>\ncode</code></li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-162",
@@ -1222,9 +1138,9 @@
   {
     "id": "dedented-code-163",
     "source": "> - para\n>   ~~~\n>   code\n> ## heading\n>   ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p>~~~</p></blockquote>",
+    "html": "<blockquote><ul><li>para\n~~~\ncode</li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -1244,9 +1160,9 @@
   {
     "id": "dedented-code-166",
     "source": "> - para\n>   ~~~\n>   code\n> ::: box\n>   ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n~~~\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -1260,26 +1176,22 @@
   {
     "id": "dedented-code-168",
     "source": "> - para\n>     ~~~\n>     code\n> text\n>     ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><p>text\n~~~</p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n~~~\ncode\ntext\n~~~</li></ul></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-169",
     "source": "> - para\n>     ~~~\n>     code\n> ## heading\n>     ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p>~~~</p></blockquote>",
+    "html": "<blockquote><ul><li>para\n~~~\ncode</li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-170",
     "source": "> - para\n>     ~~~\n>     code\n> > quote\n>     ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n~~~\ncode</li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-171",
@@ -1290,42 +1202,36 @@
   {
     "id": "dedented-code-172",
     "source": "> - para\n>     ~~~\n>     code\n> ::: box\n>     ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n~~~\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-173",
     "source": "> - para\n>     ~~~\n>     code\n> :: term\n>     ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><dl><dt>term\n    ~~~</dt></dl></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n~~~\ncode</li></ul><dl><dt>term\n    ~~~</dt></dl></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-174",
     "source": "> - para\n>       ~~~\n>       code\n> text\n>       ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><p>text\n~~~</p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n~~~\ncode\ntext\n~~~</li></ul></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-175",
     "source": "> - para\n>       ~~~\n>       code\n> ## heading\n>       ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p>~~~</p></blockquote>",
+    "html": "<blockquote><ul><li>para\n~~~\ncode</li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-176",
     "source": "> - para\n>       ~~~\n>       code\n> > quote\n>       ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n~~~\ncode</li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-177",
@@ -1336,18 +1242,16 @@
   {
     "id": "dedented-code-178",
     "source": "> - para\n>       ~~~\n>       code\n> ::: box\n>       ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n~~~\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-179",
     "source": "> - para\n>       ~~~\n>       code\n> :: term\n>       ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code>code\n</code></pre></li></ul><dl><dt>term\n      ~~~</dt></dl></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n~~~\ncode</li></ul><dl><dt>term\n      ~~~</dt></dl></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-180",
@@ -1360,9 +1264,9 @@
   {
     "id": "dedented-code-181",
     "source": "> - para\n>   ~~~js\n>   code\n> ## heading\n>   ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-js\">code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p>~~~</p></blockquote>",
+    "html": "<blockquote><ul><li>para\n~~~js\ncode</li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -1382,9 +1286,9 @@
   {
     "id": "dedented-code-184",
     "source": "> - para\n>   ~~~js\n>   code\n> ::: box\n>   ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-js\">code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n~~~js\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -1398,26 +1302,22 @@
   {
     "id": "dedented-code-186",
     "source": "> - para\n>     ~~~js\n>     code\n> text\n>     ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-js\">code\n</code></pre></li></ul><p>text\n~~~</p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n~~~js\ncode\ntext\n~~~</li></ul></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-187",
     "source": "> - para\n>     ~~~js\n>     code\n> ## heading\n>     ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-js\">code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p>~~~</p></blockquote>",
+    "html": "<blockquote><ul><li>para\n~~~js\ncode</li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-188",
     "source": "> - para\n>     ~~~js\n>     code\n> > quote\n>     ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-js\">code\n</code></pre></li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n~~~js\ncode</li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-189",
@@ -1428,42 +1328,36 @@
   {
     "id": "dedented-code-190",
     "source": "> - para\n>     ~~~js\n>     code\n> ::: box\n>     ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-js\">code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n~~~js\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-191",
     "source": "> - para\n>     ~~~js\n>     code\n> :: term\n>     ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-js\">code\n</code></pre></li></ul><dl><dt>term\n    ~~~</dt></dl></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n~~~js\ncode</li></ul><dl><dt>term\n    ~~~</dt></dl></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-192",
     "source": "> - para\n>       ~~~js\n>       code\n> text\n>       ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-js\">code\n</code></pre></li></ul><p>text\n~~~</p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n~~~js\ncode\ntext\n~~~</li></ul></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-193",
     "source": "> - para\n>       ~~~js\n>       code\n> ## heading\n>       ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-js\">code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p>~~~</p></blockquote>",
+    "html": "<blockquote><ul><li>para\n~~~js\ncode</li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-194",
     "source": "> - para\n>       ~~~js\n>       code\n> > quote\n>       ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-js\">code\n</code></pre></li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n~~~js\ncode</li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-195",
@@ -1474,18 +1368,16 @@
   {
     "id": "dedented-code-196",
     "source": "> - para\n>       ~~~js\n>       code\n> ::: box\n>       ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-js\">code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div></blockquote>",
+    "html": "<blockquote><ul><li>para\n~~~js\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-197",
     "source": "> - para\n>       ~~~js\n>       code\n> :: term\n>       ~~~\n",
-    "html": "<blockquote><ul><li>para\n      <pre><code class=\"language-js\">code\n</code></pre></li></ul><dl><dt>term\n      ~~~</dt></dl></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li>para\n~~~js\ncode</li></ul><dl><dt>term\n      ~~~</dt></dl></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-198",
@@ -1496,8 +1388,10 @@
   {
     "id": "dedented-code-199",
     "source": "> - para\n>   ```=html\n>   code\n> ## heading\n>   ```\n",
-    "html": "<blockquote><ul><li>para\n      code\n    </li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-200",
@@ -1514,8 +1408,10 @@
   {
     "id": "dedented-code-202",
     "source": "> - para\n>   ```=html\n>   code\n> ::: box\n>   ```\n",
-    "html": "<blockquote><ul><li>para\n      code\n    </li></ul><div class=\"box\"><p><code></code></p></div></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-203",
@@ -1526,19 +1422,21 @@
   {
     "id": "dedented-code-204",
     "source": "> - para\n>     ```=html\n>     code\n> text\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      code\n    </li></ul><p>text\n<code></code></p></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>=html\ncode\ntext\n</code></li></ul></blockquote>",
     "codePayloads": []
   },
   {
     "id": "dedented-code-205",
     "source": "> - para\n>     ```=html\n>     code\n> ## heading\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      code\n    </li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-206",
     "source": "> - para\n>     ```=html\n>     code\n> > quote\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      code\n    </li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1550,31 +1448,35 @@
   {
     "id": "dedented-code-208",
     "source": "> - para\n>     ```=html\n>     code\n> ::: box\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      code\n    </li></ul><div class=\"box\"><p><code></code></p></div></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-209",
     "source": "> - para\n>     ```=html\n>     code\n> :: term\n>     ```\n",
-    "html": "<blockquote><ul><li>para\n      code\n    </li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote>",
     "codePayloads": []
   },
   {
     "id": "dedented-code-210",
     "source": "> - para\n>       ```=html\n>       code\n> text\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      code\n    </li></ul><p>text\n<code></code></p></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>=html\ncode\ntext\n</code></li></ul></blockquote>",
     "codePayloads": []
   },
   {
     "id": "dedented-code-211",
     "source": "> - para\n>       ```=html\n>       code\n> ## heading\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      code\n    </li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-212",
     "source": "> - para\n>       ```=html\n>       code\n> > quote\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      code\n    </li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1586,13 +1488,15 @@
   {
     "id": "dedented-code-214",
     "source": "> - para\n>       ```=html\n>       code\n> ::: box\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      code\n    </li></ul><div class=\"box\"><p><code></code></p></div></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-215",
     "source": "> - para\n>       ```=html\n>       code\n> :: term\n>       ```\n",
-    "html": "<blockquote><ul><li>para\n      code\n    </li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote>",
+    "html": "<blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote>",
     "codePayloads": []
   },
   {
@@ -1606,9 +1510,9 @@
   {
     "id": "dedented-code-217",
     "source": "> > - para\n> >   ```\n> >   code\n> > ## heading\n> >   ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -1628,9 +1532,9 @@
   {
     "id": "dedented-code-220",
     "source": "> > - para\n> >   ```\n> >   code\n> > ::: box\n> >   ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -1644,26 +1548,22 @@
   {
     "id": "dedented-code-222",
     "source": "> > - para\n> >     ```\n> >     code\n> > text\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><p>text\n<code></code></p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode\ntext\n</code></li></ul></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-223",
     "source": "> > - para\n> >     ```\n> >     code\n> > ## heading\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-224",
     "source": "> > - para\n> >     ```\n> >     code\n> > > quote\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-225",
@@ -1674,42 +1574,36 @@
   {
     "id": "dedented-code-226",
     "source": "> > - para\n> >     ```\n> >     code\n> > ::: box\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-227",
     "source": "> > - para\n> >     ```\n> >     code\n> > :: term\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-228",
     "source": "> > - para\n> >       ```\n> >       code\n> > text\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><p>text\n<code></code></p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode\ntext\n</code></li></ul></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-229",
     "source": "> > - para\n> >       ```\n> >       code\n> > ## heading\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-230",
     "source": "> > - para\n> >       ```\n> >       code\n> > > quote\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-231",
@@ -1720,18 +1614,16 @@
   {
     "id": "dedented-code-232",
     "source": "> > - para\n> >       ```\n> >       code\n> > ::: box\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-233",
     "source": "> > - para\n> >       ```\n> >       code\n> > :: term\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-234",
@@ -1744,9 +1636,9 @@
   {
     "id": "dedented-code-235",
     "source": "> > - para\n> >   ```php\n> >   code\n> > ## heading\n> >   ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-php\">code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>php\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -1766,9 +1658,9 @@
   {
     "id": "dedented-code-238",
     "source": "> > - para\n> >   ```php\n> >   code\n> > ::: box\n> >   ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-php\">code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>php\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -1782,26 +1674,22 @@
   {
     "id": "dedented-code-240",
     "source": "> > - para\n> >     ```php\n> >     code\n> > text\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-php\">code\n</code></pre></li></ul><p>text\n<code></code></p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>php\ncode\ntext\n</code></li></ul></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-241",
     "source": "> > - para\n> >     ```php\n> >     code\n> > ## heading\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-php\">code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>php\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-242",
     "source": "> > - para\n> >     ```php\n> >     code\n> > > quote\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-php\">code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>php\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-243",
@@ -1812,42 +1700,36 @@
   {
     "id": "dedented-code-244",
     "source": "> > - para\n> >     ```php\n> >     code\n> > ::: box\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-php\">code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>php\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-245",
     "source": "> > - para\n> >     ```php\n> >     code\n> > :: term\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-php\">code\n</code></pre></li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>php\ncode</code></li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-246",
     "source": "> > - para\n> >       ```php\n> >       code\n> > text\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-php\">code\n</code></pre></li></ul><p>text\n<code></code></p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>php\ncode\ntext\n</code></li></ul></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-247",
     "source": "> > - para\n> >       ```php\n> >       code\n> > ## heading\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-php\">code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>php\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-248",
     "source": "> > - para\n> >       ```php\n> >       code\n> > > quote\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-php\">code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>php\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-249",
@@ -1858,18 +1740,16 @@
   {
     "id": "dedented-code-250",
     "source": "> > - para\n> >       ```php\n> >       code\n> > ::: box\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-php\">code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>php\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-251",
     "source": "> > - para\n> >       ```php\n> >       code\n> > :: term\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-php\">code\n</code></pre></li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>php\ncode</code></li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-252",
@@ -1882,9 +1762,9 @@
   {
     "id": "dedented-code-253",
     "source": "> > - para\n> >   ````\n> >   code\n> > ## heading\n> >   ````\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -1904,9 +1784,9 @@
   {
     "id": "dedented-code-256",
     "source": "> > - para\n> >   ````\n> >   code\n> > ::: box\n> >   ````\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -1920,26 +1800,22 @@
   {
     "id": "dedented-code-258",
     "source": "> > - para\n> >     ````\n> >     code\n> > text\n> >     ````\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><p>text\n<code></code></p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode\ntext\n</code></li></ul></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-259",
     "source": "> > - para\n> >     ````\n> >     code\n> > ## heading\n> >     ````\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-260",
     "source": "> > - para\n> >     ````\n> >     code\n> > > quote\n> >     ````\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-261",
@@ -1950,42 +1826,36 @@
   {
     "id": "dedented-code-262",
     "source": "> > - para\n> >     ````\n> >     code\n> > ::: box\n> >     ````\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-263",
     "source": "> > - para\n> >     ````\n> >     code\n> > :: term\n> >     ````\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-264",
     "source": "> > - para\n> >       ````\n> >       code\n> > text\n> >       ````\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><p>text\n<code></code></p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode\ntext\n</code></li></ul></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-265",
     "source": "> > - para\n> >       ````\n> >       code\n> > ## heading\n> >       ````\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-266",
     "source": "> > - para\n> >       ````\n> >       code\n> > > quote\n> >       ````\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-267",
@@ -1996,18 +1866,16 @@
   {
     "id": "dedented-code-268",
     "source": "> > - para\n> >       ````\n> >       code\n> > ::: box\n> >       ````\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p><code></code></p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-269",
     "source": "> > - para\n> >       ````\n> >       code\n> > :: term\n> >       ````\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n<code>\ncode</code></li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-270",
@@ -2020,9 +1888,9 @@
   {
     "id": "dedented-code-271",
     "source": "> > - para\n> >   ~~~\n> >   code\n> > ## heading\n> >   ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p>~~~</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n~~~\ncode</li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -2042,9 +1910,9 @@
   {
     "id": "dedented-code-274",
     "source": "> > - para\n> >   ~~~\n> >   code\n> > ::: box\n> >   ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n~~~\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -2058,26 +1926,22 @@
   {
     "id": "dedented-code-276",
     "source": "> > - para\n> >     ~~~\n> >     code\n> > text\n> >     ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><p>text\n~~~</p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n~~~\ncode\ntext\n~~~</li></ul></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-277",
     "source": "> > - para\n> >     ~~~\n> >     code\n> > ## heading\n> >     ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p>~~~</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n~~~\ncode</li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-278",
     "source": "> > - para\n> >     ~~~\n> >     code\n> > > quote\n> >     ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n~~~\ncode</li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-279",
@@ -2088,42 +1952,36 @@
   {
     "id": "dedented-code-280",
     "source": "> > - para\n> >     ~~~\n> >     code\n> > ::: box\n> >     ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n~~~\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-281",
     "source": "> > - para\n> >     ~~~\n> >     code\n> > :: term\n> >     ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><dl><dt>term\n    ~~~</dt></dl></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n~~~\ncode</li></ul><dl><dt>term\n    ~~~</dt></dl></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-282",
     "source": "> > - para\n> >       ~~~\n> >       code\n> > text\n> >       ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><p>text\n~~~</p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n~~~\ncode\ntext\n~~~</li></ul></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-283",
     "source": "> > - para\n> >       ~~~\n> >       code\n> > ## heading\n> >       ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p>~~~</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n~~~\ncode</li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-284",
     "source": "> > - para\n> >       ~~~\n> >       code\n> > > quote\n> >       ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n~~~\ncode</li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-285",
@@ -2134,18 +1992,16 @@
   {
     "id": "dedented-code-286",
     "source": "> > - para\n> >       ~~~\n> >       code\n> > ::: box\n> >       ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n~~~\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-287",
     "source": "> > - para\n> >       ~~~\n> >       code\n> > :: term\n> >       ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code>code\n</code></pre></li></ul><dl><dt>term\n      ~~~</dt></dl></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n~~~\ncode</li></ul><dl><dt>term\n      ~~~</dt></dl></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-288",
@@ -2158,9 +2014,9 @@
   {
     "id": "dedented-code-289",
     "source": "> > - para\n> >   ~~~js\n> >   code\n> > ## heading\n> >   ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-js\">code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p>~~~</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n~~~js\ncode</li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -2180,9 +2036,9 @@
   {
     "id": "dedented-code-292",
     "source": "> > - para\n> >   ~~~js\n> >   code\n> > ::: box\n> >   ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-js\">code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n~~~js\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
@@ -2196,26 +2052,22 @@
   {
     "id": "dedented-code-294",
     "source": "> > - para\n> >     ~~~js\n> >     code\n> > text\n> >     ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-js\">code\n</code></pre></li></ul><p>text\n~~~</p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n~~~js\ncode\ntext\n~~~</li></ul></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-295",
     "source": "> > - para\n> >     ~~~js\n> >     code\n> > ## heading\n> >     ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-js\">code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p>~~~</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n~~~js\ncode</li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-296",
     "source": "> > - para\n> >     ~~~js\n> >     code\n> > > quote\n> >     ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-js\">code\n</code></pre></li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n~~~js\ncode</li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-297",
@@ -2226,42 +2078,36 @@
   {
     "id": "dedented-code-298",
     "source": "> > - para\n> >     ~~~js\n> >     code\n> > ::: box\n> >     ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-js\">code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n~~~js\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-299",
     "source": "> > - para\n> >     ~~~js\n> >     code\n> > :: term\n> >     ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-js\">code\n</code></pre></li></ul><dl><dt>term\n    ~~~</dt></dl></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n~~~js\ncode</li></ul><dl><dt>term\n    ~~~</dt></dl></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-300",
     "source": "> > - para\n> >       ~~~js\n> >       code\n> > text\n> >       ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-js\">code\n</code></pre></li></ul><p>text\n~~~</p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n~~~js\ncode\ntext\n~~~</li></ul></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-301",
     "source": "> > - para\n> >       ~~~js\n> >       code\n> > ## heading\n> >       ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-js\">code\n</code></pre></li></ul><h2 id=\"heading\">heading</h2><p>~~~</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n~~~js\ncode</li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-302",
     "source": "> > - para\n> >       ~~~js\n> >       code\n> > > quote\n> >       ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-js\">code\n</code></pre></li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n~~~js\ncode</li></ul><blockquote><p>quote\n~~~</p></blockquote></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-303",
@@ -2272,18 +2118,16 @@
   {
     "id": "dedented-code-304",
     "source": "> > - para\n> >       ~~~js\n> >       code\n> > ::: box\n> >       ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-js\">code\n</code></pre></li></ul><div class=\"box\"><p>~~~</p></div></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n~~~js\ncode</li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
     "codePayloads": [
-      "code\n"
+      ""
     ]
   },
   {
     "id": "dedented-code-305",
     "source": "> > - para\n> >       ~~~js\n> >       code\n> > :: term\n> >       ~~~\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        <pre><code class=\"language-js\">code\n</code></pre></li></ul><dl><dt>term\n      ~~~</dt></dl></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li>para\n~~~js\ncode</li></ul><dl><dt>term\n      ~~~</dt></dl></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "dedented-code-306",
@@ -2294,8 +2138,10 @@
   {
     "id": "dedented-code-307",
     "source": "> > - para\n> >   ```=html\n> >   code\n> > ## heading\n> >   ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        code\n      </li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-308",
@@ -2312,8 +2158,10 @@
   {
     "id": "dedented-code-310",
     "source": "> > - para\n> >   ```=html\n> >   code\n> > ::: box\n> >   ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        code\n      </li></ul><div class=\"box\"><p><code></code></p></div></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-311",
@@ -2324,19 +2172,21 @@
   {
     "id": "dedented-code-312",
     "source": "> > - para\n> >     ```=html\n> >     code\n> > text\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        code\n      </li></ul><p>text\n<code></code></p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>=html\ncode\ntext\n</code></li></ul></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "dedented-code-313",
     "source": "> > - para\n> >     ```=html\n> >     code\n> > ## heading\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        code\n      </li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-314",
     "source": "> > - para\n> >     ```=html\n> >     code\n> > > quote\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        code\n      </li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -2348,31 +2198,35 @@
   {
     "id": "dedented-code-316",
     "source": "> > - para\n> >     ```=html\n> >     code\n> > ::: box\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        code\n      </li></ul><div class=\"box\"><p><code></code></p></div></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-317",
     "source": "> > - para\n> >     ```=html\n> >     code\n> > :: term\n> >     ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        code\n      </li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><dl><dt>term\n    <code></code></dt></dl></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "dedented-code-318",
     "source": "> > - para\n> >       ```=html\n> >       code\n> > text\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        code\n      </li></ul><p>text\n<code></code></p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>=html\ncode\ntext\n</code></li></ul></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "dedented-code-319",
     "source": "> > - para\n> >       ```=html\n> >       code\n> > ## heading\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        code\n      </li></ul><h2 id=\"heading\">heading</h2><p><code></code></p></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><h2 id=\"heading\">heading</h2><pre><code></code></pre></blockquote></blockquote>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-320",
     "source": "> > - para\n> >       ```=html\n> >       code\n> > > quote\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        code\n      </li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><blockquote><p>quote\n<code></code></p></blockquote></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -2384,13 +2238,15 @@
   {
     "id": "dedented-code-322",
     "source": "> > - para\n> >       ```=html\n> >       code\n> > ::: box\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        code\n      </li></ul><div class=\"box\"><p><code></code></p></div></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><div class=\"box\"><pre><code></code></pre></div></blockquote></blockquote>",
+    "codePayloads": [
+      ""
+    ]
   },
   {
     "id": "dedented-code-323",
     "source": "> > - para\n> >       ```=html\n> >       code\n> > :: term\n> >       ```\n",
-    "html": "<blockquote><blockquote><ul><li>para\n        code\n      </li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>para\n<code>=html\ncode</code></li></ul><dl><dt>term\n      <code></code></dt></dl></blockquote></blockquote>",
     "codePayloads": []
   }
 ]

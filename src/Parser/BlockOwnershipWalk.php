@@ -28,6 +28,13 @@ final class BlockOwnershipWalk
 
     private int $reach = 0;
 
+    /**
+     * Lines the walk read as lazy paragraph text, keyed by line index.
+     *
+     * @var array<int, true>
+     */
+    public array $lazyLines = [];
+
     /** @var array{widest: array<string, array<int, int>>, lastComment: array<int, int>}|null */
     private ?array $runs = null;
 
@@ -58,6 +65,7 @@ final class BlockOwnershipWalk
         $this->lines = $lines;
         $this->runs = null;
         $this->reach = 0;
+        $this->lazyLines = [];
         $this->frames = [['kind' => 'doc', 'col' => 0, 'canon' => 0, 'cut' => 0, 'para' => false, 'last' => null]];
         $result = [];
         $afterPlus = false;
@@ -124,9 +132,26 @@ final class BlockOwnershipWalk
             $inner = $this->frames[$innerIndex];
             if ($inner['kind'] === 'fence' && !$missed) {
                 $this->lead(max($this->m['col'] - $inner['cut'], $inner['canon']));
-                if ($this->m['rest'] !== '' && ($inner['closes'])($this->m['rest'])) {
+                $rest = $this->m['rest'];
+                if ($rest !== '' && $inner['span'] !== null) {
+                    $span = $inner['span'];
+                    $comment = $span[0] === '%';
+                    if (preg_match($comment ? '/^(%{3,})/' : '/^(`{3,}|~{3,})[ \t]*$/D', $rest, $c) === 1 && $c[1][0] === $span[0]
+                        && ($comment ? strlen($c[1]) === strlen($span) : strlen($c[1]) >= strlen($span))) {
+                        $this->frames[$innerIndex]['span'] = null;
+                    }
+                } elseif ($rest !== '' && ($inner['closes'])($rest)) {
                     array_pop($this->frames);
                     $this->frames[count($this->frames) - 1]['last'] = 'block';
+                } elseif ($inner['lineBlock']) {
+                    // A span in a line-block payload pairs past the column too (carve-php#3137).
+                    if (preg_match('/^(`{3,}|~{3,})(.*)$/D', $rest, $f) === 1
+                        && ($this->fenced->parseCodeFenceOpener($rest) !== null || $this->fenced->parseRawBlockOpener($rest) !== null)
+                        && ($this->closerRuns()['widest'][$f[1][0]][$at + 1] ?? 0) >= strlen($f[1])) {
+                        $this->frames[$innerIndex]['span'] = $f[1];
+                    } elseif (preg_match('/^(%{3,})/', $rest, $c) === 1 && ($this->closerRuns()['lastComment'][strlen($c[1])] ?? -1) > $at) {
+                        $this->frames[$innerIndex]['span'] = $c[1];
+                    }
                 }
                 $result[] = $this->out . $this->src;
 
@@ -144,6 +169,7 @@ final class BlockOwnershipWalk
                 $limit = $next['kind'] === 'quote' ? PHP_INT_MAX : $next['canon'] - 1;
                 $this->lead(min(max($this->m['col'] - $owner['cut'], $owner['canon']), $limit));
                 $result[] = $this->out . $this->src;
+                $this->lazyLines[$at] = true;
 
                 continue;
             }
@@ -166,13 +192,16 @@ final class BlockOwnershipWalk
                 $this->frames[$t]['last'] = 'block';
             } elseif ($form['kind'] === 'text') {
                 $owner = $this->frames[$o];
+                $term = $owner['para'] && $owner['last'] === 'term';
                 $this->lead($owner['para'] || !$closedColumn || $plusFollower
-                    ? max($this->m['col'] - $owner['cut'], $owner['canon'])
-                    : $owner['canon']);
+                    ? max($this->m['col'] - ($term ? $owner['termCut'] : $owner['cut']), $owner['canon'])
+                    : $owner['canon'], $term);
                 $this->frames[$o]['para'] = true;
-                $this->frames[$o]['last'] = 'para';
+                if (!$term) {
+                    $this->frames[$o]['last'] = 'para';
+                }
             } else {
-                $this->lead($this->frames[$o]['canon']);
+                $this->lead($this->frames[$o]['canon'], $form['kind'] === 'term' || $form['kind'] === 'dd');
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]['canon']);
             }
             $result[] = $this->out . $this->src;
@@ -188,10 +217,14 @@ final class BlockOwnershipWalk
     {
         $this->frames[$owner]['para'] = $form['kind'] === 'term';
         $this->frames[$owner]['last'] = $form['kind'];
+        if ($form['kind'] === 'term') {
+            $this->frames[$owner]['termCut'] = $col - $canon;
+        }
         $o = $this->frames[$owner];
         if ($form['kind'] === 'fence' || $form['kind'] === 'colon') {
             $this->frames[] = ['kind' => $form['kind'], 'col' => $o['col'], 'canon' => $o['canon'], 'cut' => $col - $canon,
-                'closes' => $form['closes'] ?? null, 'run' => $form['run'] ?? null, 'para' => false, 'last' => null];
+                'closes' => $form['closes'] ?? null, 'run' => $form['run'] ?? null, 'lineBlock' => $form['lineBlock'] ?? false,
+                'span' => null, 'para' => false, 'last' => null];
 
             return;
         }
@@ -241,11 +274,12 @@ final class BlockOwnershipWalk
         $this->apply($frame, $col, $form, $canon + $shift);
     }
 
-    private function lead(int $target): void
+    private function lead(int $target, bool $spaces = false): void
     {
         $col = min($target, $this->m['col']);
-        $this->out .= $col === $this->m['col']
-            ? substr($this->src, 0, strlen($this->src) - strlen($this->m['rest']))
+        $authored = substr($this->src, 0, strlen($this->src) - strlen($this->m['rest']));
+        $this->out .= $col === $this->m['col'] && !($spaces && $this->out === '' && str_contains($authored, "\t"))
+            ? $authored
             : str_repeat(' ', $col);
         $this->src = $this->m['rest'];
     }
@@ -270,8 +304,8 @@ final class BlockOwnershipWalk
         }
         if (preg_match('/^(:{3,})(.*)$/D', $rest, $colon) === 1) {
             if (preg_match('/^(:{3,})[ \t]*$/D', $rest) === 1) {
-                for ($k = $this->reach; $k > 0; $k--) {
-                    if ($this->frames[$k]['kind'] === 'colon' && $this->frames[$k]['run'] === strlen($colon[1])) {
+                for ($k = $this->reach; $k > 0 && $this->frames[$k]['kind'] === 'colon'; $k--) {
+                    if ($this->frames[$k]['run'] === strlen($colon[1])) {
                         return ['kind' => 'colon-close', 'frame' => $k, 'interrupts' => true];
                     }
                 }
@@ -284,7 +318,7 @@ final class BlockOwnershipWalk
                     return ['kind' => 'text', 'interrupts' => false];
                 }
                 if (($opener['className'] ?? null) === '|') {
-                    return ['kind' => 'fence', 'interrupts' => $interrupts,
+                    return ['kind' => 'fence', 'interrupts' => $interrupts, 'lineBlock' => true,
                         'closes' => static fn (string $r): bool => preg_match('/^(:{3,})[ \t]*$/D', $r, $c) === 1 && strlen($c[1]) === $run];
                 }
 
@@ -292,7 +326,7 @@ final class BlockOwnershipWalk
             }
         }
         if (($rest[0] === '`' || $rest[0] === '~') && preg_match('/^(`{3,}|~{3,})(.*)$/D', $rest, $fence) === 1
-            && $this->fenced->parseCodeFenceOpener($rest) !== null) {
+            && ($this->fenced->parseCodeFenceOpener($rest) !== null || $this->fenced->parseRawBlockOpener($rest) !== null)) {
             $run = $fence[1];
             $closes = static function (string $r) use ($run): bool {
                 return preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $r, $c) === 1 && $c[1][0] === $run[0] && strlen($c[1]) >= strlen($run);

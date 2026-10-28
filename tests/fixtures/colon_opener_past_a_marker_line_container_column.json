@@ -1982,182 +1982,182 @@
   {
     "id": "root-root-note-off1-text-para",
     "source": "::: box\ntext\n ::: note\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text ::: note x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><p>tail</p>"
   },
   {
     "id": "root-root-note-off1-text-item",
     "source": "::: box\ntext\n ::: note\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text ::: note x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-note-off1-text-none",
     "source": "::: box\ntext\n ::: note\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><p>text ::: note x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div>"
   },
   {
     "id": "root-root-note-off1-none-para",
     "source": "::: box\n ::: note\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>::: note x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><p>tail</p>"
   },
   {
     "id": "root-root-note-off1-none-item",
     "source": "::: box\n ::: note\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>::: note x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-note-off1-none-none",
     "source": "::: box\n ::: note\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><p>::: note x :::</p></div>"
+    "html": "<div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div>"
   },
   {
     "id": "root-root-note-off1-blank-para",
     "source": "::: box\ntext\n\n ::: note\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: note x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><p>tail</p>"
   },
   {
     "id": "root-root-note-off1-blank-item",
     "source": "::: box\ntext\n\n ::: note\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: note x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-note-off1-blank-none",
     "source": "::: box\ntext\n\n ::: note\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: note x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div>"
   },
   {
     "id": "root-root-note-off1-heading-para",
     "source": "::: box\n# h\n ::: note\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><p>tail</p>"
   },
   {
     "id": "root-root-note-off1-heading-item",
     "source": "::: box\n# h\n ::: note\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-note-off1-heading-none",
     "source": "::: box\n# h\n ::: note\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div>"
   },
   {
     "id": "root-root-note-off2-text-para",
     "source": "::: box\ntext\n  ::: note\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text ::: note x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><p>tail</p>"
   },
   {
     "id": "root-root-note-off2-text-item",
     "source": "::: box\ntext\n  ::: note\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text ::: note x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-note-off2-text-none",
     "source": "::: box\ntext\n  ::: note\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><p>text ::: note x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div>"
   },
   {
     "id": "root-root-note-off2-none-para",
     "source": "::: box\n  ::: note\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>::: note x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><p>tail</p>"
   },
   {
     "id": "root-root-note-off2-none-item",
     "source": "::: box\n  ::: note\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>::: note x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-note-off2-none-none",
     "source": "::: box\n  ::: note\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><p>::: note x :::</p></div>"
+    "html": "<div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div>"
   },
   {
     "id": "root-root-note-off2-blank-para",
     "source": "::: box\ntext\n\n  ::: note\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: note x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><p>tail</p>"
   },
   {
     "id": "root-root-note-off2-blank-item",
     "source": "::: box\ntext\n\n  ::: note\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: note x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-note-off2-blank-none",
     "source": "::: box\ntext\n\n  ::: note\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: note x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div>"
   },
   {
     "id": "root-root-note-off2-heading-para",
     "source": "::: box\n# h\n  ::: note\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><p>tail</p>"
   },
   {
     "id": "root-root-note-off2-heading-item",
     "source": "::: box\n# h\n  ::: note\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-note-off2-heading-none",
     "source": "::: box\n# h\n  ::: note\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div>"
   },
   {
     "id": "root-root-note-off3-text-para",
     "source": "::: box\ntext\n   ::: note\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text ::: note x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><p>tail</p>"
   },
   {
     "id": "root-root-note-off3-text-item",
     "source": "::: box\ntext\n   ::: note\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text ::: note x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-note-off3-text-none",
     "source": "::: box\ntext\n   ::: note\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><p>text ::: note x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div>"
   },
   {
     "id": "root-root-note-off3-none-para",
     "source": "::: box\n   ::: note\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>::: note x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><p>tail</p>"
   },
   {
     "id": "root-root-note-off3-none-item",
     "source": "::: box\n   ::: note\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>::: note x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-note-off3-none-none",
     "source": "::: box\n   ::: note\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><p>::: note x :::</p></div>"
+    "html": "<div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div>"
   },
   {
     "id": "root-root-note-off3-blank-para",
     "source": "::: box\ntext\n\n   ::: note\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: note x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><p>tail</p>"
   },
   {
     "id": "root-root-note-off3-blank-item",
     "source": "::: box\ntext\n\n   ::: note\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: note x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-note-off3-blank-none",
     "source": "::: box\ntext\n\n   ::: note\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: note x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div>"
   },
   {
     "id": "root-root-note-off3-heading-para",
     "source": "::: box\n# h\n   ::: note\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><p>tail</p>"
   },
   {
     "id": "root-root-note-off3-heading-item",
     "source": "::: box\n# h\n   ::: note\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-note-off3-heading-none",
     "source": "::: box\n# h\n   ::: note\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div>"
   },
   {
     "id": "root-root-box2-off0-text-para",
@@ -2222,182 +2222,182 @@
   {
     "id": "root-root-box2-off1-text-para",
     "source": "::: box\ntext\n ::: inner\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text ::: inner x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-box2-off1-text-item",
     "source": "::: box\ntext\n ::: inner\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text ::: inner x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-box2-off1-text-none",
     "source": "::: box\ntext\n ::: inner\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><p>text ::: inner x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-box2-off1-none-para",
     "source": "::: box\n ::: inner\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>::: inner x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><div class=\"inner\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-box2-off1-none-item",
     "source": "::: box\n ::: inner\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>::: inner x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><div class=\"inner\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-box2-off1-none-none",
     "source": "::: box\n ::: inner\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><p>::: inner x :::</p></div>"
+    "html": "<div class=\"box\"><div class=\"inner\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-box2-off1-blank-para",
     "source": "::: box\ntext\n\n ::: inner\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: inner x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-box2-off1-blank-item",
     "source": "::: box\ntext\n\n ::: inner\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: inner x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-box2-off1-blank-none",
     "source": "::: box\ntext\n\n ::: inner\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: inner x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-box2-off1-heading-para",
     "source": "::: box\n# h\n ::: inner\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-box2-off1-heading-item",
     "source": "::: box\n# h\n ::: inner\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-box2-off1-heading-none",
     "source": "::: box\n# h\n ::: inner\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-box2-off2-text-para",
     "source": "::: box\ntext\n  ::: inner\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text ::: inner x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-box2-off2-text-item",
     "source": "::: box\ntext\n  ::: inner\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text ::: inner x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-box2-off2-text-none",
     "source": "::: box\ntext\n  ::: inner\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><p>text ::: inner x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-box2-off2-none-para",
     "source": "::: box\n  ::: inner\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>::: inner x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><div class=\"inner\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-box2-off2-none-item",
     "source": "::: box\n  ::: inner\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>::: inner x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><div class=\"inner\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-box2-off2-none-none",
     "source": "::: box\n  ::: inner\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><p>::: inner x :::</p></div>"
+    "html": "<div class=\"box\"><div class=\"inner\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-box2-off2-blank-para",
     "source": "::: box\ntext\n\n  ::: inner\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: inner x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-box2-off2-blank-item",
     "source": "::: box\ntext\n\n  ::: inner\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: inner x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-box2-off2-blank-none",
     "source": "::: box\ntext\n\n  ::: inner\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: inner x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-box2-off2-heading-para",
     "source": "::: box\n# h\n  ::: inner\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-box2-off2-heading-item",
     "source": "::: box\n# h\n  ::: inner\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-box2-off2-heading-none",
     "source": "::: box\n# h\n  ::: inner\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-box2-off3-text-para",
     "source": "::: box\ntext\n   ::: inner\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text ::: inner x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-box2-off3-text-item",
     "source": "::: box\ntext\n   ::: inner\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text ::: inner x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-box2-off3-text-none",
     "source": "::: box\ntext\n   ::: inner\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><p>text ::: inner x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-box2-off3-none-para",
     "source": "::: box\n   ::: inner\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>::: inner x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><div class=\"inner\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-box2-off3-none-item",
     "source": "::: box\n   ::: inner\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>::: inner x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><div class=\"inner\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-box2-off3-none-none",
     "source": "::: box\n   ::: inner\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><p>::: inner x :::</p></div>"
+    "html": "<div class=\"box\"><div class=\"inner\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-box2-off3-blank-para",
     "source": "::: box\ntext\n\n   ::: inner\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: inner x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-box2-off3-blank-item",
     "source": "::: box\ntext\n\n   ::: inner\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: inner x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-box2-off3-blank-none",
     "source": "::: box\ntext\n\n   ::: inner\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: inner x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-box2-off3-heading-para",
     "source": "::: box\n# h\n   ::: inner\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-box2-off3-heading-item",
     "source": "::: box\n# h\n   ::: inner\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-box2-off3-heading-none",
     "source": "::: box\n# h\n   ::: inner\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-bare-off0-text-para",
@@ -2462,182 +2462,182 @@
   {
     "id": "root-root-bare-off1-text-para",
     "source": "::: box\ntext\n :::\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text ::: x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div><p>tail</p></div>"
   },
   {
     "id": "root-root-bare-off1-text-item",
     "source": "::: box\ntext\n :::\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text ::: x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div><ul><li>next</li></ul></div>"
   },
   {
     "id": "root-root-bare-off1-text-none",
     "source": "::: box\ntext\n :::\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><p>text ::: x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div></div>"
   },
   {
     "id": "root-root-bare-off1-none-para",
     "source": "::: box\n :::\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>::: x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"></div><p>x :::</p><div><p>tail</p></div>"
   },
   {
     "id": "root-root-bare-off1-none-item",
     "source": "::: box\n :::\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>::: x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"></div><p>x :::</p><div><ul><li>next</li></ul></div>"
   },
   {
     "id": "root-root-bare-off1-none-none",
     "source": "::: box\n :::\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><p>::: x :::</p></div>"
+    "html": "<div class=\"box\"></div><p>x :::</p><div></div>"
   },
   {
     "id": "root-root-bare-off1-blank-para",
     "source": "::: box\ntext\n\n :::\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div><p>tail</p></div>"
   },
   {
     "id": "root-root-bare-off1-blank-item",
     "source": "::: box\ntext\n\n :::\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div><ul><li>next</li></ul></div>"
   },
   {
     "id": "root-root-bare-off1-blank-none",
     "source": "::: box\ntext\n\n :::\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div></div>"
   },
   {
     "id": "root-root-bare-off1-heading-para",
     "source": "::: box\n# h\n :::\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1></div><p>x :::</p><div><p>tail</p></div>"
   },
   {
     "id": "root-root-bare-off1-heading-item",
     "source": "::: box\n# h\n :::\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1></div><p>x :::</p><div><ul><li>next</li></ul></div>"
   },
   {
     "id": "root-root-bare-off1-heading-none",
     "source": "::: box\n# h\n :::\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1></div><p>x :::</p><div></div>"
   },
   {
     "id": "root-root-bare-off2-text-para",
     "source": "::: box\ntext\n  :::\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text ::: x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div><p>tail</p></div>"
   },
   {
     "id": "root-root-bare-off2-text-item",
     "source": "::: box\ntext\n  :::\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text ::: x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div><ul><li>next</li></ul></div>"
   },
   {
     "id": "root-root-bare-off2-text-none",
     "source": "::: box\ntext\n  :::\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><p>text ::: x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div></div>"
   },
   {
     "id": "root-root-bare-off2-none-para",
     "source": "::: box\n  :::\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>::: x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"></div><p>x :::</p><div><p>tail</p></div>"
   },
   {
     "id": "root-root-bare-off2-none-item",
     "source": "::: box\n  :::\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>::: x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"></div><p>x :::</p><div><ul><li>next</li></ul></div>"
   },
   {
     "id": "root-root-bare-off2-none-none",
     "source": "::: box\n  :::\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><p>::: x :::</p></div>"
+    "html": "<div class=\"box\"></div><p>x :::</p><div></div>"
   },
   {
     "id": "root-root-bare-off2-blank-para",
     "source": "::: box\ntext\n\n  :::\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div><p>tail</p></div>"
   },
   {
     "id": "root-root-bare-off2-blank-item",
     "source": "::: box\ntext\n\n  :::\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div><ul><li>next</li></ul></div>"
   },
   {
     "id": "root-root-bare-off2-blank-none",
     "source": "::: box\ntext\n\n  :::\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div></div>"
   },
   {
     "id": "root-root-bare-off2-heading-para",
     "source": "::: box\n# h\n  :::\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1></div><p>x :::</p><div><p>tail</p></div>"
   },
   {
     "id": "root-root-bare-off2-heading-item",
     "source": "::: box\n# h\n  :::\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1></div><p>x :::</p><div><ul><li>next</li></ul></div>"
   },
   {
     "id": "root-root-bare-off2-heading-none",
     "source": "::: box\n# h\n  :::\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1></div><p>x :::</p><div></div>"
   },
   {
     "id": "root-root-bare-off3-text-para",
     "source": "::: box\ntext\n   :::\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text ::: x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div><p>tail</p></div>"
   },
   {
     "id": "root-root-bare-off3-text-item",
     "source": "::: box\ntext\n   :::\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text ::: x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div><ul><li>next</li></ul></div>"
   },
   {
     "id": "root-root-bare-off3-text-none",
     "source": "::: box\ntext\n   :::\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><p>text ::: x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div></div>"
   },
   {
     "id": "root-root-bare-off3-none-para",
     "source": "::: box\n   :::\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>::: x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"></div><p>x :::</p><div><p>tail</p></div>"
   },
   {
     "id": "root-root-bare-off3-none-item",
     "source": "::: box\n   :::\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>::: x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"></div><p>x :::</p><div><ul><li>next</li></ul></div>"
   },
   {
     "id": "root-root-bare-off3-none-none",
     "source": "::: box\n   :::\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><p>::: x :::</p></div>"
+    "html": "<div class=\"box\"></div><p>x :::</p><div></div>"
   },
   {
     "id": "root-root-bare-off3-blank-para",
     "source": "::: box\ntext\n\n   :::\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div><p>tail</p></div>"
   },
   {
     "id": "root-root-bare-off3-blank-item",
     "source": "::: box\ntext\n\n   :::\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div><ul><li>next</li></ul></div>"
   },
   {
     "id": "root-root-bare-off3-blank-none",
     "source": "::: box\ntext\n\n   :::\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p></div><p>x :::</p><div></div>"
   },
   {
     "id": "root-root-bare-off3-heading-para",
     "source": "::: box\n# h\n   :::\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1></div><p>x :::</p><div><p>tail</p></div>"
   },
   {
     "id": "root-root-bare-off3-heading-item",
     "source": "::: box\n# h\n   :::\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1></div><p>x :::</p><div><ul><li>next</li></ul></div>"
   },
   {
     "id": "root-root-bare-off3-heading-none",
     "source": "::: box\n# h\n   :::\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1></div><p>x :::</p><div></div>"
   },
   {
     "id": "root-root-line-off0-text-para",
@@ -2702,182 +2702,182 @@
   {
     "id": "root-root-line-off1-text-para",
     "source": "::: box\ntext\n ::: |\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text ::: | x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-line-off1-text-item",
     "source": "::: box\ntext\n ::: |\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text ::: | x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-line-off1-text-none",
     "source": "::: box\ntext\n ::: |\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><p>text ::: | x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-line-off1-none-para",
     "source": "::: box\n ::: |\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>::: | x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><div class=\"line-block\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-line-off1-none-item",
     "source": "::: box\n ::: |\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>::: | x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><div class=\"line-block\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-line-off1-none-none",
     "source": "::: box\n ::: |\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><p>::: | x :::</p></div>"
+    "html": "<div class=\"box\"><div class=\"line-block\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-line-off1-blank-para",
     "source": "::: box\ntext\n\n ::: |\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: | x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-line-off1-blank-item",
     "source": "::: box\ntext\n\n ::: |\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: | x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-line-off1-blank-none",
     "source": "::: box\ntext\n\n ::: |\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: | x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-line-off1-heading-para",
     "source": "::: box\n# h\n ::: |\n x\n :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-line-off1-heading-item",
     "source": "::: box\n# h\n ::: |\n x\n :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-line-off1-heading-none",
     "source": "::: box\n# h\n ::: |\n x\n :::\n:::\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-line-off2-text-para",
     "source": "::: box\ntext\n  ::: |\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text ::: | x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-line-off2-text-item",
     "source": "::: box\ntext\n  ::: |\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text ::: | x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-line-off2-text-none",
     "source": "::: box\ntext\n  ::: |\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><p>text ::: | x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-line-off2-none-para",
     "source": "::: box\n  ::: |\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>::: | x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><div class=\"line-block\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-line-off2-none-item",
     "source": "::: box\n  ::: |\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>::: | x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><div class=\"line-block\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-line-off2-none-none",
     "source": "::: box\n  ::: |\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><p>::: | x :::</p></div>"
+    "html": "<div class=\"box\"><div class=\"line-block\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-line-off2-blank-para",
     "source": "::: box\ntext\n\n  ::: |\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: | x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-line-off2-blank-item",
     "source": "::: box\ntext\n\n  ::: |\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: | x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-line-off2-blank-none",
     "source": "::: box\ntext\n\n  ::: |\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: | x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-line-off2-heading-para",
     "source": "::: box\n# h\n  ::: |\n  x\n  :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-line-off2-heading-item",
     "source": "::: box\n# h\n  ::: |\n  x\n  :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-line-off2-heading-none",
     "source": "::: box\n# h\n  ::: |\n  x\n  :::\n:::\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-line-off3-text-para",
     "source": "::: box\ntext\n   ::: |\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text ::: | x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-line-off3-text-item",
     "source": "::: box\ntext\n   ::: |\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text ::: | x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-line-off3-text-none",
     "source": "::: box\ntext\n   ::: |\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><p>text ::: | x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-line-off3-none-para",
     "source": "::: box\n   ::: |\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>::: | x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><div class=\"line-block\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-line-off3-none-item",
     "source": "::: box\n   ::: |\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>::: | x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><div class=\"line-block\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-line-off3-none-none",
     "source": "::: box\n   ::: |\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><p>::: | x :::</p></div>"
+    "html": "<div class=\"box\"><div class=\"line-block\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-line-off3-blank-para",
     "source": "::: box\ntext\n\n   ::: |\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: | x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-line-off3-blank-item",
     "source": "::: box\ntext\n\n   ::: |\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: | x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-line-off3-blank-none",
     "source": "::: box\ntext\n\n   ::: |\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><p>text</p><p>::: | x :::</p></div>"
+    "html": "<div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div>"
   },
   {
     "id": "root-root-line-off3-heading-para",
     "source": "::: box\n# h\n   ::: |\n   x\n   :::\n:::\ntail\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div><p>tail</p>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div><p>tail</p>"
   },
   {
     "id": "root-root-line-off3-heading-item",
     "source": "::: box\n# h\n   ::: |\n   x\n   :::\n:::\n- next\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div><ul><li>next</li></ul>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div><ul><li>next</li></ul>"
   },
   {
     "id": "root-root-line-off3-heading-none",
     "source": "::: box\n# h\n   ::: |\n   x\n   :::\n:::\n",
-    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div>"
+    "html": "<div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div>"
   },
   {
     "id": "root-itembody-note-off0-text-para",
@@ -3422,182 +3422,182 @@
   {
     "id": "root-itembody-bare-off1-text-para",
     "source": "- lead\n  ::: box\n  text\n   :::\n   x\n   :::\n  :::\ntail\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul><p>tail</p>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul><p>tail</p>"
   },
   {
     "id": "root-itembody-bare-off1-text-item",
     "source": "- lead\n  ::: box\n  text\n   :::\n   x\n   :::\n  :::\n- next\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li><li>next</li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li><li>next</li></ul>"
   },
   {
     "id": "root-itembody-bare-off1-text-none",
     "source": "- lead\n  ::: box\n  text\n   :::\n   x\n   :::\n  :::\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul>"
   },
   {
     "id": "root-itembody-bare-off1-none-para",
     "source": "- lead\n  ::: box\n   :::\n   x\n   :::\n  :::\ntail\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul><p>tail</p>"
+    "html": "<ul><li>lead<div class=\"box\"></div>x<div></div></li></ul><p>tail</p>"
   },
   {
     "id": "root-itembody-bare-off1-none-item",
     "source": "- lead\n  ::: box\n   :::\n   x\n   :::\n  :::\n- next\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li><li>next</li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"></div>x<div></div></li><li>next</li></ul>"
   },
   {
     "id": "root-itembody-bare-off1-none-none",
     "source": "- lead\n  ::: box\n   :::\n   x\n   :::\n  :::\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"></div>x<div></div></li></ul>"
   },
   {
     "id": "root-itembody-bare-off1-blank-para",
     "source": "- lead\n  ::: box\n  text\n\n   :::\n   x\n   :::\n  :::\ntail\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul><p>tail</p>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul><p>tail</p>"
   },
   {
     "id": "root-itembody-bare-off1-blank-item",
     "source": "- lead\n  ::: box\n  text\n\n   :::\n   x\n   :::\n  :::\n- next\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li><li>next</li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li><li>next</li></ul>"
   },
   {
     "id": "root-itembody-bare-off1-blank-none",
     "source": "- lead\n  ::: box\n  text\n\n   :::\n   x\n   :::\n  :::\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul>"
   },
   {
     "id": "root-itembody-bare-off1-heading-para",
     "source": "- lead\n  ::: box\n  # h\n   :::\n   x\n   :::\n  :::\ntail\n",
-    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul><p>tail</p>"
+    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul><p>tail</p>"
   },
   {
     "id": "root-itembody-bare-off1-heading-item",
     "source": "- lead\n  ::: box\n  # h\n   :::\n   x\n   :::\n  :::\n- next\n",
-    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li><li>next</li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li><li>next</li></ul>"
   },
   {
     "id": "root-itembody-bare-off1-heading-none",
     "source": "- lead\n  ::: box\n  # h\n   :::\n   x\n   :::\n  :::\n",
-    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul>"
   },
   {
     "id": "root-itembody-bare-off2-text-para",
     "source": "- lead\n  ::: box\n  text\n    :::\n    x\n    :::\n  :::\ntail\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul><p>tail</p>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul><p>tail</p>"
   },
   {
     "id": "root-itembody-bare-off2-text-item",
     "source": "- lead\n  ::: box\n  text\n    :::\n    x\n    :::\n  :::\n- next\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li><li>next</li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li><li>next</li></ul>"
   },
   {
     "id": "root-itembody-bare-off2-text-none",
     "source": "- lead\n  ::: box\n  text\n    :::\n    x\n    :::\n  :::\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul>"
   },
   {
     "id": "root-itembody-bare-off2-none-para",
     "source": "- lead\n  ::: box\n    :::\n    x\n    :::\n  :::\ntail\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul><p>tail</p>"
+    "html": "<ul><li>lead<div class=\"box\"></div>x<div></div></li></ul><p>tail</p>"
   },
   {
     "id": "root-itembody-bare-off2-none-item",
     "source": "- lead\n  ::: box\n    :::\n    x\n    :::\n  :::\n- next\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li><li>next</li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"></div>x<div></div></li><li>next</li></ul>"
   },
   {
     "id": "root-itembody-bare-off2-none-none",
     "source": "- lead\n  ::: box\n    :::\n    x\n    :::\n  :::\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"></div>x<div></div></li></ul>"
   },
   {
     "id": "root-itembody-bare-off2-blank-para",
     "source": "- lead\n  ::: box\n  text\n\n    :::\n    x\n    :::\n  :::\ntail\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul><p>tail</p>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul><p>tail</p>"
   },
   {
     "id": "root-itembody-bare-off2-blank-item",
     "source": "- lead\n  ::: box\n  text\n\n    :::\n    x\n    :::\n  :::\n- next\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li><li>next</li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li><li>next</li></ul>"
   },
   {
     "id": "root-itembody-bare-off2-blank-none",
     "source": "- lead\n  ::: box\n  text\n\n    :::\n    x\n    :::\n  :::\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul>"
   },
   {
     "id": "root-itembody-bare-off2-heading-para",
     "source": "- lead\n  ::: box\n  # h\n    :::\n    x\n    :::\n  :::\ntail\n",
-    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul><p>tail</p>"
+    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul><p>tail</p>"
   },
   {
     "id": "root-itembody-bare-off2-heading-item",
     "source": "- lead\n  ::: box\n  # h\n    :::\n    x\n    :::\n  :::\n- next\n",
-    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li><li>next</li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li><li>next</li></ul>"
   },
   {
     "id": "root-itembody-bare-off2-heading-none",
     "source": "- lead\n  ::: box\n  # h\n    :::\n    x\n    :::\n  :::\n",
-    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul>"
   },
   {
     "id": "root-itembody-bare-off3-text-para",
     "source": "- lead\n  ::: box\n  text\n     :::\n     x\n     :::\n  :::\ntail\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul><p>tail</p>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul><p>tail</p>"
   },
   {
     "id": "root-itembody-bare-off3-text-item",
     "source": "- lead\n  ::: box\n  text\n     :::\n     x\n     :::\n  :::\n- next\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li><li>next</li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li><li>next</li></ul>"
   },
   {
     "id": "root-itembody-bare-off3-text-none",
     "source": "- lead\n  ::: box\n  text\n     :::\n     x\n     :::\n  :::\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul>"
   },
   {
     "id": "root-itembody-bare-off3-none-para",
     "source": "- lead\n  ::: box\n     :::\n     x\n     :::\n  :::\ntail\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul><p>tail</p>"
+    "html": "<ul><li>lead<div class=\"box\"></div>x<div></div></li></ul><p>tail</p>"
   },
   {
     "id": "root-itembody-bare-off3-none-item",
     "source": "- lead\n  ::: box\n     :::\n     x\n     :::\n  :::\n- next\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li><li>next</li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"></div>x<div></div></li><li>next</li></ul>"
   },
   {
     "id": "root-itembody-bare-off3-none-none",
     "source": "- lead\n  ::: box\n     :::\n     x\n     :::\n  :::\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"></div>x<div></div></li></ul>"
   },
   {
     "id": "root-itembody-bare-off3-blank-para",
     "source": "- lead\n  ::: box\n  text\n\n     :::\n     x\n     :::\n  :::\ntail\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul><p>tail</p>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul><p>tail</p>"
   },
   {
     "id": "root-itembody-bare-off3-blank-item",
     "source": "- lead\n  ::: box\n  text\n\n     :::\n     x\n     :::\n  :::\n- next\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li><li>next</li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li><li>next</li></ul>"
   },
   {
     "id": "root-itembody-bare-off3-blank-none",
     "source": "- lead\n  ::: box\n  text\n\n     :::\n     x\n     :::\n  :::\n",
-    "html": "<ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul>"
   },
   {
     "id": "root-itembody-bare-off3-heading-para",
     "source": "- lead\n  ::: box\n  # h\n     :::\n     x\n     :::\n  :::\ntail\n",
-    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul><p>tail</p>"
+    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul><p>tail</p>"
   },
   {
     "id": "root-itembody-bare-off3-heading-item",
     "source": "- lead\n  ::: box\n  # h\n     :::\n     x\n     :::\n  :::\n- next\n",
-    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li><li>next</li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li><li>next</li></ul>"
   },
   {
     "id": "root-itembody-bare-off3-heading-none",
     "source": "- lead\n  ::: box\n  # h\n     :::\n     x\n     :::\n  :::\n",
-    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul>"
+    "html": "<ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul>"
   },
   {
     "id": "root-itembody-line-off0-text-para",
@@ -5822,182 +5822,182 @@
   {
     "id": "quote-root-note-off1-text-para",
     "source": "> ::: box\n> text\n>  ::: note\n>  x\n>  :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: note x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-note-off1-text-item",
     "source": "> ::: box\n> text\n>  ::: note\n>  x\n>  :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: note x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-note-off1-text-none",
     "source": "> ::: box\n> text\n>  ::: note\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: note x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote>"
   },
   {
     "id": "quote-root-note-off1-none-para",
     "source": "> ::: box\n>  ::: note\n>  x\n>  :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>::: note x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-note-off1-none-item",
     "source": "> ::: box\n>  ::: note\n>  x\n>  :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>::: note x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-note-off1-none-none",
     "source": "> ::: box\n>  ::: note\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>::: note x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote>"
   },
   {
     "id": "quote-root-note-off1-blank-para",
     "source": "> ::: box\n> text\n>\n>  ::: note\n>  x\n>  :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: note x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-note-off1-blank-item",
     "source": "> ::: box\n> text\n>\n>  ::: note\n>  x\n>  :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: note x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-note-off1-blank-none",
     "source": "> ::: box\n> text\n>\n>  ::: note\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: note x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote>"
   },
   {
     "id": "quote-root-note-off1-heading-para",
     "source": "> ::: box\n> # h\n>  ::: note\n>  x\n>  :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-note-off1-heading-item",
     "source": "> ::: box\n> # h\n>  ::: note\n>  x\n>  :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-note-off1-heading-none",
     "source": "> ::: box\n> # h\n>  ::: note\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote>"
   },
   {
     "id": "quote-root-note-off2-text-para",
     "source": "> ::: box\n> text\n>   ::: note\n>   x\n>   :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: note x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-note-off2-text-item",
     "source": "> ::: box\n> text\n>   ::: note\n>   x\n>   :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: note x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-note-off2-text-none",
     "source": "> ::: box\n> text\n>   ::: note\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: note x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote>"
   },
   {
     "id": "quote-root-note-off2-none-para",
     "source": "> ::: box\n>   ::: note\n>   x\n>   :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>::: note x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-note-off2-none-item",
     "source": "> ::: box\n>   ::: note\n>   x\n>   :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>::: note x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-note-off2-none-none",
     "source": "> ::: box\n>   ::: note\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>::: note x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote>"
   },
   {
     "id": "quote-root-note-off2-blank-para",
     "source": "> ::: box\n> text\n>\n>   ::: note\n>   x\n>   :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: note x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-note-off2-blank-item",
     "source": "> ::: box\n> text\n>\n>   ::: note\n>   x\n>   :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: note x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-note-off2-blank-none",
     "source": "> ::: box\n> text\n>\n>   ::: note\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: note x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote>"
   },
   {
     "id": "quote-root-note-off2-heading-para",
     "source": "> ::: box\n> # h\n>   ::: note\n>   x\n>   :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-note-off2-heading-item",
     "source": "> ::: box\n> # h\n>   ::: note\n>   x\n>   :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-note-off2-heading-none",
     "source": "> ::: box\n> # h\n>   ::: note\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote>"
   },
   {
     "id": "quote-root-note-off3-text-para",
     "source": "> ::: box\n> text\n>    ::: note\n>    x\n>    :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: note x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-note-off3-text-item",
     "source": "> ::: box\n> text\n>    ::: note\n>    x\n>    :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: note x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-note-off3-text-none",
     "source": "> ::: box\n> text\n>    ::: note\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: note x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote>"
   },
   {
     "id": "quote-root-note-off3-none-para",
     "source": "> ::: box\n>    ::: note\n>    x\n>    :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>::: note x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-note-off3-none-item",
     "source": "> ::: box\n>    ::: note\n>    x\n>    :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>::: note x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-note-off3-none-none",
     "source": "> ::: box\n>    ::: note\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>::: note x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote>"
   },
   {
     "id": "quote-root-note-off3-blank-para",
     "source": "> ::: box\n> text\n>\n>    ::: note\n>    x\n>    :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: note x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-note-off3-blank-item",
     "source": "> ::: box\n> text\n>\n>    ::: note\n>    x\n>    :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: note x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-note-off3-blank-none",
     "source": "> ::: box\n> text\n>\n>    ::: note\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: note x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote>"
   },
   {
     "id": "quote-root-note-off3-heading-para",
     "source": "> ::: box\n> # h\n>    ::: note\n>    x\n>    :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-note-off3-heading-item",
     "source": "> ::: box\n> # h\n>    ::: note\n>    x\n>    :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-note-off3-heading-none",
     "source": "> ::: box\n> # h\n>    ::: note\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: note x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></blockquote>"
   },
   {
     "id": "quote-root-box2-off0-text-para",
@@ -6062,182 +6062,182 @@
   {
     "id": "quote-root-box2-off1-text-para",
     "source": "> ::: box\n> text\n>  ::: inner\n>  x\n>  :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: inner x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-box2-off1-text-item",
     "source": "> ::: box\n> text\n>  ::: inner\n>  x\n>  :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: inner x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-box2-off1-text-none",
     "source": "> ::: box\n> text\n>  ::: inner\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: inner x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-box2-off1-none-para",
     "source": "> ::: box\n>  ::: inner\n>  x\n>  :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>::: inner x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><div class=\"inner\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-box2-off1-none-item",
     "source": "> ::: box\n>  ::: inner\n>  x\n>  :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>::: inner x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><div class=\"inner\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-box2-off1-none-none",
     "source": "> ::: box\n>  ::: inner\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>::: inner x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><div class=\"inner\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-box2-off1-blank-para",
     "source": "> ::: box\n> text\n>\n>  ::: inner\n>  x\n>  :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: inner x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-box2-off1-blank-item",
     "source": "> ::: box\n> text\n>\n>  ::: inner\n>  x\n>  :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: inner x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-box2-off1-blank-none",
     "source": "> ::: box\n> text\n>\n>  ::: inner\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: inner x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-box2-off1-heading-para",
     "source": "> ::: box\n> # h\n>  ::: inner\n>  x\n>  :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-box2-off1-heading-item",
     "source": "> ::: box\n> # h\n>  ::: inner\n>  x\n>  :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-box2-off1-heading-none",
     "source": "> ::: box\n> # h\n>  ::: inner\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-box2-off2-text-para",
     "source": "> ::: box\n> text\n>   ::: inner\n>   x\n>   :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: inner x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-box2-off2-text-item",
     "source": "> ::: box\n> text\n>   ::: inner\n>   x\n>   :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: inner x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-box2-off2-text-none",
     "source": "> ::: box\n> text\n>   ::: inner\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: inner x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-box2-off2-none-para",
     "source": "> ::: box\n>   ::: inner\n>   x\n>   :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>::: inner x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><div class=\"inner\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-box2-off2-none-item",
     "source": "> ::: box\n>   ::: inner\n>   x\n>   :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>::: inner x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><div class=\"inner\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-box2-off2-none-none",
     "source": "> ::: box\n>   ::: inner\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>::: inner x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><div class=\"inner\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-box2-off2-blank-para",
     "source": "> ::: box\n> text\n>\n>   ::: inner\n>   x\n>   :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: inner x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-box2-off2-blank-item",
     "source": "> ::: box\n> text\n>\n>   ::: inner\n>   x\n>   :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: inner x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-box2-off2-blank-none",
     "source": "> ::: box\n> text\n>\n>   ::: inner\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: inner x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-box2-off2-heading-para",
     "source": "> ::: box\n> # h\n>   ::: inner\n>   x\n>   :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-box2-off2-heading-item",
     "source": "> ::: box\n> # h\n>   ::: inner\n>   x\n>   :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-box2-off2-heading-none",
     "source": "> ::: box\n> # h\n>   ::: inner\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-box2-off3-text-para",
     "source": "> ::: box\n> text\n>    ::: inner\n>    x\n>    :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: inner x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-box2-off3-text-item",
     "source": "> ::: box\n> text\n>    ::: inner\n>    x\n>    :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: inner x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-box2-off3-text-none",
     "source": "> ::: box\n> text\n>    ::: inner\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: inner x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-box2-off3-none-para",
     "source": "> ::: box\n>    ::: inner\n>    x\n>    :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>::: inner x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><div class=\"inner\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-box2-off3-none-item",
     "source": "> ::: box\n>    ::: inner\n>    x\n>    :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>::: inner x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><div class=\"inner\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-box2-off3-none-none",
     "source": "> ::: box\n>    ::: inner\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>::: inner x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><div class=\"inner\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-box2-off3-blank-para",
     "source": "> ::: box\n> text\n>\n>    ::: inner\n>    x\n>    :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: inner x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-box2-off3-blank-item",
     "source": "> ::: box\n> text\n>\n>    ::: inner\n>    x\n>    :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: inner x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-box2-off3-blank-none",
     "source": "> ::: box\n> text\n>\n>    ::: inner\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: inner x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"inner\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-box2-off3-heading-para",
     "source": "> ::: box\n> # h\n>    ::: inner\n>    x\n>    :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-box2-off3-heading-item",
     "source": "> ::: box\n> # h\n>    ::: inner\n>    x\n>    :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-box2-off3-heading-none",
     "source": "> ::: box\n> # h\n>    ::: inner\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: inner x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"inner\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-bare-off0-text-para",
@@ -6312,7 +6312,7 @@
   {
     "id": "quote-root-bare-off1-text-none",
     "source": "> ::: box\n> text\n>  :::\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p></div><p>x :::</p><div></div></blockquote>"
   },
   {
     "id": "quote-root-bare-off1-none-para",
@@ -6327,7 +6327,7 @@
   {
     "id": "quote-root-bare-off1-none-none",
     "source": "> ::: box\n>  :::\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>::: x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"></div><p>x :::</p><div></div></blockquote>"
   },
   {
     "id": "quote-root-bare-off1-blank-para",
@@ -6342,7 +6342,7 @@
   {
     "id": "quote-root-bare-off1-blank-none",
     "source": "> ::: box\n> text\n>\n>  :::\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p></div><p>x :::</p><div></div></blockquote>"
   },
   {
     "id": "quote-root-bare-off1-heading-para",
@@ -6357,7 +6357,7 @@
   {
     "id": "quote-root-bare-off1-heading-none",
     "source": "> ::: box\n> # h\n>  :::\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1></div><p>x :::</p><div></div></blockquote>"
   },
   {
     "id": "quote-root-bare-off2-text-para",
@@ -6372,7 +6372,7 @@
   {
     "id": "quote-root-bare-off2-text-none",
     "source": "> ::: box\n> text\n>   :::\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p></div><p>x :::</p><div></div></blockquote>"
   },
   {
     "id": "quote-root-bare-off2-none-para",
@@ -6387,7 +6387,7 @@
   {
     "id": "quote-root-bare-off2-none-none",
     "source": "> ::: box\n>   :::\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>::: x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"></div><p>x :::</p><div></div></blockquote>"
   },
   {
     "id": "quote-root-bare-off2-blank-para",
@@ -6402,7 +6402,7 @@
   {
     "id": "quote-root-bare-off2-blank-none",
     "source": "> ::: box\n> text\n>\n>   :::\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p></div><p>x :::</p><div></div></blockquote>"
   },
   {
     "id": "quote-root-bare-off2-heading-para",
@@ -6417,7 +6417,7 @@
   {
     "id": "quote-root-bare-off2-heading-none",
     "source": "> ::: box\n> # h\n>   :::\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1></div><p>x :::</p><div></div></blockquote>"
   },
   {
     "id": "quote-root-bare-off3-text-para",
@@ -6432,7 +6432,7 @@
   {
     "id": "quote-root-bare-off3-text-none",
     "source": "> ::: box\n> text\n>    :::\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p></div><p>x :::</p><div></div></blockquote>"
   },
   {
     "id": "quote-root-bare-off3-none-para",
@@ -6447,7 +6447,7 @@
   {
     "id": "quote-root-bare-off3-none-none",
     "source": "> ::: box\n>    :::\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>::: x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"></div><p>x :::</p><div></div></blockquote>"
   },
   {
     "id": "quote-root-bare-off3-blank-para",
@@ -6462,7 +6462,7 @@
   {
     "id": "quote-root-bare-off3-blank-none",
     "source": "> ::: box\n> text\n>\n>    :::\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p></div><p>x :::</p><div></div></blockquote>"
   },
   {
     "id": "quote-root-bare-off3-heading-para",
@@ -6477,7 +6477,7 @@
   {
     "id": "quote-root-bare-off3-heading-none",
     "source": "> ::: box\n> # h\n>    :::\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1></div><p>x :::</p><div></div></blockquote>"
   },
   {
     "id": "quote-root-line-off0-text-para",
@@ -6542,182 +6542,182 @@
   {
     "id": "quote-root-line-off1-text-para",
     "source": "> ::: box\n> text\n>  ::: |\n>  x\n>  :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: | x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-line-off1-text-item",
     "source": "> ::: box\n> text\n>  ::: |\n>  x\n>  :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: | x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-line-off1-text-none",
     "source": "> ::: box\n> text\n>  ::: |\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: | x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-line-off1-none-para",
     "source": "> ::: box\n>  ::: |\n>  x\n>  :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>::: | x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><div class=\"line-block\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-line-off1-none-item",
     "source": "> ::: box\n>  ::: |\n>  x\n>  :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>::: | x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><div class=\"line-block\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-line-off1-none-none",
     "source": "> ::: box\n>  ::: |\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>::: | x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><div class=\"line-block\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-line-off1-blank-para",
     "source": "> ::: box\n> text\n>\n>  ::: |\n>  x\n>  :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: | x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-line-off1-blank-item",
     "source": "> ::: box\n> text\n>\n>  ::: |\n>  x\n>  :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: | x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-line-off1-blank-none",
     "source": "> ::: box\n> text\n>\n>  ::: |\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: | x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-line-off1-heading-para",
     "source": "> ::: box\n> # h\n>  ::: |\n>  x\n>  :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-line-off1-heading-item",
     "source": "> ::: box\n> # h\n>  ::: |\n>  x\n>  :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-line-off1-heading-none",
     "source": "> ::: box\n> # h\n>  ::: |\n>  x\n>  :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-line-off2-text-para",
     "source": "> ::: box\n> text\n>   ::: |\n>   x\n>   :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: | x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-line-off2-text-item",
     "source": "> ::: box\n> text\n>   ::: |\n>   x\n>   :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: | x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-line-off2-text-none",
     "source": "> ::: box\n> text\n>   ::: |\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: | x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-line-off2-none-para",
     "source": "> ::: box\n>   ::: |\n>   x\n>   :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>::: | x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><div class=\"line-block\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-line-off2-none-item",
     "source": "> ::: box\n>   ::: |\n>   x\n>   :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>::: | x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><div class=\"line-block\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-line-off2-none-none",
     "source": "> ::: box\n>   ::: |\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>::: | x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><div class=\"line-block\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-line-off2-blank-para",
     "source": "> ::: box\n> text\n>\n>   ::: |\n>   x\n>   :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: | x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-line-off2-blank-item",
     "source": "> ::: box\n> text\n>\n>   ::: |\n>   x\n>   :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: | x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-line-off2-blank-none",
     "source": "> ::: box\n> text\n>\n>   ::: |\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: | x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-line-off2-heading-para",
     "source": "> ::: box\n> # h\n>   ::: |\n>   x\n>   :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-line-off2-heading-item",
     "source": "> ::: box\n> # h\n>   ::: |\n>   x\n>   :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-line-off2-heading-none",
     "source": "> ::: box\n> # h\n>   ::: |\n>   x\n>   :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-line-off3-text-para",
     "source": "> ::: box\n> text\n>    ::: |\n>    x\n>    :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: | x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-line-off3-text-item",
     "source": "> ::: box\n> text\n>    ::: |\n>    x\n>    :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: | x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-line-off3-text-none",
     "source": "> ::: box\n> text\n>    ::: |\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text ::: | x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-line-off3-none-para",
     "source": "> ::: box\n>    ::: |\n>    x\n>    :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>::: | x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><div class=\"line-block\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-line-off3-none-item",
     "source": "> ::: box\n>    ::: |\n>    x\n>    :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>::: | x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><div class=\"line-block\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-line-off3-none-none",
     "source": "> ::: box\n>    ::: |\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>::: | x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><div class=\"line-block\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-line-off3-blank-para",
     "source": "> ::: box\n> text\n>\n>    ::: |\n>    x\n>    :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: | x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-line-off3-blank-item",
     "source": "> ::: box\n> text\n>\n>    ::: |\n>    x\n>    :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: | x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-line-off3-blank-none",
     "source": "> ::: box\n> text\n>\n>    ::: |\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><p>text</p><p>::: | x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>text</p><div class=\"line-block\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-root-line-off3-heading-para",
     "source": "> ::: box\n> # h\n>    ::: |\n>    x\n>    :::\n> :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div></blockquote><p>tail</p>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div></blockquote><p>tail</p>"
   },
   {
     "id": "quote-root-line-off3-heading-item",
     "source": "> ::: box\n> # h\n>    ::: |\n>    x\n>    :::\n> :::\n- next\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-root-line-off3-heading-none",
     "source": "> ::: box\n> # h\n>    ::: |\n>    x\n>    :::\n> :::\n",
-    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><p>::: | x :::</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><h1 id=\"h\">h</h1><div class=\"line-block\"><p>x</p></div></div></blockquote>"
   },
   {
     "id": "quote-itembody-note-off0-text-para",
@@ -7262,182 +7262,182 @@
   {
     "id": "quote-itembody-bare-off1-text-para",
     "source": "> - lead\n>   ::: box\n>   text\n>    :::\n>    x\n>    :::\n>   :::\ntail\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul></blockquote><p>tail</p>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote><p>tail</p>"
   },
   {
     "id": "quote-itembody-bare-off1-text-item",
     "source": "> - lead\n>   ::: box\n>   text\n>    :::\n>    x\n>    :::\n>   :::\n- next\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-itembody-bare-off1-text-none",
     "source": "> - lead\n>   ::: box\n>   text\n>    :::\n>    x\n>    :::\n>   :::\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote>"
   },
   {
     "id": "quote-itembody-bare-off1-none-para",
     "source": "> - lead\n>   ::: box\n>    :::\n>    x\n>    :::\n>   :::\ntail\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul></blockquote><p>tail</p>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"></div>x<div></div></li></ul></blockquote><p>tail</p>"
   },
   {
     "id": "quote-itembody-bare-off1-none-item",
     "source": "> - lead\n>   ::: box\n>    :::\n>    x\n>    :::\n>   :::\n- next\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"></div>x<div></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-itembody-bare-off1-none-none",
     "source": "> - lead\n>   ::: box\n>    :::\n>    x\n>    :::\n>   :::\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"></div>x<div></div></li></ul></blockquote>"
   },
   {
     "id": "quote-itembody-bare-off1-blank-para",
     "source": "> - lead\n>   ::: box\n>   text\n>\n>    :::\n>    x\n>    :::\n>   :::\ntail\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul></blockquote><p>tail</p>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote><p>tail</p>"
   },
   {
     "id": "quote-itembody-bare-off1-blank-item",
     "source": "> - lead\n>   ::: box\n>   text\n>\n>    :::\n>    x\n>    :::\n>   :::\n- next\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-itembody-bare-off1-blank-none",
     "source": "> - lead\n>   ::: box\n>   text\n>\n>    :::\n>    x\n>    :::\n>   :::\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote>"
   },
   {
     "id": "quote-itembody-bare-off1-heading-para",
     "source": "> - lead\n>   ::: box\n>   # h\n>    :::\n>    x\n>    :::\n>   :::\ntail\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul></blockquote><p>tail</p>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul></blockquote><p>tail</p>"
   },
   {
     "id": "quote-itembody-bare-off1-heading-item",
     "source": "> - lead\n>   ::: box\n>   # h\n>    :::\n>    x\n>    :::\n>   :::\n- next\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-itembody-bare-off1-heading-none",
     "source": "> - lead\n>   ::: box\n>   # h\n>    :::\n>    x\n>    :::\n>   :::\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul></blockquote>"
   },
   {
     "id": "quote-itembody-bare-off2-text-para",
     "source": "> - lead\n>   ::: box\n>   text\n>     :::\n>     x\n>     :::\n>   :::\ntail\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul></blockquote><p>tail</p>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote><p>tail</p>"
   },
   {
     "id": "quote-itembody-bare-off2-text-item",
     "source": "> - lead\n>   ::: box\n>   text\n>     :::\n>     x\n>     :::\n>   :::\n- next\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-itembody-bare-off2-text-none",
     "source": "> - lead\n>   ::: box\n>   text\n>     :::\n>     x\n>     :::\n>   :::\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote>"
   },
   {
     "id": "quote-itembody-bare-off2-none-para",
     "source": "> - lead\n>   ::: box\n>     :::\n>     x\n>     :::\n>   :::\ntail\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul></blockquote><p>tail</p>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"></div>x<div></div></li></ul></blockquote><p>tail</p>"
   },
   {
     "id": "quote-itembody-bare-off2-none-item",
     "source": "> - lead\n>   ::: box\n>     :::\n>     x\n>     :::\n>   :::\n- next\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"></div>x<div></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-itembody-bare-off2-none-none",
     "source": "> - lead\n>   ::: box\n>     :::\n>     x\n>     :::\n>   :::\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"></div>x<div></div></li></ul></blockquote>"
   },
   {
     "id": "quote-itembody-bare-off2-blank-para",
     "source": "> - lead\n>   ::: box\n>   text\n>\n>     :::\n>     x\n>     :::\n>   :::\ntail\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul></blockquote><p>tail</p>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote><p>tail</p>"
   },
   {
     "id": "quote-itembody-bare-off2-blank-item",
     "source": "> - lead\n>   ::: box\n>   text\n>\n>     :::\n>     x\n>     :::\n>   :::\n- next\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-itembody-bare-off2-blank-none",
     "source": "> - lead\n>   ::: box\n>   text\n>\n>     :::\n>     x\n>     :::\n>   :::\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote>"
   },
   {
     "id": "quote-itembody-bare-off2-heading-para",
     "source": "> - lead\n>   ::: box\n>   # h\n>     :::\n>     x\n>     :::\n>   :::\ntail\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul></blockquote><p>tail</p>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul></blockquote><p>tail</p>"
   },
   {
     "id": "quote-itembody-bare-off2-heading-item",
     "source": "> - lead\n>   ::: box\n>   # h\n>     :::\n>     x\n>     :::\n>   :::\n- next\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-itembody-bare-off2-heading-none",
     "source": "> - lead\n>   ::: box\n>   # h\n>     :::\n>     x\n>     :::\n>   :::\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul></blockquote>"
   },
   {
     "id": "quote-itembody-bare-off3-text-para",
     "source": "> - lead\n>   ::: box\n>   text\n>      :::\n>      x\n>      :::\n>   :::\ntail\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul></blockquote><p>tail</p>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote><p>tail</p>"
   },
   {
     "id": "quote-itembody-bare-off3-text-item",
     "source": "> - lead\n>   ::: box\n>   text\n>      :::\n>      x\n>      :::\n>   :::\n- next\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-itembody-bare-off3-text-none",
     "source": "> - lead\n>   ::: box\n>   text\n>      :::\n>      x\n>      :::\n>   :::\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text ::: x :::</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote>"
   },
   {
     "id": "quote-itembody-bare-off3-none-para",
     "source": "> - lead\n>   ::: box\n>      :::\n>      x\n>      :::\n>   :::\ntail\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul></blockquote><p>tail</p>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"></div>x<div></div></li></ul></blockquote><p>tail</p>"
   },
   {
     "id": "quote-itembody-bare-off3-none-item",
     "source": "> - lead\n>   ::: box\n>      :::\n>      x\n>      :::\n>   :::\n- next\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"></div>x<div></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-itembody-bare-off3-none-none",
     "source": "> - lead\n>   ::: box\n>      :::\n>      x\n>      :::\n>   :::\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>::: x :::</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"></div>x<div></div></li></ul></blockquote>"
   },
   {
     "id": "quote-itembody-bare-off3-blank-para",
     "source": "> - lead\n>   ::: box\n>   text\n>\n>      :::\n>      x\n>      :::\n>   :::\ntail\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul></blockquote><p>tail</p>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote><p>tail</p>"
   },
   {
     "id": "quote-itembody-bare-off3-blank-item",
     "source": "> - lead\n>   ::: box\n>   text\n>\n>      :::\n>      x\n>      :::\n>   :::\n- next\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-itembody-bare-off3-blank-none",
     "source": "> - lead\n>   ::: box\n>   text\n>\n>      :::\n>      x\n>      :::\n>   :::\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p><p>::: x :::</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><p>text</p></div>x<div></div></li></ul></blockquote>"
   },
   {
     "id": "quote-itembody-bare-off3-heading-para",
     "source": "> - lead\n>   ::: box\n>   # h\n>      :::\n>      x\n>      :::\n>   :::\ntail\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul></blockquote><p>tail</p>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul></blockquote><p>tail</p>"
   },
   {
     "id": "quote-itembody-bare-off3-heading-item",
     "source": "> - lead\n>   ::: box\n>   # h\n>      :::\n>      x\n>      :::\n>   :::\n- next\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "quote-itembody-bare-off3-heading-none",
     "source": "> - lead\n>   ::: box\n>   # h\n>      :::\n>      x\n>      :::\n>   :::\n",
-    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1><p>::: x :::</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead<div class=\"box\"><h1 id=\"h\">h</h1></div>x<div></div></li></ul></blockquote>"
   },
   {
     "id": "quote-itembody-line-off0-text-para",

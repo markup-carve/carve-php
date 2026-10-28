@@ -96,7 +96,7 @@ final class BlockSourceMapper
             return null;
         }
 
-        $lastLength = strlen($this->state->source->sourceLines[$last] ?? '');
+        $lastLength = strlen($this->state->source->authoredLines[$last] ?? '');
         // PART 12 §4, as in `stampBlockSpan`: an item nested in a container
         // begins at its own marker, not at the container prefix (carve#913).
         $opening = $start + ($openingColumn ?? ($this->state->frame->currentContentColumns[$first] ?? 0));
@@ -127,8 +127,8 @@ final class BlockSourceMapper
 
         // Both ends must actually be found in the lines they claim, or the span
         // would cover bytes belonging to something else.
-        $firstRaw = $this->state->source->sourceLines[$firstLine] ?? '';
-        $lastRaw = $this->state->source->sourceLines[$lastLine] ?? '';
+        $firstRaw = $this->state->source->authoredLines[$firstLine] ?? '';
+        $lastRaw = $this->state->source->authoredLines[$lastLine] ?? '';
         $firstFound = $firstText === '' ? $firstColumn : strpos($firstRaw, $firstText, $this->footnoteBodyStart($firstRaw, $firstText));
         $lastFound = $lastText === '' ? $lastColumn : strpos($lastRaw, $lastText, $this->footnoteBodyStart($lastRaw, $lastText));
         if ($firstFound === false || $lastFound === false) {
@@ -171,7 +171,7 @@ final class BlockSourceMapper
         if (!$this->state->source->trackPositions || $title === '') {
             return null;
         }
-        $lineText = $this->state->source->sourceLines[$line] ?? null;
+        $lineText = $this->state->source->authoredLines[$line] ?? null;
         $lineStart = $this->state->source->lineStartOffsets[$line] ?? null;
         if ($lineText === null || $lineStart === null) {
             return null;
@@ -209,7 +209,7 @@ final class BlockSourceMapper
         $any = false;
         $index = 0;
         foreach ($contentLines as [$sourceLine, $column, $length, $lineText]) {
-            $rawLine = $this->state->source->sourceLines[$sourceLine] ?? '';
+            $rawLine = $this->state->source->authoredLines[$sourceLine] ?? '';
             $searchFrom = max($index === 0 ? min($firstLineSearchFrom, strlen($rawLine)) : 0, $this->footnoteBodyStart($rawLine, $lineText));
             $index++;
             $lineStart = $this->state->source->lineStartOffsets[$sourceLine] ?? null;
@@ -363,7 +363,7 @@ final class BlockSourceMapper
         // the ruling above rejects for a container that does have children.
         $emptiedMarkup = $this->emptiedContainerMarkup($node);
         if ($emptiedMarkup !== null && $own !== null && $last === null) {
-            $line = $this->state->source->sourceLines[$own->startLine - 1] ?? '';
+            $line = $this->state->source->authoredLines[$own->startLine - 1] ?? '';
             $tail = mb_substr($line, $own->startColumn - 1, null, 'UTF-8');
             if (preg_match($emptiedMarkup, $tail, $matched) === 1) {
                 $width = mb_strlen($matched[0], 'UTF-8');
@@ -476,9 +476,9 @@ final class BlockSourceMapper
 
         $sourceLine = $this->sourceLineFor($index);
         $lineStart = $this->state->source->lineStartOffsets[$sourceLine] ?? null;
-        $sourceText = $this->state->source->sourceLines[$sourceLine] ?? null;
+        $sourceText = $this->state->source->authoredLines[$sourceLine] ?? null;
         $aboveStart = $this->state->source->lineStartOffsets[$sourceLine - 1] ?? null;
-        $above = $this->state->source->sourceLines[$sourceLine - 1] ?? null;
+        $above = $this->state->source->authoredLines[$sourceLine - 1] ?? null;
         if ($lineStart === null || $sourceText === null || $aboveStart === null || $above === null) {
             return $unplaced;
         }
@@ -532,7 +532,7 @@ final class BlockSourceMapper
             return null;
         }
 
-        $end = $start + strlen($this->state->source->sourceLines[$sourceLine] ?? '');
+        $end = $start + strlen($this->state->source->authoredLines[$sourceLine] ?? '');
 
         $next = $this->state->source->lineStartOffsets[$sourceLine + 1] ?? ($end + 1);
 
@@ -663,8 +663,8 @@ final class BlockSourceMapper
             $span === null
             || $endByte === null
             || ($this->state->session->footnoteDefinitionPrefixed[$label] ?? false)
-            || $lineIndex >= count($this->state->source->sourceLines) - 1
-            || !IndentationHelper::isBlankLine($this->state->source->sourceLines[$lineIndex] ?? '')
+            || $lineIndex >= count($this->state->source->authoredLines) - 1
+            || !IndentationHelper::isBlankLine($this->state->source->authoredLines[$lineIndex] ?? '')
         ) {
             return;
         }
@@ -690,7 +690,7 @@ final class BlockSourceMapper
             return null;
         }
 
-        $length = strlen($this->state->source->sourceLines[$sourceLine] ?? '');
+        $length = strlen($this->state->source->authoredLines[$sourceLine] ?? '');
 
         return $this->state->source->positionIndex?->span(
             $start,
@@ -709,7 +709,7 @@ final class BlockSourceMapper
         }
         while (
             $lastIndex > $firstIndex
-            && IndentationHelper::isBlankLine($this->state->source->sourceLines[$this->sourceLineFor($lastIndex)] ?? '')
+            && IndentationHelper::isBlankLine($this->state->source->authoredLines[$this->sourceLineFor($lastIndex)] ?? '')
         ) {
             $lastIndex--;
         }
@@ -720,7 +720,7 @@ final class BlockSourceMapper
         if ($start === null || $lastStart === null) {
             return null;
         }
-        $end = $lastStart + strlen($this->state->source->sourceLines[$lastLine] ?? '');
+        $end = $lastStart + strlen($this->state->source->authoredLines[$lastLine] ?? '');
 
         return $this->state->source->positionIndex?->span(
             min($start + $openingColumn, $end),
@@ -776,7 +776,7 @@ final class BlockSourceMapper
         // on the wrong bytes. Check, and fall back to locating the content in
         // the real source line before giving up.
         if (substr($this->positionSource(), $start, strlen($content)) !== $content) {
-            $inSourceLine = strpos($this->state->source->sourceLines[$sourceLine] ?? '', $content);
+            $inSourceLine = strpos($this->state->source->authoredLines[$sourceLine] ?? '', $content);
             if ($inSourceLine === false) {
                 return null;
             }
@@ -822,7 +822,7 @@ final class BlockSourceMapper
             return null;
         }
 
-        $prefix = strpos($this->state->source->sourceLines[$sourceLine] ?? '', '|');
+        $prefix = strpos($this->state->source->authoredLines[$sourceLine] ?? '', '|');
         $prefix = $prefix === false ? 0 : $prefix;
 
         return $this->state->source->positionIndex?->span(
@@ -846,7 +846,7 @@ final class BlockSourceMapper
             return null;
         }
         $lineStart = $this->state->source->lineStartOffsets[$sourceLine] ?? null;
-        $line = $this->state->source->sourceLines[$sourceLine] ?? null;
+        $line = $this->state->source->authoredLines[$sourceLine] ?? null;
         if ($lineStart === null || $line === null) {
             return null;
         }
@@ -879,7 +879,7 @@ final class BlockSourceMapper
         if ($lineStart === null) {
             return null;
         }
-        $line = $this->state->source->sourceLines[$sourceLine] ?? '';
+        $line = $this->state->source->authoredLines[$sourceLine] ?? '';
         $prefix = strpos($line, '|');
         if ($prefix === false) {
             return null;
@@ -921,7 +921,7 @@ final class BlockSourceMapper
 
         $start = $lineStart + $cellOffset + $within;
         if (substr($this->positionSource(), $start, strlen($content)) !== $content) {
-            $sourceColumn = strpos($this->state->source->sourceLines[$sourceLine] ?? '', $content);
+            $sourceColumn = strpos($this->state->source->authoredLines[$sourceLine] ?? '', $content);
             if ($sourceColumn === false) {
                 return null;
             }
@@ -1000,7 +1000,7 @@ final class BlockSourceMapper
      */
     public function rowPrefixDelta(int $index, string $line): int
     {
-        $source = $this->state->source->sourceLines[$this->sourceLineFor($index)] ?? '';
+        $source = $this->state->source->authoredLines[$this->sourceLineFor($index)] ?? '';
 
         return strcspn($source, '|+') - strcspn($line, '|+');
     }
@@ -1234,7 +1234,7 @@ final class BlockSourceMapper
             if ($sourceLine < 0) {
                 continue;
             }
-            $source = $this->state->source->sourceLines[$sourceLine] ?? null;
+            $source = $this->state->source->authoredLines[$sourceLine] ?? null;
             if ($source === null) {
                 continue;
             }
@@ -1306,7 +1306,7 @@ final class BlockSourceMapper
 
     public function isBlankAtContentColumn(int $sourceLine): bool
     {
-        $line = $this->state->source->sourceLines[$sourceLine] ?? '';
+        $line = $this->state->source->authoredLines[$sourceLine] ?? '';
         $column = $this->state->frame->currentContentColumns[$sourceLine] ?? 0;
 
         return IndentationHelper::isBlankLine(substr($line, $column));
@@ -1351,7 +1351,7 @@ final class BlockSourceMapper
             return;
         }
 
-        $endOffset = $end + ($endBytesOnEndLine ?? strlen($this->state->source->sourceLines[$endLine] ?? ''));
+        $endOffset = $end + ($endBytesOnEndLine ?? strlen($this->state->source->authoredLines[$endLine] ?? ''));
         if (LayoutWork::$on && ($node instanceof CodeBlock || $node instanceof RawBlock)) {
             LayoutWork::$spanStamps++;
         }
@@ -1360,9 +1360,9 @@ final class BlockSourceMapper
         if (
             ($node instanceof CodeBlock || $node instanceof RawBlock)
             && $this->isBlankAtContentColumn($endLine)
-            && $endLine + 1 < count($this->state->source->sourceLines)
+            && $endLine + 1 < count($this->state->source->authoredLines)
                 - (int)str_ends_with($this->state->source->normalizedSource, "\n")
-            && rtrim($this->state->source->sourceLines[$endLine], " \t") === $this->state->source->sourceLines[$endLine]
+            && rtrim($this->state->source->authoredLines[$endLine], " \t") === $this->state->source->authoredLines[$endLine]
             && str_ends_with($node->getContent(), "\n")
             && ($this->state->source->normalizedSource[$endOffset] ?? null) === "\n"
         ) {
@@ -1374,7 +1374,7 @@ final class BlockSourceMapper
         // container prefix that carried its line (carve#913).
         $opening = $start + ($this->state->frame->currentContentColumns[$startLine] ?? 0);
         if ($node instanceof CodeBlock) {
-            $sourceLine = $this->state->source->sourceLines[$startLine] ?? '';
+            $sourceLine = $this->state->source->authoredLines[$startLine] ?? '';
             if (preg_match('/^[ \t]*[`~]{3,}/', substr($sourceLine, $opening - $start), $fence) === 1) {
                 $opening += strspn($fence[0], " \t");
             }
@@ -1427,7 +1427,7 @@ final class BlockSourceMapper
         if ($pos !== null && $end !== null) {
             $ending = $this->state->source->positionIndex?->span(
                 $end,
-                $end + strlen($this->state->source->sourceLines[$endLine] ?? ''),
+                $end + strlen($this->state->source->authoredLines[$endLine] ?? ''),
                 $endLine + 1,
                 $endLine + 1,
                 $end,
@@ -1606,7 +1606,7 @@ final class BlockSourceMapper
 
         $sourceLine = $this->sourceLineFor($index);
         $start = $this->state->source->lineStartOffsets[$sourceLine] ?? null;
-        $line = $this->state->source->sourceLines[$sourceLine] ?? null;
+        $line = $this->state->source->authoredLines[$sourceLine] ?? null;
         if ($start === null || $line === null || !str_ends_with($line, $content)) {
             return null;
         }
@@ -1637,7 +1637,7 @@ final class BlockSourceMapper
     public function authoredColumnOf(int $index, string $line): ?int
     {
         $sourceLine = $this->sourceLineFor($index);
-        $authored = $this->state->source->sourceLines[$sourceLine] ?? null;
+        $authored = $this->state->source->authoredLines[$sourceLine] ?? null;
         if ($authored === null) {
             return null;
         }
@@ -1664,7 +1664,7 @@ final class BlockSourceMapper
             return null;
         }
 
-        return $this->state->source->positionIndex?->codepointAt($lineStart + strlen($this->state->source->sourceLines[$sourceLine] ?? ''));
+        return $this->state->source->positionIndex?->codepointAt($lineStart + strlen($this->state->source->authoredLines[$sourceLine] ?? ''));
     }
 
     private function positionSource(): string

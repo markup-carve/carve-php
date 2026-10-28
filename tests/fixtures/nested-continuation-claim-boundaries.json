@@ -29,7 +29,7 @@
   },
   {
     "source": "- - - +\n      Z\n     - +\n x\n",
-    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>Z\n- +\nx</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>Z</li>\n          <li></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
   },
   {
     "source": "- - +\n    ***\n x\n",

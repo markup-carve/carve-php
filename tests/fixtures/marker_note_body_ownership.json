@@ -2,112 +2,112 @@
   {
     "id": "continued-marker-note-code-marker-note-076",
     "source": "- [^n]: text\n    > quote\n      ```\n      code\n      ```\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-077",
     "source": "- [^n]: text\n    > quote\n        ```\n        code\n        ```\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-084",
     "source": "> - [^n]: text\n>     > quote\n>       ```\n>       code\n>       ```\n> after [^n]\n",
-    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-085",
     "source": "> - [^n]: text\n>     > quote\n>         ```\n>         code\n>         ```\n> after [^n]\n",
-    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-092",
     "source": "> > - [^n]: text\n> >     > quote\n> >       ```\n> >       code\n> >       ```\n> > after [^n]\n",
-    "html": "<blockquote><blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-093",
     "source": "> > - [^n]: text\n> >     > quote\n> >         ```\n> >         code\n> >         ```\n> > after [^n]\n",
-    "html": "<blockquote><blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-127",
     "source": "- [^n]: text\n\n    > quote\n      ```\n      code\n      ```\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-128",
     "source": "> - [^n]: text\n> \n>     > quote\n>       ```\n>       code\n>       ```\n> after [^n]\n",
-    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-129",
     "source": "- [^n]: text\n\n    > quote\n        ```\n        code\n        ```\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-130",
     "source": "> - [^n]: text\n> \n>     > quote\n>         ```\n>         code\n>         ```\n> after [^n]\n",
-    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-247",
     "source": "- [^n]: :: term\n    > quote\n      ```\n      code\n      ```\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-248",
     "source": "> - [^n]: :: term\n>     > quote\n>       ```\n>       code\n>       ```\n> after [^n]\n",
-    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-249",
     "source": "- [^n]: :: term\n\n    > quote\n      ```\n      code\n      ```\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-250",
     "source": "> - [^n]: :: term\n> \n>     > quote\n>       ```\n>       code\n>       ```\n> after [^n]\n",
-    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-251",
     "source": "- [^n]: :: term\n    > quote\n        ```\n        code\n        ```\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-252",
     "source": "> - [^n]: :: term\n>     > quote\n>         ```\n>         code\n>         ```\n> after [^n]\n",
-    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-253",
     "source": "- [^n]: :: term\n\n    > quote\n        ```\n        code\n        ```\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code-marker-note-254",
     "source": "> - [^n]: :: term\n> \n>     > quote\n>         ```\n>         code\n>         ```\n> after [^n]\n",
-    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote<code>code</code></p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><blockquote><p>quote</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "nested-marker-note-closer-nested-176",
     "source": "- [^a]: text\n    more\n    [^b]: \n      > q\n        ~~~\n        code\n        ~~~\nafter [^a] [^b]\n",
-    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:</p><blockquote><p>q ~~~ code ~~~</p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "nested-marker-note-closer-nested-178",
     "source": "- [^a]: text\n    more\n    [^b]: \n\n      > q\n        ~~~\n        code\n        ~~~\nafter [^a] [^b]\n",
-    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:</p><blockquote><p>q ~~~ code ~~~</p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "nested-marker-note-closer-nested-368",
     "source": "> - [^a]: text\n>     more\n>     [^b]: \n>       > q\n>         ~~~\n>         code\n>         ~~~\n> after [^a] [^b]\n> ",
-    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:</p><blockquote><p>q ~~~ code ~~~</p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "nested-marker-note-closer-nested-370",
     "source": "> - [^a]: text\n>     more\n>     [^b]: \n> \n>       > q\n>         ~~~\n>         code\n>         ~~~\n> after [^a] [^b]\n> ",
-    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:</p><blockquote><p>q ~~~ code ~~~</p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "nested-marker-note-closer-generic-3",
