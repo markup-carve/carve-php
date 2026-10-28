@@ -10,6 +10,9 @@ use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\HeadingRef;
+use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Link;
 
 final class AuthoringLinter
@@ -22,6 +25,8 @@ final class AuthoringLinter
         $converter = new CarveConverter();
         $converter->getParser()->enablePositionTracking();
         $document = $converter->parse($source);
+        $offsetMap = SourceOffsets::map($source);
+        $sourceLength = strlen($source);
         $rows = preg_split('/\r\n|\r|\n/', $source, flags: PREG_SPLIT_OFFSET_CAPTURE) ?: [];
         $paragraphs = [];
         $paragraphEnds = [];
@@ -37,8 +42,10 @@ final class AuthoringLinter
             $node = array_pop($pending);
             $pos = $node->getPos();
             if ($pos !== null) {
+                $startByte = SourceOffsets::toByte($pos->startOffset, $offsetMap, $sourceLength);
+                $endByte = SourceOffsets::toByte($pos->endOffset, $offsetMap, $sourceLength);
                 if ($node instanceof Paragraph) {
-                    $paragraphStarts[$pos->startLine] = $pos->startOffset;
+                    $paragraphStarts[$pos->startLine] = $startByte;
                     for ($line = $pos->startLine; $line <= $pos->endLine; ++$line) {
                         $paragraphs[$line] = true;
                         $paragraphEnds[$line] = $pos->endLine;
@@ -49,20 +56,25 @@ final class AuthoringLinter
                     $tables[] = $node;
                 } elseif ($node instanceof ListItem) {
                     $listItems[$pos->startLine] = true;
-                } elseif ($node instanceof Link && $node->getReferenceLabel() === null && !$node->isAutolink()) {
-                    $destinationStart = self::inlineDestinationStart($source, $pos->startOffset, $pos->endOffset);
+                } elseif ($node instanceof Code || $node instanceof HeadingRef || ($node instanceof Link && $node->isAutolink())) {
+                    $protectedRanges[] = [$startByte, $endByte];
+                } elseif (
+                    ($node instanceof Link && $node->getReferenceLabel() === null && !$node->isAutolink())
+                    || ($node instanceof Image && $node->getReferenceLabel() === null)
+                ) {
+                    $destinationStart = self::inlineDestinationStart($source, $startByte, $endByte);
                     if ($destinationStart !== null) {
-                        $protectedRanges[] = [$destinationStart, $pos->endOffset];
-                        if ($node->getDestination() === '') {
+                        $protectedRanges[] = [$destinationStart, $endByte];
+                        if ($node instanceof Link && $node->getDestination() === '') {
                             $emptyLinks[] = $pos;
                         }
                     }
                 } elseif (
                     $node->getType() === 'code'
                     && $pos->startLine < $pos->endLine
-                    && preg_match('/^(?:`{3,}|~{3,})/', substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset)) === 1
+                    && preg_match('/^(?:`{3,}|~{3,})/', substr($source, $startByte, $endByte - $startByte)) === 1
                 ) {
-                    $protectedRanges[] = [$pos->startOffset, $pos->endOffset];
+                    $protectedRanges[] = [$startByte, $endByte];
                 }
                 if (in_array($node->getType(), ['code_block', 'raw_block', 'comment', 'frontmatter'], true)) {
                     for ($line = $pos->startLine; $line <= $pos->endLine; ++$line) {
