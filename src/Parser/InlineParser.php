@@ -3493,6 +3493,23 @@ class InlineParser
                 continue;
             }
 
+            if ($char === ':' && !$this->isEscapedAt($text, $searchPos)) {
+                $extensionEnd = $this->scanInlineExtensionEnd($text, $searchPos);
+                if ($extensionEnd !== null) {
+                    $searchPos = $this->bracedPairIndex?->afterAttributes($extensionEnd) ?? $extensionEnd;
+                    $failedStarts[] = $searchPos;
+
+                    continue;
+                }
+                $symbol = $this->parseSymbol($text, $searchPos);
+                if ($symbol !== null) {
+                    $searchPos = $symbol['pos'];
+                    $failedStarts[] = $searchPos;
+
+                    continue;
+                }
+            }
+
             if ($char === '[') {
                 $skip = $this->linkDestinationSkip($text, $searchPos);
                 if ($skip !== null) {
@@ -3711,6 +3728,9 @@ class InlineParser
         }
 
         $this->resetScanMemos($text);
+        if ($this::class === self::class && str_contains($text, '{')) {
+            $this->indexedBracedEnd($text, 0);
+        }
         if (isset($this->emphNoCloseFrom['*/'][$start])) {
             return null;
         }
@@ -3750,6 +3770,45 @@ class InlineParser
                 // Unclosed backtick run: opaque to the end of the block, so no
                 // closer can follow it.
                 break;
+            }
+
+            if ($text[$searchPos] === '\\' && $searchPos + 1 < $length) {
+                $searchPos += 2;
+
+                continue;
+            }
+
+            // An extension ends at its first `]`, even if its body contains
+            // another `[`. Its body cannot close this combined span.
+            if ($text[$searchPos] === ':' && !$this->isEscapedAt($text, $searchPos)) {
+                $extensionEnd = $this->scanInlineExtensionEnd($text, $searchPos);
+                if ($extensionEnd !== null) {
+                    $searchPos = $this->bracedPairIndex?->afterAttributes($extensionEnd) ?? $extensionEnd;
+
+                    continue;
+                }
+                $symbol = $this->parseSymbol($text, $searchPos);
+                if ($symbol !== null) {
+                    $searchPos = $symbol['pos'];
+
+                    continue;
+                }
+            }
+
+            // E2b also keeps a combined closer inside an ordinary bracket run.
+            if ($text[$searchPos] === '[') {
+                $destination = $this->linkDestinationSkip($text, $searchPos);
+                if ($destination !== null) {
+                    $searchPos = $this->bracedPairIndex?->afterAttributes($destination[1]) ?? $destination[1];
+
+                    continue;
+                }
+                $runEnd = $this->bracketRunSkip($text, $searchPos);
+                if ($runEnd !== null) {
+                    $searchPos = $this->bracedPairIndex?->afterAttributes($runEnd) ?? $runEnd;
+
+                    continue;
+                }
             }
 
             // CARVE-P9-042: the combined token's `*/` is an explicit closer a
@@ -6162,7 +6221,15 @@ class InlineParser
         }
 
         $node = new InlineExtension($matches[1]);
-        $this->parseInlinesAt($node, $matches[2], $pos + strlen($matches[1]) + 2);
+        // An extension body is an independent inline scope. Delimiters open in
+        // the surrounding span must not suppress the same kind inside it.
+        $outerSpanKinds = $this->openSpanKinds;
+        $this->openSpanKinds = [];
+        try {
+            $this->parseInlinesAt($node, $matches[2], $pos + strlen($matches[1]) + 2);
+        } finally {
+            $this->openSpanKinds = $outerSpanKinds;
+        }
 
         $endPos = $pos + strlen($matches[0]);
         $length = strlen($text);
@@ -6174,6 +6241,27 @@ class InlineParser
             'node' => $node,
             'pos' => $endPos,
         ];
+    }
+
+    /**
+     * Return the position after an extension's first closing bracket.
+     */
+    private function scanInlineExtensionEnd(string $text, int $pos): ?int
+    {
+        $nameEnd = $pos + 1 + strspn($text, self::EXTENSION_NAME_BYTES, $pos + 1);
+        if (
+            $nameEnd === $pos + 1
+            || ($text[$pos + 1] >= '0' && $text[$pos + 1] <= '9')
+            || $text[$pos + 1] === '-'
+            || ($text[$nameEnd] ?? '') !== '['
+            || !$this->closerExistsFrom($text, ']', $nameEnd + 1)
+        ) {
+            return null;
+        }
+
+        $close = strpos($text, ']', $nameEnd + 1);
+
+        return $close === false ? null : $close + 1;
     }
 
     /**

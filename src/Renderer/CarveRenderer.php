@@ -5016,15 +5016,17 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $repeated = [];
         $active = [];
-        $work = [[$root, false]];
+        $work = [[$root, false, null]];
         while ($work !== []) {
-            [$node, $exit] = array_pop($work);
+            [$node, $exit, $restore] = array_pop($work);
             $kind = $node::class;
             $native = $node instanceof Emphasis || $node instanceof Strong || $node instanceof Underline
                 || $node instanceof Strike || $node instanceof Superscript || $node instanceof Subscript
                 || $node instanceof Highlight;
             if ($exit) {
-                if ($native) {
+                if ($restore !== null) {
+                    $active = $restore;
+                } elseif ($native) {
                     array_pop($active[$kind]);
                 }
 
@@ -5037,9 +5039,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 }
                 $active[$kind][] = $node;
             }
-            $work[] = [$node, true];
+            $work[] = [$node, true, $node instanceof InlineExtension ? $active : null];
+            if ($node instanceof InlineExtension) {
+                $active = [];
+            }
             foreach (array_reverse($node->getChildren()) as $child) {
-                $work[] = [$child, false];
+                $work[] = [$child, false, null];
             }
         }
 
@@ -5075,7 +5080,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         'a span inside a span of the same kind has no Carve source spelling',
                     );
                 }
-                if (!$child instanceof Link && !$child instanceof Span && !isset($this->bracedSpans[spl_object_id($child)])) {
+                if (!$child instanceof Link && !$child instanceof Span && !$child instanceof InlineExtension && !isset($this->bracedSpans[spl_object_id($child)])) {
                     array_push($pending, ...$child->getChildren());
                 }
             }
