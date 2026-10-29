@@ -194,6 +194,7 @@ final class BlockContinuationScanner
         );
         $openCommentLength = null;
         $openCommentColumn = 0;
+        $lowComment = false;
         while ($i < $count) {
             $nextLine = $lines[$i];
             $priorSourceLine = $this->sourceLineFor($i) - 1;
@@ -297,6 +298,10 @@ final class BlockContinuationScanner
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $isBlockQuoteLazyLine = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
             $first = ltrim($nextLine, " \t");
+            if ($lowComment && $nextIndent < $contentIndent && $openCommentLength === null && getenv('NOGATE') === false) {
+                break;
+            }
+            $lowComment = str_starts_with($first, '%%') && $nextIndent < $contentIndent && $trailingState->fence === null;
             // An attribute past an item's minimum column opens there, even
             // when a marker-line child supplied the preceding paragraph.
             if (
@@ -1454,6 +1459,10 @@ final class BlockContinuationScanner
         $run->blankRun->end();
         $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
         $nextTrimmed = ltrim($nextLine, " \t");
+        if ($run->lowComment && $nextIndent < $contentIndent && $run->openCommentLength === null && getenv('NOGATE') === false) {
+            return false;
+        }
+        $run->lowComment = str_starts_with($nextTrimmed, '%%') && $nextIndent < $contentIndent && $trailingState->fence === null;
         $step = $this->plainLineLeadStep(
             $run,
             $lines,

@@ -15,6 +15,11 @@ final class PlainContinuationState
 
     public bool $interruptedParagraphFence = false;
 
+    /**
+     * The last line was a comment below the content column: the next below-column line leaves the item.
+     */
+    public bool $lowComment = false;
+
     public ?int $authoredCodeColumn = null;
 
     public bool $closedVisibleBlockAtFloor = false;
