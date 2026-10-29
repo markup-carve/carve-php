@@ -4562,6 +4562,24 @@ final class BlockContinuationScanner
     }
 
     /**
+     * A list marker written at column 0 does not end a description's closer
+     * search: CARVE-P0-014 looks for a closer anywhere ahead at the owner's
+     * column or deeper. A marker the walk moved there still does.
+     *
+     * @param string $line
+     * @param int $index
+     */
+    private function authoredColumnZeroMarker(string $line, int $index): bool
+    {
+        if (IndentationHelper::getLeadingColumns($line) !== 0 || ($this->getListParser)()->parseListItemMarker($line) === null) {
+            return false;
+        }
+        $authored = $this->state->source->authoredLines[$this->sourceLineFor($index)] ?? null;
+
+        return $authored !== null && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers($authored)) === 0;
+    }
+
+    /**
      * Does a description body's fence find its closer in the SOURCE?
      *
      * §10 I4 opens a fence after a paragraph only when a closer follows, and
@@ -4635,7 +4653,8 @@ final class BlockContinuationScanner
                     } else {
                         $subject = $lines[$j];
                         if (
-                            ($this->lineOpensBlockForLooseness($subject, true, invisibleArms: false)
+                            (($this->lineOpensBlockForLooseness($subject, true, invisibleArms: false)
+                                    && !$this->authoredColumnZeroMarker($subject, $j))
                                 || (IndentationHelper::getLeadingColumns($subject) === 0
                                     && $this->isBlockAttributeLine(ltrim($subject, " \t")))
                                 || ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($subject, " \t")) !== null)
@@ -4739,7 +4758,7 @@ final class BlockContinuationScanner
             $column = IndentationHelper::getLeadingColumns($line);
             if (
                 $openerColumns > $bodyColumn && $column < $bodyColumn
-                && ($this->lineOpensBlockForLooseness($line, true, invisibleArms: false)
+                && (($this->lineOpensBlockForLooseness($line, true, invisibleArms: false) && !$this->authoredColumnZeroMarker($line, $j))
                     || ($column === 0 && $this->isBlockAttributeLine(ltrim($line, " \t")))
                     || ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($line, " \t")) !== null
                     )
