@@ -2005,6 +2005,18 @@ final class BlockQuoteBuilder
 
             $trimmed = ltrim($content, " \t");
             $atContentColumn = $trimmed === $content || $reachesMarkerBody;
+            // A quote opened in a marker body classifies its own content (carve#3885).
+            if ($reachesMarkerBody && ContainerPrefix::quoteContent(rtrim($trimmed, " \t")) !== null) {
+                $content = ContainerPrefix::afterLeadingQuoteMarkers($trimmed);
+                $trimmed = ltrim($content, " \t");
+                $atContentColumn = $trimmed === $content;
+                if ($trimmed === '' || ($this->getFencedBlockParser)()->parseDivFenceOpener($trimmed) !== null) {
+                    $state['paragraphOpen'] = false;
+                    $state['itemParagraph'] = false;
+
+                    return;
+                }
+            }
             // A QUOTED DESCRIPTION BODY IS AN INDENTATION HOST TOO: a block at
             // or past its content column ends its paragraph (CARVE-P0-011).
             if (isset($state['hosts'])) {
