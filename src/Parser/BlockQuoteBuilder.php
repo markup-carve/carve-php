@@ -857,6 +857,43 @@ final class BlockQuoteBuilder
     }
 
     /**
+     * Strip one host quote prefix from a follower's lines, only as far as the
+     * follower can reach, so each line is stripped once.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $count
+     */
+    private function stripHostPrefixOverFollower(array &$lines, int $start, int $count): void
+    {
+        $fence = null;
+        for ($at = $start; $at < $count; $at++) {
+            $inner = ContainerPrefix::quoteContent(ltrim($lines[$at], " \t"));
+            if ($inner === null) {
+                return;
+            }
+            $lines[$at] = $inner;
+            $trimmed = ltrim($inner, " \t");
+            if ($fence !== null) {
+                if (($this->getFencedBlockParser)()->isCodeFenceCloser($trimmed, $fence['fence'][0], $fence['length'])) {
+                    return;
+                }
+
+                continue;
+            }
+            $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($trimmed)
+                ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($trimmed);
+            if (
+                $fence === null && !$this->isBlockAttributeLine($trimmed)
+                && !($this->getTableParser)()->isTableRow($inner)
+                && ContainerPrefix::quoteContent($trimmed) === null
+            ) {
+                return;
+            }
+        }
+    }
+
+    /**
      * An attached run that ends on a block attribute line takes the block the attribute reaches.
      *
      * @param array<string> $lines
@@ -1043,7 +1080,10 @@ final class BlockQuoteBuilder
                             $attachmentLines[$at] = IndentationHelper::stripLeadingColumns($attachmentLines[$at], $origin);
                         }
                     }
-                    $take = $this->firstBlockAttachedExtent($attachmentLines, $i, $count);
+                    // A follower that carries the host quote's prefix is measured inside it.
+                    $extentLines = $attachmentLines;
+                    $this->stripHostPrefixOverFollower($extentLines, $i, $count);
+                    $take = $this->firstBlockAttachedExtent($extentLines, $i, $count);
                     $attached = array_slice($attachmentLines, $i, $take);
                     $attachedLineMap = range($i, $i + $take - 1);
                     $end = $i + $take;

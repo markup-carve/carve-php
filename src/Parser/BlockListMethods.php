@@ -1088,11 +1088,13 @@ trait BlockListMethods
         $pendingThrough = -1;
         $leadFenceOpen = false;
         $fenceTakesRest = false;
+        $fenceCloses = false;
+        $blockColumn = null;
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, &$leadFenceOpen, &$fenceTakesRest, $lines, $count, $baseIndent, $contentIndent): bool {
+            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, &$leadFenceOpen, &$fenceTakesRest, &$blockColumn, &$fenceCloses, $lines, $count, $baseIndent, $contentIndent): bool {
                 // An unclosed attached fence takes the rest of its container when no blank line or closer follows.
                 if ($fenceTakesRest) {
                     return false;
@@ -1100,15 +1102,22 @@ trait BlockListMethods
                 if ($attachedKind === self::ATTACHED_PENDING) {
                     $fence = $this->fencedBlockParser->parseCodeFenceOpener(ltrim($line, " \t"))
                         ?? $this->fencedBlockParser->parseRawBlockOpener(ltrim($line, " \t"));
+                    $fenceCloses = false;
                     if ($fence !== null) {
                         $fenceTakesRest = true;
+                        $fenceColumn = IndentationHelper::getLeadingColumns($line);
                         for ($at = $index + 1; $at < $count; $at++) {
                             if (
                                 IndentationHelper::isBlankLine($lines[$at])
-                                // Only an unindented run closes it; an indented one is payload.
-                                || $this->fencedBlockParser->isCodeFenceCloser($lines[$at], $fence['fence'][0], $fence['length'])
+                                // Only a run at the opener's column closes it; an indented one is payload.
+                                || $this->fencedBlockParser->isCodeFenceCloser(
+                                    IndentationHelper::stripLeadingColumns($lines[$at], $fenceColumn),
+                                    $fence['fence'][0],
+                                    $fence['length'],
+                                )
                             ) {
                                 $fenceTakesRest = false;
+                                $fenceCloses = !IndentationHelper::isBlankLine($lines[$at]);
 
                                 break;
                             }
@@ -1211,8 +1220,15 @@ trait BlockListMethods
                 ) {
                     return true;
                 }
-                $content = IndentationHelper::stripLeadingColumns($line, $baseIndent);
+                // The attached block is read at its own column, not the list's base.
+                $blockColumn ??= max($baseIndent, IndentationHelper::getLeadingColumns($line));
+                $content = IndentationHelper::stripLeadingColumns($line, $blockColumn);
                 $attachedKind = $this->advanceAttachedKind($attachedKind, $pendingThrough, $trimmed, $lines, $index);
+                // The closer lookahead above reads at the opener's column; the raw-line test may not.
+                if ($fenceCloses && $attachedKind === self::ATTACHED_PARAGRAPH) {
+                    $attachedKind = self::ATTACHED_SPANNING . ':' . $this->spanningConstruct($trimmed);
+                }
+                $fenceCloses = false;
                 $trailingState = $this->advanceTrailingState($trailingState, $content);
 
                 return false;
