@@ -16,6 +16,8 @@ use PHPUnit\Framework\TestCase;
  */
 class ADescriptionSeparatorLeftOfItsItemColumnFoldsIntoTheBodyTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, string}>
      */

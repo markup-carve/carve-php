@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -39,6 +40,8 @@ use PHPUnit\Framework\TestCase;
  */
 class MarkdownEscapingNarrowsOnTheLineTest extends TestCase
 {
+    use RuleATodo;
+
     public function testParagraphLinesCannotBecomeListsInMarkdownReaders(): void
     {
         $converter = CarveConverter::markdown();

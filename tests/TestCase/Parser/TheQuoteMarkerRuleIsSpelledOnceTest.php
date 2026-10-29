@@ -8,6 +8,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\ContainerPrefix;
 use MarkupCarve\Carve\Parser\TrailingBlockState;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
@@ -62,6 +63,8 @@ use ReflectionMethod;
  */
 class TheQuoteMarkerRuleIsSpelledOnceTest extends TestCase
 {
+    use RuleATodo;
+
     protected function html(string $source): string
     {
         return (new CarveConverter())->convert($source);

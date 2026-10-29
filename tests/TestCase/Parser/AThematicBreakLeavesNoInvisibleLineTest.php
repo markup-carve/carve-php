@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -27,6 +28,8 @@ use PHPUnit\Framework\TestCase;
  */
 class AThematicBreakLeavesNoInvisibleLineTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * The rule closed the paragraph and left nothing open, so the follower is the
      * document's. Every row here read the other way before carve-php#2735.

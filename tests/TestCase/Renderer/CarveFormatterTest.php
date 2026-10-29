@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -28,6 +29,8 @@ use function str_repeat;
 #[Group('corpus')]
 class CarveFormatterTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @throws \RuntimeException
      *

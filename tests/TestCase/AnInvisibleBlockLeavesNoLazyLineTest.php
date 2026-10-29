@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class AnInvisibleBlockLeavesNoLazyLineTest extends TestCase
 {
+    use RuleATodo;
+
     #[DataProvider('cases')]
     public function testContainerExtent(string $source, string $expected): void
     {

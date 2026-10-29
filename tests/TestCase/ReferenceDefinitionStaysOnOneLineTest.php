@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class ReferenceDefinitionStaysOnOneLineTest extends TestCase
 {
+    use RuleATodo;
+
     public function testEmptyDestinationCannotClaimTheNextLazyItemLine(): void
     {
         $converter = new CarveConverter();

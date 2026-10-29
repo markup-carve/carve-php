@@ -12,10 +12,13 @@ use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class CaptionMarkerEscapingTest extends TestCase
 {
+    use RuleATodo;
+
     public function testAnOrphanCaretStaysBareInBothWriterPasses(): void
     {
         $source = "^ cap \n # head\n";

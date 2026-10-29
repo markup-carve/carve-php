@@ -11,6 +11,8 @@ use PHPUnit\Framework\TestCase;
 
 final class AMatchedDescriptionCommentKeepsItsBlockExtentTest extends TestCase
 {
+    use RuleATodo;
+
     public function testCommentAtOuterBodyColumnEndsNestedDescription(): void
     {
         $source = "[r][] [^p] [^c] [^d]\n\n:: t\n: :: t\n  : para\n    more\n  %%%\n  c\n  %%%\n    tail\n";

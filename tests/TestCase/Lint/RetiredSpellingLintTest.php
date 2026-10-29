@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Lint;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Lint\RetiredSpellingLinter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -22,6 +23,8 @@ use PHPUnit\Framework\TestCase;
  */
 class RetiredSpellingLintTest extends TestCase
 {
+    use RuleATodo;
+
     protected RetiredSpellingLinter $linter;
 
     protected function setUp(): void

@@ -32,6 +32,8 @@ use function sort;
 #[Group('corpus')]
 class CarveCorpusTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * Categories the parser + renderer can produce byte-identical HTML for.
      *
@@ -1359,6 +1361,9 @@ class CarveCorpusTest extends TestCase
         'a-task-item-keeps-a-lazy-term-one-column-below-its-child-marker',
         'a-task-item-uses-its-authored-term-base-one-column-past-a-child-marker',
         'invalid-body-row-metadata-leaves-one-table-body',
+        'a-block-glued-to-a-split-combined-token-or-a-forced-span-s-own-delimiter',
+        'an-intervening-column-refuses-a-description-hosted-first-block',
+        'inside-a-note-a-nested-note-opener-is-a-caret-and-a-bracket-run',
     ];
 
     /**

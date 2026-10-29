@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -25,6 +26,8 @@ use PHPUnit\Framework\TestCase;
  */
 class DefinitionWrittenBackInAnItemGapTest extends TestCase
 {
+    use RuleATodo;
+
     protected function fmt(string $source): string
     {
         return CarveConverter::toCarve($source);

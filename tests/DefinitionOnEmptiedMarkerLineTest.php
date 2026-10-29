@@ -15,6 +15,8 @@ use PHPUnit\Framework\TestCase;
  */
 class DefinitionOnEmptiedMarkerLineTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * Shapes whose canonical form is the source itself: the definition goes back
      * on the marker line it was authored on.

@@ -6,11 +6,14 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class AnEmptyMarkdownHeaderDoesNotBecomeAParagraphTest extends TestCase
 {
+    use RuleATodo;
+
     public function testAHeaderlessTableRoundTrips(): void
     {
         $source = "| 1 | 2 |\n| 3 | 4 |\n";

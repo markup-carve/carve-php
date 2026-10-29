@@ -15,6 +15,8 @@ use RuntimeException;
  */
 class FmtKeepsARegionsSelectionTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @throws \RuntimeException
      *

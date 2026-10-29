@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use UnexpectedValueException;
 
 class AnAttributeLineAttachesToATabIndentedFenceTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @throws \UnexpectedValueException
      *

@@ -6,10 +6,13 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class BelowColumnCommentRetentionTest extends TestCase
 {
+    use RuleATodo;
+
     public function testExpectedHtml(): void
     {
         $render = static fn (string $source): string => (new HtmlRenderer())->render((new BlockParser())->parse($source));

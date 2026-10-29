@@ -9,6 +9,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Profile;
+use MarkupCarve\Carve\Test\RuleATodo;
 use MarkupCarve\Carve\Util\CycleCollection;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
@@ -24,6 +25,8 @@ use stdClass;
  */
 class CycleCollectionPacingTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string}>
      */

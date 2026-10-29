@@ -10,6 +10,8 @@ use PHPUnit\Framework\TestCase;
 
 final class ANestedTermReleasesItsSourceColumnTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, string, string}>
      */

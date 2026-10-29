@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 final class ABlankAfterInlineCodeInAnItemLoosensListTest extends TestCase
 {
+    use RuleATodo;
+
     public function testBlankBeforeSecondParagraphLoosensList(): void
     {
         self::assertSame(

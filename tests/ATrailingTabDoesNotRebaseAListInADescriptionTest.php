@@ -10,6 +10,8 @@ use PHPUnit\Framework\TestCase;
 
 class ATrailingTabDoesNotRebaseAListInADescriptionTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string}>
      */

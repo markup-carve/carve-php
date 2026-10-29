@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Lint;
 
 use MarkupCarve\Carve\Lint\DocumentLinter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 final class ListColumnConformanceTest extends TestCase
 {
+    use RuleATodo;
+
     public function testSharedVectors(): void
     {
         foreach (['list-marker-below-content-column', 'ordered-list-split-by-indent'] as $rule) {

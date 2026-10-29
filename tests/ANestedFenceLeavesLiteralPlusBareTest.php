@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 class ANestedFenceLeavesLiteralPlusBareTest extends TestCase
 {
+    use RuleATodo;
+
     public function testPlainCodeAndRawFencesLeaveThePlusBare(): void
     {
         $cases = [

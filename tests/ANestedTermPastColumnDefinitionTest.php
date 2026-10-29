@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 final class ANestedTermPastColumnDefinitionTest extends TestCase
 {
+    use RuleATodo;
+
     public function testPastColumnFootnoteAndItsContinuationStayInTerm(): void
     {
         $html = CarveConverter::create()->convert("- a\n  :: outer\n  :  detail\n       :: inner\n      :  tail\n        [^n]: note\n         q\n");

@@ -7,10 +7,13 @@ namespace MarkupCarve\Carve\Test\TestCase;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\CollectedCommentSpan;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class CollectedCommentSpanTest extends TestCase
 {
+    use RuleATodo;
+
     public function testCollectorsDoNotRecheckEveryEarlierCommentLine(): void
     {
         foreach (["[^a]: %%%\n", ":: t\n: - %%%\n", "- head\n\n    %%%\n"] as $lead) {

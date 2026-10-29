@@ -10,6 +10,8 @@ use PHPUnit\Framework\TestCase;
 
 final class ADescriptionContinuationWritesAtItsBodyColumnTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * Folded description lines and their written forms.
      *

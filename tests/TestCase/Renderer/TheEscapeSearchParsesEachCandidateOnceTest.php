@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -15,6 +16,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class TheEscapeSearchParsesEachCandidateOnceTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return iterable<string, array{string}>
      */

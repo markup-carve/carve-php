@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class IndentedTableRowAfterDelimiterTest extends TestCase
 {
+    use RuleATodo;
+
     #[DataProvider('sources')]
     public function testDefaultConverterEndsTableBeforeIndentedRow(string $source, string $expected): void
     {

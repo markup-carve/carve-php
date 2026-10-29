@@ -10,6 +10,8 @@ use PHPUnit\Framework\TestCase;
 
 final class DescriptionBlankRunContinuationTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{int}>
      */

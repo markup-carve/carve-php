@@ -16,6 +16,8 @@ use PHPUnit\Framework\TestCase;
  */
 class BlockquoteRefDefTest extends TestCase
 {
+    use RuleATodo;
+
     private CarveConverter $converter;
 
     protected function setUp(): void

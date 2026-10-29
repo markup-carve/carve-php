@@ -20,6 +20,8 @@ use PHPUnit\Framework\TestCase;
  */
 class TheFormatterRoundTripsADescriptionWhoseOnlyContentIsADroppedNoteTest extends TestCase
 {
+    use RuleATodo;
+
     protected function html(string $source): string
     {
         return trim(CarveConverter::create()->convert($source));

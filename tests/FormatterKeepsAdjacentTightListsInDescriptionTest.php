@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 class FormatterKeepsAdjacentTightListsInDescriptionTest extends TestCase
 {
+    use RuleATodo;
+
     public function testListsStayTightAndInTheirDescription(): void
     {
         foreach (

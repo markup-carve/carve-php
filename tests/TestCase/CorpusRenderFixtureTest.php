@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Test\Fixture\CanonicalAheadOfPin;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -21,6 +22,8 @@ use function preg_match;
  */
 class CorpusRenderFixtureTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @throws \RuntimeException
      *

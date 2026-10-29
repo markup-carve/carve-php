@@ -7,10 +7,13 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class QuotedLazyMarkerOwnershipTest extends TestCase
 {
+    use RuleATodo;
+
     public function testLazyMarkersKeepTheQuoteParagraphOwner(): void
     {
         /** @var array<array{id:string, source:string, html:string}> $rows */

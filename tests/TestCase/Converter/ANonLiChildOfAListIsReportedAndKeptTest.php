@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlImportDiagnostic;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -31,6 +32,8 @@ use PHPUnit\Framework\TestCase;
  */
 class ANonLiChildOfAListIsReportedAndKeptTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return list<array{code: string, message: string, severity: string, fidelity: string, confidence: string, path: string}>
      */

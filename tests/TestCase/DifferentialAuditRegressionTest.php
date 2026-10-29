@@ -7,10 +7,13 @@ namespace MarkupCarve\Carve\Test\TestCase;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class DifferentialAuditRegressionTest extends TestCase
 {
+    use RuleATodo;
+
     public function testWhitespaceOnlySingleCellRowInsideAListIsATable(): void
     {
         $html = (new CarveConverter())->convert("* | |\n");

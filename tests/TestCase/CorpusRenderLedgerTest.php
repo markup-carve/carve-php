@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 use function count;
 
@@ -34,6 +35,8 @@ use function count;
  */
 class CorpusRenderLedgerTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * Roughly a week of corpus growth. Below it the ledger needs regenerating.
      *

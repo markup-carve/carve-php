@@ -12,6 +12,8 @@ use PHPUnit\Framework\TestCase;
 
 class CommentPayloadColumnsTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, list<string>}>
      */

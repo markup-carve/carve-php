@@ -11,6 +11,8 @@ use RuntimeException;
 
 class ContainerOwnershipTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return iterable<string, array{string, string}>
      */

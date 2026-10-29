@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\TabNormalizeExtension;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -17,6 +18,8 @@ use PHPUnit\Framework\TestCase;
  */
 class TabIndentationTest extends TestCase
 {
+    use RuleATodo;
+
     protected CarveConverter $converter;
 
     protected function setUp(): void

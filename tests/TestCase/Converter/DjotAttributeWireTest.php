@@ -6,10 +6,13 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\DjotToCarve;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class DjotAttributeWireTest extends TestCase
 {
+    use RuleATodo;
+
     public function testAttributeValuesSurviveImport(): void
     {
         $rows = json_decode(file_get_contents(__DIR__ . '/../../fixtures/djot-attribute-wire.json'), true, flags: JSON_THROW_ON_ERROR);

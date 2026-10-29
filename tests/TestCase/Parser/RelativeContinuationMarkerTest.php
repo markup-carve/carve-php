@@ -7,11 +7,14 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Lint\FenceAndContinuationLinter;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class RelativeContinuationMarkerTest extends TestCase
 {
+    use RuleATodo;
+
     public static function cases(): iterable
     {
         yield 'nested bullet' => ["- a\n  - b\n  +\n  > q", "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <blockquote><p>q</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>"];

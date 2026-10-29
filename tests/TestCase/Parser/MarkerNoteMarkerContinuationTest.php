@@ -6,11 +6,14 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class MarkerNoteMarkerContinuationTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return iterable<string, array{string, string}>
      */
