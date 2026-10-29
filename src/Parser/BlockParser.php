@@ -352,6 +352,7 @@ class BlockParser
         $codeFence = null;
         $codeFenceEnd = null;
         $commentFence = null;
+        $rawLines = null;
         foreach ($this->state->source->markerLines ?: $this->state->source->sourceLines as $index => $line) {
             $fenceLine = ltrim($line, " \t");
             while (($quoteBody = ContainerPrefix::quoteContent($fenceLine)) !== null) {
@@ -389,7 +390,7 @@ class BlockParser
                 continue;
             }
             // First-block + markers have an owner, but no separate-line decision.
-            $firstBlock = $this->state->session->firstBlockMarkerOwner($this->state->source, $this->listParser, $index);
+            $firstBlock = $this->state->session->firstBlockMarkerOwner($this->state->source, $this->listParser, $index, evenRefused: true);
             if (($firstBlock['kind'] ?? null) === 'list' && $firstBlock['depth'] === 0) {
                 $follower = $this->state->source->sourceLines[$index + 1] ?? null;
                 if ($follower !== null && trim($follower) !== '' && !$this->firstBlockQuoteAtAncestorColumn($index)) {
@@ -464,6 +465,11 @@ class BlockParser
                     $reason = $followerColumn > $quoteColumn ? 'right' : 'left';
                 } elseif ($followerColumn !== 0 && $this->listParser->parseListItemMarker(ltrim($follower, " \t")) !== null) {
                     $reason = 'sibling';
+                } elseif (isset($this->state->source->refusedQuotePlus[$index])) {
+                    // The walk refused it by the follower's raw column, which the rewritten line no longer shows.
+                    $rawLines ??= $this->splitLines($this->state->source->originalSource);
+                    $raw = $rawLines[$index + 1] ?? '';
+                    $reason = ContinuationMarkerClassifier::columnAt($raw, strspn($raw, " \t")) > $quoteColumn ? 'right' : 'left';
                 }
                 if ($reason !== null) {
                     $markers[] = [
@@ -1001,6 +1007,7 @@ class BlockParser
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
         $this->state->source->markerLines = $walk->refusedPlusLines === [] ? [] : array_replace($this->state->source->sourceLines, $walk->refusedPlusLines);
         $this->state->source->closingLines = $walk->closingLines;
+        $this->state->source->refusedQuotePlus = $walk->refusedPlus;
 
         // Each physical byte may be inspected a small constant number of times
         // by the parser-backed marker probe below. Exhaustion deliberately

@@ -32,6 +32,8 @@ final class OwnershipFrame
      * @param int|null $run
      * @param int|null $reader
      * @param int|null $plus
+     * @param int|null $docMarker
+     * @param int|null $line
      */
     public function __construct(
         public string $kind,
@@ -51,6 +53,8 @@ final class OwnershipFrame
         public bool $absorbs = false,
         public ?int $reader = null,
         public ?int $plus = null,
+        public ?int $docMarker = null,
+        public ?int $line = null,
     ) {
     }
 }

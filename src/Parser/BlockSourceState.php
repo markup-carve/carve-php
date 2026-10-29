@@ -67,6 +67,13 @@ final class BlockSourceState
     public array $closingLines = [];
 
     /**
+     * Top-level quote first-block `+` lines the walk refused by their follower's raw column.
+     *
+     * @var array<int, true>
+     */
+    public array $refusedQuotePlus = [];
+
+    /**
      * Normalized input used to verify computed spans.
      */
     public string $normalizedSource = '';

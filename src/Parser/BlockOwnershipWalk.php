@@ -60,6 +60,13 @@ final class BlockOwnershipWalk
     public array $refusedPlusLines = [];
 
     /**
+     * Quote first-block `+` lines whose follower stands at an ineligible raw column, keyed by line index.
+     *
+     * @var array<int, true>
+     */
+    public array $refusedPlus = [];
+
+    /**
      * @var array{widest: array<string, array<int, int>>, lastComment: array<int, int>}|null
      */
     private ?array $runs = null;
@@ -138,6 +145,7 @@ final class BlockOwnershipWalk
         $this->lazyLines = [];
         $this->fenceOpenerLines = [];
         $this->refusedPlusLines = [];
+        $this->refusedPlus = [];
         $this->frames = [new OwnershipFrame('doc', 0, 0, 0)];
         $result = [];
         $afterPlus = false;
@@ -169,8 +177,27 @@ final class BlockOwnershipWalk
             $plus = null;
             $refusedPlus = false;
             $frameCount = count($this->frames);
+            // A quote's first-block `+` reads a follower by its raw column (CARVE-P9-067).
+            $topFrame = $this->frames[$frameCount - 1];
+            $quotePlus = $topFrame->kind === 'quote' && $topFrame->plus === $at - 1 ? $topFrame : null;
+            $baseAt = -1;
+            if ($quotePlus !== null) {
+                foreach ($this->frames as $k => $f) {
+                    if ($f->line === $at - 1) {
+                        $baseAt = $k;
+
+                        break;
+                    }
+                }
+            }
+            $stackCol = null;
+            // Column 0 of the follower's own quote level, past host quote prefixes.
+            $zero = 0;
             for ($k = 1; $k < $frameCount; $k++) {
                 $f = $this->frames[$k];
+                if ($quotePlus !== null && $stackCol === null && $f->line === $at - 1) {
+                    $stackCol = -1;
+                }
                 if ($f->markerCol !== null && preg_match('/^\+[ \t]*$/D', $this->m['rest']) === 1 && $this->m['col'] === $f->markerCol) {
                     if ($f->kind === 'quote' || ($this->m['col'] < $f->col && $this->attachesAt($at + 1, $f->markerCol, $this->quoteDepth($k)))) {
                         $plus = $k;
@@ -183,8 +210,14 @@ final class BlockOwnershipWalk
                     if (preg_match(self::QUOTE, $this->m['rest'], $q) !== 1) {
                         break;
                     }
+                    if ($stackCol === -1) {
+                        $stackCol = self::docColumn($lines[$at], $this->m['rest']);
+                    }
                     $this->lead($this->frames[$k - 1]->canon);
                     $this->take(strlen($this->src) - strlen($q[1] ?? ''));
+                    if ($k < $baseAt) {
+                        $zero = self::docColumn($lines[$at], $this->src);
+                    }
                     $this->m = self::indentCols($this->src);
                     $reached = $k;
 
@@ -207,6 +240,17 @@ final class BlockOwnershipWalk
             $plusFollower = $afterPlus;
             $afterPlus = false;
             $missed = $reached < count($this->frames) - 1;
+            // A follower at an ineligible raw column refuses the `+` whatever block it starts (CARVE-P9-067, carve#3421).
+            $stacked = $stackCol !== null && $stackCol >= 0;
+            if (
+                $quotePlus !== null && ($missed || $stacked) && $this->m['rest'] !== ''
+                && preg_match('/^\+[ \t]*$/D', $this->m['rest']) !== 1
+            ) {
+                $col = $stacked ? $stackCol : self::docColumn($lines[$at], $this->m['rest']);
+                if ($col !== 0 && $col !== $zero && $col !== $this->frames[$baseAt]->docMarker && $col !== $quotePlus->docMarker) {
+                    $this->refusedPlus[$at - 1] = true;
+                }
+            }
             $this->reach = $reached;
             $innerIndex = count($this->frames) - 1;
             $inner = $this->frames[$innerIndex];
@@ -374,7 +418,16 @@ final class BlockOwnershipWalk
             return;
         }
         if ($form->kind === 'quote') {
-            $this->frames[] = new OwnershipFrame('quote', 0, 0, 0, markerCol: $col, markerCanon: $canon);
+            $this->frames[] = new OwnershipFrame(
+                'quote',
+                0,
+                0,
+                0,
+                markerCol: $col,
+                markerCanon: $canon,
+                docMarker: self::docColumn($this->lines[$this->at], $this->src),
+                line: $this->at,
+            );
             preg_match(self::QUOTE, $this->src, $q);
             $this->take(strlen($this->src) - strlen($q[1] ?? ''));
             $this->m = self::indentCols($this->src);
@@ -392,6 +445,8 @@ final class BlockOwnershipWalk
                 markerCanon: $canon,
                 axes: $form->axes,
                 reader: $reader + $form->width,
+                docMarker: self::docColumn($this->lines[$this->at], $this->src),
+                line: $this->at,
             );
             $this->take($form->head);
             $this->m = self::indentCols($this->src);
@@ -780,6 +835,20 @@ final class BlockOwnershipWalk
         }
 
         return $m;
+    }
+
+    /**
+     * The document column where `$rest`, a suffix of `$line`, starts.
+     */
+    private static function docColumn(string $line, string $rest): int
+    {
+        $col = 0;
+        $end = strlen($line) - strlen($rest);
+        for ($i = 0; $i < $end; $i++) {
+            $col = $line[$i] === "\t" ? (intdiv($col, 4) + 1) * 4 : $col + 1;
+        }
+
+        return $col;
     }
 
     /**
