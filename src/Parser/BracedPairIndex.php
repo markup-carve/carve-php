@@ -158,6 +158,14 @@ final class BracedPairIndex
                         }
                     }
                 }
+                // A braced opener right before the host guards it under either reading of its marker;
+                // with no closer of either behind the block, the guard closes nowhere and the block is text.
+                if (
+                    $bareTail !== null && $guard === null && isset($openMarks[$at - 1]) && !$this->bareBeforeAllows($char, $text[$at - 1])
+                    && ($tables[$text[$at - 1]][$bareTail] ?? -1) === -1 && ($bareTables[$text[$at - 1]][$bareTail] ?? -1) === -1
+                ) {
+                    $bareTail = null;
+                }
                 if ($bareTail !== null) {
                     $this->bareAttributes[$at] = ['close' => $bareClose, 'end' => $bareTail, 'guard' => $guard, 'guardClose' => $guardClose, 'guardEnd' => $guardEnd, 'guardFrom' => $guardFrom];
                     // The block this pair takes hides another kind's closer from a walk that starts before it.
