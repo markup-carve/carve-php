@@ -771,6 +771,26 @@ class InlineParser
         }
     }
 
+    /**
+     * Parse the content of a bracket run, resolved or literal. E2b bounds every
+     * pair at the run, so no span opened outside it is reachable for E3 inside.
+     */
+    protected function parseBracketRunAt(
+        Node $parent,
+        string $text,
+        int $offsetInParent,
+        ?bool $footnoteRecognitionEnabled = null,
+        bool $separateQuoteScope = false,
+    ): void {
+        $outer = $this->openSpanKinds;
+        $this->openSpanKinds = [];
+        try {
+            $this->parseInlinesAt($parent, $text, $offsetInParent, $footnoteRecognitionEnabled, $separateQuoteScope);
+        } finally {
+            $this->openSpanKinds = $outer;
+        }
+    }
+
     protected function parseInlines(
         Node $parent,
         string $text,
@@ -1323,7 +1343,7 @@ class InlineParser
                         $opener = new Text('[');
                         $this->placeAt($opener, $pos, $pos + 1);
                         $parent->appendChild($opener);
-                        $this->parseInlinesAt($parent, $result['link_text'], $pos + 1);
+                        $this->parseBracketRunAt($parent, $result['link_text'], $pos + 1);
                         $tail = new Text('](');
                         $this->placeAt($tail, $result['continue_pos'] - 2, $result['continue_pos']);
                         $parent->appendChild($tail);
@@ -1494,7 +1514,7 @@ class InlineParser
                     $opener = new Text('[');
                     $this->placeAt($opener, $pos, $pos + 1);
                     $parent->appendChild($opener);
-                    $this->parseInlinesAt($parent, substr($text, $pos + 1, $end - $pos - 2), $pos + 1);
+                    $this->parseBracketRunAt($parent, substr($text, $pos + 1, $end - $pos - 2), $pos + 1);
                     $closer = new Text(']');
                     $this->placeAt($closer, $end - 1, $end);
                     $parent->appendChild($closer);
@@ -2824,7 +2844,7 @@ class InlineParser
                 $urlEnd = $destination['end'];
 
                 $link = new Link($url, $title);
-                $this->parseInlinesAt($link, $linkText, $pos + 1, separateQuoteScope: isset($this->imageReferenceAt[$pos]));
+                $this->parseBracketRunAt($link, $linkText, $pos + 1, separateQuoteScope: isset($this->imageReferenceAt[$pos]));
 
                 // Track anchor links for validation
                 if (preg_match('/^#(.+)$/', $url, $anchorMatch)) {
@@ -2879,7 +2899,7 @@ class InlineParser
                 // needs the plain text those nodes render to - deriving either
                 // one twice is how the label acquires two spellings.
                 $label = new Span();
-                $this->parseInlinesAt($label, $linkText, $pos + 1, separateQuoteScope: isset($this->imageReferenceAt[$pos]));
+                $this->parseBracketRunAt($label, $linkText, $pos + 1, separateQuoteScope: isset($this->imageReferenceAt[$pos]));
 
                 // Set only where the heading retry below resolves the
                 // reference, which is the one path where the label the author
@@ -3041,7 +3061,7 @@ class InlineParser
                     // leaving it literal -- e.g. `[x]{.a}{???}`).
                     $this->applyAttributesToNode($span, $attrStr);
                     $endPos = $this->applyConsecutiveAttributes($span, $text, $attrEnd + 1);
-                    $this->parseInlinesAt($span, $linkText, $pos + 1, separateQuoteScope: isset($this->imageReferenceAt[$pos]));
+                    $this->parseBracketRunAt($span, $linkText, $pos + 1, separateQuoteScope: isset($this->imageReferenceAt[$pos]));
 
                     return [
                         'node' => $span,
@@ -6124,7 +6144,7 @@ class InlineParser
         }
 
         $node = new InlineFootnote();
-        $this->parseInlinesAt($node, $content, $pos + 2, false, separateQuoteScope: true);
+        $this->parseBracketRunAt($node, $content, $pos + 2, false, separateQuoteScope: true);
 
         $endPos = $close + 1;
         if ($endPos < $length && $text[$endPos] === '{') {
