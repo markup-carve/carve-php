@@ -3510,7 +3510,8 @@ class InlineParser
                 break;
             }
             $char = $text[$searchPos];
-            $child = $char !== $delimiter && !in_array($char, $this->openSpanKinds, true)
+            // The closer of a pair this walk attached opens nothing.
+            $child = $char !== $delimiter && !in_array($char, $this->openSpanKinds, true) && !isset($attached[$searchPos + 1])
                 ? $this->bracedPairIndex?->bareAttributes($searchPos) : null;
             // A guard of an open kind is literal (E3), and one inside this
             // span opens only if it closes before this span's closer.
@@ -3802,7 +3803,7 @@ class InlineParser
 
             $char = $text[$searchPos];
             // The holders the bare walk skips, minus the kinds this token opens (E3).
-            $child = $char !== '/' && $char !== '*' ? $this->bracedPairIndex?->bareAttributes($searchPos) : null;
+            $child = $char !== '/' && $char !== '*' && !isset($attached[$searchPos + 1]) ? $this->bracedPairIndex?->bareAttributes($searchPos) : null;
             if ($child !== null) {
                 $attached[$child['close'] + 1] = $child['end'];
             }
