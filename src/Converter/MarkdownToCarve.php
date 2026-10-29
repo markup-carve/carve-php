@@ -104,6 +104,13 @@ class MarkdownToCarve
     protected const EMPTY_DEFINITION_ITEM_SENTINEL = "\x00CARVE_EMPTY_DEFINITION_ITEM\x00";
 
     /**
+     * Marks a GitHub alert label that must stay quote text through the alert pass.
+     *
+     * @var string
+     */
+    private const ALERT_LABEL_GUARD = "\x01";
+
+    /**
      * Source lines whose ordered task item Carve cannot spell, in order, for the
      * fidelity report. Reset by every `convert()`.
      *
@@ -1035,7 +1042,7 @@ class MarkdownToCarve
                     continue;
                 }
             }
-            $this->escapeAlertLabelAfterBlankQuoteLine($lines, $i);
+            $this->guardAlertLabelAfterBlankQuoteLine($lines, $i, $markdown);
             [$i, $prevLineType, $body, $quoteHandled] = $this->convertImportedQuoteBlock(
                 $isBlockquote,
                 $body,
@@ -1995,6 +2002,9 @@ class MarkdownToCarve
         }
         $carve = $this->repairImportedEmailLinks($carve, $frontmatter);
         $carve = $this->importGithubAlerts($carve, $frontmatter);
+        if (!self::holdsAlertLabelGuard($markdown)) {
+            $carve = preg_replace('/^((?:> ?)+)\x01(?=\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*$)/m', '$1', $carve) ?? $carve;
+        }
 
         if ($frontmatter === []) {
             return $this->canonicalImportLayout($this->rewriteSameFileHeadingLinks($carve), $carrierOriginal);
@@ -2261,14 +2271,25 @@ class MarkdownToCarve
     }
 
     /**
+     * Whether the source can put the guard character into the output itself,
+     * literally or through a numeric character reference.
+     */
+    private static function holdsAlertLabelGuard(string $markdown): bool
+    {
+        return str_contains($markdown, self::ALERT_LABEL_GUARD) || preg_match('/&#(?:0*1|[xX]0*1);/', $markdown) === 1;
+    }
+
+    /**
      * A label after a blank `>` line is not the quote's first line, so it is
      * no alert (CARVE-P2-033). The Carve writer drops that blank line, which
-     * would put the label first; the escape keeps it literal.
+     * would put the label first; a guard keeps the alert pass off it and is
+     * removed after that pass, so the label is written as plain quote text.
      *
      * @param array<string> $lines
      * @param int $i
+     * @param string $markdown
      */
-    private function escapeAlertLabelAfterBlankQuoteLine(array &$lines, int $i): void
+    private function guardAlertLabelAfterBlankQuoteLine(array &$lines, int $i, string $markdown): void
     {
         $next = $lines[$i + 1] ?? '';
         if (
@@ -2278,7 +2299,8 @@ class MarkdownToCarve
         ) {
             return;
         }
-        $lines[$i + 1] = $label[1] . '\\' . substr($next, strlen($label[1]));
+        $guard = self::holdsAlertLabelGuard($markdown) ? '\\' : self::ALERT_LABEL_GUARD;
+        $lines[$i + 1] = $label[1] . $guard . substr($next, strlen($label[1]));
     }
 
     /**

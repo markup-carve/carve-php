@@ -220,6 +220,58 @@ class AMarkdownGithubAlertImportsAsAnAdmonitionTest extends TestCase
     }
 
     /**
+     * @return array<string, array{0: string, 1: string, 2: int}>
+     */
+    public static function blankLineAboveTheLabelProvider(): array
+    {
+        return [
+            'opening the document' => [">\n> [!NOTE]\n> x\n", "> [!NOTE]\n> x\n", 1],
+            'after a heading' => ["# T\n\n>\n> [!NOTE]\n> x\n", "# T\n\n> [!NOTE]\n> x\n", 3],
+            'two of them' => [">\n> [!NOTE]\n> x\n\n>\n> [!TIP]\n> y\n", "> [!NOTE]\n> x\n\n> [!TIP]\n> y\n", 1],
+            'before an alert' => [">\n> [!NOTE]\n> x\n\n> [!TIP]\n> y\n", "> [!NOTE]\n> x\n\n::: tip\ny\n:::\n", 1],
+        ];
+    }
+
+    #[DataProvider('blankLineAboveTheLabelProvider')]
+    public function testALabelBelowABlankQuoteLineIsWrittenUnescaped(string $markdown, string $carve, int $line): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport($markdown);
+        $rows = array_map(static fn (MigrationDiagnostic $row): array => [$row->code, $row->fidelity, $row->path], $result->diagnostics);
+
+        $this->assertSame($carve, $result->value);
+        $this->assertContains(BlockQuote::class, $this->blockTypes($result->value));
+        $this->assertSame(
+            [
+                ['markdown-block-quote', 'preserved', 'line:' . $line],
+                ['markdown-paragraph', 'preserved', 'line:' . ($line + 1)],
+                ['markdown-soft-break', 'preserved', 'line:' . ($line + 1)],
+            ],
+            array_slice(array_values(array_filter($rows, static fn (array $row): bool => $row[0] !== 'markdown-atx-heading')), 0, 3),
+        );
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function guardCharacterProvider(): array
+    {
+        return [
+            'the character itself' => [">\n> [!NOTE]\n> x\x01", "> \\[!NOTE]\n> x\x01"],
+            'a decimal reference to it' => [">\n> &#1;[!NOTE]\n> x\n>\n> [!TIP]\n> y", "> \x01[!NOTE]\n> x\n>\n> \\[!TIP]\n> y"],
+            'a hex reference to it' => [">\n> [!NOTE]\n> &#x1;", "> \\[!NOTE]\n> \x01"],
+        ];
+    }
+
+    #[DataProvider('guardCharacterProvider')]
+    public function testASourceThatCanWriteTheGuardKeepsTheLabelEscaped(string $markdown, string $expected): void
+    {
+        $carve = $this->imported($markdown);
+
+        $this->assertSame($expected, $carve);
+        $this->assertSame([BlockQuote::class], $this->blockTypes($carve));
+    }
+
+    /**
      * @return array<string, array{0: string, 1: string}>
      */
     public static function verifiedAlertProvider(): array
