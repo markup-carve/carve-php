@@ -24,9 +24,14 @@ final class BracedPairIndex
     private array $attributeTails = [];
 
     /**
-     * @var array<int, array{close: int, end: int}>
+     * @var array<int, array{close: int, end: int, guard: int|null, guardClose: int, guardEnd: int}>
      */
     private array $bareAttributes = [];
+
+    /**
+     * @var array<string, \SplFixedArray<mixed>>
+     */
+    private array $bareClosers = [];
 
     /**
      * @param string $text
@@ -65,6 +70,15 @@ final class BracedPairIndex
             $marker = $start > 0 ? $text[$start - 1] : '';
             if ($marker !== '' && str_contains('/*_~=', $marker)) {
                 $bareTables[$marker] ??= new SplFixedArray($length + 2);
+            }
+        }
+        // A guard that opens needs its own closer table, and the walk it sits
+        // in needs one to see whether the guard closes first.
+        if ($bareTables !== [] && (str_contains($text, '/') || str_contains($text, '_'))) {
+            foreach (str_split('/*_~=') as $marker) {
+                if (str_contains($text, $marker)) {
+                    $bareTables[$marker] ??= new SplFixedArray($length + 2);
+                }
             }
         }
         $openMarks = [];
@@ -115,14 +129,27 @@ final class BracedPairIndex
             // A braced opener's marker is not content before a bare opener.
             $before = $at > 0 && !isset($openMarks[$at - 1]) ? $text[$at - 1] : '';
             $canOpenBare = isset($bareTables[$char]) && $next !== '' && !StringUtil::isWhitespaceChar($next)
-                && $next !== $char && $before !== $char && ($before === '' || preg_match('/[A-Za-z0-9_]/', $before) !== 1)
-                && ($char !== '=' || $next !== '>') && (($char !== '/' && $char !== '_') || $before !== '/');
+                && $next !== $char && $before !== $char && ($char !== '=' || $next !== '>');
             $bareClose = $canOpenBare ? ($bareTables[$char][$at + 1] ?? -1) : -1;
             $bareTail = null;
             if (is_int($bareClose) && $bareClose !== -1) {
                 $bareTail = $attributeTails[$bareClose + 1] ?? null;
+                $guard = null;
+                $guardClose = -1;
+                $guardEnd = -1;
+                if ($bareTail !== null && !$this->bareBeforeAllows($char, $before)) {
+                    // A `_` or `/` that opens a span that closes is not the
+                    // character before (the note under CARVE-P3-013).
+                    $guard = $at - 1;
+                    $guardCloses = $this->guardCloses($text, $guard, [$at, $bareClose, $bareTail], $bareTables, $openMarks, 1);
+                    if ($guardCloses === null) {
+                        $bareTail = null;
+                    } else {
+                        [$guardClose, $guardEnd] = $guardCloses;
+                    }
+                }
                 if ($bareTail !== null) {
-                    $this->bareAttributes[$at] = ['close' => $bareClose, 'end' => $bareTail];
+                    $this->bareAttributes[$at] = ['close' => $bareClose, 'end' => $bareTail, 'guard' => $guard, 'guardClose' => $guardClose, 'guardEnd' => $guardEnd];
                 }
             }
             foreach ($tables as $marker => $table) {
@@ -161,6 +188,61 @@ final class BracedPairIndex
                 $table[$at] = $stop;
             }
         }
+        $this->bareClosers = $bareTables;
+    }
+
+    private function bareBeforeAllows(string $char, string $before): bool
+    {
+        return $before === '' || (preg_match('/[A-Za-z0-9_]/', $before) !== 1
+            && (($char !== '/' && $char !== '_') || $before !== '/'));
+    }
+
+    /**
+     * The closer of the guard at $at and the farthest closer of it and the guard
+     * before it, or null when a guard does not open. The guards `_` and `/` alternate, so a third level
+     * would repeat an open kind (E3).
+     *
+     * @param string $text
+     * @param int $at
+     * @param array{int, int, int} $host Content start, closer and attribute end of the guarded host;
+     *   only guard characters lie between $at and the content start.
+     * @param array<string, \SplFixedArray<mixed>> $bareTables
+     * @param array<int, true> $openMarks
+     * @param int $depth
+     *
+     * @return array{int, int}|null
+     */
+    private function guardCloses(string $text, int $at, array $host, array $bareTables, array $openMarks, int $depth): ?array
+    {
+        $char = $text[$at] ?? '';
+        $before = $at > 0 && !isset($openMarks[$at - 1]) ? $text[$at - 1] : '';
+        if (($char !== '_' && $char !== '/') || !isset($bareTables[$char]) || $before === $char || $this->isEscaped($text, $at)) {
+            return null;
+        }
+        // Its closer lies behind the host: one inside the host's attribute block
+        // counts only if the host is not taken, and one before it overlaps.
+        [$from, $hostClose, $hostEnd] = $host;
+        $first = $bareTables[$char][$from] ?? -1;
+        $close = $bareTables[$char][$hostEnd] ?? -1;
+        if (!is_int($first) || $first <= $hostClose || !is_int($close) || $close === -1) {
+            return null;
+        }
+        if ($this->bareBeforeAllows($char, $before)) {
+            return [$close, $close];
+        }
+        $outer = $depth < 2 ? $this->guardCloses($text, $at - 1, $host, $bareTables, $openMarks, $depth + 1) : null;
+
+        return $outer === null ? null : [$close, max($close, $outer[1])];
+    }
+
+    private function isEscaped(string $text, int $at): bool
+    {
+        $run = 0;
+        while ($at - $run > 0 && $text[$at - $run - 1] === '\\') {
+            $run++;
+        }
+
+        return $run % 2 === 1;
     }
 
     public function end(int $open): ?int
@@ -178,16 +260,33 @@ final class BracedPairIndex
     }
 
     /**
-     * @return array{close: int, end: int}|null
+     * @return array{close: int, end: int, guard: int|null, guardClose: int}|null
      */
     public function bareAttributes(int $open): ?array
     {
         $pair = $this->bareAttributes[$open + $this->offset] ?? null;
-        if ($pair === null || $pair['end'] > $this->offset + $this->length) {
+        // A guard opens only if it closes within this scope.
+        if ($pair === null || max($pair['end'], $pair['guardEnd'] + 1) > $this->offset + $this->length) {
+            return null;
+        }
+        $guard = $pair['guard'] === null ? null : $pair['guard'] - $this->offset;
+
+        return [
+            'close' => $pair['close'] - $this->offset,
+            'end' => $pair['end'] - $this->offset,
+            'guard' => $guard,
+            'guardClose' => $pair['guardClose'] - $this->offset,
+        ];
+    }
+
+    public function bareCloser(string $marker, int $from): ?int
+    {
+        $close = isset($this->bareClosers[$marker]) ? ($this->bareClosers[$marker][$from + $this->offset] ?? -1) : -1;
+        if (!is_int($close) || $close === -1 || $close >= $this->offset + $this->length) {
             return null;
         }
 
-        return ['close' => $pair['close'] - $this->offset, 'end' => $pair['end'] - $this->offset];
+        return $close - $this->offset;
     }
 
     public function slice(int $start, int $length): self
