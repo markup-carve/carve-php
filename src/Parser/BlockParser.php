@@ -4209,11 +4209,8 @@ class BlockParser
         $line = str_replace("\n" . BlockGrammar::LAZY_FRAME, "\n", $line);
         // Strip leading whitespace from first line (matching JS reference)
         $content = ltrim($line, " \t");
-        $openingDirective = str_starts_with($content, '{{ ')
-            ? IncludeDirectiveSyntax::parse($content) : null;
-        $standaloneCodeInclude = $openingDirective !== null
-            && $openingDirective['code'] !== null
-            && $openingDirective['error'] === null;
+        $codeIncludeLine = IncludeDirectiveSyntax::codeIncludeLine(explode("\n", $content, 2)[0]);
+        $standaloneCodeInclude = $codeIncludeLine !== null;
         /** @var list<string> $contentParts */
         $contentParts = [$content];
         $hasUnclaimedColonFenceLine = $this->paragraphHasUnclaimedColonFenceLine($content);
@@ -4347,12 +4344,18 @@ class BlockParser
 
             return $i - $start;
         }
-        $this->inlineParser->parse(
-            $paragraph,
-            $content,
-            $start,
-            sourceMap: $trackPositions ? $this->foldedLinesMap($contentLines) : null,
-        );
+        // Unexpanded, a document-level code include line is literal text (PART 10 I2).
+        $this->inlineParser->literalIncludeLine = $codeIncludeLine !== null && $topLevel && !$codeIncludeLine['quoted'];
+        try {
+            $this->inlineParser->parse(
+                $paragraph,
+                $content,
+                $start,
+                sourceMap: $trackPositions ? $this->foldedLinesMap($contentLines) : null,
+            );
+        } finally {
+            $this->inlineParser->literalIncludeLine = false;
+        }
         if ($foldedFenceColumn !== null) {
             $textBeforeCode = false;
             $hasCode = false;

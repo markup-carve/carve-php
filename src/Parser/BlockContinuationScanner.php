@@ -8,6 +8,7 @@ use Closure;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Parser\Utility\LayoutWork;
+use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 
 /**
  * Collects continuation extents and advances trailing-block state.
@@ -3965,6 +3966,10 @@ final class BlockContinuationScanner
             $lastEntry = $itemLines[count($itemLines) - 1];
             if ($this->isCommentLineOrFence($lastEntry) || $this->entryOpensContainer($lastEntry)) {
                 $itemLines[] = ' ' . $nextTrimmed;
+                $itemLineMap[] = $this->sourceLineFor($i);
+            } elseif (IncludeDirectiveSyntax::codeIncludeLine($lastEntry) !== null) {
+                // A code include line ends at its own line (PART 10 I2): the lazy line is the next paragraph.
+                $itemLines[] = BlockGrammar::LAZY_FRAME . $nextTrimmed;
                 $itemLineMap[] = $this->sourceLineFor($i);
             } else {
                 $itemLines[count($itemLines) - 1] .= "\n" . $nextTrimmed;

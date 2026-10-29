@@ -29,6 +29,22 @@ use MarkupCarve\Carve\Parser\Utility\AttributeParser;
  */
 class IncludeDirectiveSyntax
 {
+    private static ?string $closerText = null;
+
+    private static int $closerFrom = 0;
+
+    private static int $closerAt = -1;
+
+    private static int $closerStop = -1;
+
+    private static ?string $pairText = null;
+
+    private static int $pairFrom = 0;
+
+    private static int $pairAt = 0;
+
+    private static int $pairNewline = -1;
+
     /**
      * Scan for directive spans inside a reassembled run.
      *
@@ -461,5 +477,224 @@ class IncludeDirectiveSyntax
         }
 
         return $slots;
+    }
+
+    /**
+     * Read the `include_directive` opening at `$open` by its SHAPE only (PART 6):
+     * any identifier key, value or not. PART 10 I2 decides a code include line
+     * from this spelling, so an unknown or malformed option must not unmake it.
+     *
+     * @return array{end: int, quoted: bool, options: list<array{0: string, 1: string|null}>}|null
+     */
+    public static function shape(string $text, int $open = 0): ?array
+    {
+        if (substr($text, $open, 2) !== '{{') {
+            return null;
+        }
+        $closer = self::closerIndex($text, $open + 2);
+        if ($closer === -1) {
+            return null;
+        }
+        $inner = substr($text, $open + 2, $closer - $open - 2);
+        $length = strlen($inner);
+        $i = strspn($inner, ' ');
+        if ($i === 0 || $i >= $length) {
+            return null;
+        }
+        $quoted = $inner[$i] === '"';
+        if ($quoted) {
+            $end = self::quotedRunEnd($inner, $i);
+            if ($end === -1) {
+                return null;
+            }
+            $i = $end + 1;
+        } else {
+            $run = strcspn($inner, '#@} ', $i);
+            if ($run === 0) {
+                return null;
+            }
+            $i += $run;
+        }
+        $j = $i + strspn($inner, ' ', $i);
+        if ($j < $length && $inner[$j] === '#') {
+            if (preg_match('/\G[A-Za-z0-9_][A-Za-z0-9_-]*/', $inner, $name, 0, $j + 1) !== 1) {
+                return null;
+            }
+            $i = $j + 1 + strlen($name[0]);
+        }
+        $options = [];
+        while (true) {
+            $j = $i + strspn($inner, ' ', $i);
+            if ($j >= $length || $inner[$j] !== '@') {
+                break;
+            }
+            if (preg_match('/\G[A-Za-z_][A-Za-z0-9_-]*/', $inner, $key, 0, $j + 1) !== 1) {
+                return null;
+            }
+            $i = $j + 1 + strlen($key[0]);
+            if ($i >= $length || $inner[$i] !== ':') {
+                $options[] = [$key[0], null];
+
+                continue;
+            }
+            if ($i + 1 < $length && ($inner[$i + 1] === '"' || $inner[$i + 1] === "'")) {
+                $end = self::quotedRunEnd($inner, $i + 1);
+                if ($end === -1) {
+                    return null;
+                }
+                $options[] = [$key[0], substr($inner, $i + 2, $end - $i - 2)];
+                $i = $end + 1;
+
+                continue;
+            }
+            $run = strcspn($inner, "}|\"'\\ \t\r\n@", $i + 1);
+            if ($run === 0) {
+                return null;
+            }
+            $options[] = [$key[0], substr($inner, $i + 1, $run)];
+            $i += 1 + $run;
+        }
+        $tail = substr($inner, $i);
+        if ($tail === '' || strspn($tail, ' ') !== strlen($tail)) {
+            return null;
+        }
+
+        return ['end' => $closer + 2, 'quoted' => $quoted, 'options' => $options];
+    }
+
+    /**
+     * A directive that stays literal text in core inline content: an invalid
+     * `@lines` range, or a bare `@code` on a bare path.
+     *
+     * @param array{end: int, quoted: bool, options: list<array{0: string, 1: string|null}>} $shape
+     */
+    public static function isLiteralInline(array $shape): bool
+    {
+        foreach ($shape['options'] as [$key, $value]) {
+            if ($key === 'lines' && !self::isLineRange($value ?? '')) {
+                return true;
+            }
+            if ($key === 'code' && $value === null && !$shape['quoted']) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array{end: int, quoted: bool, options: list<array{0: string, 1: string|null}>} $shape
+     */
+    public static function hasCodeOption(array $shape): bool
+    {
+        foreach ($shape['options'] as [$key]) {
+            if ($key === 'code') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The shape of a line holding only a directive with a `code` option, or null.
+     *
+     * @return array{end: int, quoted: bool, options: list<array{0: string, 1: string|null}>}|null
+     */
+    public static function codeIncludeLine(string $line): ?array
+    {
+        $subject = trim($line, " \t");
+        $shape = str_starts_with($subject, '{{') ? self::shape($subject) : null;
+
+        return $shape !== null && $shape['end'] === strlen($subject) && self::hasCodeOption($shape) ? $shape : null;
+    }
+
+    private static function isLineRange(string $raw): bool
+    {
+        if (preg_match('/^([1-9]\d*)-([1-9]\d*)$/', $raw, $match) !== 1) {
+            return false;
+        }
+
+        return strlen($match[1]) < strlen($match[2])
+            || (strlen($match[1]) === strlen($match[2]) && strcmp($match[1], $match[2]) <= 0);
+    }
+
+    private static function quotedRunEnd(string $text, int $from): int
+    {
+        $quote = $text[$from];
+        $length = strlen($text);
+        for ($i = $from + 1; $i < $length; $i++) {
+            $char = $text[$i];
+            if ($char === "\n") {
+                return -1;
+            }
+            if ($char === '\\') {
+                $i++;
+            } elseif ($char === $quote) {
+                return $i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Whether a `}}` follows `$from` on its line, quotes aside: none means no closer.
+     */
+    private static function pairBeforeLineEnd(string $text, int $from): bool
+    {
+        if (self::$pairText !== $text || $from < self::$pairFrom || $from > self::$pairAt) {
+            $pair = strpos($text, '}}', $from);
+            self::$pairText = $text;
+            self::$pairFrom = $from;
+            self::$pairAt = $pair === false ? PHP_INT_MAX : $pair;
+            $newline = $pair === false ? false : strrpos(substr($text, $from, $pair - $from), "\n");
+            self::$pairNewline = $newline === false ? -1 : $from + $newline;
+        }
+
+        return self::$pairAt !== PHP_INT_MAX && self::$pairNewline < $from;
+    }
+
+    private static function closerIndex(string $text, int $from): int
+    {
+        // Openers are scanned left to right, so a scan that met no quote also
+        // answers every later opener before its closer: keeps a run of openers linear.
+        if (
+            self::$closerText === $text && $from >= self::$closerFrom
+            && ($from <= self::$closerAt || self::$closerAt === -1 && $from <= self::$closerStop)
+        ) {
+            return self::$closerAt;
+        }
+        if (!self::pairBeforeLineEnd($text, $from)) {
+            return -1;
+        }
+        $length = strlen($text);
+        $quoted = false;
+        $found = -1;
+        for ($i = $from; $i < $length; $i++) {
+            $char = $text[$i];
+            if ($char === "\n") {
+                break;
+            }
+            if ($char === '"' || $char === "'") {
+                $quoted = true;
+                $end = self::quotedRunEnd($text, $i);
+                if ($end !== -1) {
+                    $i = $end;
+                }
+            } elseif ($char === '}' && ($text[$i + 1] ?? '') === '}') {
+                $found = $i;
+
+                break;
+            }
+        }
+        if (!$quoted) {
+            self::$closerText = $text;
+            self::$closerFrom = $from;
+            self::$closerAt = $found;
+            self::$closerStop = $i;
+        }
+
+        return $found;
     }
 }
