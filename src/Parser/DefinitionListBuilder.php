@@ -1445,13 +1445,14 @@ final class DefinitionListBuilder
         $l->paragraphFence = ($this->getFencedBlockParser)()->parseRawBlockOpener($l->trimmedCont)
             ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($l->trimmedCont);
         $l->paragraphFenceHasNoCloser = $l->paragraphFence !== null
-            && !$this->descriptionBodyCloserAhead(
+            // Only a line the walk opened a fence on can open one (carve#3885).
+            && (!isset($this->state->source->fenceOpenerLines[$this->sourceLineFor($b->i)]) || !$this->descriptionBodyCloserAhead(
                 $b->lines,
                 $b->i,
                 $l->paragraphFence,
                 $b->continuationColumn,
                 $l->contColumn,
-            );
+            ));
     }
 
     /**

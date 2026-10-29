@@ -17,7 +17,7 @@ final class OwnershipForm
      * @param string $kind
      * @param bool $interrupts
      * @param int $frame
-     * @param (\Closure(string): bool)|null $closes
+     * @param (\Closure(string, int): bool)|null $closes
      * @param string|null $axes
      * @param int $head
      * @param int $width

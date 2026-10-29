@@ -46,6 +46,13 @@ final class BlockSourceState
     public array $lazyLines = [];
 
     /**
+     * Top-level lines the ownership walk opened a code fence on.
+     *
+     * @var array<int, true>
+     */
+    public array $fenceOpenerLines = [];
+
+    /**
      * Normalized input used to verify computed spans.
      */
     public string $normalizedSource = '';
