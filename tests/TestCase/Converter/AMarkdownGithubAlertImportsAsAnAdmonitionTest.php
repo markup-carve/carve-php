@@ -227,6 +227,7 @@ class AMarkdownGithubAlertImportsAsAnAdmonitionTest extends TestCase
         return [
             'opening the document' => [">\n> [!NOTE]\n> x\n", "> [!NOTE]\n> x\n", 1],
             'after a heading' => ["# T\n\n>\n> [!NOTE]\n> x\n", "# T\n\n> [!NOTE]\n> x\n", 3],
+            'two of them' => [">\n> [!NOTE]\n> x\n\n>\n> [!TIP]\n> y\n", "> [!NOTE]\n> x\n\n> [!TIP]\n> y\n", 1],
             'before an alert' => [">\n> [!NOTE]\n> x\n\n> [!TIP]\n> y\n", "> [!NOTE]\n> x\n\n::: tip\ny\n:::\n", 1],
         ];
     }
