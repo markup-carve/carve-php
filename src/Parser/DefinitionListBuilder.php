@@ -923,6 +923,19 @@ final class DefinitionListBuilder
             return true;
         }
         $sourceLine = $this->sourceLineFor($b->i);
+        // A footnote body takes a lazy line in every host (carve#3885).
+        if (
+            isset($this->state->source->lazyLines[$sourceLine])
+            && $b->body !== []
+            && $l->contColumn < $b->continuationColumn
+            && $this->bodyHoldsFootnote($b->body)
+        ) {
+            $b->body[] = BlockGrammar::LAZY_FRAME . ltrim(BlockGrammar::stripLazyFrame($l->contLine), " \t");
+            $b->bodyMap[] = $sourceLine;
+            $b->i++;
+
+            return true;
+        }
         if (
             isset($this->state->session->blockQuoteLazySourceLines[$sourceLine])
             && $b->body !== []
@@ -966,6 +979,25 @@ final class DefinitionListBuilder
         }
 
         return null;
+    }
+
+    /**
+     * Whether the body's last block at its own column is a footnote.
+     *
+     * @param array<string> $body
+     */
+    private function bodyHoldsFootnote(array $body): bool
+    {
+        for ($k = count($body) - 1; $k >= 0; $k--) {
+            $entry = BlockGrammar::stripLazyFrame($body[$k]);
+            if (trim($entry) === '' || IndentationHelper::getLeadingColumns($entry) > 0) {
+                continue;
+            }
+
+            return preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $entry) === 1;
+        }
+
+        return false;
     }
 
     /**

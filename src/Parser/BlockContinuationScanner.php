@@ -1408,6 +1408,14 @@ final class BlockContinuationScanner
                 }
             }
 
+            if ($this->walkFoldsIntoHostedNote($nextLine, $i, $contentIndent, $itemLines)) {
+                $itemLines[] = BlockGrammar::LAZY_FRAME . ltrim(BlockGrammar::stripLazyFrame($nextLine), " \t");
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $i++;
+
+                continue;
+            }
+
             if (
                 !$this->collectPlainLine(
                     $run,
@@ -1429,6 +1437,29 @@ final class BlockContinuationScanner
         }
 
         return [$i, $trailingState];
+    }
+
+    /**
+     * A footnote body takes a lazy line in every host (carve#3885): the walk
+     * read the line as lazy text of the note the item holds.
+     *
+     * @param array<string> $itemLines
+     */
+    private function walkFoldsIntoHostedNote(string $line, int $i, int $contentIndent, array $itemLines): bool
+    {
+        if (
+            !isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
+            || IndentationHelper::getLeadingColumns($line, $contentIndent) >= $contentIndent
+        ) {
+            return false;
+        }
+        foreach ($itemLines as $itemLine) {
+            if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim(BlockGrammar::stripLazyFrame($itemLine), " \t")) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
