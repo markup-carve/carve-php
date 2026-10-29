@@ -804,7 +804,8 @@ final class ListBlockBuilder
                     continue;
                 }
             }
-            if ($currentIndent === $baseIndent && $this->markerAttachesToList($i)) {
+            $closedByComment = !$firstItem && $this->lowCommentClosedItem($lines, $i, $lastItemContentIndent);
+            if ($currentIndent === $baseIndent && !$closedByComment && $this->markerAttachesToList($i)) {
                 $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($i), 'list item');
                 $next = $this->attachListContinuation($list, $lines, $i, $count, $baseIndent, $lastItemAttachColumn);
                 if ($next !== null) {
@@ -835,6 +836,7 @@ final class ListBlockBuilder
             // column, which nested a block one space under the marker.
             if (
                 ($lastItemHadBlankAfter || $indentedListMarker)
+                && !$closedByComment
                 && $lastItemColumn->classify($currentLine) === 'content'
             ) {
                 // Content after blank line with indentation belongs to previous item
@@ -2881,6 +2883,23 @@ final class ListBlockBuilder
         $info = ($this->getListParser)()->parseListItemMarker(ltrim($lines[$k], " \t"));
 
         return $info !== null && ($this->getListParser)()->itemMatchesList($listInfo, $info) ? $j : null;
+    }
+
+    /**
+     * Whether the last non-blank line before `$i` is a line comment below the item column, which closed the item.
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $contentIndent
+     */
+    private function lowCommentClosedItem(array $lines, int $i, int $contentIndent): bool
+    {
+        for ($j = $i - 1; $j >= 0 && IndentationHelper::isBlankLine($lines[$j]); $j--) {
+        }
+
+        return $j >= 0 && preg_match('/^[ \t]*%%(?!%)/', $lines[$j]) === 1
+            && IndentationHelper::getLeadingColumns($lines[$j], $contentIndent) < $contentIndent
+            && !$this->linesLeaveACommentSpanOpen(array_slice($lines, 0, $j), new CollectedCommentSpan());
     }
 
     private function isCommentLineOrFence(string $line, int $at = 0): bool
