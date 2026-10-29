@@ -4,18 +4,19 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test;
 
-use PHPUnit\Framework\Attributes\Before;
+use PHPUnit\Framework\Attributes\PreCondition;
 use Throwable;
 
 /**
  * Runs a test listed in tests/rule-a-todo.json as an expected failure.
  *
- * The hook runs the listed test itself: a failure marks it incomplete with its
- * ticket, and a pass fails, so a fix has to remove the ledger entry.
+ * After setup, the hook runs the listed test itself: a failure marks it
+ * incomplete with its ticket, and a pass fails, so a fix has to remove the
+ * ledger entry.
  */
 trait RuleATodo
 {
-    #[Before]
+    #[PreCondition]
     public function runRuleATodoEntry(): void
     {
         $ticket = RuleATodoLedger::ticketFor(static::class, $this->nameWithDataSet());
