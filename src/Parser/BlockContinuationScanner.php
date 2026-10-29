@@ -304,7 +304,7 @@ final class BlockContinuationScanner
             if ($lowComment && !str_starts_with($first, '%%') && $openCommentLength === null && getenv('NOGATE') === false) {
                 break;
             }
-            $lowComment = str_starts_with($first, '%%') ? $nextIndent < $contentIndent && $trailingState->fence === null : $lowComment;
+            $lowComment = str_starts_with($first, '%%') ? $nextIndent < $contentIndent && $trailingState->fence === null && $openCommentLength === null : $lowComment;
             // An attribute past an item's minimum column opens there, even
             // when a marker-line child supplied the preceding paragraph.
             if (
@@ -1468,7 +1468,7 @@ final class BlockContinuationScanner
         if ($run->lowComment && !str_starts_with($nextTrimmed, '%%') && $run->openCommentLength === null && getenv('NOGATE') === false) {
             return false;
         }
-        $run->lowComment = str_starts_with($nextTrimmed, '%%') ? $nextIndent < $contentIndent && $trailingState->fence === null : $run->lowComment;
+        $run->lowComment = str_starts_with($nextTrimmed, '%%') ? $nextIndent < $contentIndent && $trailingState->fence === null && $run->openCommentLength === null : $run->lowComment;
         $step = $this->plainLineLeadStep(
             $run,
             $lines,

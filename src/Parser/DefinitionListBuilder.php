@@ -1142,11 +1142,14 @@ final class DefinitionListBuilder
         }
         $commentText = ltrim($l->contLine, " \t");
         if (IndentationHelper::isBlankLine($l->contLine)) {
-            $b->retainedBelowComment = false;
+            if ($b->retainedBelowComment) {
+                return false;
+            }
         } elseif ($l->indent < $b->continuationColumn && $this->isCommentLineOrFence($commentText)) {
             for ($k = count($b->body); $b->bodyStateCursor < $k; $b->bodyStateCursor++) {
                 $b->bodyState = $this->advanceTrailingStateWithFenceLookahead($b->bodyState, $b->body[$b->bodyStateCursor], $b->body, $b->bodyStateCursor, true);
             }
+            $closesBodySpan = $this->linesLeaveACommentSpanOpen($b->body, new CollectedCommentSpan());
             if ($b->bodyState->openParagraph || $b->retainedBelowComment) {
                 $holder = new Document();
                 $consumed = $this->tryParseFencedComment($holder, $b->lines, $b->i)
@@ -1172,23 +1175,13 @@ final class DefinitionListBuilder
                 }
                 $b->bodyState->openParagraph = false;
                 $b->bodyStateCursor = count($b->body);
-                $b->retainedBelowComment = true;
+                $b->retainedBelowComment = !$closesBodySpan;
 
                 return true;
             }
         } elseif ($b->retainedBelowComment) {
-            $b->retainedBelowComment = false;
-            $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($commentText)
-                ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($commentText);
-            if (!$this->startsInterruptingBlock($commentText, $b->lines, $b->i) || $fence !== null) {
-                $b->body[] = $commentText;
-                $b->bodyMap[] = $this->sourceLineFor($b->i);
-                $b->bodyState = $this->advanceTrailingStateWithFenceLookahead($b->bodyState, $commentText, $b->lines, $b->i, true);
-                $b->bodyStateCursor = count($b->body);
-                $b->i++;
-
-                return true;
-            }
+            // A comment below the body column closed the body; it is no paragraph text to continue (rule A).
+            return false;
         }
 
         return null;
