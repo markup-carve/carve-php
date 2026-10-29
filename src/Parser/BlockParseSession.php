@@ -143,7 +143,7 @@ final class BlockParseSession
      */
     public function continuationMarkerDecision(BlockSourceState $source, ListParser $lists, int $line): array
     {
-        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->sourceLines, $lists);
+        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->markerLines ?: $source->sourceLines, $lists);
         // An unprefixed `+` the walk read as lazy text is no marker (carve#3885).
         if (isset($source->lazyLines[$line]) && !str_starts_with(ltrim($source->sourceLines[$line] ?? '', " \t"), '>')) {
             return ['owner' => null, 'reason' => null, 'column' => -1, 'depth' => 0, 'stale' => false, 'open' => false];
@@ -157,28 +157,28 @@ final class BlockParseSession
      */
     public function firstBlockMarkerOwner(BlockSourceState $source, ListParser $lists, int $line): ?array
     {
-        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->sourceLines, $lists);
+        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->markerLines ?: $source->sourceLines, $lists);
 
         return $this->continuationMarkers->firstBlockOwner($line);
     }
 
     public function plusAtHostContentColumn(BlockSourceState $source, ListParser $lists, int $line): bool
     {
-        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->sourceLines, $lists);
+        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->markerLines ?: $source->sourceLines, $lists);
 
         return $this->continuationMarkers->atHostContentColumn($line);
     }
 
     public function innermostListColumnBefore(BlockSourceState $source, ListParser $lists, int $line): ?int
     {
-        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->sourceLines, $lists);
+        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->markerLines ?: $source->sourceLines, $lists);
 
         return $this->continuationMarkers->innermostListColumnBefore($line);
     }
 
     public function footnoteColumnBefore(BlockSourceState $source, ListParser $lists, int $line): ?int
     {
-        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->sourceLines, $lists);
+        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->markerLines ?: $source->sourceLines, $lists);
 
         return $this->continuationMarkers->footnoteColumnBefore($line);
     }
@@ -214,7 +214,7 @@ final class BlockParseSession
         if ($next !== null && trim($next) !== '') {
             return;
         }
-        $physical = $source->sourceLines[$line] ?? '';
+        $physical = $source->markerLines[$line] ?? $source->sourceLines[$line] ?? '';
         $plus = strpos($physical, '+');
         if ($plus === false) {
             return;
