@@ -149,6 +149,8 @@ class AMarkdownGithubAlertImportsAsAnAdmonitionTest extends TestCase
             'an empty body' => ['> [!CAUTION]'],
             'an empty body with blank quote lines' => ["> [!CAUTION]\n>\n>"],
             'a hard break after the label' => ["> [!TIP]  \n> x"],
+            'a backslash hard break after the label' => ["> [!TIP]\\\n> x"],
+            'a blank quote line before the label' => [">\n> [!NOTE]\n> x"],
         ];
     }
 
@@ -194,11 +196,49 @@ class AMarkdownGithubAlertImportsAsAnAdmonitionTest extends TestCase
         $this->assertContains(['markdown-paragraph', 'line:4'], array_map(static fn (array $row): array => [$row['code'], $row['path']], $rows));
     }
 
-    public function testAQuoteThatStaysAQuoteHasNoAlertRow(): void
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function quoteReportProvider(): array
     {
-        $result = (new MarkdownToCarve())->convertWithFidelityReport("> [!note]\n> x\n");
-        $codes = array_map(static fn (MigrationDiagnostic $row): string => $row->code, $result->diagnostics);
+        return [
+            'a lowercase label' => ["> [!note]\n> x\n"],
+            'a blank quote line before the label' => [">\n> [!NOTE]\n> x\n"],
+        ];
+    }
+
+    #[DataProvider('quoteReportProvider')]
+    public function testAQuoteThatStaysAQuoteReportsAsOne(string $markdown): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport($markdown);
+        $rows = array_map(static fn (MigrationDiagnostic $row): array => [$row->code, $row->path], $result->diagnostics);
+        $codes = array_column($rows, 0);
 
         $this->assertNotContains('markdown-github-alert', $codes);
+        $this->assertNotContains('fidelity-unverified', $codes);
+        $this->assertContains(['markdown-block-quote', 'line:1'], $rows);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function verifiedAlertProvider(): array
+    {
+        return [
+            'a body that is only a lazy line' => ["> [!NOTE]\nlazy\n", "::: note\nlazy\n:::\n"],
+            'two spaces after the marker' => [">  [!NOTE]\n> x\n", "::: note\nx\n:::\n"],
+        ];
+    }
+
+    #[DataProvider('verifiedAlertProvider')]
+    public function testTheAlertReportIsVerified(string $markdown, string $carve): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport($markdown);
+        $rows = array_map(static fn (MigrationDiagnostic $row): array => [$row->code, $row->fidelity, $row->path], $result->diagnostics);
+
+        $this->assertSame($carve, $result->value);
+        $this->assertNotContains('fidelity-unverified', array_column($rows, 0));
+        $this->assertContains(['markdown-github-alert', 'normalized', 'line:1'], $rows);
+        $this->assertContains(['markdown-paragraph', 'preserved', 'line:2'], $rows);
     }
 }
