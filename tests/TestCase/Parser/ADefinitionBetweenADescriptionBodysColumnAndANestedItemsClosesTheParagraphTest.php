@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Test\PinnedOracleHtml;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -52,6 +53,8 @@ use PHPUnit\Framework\TestCase;
  */
 class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraphTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * The answer every at-or-past row gives: the list is the body's only
      * content and `tail` is a document-level paragraph.

@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Test\RuleATodo;
 use MarkupCarve\Carve\Test\TestCase\CorpusPopulation;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -29,6 +30,8 @@ use PHPUnit\Framework\TestCase;
  */
 class SourcePositionTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, string}>
      */

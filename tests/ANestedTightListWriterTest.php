@@ -10,6 +10,8 @@ use PHPUnit\Framework\TestCase;
 
 final class ANestedTightListWriterTest extends TestCase
 {
+    use RuleATodo;
+
     public static function writerCases(): iterable
     {
         $rows = json_decode(

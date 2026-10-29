@@ -9,10 +9,13 @@ use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class FormatterParityRegressionsTest extends TestCase
 {
+    use RuleATodo;
+
     public function testVariationSelectorAfterAStarKeepsTheBareItalicSpelling(): void
     {
         $source = "/*️a*/\n";

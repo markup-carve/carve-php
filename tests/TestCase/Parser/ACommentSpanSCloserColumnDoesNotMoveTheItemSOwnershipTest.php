@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use function array_unique;
@@ -39,6 +40,8 @@ use function trim;
  */
 class ACommentSpanSCloserColumnDoesNotMoveTheItemSOwnershipTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * Host template with `%COL%` for the closer's indentation, the opener's own
      * column, and the HTML every closer column must produce.

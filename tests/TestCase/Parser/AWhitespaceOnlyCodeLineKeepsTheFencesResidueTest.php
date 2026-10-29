@@ -7,11 +7,14 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class AWhitespaceOnlyCodeLineKeepsTheFencesResidueTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, string}>
      */

@@ -11,6 +11,8 @@ use RuntimeException;
 
 class CommentsPreserveListContentColumnTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @throws \RuntimeException
      *

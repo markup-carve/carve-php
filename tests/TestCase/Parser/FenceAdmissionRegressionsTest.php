@@ -7,11 +7,14 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Parser\Utility\LayoutWork;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class FenceAdmissionRegressionsTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return iterable<string, array{string, string}>
      */

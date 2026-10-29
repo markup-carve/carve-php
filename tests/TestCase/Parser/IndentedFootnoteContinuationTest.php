@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -25,6 +26,8 @@ use PHPUnit\Framework\TestCase;
  */
 class IndentedFootnoteContinuationTest extends TestCase
 {
+    use RuleATodo;
+
     protected function html(string $source): string
     {
         return (string)preg_replace('/\s+/', ' ', (new CarveConverter())->convert($source));

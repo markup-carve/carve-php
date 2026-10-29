@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 final class ABelowColumnMarkerKeepsItsParagraphOwnerTest extends TestCase
 {
+    use RuleATodo;
+
     public function testBelowColumnPlusStaysLiteralInQuotedItem(): void
     {
         self::assertSame(

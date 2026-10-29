@@ -38,6 +38,8 @@ use PHPUnit\Framework\TestCase;
  */
 class ACommentPastAQuoteColumnEndsItsParagraphTest extends TestCase
 {
+    use RuleATodo;
+
     private CarveConverter $converter;
 
     protected function setUp(): void

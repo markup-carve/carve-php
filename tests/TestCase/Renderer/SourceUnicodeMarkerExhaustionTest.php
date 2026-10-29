@@ -13,11 +13,14 @@ use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class SourceUnicodeMarkerExhaustionTest extends TestCase
 {
+    use RuleATodo;
+
     public function testFootnoteGuardsStaySeparateWhenOnlyEightCharactersAreFree(): void
     {
         foreach ([0xE001, 0xE003, 0xE004, 0xE005, 0xE006] as $freeStart) {

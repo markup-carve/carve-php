@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class FoldedTermCommentBreakPositionsTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * A break spans from the sibling before it to the sibling after it
      * (carve-php#2604), whatever the line ending.

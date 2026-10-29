@@ -102,7 +102,7 @@
   {
     "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-13",
     "source": ":: t\n:  x\n %% c\n   more\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <p>more</p>\n  </dd>\n</dl>\n"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n<p>more</p>\n"
   },
   {
     "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-2",
@@ -117,12 +117,12 @@
   {
     "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-4",
     "source": ":: t\n:  x\n%%%\ny\nz\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <p>y\nz</p>\n  </dd>\n</dl>\n"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n<p>y\nz</p>\n"
   },
   {
     "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-5",
     "source": ":: t\n:  x\n%% c\nz\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <p>z</p>\n  </dd>\n</dl>\n"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n<p>z</p>\n"
   },
   {
     "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-6",
@@ -137,12 +137,12 @@
   {
     "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-8",
     "source": ":: t\n:  x\n%% c\n   more\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <p>more</p>\n  </dd>\n</dl>\n"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n<p>more</p>\n"
   },
   {
     "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-9",
     "source": ":: t\n:  x\n%%%\n   more\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <p>more</p>\n  </dd>\n</dl>\n"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n<p>more</p>\n"
   },
   {
     "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body",
@@ -322,7 +322,7 @@
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-6",
     "source": ":: term\n:  intro\n%% c\n  more\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>intro</p>\n    <p>more</p>\n  </dd>\n</dl>\n"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>intro</dd>\n</dl>\n<p>more</p>\n"
   },
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-7",

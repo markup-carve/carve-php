@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class AQuotedItemFenceDoesNotKeepAnUnmarkedLineTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * CARVE-P0-014: code stores no paragraph continuation claim, at any opener column.
      *

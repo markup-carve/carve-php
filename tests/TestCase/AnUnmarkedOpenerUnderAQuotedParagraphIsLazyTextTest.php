@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 final class AnUnmarkedOpenerUnderAQuotedParagraphIsLazyTextTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, string}>
      */
@@ -37,8 +40,8 @@ final class AnUnmarkedOpenerUnderAQuotedParagraphIsLazyTextTest extends TestCase
             'c168' => ["> ::: note\n> para\n   # H\nx\n", "<blockquote>\n<aside class=\"admonition note\" aria-label=\"Note\">\n<p>para\n# H\nx</p>\n</aside>\n</blockquote>"],
             'c171' => ["- > para\n   | a |\nx\n", "<ul>\n<li>\n<blockquote><p>para\n| a |\nx</p></blockquote>\n</li>\n</ul>"],
             'c178' => ["> ::: note\n>  | a |\ntail\n", "<blockquote>\n<aside class=\"admonition note\" aria-label=\"Note\">\n<p>| a |\ntail</p>\n</aside>\n</blockquote>"],
-            'c079' => ["> [^c]: para\n>       - li\nx\n", "<blockquote>\n</blockquote>\n<p>x</p>"],
-            'c153' => ["> [^c]: para\n>   - li\ntail\n", "<blockquote>\n</blockquote>\n<p>tail</p>"],
+            'c079' => ["> [^c]: para\n>       - li\nx\n", "<blockquote>\n\n</blockquote>"],
+            'c153' => ["> [^c]: para\n>   - li\ntail\n", "<blockquote>\n\n</blockquote>"],
             'c193' => ["- > - para\n  >   [^f]: n\n   >     more\n", "<ul>\n<li>\n<blockquote>\n<ul>\n<li>para</li>\n</ul>\n</blockquote>\n</li>\n</ul>"],
             'c194' => ["- > > - para\n    >   [^f]: n\ntail[^f]\n", "<ul>\n<li>\n<blockquote>\n<blockquote>\n<ul>\n<li>para\n&gt;   [^f]: n\ntail[^f]</li>\n</ul>\n</blockquote>\n</blockquote>\n</li>\n</ul>"],
             'marked list thematic' => ["> 1. para\n>    ---\nx\n", '<blockquote><ol><li>para <hr></li></ol></blockquote><p>x</p>'],

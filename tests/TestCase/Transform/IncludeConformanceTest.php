@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Transform;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Test\RuleATodo;
 use MarkupCarve\Carve\Transform\FilesystemIncludeResolver;
 use MarkupCarve\Carve\Transform\IncludeContext;
 use MarkupCarve\Carve\Transform\IncludeExpander;
@@ -41,6 +42,8 @@ use RuntimeException;
  */
 class IncludeConformanceTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * Legitimate, already-known cross-engine differences that are NOT include
      * bugs and must not be papered over by editing php output. Keyed by vector

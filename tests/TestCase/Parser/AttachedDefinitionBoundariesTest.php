@@ -10,11 +10,14 @@ use DOMNode;
 use DOMText;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class AttachedDefinitionBoundariesTest extends TestCase
 {
+    use RuleATodo;
+
     public static function controls(): iterable
     {
         $controls = json_decode((string)file_get_contents(__DIR__ . '/../../fixtures/attached-definition-boundaries.json'), true, 512, JSON_THROW_ON_ERROR);

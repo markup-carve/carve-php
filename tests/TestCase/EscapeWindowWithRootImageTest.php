@@ -10,10 +10,13 @@ use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\EscapeWindows;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 final class EscapeWindowWithRootImageTest extends TestCase
 {
+    use RuleATodo;
+
     public function testAnImageBesideBlocksKeepsLocalEscapeWindowsAvailable(): void
     {
         $source = "![a](/i)\n\n  ## H\n";

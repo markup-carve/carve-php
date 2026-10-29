@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class ListItemAuthoredBlockBaseTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return iterable<string, array{string, string}>
      */

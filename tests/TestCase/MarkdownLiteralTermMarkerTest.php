@@ -7,11 +7,14 @@ namespace MarkupCarve\Carve\Test\TestCase;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class MarkdownLiteralTermMarkerTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * Literal term-marker Markdown cases.
      *

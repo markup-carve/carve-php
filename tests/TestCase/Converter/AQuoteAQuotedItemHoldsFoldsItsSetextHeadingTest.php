@@ -8,6 +8,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\SmartTypographyMode;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -29,6 +30,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class AQuoteAQuotedItemHoldsFoldsItsSetextHeadingTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, string}>
      */

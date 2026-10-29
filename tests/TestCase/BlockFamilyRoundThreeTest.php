@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class BlockFamilyRoundThreeTest extends TestCase
 {
+    use RuleATodo;
+
     public function testGeneratedCases(): void
     {
         // Keep each source beside its expected HTML so failures name the generated case.

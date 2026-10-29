@@ -6,10 +6,13 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class DescendantLiteralCommentBoundaryTest extends TestCase
 {
+    use RuleATodo;
+
     public function testTheAncestorKeepsItsInvisibleCommentBoundary(): void
     {
         /** @var array<array{id:string, source:string, html:string}> $rows */

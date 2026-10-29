@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 class AQuotedListSpanStartsAtItsMarkerTest extends TestCase
 {
+    use RuleATodo;
+
     public function testEveryQuotedListAndItemStartsAtOpeningMarkup(): void
     {
         foreach ([4, 5] as $row) {

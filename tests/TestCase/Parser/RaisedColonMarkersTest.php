@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 final class RaisedColonMarkersTest extends TestCase
 {
+    use RuleATodo;
+
     public function testSharedCorpusCases(): void
     {
         $rows = json_decode(file_get_contents(__DIR__ . '/../../fixtures/raised-colon-markers.json'), true, flags: JSON_THROW_ON_ERROR);

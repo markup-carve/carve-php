@@ -122,17 +122,17 @@
   {
     "id": "comment-controls/description/0",
     "source": ":: t\n:  a\n%% c\ntail",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>tail</p>"
   },
   {
     "id": "comment-controls/description/1",
     "source": ":: t\n:  a\n %% c\ntail",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>tail</p>"
   },
   {
     "id": "comment-controls/description/2",
     "source": ":: t\n:  a\n  %% c\ntail",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>tail</p>"
   },
   {
     "id": "comment-controls/description/3",
@@ -152,7 +152,7 @@
   {
     "id": "comment-controls/band-marker",
     "source": "- t\n\n  %% c\n - b\n- s\n",
-    "html": "<ul>\n  <li>t</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<ul>\n  <li>s</li>\n</ul>"
+    "html": "<ul>\n  <li><p>t</p></li>\n  <li><p>b</p></li>\n  <li><p>s</p></li>\n</ul>"
   },
   {
     "id": "comment-controls/column-gate/0/marker",
@@ -162,7 +162,7 @@
   {
     "id": "comment-controls/column-gate/0/comment",
     "source": "[^a]: intro\n%% c\n more\n\nsee[^a]\n",
-    "html": "<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro</p>\n      <p>more<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<p>more</p>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "id": "comment-controls/column-gate/1/marker",
@@ -182,7 +182,7 @@
   {
     "id": "comment-controls/column-gate/2/comment",
     "source": ":: term\n:  intro\n%% c\n  more\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>intro</p>\n    <p>more</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>intro</dd>\n</dl>\n<p>more</p>"
   },
   {
     "id": "comment-controls/column-gate/3/marker",
@@ -192,7 +192,7 @@
   {
     "id": "comment-controls/column-gate/3/comment",
     "source": ":: term\n:  intro\n%% c\n more\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>intro</p>\n    <p>more</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>intro</dd>\n</dl>\n<p>more</p>"
   },
   {
     "id": "comment-controls/column-gate/4/marker",
@@ -212,7 +212,7 @@
   {
     "id": "comment-controls/column-gate/5/comment",
     "source": "- intro\n%% c\n  more\n",
-    "html": "<ul>\n  <li>intro\n    more\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>intro</li>\n</ul>\n<p>more</p>"
   },
   {
     "id": "comment-controls/column-gate/6/marker",
@@ -282,17 +282,17 @@
   {
     "id": "comment-controls/description-d/0",
     "source": ":: t\n:  d\n%% c\ntail\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>"
   },
   {
     "id": "comment-controls/description-d/1",
     "source": ":: t\n:  d\n %% c\ntail\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>"
   },
   {
     "id": "comment-controls/description-d/2",
     "source": ":: t\n:  d\n  %% c\ntail\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>"
   },
   {
     "id": "comment-controls/description-d/3",
@@ -307,12 +307,12 @@
   {
     "id": "comment-item/line-heading",
     "source": "- a\n  %% x\n # h\n\n- b\n",
-    "html": "<ul>\n  <li>a</li>\n</ul>\n<p># h</p>\n<ul>\n  <li>b</li>\n</ul>"
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<section id=\"h\">\n  <h1>h</h1>\n  <ul>\n    <li>b</li>\n  </ul>\n</section>"
   },
   {
     "id": "comment-item/open-span-heading",
     "source": "- a\n  %%% x\n # h\n\n- b\n",
-    "html": "<ul>\n  <li>a</li>\n</ul>\n<p># h</p>\n<ul>\n  <li>b</li>\n</ul>"
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<section id=\"h\">\n  <h1>h</h1>\n  <ul>\n    <li>b</li>\n  </ul>\n</section>"
   },
   {
     "id": "comment-item/closed-span-plain",
@@ -327,17 +327,17 @@
   {
     "id": "comment-item/closed-span-marker",
     "source": "- a\n  %%% x\n  y\n  %%%\n - s\n",
-    "html": "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>s</li>\n</ul>"
+    "html": "<ul>\n  <li>a</li>\n  <li>s</li>\n</ul>"
   },
   {
     "id": "comment-controls/lazy-bullet",
     "source": "- :::\n y\n  :::\n",
-    "html": "<ul>\n  <li>\n    <div>\n\n    </div>\n  </li>\n</ul>\n<p>y\n:::</p>"
+    "html": "<ul>\n  <li>\n    <div>\n\n    </div>\n  </li>\n</ul>\n<p>y</p>\n<div>\n\n</div>"
   },
   {
     "id": "comment-controls/lazy-ordered",
     "source": "1. :::\n  y\n   :::\n",
-    "html": "<ol>\n  <li>\n    <div>\n\n    </div>\n  </li>\n</ol>\n<p>y\n:::</p>"
+    "html": "<ol>\n  <li>\n    <div>\n\n    </div>\n  </li>\n</ol>\n<p>y</p>\n<div>\n\n</div>"
   },
   {
     "id": "comment-controls/quoted-claim-item",
@@ -347,17 +347,17 @@
   {
     "id": "comment-controls/quoted-claim-lazy",
     "source": "> - ::: box\ntail\n>   :::\nmore\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>\n<blockquote><p>:::\nmore</p></blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>\n<blockquote>\n  <div>\n\n  </div>\n</blockquote>\n<p>more</p>"
   },
   {
     "id": "comment-controls/quoted-claim-nested",
     "source": "> > - ::: box\n> tail\n> >   :::\nmore\n",
-    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <div class=\"box\">\n\n        </div>\n      </li>\n    </ul>\n  </blockquote>\n  <p>tail</p>\n  <blockquote><p>:::\nmore</p></blockquote>\n</blockquote>"
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <div class=\"box\">\n\n        </div>\n      </li>\n    </ul>\n  </blockquote>\n  <p>tail</p>\n  <blockquote>\n    <div>\n\n    </div>\n  </blockquote>\n</blockquote>\n<p>more</p>"
   },
   {
     "id": "comment-controls/comment-marker",
     "source": "- a\n  %%%\n  x\n  %%%\n - s\n",
-    "html": "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>s</li>\n</ul>"
+    "html": "<ul>\n  <li>a</li>\n  <li>s</li>\n</ul>"
   },
   {
     "id": "comment-controls/hosted-link-definition",

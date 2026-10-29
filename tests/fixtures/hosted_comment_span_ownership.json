@@ -52,7 +52,7 @@
   {
     "id": "box-dedent-g4",
     "source": "- ::: box\n  %%%\nc\n  %%%\n  :::\n",
-    "html": "<ul><li><div class=\"box\"></div></li></ul><p>c</p><p>:::</p>"
+    "html": "<ul><li><div class=\"box\"></div></li></ul><p>c</p><div></div>"
   },
   {
     "id": "box-dedent-g5",

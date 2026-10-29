@@ -2,12 +2,12 @@
   {
     "id": "audit-0",
     "source": "> - ::: box\n>   a\n> %% note\n>   :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-1",
     "source": "> - ::: box\n>   a\n>  %% note\n>   :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-2",
@@ -17,27 +17,27 @@
   {
     "id": "audit-3",
     "source": "> - ::: box\n>\n>    :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>:::\n- tail</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-4",
     "source": "> - ::: box\n>\n>     :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>:::\n- tail</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-5",
     "source": "> - ::: box\n>\n>      :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>:::\n- tail</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-6",
     "source": "> - ::: |\n>   x\n> %%%\n> - not a marker\n> %%%\n>   :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p>:::</p></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-7",
     "source": "> - ::: |\n>   x\n> ```\n> - not a marker\n> ```\n>   :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-8",
@@ -72,12 +72,12 @@
   {
     "id": "audit-14",
     "source": "> - :::: box\n>   a\n> %% note\n>   ::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-15",
     "source": "> - :::: box\n>   a\n>  %% note\n>   ::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-16",
@@ -87,27 +87,27 @@
   {
     "id": "audit-17",
     "source": "> - :::: box\n>\n>    ::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>::::\n- tail</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-18",
     "source": "> - :::: box\n>\n>     ::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>::::\n- tail</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-19",
     "source": "> - :::: box\n>\n>      ::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>::::\n- tail</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-20",
     "source": "> - :::: |\n>   x\n> %%%\n> - not a marker\n> %%%\n>   ::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p>::::</p></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-21",
     "source": "> - :::: |\n>   x\n> ```\n> - not a marker\n> ```\n>   ::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><p>::::\n- tail</p></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-22",
@@ -142,12 +142,12 @@
   {
     "id": "audit-28",
     "source": "> - ::::: box\n>   a\n> %% note\n>   :::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-29",
     "source": "> - ::::: box\n>   a\n>  %% note\n>   :::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-30",
@@ -157,27 +157,27 @@
   {
     "id": "audit-31",
     "source": "> - ::::: box\n>\n>    :::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>:::::\n- tail</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-32",
     "source": "> - ::::: box\n>\n>     :::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>:::::\n- tail</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-33",
     "source": "> - ::::: box\n>\n>      :::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>:::::\n- tail</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-34",
     "source": "> - ::::: |\n>   x\n> %%%\n> - not a marker\n> %%%\n>   :::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p>:::::</p></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-35",
     "source": "> - ::::: |\n>   x\n> ```\n> - not a marker\n> ```\n>   :::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><p>:::::\n- tail</p></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-36",
@@ -212,12 +212,12 @@
   {
     "id": "audit-42",
     "source": "> > - ::: box\n> >   a\n> > %% note\n> >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-43",
     "source": "> > - ::: box\n> >   a\n> >  %% note\n> >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-44",
@@ -227,27 +227,27 @@
   {
     "id": "audit-45",
     "source": "> > - ::: box\n> >\n> >    :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>:::\n- tail</p></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-46",
     "source": "> > - ::: box\n> >\n> >     :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>:::\n- tail</p></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-47",
     "source": "> > - ::: box\n> >\n> >      :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>:::\n- tail</p></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-48",
     "source": "> > - ::: |\n> >   x\n> > %%%\n> > - not a marker\n> > %%%\n> >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p>:::</p></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-49",
     "source": "> > - ::: |\n> >   x\n> > ```\n> > - not a marker\n> > ```\n> >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><p>:::\n- tail</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-50",
@@ -282,12 +282,12 @@
   {
     "id": "audit-56",
     "source": "> > - :::: box\n> >   a\n> > %% note\n> >   ::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-57",
     "source": "> > - :::: box\n> >   a\n> >  %% note\n> >   ::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-58",
@@ -297,27 +297,27 @@
   {
     "id": "audit-59",
     "source": "> > - :::: box\n> >\n> >    ::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>::::\n- tail</p></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-60",
     "source": "> > - :::: box\n> >\n> >     ::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>::::\n- tail</p></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-61",
     "source": "> > - :::: box\n> >\n> >      ::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>::::\n- tail</p></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-62",
     "source": "> > - :::: |\n> >   x\n> > %%%\n> > - not a marker\n> > %%%\n> >   ::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p>::::</p></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-63",
     "source": "> > - :::: |\n> >   x\n> > ```\n> > - not a marker\n> > ```\n> >   ::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><p>::::\n- tail</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-64",
@@ -352,12 +352,12 @@
   {
     "id": "audit-70",
     "source": "> > - ::::: box\n> >   a\n> > %% note\n> >   :::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-71",
     "source": "> > - ::::: box\n> >   a\n> >  %% note\n> >   :::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-72",
@@ -367,27 +367,27 @@
   {
     "id": "audit-73",
     "source": "> > - ::::: box\n> >\n> >    :::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>:::::\n- tail</p></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-74",
     "source": "> > - ::::: box\n> >\n> >     :::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>:::::\n- tail</p></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-75",
     "source": "> > - ::::: box\n> >\n> >      :::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>:::::\n- tail</p></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-76",
     "source": "> > - ::::: |\n> >   x\n> > %%%\n> > - not a marker\n> > %%%\n> >   :::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p>:::::</p></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-77",
     "source": "> > - ::::: |\n> >   x\n> > ```\n> > - not a marker\n> > ```\n> >   :::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><p>:::::\n- tail</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-78",
@@ -422,12 +422,12 @@
   {
     "id": "audit-84",
     "source": "> > > - ::: box\n> > >   a\n> > > %% note\n> > >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-85",
     "source": "> > > - ::: box\n> > >   a\n> > >  %% note\n> > >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-86",
@@ -437,27 +437,27 @@
   {
     "id": "audit-87",
     "source": "> > > - ::: box\n> > >\n> > >    :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>:::\n- tail</p></div></li></ul></blockquote></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-88",
     "source": "> > > - ::: box\n> > >\n> > >     :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>:::\n- tail</p></div></li></ul></blockquote></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-89",
     "source": "> > > - ::: box\n> > >\n> > >      :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>:::\n- tail</p></div></li></ul></blockquote></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-90",
     "source": "> > > - ::: |\n> > >   x\n> > > %%%\n> > > - not a marker\n> > > %%%\n> > >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p>:::</p></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-91",
     "source": "> > > - ::: |\n> > >   x\n> > > ```\n> > > - not a marker\n> > > ```\n> > >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><p>:::\n- tail</p></blockquote></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-92",
@@ -492,12 +492,12 @@
   {
     "id": "audit-98",
     "source": "> > > - :::: box\n> > >   a\n> > > %% note\n> > >   ::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-99",
     "source": "> > > - :::: box\n> > >   a\n> > >  %% note\n> > >   ::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-100",
@@ -507,27 +507,27 @@
   {
     "id": "audit-101",
     "source": "> > > - :::: box\n> > >\n> > >    ::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>::::\n- tail</p></div></li></ul></blockquote></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-102",
     "source": "> > > - :::: box\n> > >\n> > >     ::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>::::\n- tail</p></div></li></ul></blockquote></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-103",
     "source": "> > > - :::: box\n> > >\n> > >      ::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>::::\n- tail</p></div></li></ul></blockquote></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-104",
     "source": "> > > - :::: |\n> > >   x\n> > > %%%\n> > > - not a marker\n> > > %%%\n> > >   ::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p>::::</p></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-105",
     "source": "> > > - :::: |\n> > >   x\n> > > ```\n> > > - not a marker\n> > > ```\n> > >   ::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><p>::::\n- tail</p></blockquote></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-106",
@@ -562,12 +562,12 @@
   {
     "id": "audit-112",
     "source": "> > > - ::::: box\n> > >   a\n> > > %% note\n> > >   :::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-113",
     "source": "> > > - ::::: box\n> > >   a\n> > >  %% note\n> > >   :::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-114",
@@ -577,27 +577,27 @@
   {
     "id": "audit-115",
     "source": "> > > - ::::: box\n> > >\n> > >    :::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>:::::\n- tail</p></div></li></ul></blockquote></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-116",
     "source": "> > > - ::::: box\n> > >\n> > >     :::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>:::::\n- tail</p></div></li></ul></blockquote></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-117",
     "source": "> > > - ::::: box\n> > >\n> > >      :::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>:::::\n- tail</p></div></li></ul></blockquote></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-118",
     "source": "> > > - ::::: |\n> > >   x\n> > > %%%\n> > > - not a marker\n> > > %%%\n> > >   :::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p>:::::</p></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-119",
     "source": "> > > - ::::: |\n> > >   x\n> > > ```\n> > > - not a marker\n> > > ```\n> > >   :::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><p>:::::\n- tail</p></blockquote></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- not a marker\n</code></pre><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-120",
@@ -657,12 +657,12 @@
   {
     "id": "audit-131",
     "source": ">  - ::: box\n>    body\n> - next\n>    :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>body</p></div></li></ul><ul><li>next\n      <div></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><p>body</p></div></li><li>next\n      <div></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-132",
     "source": "> - a\n>    - ::: box\n>      body\n>   - next\n>      :::\n- tail\n",
-    "html": "<blockquote><ul><li>a\n      <ul><li><div class=\"box\"><p>body</p></div></li></ul><ul><li>next\n          <div></div></li></ul></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li>a\n      <ul><li><div class=\"box\"><p>body</p></div></li><li>next\n          <div></div></li></ul></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-133",
@@ -777,7 +777,7 @@
   {
     "id": "future-code-beyond-unquoted-line",
     "source": "> - ::: |\n>   ```\n>   :::\nlazy\n>   ```\n>   :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul></blockquote><p>lazy</p><blockquote><p><code>\n:::\n- tail</code></p></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul></blockquote><p>lazy</p><blockquote><pre><code>:::\n</code></pre></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "paired-comment-depth1",
@@ -817,7 +817,7 @@
   {
     "id": "review-final-unhosted",
     "source": "> ::: box\n> body\n>   :::\ntail\n",
-    "html": "<blockquote><div class=\"box\"><p>body\n:::\ntail</p></div></blockquote>"
+    "html": "<blockquote><div class=\"box\"><p>body</p></div></blockquote><p>tail</p>"
   },
   {
     "id": "review-final-comment-descent",
@@ -827,7 +827,7 @@
   {
     "id": "review-outer-colon-comment",
     "source": "> - ::: note\n>   ::: |\n>   x\n> %%%\n> hidden\n> %%%\n>   :::\ntail\n",
-    "html": "<blockquote><ul><li><aside class=\"admonition note\" aria-label=\"Note\"><div class=\"line-block\"><p>x</p></div></aside></li></ul><p>:::</p></blockquote><p>tail</p>"
+    "html": "<blockquote><ul><li><aside class=\"admonition note\" aria-label=\"Note\"><div class=\"line-block\"><p>x</p></div></aside></li></ul><div></div></blockquote><p>tail</p>"
   },
   {
     "id": "review-descendant-comment-column",
@@ -882,7 +882,7 @@
   {
     "id": "parity-final-review-probes:js-initial-child",
     "source": ">     - a\n> - b\n>   - c\n>     :::\n>       body\n",
-    "html": "<blockquote><ul><li>a</li></ul><ul><li>b\n      <ul><li>c\n          <div><p>body</p></div></li></ul></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li>c\n          <div><p>body</p></div></li></ul></li></ul></blockquote>"
   },
   {
     "id": "parity-final-review-probes:js-lazy-break",
@@ -1007,22 +1007,22 @@
   {
     "id": "quoted-comment-bare-boundary-probes:comment-0-bare-1",
     "source": "> %%%\n>  :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-0-bare-2",
     "source": "> %%%\n>   :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-0-bare-3",
     "source": "> %%%\n>    :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-0-bare-4",
     "source": "> %%%\n>     :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-1-bare-0",
@@ -1032,22 +1032,22 @@
   {
     "id": "quoted-comment-bare-boundary-probes:comment-1-bare-1",
     "source": ">  %%%\n>  :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-1-bare-2",
     "source": ">  %%%\n>   :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-1-bare-3",
     "source": ">  %%%\n>    :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-1-bare-4",
     "source": ">  %%%\n>     :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-2-bare-0",
@@ -1057,22 +1057,22 @@
   {
     "id": "quoted-comment-bare-boundary-probes:comment-2-bare-1",
     "source": ">   %%%\n>  :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-2-bare-2",
     "source": ">   %%%\n>   :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-2-bare-3",
     "source": ">   %%%\n>    :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-2-bare-4",
     "source": ">   %%%\n>     :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-4-bare-0",
@@ -1082,22 +1082,22 @@
   {
     "id": "quoted-comment-bare-boundary-probes:comment-4-bare-1",
     "source": ">     %%%\n>  :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-4-bare-2",
     "source": ">     %%%\n>   :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-4-bare-3",
     "source": ">     %%%\n>    :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "quoted-comment-bare-boundary-probes:comment-4-bare-4",
     "source": ">     %%%\n>     :::\n- tail\n",
-    "html": "<blockquote><p>:::\n- tail</p></blockquote>"
+    "html": "<blockquote><div></div></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "final-blank-code",
@@ -1127,6 +1127,6 @@
   {
     "id": "review-nested-shift",
     "source": ">   - a\n> - b\n>     - c\n1. lazy\n",
-    "html": "<blockquote><ul><li>a</li></ul><ul><li>b\n      <ul><li>c\n1. lazy</li></ul></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li>c\n1. lazy</li></ul></li></ul></blockquote>"
   }
 ]

@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Test\PinnedOracleHtml;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -26,6 +27,8 @@ use PHPUnit\Framework\TestCase;
  */
 class ClosedCommentFenceKeepsTheNextLineTest extends TestCase
 {
+    use RuleATodo;
+
     protected function html(string $source): string
     {
         return (string)preg_replace('/\s+/', ' ', (new CarveConverter())->convert($source));

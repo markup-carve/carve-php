@@ -57,7 +57,7 @@
   {
     "id": "quote-1-short-heading-control",
     "source": "> - a\n>  # H\ntail\n",
-    "html": "<blockquote><ul><li>a\n# H\ntail</li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a</li></ul><h1 id=\"H\">H</h1></blockquote><p>tail</p>"
   },
   {
     "id": "quote-2-heading-paragraph",
@@ -117,7 +117,7 @@
   {
     "id": "quote-2-short-heading-control",
     "source": "> > - a\n> >  # H\ntail\n",
-    "html": "<blockquote><blockquote><ul><li>a\n# H\ntail</li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a</li></ul><h1 id=\"H\">H</h1></blockquote></blockquote><p>tail</p>"
   },
   {
     "id": "backtick-sublist-paragraph",

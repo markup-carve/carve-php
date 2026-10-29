@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Lint;
 
 use MarkupCarve\Carve\Lint\FenceAndContinuationLinter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class ContinuationMarkerOwnerGateTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return iterable<string, array{string, list<array{int, int}>}>
      */

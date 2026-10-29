@@ -80,6 +80,11 @@ final class DescriptionBodyCollection
 
     public bool $retainedBelowComment = false;
 
+    /**
+     * The body ended at the line after a comment below its column.
+     */
+    public bool $closedByComment = false;
+
     public ?int $restoredDivLength = null;
 
     /**

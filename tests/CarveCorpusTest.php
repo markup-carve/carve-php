@@ -32,6 +32,8 @@ use function sort;
 #[Group('corpus')]
 class CarveCorpusTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * Categories the parser + renderer can produce byte-identical HTML for.
      *
@@ -1328,6 +1330,40 @@ class CarveCorpusTest extends TestCase
         'a-later-term-after-a-shifted-separator-opens-in-the-outer-item',
         'a-task-item-uses-the-ordered-item-column-rule',
         'the-deepest-quoted-paragraph-takes-a-lazy-line-across-missed-prefixes',
+        'a-below-column-line-returns-to-its-definition-body',
+        'a-below-column-term-stays-in-the-footnote-paragraph',
+        'a-closed-footnote-child-releases-a-flush-line',
+        'a-combined-token-inside-a-forced-span-stops-at-the-span-s-closer',
+        'a-matched-insertion-or-deletion-hides-a-substitution-s-closer',
+        'a-footnote-label-may-hold-a-bracket',
+        'a-footnote-reference-bounds-an-editorial-closer-scan',
+        'inside-a-note-a-footnote-shaped-run-is-a-bracket-run',
+        'an-attribute-block-that-attaches-to-nothing-is-text-from-the-first-pass',
+        'a-guard-that-closes-only-inside-its-guarded-child-s-block',
+        'a-content-tab-does-not-hide-a-description-boundary',
+        'a-description-keeps-a-list-marker-below-its-hosted-footnote',
+        'a-footnote-heading-does-not-loosen-its-host-item',
+        'a-generic-extension-parses-its-captured-content-as-inline-content',
+        'a-heading-inside-the-intervening-band-stays-description-text',
+        'a-hosted-footnote-keeps-a-heading-at-its-body-floor',
+        'a-lazy-line-keeps-its-plus-through-three-quote-levels',
+        'a-literal-bracket-run-bounds-emphasis-like-a-resolved-one',
+        'a-mention-or-tag-keeps-its-full-spelling-in-a-strong-child',
+        'a-native-header-continues-a-promoted-gfm-header-run',
+        'an-attribute-block-after-a-span-behind-a-guarding-opener-belongs-to-that-span',
+        'an-editorial-comment-contributes-nothing-to-a-heading-id',
+        'a-nested-braced-span-hides-an-editorial-closer',
+        'a-note-claimed-fence-line-keeps-the-item-loose',
+        'a-promoted-gfm-header-keeps-following-native-headers-before-the-body',
+        'a-promoted-image-merges-block-attributes-before-inline-attributes',
+        'a-quote-at-the-start-of-a-span-opens',
+        'a-table-ends-a-footnote-paragraph-claim',
+        'a-task-item-keeps-a-lazy-term-one-column-below-its-child-marker',
+        'a-task-item-uses-its-authored-term-base-one-column-past-a-child-marker',
+        'invalid-body-row-metadata-leaves-one-table-body',
+        'a-block-glued-to-a-split-combined-token-or-a-forced-span-s-own-delimiter',
+        'an-intervening-column-refuses-a-description-hosted-first-block',
+        'inside-a-note-a-nested-note-opener-is-a-caret-and-a-bracket-run',
     ];
 
     /**
@@ -1348,19 +1384,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        '212-a-flush-left-line-after-a-footnote-definition-belongs-to-the-document' => 'carve-php#4163',
-        '219-a-definition-below-a-footnote-body-s-column-is-the-document-s-own-text' => 'carve-php#4163',
-        '228-a-line-at-a-footnote-definition-s-own-column-followed-by-non-blank-text-forms-its-own-tight-block' => 'carve-php#4163',
-        '454-a-block-opener-past-a-nested-footnote-definition-opens-in-the-item-3' => 'carve-php#4163',
-        '461-a-column-0-line-after-a-description-hosted-note-is-a-document-sibling-3' => 'carve-php#4163',
-        '461-a-column-0-line-after-a-description-hosted-note-is-a-document-sibling-4' => 'carve-php#4163',
-        '279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-4' => 'carve-php#4164',
-        '287-a-column-zero-definition-ends-an-open-list-item-2' => 'carve-php#4164',
-        '358-what-a-content-column-block-does-not-reach-2' => 'carve-php#4164',
-        '374-a-collected-definition-closes-the-item-paragraph-3' => 'carve-php#4164',
-        '620-generated-container-documents-16' => 'carve-php#4164',
-    ];
+    protected const KNOWN_GAPS = [];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED

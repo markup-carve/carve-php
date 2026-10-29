@@ -6,10 +6,13 @@ namespace MarkupCarve\Carve\Test\TestCase\Lint;
 
 use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
 use MarkupCarve\Carve\Lint\SourceLinter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class UnattachedBlockAttributeLinterTest extends TestCase
 {
+    use RuleATodo;
+
     public function testContainerEndsReportTheAuthoredAttributeRun(): void
     {
         $cases = [

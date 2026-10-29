@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Lint;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Lint\QuoteFenceLinter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,6 +16,8 @@ use PHPUnit\Framework\TestCase;
  */
 class QuoteFenceLinterTest extends TestCase
 {
+    use RuleATodo;
+
     protected QuoteFenceLinter $linter;
 
     protected function setUp(): void

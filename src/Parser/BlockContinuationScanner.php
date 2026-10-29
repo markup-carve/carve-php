@@ -194,6 +194,7 @@ final class BlockContinuationScanner
         );
         $openCommentLength = null;
         $openCommentColumn = 0;
+        $lowComment = false;
         while ($i < $count) {
             $nextLine = $lines[$i];
             $priorSourceLine = $this->sourceLineFor($i) - 1;
@@ -244,6 +245,9 @@ final class BlockContinuationScanner
             }
 
             if (IndentationHelper::isBlankLine($nextLine)) {
+                if ($lowComment && $openCommentLength === null) {
+                    break;
+                }
                 if (
                     preg_match_all('/(?:[-*] |\d+[.)] )/', $sourceLead) === 2
                     && preg_match('/^[ \t]+\+[ \t]*$/D', $priorBody) === 1
@@ -297,6 +301,10 @@ final class BlockContinuationScanner
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $isBlockQuoteLazyLine = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
             $first = ltrim($nextLine, " \t");
+            if ($lowComment && !str_starts_with($first, '%%') && $openCommentLength === null) {
+                break;
+            }
+            $lowComment = str_starts_with($first, '%%') ? $nextIndent < $contentIndent && $trailingState->fence === null && $openCommentLength === null : $lowComment;
             // An attribute past an item's minimum column opens there, even
             // when a marker-line child supplied the preceding paragraph.
             if (
@@ -1362,6 +1370,9 @@ final class BlockContinuationScanner
             }
 
             if (IndentationHelper::isBlankLine($nextLine)) {
+                if ($run->lowComment && $run->openCommentLength === null) {
+                    break;
+                }
                 if (
                     $this->consumePlainItemBlank(
                         $run,
@@ -1392,9 +1403,22 @@ final class BlockContinuationScanner
                 $authoredColumn = IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
                     $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 ), $itemContentColumn);
-                if ($authoredColumn > $itemMarkerColumn && $authoredColumn < $itemContentColumn) {
+                if (
+                    $authoredColumn < $itemContentColumn
+                    && ($authoredColumn > $itemMarkerColumn || isset($this->state->source->lazyLines[$this->sourceLineFor($i)]))
+                ) {
                     $lines[$i] = str_repeat(' ', $contentIndent) . BlockGrammar::LAZY_FRAME . ltrim($nextLine, " \t");
                 }
+            }
+
+            if ($this->walkFoldsIntoHostedNote($nextLine, $i, $contentIndent, $itemLines)) {
+                $folded = ltrim(BlockGrammar::stripLazyFrame($nextLine), " \t");
+                // A description line still answers the note's open term (CARVE-P0-004).
+                $itemLines[] = preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $folded) === 1 ? $folded : BlockGrammar::LAZY_FRAME . $folded;
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $i++;
+
+                continue;
             }
 
             if (
@@ -1418,6 +1442,27 @@ final class BlockContinuationScanner
         }
 
         return [$i, $trailingState];
+    }
+
+    /**
+     * A footnote body takes a lazy line in every host (carve#3885): the walk
+     * read the line as lazy text of the note the item holds.
+     *
+     * @param string $line
+     * @param int $i
+     * @param int $contentIndent
+     * @param array<string> $itemLines
+     */
+    private function walkFoldsIntoHostedNote(string $line, int $i, int $contentIndent, array $itemLines): bool
+    {
+        if (
+            !isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
+            || IndentationHelper::getLeadingColumns($line, $contentIndent) >= $contentIndent
+        ) {
+            return false;
+        }
+
+        return BlockGrammar::lastRunHoldsFootnote($itemLines);
     }
 
     /**
@@ -1454,6 +1499,10 @@ final class BlockContinuationScanner
         $run->blankRun->end();
         $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
         $nextTrimmed = ltrim($nextLine, " \t");
+        if ($run->lowComment && !str_starts_with($nextTrimmed, '%%') && $run->openCommentLength === null) {
+            return false;
+        }
+        $run->lowComment = str_starts_with($nextTrimmed, '%%') ? $nextIndent < $contentIndent && $trailingState->fence === null && $run->openCommentLength === null : $run->lowComment;
         $step = $this->plainLineLeadStep(
             $run,
             $lines,
@@ -1550,6 +1599,9 @@ final class BlockContinuationScanner
                 $authoredBaseEligible,
                 $unclosedFenceBase,
             );
+        }
+        if (str_starts_with($nextTrimmed, '%%') && $run->openCommentLength === null && $trailingState->fence === null) {
+            return false;
         }
         $step = $this->belowColumnFenceStep($run, $lines, $i, $contentIndent, $itemLines, $itemLineMap, $trailingState, $nextIndent, $nextTrimmed);
         if ($step !== null) {
@@ -4783,6 +4835,7 @@ final class BlockContinuationScanner
             return false;
         }
         $afterBlank = false;
+        $authored = $column + $this->walkShiftAt($lines, $index);
         $count = count($lines);
         for ($at = $index + 1; $at < $count; $at++) {
             $line = $lines[$at];
@@ -4791,7 +4844,7 @@ final class BlockContinuationScanner
 
                 continue;
             }
-            $indent = IndentationHelper::getLeadingColumns($line, max($column, $floor, $base) + 1);
+            $indent = IndentationHelper::getLeadingColumns($line, max($authored, $floor, $base) + 1);
             if (
                 ($afterBlank && $indent < $floor)
                 || ($indent <= $base && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null)
@@ -4802,7 +4855,7 @@ final class BlockContinuationScanner
             }
             $afterBlank = false;
             if (
-                ($indent === $column || $indent === $floor)
+                (($indent >= $column && $indent <= $authored) || $indent === $floor)
                 && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($line, " \t"), $opener['char'] ?? $opener['fence'][0], $opener['length'])
             ) {
                 $hits[$key] = ['start' => $index, 'end' => $at];
@@ -5028,16 +5081,15 @@ final class BlockContinuationScanner
     public function hasFenceCloserInView(array $lines, int $index, array $opener, int $stripColumns): bool
     {
         $char = $opener['char'] ?? $opener['fence'][0];
+        $authored = $stripColumns + $this->walkShiftAt($lines, $index);
         $count = count($lines);
         for ($i = $index + 1; $i < $count; $i++) {
-            if (
-                $stripColumns > 0
-                && IndentationHelper::getLeadingColumns($lines[$i], $stripColumns + 1) !== $stripColumns
-            ) {
+            $indent = $authored > 0 ? IndentationHelper::getLeadingColumns($lines[$i], $authored + 1) : 0;
+            if ($indent < $stripColumns || $indent > $authored) {
                 continue;
             }
-            $line = $stripColumns > 0
-                ? IndentationHelper::stripLeadingColumns($lines[$i], $stripColumns)
+            $line = $indent > 0
+                ? IndentationHelper::stripLeadingColumns($lines[$i], $indent)
                 : $lines[$i];
             if (($this->getFencedBlockParser)()->isCodeFenceCloser($line, $char, $opener['length'])) {
                 return true;
@@ -5095,7 +5147,52 @@ final class BlockContinuationScanner
             return false;
         }
 
-        return $this->codeCloserPossible($cache[$stripColumns] ?? [], $opener['char'] ?? $opener['fence'][0], $opener['length'], $index);
+        $char = $opener['char'] ?? $opener['fence'][0];
+        $authored = $stripColumns + $this->walkShiftAt($lines, $index);
+        for ($column = $stripColumns; $column <= $authored; $column++) {
+            if ($this->codeCloserPossible($cache[$column] ?? [], $char, $opener['length'], $index)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Columns the ownership walk moved line `$index` left by, when `$lines` is the walked source view.
+     *
+     * A closer between the walked and the authored opener column still closes (CARVE-P0-014).
+     *
+     * @param array<string> $lines
+     * @param int $index
+     */
+    private function walkShiftAt(array $lines, int $index): int
+    {
+        $view = $lines[$index] ?? null;
+        $at = $this->sourceLineFor($index);
+        $source = $this->state->source;
+        $walked = $source->sourceLines[$at] ?? null;
+        $authored = $source->authoredLines[$at] ?? null;
+        if ($view === null || $walked === null || $authored === null || $walked === $authored) {
+            return 0;
+        }
+        $content = ltrim($view, " \t");
+        if ($content === '' || !str_ends_with($walked, $view) || !str_ends_with($authored, $content)) {
+            return 0;
+        }
+
+        return max(0, self::prefixColumns($authored, strlen($content)) - self::prefixColumns($walked, strlen($content)));
+    }
+
+    private static function prefixColumns(string $line, int $tail): int
+    {
+        $columns = 0;
+        $end = strlen($line) - $tail;
+        for ($i = 0; $i < $end; $i++) {
+            $columns = $line[$i] === "\t" ? $columns + 4 - $columns % 4 : $columns + 1;
+        }
+
+        return $columns;
     }
 
     /**

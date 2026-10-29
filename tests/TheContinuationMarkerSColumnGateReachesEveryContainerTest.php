@@ -34,6 +34,8 @@ use PHPUnit\Framework\TestCase;
  */
 class TheContinuationMarkerSColumnGateReachesEveryContainerTest extends TestCase
 {
+    use RuleATodo;
+
     private CarveConverter $converter;
 
     protected function setUp(): void

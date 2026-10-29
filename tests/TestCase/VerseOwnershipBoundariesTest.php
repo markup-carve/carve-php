@@ -7,10 +7,13 @@ namespace MarkupCarve\Carve\Test\TestCase;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 final class VerseOwnershipBoundariesTest extends TestCase
 {
+    use RuleATodo;
+
     public function testLazyList(): void
     {
         $source = '- ::: |

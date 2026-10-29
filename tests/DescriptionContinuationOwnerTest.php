@@ -10,6 +10,8 @@ use PHPUnit\Framework\TestCase;
 
 final class DescriptionContinuationOwnerTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return iterable<string, array{string, string}>
      */

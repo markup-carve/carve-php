@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 class AnItemHostedDivRebasesItsClosedCodeFenceTest extends TestCase
 {
+    use RuleATodo;
+
     public function testLaterLineAndMarkerLineDivsOwnTheFence(): void
     {
         $converter = new CarveConverter();

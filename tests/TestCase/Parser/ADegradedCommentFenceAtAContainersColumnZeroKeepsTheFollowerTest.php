@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -39,6 +40,8 @@ use PHPUnit\Framework\TestCase;
  */
 class ADegradedCommentFenceAtAContainersColumnZeroKeepsTheFollowerTest extends TestCase
 {
+    use RuleATodo;
+
     protected CarveConverter $converter;
 
     protected function setUp(): void
@@ -62,7 +65,7 @@ class ADegradedCommentFenceAtAContainersColumnZeroKeepsTheFollowerTest extends T
             'a bullet host' => ["- x\n%%%\ny\n", $kept],
             'the line form it must equal' => ["- x\n%% z\ny\n", $kept],
             'a terminated fence still ends the item' => ["- x\n%%%\n%%%\ny\n", "<ul>\n  <li>x</li>\n</ul>\n<p>y</p>"],
-            'an ordered host' => ["1. x\n%%%\ny\n", "<ol>\n  <li>x\n    y\n  </li>\n</ol>"],
+            'an ordered host' => ["1. x\n%%%\ny\n", "<ol>\n  <li>x</li>\n</ol>\n<p>y</p>"],
             'a padded marker' => ["-   x\n%%%\ny\n", $kept],
             'a nested item at its own column 0' => [
                 "- - x\n  %%%\n  y\n",

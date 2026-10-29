@@ -6,11 +6,14 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class ANoteMarkerLineBlockAnswersAsItsHostTest extends TestCase
 {
+    use RuleATodo;
+
     #[DataProvider('cases')]
     public function testNoteBody(string $source, string $expected): void
     {

@@ -2,41 +2,41 @@
   {
     "id": "shift-nested-bare-2-False",
     "source": ">   - a\n> - b\n>     - c\n>   :::\n1. lazy\n",
-    "html": "<blockquote><ul><li>a</li></ul><ul><li>b\n      <ul><li>c</li></ul><div></div></li></ul></blockquote><ol><li>lazy</li></ol>"
+    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li>c</li></ul><div></div></li></ul></blockquote><ol><li>lazy</li></ol>"
   },
   {
     "id": "shift-nested-bare-2-True",
     "source": ">   - a\n> - b\n>     - c\n>\n>   :::\n1. lazy\n",
-    "html": "<blockquote><ul><li>a</li></ul><ul><li>b\n      <ul><li>c</li></ul><div></div></li></ul></blockquote><ol><li>lazy</li></ol>"
+    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li>c</li></ul><div></div></li></ul></blockquote><ol><li>lazy</li></ol>"
   },
   {
     "id": "shift-nested-bare-4-False",
     "source": ">   - a\n> - b\n>     - c\n>     :::\n1. lazy\n",
-    "html": "<blockquote><ul><li>a</li></ul><ul><li>b\n      <ul><li>c</li></ul><div></div></li></ul></blockquote><ol><li>lazy</li></ol>"
+    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li>c</li></ul><div></div></li></ul></blockquote><ol><li>lazy</li></ol>"
   },
   {
     "id": "shift-nested-bare-4-True",
     "source": ">   - a\n> - b\n>     - c\n>\n>     :::\n1. lazy\n",
-    "html": "<blockquote><ul><li>a</li></ul><ul><li>b\n      <ul><li>c</li></ul><div></div></li></ul></blockquote><ol><li>lazy</li></ol>"
+    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li>c</li></ul><div></div></li></ul></blockquote><ol><li>lazy</li></ol>"
   },
   {
     "id": "shift-nested-bare-6-False",
     "source": ">   - a\n> - b\n>     - c\n>       :::\n1. lazy\n",
-    "html": "<blockquote><ul><li>a</li></ul><ul><li>b\n      <ul><li>c\n          <div></div></li></ul></li></ul></blockquote><ol><li>lazy</li></ol>"
+    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li>c\n          <div></div></li></ul></li></ul></blockquote><ol><li>lazy</li></ol>"
   },
   {
     "id": "shift-nested-bare-6-True",
     "source": ">   - a\n> - b\n>     - c\n>\n>       :::\n1. lazy\n",
-    "html": "<blockquote><ul><li>a</li></ul><ul><li>b\n      <ul><li>c\n          <div></div></li></ul></li></ul></blockquote><ol><li>lazy</li></ol>"
+    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li>c\n          <div></div></li></ul></li></ul></blockquote><ol><li>lazy</li></ol>"
   },
   {
     "id": "shift-nested-bare-8-False",
     "source": ">   - a\n> - b\n>     - c\n>         :::\n1. lazy\n",
-    "html": "<blockquote><ul><li>a</li></ul><ul><li>b\n      <ul><li>c\n          <div></div></li></ul></li></ul></blockquote><ol><li>lazy</li></ol>"
+    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li>c\n          <div></div></li></ul></li></ul></blockquote><ol><li>lazy</li></ol>"
   },
   {
     "id": "shift-nested-bare-8-True",
     "source": ">   - a\n> - b\n>     - c\n>\n>         :::\n1. lazy\n",
-    "html": "<blockquote><ul><li>a</li></ul><ul><li>b\n      <ul><li>c\n          <div></div></li></ul></li></ul></blockquote><ol><li>lazy</li></ol>"
+    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li>c\n          <div></div></li></ul></li></ul></blockquote><ol><li>lazy</li></ol>"
   }
 ]

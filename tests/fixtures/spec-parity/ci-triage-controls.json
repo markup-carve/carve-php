@@ -11,7 +11,7 @@
   {
     "id": "ci-triage/extra-1",
     "source": "> - ::: box\n> lazy\n>   :::\n- tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n  <p>lazy\n:::\n- tail</p>\n</blockquote>\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n  <p>lazy</p>\n  <div>\n\n  </div>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n",
     "checker_pin": "078a5922",
     "reference_head": "21e28d03",
     "classification": "B",

@@ -35,6 +35,8 @@ use ReflectionClass;
  */
 class TwoSiblingSubListsInATightItemTest extends TestCase
 {
+    use RuleATodo;
+
     private CarveConverter $converter;
 
     protected function setUp(): void

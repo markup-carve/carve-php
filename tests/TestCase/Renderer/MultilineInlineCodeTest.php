@@ -14,12 +14,15 @@ use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class MultilineInlineCodeTest extends TestCase
 {
+    use RuleATodo;
+
     public static function controls(): iterable
     {
         $controls = json_decode((string)file_get_contents(__DIR__ . '/../../fixtures/multiline-inline-code.json'), true, 512, JSON_THROW_ON_ERROR);

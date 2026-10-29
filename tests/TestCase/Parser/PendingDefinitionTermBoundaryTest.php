@@ -8,11 +8,14 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Parser\BlockGrammar;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class PendingDefinitionTermBoundaryTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return iterable<string, array{string, string, array<string>}>
      */

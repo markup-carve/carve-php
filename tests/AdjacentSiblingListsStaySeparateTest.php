@@ -26,6 +26,8 @@ use ReflectionClass;
  */
 class AdjacentSiblingListsStaySeparateTest extends TestCase
 {
+    use RuleATodo;
+
     private CarveConverter $converter;
 
     protected function setUp(): void

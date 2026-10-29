@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -23,6 +24,8 @@ use PHPUnit\Framework\TestCase;
  */
 class CodeFenceHeaderTest extends TestCase
 {
+    use RuleATodo;
+
     protected CarveConverter $converter;
 
     protected function setUp(): void

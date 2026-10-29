@@ -22,17 +22,17 @@
   {
     "id": "marker-colon-always-opens/482-a-closer-does-not-rescue-a-marker-line-colon-opener-whose-body-folded-in-2",
     "source": "- ::: note\n y\n  :::\n",
-    "html": "<ul>\n  <li>\n    <aside class=\"admonition note\" aria-label=\"Note\">\n\n    </aside>\n  </li>\n</ul>\n<p>y\n:::</p>\n"
+    "html": "<ul>\n  <li>\n    <aside class=\"admonition note\" aria-label=\"Note\">\n\n    </aside>\n  </li>\n</ul>\n<p>y</p>\n<div>\n\n</div>\n"
   },
   {
     "id": "marker-colon-always-opens/482-a-closer-does-not-rescue-a-marker-line-colon-opener-whose-body-folded-in-3",
     "source": "1. ::: d\n y\n   :::\n",
-    "html": "<ol>\n  <li>\n    <div class=\"d\">\n\n    </div>\n  </li>\n</ol>\n<p>y\n:::</p>\n"
+    "html": "<ol>\n  <li>\n    <div class=\"d\">\n\n    </div>\n  </li>\n</ol>\n<p>y</p>\n<div>\n\n</div>\n"
   },
   {
     "id": "marker-colon-always-opens/482-a-closer-does-not-rescue-a-marker-line-colon-opener-whose-body-folded-in-4",
     "source": "- ::: d\n y\n z\n  :::\n",
-    "html": "<ul>\n  <li>\n    <div class=\"d\">\n\n    </div>\n  </li>\n</ul>\n<p>y\nz\n:::</p>\n"
+    "html": "<ul>\n  <li>\n    <div class=\"d\">\n\n    </div>\n  </li>\n</ul>\n<p>y\nz</p>\n<div>\n\n</div>\n"
   },
   {
     "id": "marker-colon-always-opens/482-a-closer-does-not-rescue-a-marker-line-colon-opener-whose-body-folded-in-5",
@@ -42,7 +42,7 @@
   {
     "id": "marker-colon-always-opens/482-a-closer-does-not-rescue-a-marker-line-colon-opener-whose-body-folded-in-6",
     "source": "- x\n  - ::: d\n   y\n    :::\n",
-    "html": "<ul>\n  <li>x\n    <ul>\n      <li>\n        <div class=\"d\">\n\n        </div>\n      </li>\n    </ul>\n    y\n:::\n  </li>\n</ul>\n"
+    "html": "<ul>\n  <li>x\n    <ul>\n      <li>\n        <div class=\"d\">\n\n        </div>\n      </li>\n    </ul>\n    y\n    <div>\n\n    </div>\n  </li>\n</ul>\n"
   },
   {
     "id": "marker-colon-always-opens/482-a-closer-does-not-rescue-a-marker-line-colon-opener-whose-body-folded-in-7",
@@ -57,12 +57,12 @@
   {
     "id": "marker-colon-always-opens/482-a-closer-does-not-rescue-a-marker-line-colon-opener-whose-body-folded-in-9",
     "source": "- a\n  ::: d\n y\n  :::\n",
-    "html": "<ul>\n  <li>a\n    <div class=\"d\">\n\n    </div>\n  </li>\n</ul>\n<p>y\n:::</p>\n"
+    "html": "<ul>\n  <li>a\n    <div class=\"d\">\n\n    </div>\n  </li>\n</ul>\n<p>y</p>\n<div>\n\n</div>\n"
   },
   {
     "id": "marker-colon-always-opens/482-a-closer-does-not-rescue-a-marker-line-colon-opener-whose-body-folded-in",
     "source": "- :::\n y\n  :::\n",
-    "html": "<ul>\n  <li>\n    <div>\n\n    </div>\n  </li>\n</ul>\n<p>y\n:::</p>\n"
+    "html": "<ul>\n  <li>\n    <div>\n\n    </div>\n  </li>\n</ul>\n<p>y</p>\n<div>\n\n</div>\n"
   },
   {
     "id": "marker-colon-always-opens/556-a-closed-block-leaves-no-frame-for-the-line-below-10",
