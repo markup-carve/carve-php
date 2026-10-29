@@ -27,7 +27,7 @@ class ASubstitutionArrowIsTopLevelTest extends TestCase
     public static function strikes(): array
     {
         return [
-            'an arrow inside an unclosed run' => ["{~`a~>b~}\n", "<p><s><code>a~&gt;b</code></s></p>\n"],
+            'an arrow inside an unclosed run' => ["{~`a~>b~}\n", "<p>{~<code>a~&gt;b~}</code></p>\n"],
             'an arrow inside a closed run' => ["{~a `x~>y` b~}\n", "<p><s>a <code>x~&gt;y</code> b</s></p>\n"],
             'an escaped arrow' => ["{~a\\~>b~}\n", "<p><s>a~&gt;b</s></p>\n"],
             'an arrow inside a longer run' => ["{~a ``x~>y`` b~}\n", "<p><s>a <code>x~&gt;y</code> b</s></p>\n"],

@@ -21,14 +21,14 @@ class ABracedFallbackGuardClosesInItsChildsBlockTest extends TestCase
     public static function provider(): array
     {
         return [
-            'the bare guard' => ["_*a*{t=\"_\"} /a/{t=a_}\n", '<p><u><strong>a</strong>{t=“</u>”} <em t="a_">a</em></p>'],
-            'a braced guard' => ["{_*a*{t=\"_\"} *a*{t=a_}\n", '<p>{<u><strong>a</strong>{t=“</u>”} <strong t="a_">a</strong></p>'],
-            'a strike child' => ["{_~a~{t=\"x_\"} =a={t=a_}\n", '<p>{<u><s>a</s>{t=“x</u>”} <mark t="a_">a</mark></p>'],
-            'a later span' => ["{_*a*{t=\"_\"} [x]{t=a_}\n", '<p>{<u><strong>a</strong>{t=“</u>”} <span t="a_">x</span></p>'],
-            'in a list item' => ["- {_*a*{t=\"_\"} /a/{t=a_}\n", "<ul>\n  <li>{<u><strong>a</strong>{t=“</u>”} <em t=\"a_\">a</em></li>\n</ul>"],
+            'the bare guard' => ["_*a*{t=\"_\"} /a/{t=a_}\n", '<p>_<strong t="_">a</strong> <em t="a_">a</em></p>'],
+            'a braced guard' => ["{_*a*{t=\"_\"} *a*{t=a_}\n", '<p>{_<strong t="_">a</strong> <strong t="a_">a</strong></p>'],
+            'a strike child' => ["{_~a~{t=\"x_\"} =a={t=a_}\n", '<p>{_<s t="x_">a</s> <mark t="a_">a</mark></p>'],
+            'a later span' => ["{_*a*{t=\"_\"} [x]{t=a_}\n", '<p>{_<strong t="_">a</strong> <span t="a_">x</span></p>'],
+            'in a list item' => ["- {_*a*{t=\"_\"} /a/{t=a_}\n", "<ul>\n  <li>{_<strong t=\"_\">a</strong> <em t=\"a_\">a</em></li>\n</ul>"],
             'a bare closer behind the block' => ["{_*a*{t=\"_\"} /a/{t=a_} b_\n", '<p>{<u><strong t="_">a</strong> <em t="a_">a</em> b</u></p>'],
             'a braced closer behind the block' => ["{_*a*{t=\"_\"} /a/{t=a_} b_}\n", '<p><u><strong t="_">a</strong> <em t="a_">a</em> b</u></p>'],
-            'no closer at all' => ["{_*a*{t=a} /a/{t=a_}\n", '<p>{_*a*{t=a} <em t="a_">a</em></p>'],
+            'no closer at all' => ["{_*a*{t=a} /a/{t=a_}\n", '<p>{_<strong t="a">a</strong> <em t="a_">a</em></p>'],
         ];
     }
 

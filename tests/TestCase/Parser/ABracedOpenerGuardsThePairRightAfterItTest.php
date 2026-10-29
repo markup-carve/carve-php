@@ -21,10 +21,10 @@ class ABracedOpenerGuardsThePairRightAfterItTest extends TestCase
     public static function provider(): array
     {
         return [
-            'a strike host' => ["{_~b~{c_}\n", '<p><u><s>b</s>{c</u></p>'],
-            'an italic host' => ["{c_}x{_/==~/{c_}\n", '<p>{c_}x<u><em>==~</em>{c</u></p>'],
-            'a block after the closer' => ["{_~b~{c_}{.q} x\n", '<p><u class="q"><s>b</s>{c</u> x</p>'],
-            'in a quote' => ["> {_~b~{t=a_}\n", '<blockquote><p><u><s>b</s>{t=a</u></p></blockquote>'],
+            'a strike host' => ["{_~b~{c_}\n", '<p>{_<s c_="">b</s></p>'],
+            'an italic host' => ["{c_}x{_/==~/{c_}\n", '<p>{c_}x{_<em c_="">==~</em></p>'],
+            'a block after the closer' => ["{_~b~{c_}{.q} x\n", '<p>{_<s c_="" class="q">b</s> x</p>'],
+            'in a quote' => ["> {_~b~{t=a_}\n", '<blockquote><p>{_<s t="a_">b</s></p></blockquote>'],
             'a closer behind the block' => ["{_~b~{c_} x_}\n", '<p><u><s c_="">b</s> x</u></p>'],
             'an unguarded host' => ["{_x ~b~{c_}\n", '<p>{_x <s c_="">b</s></p>'],
             'a bare closer behind the block' => ["{c_} c_{_/a/{c_}{c/}{_   b\n", '<p>{c_} c_{<u><em c_="">a</em>{c/}{</u>   b</p>'],

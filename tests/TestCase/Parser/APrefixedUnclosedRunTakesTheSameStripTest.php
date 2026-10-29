@@ -26,13 +26,13 @@ class APrefixedUnclosedRunTakesTheSameStripTest extends TestCase
     public static function strippedProvider(): array
     {
         return [
-            'inline math' => ["{*\$`a *}\n", "<p><strong><span class=\"math inline\" role=\"math\">\\(a\\)</span></strong></p>\n"],
-            'display math' => ["{*\$\$`a *}\n", "<p><strong><span class=\"math display\" role=\"math\">\\[a\\]</span></strong></p>\n"],
-            'an inline literal' => ["{~!`b ~}\n", "<p><s>b</s></p>\n"],
-            'two spaces and a tab' => ["{~!`b \t ~}\n", "<p><s>b</s></p>\n"],
-            'math with nothing but a space' => ["{*\$` *}\n", "<p><strong><span class=\"math inline\" role=\"math\">\\(\\)</span></strong></p>\n"],
-            'a literal with nothing but a space' => ["{~!` ~}\n", "<p><s></s></p>\n"],
-            'the exhausted candidate branch' => ["{~!``a``` ~}\n", "<p><s>a```</s></p>\n"],
+            'inline math' => ["{*\$`a *}\n", "<p>{*<span class=\"math inline\" role=\"math\">\\(a *}\\)</span></p>\n"],
+            'display math' => ["{*\$\$`a *}\n", "<p>{*<span class=\"math display\" role=\"math\">\\[a *}\\]</span></p>\n"],
+            'an inline literal' => ["{~!`b ~}\n", "<p>{~b ~}</p>\n"],
+            'two spaces and a tab' => ["{~!`b \t ~}\n", "<p>{~b \t ~}</p>\n"],
+            'math with nothing but a space' => ["{*\$` *}\n", "<p>{*<span class=\"math inline\" role=\"math\">\\( *}\\)</span></p>\n"],
+            'a literal with nothing but a space' => ["{~!` ~}\n", "<p>{~ ~}</p>\n"],
+            'the exhausted candidate branch' => ["{~!``a``` ~}\n", "<p>{~a``` ~}</p>\n"],
         ];
     }
 
@@ -49,8 +49,8 @@ class APrefixedUnclosedRunTakesTheSameStripTest extends TestCase
     {
         return [
             // The strip is trailing only; an unclosed run takes no surrounding strip.
-            'a leading space in math' => ["{*\$` a *}\n", "<p><strong><span class=\"math inline\" role=\"math\">\\( a\\)</span></strong></p>\n"],
-            'interior whitespace in a literal' => ["{~!`a  b~}\n", "<p><s>a  b</s></p>\n"],
+            'a leading space in math' => ["{*\$` a *}\n", "<p>{*<span class=\"math inline\" role=\"math\">\\( a *}\\)</span></p>\n"],
+            'interior whitespace in a literal' => ["{~!`a  b~}\n", "<p>{~a  b~}</p>\n"],
             // A closed run keeps taking the code span's own single-space strip.
             'a closed math run' => ["\$` a `\n", "<p><span class=\"math inline\" role=\"math\">\\(a\\)</span></p>\n"],
             // A line break is not whitespace the strip takes, as corpus 380 pins

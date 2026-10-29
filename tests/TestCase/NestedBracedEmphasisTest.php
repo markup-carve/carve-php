@@ -114,7 +114,7 @@ class NestedBracedEmphasisTest extends TestCase
                 ['{*a {% *} %} b*}', '<p><strong>a  b</strong></p>'],
                 ['{*a {# *} #} b*}', '<p><strong>a <span class="critic-comment"> *} </span> b</strong></p>'],
                 ['a {*b %% c*}', '<p>a <strong>b</strong></p>'],
-                ['{*a `{*}', '<p><strong>a <code>{</code></strong></p>'],
+                ['{*a `{*}', '<p>{*a <code>{*}</code></p>'],
             ] as [$source, $html]
         ) {
             $this->assertSame($html, trim($converter->convert($source)), $source);

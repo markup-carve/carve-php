@@ -1053,6 +1053,10 @@ class InlineParser
         $length = strlen($text);
         $pos = 0;
         $textBuffer = '';
+        // The last unpaired open entry on the delimiter stack and the kinds held
+        // (E3), so a `_` or `/` guard counts only where it stands (carve#3973 X1).
+        $openEntryAt = -1;
+        $openEntryKinds = '';
         $children = $parent->getChildren();
         $quoteContextIndex = count($children);
         $quoteContext = '';
@@ -1388,7 +1392,7 @@ class InlineParser
             if ($char === '/' && ($text[$pos + 1] ?? '') === '*') {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $result = $this->parseBoldItalic($text, $pos);
+                $result = $this->parseBoldItalic($text, $pos, $openEntryAt === $pos - 1);
                 if ($result !== null) {
                     $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
@@ -1411,13 +1415,18 @@ class InlineParser
             if ($delimitedNodeClass !== null) {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $result = $this->parseDelimited($text, $pos, $char, $delimitedNodeClass);
+                $guardOpen = $openEntryAt === $pos - 1;
+                $result = $this->parseDelimited($text, $pos, $char, $delimitedNodeClass, $guardOpen);
                 if ($result !== null) {
                     $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
                     $pos = $result['pos'];
 
                     continue;
+                }
+                if (!str_contains($openEntryKinds, $char) && $this->bareOpenerStands($text, $pos, $guardOpen)) {
+                    $openEntryAt = $pos;
+                    $openEntryKinds .= $char;
                 }
             }
 
@@ -3409,16 +3418,40 @@ class InlineParser
     }
 
     /**
+     * Whether the bare delimiter at $pos is pushed as an open entry (E4 under
+     * E3). $guardOpen: the `_` or `/` before it is itself an open entry there,
+     * so it does not guard (carve#3973 X1).
+     */
+    protected function bareOpenerStands(string $text, int $pos, bool $guardOpen): bool
+    {
+        $delimiter = $text[$pos];
+        $after = $text[$pos + 1] ?? '';
+        $before = $pos > 0 ? $text[$pos - 1] : '';
+        if ($after === '' || StringUtil::isWhitespaceChar($after) || $this->hasGraphemeExtender($text, $pos + 1)) {
+            return false;
+        }
+        if ($after === $delimiter || $before === $delimiter || in_array($delimiter, $this->openSpanKinds, true)) {
+            return false;
+        }
+        if (preg_match('/[A-Za-z0-9]/', $before) === 1 || ($delimiter === '=' && $after === '>')) {
+            return false;
+        }
+
+        return $guardOpen || ($before !== '_' && (($delimiter !== '/' && $delimiter !== '_') || $before !== '/'));
+    }
+
+    /**
      * Parse delimited inline elements like _emphasis_ or *strong*
      *
      * @param string $delimiter
      * @param int $pos
      * @param string $text
+     * @param bool $guardOpen The guard before $pos is an open entry (carve#3973 X1).
      * @param class-string<\MarkupCarve\Carve\Node\Node> $nodeClass
      *
      * @return array{node: \MarkupCarve\Carve\Node\Node, pos: int}|null
      */
-    protected function parseDelimited(string $text, int $pos, string $delimiter, string $nodeClass): ?array
+    protected function parseDelimited(string $text, int $pos, string $delimiter, string $nodeClass, bool $guardOpen = false): ?array
     {
         // E3: an opener of a kind already open is literal.
         if (in_array($delimiter, $this->openSpanKinds, true)) {
@@ -3463,12 +3496,13 @@ class InlineParser
             return null;
         }
 
-        // Bare single-char delimiters never open inside words. Slash and
-        // underscore also keep their path-protection rule after slash.
-        if ($prevChar === '_' || ctype_alnum($prevChar)) {
+        // Bare single-char delimiters never open inside words. A `_` before,
+        // or a `/` before `/` or `_`, guards the opener unless that guard is an
+        // open entry where it stands (carve#3973 X1).
+        if (ctype_alnum($prevChar)) {
             return null;
         }
-        if (($delimiter === '/' || $delimiter === '_') && $prevChar === '/') {
+        if (!$guardOpen && ($prevChar === '_' || (($delimiter === '/' || $delimiter === '_') && $prevChar === '/'))) {
             return null;
         }
 
@@ -3504,15 +3538,13 @@ class InlineParser
             // The closer of a pair this walk attached opens nothing.
             $child = $char !== $delimiter && !in_array($char, $this->openSpanKinds, true) && !isset($attached[$searchPos + 1])
                 ? $this->bracedPairIndex?->bareAttributes($searchPos) : null;
-            // A guard of an open kind is literal (E3), and one inside this
-            // span opens only if it closes before this span's closer.
+            // A guard of an open kind is literal (E3), so the child it guards forms no pair.
             $guard = $child['guard'] ?? null;
             $guardFrom = max($child['guardFrom'] ?? $searchPos, $searchStart);
             $guards = $guard !== null ? substr($text, $guardFrom, $searchPos - $guardFrom) : '';
             if (
                 $child !== null && $guard !== null && $guard >= $searchStart
-                && (str_contains($guards, $delimiter) || array_intersect(str_split($guards), $this->openSpanKinds) !== []
-                    || ($this->bracedPairIndex->bareCloser($delimiter, $child['end']) ?? PHP_INT_MAX) < $child['guardClose'])
+                && (str_contains($guards, $delimiter) || array_intersect(str_split($guards), $this->openSpanKinds) !== [])
             ) {
                 $child = null;
             }
@@ -3735,16 +3767,18 @@ class InlineParser
      *
      * @param string $text
      * @param int $pos Position of the opening '/'
+     * @param bool $guardOpen
      *
      * @return array{node: \MarkupCarve\Carve\Node\Node, pos: int}|null
      */
-    protected function parseBoldItalic(string $text, int $pos): ?array
+    protected function parseBoldItalic(string $text, int $pos, bool $guardOpen = false): ?array
     {
         $length = strlen($text);
         $start = $pos + 2; // skip '/*'
 
+        // A `_` or `/` guard that is an open entry does not block it (carve#3973 X1).
         if (
-            ($pos > 0 && ($text[$pos - 1] === '_' || $text[$pos - 1] === '/' || ctype_alnum($text[$pos - 1])))
+            ($pos > 0 && ((!$guardOpen && ($text[$pos - 1] === '_' || $text[$pos - 1] === '/')) || ctype_alnum($text[$pos - 1])))
             || $start >= $length
             || StringUtil::isWhitespaceChar($text[$start])
             || $this->hasGraphemeExtender($text, $start)
@@ -4179,11 +4213,9 @@ class InlineParser
 
                     continue;
                 }
-                $rawClose = $this->nextRawCloser($text, $marker . '}', $searchPos);
-                if ($rawClose === null) {
-                    break;
-                }
-                $searchPos = $rawClose;
+
+                // An unclosed run takes the rest of the block (carve#3973 X5).
+                break;
             }
             if ($text[$searchPos] === '{' && (($text[$searchPos + 1] ?? '') !== $marker || !str_contains('+-', $marker))) {
                 $scopeEnd = $this->bracedScanChildEnd($text, $searchPos, $marker);
@@ -4990,7 +5022,7 @@ class InlineParser
      * Both searches are one scan (PART 9 section 22, markup-carve/carve#2083):
      * an escape, a closed code span, a delimited comment and an editorial
      * comment are skipped whole, so neither delimiter is read inside them. An
-     * unclosed backtick run reaches the next `~}`.
+     * unclosed backtick run takes the rest of the block (carve#3973 X5).
      *
      * @return array{0: int, 1: int}|null
      */
@@ -5117,8 +5149,8 @@ class InlineParser
             if ($char === '`') {
                 $end = $this->findCodeSpanEnd($text, $at);
                 if ($end === null) {
-                    $end = $this->nextRawCloser($text, '~}', $at);
-                    $result = $end === null || $arrow === null ? null : [$arrow, $end];
+                    // An unclosed run takes the rest of the block (carve#3973 X5).
+                    $result = null;
 
                     break;
                 }
@@ -5431,11 +5463,9 @@ class InlineParser
 
                     continue;
                 }
-                $rawClose = $this->nextRawCloser($text, $marker . '}', $searchPos);
-                if ($rawClose === null) {
-                    break;
-                }
-                $searchPos = $rawClose;
+
+                // An unclosed run takes the rest of the block (carve#3973 X5).
+                break;
             }
             if ($text[$searchPos] === '{' && (($text[$searchPos + 1] ?? '') !== $marker || !str_contains('+-', $marker))) {
                 $scopeEnd = $this->bracedScanChildEnd($text, $searchPos, $marker);

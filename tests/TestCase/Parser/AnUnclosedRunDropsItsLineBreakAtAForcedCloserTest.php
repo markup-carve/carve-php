@@ -21,13 +21,13 @@ class AnUnclosedRunDropsItsLineBreakAtAForcedCloserTest extends TestCase
     public static function shapes(): array
     {
         return [
-            'a code span in a strong' => ["x{*`a\n*}\n", "<p>x<strong><code>a</code></strong></p>\n"],
-            'a code span in an insertion' => ["x{+`a\n+}\n", "<p>x<ins><code>a</code></ins></p>\n"],
-            'math' => ["x{*\$`a\n*}\n", "<p>x<strong><span class=\"math inline\" role=\"math\">\\(a\\)</span></strong></p>\n"],
-            'an inline literal' => ["x{~!`b \n~}\n", "<p>x<s>b</s></p>\n"],
+            'a code span in a strong' => ["x{*`a\n*}\n", "<p>x{*<code>a\n*}</code></p>\n"],
+            'a code span in an insertion' => ["x{+`a\n+}\n", "<p>x{+<code>a\n+}</code></p>\n"],
+            'math' => ["x{*\$`a\n*}\n", "<p>x{*<span class=\"math inline\" role=\"math\">\\(a\n*}\\)</span></p>\n"],
+            'an inline literal' => ["x{~!`b \n~}\n", "<p>x{~b\n~}</p>\n"],
             'the line break is kept in a line block' => [
                 "::: |\nx{*`a\n*}\n:::\n",
-                "<div class=\"line-block\">\n  <p>x<strong><code>a\n</code></strong></p>\n</div>\n",
+                "<div class=\"line-block\">\n  <p>x{*<code>a\n*}</code></p>\n</div>\n",
             ],
         ];
     }

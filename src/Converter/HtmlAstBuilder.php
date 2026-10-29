@@ -5650,10 +5650,8 @@ final class HtmlAstBuilder
             return true;
         }
         $tag = strtolower(DomLoader::elementName($parent));
-        if (in_array($tag, ['em', 'i', 'strong', 'b', 'u', 's', 'strike', 'mark', 'ins', 'del', 'sup', 'sub'], true)) {
-            return true;
-        }
-        if (in_array($tag, ['a', 'q', 'abbr', 'time', 'samp', 'var', 'kbd', 'cite', 'dfn'], true)) {
+        // An enclosing span's closer does not end the run (carve#3973 X5).
+        if (in_array($tag, ['em', 'i', 'strong', 'b', 'u', 's', 'strike', 'mark', 'ins', 'del', 'sup', 'sub', 'a', 'q', 'abbr', 'time', 'samp', 'var', 'kbd', 'cite', 'dfn'], true)) {
             return false;
         }
         if ($tag === 'span' && $this->attrs($parent, []) !== []) {

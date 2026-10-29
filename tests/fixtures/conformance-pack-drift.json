@@ -5,23 +5,14 @@
       "ticket": "markup-carve/carve#3972",
       "cause": "all three engines agree against the spec model",
       "cases": [
-        "attributes-0df06d3610eb",
-        "attributes-719196d00d25",
-        "combined-19cf73c7b54a",
         "combined-3448da01d1a5",
         "combined-9558bcc180ca",
         "combined-ad5cfc8e81bf",
-        "fences-094e70214dba",
-        "fences-210eae225792",
         "fences-56d1f5344d97",
         "fences-bedb43ef18bd",
         "fences-e9ba3b5bea07",
-        "guards-934580a849cc",
-        "notes-2e2c3497bc39",
         "notes-b468d41965eb",
-        "notes-d347fc2706eb",
         "ownership-34529d739732",
-        "ownership-398f44c68e03",
         "ownership-bd5caf2c0c4d",
         "ownership-ca02e84b0d06",
         "plus-9f896245edd1",
@@ -32,7 +23,6 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the attributes family",
       "cases": [
-        "attributes-26b1700c816a",
         "attributes-e9769177dc70",
         "attributes-eee494e29d32",
         "attributes-fe84887143c1"
@@ -61,7 +51,6 @@
         "fences-185df305e169",
         "fences-1e1d2137b84d",
         "fences-29686e87f9fb",
-        "fences-29efffaf18cd",
         "fences-30815e34eed9",
         "fences-350b56897079",
         "fences-3c030897e4af",
@@ -85,7 +74,7 @@
         "fences-de92ca494248",
         "fences-e0910c8dd446",
         "fences-e6b042364968",
-        "fences-fa235137f05b"
+        "fences-f81745ba0db3"
       ]
     },
     {
@@ -94,17 +83,15 @@
       "cases": [
         "inline-0add8d3c414e",
         "inline-285b33e80405",
-        "inline-2d7d1282362c",
-        "inline-edb23999eff1",
-        "inline-f6ad15021be9"
+        "inline-2d7d1282362c"
       ]
     },
     {
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the lazy family",
       "cases": [
-        "lazy-05356306203f",
         "lazy-089311267f17",
+        "lazy-13e7778cf168",
         "lazy-238a6c458797",
         "lazy-353dc1c74791",
         "lazy-36a23222d8a1",
@@ -120,7 +107,9 @@
         "lazy-7f8806c2a9ca",
         "lazy-88609a600f0f",
         "lazy-8a2a96143cc6",
+        "lazy-93ad85602e94",
         "lazy-98e763c7e07e",
+        "lazy-a25e7b8f38cf",
         "lazy-aeb7bbd2d31f",
         "lazy-e4d3ada0f4c2",
         "lazy-ea480eb4d58d",
@@ -169,7 +158,6 @@
         "ownership-b510cfaf63af",
         "ownership-bab956633134",
         "ownership-d1e23ebf9549",
-        "ownership-dabd40ea2cb5",
         "ownership-e0c0e6393075",
         "ownership-e7b3820fbdf8",
         "ownership-edfbea8daa50",
@@ -203,7 +191,6 @@
         "roundtrip-702a692a40ae",
         "roundtrip-729e5a8d67ba",
         "roundtrip-73c51797f6b8",
-        "roundtrip-7439f84f3de0",
         "roundtrip-840844dcac3f",
         "roundtrip-90c120916d56",
         "roundtrip-c5731f0c7b04",

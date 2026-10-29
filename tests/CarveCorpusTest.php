@@ -1364,6 +1364,9 @@ class CarveCorpusTest extends TestCase
         'a-block-glued-to-a-split-combined-token-or-a-forced-span-s-own-delimiter',
         'an-intervening-column-refuses-a-description-hosted-first-block',
         'inside-a-note-a-nested-note-opener-is-a-caret-and-a-bracket-run',
+        'a-braced-opener-forms-before-an-enclosing-closer-takes-its-block',
+        'an-opener-is-open-where-it-stands-so-a-combined-token-after-a-guarded-star-stays-split',
+        'a-first-block-plus-hands-its-block-to-the-host-as-the-host-reads-it',
     ];
 
     /**
