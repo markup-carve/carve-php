@@ -1342,6 +1342,7 @@ class CarveCorpusTest extends TestCase
         'a-literal-bracket-run-bounds-emphasis-like-a-resolved-one',
         'a-mention-or-tag-keeps-its-full-spelling-in-a-strong-child',
         'a-native-header-continues-a-promoted-gfm-header-run',
+        'an-attribute-block-after-a-span-behind-a-guarding-opener-belongs-to-that-span',
         'an-editorial-comment-contributes-nothing-to-a-heading-id',
         'a-nested-braced-span-hides-an-editorial-closer',
         'a-note-claimed-fence-line-keeps-the-item-loose',
