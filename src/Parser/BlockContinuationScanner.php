@@ -305,6 +305,9 @@ final class BlockContinuationScanner
                 break;
             }
             $lowComment = str_starts_with($first, '%%') ? $nextIndent < $contentIndent && $trailingState->fence === null && $openCommentLength === null : $lowComment;
+            if ($nextIndent < $contentIndent && $this->walkOwnsElsewhere($nextLine, $i)) {
+                break;
+            }
             // An attribute past an item's minimum column opens there, even
             // when a marker-line child supplied the preceding paragraph.
             if (
@@ -1466,6 +1469,16 @@ final class BlockContinuationScanner
     }
 
     /**
+     * A line below the item's column that the ownership walk read as closing
+     * containers belongs to no open item paragraph (PART 1 S4, carve#3885).
+     */
+    private function walkOwnsElsewhere(string $line, int $i): bool
+    {
+        return !str_starts_with(ltrim($line, " \t"), BlockGrammar::LAZY_FRAME)
+            && isset($this->state->source->closingLines[$this->sourceLineFor($i)]);
+    }
+
+    /**
      * Collect one non-blank line of the item; false ends the item.
      *
      * @param \MarkupCarve\Carve\Parser\PlainContinuationState $run
@@ -1635,6 +1648,10 @@ final class BlockContinuationScanner
         );
         if ($step !== null) {
             return $step;
+        }
+
+        if ($this->walkOwnsElsewhere($lines[$i], $i)) {
+            return false;
         }
 
         return $this->foldBelowColumnLine(

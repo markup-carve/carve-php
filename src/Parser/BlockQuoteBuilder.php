@@ -517,6 +517,7 @@ final class BlockQuoteBuilder
                 $i++;
             } elseif (
                 ($lazyState['paragraphOpen'] || $this->quotedNestedLineBlockOpen($innerLines, $nestedLineBlock))
+                && !$this->walkOwnsElsewhere($i, $currentLine)
                 && !$this->nestedQuotedFootnoteEnds($innerLines)
                 && !($attachedParagraphOpen && ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null)
                 && !(($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
@@ -2388,6 +2389,16 @@ final class BlockQuoteBuilder
         bool $withInlineBoundary = false,
     ): bool {
         return ($this->quotedCodeFenceHasCloserCallback)($lines, $index, $depth, $char, $length, $memo, $column, $withInlineBoundary);
+    }
+
+    /**
+     * An unmarked line the ownership walk read as closing containers belongs
+     * to no open quote paragraph (PART 1 S4, carve#3885).
+     */
+    private function walkOwnsElsewhere(int $index, string $line): bool
+    {
+        return !str_starts_with($line, BlockGrammar::LAZY_FRAME)
+            && isset($this->state->source->closingLines[$this->sourceLineFor($index)]);
     }
 
     private function sourceLineFor(int $index): int
