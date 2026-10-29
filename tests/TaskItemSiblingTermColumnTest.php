@@ -21,7 +21,7 @@ final class TaskItemSiblingTermColumnTest extends TestCase
     {
         $html = (new CarveConverter())->convert("* [ ] - :: t\n       : a\n        :: nested\n        tail\n");
 
-        self::assertStringContainsString(':: nested', $html);
+        self::assertStringContainsString("<dt>t\n: a</dt>\n          <dt>nested\ntail</dt>", $html);
         self::assertStringNotContainsString("</ul>\n    <dl>", $html);
     }
 }
