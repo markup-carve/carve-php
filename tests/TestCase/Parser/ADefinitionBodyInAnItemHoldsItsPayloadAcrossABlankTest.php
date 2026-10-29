@@ -52,6 +52,13 @@ class ADefinitionBodyInAnItemHoldsItsPayloadAcrossABlankTest extends TestCase
      */
     public static function insideTheDescription(): iterable
     {
+        // A blank run of any length keeps the body open (carve-php#4263).
+        yield 'two blank lines above a payload at the body column' => [
+            "- intro\n  :: term\n  : definition\n\n\n    > quote\n",
+            "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>\n        <p>definition</p>\n"
+                . "        <blockquote><p>quote</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>\n",
+        ];
+
         yield 'one-space separator, quote at the body column' => [
             "- intro\n  :: term\n  : definition\n\n    > quote\n",
             "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>\n        <p>definition</p>\n"
@@ -93,13 +100,6 @@ class ADefinitionBodyInAnItemHoldsItsPayloadAcrossABlankTest extends TestCase
      */
     public static function outsideTheDescription(): iterable
     {
-        // The oracle places this quote outside the description after two blanks.
-        yield 'two blank lines above a payload at the body column' => [
-            "- intro\n  :: term\n  : definition\n\n\n    > quote\n",
-            "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n    </dl>\n"
-                . "    <blockquote><p>quote</p></blockquote>\n  </li>\n</ul>\n",
-        ];
-
         yield 'one-space separator, quote one column short' => [
             "- intro\n  :: term\n  : definition\n\n   > quote\n",
             "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n    </dl>\n"
