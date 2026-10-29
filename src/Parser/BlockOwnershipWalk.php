@@ -50,6 +50,11 @@ final class BlockOwnershipWalk
      */
     private ?array $runs = null;
 
+    /**
+     * @var array<string, array<int, int>>
+     */
+    private array $widestByColumn = [];
+
     private string $src = '';
 
     private string $out = '';
@@ -79,6 +84,7 @@ final class BlockOwnershipWalk
     {
         $this->lines = $lines;
         $this->runs = null;
+        $this->widestByColumn = [];
         $this->reach = 0;
         $this->lazyLines = [];
         $this->frames = [new OwnershipFrame('doc', 0, 0, 0)];
@@ -377,7 +383,8 @@ final class BlockOwnershipWalk
             $closes = static function (string $r) use ($run): bool {
                 return preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $r, $c) === 1 && $c[1][0] === $run[0] && strlen($c[1]) >= strlen($run);
             };
-            $reachable = ($this->closerRuns()['widest'][$run[0]][$this->at + 1] ?? 0) >= strlen($run);
+            // A closer below the owner's column never matches (CARVE-P0-014).
+            $reachable = ($this->widestFrom($run[0], $owner->col)[$this->at + 1] ?? 0) >= strlen($run);
             if ($owner->para && !$reachable) {
                 return new OwnershipForm(kind: 'text', interrupts: false);
             }
@@ -475,6 +482,34 @@ final class BlockOwnershipWalk
         }
 
         return $this->runs = ['widest' => $widest, 'lastComment' => $lastComment];
+    }
+
+    /**
+     * The widest closer run of `$char` at or after every line, counting only
+     * closers written at `$col` or deeper. One pass per column asked.
+     *
+     * @return array<int, int>
+     */
+    private function widestFrom(string $char, int $col): array
+    {
+        $key = $char . $col;
+        if (isset($this->widestByColumn[$key])) {
+            return $this->widestByColumn[$key];
+        }
+        $n = count($this->lines);
+        $widest = array_fill(0, $n + 1, 0);
+        for ($j = $n - 1; $j >= 0; $j--) {
+            $widest[$j] = $widest[$j + 1];
+            $m = self::indentCols($this->lines[$j]);
+            while (preg_match(self::QUOTE, $m['rest'], $q) === 1) {
+                $m = self::indentCols($q[1] ?? '');
+            }
+            if ($m['col'] >= $col && preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $m['rest'], $c) === 1 && $c[1][0] === $char) {
+                $widest[$j] = max($widest[$j], strlen($c[1]));
+            }
+        }
+
+        return $this->widestByColumn[$key] = $widest;
     }
 
     /**
