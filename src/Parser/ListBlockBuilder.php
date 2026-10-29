@@ -1197,6 +1197,40 @@ final class ListBlockBuilder
     }
 
     /**
+     * Takes a sub-item line before the admission rules read it.
+     *
+     * @param string $line
+     * @param int $index
+     * @param int $column
+     * @param array<string> $subLines
+     * @param array<int, int> $subLineMap
+     * @param bool $noFence
+     */
+    private function consumedBeforeAdmission(string $line, int $index, int $column, array &$subLines, array &$subLineMap, bool $noFence): bool
+    {
+        $sourceLine = $this->sourceLineFor($index);
+        // A footnote body takes a lazy line in every host (carve#3885).
+        if (
+            isset($this->state->source->lazyLines[$sourceLine])
+            && IndentationHelper::getLeadingColumns($line, $column) < $column
+            && BlockGrammar::lastRunHoldsFootnote($subLines)
+        ) {
+            $subLines[] = BlockGrammar::LAZY_FRAME . ltrim(BlockGrammar::stripLazyFrame($line), " \t");
+            $subLineMap[] = $sourceLine;
+
+            return true;
+        }
+        if ($sourceLine < 0) {
+            return false;
+        }
+        // A comment below the item column is no paragraph text: it closes the item (rule A).
+        $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);
+
+        return $decision['column'] >= 0 && $decision['reason'] === null && $decision['stale']
+            && ($decision['owner']['column'] ?? 0) > 0 && $noFence;
+    }
+
+    /**
      * @param array<string> $lines
      * @param bool $lastItemHadBlankAfter
      * @param int $currentIndent
@@ -1280,30 +1314,10 @@ final class ListBlockBuilder
             ) as $admission
         ) {
             $subLine = $admission['line'];
-            // A footnote body takes a lazy line in every host (carve#3885).
-            if (
-                isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
-                && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent
-                && BlockGrammar::lastRunHoldsFootnote($subLines)
-            ) {
-                $subLines[] = BlockGrammar::LAZY_FRAME . ltrim(BlockGrammar::stripLazyFrame($subLine), " \t");
-                $subLineMap[] = $this->sourceLineFor($i);
+            if ($this->consumedBeforeAdmission($subLine, $i, $subIndent, $subLines, $subLineMap, $subTrailingState->fence === null)) {
                 $i++;
 
                 continue;
-            }
-            // A comment below the item column is no paragraph text: it closes the item (rule A).
-            $sourceLine = $this->sourceLineFor($i);
-            if ($sourceLine >= 0) {
-                $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);
-                if (
-                    $decision['column'] >= 0 && $decision['reason'] === null && $decision['stale'] && ($decision['owner']['column'] ?? 0) > 0
-                    && $subTrailingState->fence === null
-                ) {
-                    $i++;
-
-                    continue;
-                }
             }
             if ($sawBlankLine && !IndentationHelper::isBlankLine($subLine) && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent) {
                 $priorLine = $this->sourceLineFor($i) - 1;
