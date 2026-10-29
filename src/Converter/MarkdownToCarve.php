@@ -1042,7 +1042,7 @@ class MarkdownToCarve
                     continue;
                 }
             }
-            $this->guardAlertLabelAfterBlankQuoteLine($lines, $i, self::holdsAlertLabelGuard($markdown));
+            $this->guardAlertLabelAfterBlankQuoteLine($lines, $i, $markdown);
             [$i, $prevLineType, $body, $quoteHandled] = $this->convertImportedQuoteBlock(
                 $isBlockquote,
                 $body,
@@ -2287,9 +2287,9 @@ class MarkdownToCarve
      *
      * @param array<string> $lines
      * @param int $i
-     * @param bool $sourceHoldsGuard Such a source keeps the label escaped.
+     * @param string $markdown
      */
-    private function guardAlertLabelAfterBlankQuoteLine(array &$lines, int $i, bool $sourceHoldsGuard): void
+    private function guardAlertLabelAfterBlankQuoteLine(array &$lines, int $i, string $markdown): void
     {
         $next = $lines[$i + 1] ?? '';
         if (
@@ -2299,7 +2299,7 @@ class MarkdownToCarve
         ) {
             return;
         }
-        $guard = $sourceHoldsGuard ? '\\' : self::ALERT_LABEL_GUARD;
+        $guard = self::holdsAlertLabelGuard($markdown) ? '\\' : self::ALERT_LABEL_GUARD;
         $lines[$i + 1] = $label[1] . $guard . substr($next, strlen($label[1]));
     }
 
