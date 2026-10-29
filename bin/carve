@@ -10,6 +10,7 @@ declare(strict_types=1);
  *   carve fmt [--write|--check] [--migrate] [--stamp|--stamp-block] [files...]
  *   carve lint [--platform <name>] [files...]
  *   carve merge [--json] base ours theirs
+ *   carve trace [file]
  *   carve migrate --from <html|markdown|djot|bbcode> [options] [input-file]
  *   carve [options] [input-file]
  *   cat file.crv | carve [options]
@@ -56,6 +57,7 @@ use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Converter\Markdown\DestinationEncoding;
 use MarkupCarve\Carve\Converter\Markdown\HeadingFragments;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\DecisionTrace;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
@@ -147,6 +149,44 @@ function writeRendered(string $output, ?string $file): void
         fwrite(STDERR, "Error: Failed to write to: {$file}\n");
         exit(1);
     }
+}
+
+/**
+ * `carve trace` - print the decision trace (carve docs/decision-trace.md).
+ *
+ * @param array<int, string> $argv
+ */
+function runTraceCommand(array $argv): never
+{
+    $input = null;
+    $argc = count($argv);
+    for ($i = 2; $i < $argc; $i++) {
+        $arg = $argv[$i];
+        if ($arg === '-h' || $arg === '--help') {
+            showHelp();
+            exit(0);
+        }
+        if (str_starts_with($arg, '-') && $arg !== '-') {
+            cliError('usage', "Error: Unknown option: $arg");
+        } elseif ($input !== null) {
+            cliError('usage', 'Error: Multiple input files specified');
+        } else {
+            $input = $arg;
+        }
+    }
+    if ($input !== null && $input !== '-') {
+        $source = is_readable($input) ? @file_get_contents($input) : false;
+        if ($source === false) {
+            cliError('input-unreadable', "Error: Cannot read file: $input");
+        }
+    } else {
+        $source = stream_get_contents(STDIN);
+        if ($source === false) {
+            cliError('input-unreadable', 'Error: Failed to read from stdin');
+        }
+    }
+    echo DecisionTrace::jsonLines($source);
+    exit(0);
 }
 
 /**
@@ -1265,6 +1305,7 @@ Usage:
   carve flatten [--include-root DIR] [file]
   carve lint [--include-root DIR] [--extension citations] [--platform NAME] [files...]
   carve merge [--json] base.crv ours.crv theirs.crv
+  carve trace [file]   print the block decision trace as JSON lines
   carve [options] [input-file]
   cat file.crv | carve [options]
 
@@ -1395,6 +1436,9 @@ if (($argv[1] ?? null) === 'merge') {
 }
 if (($argv[1] ?? null) === 'migrate') {
     runMigrateCommand($argv);
+}
+if (($argv[1] ?? null) === 'trace') {
+    runTraceCommand($argv);
 }
 $parsed = parseArgs($argv);
 $options = $parsed['options'];

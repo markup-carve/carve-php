@@ -11,7 +11,32 @@ bin/carve --plain README.crv         # plain text
 bin/carve --ansi README.crv          # ANSI-colored terminal text
 echo '# Hello' | bin/carve           # render from stdin
 bin/carve merge base.crv ours.crv theirs.crv # structural three-way merge
+bin/carve trace README.crv           # block decision trace, JSON lines
 ~~~
+
+## Decision trace
+
+`carve trace <file>` (or `-` for stdin) prints the block decision trace of
+[carve's decision-trace page](https://github.com/markup-carve/carve/blob/main/docs/decision-trace.md):
+a header line, then one record per source line with the PART 0 step that
+decided it (`INPUT`, `S1`, `S2`, `S4`, `S5`), its owner path, form, family
+cell and clause. The records come from the ownership walk
+(`src/Parser/BlockOwnershipWalk.php`, where each exit is marked with its step
+id), so the trace shows what the walk decided, not what the block readers made
+of it afterwards. `DecisionTrace::records($source)` returns the same records
+as arrays. Normal parsing records nothing.
+
+To find the first line where carve-php decides differently from the spec
+model, run `trace-diff` from a carve checkout next to this one (or point
+`CARVE_PHP_DIR` at it):
+
+~~~ bash
+node scripts/trace-diff.mjs input.crv --engine php
+~~~
+
+It exits 0 when every record agrees, and 1 with the first divergent record
+otherwise. A trace that agrees while the HTML differs puts the cause in a
+block reader rather than the walk.
 
 ## Aligned tables
 

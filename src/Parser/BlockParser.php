@@ -65,6 +65,13 @@ class BlockParser
 
     private ?ListBlockBuilder $listsImplementation = null;
 
+    private bool $traceNext = false;
+
+    /**
+     * @var array<int, array<string, int|string|null>>
+     */
+    private array $decisionTrace = [];
+
     private ?DefinitionListBuilder $definitionsImplementation = null;
 
     private ?LineBlockBuilder $linesImplementation = null;
@@ -967,6 +974,26 @@ class BlockParser
         return CycleCollection::paused(fn () => $this->parseDocument($input));
     }
 
+    /**
+     * Parse `$input` and return the ownership walk's decision trace records
+     * (carve docs/decision-trace.md). Normal parsing records nothing.
+     *
+     * @return array<int, array<string, int|string|null>>
+     */
+    public function traceDecisions(string $input): array
+    {
+        $this->traceNext = true;
+        $this->decisionTrace = [];
+        try {
+            $this->parse($input);
+
+            return $this->decisionTrace;
+        } finally {
+            $this->traceNext = false;
+            $this->decisionTrace = [];
+        }
+    }
+
     private function parseDocument(string $input): Document
     {
         // Capture the original source byte length before any normalization so
@@ -1001,7 +1028,13 @@ class BlockParser
             fn (string $line): bool => $this->isReferenceDefinitionLine($line),
             fn (string $line): bool => $this->isBlockAttributeLine($line),
         );
+        // Only the root document is traced; a parse re-entered from it is not.
+        $walk->trace = $this->traceNext ? [] : null;
+        $this->traceNext = false;
         $lines = $walk->own($lines);
+        if ($walk->trace !== null) {
+            $this->decisionTrace = $walk->trace;
+        }
         $this->state->source->sourceLines = array_replace($this->state->source->sourceLines, $lines);
         $this->state->source->lazyLines = $walk->lazyLines;
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
