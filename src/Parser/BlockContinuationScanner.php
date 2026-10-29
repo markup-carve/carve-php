@@ -4835,6 +4835,7 @@ final class BlockContinuationScanner
             return false;
         }
         $afterBlank = false;
+        $authored = $column + $this->walkShiftAt($lines, $index);
         $count = count($lines);
         for ($at = $index + 1; $at < $count; $at++) {
             $line = $lines[$at];
@@ -4843,7 +4844,7 @@ final class BlockContinuationScanner
 
                 continue;
             }
-            $indent = IndentationHelper::getLeadingColumns($line, max($column, $floor, $base) + 1);
+            $indent = IndentationHelper::getLeadingColumns($line, max($authored, $floor, $base) + 1);
             if (
                 ($afterBlank && $indent < $floor)
                 || ($indent <= $base && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null)
@@ -4854,7 +4855,7 @@ final class BlockContinuationScanner
             }
             $afterBlank = false;
             if (
-                ($indent === $column || $indent === $floor)
+                (($indent >= $column && $indent <= $authored) || $indent === $floor)
                 && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($line, " \t"), $opener['char'] ?? $opener['fence'][0], $opener['length'])
             ) {
                 $hits[$key] = ['start' => $index, 'end' => $at];
@@ -5080,16 +5081,15 @@ final class BlockContinuationScanner
     public function hasFenceCloserInView(array $lines, int $index, array $opener, int $stripColumns): bool
     {
         $char = $opener['char'] ?? $opener['fence'][0];
+        $authored = $stripColumns + $this->walkShiftAt($lines, $index);
         $count = count($lines);
         for ($i = $index + 1; $i < $count; $i++) {
-            if (
-                $stripColumns > 0
-                && IndentationHelper::getLeadingColumns($lines[$i], $stripColumns + 1) !== $stripColumns
-            ) {
+            $indent = $authored > 0 ? IndentationHelper::getLeadingColumns($lines[$i], $authored + 1) : 0;
+            if ($indent < $stripColumns || $indent > $authored) {
                 continue;
             }
-            $line = $stripColumns > 0
-                ? IndentationHelper::stripLeadingColumns($lines[$i], $stripColumns)
+            $line = $indent > 0
+                ? IndentationHelper::stripLeadingColumns($lines[$i], $indent)
                 : $lines[$i];
             if (($this->getFencedBlockParser)()->isCodeFenceCloser($line, $char, $opener['length'])) {
                 return true;
@@ -5147,7 +5147,52 @@ final class BlockContinuationScanner
             return false;
         }
 
-        return $this->codeCloserPossible($cache[$stripColumns] ?? [], $opener['char'] ?? $opener['fence'][0], $opener['length'], $index);
+        $char = $opener['char'] ?? $opener['fence'][0];
+        $authored = $stripColumns + $this->walkShiftAt($lines, $index);
+        for ($column = $stripColumns; $column <= $authored; $column++) {
+            if ($this->codeCloserPossible($cache[$column] ?? [], $char, $opener['length'], $index)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Columns the ownership walk moved line `$index` left by, when `$lines` is the walked source view.
+     *
+     * A closer between the walked and the authored opener column still closes (CARVE-P0-014).
+     *
+     * @param array<string> $lines
+     * @param int $index
+     */
+    private function walkShiftAt(array $lines, int $index): int
+    {
+        $view = $lines[$index] ?? null;
+        $at = $this->sourceLineFor($index);
+        $source = $this->state->source;
+        $walked = $source->sourceLines[$at] ?? null;
+        $authored = $source->authoredLines[$at] ?? null;
+        if ($view === null || $walked === null || $authored === null || $walked === $authored) {
+            return 0;
+        }
+        $content = ltrim($view, " \t");
+        if ($content === '' || !str_ends_with($walked, $view) || !str_ends_with($authored, $content)) {
+            return 0;
+        }
+
+        return max(0, self::prefixColumns($authored, strlen($content)) - self::prefixColumns($walked, strlen($content)));
+    }
+
+    private static function prefixColumns(string $line, int $tail): int
+    {
+        $columns = 0;
+        $end = strlen($line) - $tail;
+        for ($i = 0; $i < $end; $i++) {
+            $columns = $line[$i] === "\t" ? $columns + 4 - $columns % 4 : $columns + 1;
+        }
+
+        return $columns;
     }
 
     /**
