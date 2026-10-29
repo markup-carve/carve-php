@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 final class ANestedQuotedFootnoteClosesOuterQuoteTest extends TestCase
 {
+    use RuleATodo;
+
     public function testContinuedFootnoteCannotHostOuterLazyLine(): void
     {
         $source = "> > - a\n> >   [^f]: note\n> >     more\nsee[^f]\n";

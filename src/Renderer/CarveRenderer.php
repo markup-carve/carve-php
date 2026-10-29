@@ -6186,26 +6186,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * Protect a paragraph line that would re-parse as a thematic break.
      *
-     * Source indentation is not in the AST, so an indented `---` - a paragraph
-     * holding an em dash - is emitted at column 0, where it stops being a
-     * paragraph and becomes a thematic break.
-     *
-     * Text nodes are already covered: the conservative form escapes the
-     * hyphens, so the round-trip check sees the difference and picks that form.
-     * A smart-punctuation run is not, because its source run is emitted
-     * verbatim in BOTH forms - that is the point of the node - so the check
-     * never has a difference to act on. Escaping the run in the conservative
-     * form does not work either: it would make that form change the document,
-     * and the check could then never prefer the minimal one.
-     *
-     * It INDENTS rather than escapes: escaping would split the run (a leading
-     * escaped hyphen plus an en dash) and change the document just as surely,
-     * while a single leading space keeps the line a paragraph and keeps the em
-     * dash - which is what the source said.
-     *
-     * The marker is a sentinel rather than a literal space because
-     * normalize() trims the document's leading whitespace, which would
-     * silently undo the guard whenever the paragraph is the first block.
+     * A smart-punctuation run is emitted as its source run, so a line holding
+     * only an em dash comes out as `---`, which is a thematic break at any
+     * indentation (rule A, carve#3885). The line is written as the dash
+     * characters it reads as instead; the tree is unchanged.
      */
     protected function guardThematicBreakLines(string $body): string
     {
@@ -6216,12 +6200,26 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         $lines = explode("\n", $body);
         foreach ($lines as $i => $line) {
-            if (preg_match('/^-{3,}[ \t]*$/', $line) === 1) {
-                $lines[$i] = $this->verbatimSentinels[3] . $line;
+            if (preg_match('/^(-{3,})[ \t]*$/', $line, $run) === 1) {
+                $lines[$i] = $this->dashGlyphs(strlen($run[1]));
             }
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * The dashes a hyphen run reads as: em dashes first, en dashes for the
+     * remainder, and never a lone hyphen.
+     */
+    protected function dashGlyphs(int $hyphens): string
+    {
+        $emDashes = intdiv($hyphens, 3);
+        if ($hyphens % 3 === 1) {
+            $emDashes--;
+        }
+
+        return str_repeat("\u{2014}", $emDashes) . str_repeat("\u{2013}", intdiv($hyphens - $emDashes * 3, 2));
     }
 
     /**

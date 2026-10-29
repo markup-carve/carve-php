@@ -7,11 +7,14 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class FoldedTermSoftBreakPositionTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, list<list<int>>}>
      */

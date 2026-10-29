@@ -11,6 +11,8 @@ use PHPUnit\Framework\TestCase;
 
 final class ANestedQuoteContinuationMarkerTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, string}>
      */

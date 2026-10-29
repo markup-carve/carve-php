@@ -10,6 +10,8 @@ use PHPUnit\Framework\TestCase;
 
 final class DefinitionListSourceColumnsTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, string}>
      */

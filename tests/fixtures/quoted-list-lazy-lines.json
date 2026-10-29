@@ -1957,7 +1957,7 @@
   },
   {
     "source": ">  - - a\n> - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": ">  - - a\n\n> - tail\n",
@@ -1965,7 +1965,7 @@
   },
   {
     "source": ">  - - a\n>   - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": ">  - - a\n\n>   - tail\n",
@@ -2037,7 +2037,7 @@
   },
   {
     "source": ">  - a\n> - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": ">  - a\n\n> - tail\n",
@@ -2045,7 +2045,7 @@
   },
   {
     "source": ">  - a\n>   - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>a\n- tail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": ">  - a\n\n>   - tail\n",
@@ -2133,7 +2133,7 @@
   },
   {
     "source": ">   - - a\n> - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": ">   - - a\n\n> - tail\n",
@@ -2213,7 +2213,7 @@
   },
   {
     "source": ">   - a\n> - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": ">   - a\n\n> - tail\n",
@@ -2493,7 +2493,7 @@
   },
   {
     "source": ">   1. - a\n>   - tail\n",
-    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\n- tail</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
   },
   {
     "source": ">   1. - a\n\n>   - tail\n",
@@ -2573,7 +2573,7 @@
   },
   {
     "source": ">   1. a\n>   - tail\n",
-    "html": "<blockquote>\n  <ol>\n    <li>a</li>\n  </ol>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ol>\n    <li>a\n- tail</li>\n  </ol>\n</blockquote>"
   },
   {
     "source": ">   1. a\n\n>   - tail\n",
@@ -2669,7 +2669,7 @@
   },
   {
     "source": "> -  - a\n>   - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": "> -  - a\n\n>   - tail\n",
@@ -2765,7 +2765,7 @@
   },
   {
     "source": "> -   - a\n>   - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": "> -   - a\n\n>   - tail\n",
@@ -2853,7 +2853,7 @@
   },
   {
     "source": ">  - - ```\n> - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": ">  - - ```\n\n> - tail\n",
@@ -2861,7 +2861,7 @@
   },
   {
     "source": ">  - - ```\n>   - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": ">  - - ```\n\n>   - tail\n",
@@ -2949,7 +2949,7 @@
   },
   {
     "source": ">  - - ::: box\n> - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": ">  - - ::: box\n\n> - tail\n",
@@ -2957,7 +2957,7 @@
   },
   {
     "source": ">  - - ::: box\n>   - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": ">  - - ::: box\n\n>   - tail\n",

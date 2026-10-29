@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Test\PinnedOracleHtml;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -53,6 +54,8 @@ use PHPUnit\Framework\TestCase;
  */
 class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * The answer every at-or-past row gives: the body ends and `tail` is a
      * document-level paragraph.

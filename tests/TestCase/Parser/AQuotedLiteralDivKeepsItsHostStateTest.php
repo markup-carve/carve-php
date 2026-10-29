@@ -6,10 +6,13 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Test\PinnedOracleHtml;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
 {
+    use RuleATodo;
+
     public function testLineBlockPayloadCreatesNoNestedClaim(): void
     {
         foreach ([1, 2] as $depth) {

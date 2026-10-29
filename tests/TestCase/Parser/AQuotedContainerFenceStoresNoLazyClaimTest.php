@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class AQuotedContainerFenceStoresNoLazyClaimTest extends TestCase
 {
+    use RuleATodo;
+
     public function testCorpus514(): void
     {
         $cases = json_decode(<<<'JSON'

@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class BlockFamilyRoundFourBTest extends TestCase
 {
+    use RuleATodo;
+
     public function testDescriptionColumnRulings(): void
     {
         // These cases cover the description column and nested block readings.

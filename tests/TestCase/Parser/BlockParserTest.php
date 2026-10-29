@@ -16,11 +16,14 @@ use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 use function str_contains;
 
 class BlockParserTest extends TestCase
 {
+    use RuleATodo;
+
     protected BlockParser $parser;
 
     protected function setUp(): void

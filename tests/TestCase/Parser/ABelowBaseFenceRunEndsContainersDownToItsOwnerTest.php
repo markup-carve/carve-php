@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -42,6 +43,8 @@ use PHPUnit\Framework\TestCase;
  */
 class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
 {
+    use RuleATodo;
+
     private function html(string $source): string
     {
         return rtrim((new CarveConverter())->convert($source), "\n");

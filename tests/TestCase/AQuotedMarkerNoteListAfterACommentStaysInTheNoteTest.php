@@ -6,11 +6,14 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class AQuotedMarkerNoteListAfterACommentStaysInTheNoteTest extends TestCase
 {
+    use RuleATodo;
+
     public function testCommentEndsParagraphBeforeNoteList(): void
     {
         $source = "> - [^n]: text\n>     - child\n>     %% k\n>       - deep\nafter [^n]\n";

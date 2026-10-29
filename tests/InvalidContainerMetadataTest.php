@@ -12,6 +12,8 @@ use PHPUnit\Framework\TestCase;
 
 final class InvalidContainerMetadataTest extends TestCase
 {
+    use RuleATodo;
+
     public function testBareTabTitlesRecoverWithoutNamingTabs(): void
     {
         $source = ":::: tabs\n::: tab Install\nBody one.\n:::\n::: tab Configure\nBody two.\n:::\n::::\n";

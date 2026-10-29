@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -36,6 +37,8 @@ use RuntimeException;
  */
 class ConverterCorpusTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * Cases this engine is KNOWN to diverge on, each naming the issue that
      * closes it.

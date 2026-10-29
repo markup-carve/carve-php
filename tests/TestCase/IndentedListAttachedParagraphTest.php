@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 final class IndentedListAttachedParagraphTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * Expected HTML for the table above the list.
      *

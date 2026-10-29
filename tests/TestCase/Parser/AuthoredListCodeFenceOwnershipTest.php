@@ -6,10 +6,13 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class AuthoredListCodeFenceOwnershipTest extends TestCase
 {
+    use RuleATodo;
+
     public function testAuthoredCodeKeepsItsPayloadAndListBoundary(): void
     {
         /** @var array<array{id:string, source:string, html:string, codePayloads:array<string>}> $rows */

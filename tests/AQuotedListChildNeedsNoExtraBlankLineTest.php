@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 class AQuotedListChildNeedsNoExtraBlankLineTest extends TestCase
 {
+    use RuleATodo;
+
     public function testTheDivFollowsTheNestedListDirectly(): void
     {
         $source = ">   - a\n> - b\n>     - c\n>   :::\n1. lazy\n";

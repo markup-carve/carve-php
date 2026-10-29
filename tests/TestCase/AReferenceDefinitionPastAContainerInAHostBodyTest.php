@@ -31,7 +31,7 @@ class AReferenceDefinitionPastAContainerInAHostBodyTest extends TestCase
         return [
             'quote in item releases definition' => ["- a\n  > q\n   [r]: /url\n\n[r][]\n", "<ul>\n  <li>a\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>\n<p><a href=\"/url\">r</a></p>"],
             'quote prose in item releases definition' => ["- a\n  > q\n   more\n   [r]: /url\n\n[r][]\n", "<ul>\n  <li>a\n    <blockquote><p>q\nmore</p></blockquote>\n  </li>\n</ul>\n<p><a href=\"/url\">r</a></p>"],
-            'top quote keeps div-shaped lazy run' => ["> a\n  ::: note\n   [r]: /url\n  :::\n\n[r][]\n", "<blockquote><p>a\n::: note\n[r]: /url\n:::</p></blockquote>\n<p>[r][]</p>"],
+            'top quote keeps div-shaped lazy run' => ["> a\n  ::: note\n   [r]: /url\n  :::\n\n[r][]\n", "<blockquote><p>a</p></blockquote>\n<aside class=\"admonition note\" aria-label=\"Note\">\n\n</aside>\n<p><a href=\"/url\">r</a></p>"],
         ];
     }
 
@@ -49,11 +49,11 @@ class AReferenceDefinitionPastAContainerInAHostBodyTest extends TestCase
         return [
             'definition at quote column in item' => ["- a\n  > q\n  [r]: /url\n\n[r][]\n", "<ul>\n  <li>a\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>\n<p><a href=\"/url\">r</a></p>"],
             'div in item releases definition' => ["- a\n  ::: n\n   [r]: /url\n  :::\n\n[r][]\n", "<ul>\n  <li>a\n    <div class=\"n\">\n\n    </div>\n  </li>\n</ul>\n<p><a href=\"/url\">r</a></p>"],
-            'quote in item keeps heading payload' => ["- a\n  > q\n   # h\n\nx\n", "<ul>\n  <li>a\n    <blockquote><p>q\n# h</p></blockquote>\n  </li>\n</ul>\n<p>x</p>"],
+            'quote in item keeps heading payload' => ["- a\n  > q\n   # h\n\nx\n", "<ul>\n  <li>a\n    <blockquote><p>q</p></blockquote>\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>\n<p>x</p>"],
             'quote in description consumes definition' => [":: t\n: a\n  > q\n   [r]: /url\n\n[r][]\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <blockquote><p>q</p></blockquote>\n  </dd>\n</dl>\n<p><a href=\"/url\">r</a></p>"],
-            'top quote keeps div run without definition' => ["> a\n  ::: note\n  :::\n\n[r][]\n", "<blockquote><p>a\n::: note\n:::</p></blockquote>\n<p>[r][]</p>"],
-            'top quote keeps nested quote and definition' => ["> a\n  > q\n   [r]: /url\n\n[r][]\n", "<blockquote><p>a\n&gt; q\n[r]: /url</p></blockquote>\n<p>[r][]</p>"],
-            'top quote keeps plain lazy definition' => ["> a\n  [r]: /url\n\n[r][]\n", "<blockquote><p>a\n[r]: /url</p></blockquote>\n<p>[r][]</p>"],
+            'top quote keeps div run without definition' => ["> a\n  ::: note\n  :::\n\n[r][]\n", "<blockquote><p>a</p></blockquote>\n<aside class=\"admonition note\" aria-label=\"Note\">\n\n</aside>\n<p>[r][]</p>"],
+            'top quote keeps nested quote and definition' => ["> a\n  > q\n   [r]: /url\n\n[r][]\n", "<blockquote><p>a\nq</p></blockquote>\n<p><a href=\"/url\">r</a></p>"],
+            'top quote keeps plain lazy definition' => ["> a\n  [r]: /url\n\n[r][]\n", "<blockquote><p>a</p></blockquote>\n<p><a href=\"/url\">r</a></p>"],
             'top-level definition is consumed' => ["[r]: /url\n\n[r][]\n", '<p><a href="/url">r</a></p>'],
         ];
     }

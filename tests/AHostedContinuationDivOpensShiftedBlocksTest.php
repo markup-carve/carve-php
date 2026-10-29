@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 final class AHostedContinuationDivOpensShiftedBlocksTest extends TestCase
 {
+    use RuleATodo;
+
     public function testShiftedOpenersInListHostedBoxes(): void
     {
         $kinds = [

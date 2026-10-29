@@ -31,6 +31,21 @@ final class BlockSourceState
     public array $sourceLines = [];
 
     /**
+     * Top-level lines as authored, before the ownership walk moved them;
+     * span sites measure against these.
+     *
+     * @var array<int, string>
+     */
+    public array $authoredLines = [];
+
+    /**
+     * Top-level lines the ownership walk read as lazy paragraph text.
+     *
+     * @var array<int, true>
+     */
+    public array $lazyLines = [];
+
+    /**
      * Normalized input used to verify computed spans.
      */
     public string $normalizedSource = '';

@@ -11,11 +11,14 @@ use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class MarkdownRendererTest extends TestCase
 {
+    use RuleATodo;
+
     protected CarveConverter $converter;
 
     protected MarkdownRenderer $renderer;

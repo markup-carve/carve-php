@@ -8,10 +8,13 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class VerbatimMarkerRoundtripTest extends TestCase
 {
+    use RuleATodo;
+
     public function testListMarkersInsideCodeKeepTheirValue(): void
     {
         foreach (['. b', '-{.k} b', '+ b', '1. b'] as $marker) {

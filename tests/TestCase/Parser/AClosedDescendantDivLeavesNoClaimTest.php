@@ -8,10 +8,13 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Test\PinnedOracleHtml;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class AClosedDescendantDivLeavesNoClaimTest extends TestCase
 {
+    use RuleATodo;
+
     public function testAListBeforeTheOldQuoteHostRegistersItsClosedDiv(): void
     {
         $html = (new CarveConverter())->convert(">  - a\n> - next\n>   ::: b\n>   x\n>   :::\ntail\n");

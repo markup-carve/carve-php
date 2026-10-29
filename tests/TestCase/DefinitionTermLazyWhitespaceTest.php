@@ -6,10 +6,13 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class DefinitionTermLazyWhitespaceTest extends TestCase
 {
+    use RuleATodo;
+
     public function testFoldedLinesDropLeadingWhitespace(): void
     {
         $render = static fn (string $source): string => (new HtmlRenderer())->render((new BlockParser())->parse($source));

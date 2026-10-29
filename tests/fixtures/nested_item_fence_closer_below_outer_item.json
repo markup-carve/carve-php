@@ -242,92 +242,92 @@
   {
     "id": "root-ul-ul-tick-termquote-o2-c2-empty-para",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n  ```\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-c2-empty-item",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n  ```\n- next\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-c2-empty-none",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n  ```\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-c2-pay-para",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n  x\n  ```\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-c2-pay-item",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n  x\n  ```\n- next\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-c2-pay-none",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n  x\n  ```\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-c3-empty-para",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n   ```\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>``` after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code></code>after</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-c3-empty-item",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n   ```\n- next\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>```</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-c3-empty-none",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n   ```\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>```</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-c3-pay-para",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n  x\n   ```\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x ``` after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code>x</code>after</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-c3-pay-item",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n  x\n   ```\n- next\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x ```</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-c3-pay-none",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n  x\n   ```\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x ```</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-cnone-empty-para",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code>after</code></p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-cnone-empty-item",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n- next\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-cnone-empty-none",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-cnone-pay-para",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n  x\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code>x after</code></p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-cnone-pay-item",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n  x\n- next\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ul-tick-termquote-o2-cnone-pay-none",
     "source": "- a\n  - child\n  :: b\n    > q\n  ```\n  x\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tick-para-o3-c0-empty-para",
@@ -702,92 +702,92 @@
   {
     "id": "root-ul-ul-tilde-termquote-o2-c2-empty-para",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n  ~~~\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-c2-empty-item",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n  ~~~\n- next\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-c2-empty-none",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n  ~~~\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-c2-pay-para",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n  x\n  ~~~\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-c2-pay-item",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n  x\n  ~~~\n- next\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-c2-pay-none",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n  x\n  ~~~\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-c3-empty-para",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n   ~~~\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>~~~ after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ ~~~ after</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-c3-empty-item",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n   ~~~\n- next\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>~~~</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ ~~~</p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-c3-empty-none",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n   ~~~\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>~~~</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ ~~~</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-c3-pay-para",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n  x\n   ~~~\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x ~~~ after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ x ~~~ after</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-c3-pay-item",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n  x\n   ~~~\n- next\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x ~~~</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ x ~~~</p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-c3-pay-none",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n  x\n   ~~~\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x ~~~</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ x ~~~</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-cnone-empty-para",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ after</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-cnone-empty-item",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n- next\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~</p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-cnone-empty-none",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-cnone-pay-para",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n  x\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ x after</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-cnone-pay-item",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n  x\n- next\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ x</p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-termquote-o2-cnone-pay-none",
     "source": "- a\n  - child\n  :: b\n    > q\n  ~~~\n  x\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ x</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ul-tilde-para-o3-c0-empty-para",
@@ -1162,92 +1162,92 @@
   {
     "id": "root-ul-ol-tick-termquote-o2-c2-empty-para",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n  ```\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-c2-empty-item",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n  ```\n- next\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-c2-empty-none",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n  ```\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-c2-pay-para",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n  x\n  ```\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-c2-pay-item",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n  x\n  ```\n- next\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-c2-pay-none",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n  x\n  ```\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-c3-empty-para",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n   ```\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>``` after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code></code>after</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-c3-empty-item",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n   ```\n- next\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>```</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-c3-empty-none",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n   ```\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>```</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-c3-pay-para",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n  x\n   ```\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x ``` after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code>x</code>after</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-c3-pay-item",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n  x\n   ```\n- next\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x ```</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-c3-pay-none",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n  x\n   ```\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x ```</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-cnone-empty-para",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code>after</code></p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-cnone-empty-item",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n- next\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-cnone-empty-none",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-cnone-pay-para",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n  x\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code>x after</code></p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-cnone-pay-item",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n  x\n- next\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ol-tick-termquote-o2-cnone-pay-none",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ```\n  x\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tick-para-o3-c0-empty-para",
@@ -1622,92 +1622,92 @@
   {
     "id": "root-ul-ol-tilde-termquote-o2-c2-empty-para",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n  ~~~\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-c2-empty-item",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n  ~~~\n- next\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-c2-empty-none",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n  ~~~\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-c2-pay-para",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n  x\n  ~~~\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-c2-pay-item",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n  x\n  ~~~\n- next\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-c2-pay-none",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n  x\n  ~~~\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-c3-empty-para",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n   ~~~\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>~~~ after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ ~~~ after</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-c3-empty-item",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n   ~~~\n- next\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>~~~</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ ~~~</p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-c3-empty-none",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n   ~~~\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>~~~</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ ~~~</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-c3-pay-para",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n  x\n   ~~~\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x ~~~ after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ x ~~~ after</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-c3-pay-item",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n  x\n   ~~~\n- next\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x ~~~</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ x ~~~</p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-c3-pay-none",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n  x\n   ~~~\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x ~~~</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ x ~~~</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-cnone-empty-para",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ after</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-cnone-empty-item",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n- next\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~</p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-cnone-empty-none",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-cnone-pay-para",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n  x\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ x after</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-cnone-pay-item",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n  x\n- next\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ x</p></blockquote></li><li>next</li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-termquote-o2-cnone-pay-none",
     "source": "- a\n  1. child\n  :: b\n    > q\n  ~~~\n  x\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ x</p></blockquote></li></ul>"
   },
   {
     "id": "root-ul-ol-tilde-para-o3-c0-empty-para",
@@ -2082,92 +2082,92 @@
   {
     "id": "root-ol-ul-tick-termquote-o3-c3-empty-para",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n   ```\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol><p>after</p>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-c3-empty-item",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n   ```\n- next\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-c3-empty-none",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n   ```\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ol>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-c3-pay-para",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n   x\n   ```\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol><p>after</p>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-c3-pay-item",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n   x\n   ```\n- next\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-c3-pay-none",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n   x\n   ```\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ol>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-c4-empty-para",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n    ```\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>``` after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code></code>after</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-c4-empty-item",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n    ```\n- next\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>```</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-c4-empty-none",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n    ```\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>```</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-c4-pay-para",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n   x\n    ```\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x ``` after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code>x</code>after</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-c4-pay-item",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n   x\n    ```\n- next\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x ```</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-c4-pay-none",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n   x\n    ```\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x ```</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-cnone-empty-para",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code>after</code></p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-cnone-empty-item",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n- next\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-cnone-empty-none",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-cnone-pay-para",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n   x\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code>x after</code></p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-cnone-pay-item",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n   x\n- next\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ul-tick-termquote-o3-cnone-pay-none",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ```\n   x\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tick-para-o4-c0-empty-para",
@@ -2542,92 +2542,92 @@
   {
     "id": "root-ol-ul-tilde-termquote-o3-c3-empty-para",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n   ~~~\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol><p>after</p>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-c3-empty-item",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n   ~~~\n- next\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-c3-empty-none",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n   ~~~\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ol>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-c3-pay-para",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n   x\n   ~~~\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol><p>after</p>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-c3-pay-item",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n   x\n   ~~~\n- next\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-c3-pay-none",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n   x\n   ~~~\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ol>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-c4-empty-para",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n    ~~~\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>~~~ after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ ~~~ after</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-c4-empty-item",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n    ~~~\n- next\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>~~~</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ ~~~</p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-c4-empty-none",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n    ~~~\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>~~~</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ ~~~</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-c4-pay-para",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n   x\n    ~~~\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x ~~~ after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ x ~~~ after</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-c4-pay-item",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n   x\n    ~~~\n- next\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x ~~~</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ x ~~~</p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-c4-pay-none",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n   x\n    ~~~\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x ~~~</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ x ~~~</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-cnone-empty-para",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ after</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-cnone-empty-item",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n- next\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~</p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-cnone-empty-none",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-cnone-pay-para",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n   x\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ x after</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-cnone-pay-item",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n   x\n- next\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ x</p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ul-tilde-termquote-o3-cnone-pay-none",
     "source": "1. a\n   - child\n   :: b\n     > q\n   ~~~\n   x\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><blockquote><p>q ~~~ x</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ul-tilde-para-o4-c0-empty-para",
@@ -3002,92 +3002,92 @@
   {
     "id": "root-ol-ol-tick-termquote-o3-c3-empty-para",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n   ```\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol><p>after</p>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-c3-empty-item",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n   ```\n- next\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-c3-empty-none",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n   ```\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ol>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-c3-pay-para",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n   x\n   ```\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol><p>after</p>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-c3-pay-item",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n   x\n   ```\n- next\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-c3-pay-none",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n   x\n   ```\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ol>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-c4-empty-para",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n    ```\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>``` after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code></code>after</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-c4-empty-item",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n    ```\n- next\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>```</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-c4-empty-none",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n    ```\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>```</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-c4-pay-para",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n   x\n    ```\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x ``` after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code>x</code>after</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-c4-pay-item",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n   x\n    ```\n- next\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x ```</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-c4-pay-none",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n   x\n    ```\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x ```</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-cnone-empty-para",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code>after</code></p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-cnone-empty-item",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n- next\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-cnone-empty-none",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code></code></p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-cnone-pay-para",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n   x\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code>x after</code></p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-cnone-pay-item",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n   x\n- next\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ol-tick-termquote-o3-cnone-pay-none",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ```\n   x\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q<code>x</code></p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tick-para-o4-c0-empty-para",
@@ -3462,92 +3462,92 @@
   {
     "id": "root-ol-ol-tilde-termquote-o3-c3-empty-para",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n   ~~~\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol><p>after</p>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-c3-empty-item",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n   ~~~\n- next\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-c3-empty-none",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n   ~~~\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code></code></pre></li></ol>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-c3-pay-para",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n   x\n   ~~~\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol><p>after</p>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-c3-pay-item",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n   x\n   ~~~\n- next\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-c3-pay-none",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n   x\n   ~~~\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q</p></blockquote><pre><code>x</code></pre></li></ol>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-c4-empty-para",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n    ~~~\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>~~~ after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ ~~~ after</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-c4-empty-item",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n    ~~~\n- next\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>~~~</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ ~~~</p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-c4-empty-none",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n    ~~~\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>~~~</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ ~~~</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-c4-pay-para",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n   x\n    ~~~\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x ~~~ after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ x ~~~ after</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-c4-pay-item",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n   x\n    ~~~\n- next\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x ~~~</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ x ~~~</p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-c4-pay-none",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n   x\n    ~~~\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x ~~~</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ x ~~~</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-cnone-empty-para",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ after</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-cnone-empty-item",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n- next\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~</p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-cnone-empty-none",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code></code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-cnone-pay-para",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n   x\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ x after</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-cnone-pay-item",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n   x\n- next\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol><ul><li>next</li></ul>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ x</p></blockquote></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "root-ol-ol-tilde-termquote-o3-cnone-pay-none",
     "source": "1. a\n   1. child\n   :: b\n     > q\n   ~~~\n   x\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b &gt; q</dt></dl><pre><code>x</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><blockquote><p>q ~~~ x</p></blockquote></li></ol>"
   },
   {
     "id": "root-ol-ol-tilde-para-o4-c0-empty-para",

@@ -14,6 +14,8 @@ use PHPUnit\Framework\TestCase;
  */
 class AStackedQuoteOpenedOnAMarkerLineStartsAtItsMarkerTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return iterable<string, array{string, array<string>}>
      */

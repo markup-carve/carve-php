@@ -97,7 +97,7 @@
   {
     "id": "matrix-q972",
     "source": "> - a\n>     ~~~\n>       ```\n>   ```\n>     ```\nafter\n",
-    "html": "<blockquote><ul><li>a\n~~~\n<code></code><code></code></li></ul></blockquote><p>after</p>"
+    "html": "<blockquote><ul><li>a\n~~~\n      <pre><code></code></pre><pre><code></code></pre></li></ul></blockquote><p>after</p>"
   },
   {
     "id": "matrix-q1019",
@@ -112,7 +112,7 @@
   {
     "id": "matrix-q1211",
     "source": "> > - a\n> >     ~~~\n> >       ~~~\n> >       ```\n> >   ```\n> >   ~~~\nafter\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>  ~~~\n  ```\n```\n</code></pre></li></ul></blockquote></blockquote><p>after</p>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>  ~~~\n```\n```\n</code></pre></li></ul></blockquote></blockquote><p>after</p>"
   },
   {
     "id": "matrix-q1318",
@@ -122,7 +122,7 @@
   {
     "id": "matrix-q1345",
     "source": "> > - a\n> >     - s\n> >   ~~~\n> >     ```\n> >     ```\n> >   ```=html\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <ul><li>s\n~~~\n<code></code><code>=html</code></li></ul></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <ul><li>s\n~~~</li></ul><pre><code></code></pre></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "matrix-q1610",
@@ -162,22 +162,22 @@
   {
     "id": "matrix-q2572",
     "source": "> - a\n>     - child\n>       ```\n>     ~~~\n>   ```\n>   ~~~\n>     ~~~\nafter\n",
-    "html": "<blockquote><ul><li>a\n      <ul><li>child\n<code></code></li></ul><pre><code>```\n</code></pre>\n      ~~~\n    </li></ul></blockquote><p>after</p>"
+    "html": "<blockquote><ul><li>a\n      <ul><li>child\n<code></code></li></ul><pre><code>```\n</code></pre><pre><code></code></pre></li></ul></blockquote><p>after</p>"
   },
   {
     "id": "matrix-q2655",
     "source": "> > - a\n> >     - child\n> >     - s\n> >     ```\n> >     ```\n> >   ```\n> >   ~~~\nafter\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <ul><li>child</li><li>s\n<code></code><code>\n~~~</code></li></ul></li></ul></blockquote></blockquote><p>after</p>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <ul><li>child</li><li>s</li></ul><pre><code></code></pre><pre><code>~~~\n</code></pre></li></ul></blockquote></blockquote><p>after</p>"
   },
   {
     "id": "matrix-q3256",
     "source": "> - [^n]: text\n>   x\n>     ~~~\n>   ~~~\n- tail\n",
-    "html": "<blockquote><ul><li>x\n      <pre><code></code></pre></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><pre><code></code></pre></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "matrix-q3491",
     "source": "> > - [^n]: text\n> >   x\n> >       ~~~\n> >   x\n> >   ~~~\n1. lazy\n",
-    "html": "<blockquote><blockquote><ul><li>x\n        <pre><code>x\n</code></pre></li></ul></blockquote></blockquote><ol><li>lazy</li></ol>"
+    "html": "<blockquote><blockquote><ul><li><pre><code>x\n</code></pre></li></ul></blockquote></blockquote><ol><li>lazy</li></ol>"
   },
   {
     "id": "matrix-q3934",
@@ -212,7 +212,7 @@
   {
     "id": "matrix-q5078",
     "source": "> - a\n>   b\n>       ```\n>     ```\n>       ~~~\n>   ~~~\nafter\n",
-    "html": "<blockquote><ul><li>a\nb\n<code></code><pre><code></code></pre></li></ul></blockquote><p>after</p>"
+    "html": "<blockquote><ul><li>a\nb\n      <pre><code></code></pre><pre><code></code></pre></li></ul></blockquote><p>after</p>"
   },
   {
     "id": "matrix-q5189",
@@ -247,7 +247,7 @@
   {
     "id": "matrix-q7666",
     "source": "> - - a\n>     code\n>       ```\n>   :::\n>     ```\nafter\n",
-    "html": "<blockquote><ul><li><ul><li>a\ncode\n          <pre><code></code></pre></li></ul><div><p><code></code></p></div></li></ul></blockquote><p>after</p>"
+    "html": "<blockquote><ul><li><ul><li>a\ncode\n<code></code></li></ul><div><pre><code></code></pre></div></li></ul></blockquote><p>after</p>"
   },
   {
     "id": "matrix-q7691",

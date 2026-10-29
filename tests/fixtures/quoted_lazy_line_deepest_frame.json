@@ -42,7 +42,7 @@
   {
     "id": "closed-fence-2",
     "source": "> - a\n>     - child\n>     ```\n>    ```\n- next\n",
-    "html": "<blockquote><ul><li>a\n      <ul><li>child\n<code></code>\n- next</li></ul></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <ul><li>child</li></ul><pre><code></code></pre></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "closed-fence-3",
@@ -52,7 +52,7 @@
   {
     "id": "closed-fence-4",
     "source": "> - a\n>     1. child\n>     ```\n>    ```\n- next\n",
-    "html": "<blockquote><ul><li>a\n      <ol><li>child\n<code></code>\n- next</li></ol></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <ol><li>child</li></ol><pre><code></code></pre></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "closed-fence-5",
@@ -62,7 +62,7 @@
   {
     "id": "closed-fence-6",
     "source": "> 1. a\n>      - child\n>      ```\n>     ```\n- next\n",
-    "html": "<blockquote><ol><li>a\n      <ul><li>child\n<code></code>\n- next</li></ul></li></ol></blockquote>"
+    "html": "<blockquote><ol><li>a\n      <ul><li>child</li></ul><pre><code></code></pre></li></ol></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "closed-fence-7",
@@ -72,7 +72,7 @@
   {
     "id": "closed-fence-8",
     "source": "> 1. a\n>      1. child\n>      ```\n>     ```\n- next\n",
-    "html": "<blockquote><ol><li>a\n      <ol><li>child\n<code></code>\n- next</li></ol></li></ol></blockquote>"
+    "html": "<blockquote><ol><li>a\n      <ol><li>child</li></ol><pre><code></code></pre></li></ol></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "closed-fence-9",
@@ -82,7 +82,7 @@
   {
     "id": "closed-fence-10",
     "source": "> > - a\n> >     - child\n> >     ```\n> >    ```\n- next\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <ul><li>child\n<code></code>\n- next</li></ul></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <ul><li>child</li></ul><pre><code></code></pre></li></ul></blockquote></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "closed-fence-11",
@@ -92,7 +92,7 @@
   {
     "id": "closed-fence-12",
     "source": "> > - a\n> >     1. child\n> >     ```\n> >    ```\n- next\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <ol><li>child\n<code></code>\n- next</li></ol></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <ol><li>child</li></ol><pre><code></code></pre></li></ul></blockquote></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "closed-fence-13",
@@ -102,7 +102,7 @@
   {
     "id": "closed-fence-14",
     "source": "> > 1. a\n> >      - child\n> >      ```\n> >     ```\n- next\n",
-    "html": "<blockquote><blockquote><ol><li>a\n        <ul><li>child\n<code></code>\n- next</li></ul></li></ol></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ol><li>a\n        <ul><li>child</li></ul><pre><code></code></pre></li></ol></blockquote></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "closed-fence-15",
@@ -112,7 +112,7 @@
   {
     "id": "closed-fence-16",
     "source": "> > 1. a\n> >      1. child\n> >      ```\n> >     ```\n- next\n",
-    "html": "<blockquote><blockquote><ol><li>a\n        <ol><li>child\n<code></code>\n- next</li></ol></li></ol></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ol><li>a\n        <ol><li>child</li></ol><pre><code></code></pre></li></ol></blockquote></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "div-paragraph-1",

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -40,6 +41,8 @@ use PHPUnit\Framework\TestCase;
  */
 class AnAttributeLineAtColumnZeroUnderADescriptionAttachesTest extends TestCase
 {
+    use RuleATodo;
+
     protected function html(string $source): string
     {
         // `convert()` ends the document with a newline; the shapes here are

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -96,6 +97,43 @@ final class BlockGrammar
      * @var string
      */
     public const LAZY_FRAME = "\x00L\x00";
+
+    /**
+     * Whether collected container lines end inside a footnote body, so the
+     * note can take a lazy line (carve#3885).
+     *
+     * @param array<string> $lines
+     */
+    public static function lastRunHoldsFootnote(array $lines): bool
+    {
+        $floor = PHP_INT_MAX;
+        $marker = false;
+        for ($k = count($lines) - 1; $k >= 0; $k--) {
+            $lazy = str_starts_with($lines[$k], self::LAZY_FRAME);
+            $line = ContainerPrefix::stripQuoteMarkers(self::stripLazyFrame($lines[$k]));
+            if (trim($line) === '') {
+                // A list opened after a blank in the body holds no paragraph a lazy line continues.
+                if ($marker) {
+                    return false;
+                }
+
+                continue;
+            }
+            $marker = $marker || preg_match('/^(?:[-*+]|\d+[.)])[ \t]/', ltrim($line, " \t")) === 1;
+            $col = IndentationHelper::getLeadingColumns($line);
+            if (preg_match(self::FOOTNOTE_DEFINITION_PATTERN, ltrim($line, " \t")) === 1) {
+                return $floor >= $col + self::FOOTNOTE_BODY_COLUMN;
+            }
+            if ($col === 0 && !$lazy) {
+                return false;
+            }
+            if (!$lazy) {
+                $floor = min($floor, $col);
+            }
+        }
+
+        return false;
+    }
 
     public static function stripLazyFrame(string $line): string
     {

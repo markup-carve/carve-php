@@ -988,6 +988,16 @@ class BlockParser
             $input = substr($input, 3);
         }
         $lines = $this->splitLines($input);
+        $walk = new BlockOwnershipWalk(
+            $this->listParser,
+            $this->fencedBlockParser,
+            $this->tableParser,
+            fn (string $line): bool => $this->isReferenceDefinitionLine($line),
+            fn (string $line): bool => $this->isBlockAttributeLine($line),
+        );
+        $lines = $walk->own($lines);
+        $this->state->source->sourceLines = array_replace($this->state->source->sourceLines, $lines);
+        $this->state->source->lazyLines = $walk->lazyLines;
 
         // Each physical byte may be inspected a small constant number of times
         // by the parser-backed marker probe below. Exhaustion deliberately
@@ -3951,27 +3961,6 @@ class BlockParser
                 $retainedBelowComment = true;
                 $i++;
             } elseif (
-                !($parent->getType() === 'list_item'
-                    && $authoredNext !== null
-                    && $authoredNext < ($this->authoredFootnoteBodyFloor($start, $line) ?? 0)
-                    && preg_match('/^%%(?!%)/', ltrim($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '', " \t")) !== 1)
-                && ($trailingState->openParagraph || $trailingState->inFootnoteBody)
-                && $this->isCommentLineOrFence(ltrim($nextLine, " \t"))
-            ) {
-                $holder = new Document();
-                $consumed = $this->tryParseFencedComment($holder, $lines, $i)
-                    ?? $this->tryParseComment($holder, $lines, $i) ?? 1;
-                if ($consumed > 1 && IndentationHelper::getLeadingColumns($nextLine) === 0) {
-                    break;
-                }
-                for ($end = $i + $consumed; $i < $end; $i++) {
-                    $bodyLines[] = $consumed > 1
-                        ? $this->keptCommentDelimiter($lines[$i]) : ltrim($lines[$i], " \t");
-                    $bodyLineMap[] = $this->sourceLineFor($i);
-                }
-                $trailingState->openParagraph = false;
-                $retainedBelowComment = true;
-            } elseif (
                 $retainedBelowComment
                 && (IndentationHelper::getLeadingColumns($nextLine) > 0
                     || !$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i))
@@ -3995,6 +3984,16 @@ class BlockParser
                 $bodyLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
                 $plusContinuationOpen = true;
+                $i++;
+            } elseif (
+                isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
+                && $this->listParser->parseListItemMarker(ltrim($nextLine, " \t")) === null
+            ) {
+                // The walk read it as lazy text of the body's open paragraph (carve#3885).
+                $bodyLine = ltrim($nextLine, " \t");
+                $bodyLines[] = $bodyLine;
+                $bodyLineMap[] = $this->sourceLineFor($i);
+                $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
                 $i++;
             } else {
                 break;
@@ -4181,6 +4180,8 @@ class BlockParser
         bool $itemBody = false,
     ): int {
         $line = self::stripLazyFrame($lines[$start]);
+        // A collector may have joined a framed lazy line into this one.
+        $line = str_replace("\n" . BlockGrammar::LAZY_FRAME, "\n", $line);
         // Strip leading whitespace from first line (matching JS reference)
         $content = ltrim($line, " \t");
         $openingDirective = str_starts_with($content, '{{ ')
@@ -6105,6 +6106,7 @@ class BlockParser
     {
         $source = new SourceLines($input, $this->state->source->originalSource);
         $this->state->source->sourceLines = $source->lines;
+        $this->state->source->authoredLines = $source->lines;
         $this->state->source->normalizedSource = $source->normalized;
         $this->state->source->hasTableDelimiter = str_contains($source->normalized, '|');
         $this->state->source->lineStartOffsets = $source->byteLineStarts;

@@ -6,10 +6,13 @@ namespace MarkupCarve\Carve\Test\TestCase\Lint;
 
 use MarkupCarve\Carve\Lint\DocumentLinter;
 use MarkupCarve\Carve\Lint\IncludeLinter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 final class IncludeLintCliTest extends TestCase
 {
+    use RuleATodo;
+
     public function testNoResolverKeepsDocumentLint(): void
     {
         $source = "{{ missing.crv }}\n\n**bold**\n";

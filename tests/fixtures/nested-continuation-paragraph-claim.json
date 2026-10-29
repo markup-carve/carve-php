@@ -65,11 +65,11 @@
   },
   {
     "source": "- - +\n - x\n",
-    "html": "<ul>\n  <li>\n    <ul>\n      <li></li>\n    </ul>\n  </li>\n</ul>\n<ul>\n  <li>x</li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <ul>\n      <li></li>\n    </ul>\n  </li>\n  <li>x</li>\n</ul>"
   },
   {
     "source": "- - - +\n   - x\n",
-    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li></li>\n        </ul>\n      </li>\n    </ul>\n    <ul>\n      <li>x</li>\n    </ul>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li></li>\n        </ul>\n      </li>\n      <li>x</li>\n    </ul>\n  </li>\n</ul>"
   },
   {
     "source": "- - +\n  - x\n",

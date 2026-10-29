@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -36,6 +37,8 @@ use PHPUnit\Framework\TestCase;
  */
 class AFoldedLineKeepsTheContainerItLandsOnTest extends TestCase
 {
+    use RuleATodo;
+
     protected CarveConverter $converter;
 
     protected function setUp(): void

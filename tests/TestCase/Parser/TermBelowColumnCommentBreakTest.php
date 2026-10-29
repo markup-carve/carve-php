@@ -16,8 +16,8 @@ final class TermBelowColumnCommentBreakTest extends TestCase
     public static function terms(): array
     {
         return [
-            'terminal comment' => ["- :: a\n %%\n", "<ul>\n  <li>\n    <dl>\n      <dt>a\n</dt>\n    </dl>\n  </li>\n</ul>"],
-            'continued term' => ["- :: a\n %%\n  b\n", "<ul>\n  <li>\n    <dl>\n      <dt>a\n\nb</dt>\n    </dl>\n  </li>\n</ul>"],
+            'terminal comment' => ["- :: a\n %%\n", "<ul>\n  <li>\n    <dl>\n      <dt>a</dt>\n    </dl>\n  </li>\n</ul>"],
+            'continued term' => ["- :: a\n %%\n  b\n", "<ul>\n  <li>\n    <dl>\n      <dt>a</dt>\n    </dl>\n  </li>\n</ul>\n<p>b</p>"],
         ];
     }
 

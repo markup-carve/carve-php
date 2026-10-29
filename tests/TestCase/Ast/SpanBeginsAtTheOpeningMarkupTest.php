@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -34,6 +35,8 @@ use PHPUnit\Framework\TestCase;
  */
 class SpanBeginsAtTheOpeningMarkupTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * Every case is a construct nested in a container, plus the controls that
      * say the rule did not simply shift everything.

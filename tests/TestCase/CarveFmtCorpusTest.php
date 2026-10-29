@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Test\Fixture\CanonicalAheadOfPin;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -67,6 +68,8 @@ use function trim;
 #[Group('corpus')]
 class CarveFmtCorpusTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * The one cause measured here, which every ratchet entry below must name.
      * An entry belonging to none of them is a cause nobody has looked at yet,

@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 final class QuotedDescriptionNoteBoundaryTest extends TestCase
 {
+    use RuleATodo;
+
     public function testAQuotedTailReturnsToTheItemAfterTheDescription(): void
     {
         $html = (new CarveConverter())->convert("> - q\n>   :: t\n>   :  [^f]: note\n>        - nested\n>    after\n");

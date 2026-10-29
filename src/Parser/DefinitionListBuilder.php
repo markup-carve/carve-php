@@ -538,13 +538,18 @@ final class DefinitionListBuilder
                 $lines[$lastTerm],
             );
             $termHasOwnColumn = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($termSourceLine, " \t")) === 1;
+            $closedByComment = false;
             while ($i < $count) {
+                if ($closedByComment) {
+                    break;
+                }
                 $m = $this->definitionBodyAt($lines, $i, $count, $termHasOwnColumn, $termColumn, $parent instanceof Footnote);
                 if ($m === null) {
                     break;
                 }
                 $b = $this->openDescriptionBody($lines, $i, $count, $m, $termColumn, $termHasOwnColumn);
                 $this->collectDescriptionBody($b);
+                $closedByComment = $b->closedByComment;
                 $lines = $b->lines;
                 $i = $b->i;
                 $this->foldLazyEntriesUnderFence($b);
@@ -559,6 +564,9 @@ final class DefinitionListBuilder
             // the first entry and started a second `<dl>` for the next
             // (carve#839). The outer condition re-tests the same line, and the
             // term loop above always consumes it, so this cannot spin.
+            if ($closedByComment) {
+                break;
+            }
             if ($i < $count && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $lines[$i])) {
                 continue;
             }
@@ -752,6 +760,11 @@ final class DefinitionListBuilder
         }
         $this->restoreAuthoredDescriptionColumn($b, $l);
         // Form B: `+` pull-left continuation.
+        if ($b->retainedBelowComment && !IndentationHelper::isBlankLine($l->contLine)) {
+            $b->closedByComment = true;
+
+            return false;
+        }
         if ($this->descriptionMarkerAttaches($b->i)) {
             return $this->attachFlushLeftDescriptionBlock($b);
         }
@@ -910,6 +923,19 @@ final class DefinitionListBuilder
             return true;
         }
         $sourceLine = $this->sourceLineFor($b->i);
+        // A footnote body takes a lazy line in every host (carve#3885).
+        if (
+            isset($this->state->source->lazyLines[$sourceLine])
+            && $b->body !== []
+            && $l->contColumn < $b->continuationColumn
+            && $this->bodyHoldsFootnote($b->body)
+        ) {
+            $b->body[] = BlockGrammar::LAZY_FRAME . ltrim(BlockGrammar::stripLazyFrame($l->contLine), " \t");
+            $b->bodyMap[] = $sourceLine;
+            $b->i++;
+
+            return true;
+        }
         if (
             isset($this->state->session->blockQuoteLazySourceLines[$sourceLine])
             && $b->body !== []
@@ -953,6 +979,25 @@ final class DefinitionListBuilder
         }
 
         return null;
+    }
+
+    /**
+     * Whether the body's last block at its own column is a footnote.
+     *
+     * @param array<string> $body
+     */
+    private function bodyHoldsFootnote(array $body): bool
+    {
+        for ($k = count($body) - 1; $k >= 0; $k--) {
+            $entry = BlockGrammar::stripLazyFrame($body[$k]);
+            if (trim($entry) === '' || IndentationHelper::getLeadingColumns($entry) > 0) {
+                continue;
+            }
+
+            return preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $entry) === 1;
+        }
+
+        return false;
     }
 
     /**
@@ -1142,11 +1187,16 @@ final class DefinitionListBuilder
         }
         $commentText = ltrim($l->contLine, " \t");
         if (IndentationHelper::isBlankLine($l->contLine)) {
-            $b->retainedBelowComment = false;
+            if ($b->retainedBelowComment) {
+                $b->closedByComment = true;
+
+                return false;
+            }
         } elseif ($l->indent < $b->continuationColumn && $this->isCommentLineOrFence($commentText)) {
             for ($k = count($b->body); $b->bodyStateCursor < $k; $b->bodyStateCursor++) {
                 $b->bodyState = $this->advanceTrailingStateWithFenceLookahead($b->bodyState, $b->body[$b->bodyStateCursor], $b->body, $b->bodyStateCursor, true);
             }
+            $closesBodySpan = $this->linesLeaveACommentSpanOpen($b->body, new CollectedCommentSpan());
             if ($b->bodyState->openParagraph || $b->retainedBelowComment) {
                 $holder = new Document();
                 $consumed = $this->tryParseFencedComment($holder, $b->lines, $b->i)
@@ -1172,23 +1222,15 @@ final class DefinitionListBuilder
                 }
                 $b->bodyState->openParagraph = false;
                 $b->bodyStateCursor = count($b->body);
-                $b->retainedBelowComment = true;
+                $b->retainedBelowComment = !$closesBodySpan;
 
                 return true;
             }
         } elseif ($b->retainedBelowComment) {
-            $b->retainedBelowComment = false;
-            $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($commentText)
-                ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($commentText);
-            if (!$this->startsInterruptingBlock($commentText, $b->lines, $b->i) || $fence !== null) {
-                $b->body[] = $commentText;
-                $b->bodyMap[] = $this->sourceLineFor($b->i);
-                $b->bodyState = $this->advanceTrailingStateWithFenceLookahead($b->bodyState, $commentText, $b->lines, $b->i, true);
-                $b->bodyStateCursor = count($b->body);
-                $b->i++;
+            // A comment below the body column closed the body; it is no paragraph text to continue (rule A).
+            $b->closedByComment = true;
 
-                return true;
-            }
+            return false;
         }
 
         return null;

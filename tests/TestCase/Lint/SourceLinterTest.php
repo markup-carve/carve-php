@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Lint;
 
 use MarkupCarve\Carve\Lint\SourceLinter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class SourceLinterTest extends TestCase
 {
+    use RuleATodo;
+
     public function testRegionMarkersThatRenderAsText(): void
     {
         foreach (["#region a\n", "// #region a\n", "<!-- #region a -->\n", "%% #Region a\n"] as $source) {

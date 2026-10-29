@@ -144,6 +144,10 @@ final class BlockParseSession
     public function continuationMarkerDecision(BlockSourceState $source, ListParser $lists, int $line): array
     {
         $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->sourceLines, $lists);
+        // An unprefixed `+` the walk read as lazy text is no marker (carve#3885).
+        if (isset($source->lazyLines[$line]) && !str_starts_with(ltrim($source->sourceLines[$line] ?? '', " \t"), '>')) {
+            return ['owner' => null, 'reason' => null, 'column' => -1, 'depth' => 0, 'stale' => false, 'open' => false];
+        }
 
         return $this->continuationMarkers->decision($line);
     }

@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 final class ADescriptionParagraphAfterNestedListKeepsLazyTextTest extends TestCase
 {
+    use RuleATodo;
+
     public function testParagraphAfterNestedFootnoteListKeepsItsLazyLine(): void
     {
         self::assertSame(

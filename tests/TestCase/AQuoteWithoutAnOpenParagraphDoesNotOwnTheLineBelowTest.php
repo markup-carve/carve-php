@@ -105,10 +105,10 @@ class AQuoteWithoutAnOpenParagraphDoesNotOwnTheLineBelowTest extends TestCase
             'empty/prose/c3' => ["- a\n  >\n   h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote>\n\n    </blockquote>\n    h\n  </li>\n</ul>\n<p>after</p>"],
             'empty/prose/c4' => ["- a\n  >\n    h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote>\n\n    </blockquote>\n    h\n  </li>\n</ul>\n<p>after</p>"],
             'empty/prose/c5' => ["- a\n  >\n     h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote>\n\n    </blockquote>\n    h\n  </li>\n</ul>\n<p>after</p>"],
-            'fence-interaction: no-para/para-only' => ["- a\n  > p2\n    # h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote><p>p2\n# h</p></blockquote>\n  </li>\n</ul>\n<p>after</p>"],
+            'fence-interaction: no-para/para-only' => ["- a\n  > p2\n    # h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote><p>p2</p></blockquote>\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>\n<p>after</p>"],
             'fence-interaction: para/fence-closed' => ["- a\n  > q\n  > ``` x\n  > c\n  > ```\n    # h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote>\n      <p>q</p>\n      <pre><code class=\"language-x\">c\n</code></pre>\n    </blockquote>\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>\n<p>after</p>"],
-            'fence-interaction: para/fence-open' => ["- a\n  > q\n  > ``` x\n    # h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote><p>q\n<code> x\n# h</code></p></blockquote>\n  </li>\n</ul>\n<p>after</p>"],
-            'fence-interaction: para/para-only' => ["- a\n  > q\n  > p2\n    # h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote><p>q\np2\n# h</p></blockquote>\n  </li>\n</ul>\n<p>after</p>"],
+            'fence-interaction: para/fence-open' => ["- a\n  > q\n  > ``` x\n    # h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote><p>q\n<code> x</code></p></blockquote>\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>\n<p>after</p>"],
+            'fence-interaction: para/para-only' => ["- a\n  > q\n  > p2\n    # h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote><p>q\np2</p></blockquote>\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>\n<p>after</p>"],
             'heading/prose/c3' => ["- a\n  > # q\n   h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote>\n      <h1 id=\"q\">q</h1>\n    </blockquote>\n    h\n  </li>\n</ul>\n<p>after</p>"],
             'heading/prose/c4' => ["- a\n  > # q\n    h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote>\n      <h1 id=\"q\">q</h1>\n    </blockquote>\n    h\n  </li>\n</ul>\n<p>after</p>"],
             'heading/prose/c5' => ["- a\n  > # q\n     h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote>\n      <h1 id=\"q\">q</h1>\n    </blockquote>\n    h\n  </li>\n</ul>\n<p>after</p>"],
@@ -118,7 +118,7 @@ class AQuoteWithoutAnOpenParagraphDoesNotOwnTheLineBelowTest extends TestCase
             'thematic/prose/c3' => ["- a\n  > ---\n   h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote>\n      <hr>\n    </blockquote>\n    h\n  </li>\n</ul>\n<p>after</p>"],
             'thematic/prose/c4' => ["- a\n  > ---\n    h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote>\n      <hr>\n    </blockquote>\n    h\n  </li>\n</ul>\n<p>after</p>"],
             'thematic/prose/c5' => ["- a\n  > ---\n     h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote>\n      <hr>\n    </blockquote>\n    h\n  </li>\n</ul>\n<p>after</p>"],
-            'open-paragraph/lazy-line/c4' => ["- a\n  > q\n    # h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote><p>q\n# h</p></blockquote>\n  </li>\n</ul>\n<p>after</p>"],
+            'open-paragraph/lazy-line/c4' => ["- a\n  > q\n    # h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote><p>q</p></blockquote>\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>\n<p>after</p>"],
             'heading/heading/c2 at the item content column' => ["- a\n  > # q\n  # h\n\nafter\n", "<ul>\n  <li>a\n    <blockquote>\n      <h1 id=\"q\">q</h1>\n    </blockquote>\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>\n<p>after</p>"],
         ];
     }

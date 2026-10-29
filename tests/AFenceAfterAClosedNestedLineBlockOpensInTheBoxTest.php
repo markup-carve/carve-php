@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 class AFenceAfterAClosedNestedLineBlockOpensInTheBoxTest extends TestCase
 {
+    use RuleATodo;
+
     public function testUnclosedFenceOwnsTheRemainingBoxContent(): void
     {
         $source = "- ::: box\n  - ::: |\n    ```\n    :::\n   ```\n   :::bad\n   :::\n- tail\n";
