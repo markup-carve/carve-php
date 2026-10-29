@@ -53,6 +53,13 @@ final class BlockOwnershipWalk
     public array $fenceOpenerLines = [];
 
     /**
+     * Refused `+` lines the walk framed lazy, as they read unframed: the marker classifier reads these.
+     *
+     * @var array<int, string>
+     */
+    public array $refusedPlusLines = [];
+
+    /**
      * @var array{widest: array<string, array<int, int>>, lastComment: array<int, int>}|null
      */
     private ?array $runs = null;
@@ -106,6 +113,7 @@ final class BlockOwnershipWalk
         $this->reach = 0;
         $this->lazyLines = [];
         $this->fenceOpenerLines = [];
+        $this->refusedPlusLines = [];
         $this->frames = [new OwnershipFrame('doc', 0, 0, 0)];
         $result = [];
         $afterPlus = false;
@@ -226,7 +234,14 @@ final class BlockOwnershipWalk
             }
             if ($lazy) {
                 // Past a missed note the line is framed lazy in the deepest container (carve#3926).
-                if ($missedNote && !$refusedPlus && $this->frames[$topIndex]->plus !== $at - 1) {
+                if ($missedNote && $this->frames[$topIndex]->plus !== $at - 1) {
+                    if ($refusedPlus) {
+                        $owner = $this->frames[$reached];
+                        $limit = $next->kind === 'quote' ? PHP_INT_MAX : $next->canon - 1;
+                        $col = min(min(max($this->m['col'] - $owner->cut, $owner->canon), $limit), $this->m['col']);
+                        $authored = substr($this->src, 0, strlen($this->src) - strlen($this->m['rest']));
+                        $this->refusedPlusLines[$at] = $this->out . ($col === $this->m['col'] ? $authored : str_repeat(' ', $col)) . $this->m['rest'];
+                    }
                     $this->lead(0);
                     for ($k = $reached + 1; $k <= $topIndex; $k++) {
                         if ($this->frames[$k]->kind === 'quote') {
@@ -235,7 +250,9 @@ final class BlockOwnershipWalk
                     }
                     $leaf = $this->frames[$topIndex];
                     $result[] = $this->out . str_repeat(' ', $leaf->kind === 'quote' ? 0 : (int)$leaf->reader) . BlockGrammar::LAZY_FRAME . $this->src;
-                    $this->lazyLines[$at] = true;
+                    if (!$refusedPlus) {
+                        $this->lazyLines[$at] = true;
+                    }
 
                     continue;
                 }

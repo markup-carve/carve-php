@@ -53,6 +53,13 @@ final class BlockSourceState
     public array $fenceOpenerLines = [];
 
     /**
+     * The walked lines with each refused `+` the walk framed lazy read unframed, for the marker classifier.
+     *
+     * @var array<int, string>
+     */
+    public array $markerLines = [];
+
+    /**
      * Normalized input used to verify computed spans.
      */
     public string $normalizedSource = '';

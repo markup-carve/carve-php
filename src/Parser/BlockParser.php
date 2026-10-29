@@ -352,7 +352,7 @@ class BlockParser
         $codeFence = null;
         $codeFenceEnd = null;
         $commentFence = null;
-        foreach ($this->state->source->sourceLines as $index => $line) {
+        foreach ($this->state->source->markerLines ?: $this->state->source->sourceLines as $index => $line) {
             $fenceLine = ltrim($line, " \t");
             while (($quoteBody = ContainerPrefix::quoteContent($fenceLine)) !== null) {
                 $fenceLine = ltrim($quoteBody, " \t");
@@ -999,6 +999,7 @@ class BlockParser
         $this->state->source->sourceLines = array_replace($this->state->source->sourceLines, $lines);
         $this->state->source->lazyLines = $walk->lazyLines;
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
+        $this->state->source->markerLines = $walk->refusedPlusLines === [] ? [] : array_replace($this->state->source->sourceLines, $walk->refusedPlusLines);
 
         // Each physical byte may be inspected a small constant number of times
         // by the parser-backed marker probe below. Exhaustion deliberately
