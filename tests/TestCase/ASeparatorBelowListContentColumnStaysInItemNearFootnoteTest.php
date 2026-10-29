@@ -32,7 +32,7 @@ final class ASeparatorBelowListContentColumnStaysInItemNearFootnoteTest extends 
             . str_repeat(' ', $termColumn) . ":: t\n : zq\n";
         $html = (new CarveConverter())->convert($source);
 
-        self::assertStringContainsString('<li>: zq</li>', $html);
+        self::assertStringContainsString('<dd>zq</dd>', $html);
     }
 
     public function testTheSeparatorAfterTheNoteLeadLeavesTheListItem(): void
@@ -73,7 +73,7 @@ final class ASeparatorBelowListContentColumnStaysInItemNearFootnoteTest extends 
     {
         $html = (new CarveConverter())->convert($source);
 
-        self::assertStringContainsString('<li>: zq</li>', $html);
+        self::assertStringContainsString('<dd>zq</dd>', $html);
     }
 
     public function testAShallowerNestedTermKeepsTheSeparatorInItsTerm(): void
