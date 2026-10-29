@@ -118,6 +118,14 @@ final class BlockOwnershipWalk
 
     private int $at = 0;
 
+    /**
+     * Decision trace records (docs/decision-trace.md in carve), or null when
+     * tracing is off. Step ids follow PART 0 (CARVE-P0-024).
+     *
+     * @var array<int, array<string, int|string|null>>|null
+     */
+    public ?array $trace = null;
+
     public function __construct(
         private readonly ListParser $listParser,
         private readonly FencedBlockParser $fenced,
@@ -156,6 +164,10 @@ final class BlockOwnershipWalk
                 if (preg_match('/^---[ \t]*$/D', $lines[$k]) === 1) {
                     for ($j = 0; $j <= $k; $j++) {
                         $result[] = $lines[$j];
+                        // INPUT: frontmatter, before ownership.
+                        if ($this->trace !== null) {
+                            $this->emit($j, 'INPUT', 'doc', null, 'frontmatter');
+                        }
                     }
                     $start = $k + 1;
 
@@ -193,6 +205,7 @@ final class BlockOwnershipWalk
             $stackCol = null;
             // Column 0 of the follower's own quote level, past host quote prefixes.
             $zero = 0;
+            // S2: the deepest open frame the line reaches.
             for ($k = 1; $k < $frameCount; $k++) {
                 $f = $this->frames[$k];
                 if ($quotePlus !== null && $stackCol === null && $f->line === $at - 1) {
@@ -234,6 +247,10 @@ final class BlockOwnershipWalk
                 $this->lead($this->frames[$plus]->markerCanon);
                 $result[] = $this->out . $this->src;
                 $afterPlus = true;
+                // S2: a lone `+` taken at a marker column (B-plus-start).
+                if ($this->trace !== null) {
+                    $this->emit($at, 'S2', $this->ownerPath(), 'CARVE-P9-067', 'plus', ['cell' => 'B-plus-start']);
+                }
 
                 continue;
             }
@@ -255,6 +272,9 @@ final class BlockOwnershipWalk
             $innerIndex = count($this->frames) - 1;
             $inner = $this->frames[$innerIndex];
             if ($inner->kind === 'fence' && !$missed) {
+                // S1: an open payload tests its closer first (B-<family>-keep, B-<family>-end).
+                $payloadPath = $this->trace !== null ? $this->ownerPath() : '';
+                $payloadForm = 'payload';
                 $this->lead(max($this->m['col'] - $inner->cut, $inner->canon));
                 $rest = $this->m['rest'];
                 if ($rest !== '' && $inner->span !== null) {
@@ -269,6 +289,7 @@ final class BlockOwnershipWalk
                 } elseif ($rest !== '' && $inner->closes !== null && ($inner->closes)($rest, $this->m['col'])) {
                     array_pop($this->frames);
                     $this->frames[count($this->frames) - 1]->last = 'block';
+                    $payloadForm = 'closer';
                 } elseif ($inner->lineBlock) {
                     // A span in a line-block payload pairs past the column too (carve-php#3137).
                     if (
@@ -282,12 +303,18 @@ final class BlockOwnershipWalk
                     }
                 }
                 $result[] = $this->out . $this->src;
+                if ($this->trace !== null) {
+                    $this->emit($at, 'S1', $payloadPath, 'CARVE-P0-005', $payloadForm, [
+                        'cell' => 'B-' . $inner->family . '-' . ($payloadForm === 'closer' ? 'end' : 'keep'),
+                    ]);
+                }
 
                 continue;
             }
             if ($inner->kind === 'fence') {
                 array_pop($this->frames);
             }
+            // S3: the line's form, the record's `form` field.
             $form = $this->classify($this->m['rest'], $this->frames[$reached], $this->m['col']);
             $topIndex = count($this->frames) - 1;
             $next = $this->frames[$reached + 1] ?? null;
@@ -305,6 +332,7 @@ final class BlockOwnershipWalk
                 $this->lazyLines[$at] = true;
                 $lazy = false;
             }
+            // S4: a line that missed a frame folds into the deepest open paragraph.
             if ($lazy) {
                 // Past a missed note the line is framed lazy in the deepest container (carve#3926).
                 if ($missedNote && $this->frames[$topIndex]->plus !== $at - 1) {
@@ -326,6 +354,7 @@ final class BlockOwnershipWalk
                     if (!$refusedPlus) {
                         $this->lazyLines[$at] = true;
                     }
+                    $this->emitLazy($at, $reached);
 
                     continue;
                 }
@@ -340,6 +369,7 @@ final class BlockOwnershipWalk
                 if (!$refusedPlus) {
                     $this->lazyLines[$at] = true;
                 }
+                $this->emitLazy($at, $reached);
 
                 continue;
             }
@@ -349,6 +379,10 @@ final class BlockOwnershipWalk
             ) {
                 $this->closingLines[$at] = true;
             }
+            // S5: apply the line, the boundary table T of CARVE-P0-003.
+            $closed = count($this->frames) - 1 - $reached;
+            $reachedPath = $this->trace !== null && $closed > 0 ? $this->ownerPath($reached) : null;
+            $closerPath = null;
             $closedColumn = false;
             $frameCount = count($this->frames);
             for ($k = $reached + 1; $k < $frameCount; $k++) {
@@ -363,6 +397,7 @@ final class BlockOwnershipWalk
                 $this->lead($this->m['col']);
             } elseif ($form->kind === 'colon-close') {
                 $this->lead($this->frames[$form->frame]->canon);
+                $closerPath = $this->trace !== null ? $this->ownerPath($form->frame) : null;
                 $this->frames = array_slice($this->frames, 0, $form->frame);
                 $t = count($this->frames) - 1;
                 $this->frames[$t]->para = false;
@@ -386,9 +421,89 @@ final class BlockOwnershipWalk
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon);
             }
             $result[] = $this->out . $this->src;
+            if ($this->trace !== null) {
+                $this->emitApplied($at, $form, $closerPath ?? $this->ownerPath(), $closed, $reachedPath, $plusFollower);
+            }
         }
 
         return $this->frameTextFences($result);
+    }
+
+    private function emitLazy(int $at, int $reached): void
+    {
+        if ($this->trace !== null) {
+            $this->emit($at, 'S4', $this->ownerPath(), 'CARVE-P0-006', 'lazy', ['reached' => $this->ownerPath($reached)]);
+        }
+    }
+
+    /**
+     * The S5 record: `form` is the S3 classification, `cell` the FAMILIES
+     * entry (B-<family>-start, B-div-end) when one decided the line.
+     */
+    private function emitApplied(int $at, OwnershipForm $form, string $owner, int $closed, ?string $reached, bool $plusFollower): void
+    {
+        $kind = match ($form->kind) {
+            'colon-close' => 'closer',
+            'colon' => 'div',
+            'note' => 'footnote',
+            default => $form->family ?? $form->kind,
+        };
+        $cell = match ($form->kind) {
+            'colon-close' => 'B-div-end',
+            'quote', 'item', 'note', 'dd', 'term', 'colon', 'fence' => 'B-' . ($form->family ?? $kind) . '-start',
+            default => null,
+        };
+        $rule = match ($form->kind) {
+            'blank' => 'CARVE-P0-003',
+            'leaf' => 'CARVE-P0-011',
+            default => 'CARVE-P0-024',
+        };
+        $this->emit($at, 'S5', $owner, $rule, $kind, [
+            'cell' => $cell,
+            'closed' => $closed > 0 ? $closed : null,
+            'reached' => $reached,
+            'plus' => $plusFollower ? $at : null,
+        ]);
+    }
+
+    /**
+     * @param int $index
+     * @param string $step
+     * @param string $owner
+     * @param string|null $rule
+     * @param string $form
+     * @param array<string, int|string|null> $extra
+     */
+    private function emit(int $index, string $step, string $owner, ?string $rule, string $form, array $extra = []): void
+    {
+        $record = ['line' => $index + 1, 'step' => $step, 'owner' => $owner, 'rule' => $rule, 'form' => $form];
+        foreach ($extra as $key => $value) {
+            if ($value !== null) {
+                $record[$key] = $value;
+            }
+        }
+        $this->trace[] = $record;
+    }
+
+    /**
+     * Open containers from the document down to frame `$depth`, as `doc/<kind>:<line>`.
+     */
+    private function ownerPath(?int $depth = null): string
+    {
+        $depth ??= count($this->frames) - 1;
+        $path = 'doc';
+        for ($k = 1; $k <= $depth; $k++) {
+            $f = $this->frames[$k];
+            $kind = match ($f->kind) {
+                'note' => 'footnote',
+                'colon' => 'div',
+                'fence' => (string)$f->family,
+                default => $f->kind,
+            };
+            $path .= '/' . $kind . ':' . (($f->opened ?? $f->line ?? 0) + 1);
+        }
+
+        return $path;
     }
 
     private function apply(int $owner, int $col, OwnershipForm $form, int $canon, ?int $reader = null): void
@@ -413,6 +528,8 @@ final class BlockOwnershipWalk
                 run: $form->run,
                 lineBlock: $form->lineBlock,
                 reader: $reader,
+                family: $form->family ?? 'div',
+                opened: $this->at,
             );
 
             return;
@@ -539,6 +656,7 @@ final class BlockOwnershipWalk
                         kind: 'fence',
                         interrupts: $interrupts,
                         lineBlock: true,
+                        family: 'div',
                         closes: static fn (string $r, int $closerCol): bool => preg_match('/^(:{3,})[ \t]*$/D', $r, $c) === 1 && strlen($c[1]) === $run,
                     );
                 }
@@ -564,7 +682,7 @@ final class BlockOwnershipWalk
                 return new OwnershipForm(kind: 'text', interrupts: false);
             }
 
-            return new OwnershipForm(kind: 'fence', interrupts: $reachable, closes: $closes);
+            return new OwnershipForm(kind: 'fence', interrupts: $reachable, closes: $closes, family: 'code');
         }
         if (preg_match('/^(%{3,})(.*)$/D', $rest, $comment) === 1) {
             $run = strlen($comment[1]);
@@ -573,6 +691,7 @@ final class BlockOwnershipWalk
                     kind: 'fence',
                     interrupts: true,
                     closes: static fn (string $r, int $closerCol): bool => preg_match('/^(%{3,})/', $r, $c) === 1 && strlen($c[1]) === $run,
+                    family: 'comment',
                 );
             }
         }
