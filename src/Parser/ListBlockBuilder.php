@@ -1316,6 +1316,15 @@ final class ListBlockBuilder
             ) as $admission
         ) {
             $subLine = $admission['line'];
+            // A comment below the item column is no paragraph text: it closes the item (rule A).
+            if (
+                $subOpenCommentLength === null && $subTrailingState->fence === null
+                && preg_match('/^[ \t]*%%(?!%)/', $subLine) === 1
+                && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent
+                && !$this->linesLeaveACommentSpanOpen($subLines, new CollectedCommentSpan())
+            ) {
+                break;
+            }
             $sourceLine = $this->sourceLineFor($i);
             if ($sourceLine >= 0) {
                 $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);

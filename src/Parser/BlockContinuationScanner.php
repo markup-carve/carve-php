@@ -1465,6 +1465,7 @@ final class BlockContinuationScanner
         $run->blankRun->end();
         $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
         $nextTrimmed = ltrim($nextLine, " \t");
+        if (getenv('DBG')) { fwrite(STDERR, 'plain i=' . $i . ' ci=' . $contentIndent . ' low=' . (int)$run->lowComment . ' ' . json_encode($nextLine) . ' ' . json_encode($lines) . PHP_EOL); }
         if ($run->lowComment && !str_starts_with($nextTrimmed, '%%') && $run->openCommentLength === null && getenv('NOGATE') === false) {
             return false;
         }
