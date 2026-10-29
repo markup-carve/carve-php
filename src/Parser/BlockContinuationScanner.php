@@ -245,6 +245,9 @@ final class BlockContinuationScanner
             }
 
             if (IndentationHelper::isBlankLine($nextLine)) {
+                if ($lowComment && $openCommentLength === null) {
+                    break;
+                }
                 if (
                     preg_match_all('/(?:[-*] |\d+[.)] )/', $sourceLead) === 2
                     && preg_match('/^[ \t]+\+[ \t]*$/D', $priorBody) === 1
@@ -298,10 +301,10 @@ final class BlockContinuationScanner
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $isBlockQuoteLazyLine = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
             $first = ltrim($nextLine, " \t");
-            if ($lowComment && $nextIndent < $contentIndent && $openCommentLength === null && getenv('NOGATE') === false) {
+            if ($lowComment && !str_starts_with($first, '%%') && $openCommentLength === null && getenv('NOGATE') === false) {
                 break;
             }
-            $lowComment = str_starts_with($first, '%%') && $nextIndent < $contentIndent && $trailingState->fence === null;
+            $lowComment = str_starts_with($first, '%%') ? $nextIndent < $contentIndent && $trailingState->fence === null : $lowComment;
             // An attribute past an item's minimum column opens there, even
             // when a marker-line child supplied the preceding paragraph.
             if (
@@ -1367,6 +1370,9 @@ final class BlockContinuationScanner
             }
 
             if (IndentationHelper::isBlankLine($nextLine)) {
+                if ($run->lowComment && $run->openCommentLength === null) {
+                    break;
+                }
                 if (
                     $this->consumePlainItemBlank(
                         $run,
@@ -1459,10 +1465,10 @@ final class BlockContinuationScanner
         $run->blankRun->end();
         $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
         $nextTrimmed = ltrim($nextLine, " \t");
-        if ($run->lowComment && $nextIndent < $contentIndent && $run->openCommentLength === null && getenv('NOGATE') === false) {
+        if ($run->lowComment && !str_starts_with($nextTrimmed, '%%') && $run->openCommentLength === null && getenv('NOGATE') === false) {
             return false;
         }
-        $run->lowComment = str_starts_with($nextTrimmed, '%%') && $nextIndent < $contentIndent && $trailingState->fence === null;
+        $run->lowComment = str_starts_with($nextTrimmed, '%%') ? $nextIndent < $contentIndent && $trailingState->fence === null : $run->lowComment;
         $step = $this->plainLineLeadStep(
             $run,
             $lines,

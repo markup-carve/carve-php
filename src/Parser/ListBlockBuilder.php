@@ -598,6 +598,22 @@ final class ListBlockBuilder
             // Get indentation of current line
             $currentIndent = IndentationHelper::getLeadingColumns($currentLine);
             $sourceLine = $this->sourceLineFor($i);
+            $commentRunEnd = $firstItem ? null : $this->commentRunBeforeSibling($lines, $i, $count, $baseIndent, $listInfo);
+            if ($commentRunEnd !== null) {
+                $lastItem = ($this->getListParser)()->getLastListItem($list);
+                if ($lastItem !== null) {
+                    $run = [];
+                    $map = [];
+                    for ($j = $i; $j < $commentRunEnd; $j++) {
+                        $run[] = ltrim($lines[$j], " \t");
+                        $map[] = $this->sourceLineFor($j);
+                    }
+                    $this->callParseItemBlocks($lastItem, $run, $map);
+                    $i = $commentRunEnd;
+
+                    continue;
+                }
+            }
             $priorSource = $this->state->source->sourceLines[$sourceLine - 1] ?? '';
             $priorBody = ContainerPrefix::stripQuoteMarkers($priorSource);
             $priorText = ltrim($priorBody, " \t");
@@ -2827,6 +2843,37 @@ final class ListBlockBuilder
      * @param string $line
      * @param int $at
      */
+    /**
+     * End of a run of line comments below the item column when a sibling marker follows it.
+     * A comment is no paragraph text, so it closes the item but not the list (rule A).
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     * @param int $baseIndent
+     * @param array<string, mixed> $listInfo
+     */
+    private function commentRunBeforeSibling(array $lines, int $i, int $count, int $baseIndent, array $listInfo): ?int
+    {
+        $j = $i;
+        while ($j < $count && preg_match('/^[ \t]*%%(?!%)/', $lines[$j]) === 1) {
+            $j++;
+        }
+        if ($j === $i) {
+            return null;
+        }
+        $k = $j;
+        while ($k < $count && IndentationHelper::isBlankLine($lines[$k])) {
+            $k++;
+        }
+        if ($k >= $count || IndentationHelper::getLeadingColumns($lines[$k]) !== $baseIndent) {
+            return null;
+        }
+        $info = ($this->getListParser)()->parseListItemMarker(ltrim($lines[$k], " \t"));
+
+        return $info !== null && ($this->getListParser)()->itemMatchesList($listInfo, $info) ? $j : null;
+    }
+
     private function isCommentLineOrFence(string $line, int $at = 0): bool
     {
         return ($this->isCommentLineOrFenceCallback)($line, $at);
