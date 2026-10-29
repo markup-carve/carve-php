@@ -2301,7 +2301,7 @@ class BlockParser
         $blankRun = 0;
 
         while ($i < $count) {
-            if ($childrenBeforeBlank !== null && count($parent->getChildren()) > $childrenBeforeBlank) {
+            if ($childrenBeforeBlank !== null && self::hasVisibleChildFrom($parent, $childrenBeforeBlank)) {
                 $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn, $blankFollowerLine);
                 $childrenBeforeBlank = null;
                 $blankFollowerColumn = null;
@@ -2512,6 +2512,21 @@ class BlockParser
         if ($topLevel) {
             $this->endContainerAttributeScope();
         }
+    }
+
+    /**
+     * Whether a child other than a comment follows the given index; a comment
+     * after a blank does not answer the looseness question (PART 9 §17 L1b).
+     */
+    private static function hasVisibleChildFrom(Node $parent, int $from): bool
+    {
+        foreach (array_slice($parent->getChildren(), $from) as $child) {
+            if (!$child instanceof Comment) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function recordParsedItemBlank(
