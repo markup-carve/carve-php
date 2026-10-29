@@ -18,7 +18,15 @@ final class MarkdownRenderLossParityTest extends TestCase
     public static function sources(): array
     {
         return [
-            'container' => ["::: box\nhi\n:::\n", ['markdown-attributes-dropped', 'markdown-container-flattened']],
+            'container' => ["{.box}\n:::\nhi\n:::\n", ['markdown-attributes-dropped', 'markdown-container-flattened']],
+            'admonition' => ["::: warning \"W\"\ny\n:::\n", []],
+            'untitled admonition' => ["::: box\nhi\n:::\n", []],
+            'admonition with its kind also authored as a class' => ["{.note}\n::: note\ny\n:::\n", ['markdown-attributes-dropped']],
+            'admonition with authored attributes' => ["{#a .x}\n::: note\ny\n:::\n", ['markdown-attributes-dropped']],
+            'list table grid keys' => ["{header-rows=1}\n::: list-table\n- - a\n- - b\n:::\n", []],
+            'list table that is no grid' => ["{header-rows=1}\n::: list-table\ny\n:::\n", ['markdown-attributes-dropped']],
+            'heading with an authored id' => ["{#h}\n# H\n", ['markdown-attributes-dropped']],
+            'heading with a generated id' => ["# H\n", []],
             'caption' => ["![x](a)\n^ caption\n", ['markdown-caption-flattened']],
             'attributes' => ["{#x}\nhello\n", ['markdown-attributes-dropped']],
             'unattached' => ["{#x}\n", ['markdown-attributes-dropped']],

@@ -80,6 +80,29 @@ use MarkupCarve\Carve\Stamp;
 use MarkupCarve\Carve\Transform\FilesystemIncludeResolver;
 use MarkupCarve\Carve\Transform\IncludeExpander;
 
+/**
+ * The closed list of 22b-writer-render-loss.ebnf; destination-denied is not waivable.
+ *
+ * @var array<string>
+ */
+const ALLOWABLE_LOSS_CODES = [
+    'raw-format-dropped',
+    'ruby-flattened',
+    'editorial-comment-flattened',
+    'carrier-attribute-dropped',
+    'list-style-dropped',
+    'list-delimiter-changed',
+    'table-span-flattened',
+    'table-header-row-demoted',
+    'table-header-row-hoisted',
+    'table-header-cell-demoted',
+    'markdown-container-flattened',
+    'markdown-caption-flattened',
+    'fence-title-dropped',
+    'markdown-attributes-dropped',
+    'raw-html-escaped',
+];
+
 function cliDiagnostic(string $category, string $message): void
 {
     fwrite(STDERR, "carve[$category]: $message\n");
@@ -1071,8 +1094,8 @@ function parseArgs(array $argv): array
             }
             $options['maxConversionDiagnostics'] = (int)$argv[++$i];
         } elseif ($arg === '--allow-loss') {
-            if (!in_array(($argv[$i + 1] ?? null), ['raw-format-dropped', 'ruby-flattened', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped', 'list-delimiter-changed', 'table-span-flattened', 'table-header-row-demoted', 'table-header-row-hoisted', 'table-header-cell-demoted', 'fence-title-dropped'], true)) {
-                cliError('usage', 'Error: --allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened, carrier-attribute-dropped, list-style-dropped, list-delimiter-changed, table-span-flattened, table-header-row-demoted, table-header-row-hoisted or table-header-cell-demoted or fence-title-dropped');
+            if (!in_array(($argv[$i + 1] ?? null), ALLOWABLE_LOSS_CODES, true)) {
+                cliError('usage', 'Error: --allow-loss expects ' . implode(', ', array_slice(ALLOWABLE_LOSS_CODES, 0, -1)) . ' or ' . ALLOWABLE_LOSS_CODES[count(ALLOWABLE_LOSS_CODES) - 1]);
             }
             $options['allowLoss'][] = $argv[++$i];
         } elseif ($arg === '--max-render-losses') {
@@ -1269,8 +1292,10 @@ Rendering:
                            editorial-comment-flattened, carrier-attribute-dropped,
                            list-style-dropped, list-delimiter-changed,
                            table-span-flattened, table-header-row-demoted,
-                           table-header-row-hoisted, table-header-cell-demoted
-                           or fence-title-dropped
+                           table-header-row-hoisted, table-header-cell-demoted,
+                           markdown-container-flattened,
+                           markdown-caption-flattened, fence-title-dropped,
+                           markdown-attributes-dropped or raw-html-escaped
                            (repeatable)
   --max-render-losses N    Bound detailed losses while retaining the full count (default 100)
   --report-conversion-diagnostics FILE

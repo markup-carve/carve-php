@@ -170,7 +170,7 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
             self::assertContains($loss['code'], self::schemaCodes());
             $seen[$loss['code']] = true;
         }
-        foreach (["::: box\nhi\n:::\n", "![x](a)\n^ caption\n", "{#x}\nhello\n"] as $source) {
+        foreach (["{.box}\n:::\nhi\n:::\n", "![x](a)\n^ caption\n", "{#x}\nhello\n"] as $source) {
             $report = (new CarveConverter(renderer: new MarkdownRenderer()))->convertWithReport($source);
             foreach ($report->losses as $loss) {
                 self::assertContains($loss['code'], self::schemaCodes());
