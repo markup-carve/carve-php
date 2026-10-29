@@ -2851,10 +2851,6 @@ final class ListBlockBuilder
     }
 
     /**
-     * @param string $line
-     * @param int $at
-     */
-    /**
      * End of a run of line comments below the item column when a sibling marker follows it.
      * A comment is no paragraph text, so it closes the item but not the list (rule A).
      *
@@ -2956,6 +2952,10 @@ final class ListBlockBuilder
         return $roles;
     }
 
+    /**
+     * @param string $line
+     * @param int $at
+     */
     private function isCommentLineOrFence(string $line, int $at = 0): bool
     {
         return ($this->isCommentLineOrFenceCallback)($line, $at);
