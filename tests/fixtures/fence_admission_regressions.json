@@ -61,7 +61,7 @@
   {
     "id": "preservation-573",
     "source": "10. a\n\t~~~\n\t \t:::\n     ``` x\n- next\n",
-    "html": "<ol start=\"10\"><li>a\n~~~\n:::\n<code> x</code></li></ol><ul><li>next</li></ul>"
+    "html": "<ol start=\"10\"><li>a\n~~~\n    <div><pre><code class=\"language-x\"></code></pre></div></li></ol><ul><li>next</li></ul>"
   },
   {
     "id": "preservation-726",
@@ -71,7 +71,7 @@
   {
     "id": "preservation-731",
     "source": "- a\n  ```\n  c\n   \t%%%\n\t \t+\n   :::\n   text\n    ```=html\n",
-    "html": "<ul><li>a\n<code>\nc</code>\n    +\n:::\ntext\n<code>=html</code></li></ul>"
+    "html": "<ul><li>a\n<code>\nc</code>\n    +\n    <div><p>text\n<code>=html</code></p></div></li></ul>"
   },
   {
     "id": "preservation-819",
@@ -111,7 +111,7 @@
   {
     "id": "preservation-1908",
     "source": "10. a\n   \t```\n\t \t:::\n\tcode\n    \tcode\n     %% c\n\t  x\ty\n        ---\n",
-    "html": "<ol start=\"10\"><li>a\n<code>\n:::\ncode\ncode</code>\n    x\ty\n    <hr></li></ol>"
+    "html": "<ol start=\"10\"><li>a\n<code></code><div><p>code\ncode</p><p>x\ty</p><hr></div></li></ol>"
   },
   {
     "id": "preservation-2048",
@@ -131,7 +131,7 @@
   {
     "id": "preservation-2168",
     "source": "1. a\n \t ````\n      ```php\n    \t:::\n\nafter\n",
-    "html": "<ol><li>a\n<code>\n```php\n:::</code></li></ol><p>after</p>"
+    "html": "<ol><li>a\n<code>\n```php</code><div></div></li></ol><p>after</p>"
   },
   {
     "id": "preservation-2408",
@@ -201,7 +201,7 @@
   {
     "id": "preservation-3886",
     "source": "- [x] t\n     a | b\n \t `````\n    \t:::\n\nafter\n",
-    "html": "<ul class=\"task-list\"><li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"t a | b :::\"> t\na | b\n<code>\n:::</code></li></ul><p>after</p>"
+    "html": "<ul class=\"task-list\"><li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"t a | b\"> t\na | b\n<code></code><div></div></li></ul><p>after</p>"
   },
   {
     "id": "preservation-4316",
@@ -316,7 +316,7 @@
   {
     "id": "preservation-8078",
     "source": "a\n\n- b\n   \t```\n        ~~~\n        :::\n\nafter\n",
-    "html": "<p>a</p><ul><li>b\n<code>\n~~~\n:::</code></li></ul><p>after</p>"
+    "html": "<p>a</p><ul><li>b\n<code>\n~~~</code><div></div></li></ul><p>after</p>"
   },
   {
     "id": "preservation-8098",
@@ -326,7 +326,7 @@
   {
     "id": "preservation-8265",
     "source": "- a\n  ```\n  c\n \t :::\n        \n\t  ~~~\n\t ```=html\n   \t \n\t  ``` x\n\nafter\n",
-    "html": "<ul><li>a\n<code>\nc\n:::</code><pre><code>```=html\n\n``` x\n\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a\n<code>\nc</code><div><pre><code>```=html\n\n``` x\n\n</code></pre></div></li></ul><p>after</p>"
   },
   {
     "id": "preservation-8528",
@@ -476,7 +476,7 @@
   {
     "id": "preservation-14135",
     "source": "* a\n``` x\n    ```=html\n\t   ``` x\n   \t~~~\n    \t:::\n     \nafter\n",
-    "html": "<ul><li>a\n<code> x\n</code>=html\n<code> x\n~~~\n:::</code></li></ul><p>after</p>"
+    "html": "<ul><li>a\n<code> x\n</code>=html\n<code> x\n~~~</code><div></div></li></ul><p>after</p>"
   },
   {
     "id": "preservation-14231",
@@ -701,7 +701,7 @@
   {
     "id": "preservation-16453",
     "source": "- :: t\n  : d\n\t   ```\n\t   \n\t   ```php\n  [^n]: f\nafter\n",
-    "html": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>d\n<code></code></p>\n        <pre><code class=\"language-php\"></code></pre>\n      </dd>\n    </dl>\n  </li>\n</ul>\n<p>after</p>"
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>d\n<code></code></p>\n        <pre><code class=\"language-php\"></code></pre>\n      </dd>\n    </dl>\n  </li>\n</ul>"
   },
   {
     "id": "preservation-18082",

@@ -332,12 +332,12 @@
   {
     "id": "comment-controls/lazy-bullet",
     "source": "- :::\n y\n  :::\n",
-    "html": "<ul>\n  <li>\n    <div>\n\n    </div>\n  </li>\n</ul>\n<p>y\n:::</p>"
+    "html": "<ul>\n  <li>\n    <div>\n\n    </div>\n  </li>\n</ul>\n<p>y</p>\n<div>\n\n</div>"
   },
   {
     "id": "comment-controls/lazy-ordered",
     "source": "1. :::\n  y\n   :::\n",
-    "html": "<ol>\n  <li>\n    <div>\n\n    </div>\n  </li>\n</ol>\n<p>y\n:::</p>"
+    "html": "<ol>\n  <li>\n    <div>\n\n    </div>\n  </li>\n</ol>\n<p>y</p>\n<div>\n\n</div>"
   },
   {
     "id": "comment-controls/quoted-claim-item",
