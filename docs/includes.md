@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Transform\FilesystemIncludeResolver;
 use MarkupCarve\Carve\Transform\IncludeExpander;
 
 $converter = new CarveConverter();
+$converter->getParser()->enablePositionTracking();
 $document = $converter->parse("Intro.\n\n{{ chapters/one.crv @shift:1 }}\n");
 
 $expander = new IncludeExpander(

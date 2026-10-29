@@ -112,7 +112,10 @@ class ParseWarning
 
     public function __toString(): string
     {
-        $str = sprintf('%s at line %d, column %d', $this->message, $this->line, $this->column);
+        $str = $this->message;
+        if ($this->line !== 0) {
+            $str .= sprintf(' at line %d, column %d', $this->line, $this->column);
+        }
         if ($this->category !== null) {
             $str = "[{$this->category}] " . $str;
         }

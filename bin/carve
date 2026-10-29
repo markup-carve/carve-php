@@ -1691,6 +1691,7 @@ if ($wantIncludes) {
     }
 
     if ($resolver !== null) {
+        $converter->getParser()->enablePositionTracking();
         $expander = new IncludeExpander(
             resolver: $resolver,
             currentPath: $inputFile === null ? null : (realpath($inputFile) ?: $inputFile),

@@ -240,7 +240,7 @@ class IncludeExpander implements TransformerInterface
     /**
      * @var array{line: int, column: int}
      */
-    protected array $warningSite = ['line' => 1, 'column' => 1];
+    protected array $warningSite = ['line' => 0, 'column' => 0];
 
     /**
      * @var list<array{file: string, includedBy: list<array{file: string, line: int, column: int}>, source: string, lineBase: int, section: array{start: int, end: int}|null, block: \MarkupCarve\Carve\Node\Block\CodeBlock|\MarkupCarve\Carve\Node\Block\Table|null, payload: string|null, tableLinesHint: bool}>
@@ -365,7 +365,7 @@ class IncludeExpander implements TransformerInterface
         $this->warningFile = $this->currentPath;
         $this->includeChain = [];
         $this->included = [];
-        $this->warningSite = ['line' => 1, 'column' => 1];
+        $this->warningSite = ['line' => 0, 'column' => 0];
 
         if ($this->resolver === null) {
             return $document;
@@ -498,7 +498,7 @@ class IncludeExpander implements TransformerInterface
         if ($children !== [] && $this->allTextLike($children)) {
             $content = $this->textLikeContent($children);
             $pos = $paragraph->getPos();
-            $this->warningSite = ['line' => ($pos === null ? 1 : $pos->startLine), 'column' => ($pos === null ? 1 : $pos->startColumn)];
+            $this->warningSite = ['line' => $pos === null ? 0 : $pos->startLine, 'column' => $pos === null ? 0 : $pos->startColumn];
             $directive = $this->parseDirective($content);
             if ($directive !== null) {
                 $slot = count($this->included);
@@ -661,8 +661,8 @@ class IncludeExpander implements TransformerInterface
                 $lineChars += mb_strlen($segment, 'UTF-8');
             }
             $this->warningSite = [
-                'line' => ($pos === null ? 1 : $pos->startLine) + $lineOffset,
-                'column' => ($lineOffset === 0 ? ($pos === null ? 1 : $pos->startColumn) : 1) + $lineChars,
+                'line' => $pos === null ? 0 : $pos->startLine + $lineOffset,
+                'column' => $pos === null ? 0 : ($lineOffset === 0 ? $pos->startColumn : 1) + $lineChars,
             ];
             $directive = $this->parseDirective($literal);
             if ($directive === null) {
