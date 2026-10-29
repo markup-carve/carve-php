@@ -31,6 +31,8 @@ class ACrossedOrNestedPairLeavesItsBlockTextTest extends TestCase
             'a braced closer after the block keeps the pair' => ["/{_*=_=*{t=_} _}\n", '<p>/<u><strong t="_"><mark>_</mark></strong> </u></p>'],
             'a bare one that never pairs holds nothing open' => ["_{_*~*{c_} _}\n", '<p>_<u><strong c_="">~</strong> </u></p>'],
             'a braced marker guard stands' => ["{_~a~{c_}\n", '<p>{_<s c_="">a</s></p>'],
+            'the second marker of an empty group opens nothing' => ["_{**}*{c_}\n", '<p><u>{**}*{c</u>}</p>'],
+            'an empty italic group before a pair' => ["_z {//}/{t=_}\n", '<p><u>z {//}/{t=</u>}</p>'],
         ];
     }
 

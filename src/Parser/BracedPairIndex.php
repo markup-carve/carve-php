@@ -138,7 +138,7 @@ final class BracedPairIndex
             // A braced opener's marker is not content before a bare opener.
             $before = $at > 0 && !isset($openMarks[$at - 1]) ? $text[$at - 1] : '';
             $canOpenBare = isset($bareTables[$char]) && $next !== '' && !StringUtil::isWhitespaceChar($next)
-                && $next !== $char && $before !== $char && ($char !== '=' || $next !== '>');
+                && $next !== $char && ($at === 0 || $text[$at - 1] !== $char) && ($char !== '=' || $next !== '>');
             $bareClose = $canOpenBare ? ($bareTables[$char][$at + 1] ?? -1) : -1;
             // A standing guard's walk takes its host whole, block included.
             if ($canOpenBare && isset($guardClosers[$at])) {
