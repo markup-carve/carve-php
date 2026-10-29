@@ -27,6 +27,7 @@ final class OwnershipFrame
      * @param int $termCut
      * @param (\Closure(string): bool)|null $closes
      * @param string|null $span
+     * @param bool $absorbs
      * @param bool $lineBlock
      * @param int|null $run
      */

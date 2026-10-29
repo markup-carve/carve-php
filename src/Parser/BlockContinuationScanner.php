@@ -1448,6 +1448,9 @@ final class BlockContinuationScanner
      * A footnote body takes a lazy line in every host (carve#3885): the walk
      * read the line as lazy text of the note the item holds.
      *
+     * @param string $line
+     * @param int $i
+     * @param int $contentIndent
      * @param array<string> $itemLines
      */
     private function walkFoldsIntoHostedNote(string $line, int $i, int $contentIndent, array $itemLines): bool
@@ -1458,6 +1461,7 @@ final class BlockContinuationScanner
         ) {
             return false;
         }
+
         return BlockGrammar::lastRunHoldsFootnote($itemLines);
     }
 
