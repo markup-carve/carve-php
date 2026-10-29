@@ -3515,9 +3515,11 @@ class InlineParser
             // A guard of an open kind is literal (E3), and one inside this
             // span opens only if it closes before this span's closer.
             $guard = $child['guard'] ?? null;
+            $guardFrom = max($child['guardFrom'] ?? $searchPos, $searchStart);
+            $guards = $guard !== null ? substr($text, $guardFrom, $searchPos - $guardFrom) : '';
             if (
                 $child !== null && $guard !== null && $guard >= $searchStart
-                && ($text[$guard] === $delimiter || in_array($text[$guard], $this->openSpanKinds, true)
+                && (str_contains($guards, $delimiter) || array_intersect(str_split($guards), $this->openSpanKinds) !== []
                     || ($this->bracedPairIndex->bareCloser($delimiter, $child['end']) ?? PHP_INT_MAX) < $child['guardClose'])
             ) {
                 $child = null;
