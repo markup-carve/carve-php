@@ -18,6 +18,7 @@ use MarkupCarve\Carve\Converter\Markdown\CarrierStage;
 use MarkupCarve\Carve\Converter\Markdown\DestinationEncoding;
 use MarkupCarve\Carve\Converter\Markdown\EmailText;
 use MarkupCarve\Carve\Converter\Markdown\FenceWork;
+use MarkupCarve\Carve\Converter\Markdown\GithubAlerts;
 use MarkupCarve\Carve\Converter\Markdown\HeadingFragments;
 use MarkupCarve\Carve\Converter\Markdown\ImportWork;
 use MarkupCarve\Carve\Converter\Markdown\InlineContext;
@@ -1992,6 +1993,7 @@ class MarkdownToCarve
             $carve = $this->foldDefinedAbbreviations($carve);
         }
         $carve = $this->repairImportedEmailLinks($carve, $frontmatter);
+        $carve = $this->importGithubAlerts($carve, $frontmatter);
 
         if ($frontmatter === []) {
             return $this->canonicalImportLayout($this->rewriteSameFileHeadingLinks($carve), $carrierOriginal);
@@ -2255,6 +2257,26 @@ class MarkdownToCarve
         }
 
         return $carve;
+    }
+
+    /**
+     * @param string $carve
+     * @param array<string> $frontmatter
+     */
+    private function importGithubAlerts(string $carve, array $frontmatter): string
+    {
+        if ($this->referenceContext->importingFootnoteBody || !str_contains($carve, '[!')) {
+            return $carve;
+        }
+        $source = $frontmatter === [] ? $carve : "\n" . $carve;
+        $converter = CarveConverter::carve();
+        $document = $converter->parse($source);
+        if (!GithubAlerts::import($document, $source)) {
+            return $carve;
+        }
+        $written = $converter->render($document);
+
+        return str_ends_with($carve, "\n") ? $written : rtrim($written, "\n");
     }
 
     /**
