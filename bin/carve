@@ -1769,6 +1769,31 @@ try {
 }
 $conversionReport = $conversionWriter?->finishConversionDiagnosticCollection();
 
+if ($wantIncludes && $includeRoot !== null) {
+    $root = realpath($includeRoot);
+    if ($root !== false) {
+        $display = static function (string $file) use ($root): string {
+            $prefix = rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+
+            return str_starts_with($file, $prefix)
+                ? str_replace(DIRECTORY_SEPARATOR, '/', substr($file, strlen($prefix)))
+                : $file;
+        };
+        $mapped = [];
+        foreach ($checked->losses as $loss) {
+            if (isset($loss['file'], $loss['includedBy'])) {
+                $loss['file'] = $display($loss['file']);
+                foreach ($loss['includedBy'] as $index => &$site) {
+                    $site['file'] = $index === 0 ? ($inputFile ?? '<stdin>') : $display($site['file']);
+                }
+                unset($site);
+            }
+            $mapped[] = $loss;
+        }
+        $checked = new RenderResult($checked->value, $mapped, $checked->totalLosses, $checked->truncated, $checked->lossCounts);
+    }
+}
+
 // Handle warnings
 $exitCode = 0;
 $checked ??= new RenderResult($output, [], 0, false);
@@ -1788,7 +1813,11 @@ if ($options['allowLoss'] !== []) {
 if ($checked->totalLosses > 0) {
     foreach ($checked->losses as $loss) {
         $pos = isset($loss['pos']) ? ':' . $loss['pos']['startLine'] . ':' . $loss['pos']['startColumn'] : '';
-        fwrite(STDERR, ($inputFile ?? '<stdin>') . $pos . ' ' . $loss['code'] . ' - ' . $loss['message'] . "\n");
+        $chain = isset($loss['includedBy']) ? ' (included from ' . implode(' > ', array_map(
+            static fn (array $site): string => $site['file'] . ':' . $site['line'] . ':' . $site['column'],
+            $loss['includedBy'],
+        )) . ')' : '';
+        fwrite(STDERR, ($loss['file'] ?? $inputFile ?? '<stdin>') . $pos . ' ' . $loss['code'] . ' - ' . $loss['message'] . $chain . "\n");
     }
     fwrite(STDERR, sprintf("%s: %d render loss%s\n", $inputFile ?? '<stdin>', $checked->totalLosses, $checked->totalLosses === 1 ? '' : 'es'));
 }

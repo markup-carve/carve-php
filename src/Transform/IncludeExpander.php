@@ -47,12 +47,26 @@ use MarkupCarve\Carve\Parser\SourceMap;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\Utility\DocumentRenderOrder;
 use Throwable;
+use WeakMap;
 
 /**
  * Expands processor-level {{ ... }} include directives in parsed text nodes.
  */
 class IncludeExpander implements TransformerInterface
 {
+    /**
+     * @var \WeakMap<\MarkupCarve\Carve\Ast\SourceSpan, list<array{file: string, line: int, column: int}>>|null
+     */
+    private static ?WeakMap $positionIncludeSites = null;
+
+    /**
+     * @return list<array{file: string, line: int, column: int}>|null
+     */
+    public static function includeSitesForPosition(SourceSpan $position): ?array
+    {
+        return self::$positionIncludeSites[$position] ?? null;
+    }
+
     /**
      * @var int
      */
@@ -1039,7 +1053,7 @@ class IncludeExpander implements TransformerInterface
         if ($directive['code'] === null) {
             $this->expandChildren($document, $id, [...$stack, $id], $depth + 1, $budget);
         }
-        $this->stampSourceFile($document, $id);
+        $this->stampSourceFile($document, $id, $reach);
         if ($directive['code'] === null) {
             $shift = $directive['shift'] === 'auto'
                 ? $this->autoShift($document, $block, $contextParent, $contextNode)
@@ -1455,15 +1469,22 @@ class IncludeExpander implements TransformerInterface
      * Runs AFTER the child's own includes are expanded and only where no
      * identity is set yet, so a grandchild keeps the file IT came from rather
      * than being overwritten by the file that pulled its parent in.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param string $file
+     * @param list<array{file: string, line: int, column: int}> $reach
      */
-    protected function stampSourceFile(Node $node, string $file): void
+    protected function stampSourceFile(Node $node, string $file, array $reach): void
     {
         foreach ($node->getChildren() as $child) {
             $pos = $child->getPos();
             if ($pos !== null && $pos->file === null) {
-                $child->setPos($pos->withFile($file));
+                $stamped = $pos->withFile($file);
+                $child->setPos($stamped);
+                self::$positionIncludeSites ??= new WeakMap();
+                self::$positionIncludeSites[$stamped] = $reach;
             }
-            $this->stampSourceFile($child, $file);
+            $this->stampSourceFile($child, $file, $reach);
         }
     }
 
