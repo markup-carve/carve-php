@@ -136,6 +136,13 @@ final class PlainContinuationState
 
     public ?int $openDefinitionBody = null;
 
+    /**
+     * The blank line last asked whether the open description continues, and the answer.
+     *
+     * @var array{0: int, 1: bool}|null
+     */
+    public ?array $definitionBlankAnswer = null;
+
     public bool $pendingDefinitionTerm = false;
 
     public ?int $authoredTermColumn = null;

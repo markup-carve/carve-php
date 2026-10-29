@@ -51,14 +51,24 @@ final class BlockContinuationScanner
      */
     public static function definitionBodyContinues(array $lines, int $index, int $count, int $contentIndent, int $openColumn): bool
     {
-        $after = $index + 1 < $count ? $lines[$index + 1] : null;
-        if ($after === null || IndentationHelper::isBlankLine($after)) {
+        // A run of blank lines does not end the body; the next content line decides.
+        $next = $index + 1;
+        while ($next < $count && IndentationHelper::isBlankLine($lines[$next])) {
+            $next++;
+        }
+        $after = $next < $count ? $lines[$next] : null;
+        if ($after === null) {
             return false;
         }
 
         $bodyColumn = $contentIndent + $openColumn;
+        $column = IndentationHelper::getLeadingColumns($after, $bodyColumn);
+        if ($column >= $bodyColumn) {
+            return true;
+        }
 
-        return IndentationHelper::getLeadingColumns($after, $bodyColumn) >= $bodyColumn;
+        // A separator past the item's content column opens the next description.
+        return $column >= $contentIndent && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($after, " \t")) === 1;
     }
 
     /**
@@ -4042,8 +4052,15 @@ final class BlockContinuationScanner
         $run->openTermColumn = null;
         $run->floorInlineLength = null;
         $run->inlineCodeParagraph = false;
-        $definitionContinuesBlank = $run->openDefinitionBody !== null
-            && $this->definitionBodyContinuesPastBlank($lines, $i, $count, $contentIndent, $run->openDefinitionBody);
+        // Every blank of one run gets the same answer, so a long run is measured once.
+        if ($run->openDefinitionBody === null) {
+            $definitionContinuesBlank = false;
+        } elseif ($run->definitionBlankAnswer !== null && $run->definitionBlankAnswer[0] === $i - 1) {
+            $definitionContinuesBlank = $run->definitionBlankAnswer[1];
+        } else {
+            $definitionContinuesBlank = $this->definitionBodyContinuesPastBlank($lines, $i, $count, $contentIndent, $run->openDefinitionBody);
+        }
+        $run->definitionBlankAnswer = [$i, $definitionContinuesBlank];
         if (
             ($trailingState->fence !== null)
             || $trailingState->hasOpenDiv()
