@@ -448,12 +448,55 @@ final class Assessment
                 $this->emit($ordered ? 'ordered-list' : 'bullet-list', $n);
                 $taskList = !$ordered && preg_match('/^\[([ xX])\][ \t]+/', $m[2]) === 1;
                 $html .= '<' . $tag . ($taskList ? ' class="task-list"' : '') . ($ordered && (int)$m[1] !== 1 ? ' start="' . (int)$m[1] . '"' : '') . ">\n";
+                $items = [];
+                $loose = false;
+                $blankBefore = false;
+                $delimiter = '';
                 while (
-                    $i < $count && preg_match('/^ {0,3}([-+*]|\d{1,9}[.)])[ \t]+(.*)$/', $lines[$i], $m) && ctype_digit($m[1][0]) === $ordered
-                    && ($ordered || (preg_match('/^\[([ xX])\][ \t]+/', $m[2]) === 1) === $taskList)
+                    $i < $count && preg_match('/^( {0,3})([-+*]|\d{1,9}[.)])([ \t]+)(.*)$/', $lines[$i], $m) && ctype_digit($m[2][0]) === $ordered
+                    && ($items === [] || substr($m[2], -1) === $delimiter)
+                    && ($ordered || (preg_match('/^\[([ xX])\][ \t]+/', $m[4]) === 1) === $taskList)
                 ) {
-                    $this->emit('list-item', $first + $i);
-                    $body = $m[2];
+                    if (str_contains($m[3], "\t") || strlen($m[3]) > 4) {
+                        $this->complete = false;
+                    }
+                    $delimiter = substr($m[2], -1);
+                    $column = strlen($m[1] . $m[2] . $m[3]);
+                    $start = $i;
+                    $body = [$m[4]];
+                    for ($i++; $i < $count && (trim($lines[$i]) === '' || strspn($lines[$i], ' ') >= $column); $i++) {
+                        $body[] = trim($lines[$i]) === '' ? '' : substr($lines[$i], $column);
+                    }
+                    $blank = false;
+                    while (end($body) === '') {
+                        array_pop($body);
+                        $blank = true;
+                    }
+                    if (in_array('', $body, true)) {
+                        $loose = true;
+                        // A blank inside a nested list or a fence may belong to that block, not to this item.
+                        if (preg_grep('/^ *(?:[-+*]|\d{1,9}[.)])[ \t]|^ *(?:`{3,}|~{3,})/', array_slice($body, 1)) !== []) {
+                            $this->complete = false;
+                        }
+                    }
+                    $loose = $loose || $items !== [] && $blankBefore;
+                    $items[] = [$start, $body];
+                    $blankBefore = $blank;
+                }
+                $end = $i;
+                foreach ($items as [$start, $itemLines]) {
+                    $this->emit('list-item', $first + $start);
+                    if ($loose && !$taskList) {
+                        $html .= '<li>' . $this->blocks($itemLines, $first + $start, $depth + 1) . "</li>\n";
+
+                        continue;
+                    }
+                    if (count($itemLines) > 1 || $loose) {
+                        // A tight item holding more than one line, or a loose task item, is not modeled.
+                        $this->complete = false;
+                    }
+                    $i = $start;
+                    $body = $itemLines[0];
                     if (preg_match('/^\[([ xX])\][ \t]+(.*)$/', $body, $task)) {
                         if ($ordered) {
                             if (preg_match('/^[ \t]*\d{1,9}[.)][ \t]+\[[ xX]\](?=[ \t])/', $this->sourceLines[$first + $i - 1] ?? '')) {
@@ -467,8 +510,8 @@ final class Assessment
                     } else {
                         $html .= '<li>' . $this->inline($body, $first + $i) . "</li>\n";
                     }
-                    $i++;
                 }
+                $i = $end;
                 if (!$ordered && $i < $count && preg_match('/^ {0,3}([-+*])[ \t]+(.*)$/', $lines[$i], $next) && (preg_match('/^\[([ xX])\][ \t]+/', $next[2]) === 1) !== $taskList) {
                     $this->complete = false;
                 }
