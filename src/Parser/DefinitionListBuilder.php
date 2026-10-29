@@ -653,24 +653,6 @@ final class DefinitionListBuilder
         } else {
             $body = [trim($m[2], StringUtil::WHITESPACE_CHARS)];
             $bodyMap = [$this->sourceLineFor($definitionStart)];
-            if (
-                ($firstBlockOwner['kind'] ?? null) === 'list'
-                && $definitionColumn !== null
-                && $firstBlockOwner['column'] >= $definitionColumn + $continuationColumn
-            ) {
-                [$i, $attached, $attachedRawMap] = $this->collectAttachedBlock(
-                    $lines,
-                    $i,
-                    $count,
-                    static fn (string $line): bool => IndentationHelper::isBlankLine($line)
-                        || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $line) === 1
-                        || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $line) === 1,
-                );
-                foreach ($attached as $at => $line) {
-                    $body[] = $line;
-                    $bodyMap[] = $this->sourceLineFor($attachedRawMap[$at]);
-                }
-            }
         }
         // A nested item owns lines that reach its column; a document or quote body keeps its own band.
         $descriptionAtDocumentOrQuote = $definitionColumn === 0

@@ -23,9 +23,9 @@ final class DescriptionContinuationOwnerTest extends TestCase
         yield 'later ordered item first block' => [":: t\n: 1. a\n  2. +\n  > b\n", "<li>\n        <blockquote><p>b</p></blockquote>\n      </li>"];
         yield 'below child column stays literal' => [":: t\n: - a\n   - +\n   > b\n", "<li>a\n- +\n&gt; b</li>"];
         yield 'deeper first block owns quote' => [":: t\n: - a\n    - +\n    > b\n", "<li>\n            <blockquote><p>b</p></blockquote>\n          </li>"];
-        yield 'marker-line list first block' => [":: t\n: - +\nx\n", '<li>x</li>'];
-        yield 'marker-line list takes document heading' => [":: t\n: - +\n# H\n", "<li>\n        <h1 id=\"H\">H</h1>\n      </li>"];
-        yield 'marker-line list takes document quote' => [":: t\n: - +\n> b\n", "<li>\n        <blockquote><p>b</p></blockquote>\n      </li>"];
+        yield 'marker-line list first block' => [":: t\n: - +\nx\n", "<li></li>\n    </ul>\n  </dd>\n</dl>\n<p>x</p>"];
+        yield 'marker-line list takes document heading' => [":: t\n: - +\n# H\n", "<li></li>\n    </ul>\n  </dd>\n</dl>\n<section id=\"H\">"];
+        yield 'marker-line list takes document quote' => [":: t\n: - +\n> b\n", "<li></li>\n    </ul>\n  </dd>\n</dl>\n<blockquote><p>b</p></blockquote>"];
     }
 
     #[DataProvider('continuations')]
