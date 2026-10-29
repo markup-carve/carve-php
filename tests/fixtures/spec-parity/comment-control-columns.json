@@ -122,17 +122,17 @@
   {
     "id": "comment-controls/description/0",
     "source": ":: t\n:  a\n%% c\ntail",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>tail</p>"
   },
   {
     "id": "comment-controls/description/1",
     "source": ":: t\n:  a\n %% c\ntail",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>tail</p>"
   },
   {
     "id": "comment-controls/description/2",
     "source": ":: t\n:  a\n  %% c\ntail",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>tail</p>"
   },
   {
     "id": "comment-controls/description/3",
@@ -182,7 +182,7 @@
   {
     "id": "comment-controls/column-gate/2/comment",
     "source": ":: term\n:  intro\n%% c\n  more\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>intro</p>\n    <p>more</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>intro</dd>\n</dl>\n<p>more</p>"
   },
   {
     "id": "comment-controls/column-gate/3/marker",
@@ -192,7 +192,7 @@
   {
     "id": "comment-controls/column-gate/3/comment",
     "source": ":: term\n:  intro\n%% c\n more\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>intro</p>\n    <p>more</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>intro</dd>\n</dl>\n<p>more</p>"
   },
   {
     "id": "comment-controls/column-gate/4/marker",
@@ -282,17 +282,17 @@
   {
     "id": "comment-controls/description-d/0",
     "source": ":: t\n:  d\n%% c\ntail\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>"
   },
   {
     "id": "comment-controls/description-d/1",
     "source": ":: t\n:  d\n %% c\ntail\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>"
   },
   {
     "id": "comment-controls/description-d/2",
     "source": ":: t\n:  d\n  %% c\ntail\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>"
   },
   {
     "id": "comment-controls/description-d/3",

@@ -93,7 +93,7 @@
   },
   {
     "source": "- intro\n%% c\n\n - tail\n",
-    "html": "<ul>\n  <li>intro</li>\n</ul>\n<ul>\n  <li>tail</li>\n</ul>"
+    "html": "<ul>\n  <li><p>intro</p></li>\n  <li><p>tail</p></li>\n</ul>"
   },
   {
     "source": "> - intro\n> %% c\n>  - tail\n",
