@@ -5337,7 +5337,8 @@ class InlineParser
                     if ($char === '{' && ($text[$at + 1] ?? '') === '#' && $attributeEnd !== null) {
                         $potentialCommentEnd = $end;
                     }
-                    if ($char !== '[') {
+                    // A `[` inside a note label opens no inner run.
+                    if ($char !== '[' || $this->noteReferenceEnd($text, $at) !== null) {
                         $skip = $attributeEnd ?? $end;
                         if ($at < $potentialCommentEnd) {
                             $skip = min($skip, $potentialCommentEnd);
@@ -5893,9 +5894,27 @@ class InlineParser
             return $this->bracketRunEnds[$pos];
         }
 
+        // PART 8: a `[^` run is a note reference before bracket scanning, so it
+        // ends at its first `]` even when its label holds a `[`.
+        $noteEnd = $this->noteReferenceEnd($text, $pos);
+        if ($noteEnd !== null) {
+            return $this->bracketRunEnds[$pos] = $noteEnd;
+        }
         $labelEnd = $this->findBalancedBracketEnd($text, $pos);
 
         return $this->bracketRunEnds[$pos] = $labelEnd === null ? null : $labelEnd + 1;
+    }
+
+    /**
+     * The index after the `]` of a note reference `[^label]` at $pos, or null.
+     */
+    private function noteReferenceEnd(string $text, int $pos): ?int
+    {
+        if (!$this->footnoteRecognitionEnabled || preg_match('/\G\[\^[^\]\r\n]+\]/', $text, $note, 0, $pos) !== 1) {
+            return null;
+        }
+
+        return $pos + strlen($note[0]);
     }
 
     /**
