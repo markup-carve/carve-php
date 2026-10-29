@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Transform\IncludeExpander;
 use SplObjectStorage;
 
 trait RenderLossCollectorTrait
@@ -79,6 +80,27 @@ trait RenderLossCollectorTrait
      */
     private ?SplObjectStorage $seenCarrierAttributeLosses = null;
 
+    /**
+     * @param array<string, mixed> $loss
+     * @param \MarkupCarve\Carve\Node\Node|null $node
+     *
+     * @return array<string, mixed>
+     */
+    private function lossWithInclude(array $loss, ?Node $node): array
+    {
+        $pos = $node?->getPos();
+        if ($pos === null || $pos->file === null) {
+            return $loss;
+        }
+        $sites = IncludeExpander::includeSitesForPosition($pos);
+        if ($sites !== null && $sites !== []) {
+            $loss['file'] = $pos->file;
+            $loss['includedBy'] = $sites;
+        }
+
+        return $loss;
+    }
+
     public function beginRenderLossCollection(string $target, int $maximum): void
     {
         if ($maximum < 0) {
@@ -129,7 +151,7 @@ trait RenderLossCollectorTrait
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();
         }
-        $this->renderLosses[] = $loss;
+        $this->renderLosses[] = $this->lossWithInclude($loss, $node);
     }
 
     protected function recordMarkdownLoss(Node $node, string $code): void
@@ -158,7 +180,7 @@ trait RenderLossCollectorTrait
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();
         }
-        $this->renderLosses[] = $loss;
+        $this->renderLosses[] = $this->lossWithInclude($loss, $node);
     }
 
     protected function recordListTightnessLost(ListItem $item): void
@@ -180,7 +202,7 @@ trait RenderLossCollectorTrait
         if ($item->getPos() !== null) {
             $loss['pos'] = $item->getPos()->toArray();
         }
-        $this->renderLosses[] = $loss;
+        $this->renderLosses[] = $this->lossWithInclude($loss, $item);
     }
 
     /**
@@ -252,11 +274,11 @@ trait RenderLossCollectorTrait
             // The ordinary case, and an append rather than a splice at the end:
             // `array_splice()` reindexes the array, so splicing every row makes
             // collection quadratic in a large report. Raised by codex review.
-            $this->renderLosses[] = $loss;
+            $this->renderLosses[] = $this->lossWithInclude($loss, $node);
 
             return;
         }
-        array_splice($this->renderLosses, $position, 0, [$loss]);
+        array_splice($this->renderLosses, $position, 0, [$this->lossWithInclude($loss, $node)]);
         // The bound holds the FIRST rows in document order, so an insert past it
         // drops the latest rather than refusing the one that belongs here.
         if (count($this->renderLosses) > $this->renderLossMaximum) {
@@ -284,7 +306,7 @@ trait RenderLossCollectorTrait
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();
         }
-        $this->renderLosses[] = $loss;
+        $this->renderLosses[] = $this->lossWithInclude($loss, $node);
     }
 
     /**
@@ -323,7 +345,7 @@ trait RenderLossCollectorTrait
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();
         }
-        $this->renderLosses[] = $loss;
+        $this->renderLosses[] = $this->lossWithInclude($loss, $node);
     }
 
     protected function recordListStyleDropped(Node $node, string $style): void
@@ -351,7 +373,7 @@ trait RenderLossCollectorTrait
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();
         }
-        $this->renderLosses[] = $loss;
+        $this->renderLosses[] = $this->lossWithInclude($loss, $node);
     }
 
     protected function recordListDelimiterChanged(Node $node, string $delim, string $emittedDelim): void
@@ -375,7 +397,7 @@ trait RenderLossCollectorTrait
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();
         }
-        $this->renderLosses[] = $loss;
+        $this->renderLosses[] = $this->lossWithInclude($loss, $node);
     }
 
     protected function recordEditorialCommentFlattened(Node $node): void
@@ -398,7 +420,7 @@ trait RenderLossCollectorTrait
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();
         }
-        $this->renderLosses[] = $loss;
+        $this->renderLosses[] = $this->lossWithInclude($loss, $node);
     }
 
     /**
@@ -431,7 +453,7 @@ trait RenderLossCollectorTrait
         if ($cell->getPos() !== null) {
             $loss['pos'] = $cell->getPos()->toArray();
         }
-        $this->renderLosses[] = $loss;
+        $this->renderLosses[] = $this->lossWithInclude($loss, $cell);
     }
 
     protected function recordTableHeaderRowHoisted(TableRow $row): void
@@ -464,7 +486,7 @@ trait RenderLossCollectorTrait
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();
         }
-        $this->renderLosses[] = $loss;
+        $this->renderLosses[] = $this->lossWithInclude($loss, $node);
     }
 
     protected function recordTableHeaderRowDemoted(TableRow $row): void
@@ -487,6 +509,6 @@ trait RenderLossCollectorTrait
         if ($row->getPos() !== null) {
             $loss['pos'] = $row->getPos()->toArray();
         }
-        $this->renderLosses[] = $loss;
+        $this->renderLosses[] = $this->lossWithInclude($loss, $row);
     }
 }
