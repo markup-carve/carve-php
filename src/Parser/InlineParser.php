@@ -322,6 +322,14 @@ class InlineParser
     protected array $bracketRunEnds = [];
 
     /**
+     * The `[` positions in the same text that open the label half of a
+     * reference pair, or null before the pass has run.
+     *
+     * @var array<int, true>|null
+     */
+    private ?array $referenceLabelHalves = null;
+
+    /**
      * @var array<int, int|null>
      */
     private array $balancedBracketEnds = [];
@@ -3735,6 +3743,7 @@ class InlineParser
             return null;
         }
         $failedStarts = [$start];
+        $attached = [];
         $searchPos = $start;
         while ($searchPos + 1 < $length) {
             if (
@@ -3759,10 +3768,42 @@ class InlineParser
                 }
             }
 
-            if ($text[$searchPos] === '`') {
+            $char = $text[$searchPos];
+            // The holders the bare walk skips, minus the kinds this token opens (E3).
+            $child = $char !== '/' && $char !== '*' ? $this->bracedPairIndex?->bareAttributes($searchPos) : null;
+            if ($child !== null) {
+                $attached[$child['close'] + 1] = $child['end'];
+            }
+            if (isset($attached[$searchPos])) {
+                $searchPos = $attached[$searchPos];
+
+                continue;
+            }
+            if ($char === '{') {
+                $bracedEnd = $this->bracedInlineEnd($text, $searchPos);
+                if ($bracedEnd !== null) {
+                    $searchPos = $bracedEnd;
+
+                    continue;
+                }
+            }
+            if ($char === '<') {
+                $crossrefEnd = $this->findCrossrefEnd($text, $searchPos);
+                $autolinkEnd = $crossrefEnd === null ? $this->findAutolinkEnd($text, $searchPos) : null;
+                if ($crossrefEnd !== null || $autolinkEnd !== null) {
+                    $searchPos = $crossrefEnd ?? ($this->bracedPairIndex?->afterAttributes((int)$autolinkEnd) ?? (int)$autolinkEnd);
+
+                    continue;
+                }
+            }
+
+            if ($char === '`') {
                 $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
                 if ($codeEnd !== null) {
-                    $searchPos = $codeEnd + 1;
+                    if (preg_match('/\G\{=[a-zA-Z0-9-]+\}/', $text, $rawFormat, 0, $codeEnd) === 1) {
+                        $codeEnd += strlen($rawFormat[0]);
+                    }
+                    $searchPos = $this->bracedPairIndex?->afterAttributes($codeEnd) ?? $codeEnd;
 
                     continue;
                 }
@@ -4081,8 +4122,7 @@ class InlineParser
             if ($text[$searchPos] === '[' && !$this->isEscapedAt($text, $searchPos)) {
                 $runEnd = $this->bracketRunSkip($text, $searchPos);
                 if ($runEnd !== null) {
-                    $destination = $this->linkDestinationSkip($text, $searchPos);
-                    $searchPos = $destination === null ? $runEnd : $destination[1];
+                    $searchPos = $this->bracedScanDestinationEnd($text, $searchPos, $marker) ?? $runEnd;
 
                     continue;
                 }
@@ -4122,7 +4162,7 @@ class InlineParser
                 $searchPos = $rawClose;
             }
             if ($text[$searchPos] === '{' && (($text[$searchPos + 1] ?? '') !== $marker || !str_contains('+-', $marker))) {
-                $scopeEnd = $this->bracedInlineEnd($text, $searchPos);
+                $scopeEnd = $this->bracedScanChildEnd($text, $searchPos, $marker);
                 if ($scopeEnd !== null) {
                     $searchPos = $scopeEnd;
 
@@ -5192,6 +5232,7 @@ class InlineParser
             $lineComments = [];
             $attributeTails = [];
             $labels = [];
+            $superscriptRuns = [];
             $potentialCommentEnd = -1;
             $length = strlen($text);
             for ($at = 0; $at < $length; $at++) {
@@ -5228,6 +5269,10 @@ class InlineParser
                         }
                         $destination = $this->linkDestinationSkip($text, $at);
                         $end = $destination[1] ?? $end;
+                        // The `^` of a `{^` opener is that opener's, not a note's.
+                        if ($destination === null && $at >= 2 && $text[$at - 1] === '^' && $text[$at - 2] === '{' && !$this->isEscapedAt($text, $at - 2)) {
+                            $superscriptRuns += $this->ownedBracketChain($text, $at);
+                        }
                     }
                 } elseif ($char === '<') {
                     $end = $this->findCrossrefEnd($text, $at) ?? $this->findAutolinkEnd($text, $at);
@@ -5249,11 +5294,13 @@ class InlineParser
                     if ($close !== null && ($text[$at + 1] === '%' || $close > $at + 2)) {
                         $end = $close + 2;
                     }
-                } elseif ($char === '{' && preg_match('/[.#:a-zA-Z]/', $text[$at + 1] ?? '')) {
-                    $close = $this->findAttributeEnd($text, $at);
-                    if ($close !== null && $this->isValidInlineAttrPayload(substr($text, $at + 1, $close - $at - 1))) {
-                        $end = $close + 1;
-                    }
+                } elseif ($attributeEnd !== null && $at > 0 && str_contains('`])>}/*_~=', $text[$at - 1])) {
+                    // Opaque only through the host it follows, which jumps over
+                    // it by $attributeTails. Plain text carries no block, so one
+                    // there is text and its interior is scanned (CARVE-P4-002).
+                    $at = $attributeEnd - 1;
+
+                    continue;
                 }
                 if ($end !== null) {
                     $opaque[$at] = $end;
@@ -5269,7 +5316,7 @@ class InlineParser
                     }
                 }
             }
-            $this->bracedPairIndex = new BracedPairIndex($text, $opaque, $codes, $bounds, $lineComments, $attributeTails);
+            $this->bracedPairIndex = new BracedPairIndex($text, $opaque, $codes, $bounds, $lineComments, $attributeTails, $superscriptRuns);
         }
 
         return $this->bracedPairIndex->end($pos);
@@ -5347,8 +5394,7 @@ class InlineParser
             if ($text[$searchPos] === '[') {
                 $runEnd = $this->bracketRunSkip($text, $searchPos);
                 if ($runEnd !== null) {
-                    $destination = $this->linkDestinationSkip($text, $searchPos);
-                    $searchPos = $destination === null ? $runEnd : $destination[1];
+                    $searchPos = $this->bracedScanDestinationEnd($text, $searchPos, $marker) ?? $runEnd;
 
                     continue;
                 }
@@ -5367,7 +5413,7 @@ class InlineParser
                 $searchPos = $rawClose;
             }
             if ($text[$searchPos] === '{' && (($text[$searchPos + 1] ?? '') !== $marker || !str_contains('+-', $marker))) {
-                $scopeEnd = $this->bracedInlineEnd($text, $searchPos);
+                $scopeEnd = $this->bracedScanChildEnd($text, $searchPos, $marker);
                 if ($scopeEnd !== null) {
                     $searchPos = $scopeEnd;
 
@@ -5638,17 +5684,144 @@ class InlineParser
         }
 
         $skip = null;
-        if ($this->closerExistsFrom($text, '](', $pos) && !$this->bracketOpensANote($text, $pos)) {
-            $labelEnd = $this->findBalancedBracketEnd($text, $pos);
-            if ($labelEnd !== null && ($text[$labelEnd + 1] ?? '') === '(') {
-                $destination = $this->scanInlineDestination($text, $labelEnd + 2);
-                if ($destination !== null && $destination['url'] !== null) {
-                    $skip = [$labelEnd + 1, $destination['end'] + 1];
-                }
+        if (
+            $this->closerExistsFrom($text, '](', $pos)
+            && !$this->bracketOpensANote($text, $pos)
+            && !$this->opensAReferenceLabel($text, $pos)
+        ) {
+            $end = $this->destinationAfterLabel($text, $pos);
+            if ($end !== null) {
+                $skip = [(int)$this->findBalancedBracketEnd($text, $pos) + 1, $end];
             }
         }
 
         return $this->destinationSkips[$pos] = $skip;
+    }
+
+    /**
+     * The glued bracket runs from $pos on, read as if no note claims the first,
+     * as `[` start => where a closer scan resumes past it.
+     *
+     * @return array<int, int>
+     */
+    private function ownedBracketChain(string $text, int $pos): array
+    {
+        $chain = [];
+        $first = true;
+        while (($end = $this->bracketRunSkip($text, $pos)) !== null) {
+            $destination = $this->destinationAfterLabel($text, $pos);
+            if ($destination !== null) {
+                $chain[$pos] = $destination;
+
+                break;
+            }
+            $label = ($text[$end] ?? '') === '[' ? $this->bracketRunSkip($text, $end) : null;
+            // The caret before the first run is not a note's, but `[^n]` still is.
+            $note = $first
+                ? $this->footnoteRecognitionEnabled && preg_match('/\G\[\^[^\]\r\n]+\]/', $text, $unused, 0, $pos) === 1
+                : $this->bracketOpensANote($text, $pos);
+            if ($label !== null && !$note) {
+                $end = $label;
+            }
+            $chain[$pos] = $end;
+            if (($text[$end] ?? '') !== '[') {
+                break;
+            }
+            $pos = $end;
+            $first = false;
+        }
+
+        return $chain;
+    }
+
+    /**
+     * Where a braced closer scan resumes past the braced child at $pos. An
+     * editorial scan skips the child's body only (`edScan`), so the attribute
+     * block behind it is still scanned.
+     */
+    private function bracedScanChildEnd(string $text, int $pos, string $marker): ?int
+    {
+        if (
+            ($marker === '+' || $marker === '-') && $this::class === self::class
+            && str_contains('/*_^,~=', $text[$pos + 1] ?? "\0") && !$this->hasDecoratedBracedOpener($text, $pos)
+        ) {
+            return $this->indexedBracedEnd($text, $pos);
+        }
+
+        return $this->bracedInlineEnd($text, $pos);
+    }
+
+    /**
+     * Where a braced closer scan resumes past the destination behind the
+     * bracket run at $pos, or null for none.
+     *
+     * An editorial scan gives every run its own destination slot (`edScan`
+     * reads `nested`), so there a reference label half keeps its `(...)`.
+     */
+    private function bracedScanDestinationEnd(string $text, int $pos, string $marker): ?int
+    {
+        if (($marker === '+' || $marker === '-') && $this->opensAReferenceLabel($text, $pos)) {
+            return $this->destinationAfterLabel($text, $pos);
+        }
+
+        return $this->linkDestinationSkip($text, $pos)[1] ?? null;
+    }
+
+    /**
+     * The index past the `)` of an inline destination behind the label opening
+     * at $pos, or null, whatever claims the label.
+     */
+    private function destinationAfterLabel(string $text, int $pos): ?int
+    {
+        $labelEnd = $this->findBalancedBracketEnd($text, $pos);
+        if ($labelEnd === null || ($text[$labelEnd + 1] ?? '') !== '(') {
+            return null;
+        }
+        $destination = $this->scanInlineDestination($text, $labelEnd + 2);
+
+        return $destination !== null && $destination['url'] !== null ? $destination['end'] + 1 : null;
+    }
+
+    /**
+     * Whether the `[` at $pos opens the label half of a reference pair, whose
+     * `(...)` is text and not a destination.
+     *
+     * Glued bracket runs pair left to right, so in `[b][a][c](u)` the `[c]` is
+     * link text again. A note run starts no pair.
+     */
+    protected function opensAReferenceLabel(string $text, int $pos): bool
+    {
+        if ($pos === 0 || $text[$pos - 1] !== ']') {
+            return false;
+        }
+        $this->resetDestinationMemos($text);
+        if ($this->referenceLabelHalves === null) {
+            $halves = [];
+            $at = -1;
+            while (($at = strpos($text, '][', $at + 1)) !== false) {
+                $halves[$at + 1] = false;
+            }
+            if ($halves !== []) {
+                $length = strlen($text);
+                for ($at = strcspn($text, '[\\'); $at < $length; $at += 1 + strcspn($text, '[\\', $at + 1)) {
+                    if ($text[$at] === '\\') {
+                        $at++;
+
+                        continue;
+                    }
+                    if (($halves[$at] ?? false) || $this->bracketOpensANote($text, $at)) {
+                        continue;
+                    }
+                    $end = $this->bracketRunSkip($text, $at);
+                    if ($end !== null && array_key_exists($end, $halves) && $this->bracketRunSkip($text, $end) !== null) {
+                        $halves[$end] = true;
+                    }
+                }
+            }
+            $this->referenceLabelHalves = array_filter($halves);
+        }
+
+        return isset($this->referenceLabelHalves[$pos]);
     }
 
     /**
@@ -5667,6 +5840,7 @@ class InlineParser
         $this->destinationWhitespace = null;
         $this->destinationTitleEnds = [];
         $this->bracketRunEnds = [];
+        $this->referenceLabelHalves = null;
     }
 
     /**

@@ -35,6 +35,7 @@ final class BracedPairIndex
      * @param array<int, true> $bracketBounds Balanced label closing offsets.
      * @param array<int, int> $lineComments Exclusive comment ends.
      * @param array<int, int> $attributeTails Valid attribute run ends.
+     * @param array<int, int> $superscriptRuns Run ends behind a `{^[` that owns its caret.
      */
     public function __construct(
         string $text,
@@ -43,6 +44,7 @@ final class BracedPairIndex
         array $bracketBounds = [],
         array $lineComments = [],
         array $attributeTails = [],
+        array $superscriptRuns = [],
     ) {
         $length = strlen($text);
         $this->length = $length;
@@ -110,7 +112,8 @@ final class BracedPairIndex
                 }
                 $table[$at] = $stop;
             }
-            $before = $at > 0 ? $text[$at - 1] : '';
+            // A braced opener's marker is not content before a bare opener.
+            $before = $at > 0 && !isset($openMarks[$at - 1]) ? $text[$at - 1] : '';
             $canOpenBare = isset($bareTables[$char]) && $next !== '' && !StringUtil::isWhitespaceChar($next)
                 && $next !== $char && $before !== $char && ($before === '' || preg_match('/[A-Za-z0-9_]/', $before) !== 1)
                 && ($char !== '=' || $next !== '>') && (($char !== '/' && $char !== '_') || $before !== '/');
@@ -135,11 +138,16 @@ final class BracedPairIndex
                 } elseif (array_key_exists($at, $codeEnds)) {
                     $end = $codeEnds[$at];
                     $stop = $end === null ? ($raw[$marker] ?? -1) : ($table[$attributeTails[$end] ?? $end] ?? -1);
+                } elseif ($marker === '^' && isset($superscriptRuns[$at])) {
+                    $end = $superscriptRuns[$at];
+                    $stop = $table[$attributeTails[$end] ?? $end] ?? -1;
                 } elseif (isset($lineComments[$at])) {
                     $stop = $rawCloser !== -1 && $rawCloser < $lineComments[$at] ? $rawCloser : ($table[$lineComments[$at]] ?? -1);
                 } elseif (isset($opaqueEnds[$at])) {
                     $end = $opaqueEnds[$at];
-                    $stop = $table[in_array($char, ['[', '<'], true) ? ($attributeTails[$end] ?? $end) : $end] ?? -1;
+                    // A cross-reference carries no attributes; an autolink does.
+                    $host = $char === '[' || ($char === '<' && substr_compare($text, '</#', $at, 3) !== 0);
+                    $stop = $table[$host ? ($attributeTails[$end] ?? $end) : $end] ?? -1;
                 } elseif ($closer) {
                     $stop = $at;
                 } elseif ($child !== -1 && ($next !== $marker || !str_contains('+-', $marker))) {
