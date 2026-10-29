@@ -242,7 +242,7 @@
   {
     "name": "container-564",
     "source": "> - [^n]: note\ntail\n",
-    "html": "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+    "html": "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n</blockquote>"
   },
   {
     "name": "container-565",
@@ -252,7 +252,7 @@
   {
     "name": "container-566",
     "source": "> - [^n]: note\n  tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+    "html": "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n</blockquote>"
   },
   {
     "name": "container-567",
