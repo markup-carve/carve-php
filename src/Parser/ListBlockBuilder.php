@@ -605,7 +605,7 @@ final class ListBlockBuilder
                     $run = [];
                     $map = [];
                     for ($j = $i; $j < $commentRunEnd; $j++) {
-                        $run[] = ltrim($lines[$j], " \t");
+                        $run[] = preg_match('/^[ \t]*%%/', $lines[$j]) === 1 ? ltrim($lines[$j], " \t") : $lines[$j];
                         $map[] = $this->sourceLineFor($j);
                     }
                     $this->callParseItemBlocks($lastItem, $run, $map);
@@ -2867,8 +2867,17 @@ final class ListBlockBuilder
     private function commentRunBeforeSibling(array $lines, int $i, int $count, int $baseIndent, array $listInfo): ?int
     {
         $j = $i;
-        while ($j < $count && self::isLineComment($lines, $j)) {
-            $j++;
+        while ($j < $count) {
+            if (self::isLineComment($lines, $j)) {
+                $j++;
+
+                continue;
+            }
+            $end = self::commentSpanEnd($lines, $j);
+            if ($end === null) {
+                break;
+            }
+            $j = $end;
         }
         if ($j === $i) {
             return null;
@@ -2921,6 +2930,27 @@ final class ListBlockBuilder
         }
 
         return true;
+    }
+
+    /**
+     * The index after the exact-width closer of a comment fence opened at `$j`, or null.
+     *
+     * @param array<string> $lines
+     * @param int $j
+     */
+    private static function commentSpanEnd(array $lines, int $j): ?int
+    {
+        if (preg_match('/^[ \t]*(%{3,})/', $lines[$j], $fence) !== 1) {
+            return null;
+        }
+        $count = count($lines);
+        for ($k = $j + 1; $k < $count; $k++) {
+            if (preg_match('/^[ \t]*(%{3,})/', $lines[$k], $closer) === 1 && strlen($closer[1]) === strlen($fence[1])) {
+                return $k + 1;
+            }
+        }
+
+        return null;
     }
 
     private function isCommentLineOrFence(string $line, int $at = 0): bool
