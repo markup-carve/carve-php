@@ -3512,6 +3512,16 @@ class InlineParser
             $char = $text[$searchPos];
             $child = $char !== $delimiter && !in_array($char, $this->openSpanKinds, true)
                 ? $this->bracedPairIndex?->bareAttributes($searchPos) : null;
+            // A guard of an open kind is literal (E3), and one inside this
+            // span opens only if it closes before this span's closer.
+            $guard = $child['guard'] ?? null;
+            if (
+                $child !== null && $guard !== null && $guard >= $searchStart
+                && ($text[$guard] === $delimiter || in_array($text[$guard], $this->openSpanKinds, true)
+                    || ($this->bracedPairIndex->bareCloser($delimiter, $child['end']) ?? PHP_INT_MAX) < $child['guardClose'])
+            ) {
+                $child = null;
+            }
             if ($child !== null) {
                 $attached[$child['close'] + 1] = $child['end'];
             }
