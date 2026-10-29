@@ -1652,11 +1652,14 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         try {
             if (!$this->roundTripMode && $node instanceof BlockNode && !$node instanceof Section) {
                 $attributes = $node->getAttributeEntries();
-                if ($node instanceof Heading && !in_array('id', $node->getAttributeOrder(), true)) {
+                if ($node instanceof Heading && !in_array('#id', $node->getAttributeOrder(), true)) {
                     unset($attributes['id']);
                 }
                 if ($node instanceof CodeBlock) {
                     unset($attributes['title']);
+                }
+                if ($node instanceof Div && $node->isTyped()) {
+                    $attributes = $this->admonitionAuthoredAttributes($node, $attributes);
                 }
                 if ($attributes !== []) {
                     $this->recordMarkdownLoss($node, 'markdown-attributes-dropped');
@@ -3478,7 +3481,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderDiv(Div $node): string
     {
-        if (!$this->roundTripMode) {
+        // A typed div is the `admonition` node, which the clause does not count as a flattened div.
+        if (!$this->roundTripMode && !$node->isTyped()) {
             $this->recordMarkdownLoss($node, 'markdown-container-flattened');
         }
         $listTable = $this->listTableAsTable($node);
@@ -3654,6 +3658,37 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         return $out;
+    }
+
+    /**
+     * The attributes an admonition's author wrote: the opener word is its `kind`, not a
+     * class, and a list table written as a table consumes its grid keys.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\Div $node
+     * @param array<string, mixed> $attributes
+     *
+     * @return array<string, mixed>
+     */
+    protected function admonitionAuthoredAttributes(Div $node, array $attributes): array
+    {
+        $kind = $node->getClassEntries()[0] ?? '';
+        if ($kind !== '' && isset($attributes['class'])) {
+            $classes = (array)$attributes['class'];
+            $first = array_search($kind, $classes, true);
+            if ($first !== false) {
+                unset($classes[$first]);
+            }
+            if ($classes === []) {
+                unset($attributes['class']);
+            } else {
+                $attributes['class'] = array_values($classes);
+            }
+        }
+        if ($this->listTableAsTable($node) !== null) {
+            unset($attributes['header-rows'], $attributes['header-cols'], $attributes['aligns']);
+        }
+
+        return $attributes;
     }
 
     /**

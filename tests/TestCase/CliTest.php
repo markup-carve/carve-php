@@ -1309,6 +1309,40 @@ class CliTest extends TestCase
     }
 
     /**
+     * @return array<string, array{string}>
+     */
+    public static function markdownLossCodes(): array
+    {
+        return [
+            'markdown-container-flattened' => ['markdown-container-flattened'],
+            'markdown-caption-flattened' => ['markdown-caption-flattened'],
+            'markdown-attributes-dropped' => ['markdown-attributes-dropped'],
+            'raw-html-escaped' => ['raw-html-escaped'],
+        ];
+    }
+
+    #[DataProvider('markdownLossCodes')]
+    public function testEveryMarkdownLossCodeCanBeAllowed(string $code): void
+    {
+        $source = "{#t .c}\n:::\n![x](a)\n^ caption\n\n```=html\n<b>x</b>\n```\n:::\n";
+        $allOthers = array_diff(
+            ['markdown-container-flattened', 'markdown-caption-flattened', 'markdown-attributes-dropped', 'raw-html-escaped'],
+            [$code],
+        );
+        $args = ['--markdown', '--strict-losses'];
+        foreach ($allOthers as $other) {
+            array_push($args, '--allow-loss', $other);
+        }
+
+        $refused = $this->runCliInput($args, $source);
+        $allowed = $this->runCliInput([...$args, '--allow-loss', $code], $source);
+
+        $this->assertSame(1, $refused['exit']);
+        $this->assertStringContainsString($code, $refused['err']);
+        $this->assertSame(0, $allowed['exit'], $allowed['err']);
+    }
+
+    /**
      * `--allow-loss` gates the `CARVE-P2-024` report and grows no name for a
      * conversion-diagnostics code (PART 11 §1d), so the dropped field passes
      * `--strict-losses` with nothing allowed and the old code is refused outright.
@@ -1325,7 +1359,9 @@ class CliTest extends TestCase
         $this->assertStringContainsString(
             '--allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened'
             . ', carrier-attribute-dropped, list-style-dropped, list-delimiter-changed'
-            . ', table-span-flattened, table-header-row-demoted, table-header-row-hoisted or table-header-cell-demoted or fence-title-dropped',
+            . ', table-span-flattened, table-header-row-demoted, table-header-row-hoisted, table-header-cell-demoted'
+            . ', markdown-container-flattened, markdown-caption-flattened, fence-title-dropped'
+            . ', markdown-attributes-dropped or raw-html-escaped',
             $refused['err'],
         );
     }
