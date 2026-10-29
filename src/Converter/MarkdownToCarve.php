@@ -104,6 +104,13 @@ class MarkdownToCarve
     protected const EMPTY_DEFINITION_ITEM_SENTINEL = "\x00CARVE_EMPTY_DEFINITION_ITEM\x00";
 
     /**
+     * Marks a GitHub alert label that must stay quote text through the alert pass.
+     *
+     * @var string
+     */
+    private const ALERT_LABEL_GUARD = "\x01";
+
+    /**
      * Source lines whose ordered task item Carve cannot spell, in order, for the
      * fidelity report. Reset by every `convert()`.
      *
@@ -1035,7 +1042,7 @@ class MarkdownToCarve
                     continue;
                 }
             }
-            $this->escapeAlertLabelAfterBlankQuoteLine($lines, $i);
+            $this->guardAlertLabelAfterBlankQuoteLine($lines, $i);
             [$i, $prevLineType, $body, $quoteHandled] = $this->convertImportedQuoteBlock(
                 $isBlockquote,
                 $body,
@@ -1995,6 +2002,9 @@ class MarkdownToCarve
         }
         $carve = $this->repairImportedEmailLinks($carve, $frontmatter);
         $carve = $this->importGithubAlerts($carve, $frontmatter);
+        if (!str_contains($markdown, self::ALERT_LABEL_GUARD)) {
+            $carve = str_replace(self::ALERT_LABEL_GUARD, '', $carve);
+        }
 
         if ($frontmatter === []) {
             return $this->canonicalImportLayout($this->rewriteSameFileHeadingLinks($carve), $carrierOriginal);
@@ -2263,12 +2273,13 @@ class MarkdownToCarve
     /**
      * A label after a blank `>` line is not the quote's first line, so it is
      * no alert (CARVE-P2-033). The Carve writer drops that blank line, which
-     * would put the label first; the escape keeps it literal.
+     * would put the label first; a guard keeps the alert pass off it and is
+     * removed after that pass, so the label is written as plain quote text.
      *
      * @param array<string> $lines
      * @param int $i
      */
-    private function escapeAlertLabelAfterBlankQuoteLine(array &$lines, int $i): void
+    private function guardAlertLabelAfterBlankQuoteLine(array &$lines, int $i): void
     {
         $next = $lines[$i + 1] ?? '';
         if (
@@ -2278,7 +2289,9 @@ class MarkdownToCarve
         ) {
             return;
         }
-        $lines[$i + 1] = $label[1] . '\\' . substr($next, strlen($label[1]));
+        // A source that holds the guard character itself keeps the label escaped.
+        $guard = preg_grep('/\x01/', $lines) === [] ? self::ALERT_LABEL_GUARD : '\\';
+        $lines[$i + 1] = $label[1] . $guard . substr($next, strlen($label[1]));
     }
 
     /**
