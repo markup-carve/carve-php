@@ -598,21 +598,14 @@ final class ListBlockBuilder
             // Get indentation of current line
             $currentIndent = IndentationHelper::getLeadingColumns($currentLine);
             $sourceLine = $this->sourceLineFor($i);
-            $commentRunEnd = $firstItem ? null : $this->commentRunBeforeSibling($lines, $i, $count, $baseIndent, $listInfo);
-            if ($commentRunEnd !== null) {
-                $lastItem = ($this->getListParser)()->getLastListItem($list);
-                if ($lastItem !== null) {
-                    $run = [];
-                    $map = [];
-                    for ($j = $i; $j < $commentRunEnd; $j++) {
-                        $run[] = preg_match('/^[ \t]*%%/', $lines[$j]) === 1 ? ltrim($lines[$j], " \t") : $lines[$j];
-                        $map[] = $this->sourceLineFor($j);
-                    }
-                    $this->callParseItemBlocks($lastItem, $run, $map);
-                    $i = $commentRunEnd;
+            $afterComments = $this->carryCommentRunToLastItem($list, $lines, $i, $count, $baseIndent, $listInfo, $firstItem);
+            if ($afterComments !== null) {
+                $i = $afterComments;
 
-                    continue;
-                }
+                continue;
+            }
+            if ($this->commentClosedItemBeforeNonMarker($lines, $i, $firstItem, $lastItemContentIndent)) {
+                break;
             }
             $priorSource = $this->state->source->sourceLines[$sourceLine - 1] ?? '';
             $priorBody = ContainerPrefix::stripQuoteMarkers($priorSource);
@@ -746,41 +739,12 @@ final class ListBlockBuilder
             // but a new description separator there starts outside the item.
             if (
                 $attachedParagraphOpen && $currentIndent >= $baseIndent && $currentIndent < $lastItemContentIndent
-                && !($attachedParagraphAfterNoteSeparator && $currentIndent === $baseIndent
-                    && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1)
-                && !$this->acceptedContinuationMarker($i)
-                && (!$this->isFoldableInvisibleLine(ltrim($currentLine, " \t")) || $priorAttachedFollower)
-                && !($this->isBlockAttributeLineCallback)(ltrim($currentLine, " \t"))
-                && (!ReferenceDefinitionExtractor::isDefinitionHead(ltrim($currentLine, " \t")) || $priorAttachedFollower)
-                && ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) === null
-                && ($currentIndent > $baseIndent
-                    || str_starts_with(ltrim($currentLine, " \t"), ': ')
-                    || (!$this->isBlockElementStart(ltrim($currentLine, " \t"), $lines, $i)
-                        && !$this->startsNewBlock(ltrim($currentLine, " \t"), $lines, $i)))
+                && $this->foldsIntoAttachedParagraph($lines, $i, $currentIndent, $baseIndent, $attachedParagraphAfterNoteSeparator, $priorAttachedFollower)
+                && $this->appendToAttachedParagraph($list, $currentLine, $sourceLine, $leadDiv, $priorMarker, $priorContinues)
             ) {
-                $lastItem = ($this->getListParser)()->getLastListItem($list);
-                $children = $lastItem?->getChildren() ?? [];
-                $paragraph = end($children);
-                $priorLiteralMarker = $leadDiv && $priorMarker !== null && $priorMarker['reason'] === 'left'
-                    && ($priorMarker['owner']['kind'] ?? null) === 'list';
-                if (!$paragraph instanceof Paragraph && ($priorContinues || $priorLiteralMarker)) {
-                    $paragraph = $this->tailListParagraph($list, $priorLiteralMarker);
-                }
-                if ($paragraph instanceof Paragraph) {
-                    $subject = ltrim($currentLine, " \t");
-                    $tailItem = new ListItem();
-                    $this->callParseItemBlocks($tailItem, [BlockGrammar::LAZY_FRAME . $subject], [$sourceLine]);
-                    $tail = $tailItem->getChildren()[0] ?? null;
-                    if ($tail instanceof Paragraph) {
-                        $paragraph->appendChild(new SoftBreak());
-                        foreach ($tail->getChildren() as $inline) {
-                            $paragraph->appendChild($inline);
-                        }
-                        $i++;
+                $i++;
 
-                        continue;
-                    }
-                }
+                continue;
             }
             // A below-column separator after a note-body term leaves the note,
             // but stays in the list item when it is past the marker column.
@@ -804,8 +768,7 @@ final class ListBlockBuilder
                     continue;
                 }
             }
-            $closedByComment = !$firstItem && $this->lowCommentClosedItem($lines, $i, $lastItemContentIndent);
-            if ($currentIndent === $baseIndent && !$closedByComment && $this->markerAttachesToList($i)) {
+            if ($currentIndent === $baseIndent && $this->markerAttachesToList($i)) {
                 $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($i), 'list item');
                 $next = $this->attachListContinuation($list, $lines, $i, $count, $baseIndent, $lastItemAttachColumn);
                 if ($next !== null) {
@@ -836,7 +799,6 @@ final class ListBlockBuilder
             // column, which nested a block one space under the marker.
             if (
                 ($lastItemHadBlankAfter || $indentedListMarker)
-                && !$closedByComment
                 && $lastItemColumn->classify($currentLine) === 'content'
             ) {
                 // Content after blank line with indentation belongs to previous item
@@ -1319,14 +1281,6 @@ final class ListBlockBuilder
         ) {
             $subLine = $admission['line'];
             // A comment below the item column is no paragraph text: it closes the item (rule A).
-            if (
-                $subOpenCommentLength === null && $subTrailingState->fence === null
-                && str_contains($subLine, '%%')
-                && ($this->commentRoles($lines)[$i] ?? null) === 'line'
-                && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent
-            ) {
-                break;
-            }
             $sourceLine = $this->sourceLineFor($i);
             if ($sourceLine >= 0) {
                 $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);
@@ -1352,9 +1306,8 @@ final class ListBlockBuilder
             $sourceLine = $this->sourceLineFor($i);
             $priorSource = $this->state->source->sourceLines[$sourceLine - 1] ?? '';
             if (
-                !IndentationHelper::isBlankLine($subLine)
-                && preg_match('/^(?:> ?)*[ \t]*(?:[-*] |\d+[.)] )(`{3,}|~{3,})/', $priorSource) === 1
-                && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent
+                self::belowMarkerLineFence($subLine, $priorSource, $subIndent)
+                || $this->isLowLineComment($lines, $i, $subLine, $subIndent, [$subOpenCommentLength, $subTrailingState->fence])
             ) {
                 break;
             }
@@ -2886,14 +2839,164 @@ final class ListBlockBuilder
     }
 
     /**
+     * Fold a line into the paragraph the last item's attachment left open.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\ListBlock $list
+     * @param string $line
+     * @param int $sourceLine
+     * @param bool $leadDiv
+     * @param array{owner: array{kind: string, column: int, depth: int, content: int, first: bool}|null, reason: string|null, column: int, depth: int, stale: bool, open: bool}|null $priorMarker
+     * @param bool $priorContinues
+     *
+     * @return bool Whether the line was folded.
+     */
+    private function appendToAttachedParagraph(ListBlock $list, string $line, int $sourceLine, bool $leadDiv, ?array $priorMarker, bool $priorContinues): bool
+    {
+        $lastItem = ($this->getListParser)()->getLastListItem($list);
+        $children = $lastItem?->getChildren() ?? [];
+        $paragraph = end($children);
+        $priorLiteralMarker = $leadDiv && $priorMarker !== null && $priorMarker['reason'] === 'left'
+            && ($priorMarker['owner']['kind'] ?? null) === 'list';
+        if (!$paragraph instanceof Paragraph && ($priorContinues || $priorLiteralMarker)) {
+            $paragraph = $this->tailListParagraph($list, $priorLiteralMarker);
+        }
+        if (!$paragraph instanceof Paragraph) {
+            return false;
+        }
+        $tailItem = new ListItem();
+        $this->callParseItemBlocks($tailItem, [BlockGrammar::LAZY_FRAME . ltrim($line, " \t")], [$sourceLine]);
+        $tail = $tailItem->getChildren()[0] ?? null;
+        if (!$tail instanceof Paragraph) {
+            return false;
+        }
+        $paragraph->appendChild(new SoftBreak());
+        foreach ($tail->getChildren() as $inline) {
+            $paragraph->appendChild($inline);
+        }
+
+        return true;
+    }
+
+    /**
+     * Whether a line in the item's marker band folds into the paragraph a `+` attachment left open.
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $currentIndent
+     * @param int $baseIndent
+     * @param bool $afterNoteSeparator
+     * @param bool $priorAttachedFollower
+     */
+    private function foldsIntoAttachedParagraph(
+        array $lines,
+        int $i,
+        int $currentIndent,
+        int $baseIndent,
+        bool $afterNoteSeparator,
+        bool $priorAttachedFollower,
+    ): bool {
+        $trimmed = ltrim($lines[$i], " \t");
+
+        return !($afterNoteSeparator && $currentIndent === $baseIndent
+                && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $trimmed) === 1)
+            && !$this->acceptedContinuationMarker($i)
+            && (!$this->isFoldableInvisibleLine($trimmed) || $priorAttachedFollower)
+            && !($this->isBlockAttributeLineCallback)($trimmed)
+            && (!ReferenceDefinitionExtractor::isDefinitionHead($trimmed) || $priorAttachedFollower)
+            && ($this->getListParser)()->parseListItemMarker($trimmed) === null
+            && ($currentIndent > $baseIndent
+                || str_starts_with($trimmed, ': ')
+                || (!$this->isBlockElementStart($trimmed, $lines, $i)
+                    && !$this->startsNewBlock($trimmed, $lines, $i)));
+    }
+
+    /**
+     * A non-blank line below the item column right after a marker line that opened a fence.
+     *
+     * @param string $line
+     * @param string $priorSource
+     * @param int $column
+     */
+    private static function belowMarkerLineFence(string $line, string $priorSource, int $column): bool
+    {
+        return !IndentationHelper::isBlankLine($line)
+            && preg_match('/^(?:> ?)*[ \t]*(?:[-*] |\d+[.)] )(`{3,}|~{3,})/', $priorSource) === 1
+            && IndentationHelper::getLeadingColumns($line, $column) < $column;
+    }
+
+    /**
+     * Parse a comment run that sits between the last item and its sibling into that item.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\ListBlock $list
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     * @param int $baseIndent
+     * @param array<string, mixed> $listInfo
+     * @param bool $firstItem
+     *
+     * @return int|null The index after the run, or null when no run was carried.
+     */
+    private function carryCommentRunToLastItem(ListBlock $list, array $lines, int $i, int $count, int $baseIndent, array $listInfo, bool $firstItem): ?int
+    {
+        $end = $firstItem ? null : $this->commentRunBeforeSibling($lines, $i, $count, $baseIndent, $listInfo);
+        $lastItem = $end === null ? null : ($this->getListParser)()->getLastListItem($list);
+        if ($end === null || $lastItem === null) {
+            return null;
+        }
+        $run = [];
+        $map = [];
+        for ($j = $i; $j < $end; $j++) {
+            $run[] = preg_match('/^[ \t]*%%/', $lines[$j]) === 1 ? ltrim($lines[$j], " \t") : $lines[$j];
+            $map[] = $this->sourceLineFor($j);
+        }
+        $this->callParseItemBlocks($lastItem, $run, $map);
+
+        return $end;
+    }
+
+    /**
+     * A comment below the item column closed the last item; only a list marker can continue the list.
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param bool $firstItem
+     * @param int $contentIndent
+     */
+    private function commentClosedItemBeforeNonMarker(array $lines, int $i, bool $firstItem, int $contentIndent): bool
+    {
+        return !$firstItem && $this->lowCommentClosedItem($lines, $i, $contentIndent)
+            && ($this->getListParser)()->parseListItemMarker(ltrim($lines[$i], " \t")) === null;
+    }
+
+    /**
+     * Whether line `$i` is a line comment below `$column`.
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param string $line
+     * @param int $column
+     * @param array{0: int|null, 1: mixed} $opaque The open comment span length and code fence, both null outside.
+     */
+    private function isLowLineComment(array $lines, int $i, string $line, int $column, array $opaque): bool
+    {
+        return $opaque === [null, null] && str_contains($line, '%%')
+            && ($this->commentRoles($lines)[$i] ?? null) === 'line'
+            && IndentationHelper::getLeadingColumns($line, $column) < $column;
+    }
+
+    /**
      * Whether the last non-blank line before `$i` is a line comment below the item column, which closed the item.
      *
      * @param array<string> $lines
      * @param int $i
-     * @param int $contentIndent
+     * @param int|null $contentIndent Null before the first item.
      */
-    private function lowCommentClosedItem(array $lines, int $i, int $contentIndent): bool
+    private function lowCommentClosedItem(array $lines, int $i, ?int $contentIndent): bool
     {
+        if ($contentIndent === null) {
+            return false;
+        }
         for ($j = $i - 1; $j >= 0 && IndentationHelper::isBlankLine($lines[$j]); $j--) {
         }
 
