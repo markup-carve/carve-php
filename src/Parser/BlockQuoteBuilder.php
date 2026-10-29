@@ -813,6 +813,13 @@ final class BlockQuoteBuilder
             $nextDepth++;
         }
         $owner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $this->sourceLineFor($start));
+        // A stacked opener's follower carries only its host prefixes (CARVE-P9-067).
+        if (
+            self::isStackedFirstBlockQuoteMarker($opening) && $nextDepth === $openingDepth
+            && ($this->getListParser)()->parseListItemMarker(ltrim($nextBody, " \t")) === null
+        ) {
+            return self::stackedFollowerEligible($opening, $next);
+        }
         // An indented line in an ancestor quote is lazy text, not a block
         // attached to a deeper quote's first-block marker.
         if (
@@ -837,6 +844,10 @@ final class BlockQuoteBuilder
         }
 
         if ($column === 0 || $column === IndentationHelper::getLeadingColumns($opening)) {
+            return true;
+        }
+        // The owning quote's own marker column takes it too.
+        if ($nextDepth === 0 && $column === ContinuationMarkerClassifier::columnAt($opening, (int)strrpos(rtrim($opening), '>'))) {
             return true;
         }
 
