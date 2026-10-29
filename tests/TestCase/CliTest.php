@@ -1134,6 +1134,16 @@ class CliTest extends TestCase
         }
     }
 
+    public function testMigrateWritesAGithubAlertAsAnAdmonitionWithAPassingReport(): void
+    {
+        $result = $this->runCliInput(['migrate', '--from', 'markdown', '--report', '-', '--check-loss'], "> [!WARNING]\n> Back up first.\n");
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame("::: warning\nBack up first.\n:::\n", $result['out']);
+        $report = json_decode($result['err'], true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame(['markdown-github-alert', 'normalized'], [$report['diagnostics'][0]['code'], $report['diagnostics'][0]['fidelity']]);
+    }
+
     public function testMigrateLossCheckAcceptsUnambiguousPipesAndLiteralBracket(): void
     {
         foreach (['a | b', '[c](/a|b)', 'a [b <https://e.com/]> c', "| h |\n| --- |\n| [a](/x\\|y) z |"] as $source) {

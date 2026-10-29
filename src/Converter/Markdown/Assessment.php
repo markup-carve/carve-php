@@ -404,6 +404,14 @@ final class Assessment
                 ) {
                     $body[] = preg_replace('/^ {0,3}> ?/', '', $lines[$i++]) ?? '';
                 }
+                $alert = $depth === 0 && !str_ends_with($body[0], '  ') && preg_match(GithubAlerts::LABEL, rtrim($body[0]), $label) === 1;
+                $kind = $alert && array_filter(array_slice($body, 1), static fn (string $text): bool => trim($text) !== '') !== [] ? GithubAlerts::KINDS[$label[1]] : null;
+                if ($kind !== null) {
+                    $this->emit('github-alert', $n, 'normalized');
+                    $html .= '<aside class="admonition ' . $kind . '" aria-label="' . ucfirst($kind) . "\">\n" . $this->blocks(array_slice($body, 1), $first + $start + 1, $depth + 1) . "</aside>\n";
+
+                    continue;
+                }
                 $this->emit('block-quote', $n);
                 $html .= "<blockquote>\n" . $this->blocks($body, $first + $start, $depth + 1) . "</blockquote>\n";
 
@@ -519,7 +527,7 @@ final class Assessment
                 $attributes[] = [$attribute->name, $attribute->value];
             }
             sort($attributes);
-            if (preg_match('/^(root|ul|ol|li|blockquote|table|thead|tbody|tr)$/', $tag)) {
+            if (preg_match('/^(root|ul|ol|li|blockquote|aside|table|thead|tbody|tr)$/', $tag)) {
                 $children = array_values(array_filter($children, static fn (mixed $child): bool => !$layout($child)));
             }
 
