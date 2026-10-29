@@ -1280,6 +1280,18 @@ final class ListBlockBuilder
             ) as $admission
         ) {
             $subLine = $admission['line'];
+            // A footnote body takes a lazy line in every host (carve#3885).
+            if (
+                isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
+                && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent
+                && BlockGrammar::lastRunHoldsFootnote($subLines)
+            ) {
+                $subLines[] = BlockGrammar::LAZY_FRAME . ltrim(BlockGrammar::stripLazyFrame($subLine), " \t");
+                $subLineMap[] = $this->sourceLineFor($i);
+                $i++;
+
+                continue;
+            }
             // A comment below the item column is no paragraph text: it closes the item (rule A).
             $sourceLine = $this->sourceLineFor($i);
             if ($sourceLine >= 0) {

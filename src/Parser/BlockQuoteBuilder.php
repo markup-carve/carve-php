@@ -507,7 +507,7 @@ final class BlockQuoteBuilder
                 $i++;
             } elseif (
                 isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
-                && $this->quotedFootnoteTakesLazyLine($innerLines)
+                && BlockGrammar::lastRunHoldsFootnote($innerLines)
             ) {
                 // A footnote body takes a lazy line in every host (carve#3885).
                 $innerLines[] = BlockGrammar::LAZY_FRAME . ltrim($currentLine, " \t");
@@ -600,26 +600,6 @@ final class BlockQuoteBuilder
         $parent->appendChild($blockQuote);
 
         return $i - $start;
-    }
-
-    /**
-     * Whether the quote's last block run holds a footnote definition.
-     *
-     * @param array<string> $lines
-     */
-    private function quotedFootnoteTakesLazyLine(array $lines): bool
-    {
-        for ($k = count($lines) - 1; $k >= 0; $k--) {
-            $line = ltrim(ContainerPrefix::stripQuoteMarkers(BlockGrammar::stripLazyFrame($lines[$k])), " \t");
-            if ($line === '') {
-                return false;
-            }
-            if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) === 1) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

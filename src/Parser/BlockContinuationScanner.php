@@ -1453,13 +1453,7 @@ final class BlockContinuationScanner
         ) {
             return false;
         }
-        foreach ($itemLines as $itemLine) {
-            if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim(BlockGrammar::stripLazyFrame($itemLine), " \t")) === 1) {
-                return true;
-            }
-        }
-
-        return false;
+        return BlockGrammar::lastRunHoldsFootnote($itemLines);
     }
 
     /**
