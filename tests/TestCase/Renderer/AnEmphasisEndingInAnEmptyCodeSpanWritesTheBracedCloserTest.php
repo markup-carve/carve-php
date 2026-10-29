@@ -37,15 +37,15 @@ class AnEmphasisEndingInAnEmptyCodeSpanWritesTheBracedCloserTest extends TestCas
     public static function bracedProvider(): array
     {
         return [
-            'the ruled case' => ["{~` ~}\n", "{~``~}\n"],
-            'text on both sides' => ["a {~` ~} b\n", "a {~``~} b\n"],
-            'a strong span' => ["{*`  *}\n", "{*``*}\n"],
-            'no space at all' => ["{~`~}\n", "{~``~}\n"],
-            'an emphasis span' => ["{/` /}\n", "{/``/}\n"],
-            'an underline span' => ["{_` _}\n", "{_``_}\n"],
-            'a highlight span' => ["{=` =}\n", "{=``=}\n"],
-            'an attribute block after it' => ["{~` ~}{.x}\n", "{~``~}{.x}\n"],
-            'nested in another emphasis' => ["{*x {~` ~}*}\n", "*x {~``~}*\n"],
+            'the ruled case' => ["{~` ~}\n", "{~` ~}`\n"],
+            'text on both sides' => ["a {~` ~} b\n", "a {~` ~} b`\n"],
+            'a strong span' => ["{*`  *}\n", "{*`  *}`\n"],
+            'no space at all' => ["{~`~}\n", "{~`~}`\n"],
+            'an emphasis span' => ["{/` /}\n", "{/` /}`\n"],
+            'an underline span' => ["{_` _}\n", "{_` _}`\n"],
+            'a highlight span' => ["{=` =}\n", "{=` =}`\n"],
+            'an attribute block after it' => ["{~` ~}{.x}\n", "{~` ~}{.x}`\n"],
+            'nested in another emphasis' => ["{*x {~` ~}*}\n", "{*x {~` ~}*}`\n"],
         ];
     }
 

@@ -4448,16 +4448,15 @@ class HtmlToCarve
     ];
 
     /**
-     * The inline kinds Carve spells with a forced `X}` closer, which is one of
-     * the two places an unclosed backtick run ends (PART 3, UNCLOSED RUN).
+     * The inline kinds Carve spells with a forced `X}` closer, which an open
+     * run reads as content (PART 3, UNCLOSED RUN, carve#3973 X5).
      *
      * @var array<int, string>
      */
     protected const EMPTY_CODE_CLOSING_TAGS = ['del', 'ins', 'sub', 'sup'];
 
     /**
-     * The five bare kinds, whose closer {@see boundaryDelimiters()} braces when
-     * it has to end a run.
+     * The five bare kinds, whose closer an open run reads as content too.
      *
      * @var array<int, string>
      */
@@ -4480,8 +4479,8 @@ class HtmlToCarve
      * Does this `<code>` leave the document rather than be written wrong?
      *
      * An empty verbatim span is a backtick run nothing closes, so it survives
-     * only where the run ITSELF ends: at the end of a block, or at the `X}`
-     * closing a forced span (PART 3, UNCLOSED RUN). Anywhere else the run reads
+     * only where the run ITSELF ends: at the end of a block (PART 3, UNCLOSED
+     * RUN, carve#3973 X5). Anywhere else the run reads
      * what follows as its content, and PART 11 §1c makes that a declared
      * ceiling - `structure-unspellable` - rather than a spelling.
      */
@@ -4518,8 +4517,11 @@ class HtmlToCarve
                 return true;
             }
             $tag = strtolower(DomLoader::elementName($parent));
+            // An enclosing span's closer does not end the run (carve#3973 X5).
             if (
                 in_array($tag, static::EMPTY_CODE_OPEN_RUN_TAGS, true)
+                || in_array($tag, static::EMPTY_CODE_CLOSING_TAGS, true)
+                || in_array($tag, static::EMPTY_CODE_BRACEABLE_TAGS, true)
                 || ($tag === 'span' && $parent->attributes->length > 0)
             ) {
                 return false;
@@ -4527,8 +4529,6 @@ class HtmlToCarve
             if (
                 in_array($tag, $this->blockElements, true)
                 || in_array($tag, static::BOUNDARY_BLOCK_TAGS, true)
-                || in_array($tag, static::EMPTY_CODE_CLOSING_TAGS, true)
-                || in_array($tag, static::EMPTY_CODE_BRACEABLE_TAGS, true)
             ) {
                 return true;
             }

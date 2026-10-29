@@ -53,7 +53,7 @@ class ASubstitutionCarriesItsHalvesAsInlineContentTest extends TestCase
             ],
             'a code span holding the arrow is a strike' => [
                 '{~`a~>b~}',
-                '[{"type":"strike","children":[{"type":"code","value":"a~>b"}]}]',
+                '[{"type":"text","value":"{~"},{"type":"code","value":"a~>b~}"}]',
             ],
         ];
     }

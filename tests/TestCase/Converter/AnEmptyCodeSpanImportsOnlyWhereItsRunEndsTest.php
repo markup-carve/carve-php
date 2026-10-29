@@ -11,8 +11,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * An EMPTY verbatim span is a backtick run nothing closes, so it survives only
- * where the run itself ends: at the end of a block, or at the `X}` closing a
- * forced span (PART 3, UNCLOSED RUN). Anywhere else the run reads what follows
+ * where the run itself ends: at the end of a block (PART 3, UNCLOSED RUN,
+ * markup-carve/carve#3973 X5). Anywhere else the run reads what follows
  * as its content, which PART 11 §1c makes a declared ceiling rather than a
  * spelling (markup-carve/carve-php#2044).
  */
@@ -41,30 +41,9 @@ class AnEmptyCodeSpanImportsOnlyWhereItsRunEndsTest extends TestCase
     public static function spelledProvider(): array
     {
         return [
-            'a strike closes it' => ['<p><s><code></code></s></p>', "{~``~}\n"],
-            'an emphasis closes it' => ['<p><em><code></code></em></p>', "{/``/}\n"],
-            'a strong span closes it' => ['<p><strong><code></code></strong></p>', "{*``*}\n"],
-            'a highlight closes it' => ['<p><mark><code></code></mark></p>', "{=``=}\n"],
-            'an underline closes it' => ['<p><u><code></code></u></p>', "{_``_}\n"],
-            'a superscript is braced already' => ['<p><sup><code></code></sup></p>', "{^``^}\n"],
-            'an insertion is braced already' => ['<p><ins><code></code></ins></p>', "{+``+}\n"],
-            'the inner emphasis takes the braces' => ['<p><s><em><code></code></em></s></p>', "~{/``/}~\n"],
-            'text before it does not follow it' => ['<p><s>x<code></code></s></p>', "{~x``~}\n"],
             'a paragraph ends it' => ['<p>x<code></code></p>', "x``\n"],
-            'the whitespace behind it is trimmed away' => [
-                "<p><s>x<code></code>\n  </s></p>",
-                "{~x``~}\n",
-            ],
             'a heading ends it' => ['<h1><code></code></h1>', "# ``\n"],
             'a list item ends it' => ['<ul><li><code></code></li></ul>', "- ``\n"],
-            'an emphasis that is not last still closes it' => [
-                '<p><s><code></code></s>y</p>',
-                "{~``~}y\n",
-            ],
-            'a forced span that is not last still closes it' => [
-                '<p><sup><code></code></sup>y</p>',
-                "{^``^}y\n",
-            ],
         ];
     }
 
@@ -104,6 +83,21 @@ class AnEmptyCodeSpanImportsOnlyWhereItsRunEndsTest extends TestCase
     public static function droppedProvider(): array
     {
         return [
+            'a strike does not close it' => ['<p><s><code></code></s></p>', "\n"],
+            'an emphasis does not close it' => ['<p><em><code></code></em></p>', "\n"],
+            'a strong span does not close it' => ['<p><strong><code></code></strong></p>', "\n"],
+            'a highlight does not close it' => ['<p><mark><code></code></mark></p>', "\n"],
+            'an underline does not close it' => ['<p><u><code></code></u></p>', "\n"],
+            'a superscript does not close it' => ['<p><sup><code></code></sup></p>', "\n"],
+            'an insertion does not close it' => ['<p><ins><code></code></ins></p>', "\n"],
+            'nested emphases do not close it' => ['<p><s><em><code></code></em></s></p>', "\n"],
+            'text before it in a strike' => ['<p><s>x<code></code></s></p>', "~x~\n"],
+            'whitespace behind it in a strike' => [
+                "<p><s>x<code></code>\n  </s></p>",
+                "~x~\n",
+            ],
+            'a strike that is not last' => ['<p><s><code></code></s>y</p>', "y\n"],
+            'a forced span that is not last' => ['<p><sup><code></code></sup>y</p>', "y\n"],
             'text follows it inside a strike' => ['<p><s><code></code>y</s></p>', "~y~\n"],
             'text follows it in the paragraph' => ['<p>x<code></code>y</p>', "xy\n"],
             'an element follows it' => ['<p><s><code></code><b>y</b></s></p>', "~*y*~\n"],
@@ -177,13 +171,13 @@ class AnEmptyCodeSpanImportsOnlyWhereItsRunEndsTest extends TestCase
      */
     public function testOnlyTheLastOfTwoEmptySpansIsWritten(): void
     {
-        $html = '<p><s><code></code><code></code></s></p>';
+        $html = '<p>x<code></code><code></code></p>';
         $codes = [];
         foreach ((new HtmlToCarve())->convertWithReport($html)->diagnostics as $diagnostic) {
             $codes[] = $diagnostic->code;
         }
 
-        $this->assertSame("{~``~}\n", $this->import($html));
+        $this->assertSame("x``\n", $this->import($html));
         $this->assertSame(['structure-unspellable'], $codes);
     }
 
@@ -193,13 +187,13 @@ class AnEmptyCodeSpanImportsOnlyWhereItsRunEndsTest extends TestCase
      */
     public function testAnAttributeOnAnEmptySpanIsTheOnlyThingDropped(): void
     {
-        $this->assertSame("{~``~}\n", $this->import('<p><s><code class="c"></code></s></p>'));
+        $this->assertSame("x``\n", $this->import('<p>x<code class="c"></code></p>'));
     }
 
     public function testThatDroppedAttributeIsReported(): void
     {
         $codes = [];
-        foreach ((new HtmlToCarve())->convertWithReport('<p><s><code class="c"></code></s></p>')->diagnostics as $diagnostic) {
+        foreach ((new HtmlToCarve())->convertWithReport('<p>x<code class="c"></code></p>')->diagnostics as $diagnostic) {
             $codes[] = $diagnostic->code;
         }
 

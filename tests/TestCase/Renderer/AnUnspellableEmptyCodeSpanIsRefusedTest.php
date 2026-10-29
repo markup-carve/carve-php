@@ -16,7 +16,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * An empty code span is an open backtick run, which ends only at the end of a
- * block or at a braced closer. Anywhere else the writer's output reads back as
+ * block (markup-carve/carve#3973 X5). Anywhere else the writer's output reads back as
  * a different tree, so the writer refuses it (markup-carve/carve-php#2044).
  *
  * The trees are built by parsing a `Q` placeholder span and emptying it, since
@@ -39,6 +39,12 @@ class AnUnspellableEmptyCodeSpanIsRefusedTest extends TestCase
             'a braced closer inside a link label' => ["[{~x `Q`~}](u)\n"],
             'the end of a middle table cell' => ["| a | x `Q` | c |\n"],
             'a braced closer inside a middle table cell' => ["| a | {~x `Q`~} | c |\n"],
+            'the end of a strike' => ["~x `Q`~\n"],
+            'a strike with text after it' => ["{~x `Q`~}y\n"],
+            'the end of a superscript' => ["{^x `Q`^}\n"],
+            'the end of an insertion' => ["{+x `Q`+}\n"],
+            'a braced strike inside a strong' => ["*~x `Q`~ y*\n"],
+            'a braced strike with text after it in the last table cell' => ["| a | {~x `Q`~}y |\n"],
         ];
     }
 
@@ -56,13 +62,7 @@ class AnUnspellableEmptyCodeSpanIsRefusedTest extends TestCase
     {
         return [
             'the end of a paragraph' => ["x `Q`\n"],
-            'the end of a strike' => ["~x `Q`~\n"],
-            'a strike with text after it' => ["{~x `Q`~}y\n"],
-            'the end of a superscript' => ["{^x `Q`^}\n"],
-            'the end of an insertion' => ["{+x `Q`+}\n"],
-            'a braced strike inside a strong' => ["*~x `Q`~ y*\n"],
             'the end of the last table cell' => ["| a | x `Q` |\n"],
-            'a braced strike with text after it in the last table cell' => ["| a | {~x `Q`~}y |\n"],
             'the end of a heading' => ["# x `Q`\n"],
         ];
     }

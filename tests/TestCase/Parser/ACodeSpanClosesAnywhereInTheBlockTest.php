@@ -60,8 +60,8 @@ class ACodeSpanClosesAnywhereInTheBlockTest extends TestCase
         return [
             // BOUND: a run nothing closes ends at the span's closer, which
             // corpus case 12-inline-code-7 pins.
-            'an unclosed run inside a strike' => ["{~` ~}\n", "<p><s><code></code></s></p>\n"],
-            'an unclosed run inside a strong' => ["{*`a*}\n", "<p><strong><code>a</code></strong></p>\n"],
+            'an unclosed run inside a strike' => ["{~` ~}\n", "<p>{~<code> ~}</code></p>\n"],
+            'an unclosed run inside a strong' => ["{*`a*}\n", "<p>{*<code>a*}</code></p>\n"],
             // BOUND: a closed run wholly inside the span is unchanged.
             'a closed run inside the span' => ["{*a `b` c*}\n", "<p><strong>a <code>b</code> c</strong></p>\n"],
             // BOUND: no verbatim run at all.

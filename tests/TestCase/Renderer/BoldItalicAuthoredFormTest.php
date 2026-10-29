@@ -90,7 +90,7 @@ class BoldItalicAuthoredFormTest extends TestCase
     {
         $cases = [
             'a/*y*/b' => '<p>a/<strong>y</strong>/b</p>',
-            '_/*y*/' => '<p>_/<strong>y</strong>/</p>',
+            '_/*y*/' => '<p>_<strong><em>y</em></strong></p>',
             '//*y*/' => '<p>//<strong>y</strong>/</p>',
             'a /*y*/b' => '<p>a /<strong>y</strong>/b</p>',
             'Run src/*test*/fixtures now' => '<p>Run src/<strong>test</strong>/fixtures now</p>',
