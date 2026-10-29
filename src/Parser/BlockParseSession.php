@@ -155,8 +155,11 @@ final class BlockParseSession
     /**
      * @return array{kind: string, column: int, depth: int, content: int, first: bool}|null
      */
-    public function firstBlockMarkerOwner(BlockSourceState $source, ListParser $lists, int $line): ?array
+    public function firstBlockMarkerOwner(BlockSourceState $source, ListParser $lists, int $line, bool $evenRefused = false): ?array
     {
+        if (!$evenRefused && isset($source->refusedQuotePlus[$line])) {
+            return null;
+        }
         $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->markerLines ?: $source->sourceLines, $lists);
 
         return $this->continuationMarkers->firstBlockOwner($line);
