@@ -60,6 +60,13 @@ final class BlockSourceState
     public array $markerLines = [];
 
     /**
+     * Top-level lines the ownership walk read as closing open containers.
+     *
+     * @var array<int, true>
+     */
+    public array $closingLines = [];
+
+    /**
      * Normalized input used to verify computed spans.
      */
     public string $normalizedSource = '';

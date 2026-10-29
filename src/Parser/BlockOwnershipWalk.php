@@ -79,6 +79,27 @@ final class BlockOwnershipWalk
      */
     private array $textFences = [];
 
+    /**
+     * Lines that missed an open container with no paragraph open to fold
+     * into, so they closed it, keyed by line index.
+     *
+     * @var array<int, true>
+     */
+    public array $closingLines = [];
+
+    /**
+     * Whether the current top-level block read a fence-shaped line as text.
+     * The readers frame such a line anew (CARVE-P2-006), so the walk does not
+     * decide what closes after it.
+     */
+    private bool $textFence = false;
+
+    /**
+     * Whether the line just read was an abbreviation under a paragraph or a
+     * caption with no block before it: the readers fold the next line there.
+     */
+    private bool $softLeaf = false;
+
     private string $src = '';
 
     private string $out = '';
@@ -110,6 +131,9 @@ final class BlockOwnershipWalk
         $this->runs = null;
         $this->ahead = null;
         $this->textFences = [];
+        $this->closingLines = [];
+        $this->textFence = false;
+        $this->softLeaf = false;
         $this->reach = 0;
         $this->lazyLines = [];
         $this->fenceOpenerLines = [];
@@ -132,6 +156,11 @@ final class BlockOwnershipWalk
             }
         }
         for ($at = $start; $at < $count; $at++) {
+            if (count($this->frames) === 1 && !$this->frames[0]->para) {
+                $this->textFence = false;
+            }
+            $afterSoftLeaf = $this->softLeaf;
+            $this->softLeaf = false;
             $this->at = $at;
             $this->src = $lines[$at];
             $this->out = '';
@@ -269,6 +298,12 @@ final class BlockOwnershipWalk
                 }
 
                 continue;
+            }
+            if (
+                $missed && !$plusFollower && $this->m['rest'] !== '' && !$this->textFence && !$afterSoftLeaf
+                && $inner->kind !== 'fence' && !$this->frames[$topIndex]->para
+            ) {
+                $this->closingLines[$at] = true;
             }
             $closedColumn = false;
             $frameCount = count($this->frames);
@@ -469,6 +504,8 @@ final class BlockOwnershipWalk
             // A closer below the owner's column never matches (CARVE-P0-014).
             $reachable = $this->closerAhead($run, $this->at, $owner->col, $col);
             if ($owner->para && !$reachable) {
+                $this->textFence = true;
+
                 return new OwnershipForm(kind: 'text', interrupts: false);
             }
 
@@ -530,9 +567,13 @@ final class BlockOwnershipWalk
             || preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1
             || ($rest[0] === '{' && ($this->isAttributeLine)($rest))
         ) {
+            $this->softLeaf = $owner->para && str_starts_with($rest, '*[') && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1;
+
             return new OwnershipForm(kind: 'leaf', interrupts: true);
         }
         if (preg_match('/^\^ +(?=.*[^ \t\n\r\f])(.*?)[ \t]*$/D', $rest) === 1) {
+            $this->softLeaf = in_array($owner->last, [null, 'para', 'term'], true);
+
             return new OwnershipForm(kind: 'leaf', interrupts: false);
         }
 
