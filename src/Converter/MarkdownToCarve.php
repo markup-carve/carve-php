@@ -1035,6 +1035,7 @@ class MarkdownToCarve
                     continue;
                 }
             }
+            $this->escapeAlertLabelAfterBlankQuoteLine($lines, $i);
             [$i, $prevLineType, $body, $quoteHandled] = $this->convertImportedQuoteBlock(
                 $isBlockquote,
                 $body,
@@ -2257,6 +2258,27 @@ class MarkdownToCarve
         }
 
         return $carve;
+    }
+
+    /**
+     * A label after a blank `>` line is not the quote's first line, so it is
+     * no alert (CARVE-P2-033). The Carve writer drops that blank line, which
+     * would put the label first; the escape keeps it literal.
+     *
+     * @param array<string> $lines
+     * @param int $i
+     */
+    private function escapeAlertLabelAfterBlankQuoteLine(array &$lines, int $i): void
+    {
+        $next = $lines[$i + 1] ?? '';
+        if (
+            preg_match('/^ {0,3}>[ \t]*$/D', $lines[$i]) !== 1
+            || preg_match('/^( {0,3}>[ \t]*)(\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\])[ \t]*$/D', $next, $label) !== 1
+            || isset($this->inlineContext->referenceDefinitionLabels[$this->inlineStage->normalizeReferenceLabel(substr($label[2], 1, -1))])
+        ) {
+            return;
+        }
+        $lines[$i + 1] = $label[1] . '\\' . substr($next, strlen($label[1]));
     }
 
     /**

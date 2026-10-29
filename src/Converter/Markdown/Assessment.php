@@ -130,6 +130,25 @@ final class Assessment
         return $cells;
     }
 
+    /**
+     * Whether `$line` is a lazy continuation of the paragraph that ends `$body`.
+     * Conservative: a line that could open a block, or a body holding a fence,
+     * ends the quote here.
+     *
+     * @param array<string> $body
+     * @param string $line
+     */
+    private static function continuesLazily(array $body, string $line): bool
+    {
+        $blockStart = static fn (string $text): bool => preg_match('/^(?: {0,3}(?:[#>`~<]|[-+*][ \t]|\d+[.)][ \t]|\[[^\]]+\]:|[-*_=]+[ \t]*$|[-*_](?:[ \t]*[-*_]){2,}[ \t]*$)| {4}|\t)/', $text) === 1;
+        $last = $body === [] ? '' : $body[count($body) - 1];
+        if (trim($line) === '' || trim($last) === '' || $blockStart($line) || $blockStart($last)) {
+            return false;
+        }
+
+        return array_filter($body, static fn (string $text): bool => preg_match('/^ {0,3}(?:`{3,}|~{3,})/', $text) === 1) === [];
+    }
+
     private function emit(string $construct, int $line, string $fidelity = 'preserved', ?string $code = null): void
     {
         $message = $construct === 'ordered-task' ? MarkdownToCarve::ORDERED_TASK_ITEM_UNSPELLABLE : 'Assessed Markdown ' . $construct . '.';
@@ -237,7 +256,7 @@ final class Assessment
                 $m = ['['];
                 $result .= '[';
             } else {
-                if (str_contains('*_`[\\<', $text[$i]) || self::match('~^(?:\~\~|www\.)~', $text, $i, $m) || (!$linkLabel && ($i === 0 || !preg_match('/[A-Za-z]/', $text[$i - 1])) && self::match('~^(?i:https?|ftp)://~', $text, $i, $m)) || (($i === 0 || !preg_match('/[\w.+-]/', $text[$i - 1])) && self::match('/^[\w.+-]+@[\w.-]+\.[A-Za-z]/', $text, $i, $m))) {
+                if (str_contains('*_`\\<', $text[$i]) || self::match('~^(?:\~\~|www\.)~', $text, $i, $m) || (!$linkLabel && ($i === 0 || !preg_match('/[A-Za-z]/', $text[$i - 1])) && self::match('~^(?i:https?|ftp)://~', $text, $i, $m)) || (($i === 0 || !preg_match('/[\w.+-]/', $text[$i - 1])) && self::match('/^[\w.+-]+@[\w.-]+\.[A-Za-z]/', $text, $i, $m))) {
                     $this->complete = false;
 
                     return $result . self::escape(substr($text, $i));
@@ -399,12 +418,18 @@ final class Assessment
             if (preg_match('/^ {0,3}>/', $line)) {
                 $body = [];
                 $start = $i;
-                while (
-                    $i < $count && preg_match('/^ {0,3}>/', $lines[$i])
-                ) {
-                    $body[] = preg_replace('/^ {0,3}> ?/', '', $lines[$i++]) ?? '';
+                while ($i < $count) {
+                    if (preg_match('/^ {0,3}>/', $lines[$i])) {
+                        $body[] = preg_replace('/^ {0,3}> ?/', '', $lines[$i++]) ?? '';
+                    } elseif (self::continuesLazily($body, $lines[$i])) {
+                        $body[] = $lines[$i++];
+                    } else {
+                        break;
+                    }
                 }
-                $alert = $depth === 0 && !str_ends_with($body[0], '  ') && preg_match(GithubAlerts::LABEL, rtrim($body[0]), $label) === 1;
+                // The label may follow the marker after up to three spaces.
+                $labelLine = preg_replace('/^ {0,3}(?=\S)/', '', $body[0]) ?? $body[0];
+                $alert = $depth === 0 && !str_ends_with($body[0], '  ') && preg_match(GithubAlerts::LABEL, rtrim($labelLine), $label) === 1;
                 $kind = $alert && array_filter(array_slice($body, 1), static fn (string $text): bool => trim($text) !== '') !== [] ? GithubAlerts::KINDS[$label[1]] : null;
                 if ($kind !== null) {
                     $this->emit('github-alert', $n, 'normalized');

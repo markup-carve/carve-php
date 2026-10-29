@@ -161,12 +161,13 @@ final class TheSixCarveOnlyTaskStatesAreTextOnImportTest extends TestCase
     public function testACarveOnlyStateReportsNothing(): void
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport("- [-] foo\n- [?] bar\n");
-        $codes = array_values(array_filter(
-            array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics),
-            static fn (string $code): bool => $code !== 'fidelity-unverified',
+        $losses = array_values(array_filter(
+            $result->diagnostics,
+            static fn ($diagnostic): bool => $diagnostic->code !== 'fidelity-unverified' && $diagnostic->fidelity !== 'preserved',
         ));
 
-        $this->assertSame([], $codes);
+        $this->assertSame([], $losses);
+        $this->assertSame(['markdown-bullet-list', 'markdown-list-item', 'markdown-list-item'], array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics));
     }
 
     /**

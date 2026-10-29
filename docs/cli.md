@@ -109,9 +109,9 @@ bytes at the cost of a different block structure
 end is not reported, because Carve keeps it.
 
 A GitHub alert becomes an admonition (CARVE-P2-033). A top-level block quote
-whose first line is one of GitHub's five alert labels, alone on that line,
-imports as the matching admonition with the rest of the quote as its body and
-no title:
+whose first line, after the `>` marker and any spaces, is one of GitHub's five
+alert labels, alone on that line, imports as the matching admonition with the
+rest of the quote as its body, lazy continuation lines included, and no title:
 
 | Markdown label | Carve admonition |
 | -------------- | ---------------- |
@@ -136,8 +136,9 @@ Back up first.
 
 Everything GitHub's alert syntax does not define stays an ordinary quote: a
 label in another case (`[!note]`), an unknown label, text after the label on
-its line, a label line ending in a hard break, an escaped `\[!NOTE]`, an alert
-with no body, and an alert-shaped quote inside a list item or another quote.
+its line, a label after a blank `>` line, a label line ending in a hard break,
+an escaped `\[!NOTE]`, an alert with no body, and an alert-shaped quote inside
+a list item or another quote.
 `carve lint` then reports the literal marker as `github-alert-marker`. The
 migration report records each conversion as `markdown-github-alert`,
 info/normalized/exact, at the quote's first line.
