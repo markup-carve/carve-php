@@ -78,6 +78,31 @@ class IncludeConformanceTest extends TestCase
         'i01-inverted-line-range' => [
             'html' => '<p>{{ child @lines:3-1 }}</p>',
         ],
+        // A refused code include line is literal under PART 10 I2 (markup-carve/carve#4008).
+        'i01-repeated-option-bare-code-and-language' => [
+            'html' => '<p>{{ a.js @code @code:js }}</p>',
+        ],
+        'i01-repeated-option-code-language' => [
+            'html' => '<p>{{ a.js @code:js @code:py }}</p>',
+        ],
+        'i01-repeated-option-lines' => [
+            'html' => '<p>{{ a.js @lines:1-1 @lines:3-3 @code }}</p>',
+        ],
+        'i01-repeated-option-shift' => [
+            'html' => '<p>{{ a.js @shift:1 @shift:2 @code }}</p>',
+        ],
+        'i01c-code-language-must-be-a-language-token' => [
+            'html' => '<p>{{ a.js @code:=html }}</p>',
+        ],
+        'i01c-code-marker-block-closer-on-the-same-line' => [
+            'html' => '<p>{{ a.css @region:demo @code:css }}</p>',
+        ],
+        'i01c-code-marker-keyword-is-case-sensitive' => [
+            'html' => '<p>{{ a.js @region:demo @code:js }}</p>',
+        ],
+        'i01c-code-section-conflict' => [
+            'html' => '<p>{{ child #intro @code:js }}</p>',
+        ],
     ];
 
     /**

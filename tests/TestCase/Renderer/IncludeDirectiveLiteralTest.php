@@ -57,15 +57,11 @@ class IncludeDirectiveLiteralTest extends TestCase
         $this->assertSame('<p>Before {{ data/p2.csv @code:csv @lines:01-2 }} after.</p>', $html);
     }
 
-    public function testOtherInvalidOptionsKeepOrdinaryInlineParsing(): void
+    public function testOtherInvalidOptionsKeepTheCodeIncludeLineLiteral(): void
     {
         $html = CarveConverter::create()->convert('{{ a.js @code:js @code:py }}');
 
-        $this->assertSame(
-            '<p>{{ a.js <span class="mention"><strong>@code</strong></span>:js '
-            . '<span class="mention"><strong>@code</strong></span>:py }}</p>',
-            $html,
-        );
+        $this->assertSame('<p>{{ a.js @code:js @code:py }}</p>', $html);
     }
 
     public function testInvalidCodeIncludeUsesOrdinaryContainerParagraphs(): void

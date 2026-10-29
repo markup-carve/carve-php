@@ -7,7 +7,6 @@ namespace MarkupCarve\Carve\Parser;
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\Comment;
-use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\CellWrap;
@@ -64,6 +63,8 @@ class InlineParser
     protected ?SmartPunctuation $singleQuoteOpener = null;
 
     protected bool $singleQuoteSpanOpen = false;
+
+    public bool $literalIncludeLine = false;
 
     protected bool $singleQuoteDemote = false;
 
@@ -1134,25 +1135,14 @@ class InlineParser
                 continue;
             }
 
-            if (
-                $char === '{' && $nextChar === '{'
-                && preg_match(IncludeDirectiveSyntax::SCAN, $text, $directive, PREG_OFFSET_CAPTURE, $pos) === 1
-                && $directive[0][1] === $pos
-                && self::shouldKeepIncludeLiteral($directive[0][0], $text)
-            ) {
+            $end = $char === '{' && $nextChar === '{' ? $this->literalDirectiveEnd($text, $pos) : null;
+            if ($end !== null) {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $source = $directive[0][0];
-                $end = $pos + strlen($source);
+                $source = substr($text, $pos, $end - $pos);
                 $literal = new Text($source);
                 $this->placeAt($literal, $pos, $end);
                 $parent->appendChild($literal);
-                if ($parent instanceof Paragraph && trim($text) === $source) {
-                    $include = IncludeDirectiveSyntax::parse($source);
-                    if ($include !== null && !$include['invalidLines']) {
-                        $parent->setRenderHint('includeLiteral', '1');
-                    }
-                }
                 $pos = $end;
 
                 continue;
@@ -1534,17 +1524,18 @@ class InlineParser
         $this->footnoteRecognitionEnabled = $previousFootnoteRecognition;
     }
 
-    private static function shouldKeepIncludeLiteral(string $source, string $host): bool
+    /**
+     * The end of a directive at `$pos` that stays literal text, or null.
+     */
+    private function literalDirectiveEnd(string $text, int $pos): ?int
     {
-        $include = IncludeDirectiveSyntax::parse($source);
+        $shape = IncludeDirectiveSyntax::shape($text, $pos);
+        if ($shape === null) {
+            return null;
+        }
+        $wholeLine = $this->literalIncludeLine && $pos === 0 && $shape['end'] === strlen(rtrim($text, " \t"));
 
-        return $include !== null
-            && ($include['invalidLines']
-                || ($include['code'] !== null
-                    && $include['error'] === null
-                    && $include['lines'] !== null
-                    && trim($host) === $source
-                    && preg_match('/^\{\{ +"/', $source) !== 1));
+        return $wholeLine || IncludeDirectiveSyntax::isLiteralInline($shape) ? $shape['end'] : null;
     }
 
     protected function parseEscapedOrLineBreak(
