@@ -24,7 +24,7 @@ final class BracedPairIndex
     private array $attributeTails = [];
 
     /**
-     * @var array<int, array{close: int, end: int, guard: int|null, guardClose: int, guardEnd: int}>
+     * @var array<int, array{close: int, end: int, guard: int|null, guardClose: int, guardEnd: int, guardFrom: int}>
      */
     private array $bareAttributes = [];
 
@@ -82,6 +82,7 @@ final class BracedPairIndex
             }
         }
         $openMarks = [];
+        $guardClosers = [];
         for ($at = 0; $at < $length; $at++) {
             if ($text[$at] === '\\') {
                 $at++;
@@ -131,12 +132,17 @@ final class BracedPairIndex
             $canOpenBare = isset($bareTables[$char]) && $next !== '' && !StringUtil::isWhitespaceChar($next)
                 && $next !== $char && $before !== $char && ($char !== '=' || $next !== '>');
             $bareClose = $canOpenBare ? ($bareTables[$char][$at + 1] ?? -1) : -1;
+            // A guard's first closer can sit inside the block its host takes.
+            if ($canOpenBare && isset($guardClosers[$at])) {
+                $bareClose = $guardClosers[$at];
+            }
             $bareTail = null;
             if (is_int($bareClose) && $bareClose !== -1) {
                 $bareTail = $attributeTails[$bareClose + 1] ?? null;
                 $guard = null;
                 $guardClose = -1;
                 $guardEnd = -1;
+                $guardFrom = $at;
                 if ($bareTail !== null && !$this->bareBeforeAllows($char, $before)) {
                     // A `_` or `/` that opens a span that closes is not the
                     // character before (the note under CARVE-P3-013).
@@ -145,11 +151,23 @@ final class BracedPairIndex
                     if ($guardCloses === null) {
                         $bareTail = null;
                     } else {
-                        [$guardClose, $guardEnd] = $guardCloses;
+                        [$guardClose, $guardEnd, $guardFrom, $outerClose] = $guardCloses;
+                        $guardClosers[$guard] = $guardClose;
+                        if ($guardFrom < $guard) {
+                            $guardClosers[$guardFrom] = $outerClose;
+                        }
                     }
                 }
                 if ($bareTail !== null) {
-                    $this->bareAttributes[$at] = ['close' => $bareClose, 'end' => $bareTail, 'guard' => $guard, 'guardClose' => $guardClose, 'guardEnd' => $guardEnd];
+                    $this->bareAttributes[$at] = ['close' => $bareClose, 'end' => $bareTail, 'guard' => $guard, 'guardClose' => $guardClose, 'guardEnd' => $guardEnd, 'guardFrom' => $guardFrom];
+                    // The block this pair takes hides another kind's closer from a walk that starts before it.
+                    // A guarded pair forms only in a scope its guard closes in, so it hides nothing here.
+                    foreach ($guard === null ? $bareTables : [] as $marker => $table) {
+                        $stop = $table[$at];
+                        if ($marker !== $char && is_int($stop) && $stop > $bareClose && $stop < $bareTail) {
+                            $table[$at] = $table[$bareTail] ?? -1;
+                        }
+                    }
                 }
             }
             foreach ($tables as $marker => $table) {
@@ -182,7 +200,15 @@ final class BracedPairIndex
                 } else {
                     $stop = $table[$at + 1] ?? -1;
                     if ($bareTail !== null && $char !== $marker && ($stop === -1 || $stop >= $bareClose)) {
-                        $stop = $table[$bareTail] ?? -1;
+                        $after = $table[$bareTail] ?? -1;
+                        // A guard of this span's kind is literal (E3), and one that closes past this span's
+                        // closer does not open in it (E2a); either way the block is text and can hold the closer.
+                        if (
+                            $guard === null
+                            || (!str_contains(substr($text, $guardFrom, $at - $guardFrom), $marker) && is_int($after) && ($after === -1 || $guardEnd < $after))
+                        ) {
+                            $stop = $after;
+                        }
                     }
                 }
                 $table[$at] = $stop;
@@ -210,7 +236,7 @@ final class BracedPairIndex
      * @param array<int, true> $openMarks
      * @param int $depth
      *
-     * @return array{int, int}|null
+     * @return array{int, int, int, int}|null
      */
     private function guardCloses(string $text, int $at, array $host, array $bareTables, array $openMarks, int $depth): ?array
     {
@@ -228,11 +254,11 @@ final class BracedPairIndex
             return null;
         }
         if ($this->bareBeforeAllows($char, $before)) {
-            return [$close, $close];
+            return [$close, $close, $at, $close];
         }
         $outer = $depth < 2 ? $this->guardCloses($text, $at - 1, $host, $bareTables, $openMarks, $depth + 1) : null;
 
-        return $outer === null ? null : [$close, max($close, $outer[1])];
+        return $outer === null ? null : [$close, max($close, $outer[1]), $outer[2], $outer[0]];
     }
 
     private function isEscaped(string $text, int $at): bool
@@ -260,7 +286,7 @@ final class BracedPairIndex
     }
 
     /**
-     * @return array{close: int, end: int, guard: int|null, guardClose: int}|null
+     * @return array{close: int, end: int, guard: int|null, guardClose: int, guardFrom: int}|null
      */
     public function bareAttributes(int $open): ?array
     {
@@ -276,6 +302,7 @@ final class BracedPairIndex
             'end' => $pair['end'] - $this->offset,
             'guard' => $guard,
             'guardClose' => $pair['guardClose'] - $this->offset,
+            'guardFrom' => $pair['guardFrom'] - $this->offset,
         ];
     }
 
