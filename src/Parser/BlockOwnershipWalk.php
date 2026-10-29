@@ -220,6 +220,7 @@ final class BlockOwnershipWalk
                 $this->lead($owner->para || !$closedColumn || $plusFollower
                     ? max($this->m['col'] - ($term ? $owner->termCut : $owner->cut), $owner->canon)
                     : $owner->canon, $term);
+                $this->frames[$o]->absorbs = ($owner->para && $owner->absorbs) || $this->absorbsColon($this->m['rest']);
                 $this->frames[$o]->para = true;
                 if (!$term) {
                     $this->frames[$o]->last = 'para';
@@ -288,6 +289,7 @@ final class BlockOwnershipWalk
         $form = $this->classify($this->m['rest'], $this->frames[$frame]);
         if ($form->kind === 'text') {
             $this->lead($this->m['col']);
+            $this->frames[$frame]->absorbs = $this->absorbsColon($this->m['rest']);
             $this->frames[$frame]->para = true;
             $this->frames[$frame]->last = 'para';
 
@@ -322,6 +324,13 @@ final class BlockOwnershipWalk
         $this->src = (string)substr($this->src, $count);
     }
 
+    private function absorbsColon(string $rest): bool
+    {
+        $rest = rtrim($rest, " \t");
+
+        return preg_match('/^:{3,}/', $rest) === 1 && $this->fenced->parseDivFenceOpener($rest) === null;
+    }
+
     private function classify(string $rest, OwnershipFrame $owner): OwnershipForm
     {
         if ($rest === '') {
@@ -341,7 +350,10 @@ final class BlockOwnershipWalk
             $opener = $this->fenced->parseDivFenceOpener($rest);
             if ($opener !== null) {
                 $run = strlen($colon[1]);
-                $interrupts = preg_match('/^(:{3,})[ \t]*$/D', $rest) !== 1;
+                // A bare `:::` interrupts unless the paragraph's own lines absorbed an
+                // invalid opener (§10 I4, CARVE-P9-016, CARVE-P9-017).
+                $interrupts = preg_match('/^(:{3,})[ \t]*$/D', $rest) !== 1
+                    || !($owner === $this->frames[count($this->frames) - 1] && $owner->para && $owner->absorbs);
                 if ($owner->para && !$interrupts) {
                     return new OwnershipForm(kind: 'text', interrupts: false);
                 }

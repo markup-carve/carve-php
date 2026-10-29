@@ -45,6 +45,7 @@ final class OwnershipFrame
         public ?int $run = null,
         public bool $lineBlock = false,
         public ?string $span = null,
+        public bool $absorbs = false,
     ) {
     }
 }
