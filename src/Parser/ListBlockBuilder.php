@@ -1321,9 +1321,9 @@ final class ListBlockBuilder
             // A comment below the item column is no paragraph text: it closes the item (rule A).
             if (
                 $subOpenCommentLength === null && $subTrailingState->fence === null
-                && self::isLineComment($lines, $i)
+                && str_contains($subLine, '%%')
+                && ($this->commentRoles($lines)[$i] ?? null) === 'line'
                 && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent
-                && !$this->linesLeaveACommentSpanOpen($subLines, new CollectedCommentSpan())
             ) {
                 break;
             }
@@ -2866,21 +2866,16 @@ final class ListBlockBuilder
      */
     private function commentRunBeforeSibling(array $lines, int $i, int $count, int $baseIndent, array $listInfo): ?int
     {
-        $j = $i;
-        while ($j < $count) {
-            if (self::isLineComment($lines, $j)) {
-                $j++;
-
-                continue;
-            }
-            $end = self::commentSpanEnd($lines, $j);
-            if ($end === null) {
-                break;
-            }
-            $j = $end;
-        }
-        if ($j === $i) {
+        if (!str_contains($lines[$i], '%%')) {
             return null;
+        }
+        $roles = $this->commentRoles($lines);
+        if (($roles[$i] ?? null) !== 'line' && ($roles[$i] ?? null) !== 'open') {
+            return null;
+        }
+        $j = $i;
+        while ($j < $count && isset($roles[$j])) {
+            $j++;
         }
         $k = $j;
         while ($k < $count && IndentationHelper::isBlankLine($lines[$k])) {
@@ -2906,51 +2901,59 @@ final class ListBlockBuilder
         for ($j = $i - 1; $j >= 0 && IndentationHelper::isBlankLine($lines[$j]); $j--) {
         }
 
-        return $j >= 0 && self::isLineComment($lines, $j)
-            && IndentationHelper::getLeadingColumns($lines[$j], $contentIndent) < $contentIndent
-            && !$this->linesLeaveACommentSpanOpen(array_slice($lines, 0, $j), new CollectedCommentSpan());
+        return $j >= 0 && str_contains($lines[$j], '%%')
+            && ($this->commentRoles($lines)[$j] ?? null) === 'line'
+            && IndentationHelper::getLeadingColumns($lines[$j], $contentIndent) < $contentIndent;
     }
 
     /**
-     * A `%%` line, or a comment fence with no exact-width closer below it (PART 9 section 28).
-     *
-     * @param array<string> $lines
-     * @param int $j
+     * @var array{lines: array<string>, roles: array<int, string>}|null
      */
-    private static function isLineComment(array $lines, int $j): bool
-    {
-        if (preg_match('/^[ \t]*(%{3,})/', $lines[$j], $fence) !== 1) {
-            return preg_match('/^[ \t]*%%/', $lines[$j]) === 1;
-        }
-        $count = count($lines);
-        for ($k = $j + 1; $k < $count; $k++) {
-            if (preg_match('/^[ \t]*(%{3,})/', $lines[$k], $closer) === 1 && strlen($closer[1]) === strlen($fence[1])) {
-                return false;
-            }
-        }
-
-        return true;
-    }
+    private ?array $commentRolesCache = null;
 
     /**
-     * The index after the exact-width closer of a comment fence opened at `$j`, or null.
+     * Comment role per line (PART 9 section 28): `line` for a `%%` line or a
+     * fence with no exact-width fence below it, `open`/`payload`/`close` for a span.
      *
      * @param array<string> $lines
-     * @param int $j
+     *
+     * @return array<int, string>
      */
-    private static function commentSpanEnd(array $lines, int $j): ?int
+    private function commentRoles(array $lines): array
     {
-        if (preg_match('/^[ \t]*(%{3,})/', $lines[$j], $fence) !== 1) {
-            return null;
+        if ($this->commentRolesCache !== null && $this->commentRolesCache['lines'] === $lines) {
+            return $this->commentRolesCache['roles'];
         }
-        $count = count($lines);
-        for ($k = $j + 1; $k < $count; $k++) {
-            if (preg_match('/^[ \t]*(%{3,})/', $lines[$k], $closer) === 1 && strlen($closer[1]) === strlen($fence[1])) {
-                return $k + 1;
+        $widths = [];
+        foreach ($lines as $j => $line) {
+            if (str_contains($line, '%%%') && preg_match('/^[ \t]*(%{3,})/', $line, $run) === 1) {
+                $widths[$j] = strlen($run[1]);
             }
         }
+        $later = [];
+        $hasLater = [];
+        foreach (array_reverse($widths, true) as $j => $width) {
+            $hasLater[$j] = isset($later[$width]);
+            $later[$width] = true;
+        }
+        $roles = [];
+        $open = null;
+        foreach ($lines as $j => $line) {
+            if ($open !== null) {
+                $roles[$j] = ($widths[$j] ?? null) === $open ? 'close' : 'payload';
+                if ($roles[$j] === 'close') {
+                    $open = null;
+                }
+            } elseif (isset($widths[$j])) {
+                $roles[$j] = $hasLater[$j] ? 'open' : 'line';
+                $open = $hasLater[$j] ? $widths[$j] : null;
+            } elseif (str_contains($line, '%%') && preg_match('/^[ \t]*%%/', $line) === 1) {
+                $roles[$j] = 'line';
+            }
+        }
+        $this->commentRolesCache = ['lines' => $lines, 'roles' => $roles];
 
-        return null;
+        return $roles;
     }
 
     private function isCommentLineOrFence(string $line, int $at = 0): bool
