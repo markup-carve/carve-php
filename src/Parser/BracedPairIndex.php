@@ -41,6 +41,7 @@ final class BracedPairIndex
      * @param array<int, int> $lineComments Exclusive comment ends.
      * @param array<int, int> $attributeTails Valid attribute run ends.
      * @param array<int, int> $superscriptRuns Run ends behind a `{^[` that owns its caret.
+     * @param array<string> $openKinds Kinds of the spans this text is the content of.
      */
     public function __construct(
         string $text,
@@ -50,6 +51,7 @@ final class BracedPairIndex
         array $lineComments = [],
         array $attributeTails = [],
         array $superscriptRuns = [],
+        array $openKinds = [],
     ) {
         $length = strlen($text);
         $this->length = $length;
@@ -91,6 +93,10 @@ final class BracedPairIndex
                 $openMarks[++$at] = true;
             }
         }
+        // Where a bare `_` or `/` is an open entry, by braced opener mark: a
+        // braced marker of that kind is then a nested opener, not a guard (E3).
+        $bareOpenAt = $this->bareOpenAtMarks($text, $openMarks, $openKinds);
+        $crossing = $bareTables === [] ? null : $this->crossingTables($text, $openMarks, $opaqueEnds, $codeEnds, $bracketBounds, $lineComments, $attributeTails);
         for ($at = $length - 1; $at >= 0; $at--) {
             $char = $text[$at];
             $next = $text[$at + 1] ?? '';
@@ -156,6 +162,18 @@ final class BracedPairIndex
                         }
                     }
                 }
+                // A braced opener right before the host guards it like a bare one. That guard
+                // does not stand where a bare opener of its kind is open (E3), and a closer of
+                // its kind inside the pair demotes the pair (E2); either way the block is text.
+                if (
+                    $bareTail !== null && $guard === null && isset($openMarks[$at - 1]) && !$this->bareBeforeAllows($char, $text[$at - 1])
+                    && ((isset($bareOpenAt[$at - 1])
+                            && (in_array($text[$at - 1], $openKinds, true) || ($crossing['closer'][$text[$at - 1]][$bareTail] ?? -1) !== -1))
+                        || (($tables[$text[$at - 1]][$bareTail] ?? -1) === -1
+                            && $this->closesInside($bareTables[$text[$at - 1]] ?? null, $at + 1, $bareClose)))
+                ) {
+                    $bareTail = null;
+                }
                 if ($bareTail !== null) {
                     $this->bareAttributes[$at] = ['close' => $bareClose, 'end' => $bareTail, 'guard' => $guard, 'guardFrom' => $guardFrom];
                     // The block this pair takes hides another kind's closer from a walk that starts before it.
@@ -201,7 +219,10 @@ final class BracedPairIndex
                     if ($bareTail !== null && $char !== $marker && ($stop === -1 || $stop >= $bareClose)) {
                         $after = $table[$bareTail] ?? -1;
                         // A guard of this span's kind is literal (E3), so the block is text and can hold the closer.
-                        if ($guard === null || !str_contains(substr($text, $guardFrom, $at - $guardFrom), $marker)) {
+                        if (
+                            ($guard === null || !str_contains(substr($text, $guardFrom, $at - $guardFrom), $marker))
+                            && ($crossing === null || !$this->crossedPair($text, $at, $bareClose, $marker, $openMarks, $crossing))
+                        ) {
                             $stop = $after;
                         }
                     }
@@ -210,6 +231,197 @@ final class BracedPairIndex
             }
         }
         $this->bareClosers = $bareTables;
+    }
+
+    /**
+     * The braced opener marks whose marker kind a bare opener before them
+     * holds open: pushed, and not closed by a later bare closer of its kind.
+     *
+     * @param string $text
+     * @param array<int, true> $openMarks
+     * @param array<string> $openKinds
+     *
+     * @return array<int, true>
+     */
+    private function bareOpenAtMarks(string $text, array $openMarks, array $openKinds): array
+    {
+        $result = [];
+        $open = ['_' => in_array('_', $openKinds, true), '/' => in_array('/', $openKinds, true)];
+        $held = $open;
+        $length = strlen($text);
+        for ($at = 0; $at < $length; $at++) {
+            $char = $text[$at];
+            if ($char === '\\') {
+                $at++;
+
+                continue;
+            }
+            if (!isset($open[$char])) {
+                continue;
+            }
+            if (isset($openMarks[$at])) {
+                if ($open[$char]) {
+                    $result[$at] = true;
+                }
+
+                continue;
+            }
+            $before = $at > 0 ? $text[$at - 1] : '';
+            $next = $text[$at + 1] ?? '';
+            if ($held[$char]) {
+                continue;
+            }
+            if ($open[$char]) {
+                if ($before !== '' && !StringUtil::isWhitespaceChar($before) && preg_match('/[A-Za-z0-9]/', $next) !== 1) {
+                    $open[$char] = false;
+                }
+
+                continue;
+            }
+            if (
+                $next !== '' && !StringUtil::isWhitespaceChar($next) && $next !== $char && $before !== $char
+                && preg_match('/[A-Za-z0-9]/', $before) !== 1
+            ) {
+                $open[$char] = true;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * The last bare opener of each kind before every offset, the last braced
+     * opener mark before it, and the first bare closer of each kind from it.
+     *
+     * @param string $text
+     * @param array<int, true> $openMarks
+     * @param array<int, int> $opaqueEnds
+     * @param array<int, int|null> $codeEnds
+     * @param array<int, true> $bracketBounds
+     * @param array<int, int> $lineComments
+     * @param array<int, int> $attributeTails
+     *
+     * @return array{opener: array<string, array<int, int>>, braced: array<int, int>, closer: array<string, array<int, int>>}
+     */
+    private function crossingTables(
+        string $text,
+        array $openMarks,
+        array $opaqueEnds,
+        array $codeEnds,
+        array $bracketBounds,
+        array $lineComments,
+        array $attributeTails,
+    ): array {
+        $length = strlen($text);
+        $opener = [];
+        $closer = [];
+        $braced = [];
+        $last = -1;
+        for ($at = 0; $at <= $length; $at++) {
+            $braced[$at] = $last;
+            if (isset($openMarks[$at])) {
+                $last = $at;
+            }
+        }
+        foreach (str_split('/*_~=') as $kind) {
+            if (!str_contains($text, $kind)) {
+                continue;
+            }
+            $before = [];
+            $last = -1;
+            for ($at = 0; $at <= $length; $at++) {
+                $before[$at] = $last;
+                if ($at < $length && $text[$at] === $kind && $this->bareOpenerKind($text, $at) !== 'none') {
+                    $last = $at;
+                }
+            }
+            $opener[$kind] = $before;
+            $next = array_fill(0, $length + 2, -1);
+            for ($at = $length - 1; $at >= 0; $at--) {
+                $char = $text[$at];
+                if ($char === '\\') {
+                    $next[$at] = $next[$at + 2] ?? -1;
+                } elseif (isset($bracketBounds[$at])) {
+                    $next[$at] = -1;
+                } elseif (isset($lineComments[$at])) {
+                    $next[$at] = $next[$lineComments[$at]] ?? -1;
+                } elseif (array_key_exists($at, $codeEnds)) {
+                    $end = $codeEnds[$at];
+                    $next[$at] = $end === null ? -1 : ($next[$attributeTails[$end] ?? $end] ?? -1);
+                } elseif (isset($opaqueEnds[$at])) {
+                    $next[$at] = $next[$opaqueEnds[$at]] ?? -1;
+                } else {
+                    $prev = $at > 0 ? $text[$at - 1] : '';
+                    $after = $text[$at + 1] ?? '';
+                    $closes = $char === $kind && !($after === '}' && isset($openMarks[$at])) && $prev !== ''
+                        && !StringUtil::isWhitespaceChar($prev) && preg_match('/[A-Za-z0-9]/', $after) !== 1;
+                    $next[$at] = $closes ? $at : $next[$at + 1];
+                }
+            }
+            $closer[$kind] = $next;
+        }
+
+        return ['opener' => $opener, 'braced' => $braced, 'closer' => $closer];
+    }
+
+    /**
+     * A span of another kind open at a bare opener and closing inside its pair
+     * demotes the opener (E2), so the pair's block is content.
+     *
+     * @param string $text
+     * @param int $open
+     * @param int $close
+     * @param string $marker
+     * @param array<int, true> $openMarks
+     * @param array{opener: array<string, array<int, int>>, braced: array<int, int>, closer: array<string, array<int, int>>} $crossing
+     */
+    private function crossedPair(string $text, int $open, int $close, string $marker, array $openMarks, array $crossing): bool
+    {
+        foreach ($crossing['opener'] as $kind => $openers) {
+            if ($kind === $text[$open] || $kind === $marker) {
+                continue;
+            }
+            $outer = $openers[$open] ?? -1;
+            if ($outer === -1 || $outer <= $crossing['braced'][$open] || ($this->bareOpenerKind($text, $outer) !== 'open' && !isset($openMarks[$outer - 1]))) {
+                continue;
+            }
+            $outerClose = $crossing['closer'][$kind][$outer + 1] ?? -1;
+            if ($outerClose > $open && $outerClose < $close) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function bareOpenerKind(string $text, int $at): string
+    {
+        $char = $text[$at];
+        $next = $text[$at + 1] ?? '';
+        $before = $at > 0 ? $text[$at - 1] : '';
+        if ($next === '' || StringUtil::isWhitespaceChar($next) || $next === $char || $before === $char || ($char === '=' && $next === '>')) {
+            return 'none';
+        }
+        if ($before === '') {
+            return 'open';
+        }
+        if ($before === '_' || $before === '/') {
+            return $before === '_' || $char === '/' || $char === '_' ? 'guarded' : 'open';
+        }
+
+        return preg_match('/[A-Za-z0-9]/', $before) === 1 ? 'none' : 'open';
+    }
+
+    /**
+     * @param \SplFixedArray<mixed>|null $table
+     * @param int $close
+     * @param int $from
+     */
+    private function closesInside(?SplFixedArray $table, int $from, int $close): bool
+    {
+        $stop = $table === null ? -1 : ($table[$from] ?? -1);
+
+        return is_int($stop) && $stop !== -1 && $stop < $close;
     }
 
     private function bareBeforeAllows(string $char, string $before): bool

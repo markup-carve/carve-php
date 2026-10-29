@@ -3506,6 +3506,35 @@ class InlineParser
             return null;
         }
 
+        $actualClose = $this->delimitedClose($text, $pos, $delimiter, $openerIsBraced);
+        if ($actualClose === null) {
+            return null;
+        }
+        if ($this->inlineDepth >= self::MAX_INLINE_DEPTH) {
+            return ['node' => new Text(substr($text, $pos, $actualClose + 1 - $pos)), 'pos' => $actualClose + 1];
+        }
+        $node = new $nodeClass();
+        $this->parseSpanContent($node, substr($text, $pos + 1, $actualClose - $pos - 1), $pos + 1, $delimiter);
+
+        $endPos = $actualClose + 1;
+
+        // Check for trailing attributes: _text_{.class}{.more}
+        if ($endPos < strlen($text) && $text[$endPos] === '{') {
+            $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
+        }
+
+        return [
+            'node' => $node,
+            'pos' => $endPos,
+        ];
+    }
+
+    /**
+     * The closer of the bare delimiter opened at $pos, or null.
+     */
+    private function delimitedClose(string $text, int $pos, string $delimiter, bool $openerIsBraced): ?int
+    {
+        $length = strlen($text);
         // Look for the content and the closer right after the single opener.
         $searchStart = $pos + 1;
 
@@ -3523,6 +3552,8 @@ class InlineParser
             $this->indexedBracedEnd($text, 0);
         }
         $attached = [];
+        // The last opener of each other kind the walk has passed.
+        $lastOpener = [];
         $searchPos = $searchStart;
         while ($searchPos < $length) {
             if (isset($destinationEnds[$searchPos])) {
@@ -3546,6 +3577,10 @@ class InlineParser
                 $child !== null && $guard !== null && $guard >= $searchStart
                 && (str_contains($guards, $delimiter) || array_intersect(str_split($guards), $this->openSpanKinds) !== [])
             ) {
+                $child = null;
+            }
+            // A span of another kind closing inside the child demotes it (E2).
+            if ($child !== null && $lastOpener !== [] && $this->crossedByOpenSpan($text, $searchPos, $child['close'], $searchStart, $delimiter, $lastOpener)) {
                 $child = null;
             }
             if ($child !== null) {
@@ -3689,6 +3724,13 @@ class InlineParser
                 continue;
             }
 
+            if (
+                $char !== $delimiter && str_contains('/*_~=', $char) && !in_array($char, $this->openSpanKinds, true)
+                && $this->bareOpenerKind($text, $searchPos) !== 'none'
+            ) {
+                $lastOpener[$char] = $searchPos;
+            }
+
             // Check for closing delimiter
             if ($char === $delimiter) {
                 // Check if this can be a closer (not preceded by whitespace)
@@ -3720,31 +3762,14 @@ class InlineParser
                     }
 
                     // Check content isn't empty
-                    $content = substr($text, $pos + 1, $actualClose - $pos - 1);
-                    if ($content === '') {
+                    if ($actualClose === $pos + 1) {
                         $failedStarts[] = $actualClose + 1;
                         $searchPos = $actualClose + 1;
 
                         continue;
                     }
 
-                    if ($this->inlineDepth >= self::MAX_INLINE_DEPTH) {
-                        return ['node' => new Text(substr($text, $pos, $actualClose + 1 - $pos)), 'pos' => $actualClose + 1];
-                    }
-                    $node = new $nodeClass();
-                    $this->parseSpanContent($node, $content, $pos + 1, $delimiter);
-
-                    $endPos = $actualClose + 1;
-
-                    // Check for trailing attributes: _text_{.class}{.more}
-                    if ($endPos < $length && $text[$endPos] === '{') {
-                        $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
-                    }
-
-                    return [
-                        'node' => $node,
-                        'pos' => $endPos,
-                    ];
+                    return $actualClose;
                 }
             }
 
@@ -3759,6 +3784,81 @@ class InlineParser
         }
 
         return null;
+    }
+
+    /**
+     * Whether the bare delimiter at $at can open: `guarded` behind a `_` or `/`.
+     */
+    private function bareOpenerKind(string $text, int $at): string
+    {
+        $char = $text[$at];
+        $next = $text[$at + 1] ?? '';
+        $before = $at > 0 ? $text[$at - 1] : '';
+        if (
+            $next === '' || StringUtil::isWhitespaceChar($next) || $next === $char || $before === $char
+            || ($char === '=' && $next === '>') || $this->hasGraphemeExtender($text, $at + 1)
+        ) {
+            return 'none';
+        }
+        if ($before === '') {
+            return 'open';
+        }
+        if ($before === '_' || $before === '/') {
+            return $before === '_' || $char === '/' || $char === '_' ? 'guarded' : 'open';
+        }
+
+        return ctype_alnum($before) ? 'none' : 'open';
+    }
+
+    /**
+     * Whether the `_` or `/` before the opener at $at is an open entry where
+     * that opener stands, so it does not guard it (carve#3973 X1).
+     */
+    private function guardStands(string $text, int $at, int $from, string $delimiter): bool
+    {
+        if ($at === $from) {
+            return true;
+        }
+        $guard = $text[$at - 1];
+        $before = $at >= 2 ? $text[$at - 2] : '';
+        if (
+            $guard === $delimiter || in_array($guard, $this->openSpanKinds, true) || $before === $guard || $before === '\\'
+            || ($before !== '' && ctype_alnum($before)) || StringUtil::isWhitespaceChar($text[$at])
+        ) {
+            return false;
+        }
+
+        return ($before !== '_' && ($before !== '/' || ($guard !== '/' && $guard !== '_')))
+            || $this->guardStands($text, $at - 1, $from, $delimiter);
+    }
+
+    /**
+     * A span of another kind open at the child's opener that closes before the
+     * child's closer demotes that opener (E2), so the child's block is content.
+     *
+     * @param string $text
+     * @param int $at
+     * @param int $close
+     * @param int $from
+     * @param string $delimiter
+     * @param array<string, int> $lastOpener
+     */
+    private function crossedByOpenSpan(string $text, int $at, int $close, int $from, string $delimiter, array $lastOpener): bool
+    {
+        foreach ($lastOpener as $kind => $open) {
+            if ($kind === $text[$at]) {
+                continue;
+            }
+            if ($this->bareOpenerKind($text, $open) !== 'open' && !$this->guardStands($text, $open, $from, $delimiter)) {
+                continue;
+            }
+            $outer = $this->delimitedClose($text, $open, (string)$kind, $open > 0 && $text[$open - 1] === '{' && !$this->isEscapedAt($text, $open - 1));
+            if ($outer !== null && $outer > $at && $outer < $close) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -5373,7 +5473,7 @@ class InlineParser
                     }
                 }
             }
-            $this->bracedPairIndex = new BracedPairIndex($text, $opaque, $codes, $bounds, $lineComments, $attributeTails, $superscriptRuns);
+            $this->bracedPairIndex = new BracedPairIndex($text, $opaque, $codes, $bounds, $lineComments, $attributeTails, $superscriptRuns, $this->openSpanKinds);
         }
 
         return $this->bracedPairIndex->end($pos);
