@@ -25,7 +25,7 @@ final class OwnershipFrame
      * @param int $markerCanon
      * @param string|null $axes
      * @param int $termCut
-     * @param (\Closure(string): bool)|null $closes
+     * @param (\Closure(string, int): bool)|null $closes
      * @param string|null $span
      * @param bool $absorbs
      * @param bool $lineBlock

@@ -14,6 +14,8 @@ use PHPUnit\Framework\TestCase;
  */
 class TheCarve3421FollowUpRulingsTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return iterable<string, array{string}>
      */

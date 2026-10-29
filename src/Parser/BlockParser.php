@@ -998,6 +998,7 @@ class BlockParser
         $lines = $walk->own($lines);
         $this->state->source->sourceLines = array_replace($this->state->source->sourceLines, $lines);
         $this->state->source->lazyLines = $walk->lazyLines;
+        $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
 
         // Each physical byte may be inspected a small constant number of times
         // by the parser-backed marker probe below. Exhaustion deliberately

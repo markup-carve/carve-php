@@ -1647,7 +1647,8 @@ final class BlockSourceMapper
             return IndentationHelper::getLeadingColumns($authored);
         }
 
-        $prefix = substr($authored, 0, strlen($authored) - strlen($content));
+        // The walk's LAZY frame takes no column.
+        $prefix = str_replace(BlockGrammar::LAZY_FRAME, '', substr($authored, 0, strlen($authored) - strlen($content)));
 
         return IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
     }
