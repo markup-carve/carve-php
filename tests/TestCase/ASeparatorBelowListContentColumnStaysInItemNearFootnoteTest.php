@@ -39,7 +39,7 @@ final class ASeparatorBelowListContentColumnStaysInItemNearFootnoteTest extends 
     {
         $html = (new CarveConverter())->convert("r[^1]\n\n- [^1]: x\n : zq\n");
 
-        self::assertStringContainsString("</ul>\n<p>: zq</p>", $html);
+        self::assertStringContainsString("<p>x\n: zq<a", $html);
     }
 
     public function testTheSeparatorAfterANoteHeadingLeavesTheListItem(): void
@@ -89,7 +89,8 @@ final class ASeparatorBelowListContentColumnStaysInItemNearFootnoteTest extends 
         $source = "r[^1]\n\n- [^1]: x\n    :: t\n : zq\n: zr\n";
         $html = (new CarveConverter())->convert($source);
 
-        self::assertStringContainsString("<li>: zq</li>\n</ul>\n<p>: zr</p>", $html);
+        self::assertStringContainsString("</ul>\n<p>: zr</p>", $html);
+        self::assertStringContainsString('<dd>zq</dd>', $html);
     }
 
     public function testAnUnindentedPlainLineContinuesTheItemButANewSeparatorDoesNot(): void
@@ -105,6 +106,7 @@ final class ASeparatorBelowListContentColumnStaysInItemNearFootnoteTest extends 
         $source = "r[^1]\n\n- [^1]: x\n    :: t\n : zq\n\n  - child\n- next\n";
         $html = (new CarveConverter())->convert($source);
 
-        self::assertMatchesRegularExpression('~<li>: zq\s*<ul>\s*<li>child</li>\s*</ul>\s*</li>\s*<li>next</li>~', $html);
+        self::assertMatchesRegularExpression('~<li>\s*<ul>\s*<li>child</li>\s*</ul>\s*</li>\s*<li>next</li>~', $html);
+        self::assertStringContainsString('<dd>zq</dd>', $html);
     }
 }
