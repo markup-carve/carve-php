@@ -777,7 +777,7 @@ final class ListBlockBuilder
                     $lastItem = ($this->getListParser)()->getLastListItem($list);
                     $children = $lastItem?->getChildren() ?? [];
                     $marker = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);
-                    $attachedParagraphOpen = end($children) instanceof Paragraph && $marker['column'] > $baseIndent;
+                    $attachedParagraphOpen = self::openParagraphIn($children) !== null;
                     $attachedParagraphAfterNoteSeparator = false;
 
                     continue;
@@ -919,6 +919,9 @@ final class ListBlockBuilder
             $lastItemHadBlankAfter = false;
 
             $lastItemAttachColumn = $baseIndent + $this->listMarkerWidth($trimmedLine, $itemInfo);
+            // A first-block item ends below without reaching the column update further down.
+            $lastItemContentIndent = $lastItemAttachColumn;
+            $lastItemColumn = new IndentedContainerColumn($lastItemContentIndent);
 
             $firstBlockOwner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $listItemSourceLine);
             if (
@@ -2880,7 +2883,7 @@ final class ListBlockBuilder
     {
         $lastItem = ($this->getListParser)()->getLastListItem($list);
         $children = $lastItem?->getChildren() ?? [];
-        $paragraph = end($children);
+        $paragraph = self::openParagraphIn($children) ?? end($children);
         $priorLiteralMarker = $leadDiv && $priorMarker !== null && $priorMarker['reason'] === 'left'
             && ($priorMarker['owner']['kind'] ?? null) === 'list';
         if (!$paragraph instanceof Paragraph && ($priorContinues || $priorLiteralMarker)) {
@@ -2901,6 +2904,22 @@ final class ListBlockBuilder
         }
 
         return true;
+    }
+
+    /**
+     * The paragraph that ends the given blocks, through any trailing quotes.
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $children
+     */
+    private static function openParagraphIn(array $children): ?Paragraph
+    {
+        $last = end($children);
+        while ($last instanceof BlockQuote) {
+            $inner = $last->getChildren();
+            $last = end($inner);
+        }
+
+        return $last instanceof Paragraph ? $last : null;
     }
 
     /**

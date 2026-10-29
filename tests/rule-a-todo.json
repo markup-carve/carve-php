@@ -178,10 +178,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\CarveCorpusTest::testCorpus with data set \"757-an-intervening-column-refuses-a-description-hosted-first-block\"",
-            "ticket": "carve-php#4243"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\CommentPayloadColumnsTest::testNestedTermKeepsTheCanonicalItemColumn",
             "ticket": "carve-php#4244"
         },

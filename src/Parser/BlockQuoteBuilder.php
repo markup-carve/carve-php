@@ -239,8 +239,6 @@ final class BlockQuoteBuilder
         $nestedLineBlock = ['count' => 0, 'eligible' => null, 'divCount' => 0, 'literalColumn' => null];
         $openingSource = $this->state->source->sourceLines[$quoteSourceLine] ?? '';
         $openingDepth = self::quoteDepth($openingSource);
-        $openingOwner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $quoteSourceLine);
-        $openingListPlus = ($openingOwner['kind'] ?? null) === 'list';
         while ($i < $count) {
             $currentLine = $lines[$i];
             if (IndentationHelper::isBlankLine($currentLine)) {
@@ -382,12 +380,6 @@ final class BlockQuoteBuilder
             }
 
             $content = $this->blockQuoteLineContent($currentLine);
-            if ($content === null && $openingListPlus && $openingDepth > 0) {
-                $currentSource = $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '';
-                if (self::quoteDepth($currentSource) < $openingDepth) {
-                    break;
-                }
-            }
             if (!$lazyStateActive && ($content === null || self::mayOpenQuotedHost($content))) {
                 // All earlier lines had explicit quote markers. Replay their
                 // state only when a lazy line or attachment needs it.
