@@ -301,7 +301,7 @@ final class BlockContinuationScanner
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $isBlockQuoteLazyLine = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
             $first = ltrim($nextLine, " \t");
-            if ($lowComment && !str_starts_with($first, '%%') && $openCommentLength === null && getenv('NOGATE') === false) {
+            if ($lowComment && !str_starts_with($first, '%%') && $openCommentLength === null) {
                 break;
             }
             $lowComment = str_starts_with($first, '%%') ? $nextIndent < $contentIndent && $trailingState->fence === null && $openCommentLength === null : $lowComment;
@@ -1465,8 +1465,7 @@ final class BlockContinuationScanner
         $run->blankRun->end();
         $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
         $nextTrimmed = ltrim($nextLine, " \t");
-        if (getenv('DBG')) { fwrite(STDERR, 'plain i=' . $i . ' ci=' . $contentIndent . ' low=' . (int)$run->lowComment . ' ' . json_encode($nextLine) . ' ' . json_encode($lines) . PHP_EOL); }
-        if ($run->lowComment && !str_starts_with($nextTrimmed, '%%') && $run->openCommentLength === null && getenv('NOGATE') === false) {
+        if ($run->lowComment && !str_starts_with($nextTrimmed, '%%') && $run->openCommentLength === null) {
             return false;
         }
         $run->lowComment = str_starts_with($nextTrimmed, '%%') ? $nextIndent < $contentIndent && $trailingState->fence === null && $run->openCommentLength === null : $run->lowComment;
