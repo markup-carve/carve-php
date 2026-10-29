@@ -2521,7 +2521,7 @@ final class ListBlockBuilder
     private function repairParagraphSuffix(Paragraph $paragraph, Text $text, int $sourceLine): bool
     {
         $value = $text->getContent();
-        $source = rtrim($this->state->source->sourceLines[$sourceLine] ?? '', " \t");
+        $source = rtrim($this->state->source->authoredLines[$sourceLine] ?? '', " \t");
         if ($value === '' || !str_ends_with($source, $value)) {
             return false;
         }
@@ -3395,7 +3395,7 @@ final class ListBlockBuilder
 
     private function resolveMarkerColumn(int $sourceLine, string $parsedLine): ?int
     {
-        $source = $this->state->source->sourceLines[$sourceLine] ?? null;
+        $source = $this->state->source->authoredLines[$sourceLine] ?? null;
         if ($source === null) {
             return null;
         }
