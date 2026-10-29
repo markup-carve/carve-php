@@ -1637,7 +1637,7 @@ final class BlockSourceMapper
     public function authoredColumnOf(int $index, string $line): ?int
     {
         $sourceLine = $this->sourceLineFor($index);
-        $authored = $this->state->source->authoredLines[$sourceLine] ?? null;
+        $authored = $this->state->source->sourceLines[$sourceLine] ?? null;
         if ($authored === null) {
             return null;
         }
