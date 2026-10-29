@@ -1042,7 +1042,7 @@ class MarkdownToCarve
                     continue;
                 }
             }
-            $this->guardAlertLabelAfterBlankQuoteLine($lines, $i, str_contains($markdown, self::ALERT_LABEL_GUARD));
+            $this->guardAlertLabelAfterBlankQuoteLine($lines, $i, self::holdsAlertLabelGuard($markdown));
             [$i, $prevLineType, $body, $quoteHandled] = $this->convertImportedQuoteBlock(
                 $isBlockquote,
                 $body,
@@ -2002,8 +2002,8 @@ class MarkdownToCarve
         }
         $carve = $this->repairImportedEmailLinks($carve, $frontmatter);
         $carve = $this->importGithubAlerts($carve, $frontmatter);
-        if (!str_contains($markdown, self::ALERT_LABEL_GUARD)) {
-            $carve = str_replace(self::ALERT_LABEL_GUARD, '', $carve);
+        if (!self::holdsAlertLabelGuard($markdown)) {
+            $carve = preg_replace('/^((?:> ?)+)\x01(?=\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*$)/m', '$1', $carve) ?? $carve;
         }
 
         if ($frontmatter === []) {
@@ -2271,6 +2271,15 @@ class MarkdownToCarve
     }
 
     /**
+     * Whether the source can put the guard character into the output itself,
+     * literally or through a numeric character reference.
+     */
+    private static function holdsAlertLabelGuard(string $markdown): bool
+    {
+        return str_contains($markdown, self::ALERT_LABEL_GUARD) || preg_match('/&#(?:0*1|[xX]0*1);/', $markdown) === 1;
+    }
+
+    /**
      * A label after a blank `>` line is not the quote's first line, so it is
      * no alert (CARVE-P2-033). The Carve writer drops that blank line, which
      * would put the label first; a guard keeps the alert pass off it and is
@@ -2278,7 +2287,7 @@ class MarkdownToCarve
      *
      * @param array<string> $lines
      * @param int $i
-     * @param bool $sourceHoldsGuard A source holding the guard character keeps the label escaped.
+     * @param bool $sourceHoldsGuard Such a source keeps the label escaped.
      */
     private function guardAlertLabelAfterBlankQuoteLine(array &$lines, int $i, bool $sourceHoldsGuard): void
     {

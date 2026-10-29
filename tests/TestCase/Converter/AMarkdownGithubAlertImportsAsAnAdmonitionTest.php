@@ -250,11 +250,24 @@ class AMarkdownGithubAlertImportsAsAnAdmonitionTest extends TestCase
         );
     }
 
-    public function testASourceHoldingTheGuardCharacterKeepsTheLabelEscaped(): void
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function guardCharacterProvider(): array
     {
-        $carve = $this->imported(">\n> [!NOTE]\n> x\x01");
+        return [
+            'the character itself' => [">\n> [!NOTE]\n> x\x01", "> \\[!NOTE]\n> x\x01"],
+            'a decimal reference to it' => [">\n> &#1;[!NOTE]\n> x\n>\n> [!TIP]\n> y", "> \x01[!NOTE]\n> x\n>\n> \\[!TIP]\n> y"],
+            'a hex reference to it' => [">\n> [!NOTE]\n> &#x1;", "> \\[!NOTE]\n> \x01"],
+        ];
+    }
 
-        $this->assertSame("> \\[!NOTE]\n> x\x01", $carve);
+    #[DataProvider('guardCharacterProvider')]
+    public function testASourceThatCanWriteTheGuardKeepsTheLabelEscaped(string $markdown, string $expected): void
+    {
+        $carve = $this->imported($markdown);
+
+        $this->assertSame($expected, $carve);
         $this->assertSame([BlockQuote::class], $this->blockTypes($carve));
     }
 
