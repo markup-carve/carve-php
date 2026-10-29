@@ -104,8 +104,8 @@ final class GithubAlerts
             return null;
         }
         // The source slice, not the text value: an escaped `\[!NOTE]` reads the
-        // same and stays literal on GitHub.
-        $slice = substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset);
+        // same and stays literal on GitHub. Offsets count codepoints, not bytes.
+        $slice = mb_substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8');
         if (preg_match(self::LABEL, $slice, $label) !== 1 || $label[0] !== $first->getContent()) {
             return null;
         }
