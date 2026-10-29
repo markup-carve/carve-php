@@ -1403,7 +1403,10 @@ final class BlockContinuationScanner
                 $authoredColumn = IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
                     $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 ), $itemContentColumn);
-                if ($authoredColumn > $itemMarkerColumn && $authoredColumn < $itemContentColumn) {
+                if (
+                    $authoredColumn < $itemContentColumn
+                    && ($authoredColumn > $itemMarkerColumn || isset($this->state->source->lazyLines[$this->sourceLineFor($i)]))
+                ) {
                     $lines[$i] = str_repeat(' ', $contentIndent) . BlockGrammar::LAZY_FRAME . ltrim($nextLine, " \t");
                 }
             }
