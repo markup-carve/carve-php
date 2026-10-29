@@ -203,9 +203,17 @@ final class BracedPairIndex
                         $after = $table[$bareTail] ?? -1;
                         // A guard of this span's kind is literal (E3), and one that closes past this span's
                         // closer does not open in it (E2a); either way the block is text and can hold the closer.
+                        // A braced opener of this kind right before the host guards it like a bare one:
+                        // with no closer of either reading behind the block, the block is text and its
+                        // closer closes the span.
+                        $bracedGuard = $guard === null && $after === -1 && isset($openMarks[$at - 1])
+                            && $text[$at - 1] === $marker && !$this->bareBeforeAllows($char, $marker)
+                            && (!isset($bareTables[$marker]) || ($bareTables[$marker][$bareTail] ?? -1) === -1);
                         if (
-                            $guard === null
-                            || (!str_contains(substr($text, $guardFrom, $at - $guardFrom), $marker) && is_int($after) && ($after === -1 || $guardEnd < $after))
+                            !$bracedGuard && (
+                                $guard === null
+                                || (!str_contains(substr($text, $guardFrom, $at - $guardFrom), $marker) && is_int($after) && ($after === -1 || $guardEnd < $after))
+                            )
                         ) {
                             $stop = $after;
                         }
