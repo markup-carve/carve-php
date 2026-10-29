@@ -249,7 +249,9 @@ final class ListBlockBuilder
             if ($visibleContinuation === []) {
                 $list->setTight($wasListTight);
             }
-            if ($lastItemHadBlankAfter && $subRetainedMarker) {
+            // A collected definition after the blank leaves the blank a separator (PART 9 §17 L1b).
+            $firstSubLine = current(array_filter($subLines, static fn (string $l): bool => !IndentationHelper::isBlankLine($l)));
+            if ($lastItemHadBlankAfter && ($subRetainedMarker || ($firstSubLine !== false && $this->isFoldableInvisibleLine(ltrim($firstSubLine, " \t"))))) {
                 foreach (array_slice($lastItem->getChildren(), $before) as $child) {
                     if ($child instanceof Comment) {
                         continue;
@@ -278,9 +280,50 @@ final class ListBlockBuilder
             // corpus pins as 87-compact-list-blocks-4/5 against -6
             // (carve-php#744).
             $lastItemHadBlankAfter = $this->contentRendersNothing($subLines);
+            // Only the run after the last blank decides: a sub-list before it does not fill the gap.
+            if (!$lastItemHadBlankAfter) {
+                $collected = array_values($subLines);
+                $lastBlank = null;
+                foreach ($collected as $k => $subLine) {
+                    if (IndentationHelper::isBlankLine($subLine)) {
+                        $lastBlank = $k;
+                    }
+                }
+                $tail = $lastBlank === null ? [] : array_slice($collected, $lastBlank + 1);
+                $lastItemHadBlankAfter = $tail !== [] && $this->tailRendersNothing($tail);
+            }
         }
 
         return [$i, $lastItemHadBlankAfter, $unclosedFenceBase];
+    }
+
+    /**
+     * Like contentRendersNothing(), with a closed comment span counted as invisible.
+     *
+     * @param array<string> $lines
+     */
+    private function tailRendersNothing(array $lines): bool
+    {
+        $visible = [];
+        $span = null;
+        foreach ($lines as $line) {
+            $trimmed = trim($line, " \t");
+            if ($span !== null) {
+                if (preg_match('/^(%{3,})$/D', $trimmed, $c) === 1 && strlen($c[1]) === $span) {
+                    $span = null;
+                }
+
+                continue;
+            }
+            if (preg_match('/^(%{3,})$/D', $trimmed, $c) === 1) {
+                $span = strlen($c[1]);
+
+                continue;
+            }
+            $visible[] = $line;
+        }
+
+        return $span === null && ($visible === [] || $this->contentRendersNothing($visible));
     }
 
     /**
@@ -299,6 +342,14 @@ final class ListBlockBuilder
             && ($this->isFoldableInvisibleLine(ltrim($itemLines[$lastVisible], " \t"))
                 || $this->isCommentLineOrFence(ltrim($itemLines[$lastVisible], " \t")))
         ) {
+            // A closed comment span's payload is invisible too.
+            if (preg_match('/^(%{3,})$/D', trim($itemLines[$lastVisible], " \t"), $closer) === 1) {
+                for ($k = $lastVisible - 1; $k >= 0 && trim($itemLines[$k], " \t") !== $closer[1]; $k--) {
+                }
+                if ($k >= 0) {
+                    $lastVisible = $k;
+                }
+            }
             $lastVisible--;
         }
         $nextItem = isset($lines[$nextIndex])

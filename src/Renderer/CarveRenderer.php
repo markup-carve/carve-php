@@ -2821,7 +2821,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // blank to part, so the item stays tight and the HTML is
                 // unchanged (carve-php#1948).
                 if (!$separated && $previousEmitted instanceof ListBlock && $this->isALineComment($child)) {
-                    $out .= "\n";
+                    // Before a paragraph that blank would loosen the list (PART 9 §17 L1b).
+                    $after = $next;
+                    for ($k = $index + 2; $after instanceof Comment; $k++) {
+                        $after = $children[$k] ?? null;
+                    }
+                    if (!$after instanceof Paragraph) {
+                        $out .= "\n";
+                    }
                 }
                 if ($this->regionMarkerAtItemMarkerColumn($child, $previousEmitted, $movedMarker, $node)) {
                     $rendered = $this->atMarkerColumn($rendered);

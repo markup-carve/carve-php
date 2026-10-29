@@ -3787,7 +3787,7 @@
   {
     "id": "resume-review-boundary-44",
     "source": "- a\n    ```\n\n  %%%\n  x\nafter\n",
-    "html": "<ul><li>a<code></code>x after</li></ul>"
+    "html": "<ul><li><p>a<code></code></p><p>x after</p></li></ul>"
   },
   {
     "id": "resume-review-boundary-46",
