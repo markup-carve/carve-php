@@ -204,7 +204,7 @@ final class BlockOwnershipWalk
                 $this->lazyLines[$at] = true;
                 $lazy = false;
             }
-            if ($lazy && $next !== null) {
+            if ($lazy) {
                 // Past a missed note the line is framed lazy in the deepest container (carve#3926).
                 if ($missedNote && $this->frames[$topIndex]->plus !== $at - 1) {
                     $this->lead(0);
