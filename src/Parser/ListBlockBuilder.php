@@ -1115,6 +1115,7 @@ final class ListBlockBuilder
                     }
                 }
                 unset($collectedLine);
+                $itemLines = $this->keepTaskBoxColumns($itemLines, $itemLineMap, $markerHead, $trimmedLine, $itemInfo);
                 $this->callParseItemBlocks($listItem, $itemLines, $itemLineMap, $authoredBaseEligible);
                 if ($this->state->session->itemHasParsedBlankBeforeParagraph($listItem)) {
                     $list->setTight(false);
@@ -1146,6 +1147,7 @@ final class ListBlockBuilder
                     $authoredBaseEligible,
                 );
                 $listItem->setPos($itemOpeningColumn === null ? null : $this->spanForLineMap($itemLineMap, $itemOpeningColumn));
+                $itemLines = $this->keepTaskBoxColumns($itemLines, $itemLineMap, $markerHead, $trimmedLine, $itemInfo);
                 $this->callParseItemBlocks($listItem, $itemLines, $itemLineMap, $authoredBaseEligible);
                 if ($this->state->session->itemHasParsedBlankBeforeParagraph($listItem)) {
                     $list->setTight(false);
@@ -2996,6 +2998,8 @@ final class ListBlockBuilder
         return !($afterNoteSeparator && $currentIndent === $baseIndent
                 && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $trimmed) === 1)
             && !$this->acceptedContinuationMarker($i)
+            // A comment interrupts a paragraph (PART 1 S4), so it never folds lazily.
+            && !isset($this->commentRoles($lines)[$i])
             && (!$this->isFoldableInvisibleLine($trimmed) || $priorAttachedFollower)
             && !($this->isBlockAttributeLineCallback)($trimmed)
             && (!ReferenceDefinitionExtractor::isDefinitionHead($trimmed) || $priorAttachedFollower)
@@ -3183,6 +3187,64 @@ final class ListBlockBuilder
     }
 
     /**
+     * A task box is content (CARVE-P0-008), so a marker-line child keeps the
+     * box's columns. A sibling of the child at or past the item's content
+     * column joins it; another marker inside the box columns is lazy text.
+     *
+     * @param array<string> $itemLines
+     * @param array<int, int> $itemLineMap
+     * @param string $markerHead
+     * @param string $trimmedLine
+     * @param array{type: string, content: string, attributesWidth?: int, taskMarker?: string} $itemInfo
+     *
+     * @return array<string>
+     */
+    private function keepTaskBoxColumns(array $itemLines, array $itemLineMap, string $markerHead, string $trimmedLine, array $itemInfo): array
+    {
+        $lead = $itemLines[0] ?? '';
+        $lists = ($this->getListParser)();
+        $leadMarker = $lists->parseListItemMarker($lead);
+        if (
+            ($itemInfo['taskMarker'] ?? null) === null
+            || count($itemLines) < 2
+            || $leadMarker === null || $lead[0] === ' ' || str_contains($lead, "\n") || str_contains($markerHead, "\t")
+        ) {
+            return $itemLines;
+        }
+        $markerWidth = $this->listMarkerWidth($trimmedLine, $itemInfo);
+        $boxWidth = strlen($markerHead) - $markerWidth;
+        $contentColumn = $this->sourceContentColumn($itemLineMap[0] ?? -1) + $markerWidth;
+        $itemLines[0] = str_repeat(' ', $boxWidth) . $lead;
+        foreach ($itemLines as $at => $line) {
+            if ($at === 0 || $line === '' || str_contains($line, "\n") || str_starts_with($line, BlockGrammar::LAZY_FRAME)) {
+                continue;
+            }
+            $marker = $lists->parseListItemMarker(ltrim($line, " \t"));
+            if ($marker === null) {
+                continue;
+            }
+            $column = $this->sourceContentColumn($itemLineMap[$at] ?? -1);
+            $sibling = $lists->itemMatchesList($leadMarker, $marker);
+            if ($column < $contentColumn || !$sibling && $column > $contentColumn && $column < $contentColumn + $boxWidth) {
+                $itemLines[$at] = BlockGrammar::LAZY_FRAME . ltrim($line, " \t");
+            } elseif ($sibling && $line[0] !== ' ') {
+                // The collector reads a sibling of the child at column 0; it stands at the child's column.
+                $itemLines[$at] = str_repeat(' ', $boxWidth) . $line;
+            }
+        }
+
+        return $itemLines;
+    }
+
+    private function sourceContentColumn(int $sourceLine): int
+    {
+        $source = $this->state->source->sourceLines[$sourceLine] ?? '';
+        $body = ContainerPrefix::stripQuoteMarkers($source);
+
+        return ContinuationMarkerClassifier::columnAt($source, strlen($source) - strlen($body) + strspn($body, " \t"));
+    }
+
+    /**
      * A stacked list `+` (`- - +`) takes a follower only at column 0 or its line's own column (carve#3421 item 5).
      */
     private function stackedListFollowerRefused(int $openerSourceLine, int $followerIndex): bool
@@ -3196,10 +3258,14 @@ final class ListBlockBuilder
             return false;
         }
         $column = IndentationHelper::getLeadingColumns($follower);
+        // A task box is content (CARVE-P0-008), so the innermost content column starts at the box.
+        $contentAt = preg_match('/\[[ xX\-_>?\/!]\] \+[ \t]*$/', $opener, $box, PREG_OFFSET_CAPTURE) === 1
+            ? $box[0][1]
+            : (int)strrpos($opener, '+');
 
         // At or past the innermost item's content column the line is that item's own content.
         return $column !== 0 && $column !== IndentationHelper::getLeadingColumns($opener)
-            && $column < ContinuationMarkerClassifier::columnAt($opener, (int)strrpos($opener, '+'));
+            && $column < ContinuationMarkerClassifier::columnAt($opener, $contentAt);
     }
 
     private function followerKeepsQuoteDepth(int $openerSourceLine, int $followerIndex): bool

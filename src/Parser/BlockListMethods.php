@@ -358,6 +358,7 @@ trait BlockListMethods
                 $item === null || isset($item['attributes'])
                 || !ctype_alnum($item['content'][0] ?? '')
                 || $item['content'] !== rtrim($item['content'], " \t")
+                || $this->listParser->parseListItemMarker($item['content']) !== null
                 || !$this->listParser->itemMatchesList($first, $item)
             ) {
                 break;
@@ -505,6 +506,7 @@ trait BlockListMethods
             if (
                 $content === '' || $content !== rtrim($content, " \t")
                 || !$this->inlineParser->canCopyPlainText($content)
+                || $this->listParser->parseListItemMarker($content) !== null
             ) {
                 return null;
             }
