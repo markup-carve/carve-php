@@ -1321,7 +1321,7 @@ final class ListBlockBuilder
             // A comment below the item column is no paragraph text: it closes the item (rule A).
             if (
                 $subOpenCommentLength === null && $subTrailingState->fence === null
-                && preg_match('/^[ \t]*%%(?!%)/', $subLine) === 1
+                && self::isLineComment($lines, $i)
                 && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent
                 && !$this->linesLeaveACommentSpanOpen($subLines, new CollectedCommentSpan())
             ) {
@@ -2867,7 +2867,7 @@ final class ListBlockBuilder
     private function commentRunBeforeSibling(array $lines, int $i, int $count, int $baseIndent, array $listInfo): ?int
     {
         $j = $i;
-        while ($j < $count && preg_match('/^[ \t]*%%(?!%)/', $lines[$j]) === 1) {
+        while ($j < $count && self::isLineComment($lines, $j)) {
             $j++;
         }
         if ($j === $i) {
@@ -2897,9 +2897,30 @@ final class ListBlockBuilder
         for ($j = $i - 1; $j >= 0 && IndentationHelper::isBlankLine($lines[$j]); $j--) {
         }
 
-        return $j >= 0 && preg_match('/^[ \t]*%%(?!%)/', $lines[$j]) === 1
+        return $j >= 0 && self::isLineComment($lines, $j)
             && IndentationHelper::getLeadingColumns($lines[$j], $contentIndent) < $contentIndent
             && !$this->linesLeaveACommentSpanOpen(array_slice($lines, 0, $j), new CollectedCommentSpan());
+    }
+
+    /**
+     * A `%%` line, or a comment fence with no exact-width closer below it (PART 9 section 28).
+     *
+     * @param array<string> $lines
+     * @param int $j
+     */
+    private static function isLineComment(array $lines, int $j): bool
+    {
+        if (preg_match('/^[ \t]*(%{3,})/', $lines[$j], $fence) !== 1) {
+            return preg_match('/^[ \t]*%%/', $lines[$j]) === 1;
+        }
+        $count = count($lines);
+        for ($k = $j + 1; $k < $count; $k++) {
+            if (preg_match('/^[ \t]*(%{3,})/', $lines[$k], $closer) === 1 && strlen($closer[1]) === strlen($fence[1])) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function isCommentLineOrFence(string $line, int $at = 0): bool
