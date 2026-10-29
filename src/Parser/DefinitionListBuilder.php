@@ -538,13 +538,18 @@ final class DefinitionListBuilder
                 $lines[$lastTerm],
             );
             $termHasOwnColumn = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($termSourceLine, " \t")) === 1;
+            $closedByComment = false;
             while ($i < $count) {
+                if ($closedByComment) {
+                    break;
+                }
                 $m = $this->definitionBodyAt($lines, $i, $count, $termHasOwnColumn, $termColumn, $parent instanceof Footnote);
                 if ($m === null) {
                     break;
                 }
                 $b = $this->openDescriptionBody($lines, $i, $count, $m, $termColumn, $termHasOwnColumn);
                 $this->collectDescriptionBody($b);
+                $closedByComment = $b->closedByComment;
                 $lines = $b->lines;
                 $i = $b->i;
                 $this->foldLazyEntriesUnderFence($b);
@@ -559,6 +564,9 @@ final class DefinitionListBuilder
             // the first entry and started a second `<dl>` for the next
             // (carve#839). The outer condition re-tests the same line, and the
             // term loop above always consumes it, so this cannot spin.
+            if ($closedByComment) {
+                break;
+            }
             if ($i < $count && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $lines[$i])) {
                 continue;
             }
@@ -752,6 +760,11 @@ final class DefinitionListBuilder
         }
         $this->restoreAuthoredDescriptionColumn($b, $l);
         // Form B: `+` pull-left continuation.
+        if ($b->retainedBelowComment && !IndentationHelper::isBlankLine($l->contLine)) {
+            $b->closedByComment = true;
+
+            return false;
+        }
         if ($this->descriptionMarkerAttaches($b->i)) {
             return $this->attachFlushLeftDescriptionBlock($b);
         }
@@ -1143,6 +1156,8 @@ final class DefinitionListBuilder
         $commentText = ltrim($l->contLine, " \t");
         if (IndentationHelper::isBlankLine($l->contLine)) {
             if ($b->retainedBelowComment) {
+                $b->closedByComment = true;
+
                 return false;
             }
         } elseif ($l->indent < $b->continuationColumn && $this->isCommentLineOrFence($commentText)) {
@@ -1181,6 +1196,8 @@ final class DefinitionListBuilder
             }
         } elseif ($b->retainedBelowComment) {
             // A comment below the body column closed the body; it is no paragraph text to continue (rule A).
+            $b->closedByComment = true;
+
             return false;
         }
 
