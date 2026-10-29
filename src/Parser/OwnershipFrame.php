@@ -30,6 +30,8 @@ final class OwnershipFrame
      * @param bool $absorbs
      * @param bool $lineBlock
      * @param int|null $run
+     * @param int|null $reader
+     * @param int|null $plus
      */
     public function __construct(
         public string $kind,
@@ -47,6 +49,8 @@ final class OwnershipFrame
         public bool $lineBlock = false,
         public ?string $span = null,
         public bool $absorbs = false,
+        public ?int $reader = null,
+        public ?int $plus = null,
     ) {
     }
 }

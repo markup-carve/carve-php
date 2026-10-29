@@ -4180,6 +4180,8 @@ class BlockParser
         bool $itemBody = false,
     ): int {
         $line = self::stripLazyFrame($lines[$start]);
+        // A collector may have joined a framed lazy line into this one.
+        $line = str_replace("\n" . BlockGrammar::LAZY_FRAME, "\n", $line);
         // Strip leading whitespace from first line (matching JS reference)
         $content = ltrim($line, " \t");
         $openingDirective = str_starts_with($content, '{{ ')

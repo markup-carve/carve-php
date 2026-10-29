@@ -190,10 +190,35 @@ final class BlockOwnershipWalk
             $form = $this->classify($this->m['rest'], $this->frames[$reached]);
             $topIndex = count($this->frames) - 1;
             $next = $this->frames[$reached + 1] ?? null;
-            if (
-                $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts
-                && !($form->kind === 'item' && $next->kind === 'item' && $next->axes === $form->axes)
-            ) {
+            $missedNote = false;
+            $missedItem = false;
+            for ($k = $reached + 1; $k <= $topIndex; $k++) {
+                $missedNote = $missedNote || $this->frames[$k]->kind === 'note';
+                $missedItem = $missedItem || $this->frames[$k]->kind === 'item';
+            }
+            $ownerKind = $this->frames[$reached]->kind;
+            $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts
+                && !($form->kind === 'item' && $next->kind === 'item' && $next->axes === $form->axes);
+            if ($lazy && $missedNote && $form->kind === 'item' && ($ownerKind === 'item' || $ownerKind === 'dd' || $missedItem)) {
+                // The marker opens past the missed note, and the readers still see the note's lazy line.
+                $this->lazyLines[$at] = true;
+                $lazy = false;
+            }
+            if ($lazy && $next !== null) {
+                // Past a missed note the line is framed lazy in the deepest container (carve#3926).
+                if ($missedNote && $this->frames[$topIndex]->plus !== $at - 1) {
+                    $this->lead(0);
+                    for ($k = $reached + 1; $k <= $topIndex; $k++) {
+                        if ($this->frames[$k]->kind === 'quote') {
+                            $this->out .= str_repeat(' ', $this->frames[$k - 1]->reader ?? $this->frames[$k - 1]->canon) . '> ';
+                        }
+                    }
+                    $leaf = $this->frames[$topIndex];
+                    $result[] = $this->out . str_repeat(' ', $leaf->kind === 'quote' ? 0 : (int)$leaf->reader) . BlockGrammar::LAZY_FRAME . $this->src;
+                    $this->lazyLines[$at] = true;
+
+                    continue;
+                }
                 $owner = $this->frames[$reached];
                 $limit = $next->kind === 'quote' ? PHP_INT_MAX : $next->canon - 1;
                 $this->lead(min(max($this->m['col'] - $owner->cut, $owner->canon), $limit));
@@ -241,8 +266,9 @@ final class BlockOwnershipWalk
         return $result;
     }
 
-    private function apply(int $owner, int $col, OwnershipForm $form, int $canon): void
+    private function apply(int $owner, int $col, OwnershipForm $form, int $canon, ?int $reader = null): void
     {
+        $reader ??= $this->frames[$owner]->reader ?? $this->frames[$owner]->canon;
         $this->frames[$owner]->para = $form->kind === 'term';
         $this->frames[$owner]->last = $form->kind;
         if ($form->kind === 'term') {
@@ -258,6 +284,7 @@ final class BlockOwnershipWalk
                 closes: $form->closes,
                 run: $form->run,
                 lineBlock: $form->lineBlock,
+                reader: $reader,
             );
 
             return;
@@ -280,6 +307,7 @@ final class BlockOwnershipWalk
                 markerCol: $col,
                 markerCanon: $canon,
                 axes: $form->axes,
+                reader: $reader + $form->width,
             );
             $this->take($form->head);
             $this->m = self::indentCols($this->src);
@@ -297,6 +325,9 @@ final class BlockOwnershipWalk
             $this->lead($this->m['col']);
             $this->frames[$frame]->absorbs = $this->absorbsColon($this->m['rest']);
             $this->frames[$frame]->para = true;
+            if (preg_match('/^\+[ \t]*$/D', $this->m['rest']) === 1) {
+                $this->frames[$frame]->plus = $this->at;
+            }
             $this->frames[$frame]->last = 'para';
 
             return;
@@ -311,7 +342,8 @@ final class BlockOwnershipWalk
         $col = $start + $this->m['col'];
         $shift = $this->m['col'];
         $this->lead($shift);
-        $this->apply($frame, $col, $form, $canon + $shift);
+        $f = $this->frames[$frame];
+        $this->apply($frame, $col, $form, $canon + $shift, $f->kind === 'note' ? $f->reader : $f->reader + $canon + $shift - $f->canon);
     }
 
     private function lead(int $target, bool $spaces = false): void
