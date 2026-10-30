@@ -14,13 +14,6 @@
     },
     {
       "ticket": "markup-carve/carve-php#4254",
-      "cause": "untriaged day-one drift in the attributes family",
-      "cases": [
-        "attributes-fe84887143c1"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the fences family",
       "cases": [
         "fences-088d930244e3",
@@ -100,13 +93,10 @@
         "ownership-530a2b9a948e",
         "ownership-56430089e054",
         "ownership-638bc57821de",
-        "ownership-66bd063e5d5e",
-        "ownership-82fc471bdfea",
         "ownership-8ee51def382e",
         "ownership-ae57ff05e447",
         "ownership-b510cfaf63af",
         "ownership-bab956633134",
-        "ownership-d1e23ebf9549",
         "ownership-e0c0e6393075",
         "ownership-e7b3820fbdf8",
         "ownership-edfbea8daa50"
@@ -119,7 +109,6 @@
         "plus-6727c3040dbf",
         "plus-6b44e5d8fa33",
         "plus-c0cf1c4d2743",
-        "plus-c9501c8048ce",
         "plus-ca6ec29ac3a0",
         "plus-e283ab0023a1"
       ]
@@ -131,7 +120,6 @@
         "roundtrip-2f0bd736a7de",
         "roundtrip-356e68ae4d90",
         "roundtrip-39cdccb01232",
-        "roundtrip-4db5513f0272",
         "roundtrip-684e0d745137",
         "roundtrip-702a692a40ae",
         "roundtrip-729e5a8d67ba",
