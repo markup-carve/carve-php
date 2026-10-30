@@ -5410,7 +5410,8 @@ class BlockParser
             // container change that opened the quote - which is how
             // `| a |` / blank / `>` / blank / `^ cap` captioned an empty quote
             // nobody wrote the caption under (markup-carve/carve#2892).
-            if ($lastChild->getChildren() === []) {
+            // A comment renders nothing, so it holds no caption content either.
+            if (array_filter($lastChild->getChildren(), static fn ($child): bool => !$child instanceof Comment) === []) {
                 return null;
             }
 
