@@ -67,22 +67,8 @@ final class BracedPairIndex
             $attributeTails[$start] = $attributeTails[$end] ?? $end;
         }
         $this->attributeTails = $attributeTails;
-        $bareTables = [];
-        foreach ($attributeTails as $start => $end) {
-            $marker = $start > 0 ? $text[$start - 1] : '';
-            if ($marker !== '' && str_contains('/*_~=', $marker)) {
-                $bareTables[$marker] ??= new SplFixedArray($length + 2);
-            }
-        }
-        // A braced opener guarding a host needs a closer table of its marker
-        // to see whether a closer of either reading lies behind the block.
-        if ($bareTables !== [] && (str_contains($text, '/') || str_contains($text, '_'))) {
-            foreach (str_split('/*_~=') as $marker) {
-                if (str_contains($text, $marker)) {
-                    $bareTables[$marker] ??= new SplFixedArray($length + 2);
-                }
-            }
-        }
+        $bareTables = $this->bareTablesFor($text, $attributeTails, $length);
+        $combinedClosers = isset($bareTables['*']) ? new SplFixedArray($length + 3) : null;
         $openMarks = [];
         $guardClosers = [];
         for ($at = 0; $at < $length; $at++) {
@@ -135,6 +121,9 @@ final class BracedPairIndex
                 }
                 $table[$at] = $stop;
             }
+            if ($combinedClosers !== null) {
+                $combinedClosers[$at] = $this->nextCombinedCloser($text, $bareTables['*'][$at] ?? -1, $combinedClosers);
+            }
             // A braced opener's marker is not content before a bare opener.
             $before = $at > 0 && !isset($openMarks[$at - 1]) ? $text[$at - 1] : '';
             $canOpenBare = isset($bareTables[$char]) && $next !== '' && !StringUtil::isWhitespaceChar($next)
@@ -143,6 +132,19 @@ final class BracedPairIndex
             // A standing guard's walk takes its host whole, block included.
             if ($canOpenBare && isset($guardClosers[$at])) {
                 $bareClose = $guardClosers[$at];
+            }
+            // A combined span closes at its `*/`, where its block attaches.
+            $combinedClose = $canOpenBare && $char === '/' && $next === '*' && !isset($guardClosers[$at])
+                ? $this->attachedCombinedClose($combinedClosers, $at, $attributeTails)
+                : null;
+            $combined = $combinedClose !== null;
+            $bareClose = $combinedClose ?? $bareClose;
+            // The closer of a pair that opens here is no opener, so its block is text.
+            $closesHere = $canOpenBare && is_int($bareClose) && isset($this->bareAttributes[$bareClose]) && $this->bareBeforeAllows($char, $before)
+                ? $bareClose
+                : null;
+            if ($closesHere !== null) {
+                unset($this->bareAttributes[$closesHere]);
             }
             $bareTail = null;
             if (is_int($bareClose) && $bareClose !== -1) {
@@ -216,8 +218,15 @@ final class BracedPairIndex
                     $stop = $table[$attributeTails[$child] ?? $child] ?? -1;
                 } else {
                     $stop = $table[$at + 1] ?? -1;
+                    if ($closesHere !== null && $this->readsPastCloser($text, $at, $closesHere, $marker, $stop)) {
+                        $stop = $table[$closesHere + 1] ?? -1;
+                    }
                     if ($bareTail !== null && $char !== $marker && ($stop === -1 || $stop >= $bareClose)) {
                         $after = $table[$bareTail] ?? -1;
+                        // A host holding this span's marker leaves its block text when nothing closes behind it.
+                        if ($after === -1 && $this->hostHoldsMarker($text, $at, $bareClose, $marker, $combined)) {
+                            $after = $stop;
+                        }
                         // A guard of this span's kind is literal (E3), so the block is text and can hold the closer.
                         if (
                             ($guard === null || !str_contains(substr($text, $guardFrom, $at - $guardFrom), $marker))
@@ -231,6 +240,78 @@ final class BracedPairIndex
             }
         }
         $this->bareClosers = $bareTables;
+    }
+
+    /**
+     * @param string $text
+     * @param array<int, int> $attributeTails
+     * @param int $length
+     *
+     * @return array<string, \SplFixedArray<mixed>>
+     */
+    private function bareTablesFor(string $text, array $attributeTails, int $length): array
+    {
+        $bareTables = [];
+        foreach ($attributeTails as $start => $end) {
+            $marker = $start > 0 ? $text[$start - 1] : '';
+            if ($marker !== '' && str_contains('/*_~=', $marker)) {
+                $bareTables[$marker] ??= new SplFixedArray($length + 2);
+            }
+        }
+        // A braced opener guarding a host needs a closer table of its marker
+        // to see whether a closer of either reading lies behind the block.
+        if ($bareTables !== [] && (str_contains($text, '/') || str_contains($text, '_'))) {
+            foreach (str_split('/*_~=') as $marker) {
+                if (str_contains($text, $marker)) {
+                    $bareTables[$marker] ??= new SplFixedArray($length + 2);
+                }
+            }
+        }
+
+        return $bareTables;
+    }
+
+    /**
+     * @param string $text
+     * @param mixed $star
+     * @param \SplFixedArray<mixed> $closers
+     */
+    private function nextCombinedCloser(string $text, mixed $star, SplFixedArray $closers): int
+    {
+        if (!is_int($star) || $star === -1) {
+            return -1;
+        }
+        if (($text[$star + 1] ?? '') === '/') {
+            return $star;
+        }
+        $next = $closers[$star + 1] ?? -1;
+
+        return is_int($next) ? $next : -1;
+    }
+
+    /**
+     * The `/` of the `*\/` closing the combined span opened at $at, when a block follows it.
+     *
+     * @param \SplFixedArray<mixed>|null $closers
+     * @param int $at
+     * @param array<int, int> $attributeTails
+     */
+    private function attachedCombinedClose(?SplFixedArray $closers, int $at, array $attributeTails): ?int
+    {
+        $star = $closers?->offsetExists($at + 2) ? $closers[$at + 2] : -1;
+
+        return is_int($star) && $star !== -1 && isset($attributeTails[$star + 2]) ? $star + 1 : null;
+    }
+
+    private function readsPastCloser(string $text, int $at, int $closer, string $marker, mixed $stop): bool
+    {
+        return $text[$at] !== $marker && ($stop === -1 || $stop >= $closer)
+            && !str_contains(substr($text, $at, $closer - $at), $marker);
+    }
+
+    private function hostHoldsMarker(string $text, int $at, int $close, string $marker, bool $combined): bool
+    {
+        return ($marker === '/' || ($marker === '*' && $combined)) && str_contains(substr($text, $at, $close - $at), $marker);
     }
 
     /**
