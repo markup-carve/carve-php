@@ -1029,9 +1029,43 @@ final class DefinitionListBuilder
     private function attachFlushLeftDescriptionBlock(DescriptionBodyCollection $b): bool
     {
         $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($b->i), 'definition description');
+        $markerColumn = IndentationHelper::getLeadingColumns($b->lines[$b->i]);
         $b->i++;
         if (!$this->continuationFollowerIsEligible($b->i)) {
             return false;
+        }
+        // A fence below an indented marker is read at the marker's column, so its blank lines stay
+        // inside it; a line below that column leaves it without a closer.
+        if ($markerColumn > 0) {
+            [$fencedNext, , $fencedRaw] = $this->collectAttachedBlock(
+                $b->lines,
+                $b->i,
+                $b->count,
+                static fn (): bool => true,
+                static fn (string $line): string => IndentationHelper::stripLeadingColumns($line, $markerColumn),
+            );
+            foreach ($fencedRaw as $raw) {
+                if (
+                    !IndentationHelper::isBlankLine($b->lines[$raw])
+                    && IndentationHelper::getLeadingColumns($b->lines[$raw], $markerColumn) < $markerColumn
+                ) {
+                    $fencedRaw = [];
+
+                    break;
+                }
+            }
+            if ($fencedRaw !== []) {
+                $b->attachedDefinitionListOpen = false;
+                $b->body[] = '';
+                $b->bodyMap[] = -1;
+                foreach ($fencedRaw as $raw) {
+                    $b->body[] = $b->lines[$raw];
+                    $b->bodyMap[] = $this->sourceLineFor($raw);
+                }
+                $b->i = $fencedNext;
+
+                return true;
+            }
         }
         $attachedItemColumn = 0;
         $attachedReferenceSeen = false;
