@@ -1404,14 +1404,6 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
-        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
-        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-2' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
-        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-3' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
-        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-4' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
-        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-5' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
-        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-6' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
-        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-7' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
-        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-8' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
         '787-a-wrapped-attribute-opener-indented-in-a-body-is-paragraph-text' => 'carve#4096: an over-indented wrapped attribute opener is paragraph text',
         '787-a-wrapped-attribute-opener-indented-in-a-body-is-paragraph-text-2' => 'carve#4096: an over-indented wrapped attribute opener is paragraph text',
         '787-a-wrapped-attribute-opener-indented-in-a-body-is-paragraph-text-3' => 'carve#4096: an over-indented wrapped attribute opener is paragraph text',
