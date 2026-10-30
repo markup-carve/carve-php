@@ -4748,7 +4748,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $loose = $parent instanceof DefinitionList && $parent->isLoose();
         if (count($visible) === 1 && $visible[0] instanceof Paragraph) {
             $inner = $this->renderChildren($visible[0]);
-            $body = $loose
+            // An attributed paragraph keeps its `<p>`, as in a tight item (CARVE-P9-081).
+            $body = $loose || array_diff_key($this->getRenderableAttributes($visible[0]), ['data-source-line' => true]) !== []
                 ? '<p' . $this->renderAttributes($visible[0], 'p') . '>' . $inner . '</p>'
                 : $inner;
 
