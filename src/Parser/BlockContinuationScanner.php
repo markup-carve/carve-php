@@ -5194,7 +5194,7 @@ final class BlockContinuationScanner
             return false;
         }
         $last = $itemLines[array_key_last($itemLines)];
-        if (preg_match('/^:{3,}[ \t]*$/', ltrim($last, " \t")) !== 1) {
+        if (preg_match('/^(:{3,})[ \t]*$/', ltrim($last, " \t"), $run) !== 1) {
             return false;
         }
         $column = IndentationHelper::getLeadingColumns($last);
@@ -5202,8 +5202,10 @@ final class BlockContinuationScanner
             if (IndentationHelper::getLeadingColumns($itemLines[$back]) !== $column) {
                 continue;
             }
+            $opener = ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($itemLines[$back], " \t"));
 
-            return (($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($itemLines[$back], " \t"))['className'] ?? null) === '|';
+            // Only an exact-length run closes it; a longer one is payload (PART 0 FAMILIES).
+            return ($opener['className'] ?? null) === '|' && $opener['length'] === strlen($run[1]);
         }
 
         return false;

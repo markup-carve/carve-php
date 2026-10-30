@@ -578,11 +578,13 @@ trait BlockColonMethods
         $count = count($lines);
         $fenceChar = null;
         $fenceLength = 0;
+        // A span in a line block pairs wherever its closer starts (carve-php#3137).
+        $anyColumn = $literal && !$this->state->frame->hostedColonFences;
 
         $rawFenceInfo = $this->fencedBlockParser->parseRawBlockOpener($line);
         if (
             $rawFenceInfo !== null
-            && (!$literal || $this->hasCodeFenceCloserAhead($lines, $start, $rawFenceInfo['fence'][0], $rawFenceInfo['length']))
+            && (!$literal || $this->hasCodeFenceCloserAhead($lines, $start, $rawFenceInfo['fence'][0], $rawFenceInfo['length'], $anyColumn))
         ) {
             $fenceChar = $rawFenceInfo['fence'][0];
             $fenceLength = $rawFenceInfo['length'];
@@ -590,7 +592,7 @@ trait BlockColonMethods
             $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($line);
             if (
                 $codeFenceInfo !== null
-                && (!$literal || $this->hasCodeFenceCloserAhead($lines, $start, $codeFenceInfo['char'], $codeFenceInfo['length']))
+                && (!$literal || $this->hasCodeFenceCloserAhead($lines, $start, $codeFenceInfo['char'], $codeFenceInfo['length'], $anyColumn))
             ) {
                 $fenceChar = $codeFenceInfo['char'];
                 $fenceLength = $codeFenceInfo['length'];
@@ -601,7 +603,7 @@ trait BlockColonMethods
             for ($i = $start; $i < $count; $i++) {
                 $innerLines[] = $lines[$i];
                 $innerLineMap[] = $this->sourceLineFor($i);
-                if ($i > $start && $this->fencedBlockParser->isCodeFenceCloser($lines[$i], $fenceChar, $fenceLength)) {
+                if ($i > $start && $this->fencedBlockParser->isCodeFenceCloser($anyColumn ? ltrim($lines[$i], " \t") : $lines[$i], $fenceChar, $fenceLength)) {
                     return $i + 1;
                 }
             }
@@ -804,20 +806,21 @@ trait BlockColonMethods
      * @param int $openIndex
      * @param string $fenceChar
      * @param int $fenceLength
+     * @param bool $anyColumn
      */
-    protected function hasCodeFenceCloserAhead(array $lines, int $openIndex, string $fenceChar, int $fenceLength): bool
+    protected function hasCodeFenceCloserAhead(array $lines, int $openIndex, string $fenceChar, int $fenceLength, bool $anyColumn = false): bool
     {
         if (
             $this->fencedBlockParser::class === FencedBlockParser::class
             && ($fenceChar === '`' || $fenceChar === '~')
             && $fenceLength >= 3
         ) {
-            return $this->codeCloserPossible($this->fenceCloserIndex($lines, true)['code'], $fenceChar, $fenceLength, $openIndex);
+            return $this->codeCloserPossible($this->fenceCloserIndex($lines, !$anyColumn)['code'], $fenceChar, $fenceLength, $openIndex);
         }
 
         $count = count($lines);
         for ($j = $openIndex + 1; $j < $count; $j++) {
-            if ($this->fencedBlockParser->isCodeFenceCloser($lines[$j], $fenceChar, $fenceLength)) {
+            if ($this->fencedBlockParser->isCodeFenceCloser($anyColumn ? ltrim($lines[$j], " \t") : $lines[$j], $fenceChar, $fenceLength)) {
                 return true;
             }
         }
