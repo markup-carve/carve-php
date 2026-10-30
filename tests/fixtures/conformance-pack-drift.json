@@ -31,9 +31,7 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the combined family",
       "cases": [
-        "combined-04abebebea81",
         "combined-0ce08bf78ffe",
-        "combined-0ed51d4b8dd3",
         "combined-0fca5f817c2f",
         "combined-6254f930f23b",
         "combined-c9f4ceb31baf",

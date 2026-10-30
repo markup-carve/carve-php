@@ -738,6 +738,12 @@ class InlineParser
     protected int $inlineDepth = 0;
 
     /**
+     * The depth of a parse whose text is markup content, not an inline run
+     * of its own: `%%` at its start is no comment (CARVE-P9-041).
+     */
+    protected ?int $markupContentDepth = null;
+
+    /**
      * Re-parse inner content, keeping positions when the caller knows where the
      * substring began in the text it came from.
      */
@@ -1782,8 +1788,11 @@ class InlineParser
         }
 
         $previous = $pos > 0 ? $text[$pos - 1] : '';
+        if ($previous === '') {
+            return $this->markupContentDepth !== $this->inlineDepth;
+        }
 
-        return $previous === '' || $previous === ' ' || $previous === "\n";
+        return $previous === ' ' || $previous === "\n";
     }
 
     protected function flushText(Node $parent, string $text): void
@@ -3396,9 +3405,12 @@ class InlineParser
         // A braced inline starts its own scope, so an outer kind opens again
         // inside it (markup-carve/carve#2091).
         $this->openSpanKinds = $braced ? [$kind] : [...$outer, $kind];
+        $outerMarkupDepth = $this->markupContentDepth;
+        $this->markupContentDepth = $this->inlineDepth + 1;
         try {
             $this->parseInlinesAt($node, $content, $offset);
         } finally {
+            $this->markupContentDepth = $outerMarkupDepth;
             $this->openSpanKinds = $outer;
             $this->nextBracedPairIndex = $outerPendingIndex;
         }
@@ -4053,9 +4065,12 @@ class InlineParser
                 // the other delimiter kinds remain available to nest.
                 $outer = $this->openSpanKinds;
                 $this->openSpanKinds = [...$outer, '/', '*'];
+                $outerMarkupDepth = $this->markupContentDepth;
+                $this->markupContentDepth = $this->inlineDepth + 1;
                 try {
                     $this->parseInlinesAt($emphasis, $content, $start);
                 } finally {
+                    $this->markupContentDepth = $outerMarkupDepth;
                     $this->openSpanKinds = $outer;
                 }
                 $strong = new Strong();
