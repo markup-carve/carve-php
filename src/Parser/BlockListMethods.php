@@ -143,7 +143,7 @@ trait BlockListMethods
             return null;
         }
         foreach ($this->blockMatchers as $matcher) {
-            if ($matcher['pattern'] !== '/^--- ?(\w*)[ \t]*$/') {
+            if ($matcher['pattern'] !== '/^--- ?([a-zA-Z0-9]*)[ \t]*$/') {
                 return null;
             }
         }
@@ -247,7 +247,7 @@ trait BlockListMethods
             return null;
         }
         foreach ($this->blockMatchers as $matcher) {
-            if ($matcher['pattern'] !== '/^--- ?(\w*)[ \t]*$/') {
+            if ($matcher['pattern'] !== '/^--- ?([a-zA-Z0-9]*)[ \t]*$/') {
                 return null;
             }
         }
@@ -340,7 +340,7 @@ trait BlockListMethods
             return null;
         }
         foreach ($this->blockMatchers as $matcher) {
-            if ($matcher['pattern'] !== '/^--- ?(\w*)[ \t]*$/') {
+            if ($matcher['pattern'] !== '/^--- ?([a-zA-Z0-9]*)[ \t]*$/') {
                 return null;
             }
         }
@@ -419,7 +419,7 @@ trait BlockListMethods
         }
         // The default frontmatter opener cannot match an item line.
         foreach ($this->blockMatchers as $matcher) {
-            if ($matcher['pattern'] !== '/^--- ?(\\w*)[ \\t]*$/') {
+            if ($matcher['pattern'] !== '/^--- ?([a-zA-Z0-9]*)[ \\t]*$/') {
                 return null;
             }
         }
@@ -492,7 +492,7 @@ trait BlockListMethods
             return null;
         }
         foreach ($this->blockMatchers as $matcher) {
-            if ($matcher['pattern'] !== '/^--- ?(\\w*)[ \\t]*$/') {
+            if ($matcher['pattern'] !== '/^--- ?([a-zA-Z0-9]*)[ \\t]*$/') {
                 return null;
             }
         }

@@ -1665,6 +1665,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                     $this->recordMarkdownLoss($node, 'markdown-attributes-dropped');
                 }
             }
+            if (!$this->roundTripMode && $node instanceof Image && $node->getRenderHint('blockAttributesMerged') === '1') {
+                $this->recordMarkdownLoss($node, 'markdown-attributes-dropped');
+            }
             if ($node instanceof ListBlock) {
                 return $this->renderTrackedList($node);
             }

@@ -2502,6 +2502,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($node instanceof InlineFootnote) {
             return true;
         }
+        if (UnresolvedReference::sourceOf($node) !== null) {
+            return false;
+        }
         foreach ($node->getChildren() as $child) {
             if (!$child instanceof Footnote && $this->holdsANoteBounded($child, $depth + 1)) {
                 return true;
@@ -2522,7 +2525,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 }
             } elseif ($current instanceof InlineFootnote) {
                 return true;
-            } else {
+            } elseif (UnresolvedReference::sourceOf($current) === null) {
                 $children = $current->getChildren();
                 if (count($children) === 1) {
                     $child = reset($children);
@@ -4746,7 +4749,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // the framing.
         $parent = $node->getParent();
         $loose = $parent instanceof DefinitionList && $parent->isLoose();
-        if (count($visible) === 1 && $visible[0] instanceof Paragraph) {
+        if (count($visible) === 1 && $visible[0] instanceof Paragraph && !$this->isBlockImageParagraph($visible[0])) {
             $inner = $this->renderChildren($visible[0]);
             // An attributed paragraph keeps its `<p>`, as in a tight item (CARVE-P9-081).
             $body = $loose || array_diff_key($this->getRenderableAttributes($visible[0]), ['data-source-line' => true]) !== []

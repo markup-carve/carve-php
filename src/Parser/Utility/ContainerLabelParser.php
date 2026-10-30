@@ -74,7 +74,7 @@ final class ContainerLabelParser
         // the separator the comment took with it does not survive as trailing text
         // in the node before it.
         if ($commentOffset !== null) {
-            $cut = rtrim(substr($label, 0, $commentOffset), ' ');
+            $cut = self::cut($label, $commentOffset);
             $ignored = null;
 
             return $cut === '' ? [] : self::parse($cut, $inlineParser, $ignored);
@@ -86,6 +86,20 @@ final class ContainerLabelParser
         self::clearPositions($nodes);
 
         return $nodes;
+    }
+
+    /**
+     * The label before its trailing comment, without the separating space run.
+     *
+     * The space of a `\ ` escape is not part of that run (CARVE-P9-041).
+     */
+    public static function cut(string $label, int $commentOffset): string
+    {
+        $before = substr($label, 0, $commentOffset);
+        $cut = rtrim($before, ' ');
+        $escaped = strlen($cut) < strlen($before) && strspn(strrev($cut), '\\') % 2 === 1;
+
+        return $escaped ? $cut . ' ' : $cut;
     }
 
     /**

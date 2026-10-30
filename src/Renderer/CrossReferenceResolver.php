@@ -16,6 +16,7 @@ use MarkupCarve\Carve\Node\Inline\CaptionNumber;
 use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
@@ -180,6 +181,9 @@ class CrossReferenceResolver
         bool $insideHeadingRef = false,
     ): void {
         if ($depth >= self::MAX_RESOLVE_DEPTH) {
+            return;
+        }
+        if ($this->rendersNoId($node)) {
             return;
         }
         if ($node->hasAttribute('id')) {
@@ -475,11 +479,23 @@ class CrossReferenceResolver
     }
 
     /**
+     * An unresolved reference renders its source, so no id on it or inside it reaches the page.
+     */
+    private function rendersNoId(Node $node): bool
+    {
+        return ($node instanceof FootnoteRef && $node->isUnresolved()) || UnresolvedReference::sourceOf($node) !== null;
+    }
+
+    /**
      * Track ID usage from non-heading elements (like paragraphs with explicit IDs)
      */
     protected function trackIdFromNode(Node $node, HeadingIdTracker $tracker, int $depth = 0): void
     {
         if ($depth >= self::MAX_RESOLVE_DEPTH) {
+            return;
+        }
+
+        if ($this->rendersNoId($node)) {
             return;
         }
 
@@ -609,13 +625,14 @@ class CrossReferenceResolver
 
         $id = $group->getAttribute('id') ?? '';
         if ($id !== '') {
-            $tracker->setTextForId($id, $label . ' ' . $number);
+            $tracker->setCaptionLabel($id, $label . ' ' . $number, $this->captionLabelNodes($caption, ' ' . $number));
         }
 
         foreach ($group->getPanels() as $index => $panel) {
             $panelId = $panel->getAttribute('id') ?? '';
             if ($panelId !== '') {
-                $tracker->setTextForId($panelId, $label . ' ' . $number . self::panelLetter($index));
+                $suffix = ' ' . $number . self::panelLetter($index);
+                $tracker->setCaptionLabel($panelId, $label . $suffix, $this->captionLabelNodes($caption, $suffix));
             }
         }
     }
@@ -667,8 +684,32 @@ class CrossReferenceResolver
 
         $id = $target->getAttribute('id') ?? '';
         if ($id !== '') {
-            $tracker->setTextForId($id, $label . ' ' . $number);
+            $tracker->setCaptionLabel($id, $label . ' ' . $number, $this->captionLabelNodes($caption, ' ' . $number));
         }
+    }
+
+    /**
+     * The caption's markup up to its number, then the number (PART 9R R4).
+     *
+     * @return list<\MarkupCarve\Carve\Node\Node>|null Null for a number nested in a span: no prefix of nodes spells that label.
+     */
+    private function captionLabelNodes(Node $caption, string $suffix): ?array
+    {
+        $nodes = [];
+        foreach ($caption->getChildren() as $child) {
+            if ($child instanceof CaptionNumber) {
+                $last = end($nodes);
+                if ($last instanceof Text) {
+                    $last->setContent(rtrim($last->getContent(), " \t\n\r"));
+                }
+                $nodes[] = new Text($suffix);
+
+                return $nodes;
+            }
+            $nodes[] = clone $child;
+        }
+
+        return null;
     }
 
     /**
