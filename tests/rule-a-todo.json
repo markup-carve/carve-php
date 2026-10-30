@@ -4230,10 +4230,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-2048\"",
-            "ticket": "carve-php#4242"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-2723\"",
             "ticket": "carve-php#4244"
         },
@@ -4768,6 +4764,550 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\TwoSiblingSubListsInATightItemTest::testWritesOneBlankLineBelowABlockAtTheMarkerColumn",
             "ticket": "carve-php#4244"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\ADescriptionSeparatorLeftOfItsItemColumnFoldsIntoTheBodyTest::testRendersLikeTheModel with data set \"separator after an unclosed fence line in a loose item\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceExtentColumnsTest::testFenceOwnershipFollowsTheCurrentBlock with data set \"nested paragraph after blank ```\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceExtentColumnsTest::testFenceOwnershipFollowsTheCurrentBlock with data set \"nested paragraph after blank ~~~\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceExtentColumnsTest::testFenceOwnershipFollowsTheCurrentBlock with data set \"nested paragraph after blank ```=html\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceExtentColumnsTest::testFenceOwnershipFollowsTheCurrentBlock with data set \"nested paragraph after blank ~~~=html\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-0-1-21\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-0-3-23\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-0-4-24\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-0-1-25\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-0-3-27\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-0-4-28\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-0-1-33\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-0-3-35\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-0-4-36\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-1-1-58\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-1-3-60\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-1-4-61\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-1-1-62\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-1-3-64\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-1-4-65\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-1-1-70\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-1-3-72\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-1-4-73\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-2-1-95\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-2-3-97\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-2-4-98\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-2-1-99\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-2-3-101\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-2-4-102\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-2-1-107\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-2-3-109\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-2-4-110\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\AVisibleDescriptionOpenerAfterAnUnclosedRunKeepsItsOwnerTest::testTheRunOpensAFenceInsideTheDescription",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-47\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-53\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-59\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-65\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-71\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-137\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-429\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-623\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-629\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-635\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-641\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-647\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-713\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-1005\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"empty nested note marker and fence/nested-marker-note-closer/nested-51\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"empty nested note marker and fence/nested-marker-note-closer/nested-147\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"empty nested note marker and fence/nested-marker-note-closer/nested-151\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"empty nested note marker and fence/nested-marker-note-closer/nested-243\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"empty nested note marker and fence/nested-marker-note-closer/nested-339\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"empty nested note marker and fence/nested-marker-note-closer/nested-343\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"authored definition term fence boundary/nested-marker-note-closer/generic-431\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"authored definition term fence boundary/nested-marker-note-closer/generic-1007\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\TheWalkReadsFencesAndTermsAsTheSpecModelTest::testHtml with data set \"a description text fence does not pair with a moved opener\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-2\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-3\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-4\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-5\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-8\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-11\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-14\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-17\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-20\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-21\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-22\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-23\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-26\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-29\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-32\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-35\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-38\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-39\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-40\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-41\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-44\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-47\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-50\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\UnmatchedInlineCodeListParagraphTest::testAnUnmatchedCodeRunKeepsItsParagraph with data set \"boundary-53\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\ContainerBoundariesTest::testAnAttachmentDoesNotSplitASurroundingDiv",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\DescriptionVisibleOpenersAfterInlineFenceTest::testTheDescriptionKeepsItsVisibleOpeners with data set \"table after open run\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\DescriptionVisibleOpenersAfterInlineFenceTest::testTheDescriptionKeepsItsVisibleOpeners with data set \"quote after open run\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\DescriptionVisibleOpenersAfterInlineFenceTest::testTheDescriptionKeepsItsVisibleOpeners with data set \"div body stays in description\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\DescriptionVisibleOpenersAfterInlineFenceTest::testTheDescriptionKeepsItsVisibleOpeners with data set \"tabbed quote stays in description\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\DescriptionVisibleOpenersAfterInlineFenceTest::testTheDescriptionKeepsItsVisibleOpeners with data set \"multiline\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\DescriptionVisibleOpenersAfterInlineFenceTest::testTheDescriptionKeepsItsVisibleOpeners with data set \"table-multiline\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-27\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-1310\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-2082\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-2168\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-2686\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-2728\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-2730\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-3108\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-3784\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-3886\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-4316\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-4694\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-4937\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-4985\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-5304\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-5595\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-5997\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-6145\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-6636\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-7130\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-7434\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-7437\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-8078\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-8265\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-8528\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-10111\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-10251\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-10671\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-11726\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-13125\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-13545\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-13548\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-13600\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-13840\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-14398\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-15087\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-16118\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-17180\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-17658\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-17828\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-17837\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-18377\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-18935\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-18082\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\MarkerNoteMarkerContinuationTest::testAMarkerAtAMarkerLineNotesColumnIsTheNotes with data set \"matrix-n6734\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\MarkerNoteMarkerContinuationTest::testAMarkerAtAMarkerLineNotesColumnIsTheNotes with data set \"matrix-n7082\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermFenceTest::testFencesPreservePendingTermOwnership with data set \"pending-term-static-review-0\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermFenceTest::testFencesPreservePendingTermOwnership with data set \"pending-term-static-review-32\"",
+            "ticket": "carve-php#4308"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermFenceTest::testFencesPreservePendingTermOwnership with data set \"pending-term-static-review-64\"",
+            "ticket": "carve-php#4308"
         }
     ]
 }

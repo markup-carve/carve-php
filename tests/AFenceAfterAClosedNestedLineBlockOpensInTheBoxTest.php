@@ -24,7 +24,7 @@ class AFenceAfterAClosedNestedLineBlockOpensInTheBoxTest extends TestCase
     {
         $html = CarveConverter::create()->convert("- ::: box\n  - x\n   ```\n  :::\n");
 
-        self::assertStringContainsString("<li>x</li>", $html);
+        self::assertStringContainsString('<li>x</li>', $html);
         self::assertStringContainsString("<pre><code>:::\n</code></pre>", $html);
     }
 

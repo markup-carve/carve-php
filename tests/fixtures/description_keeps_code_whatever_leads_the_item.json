@@ -62,7 +62,7 @@
   {
     "id": "q0-term-tick-b0-c4-open-para",
     "source": "- :: term\n  : desc\n    ```\n    code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>desc<code>code after</code></dd></dl></li></ul>"
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-term-tick-b0-c4-open-item",
@@ -102,7 +102,7 @@
   {
     "id": "q0-term-tick-b0-c6-open-para",
     "source": "- :: term\n  : desc\n      ```\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>desc<code>code after</code></dd></dl></li></ul>"
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-term-tick-b0-c6-open-item",
@@ -302,7 +302,7 @@
   {
     "id": "q0-term-tilde-b0-c4-open-para",
     "source": "- :: term\n  : desc\n    ~~~\n    code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>desc ~~~ code after</dd></dl></li></ul>"
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-term-tilde-b0-c4-open-item",
@@ -342,7 +342,7 @@
   {
     "id": "q0-term-tilde-b0-c6-open-para",
     "source": "- :: term\n  : desc\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>desc ~~~ code after</dd></dl></li></ul>"
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-term-tilde-b0-c6-open-item",
@@ -542,7 +542,7 @@
   {
     "id": "q0-term-raw-b0-c4-open-para",
     "source": "- :: term\n  : desc\n    ``` =html\n    code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>desc<code>=html code after</code></dd></dl></li></ul>"
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p>code</dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-term-raw-b0-c4-open-item",
@@ -582,7 +582,7 @@
   {
     "id": "q0-term-raw-b0-c6-open-para",
     "source": "- :: term\n  : desc\n      ``` =html\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>desc<code>=html code after</code></dd></dl></li></ul>"
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p>code</dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-term-raw-b0-c6-open-item",
@@ -782,7 +782,7 @@
   {
     "id": "q0-intro-tick-b0-c4-open-para",
     "source": "- intro\n  :: term\n  : desc\n    ```\n    code\nafter\n",
-    "html": "<ul><li>intro<dl><dt>term</dt><dd>desc<code>code after</code></dd></dl></li></ul>"
+    "html": "<ul><li>intro<dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-intro-tick-b0-c4-open-item",
@@ -822,7 +822,7 @@
   {
     "id": "q0-intro-tick-b0-c6-open-para",
     "source": "- intro\n  :: term\n  : desc\n      ```\n      code\nafter\n",
-    "html": "<ul><li>intro<dl><dt>term</dt><dd>desc<code>code after</code></dd></dl></li></ul>"
+    "html": "<ul><li>intro<dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-intro-tick-b0-c6-open-item",
@@ -1022,7 +1022,7 @@
   {
     "id": "q0-intro-tilde-b0-c4-open-para",
     "source": "- intro\n  :: term\n  : desc\n    ~~~\n    code\nafter\n",
-    "html": "<ul><li>intro<dl><dt>term</dt><dd>desc ~~~ code after</dd></dl></li></ul>"
+    "html": "<ul><li>intro<dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-intro-tilde-b0-c4-open-item",
@@ -1062,7 +1062,7 @@
   {
     "id": "q0-intro-tilde-b0-c6-open-para",
     "source": "- intro\n  :: term\n  : desc\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li>intro<dl><dt>term</dt><dd>desc ~~~ code after</dd></dl></li></ul>"
+    "html": "<ul><li>intro<dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-intro-tilde-b0-c6-open-item",
@@ -1262,7 +1262,7 @@
   {
     "id": "q0-intro-raw-b0-c4-open-para",
     "source": "- intro\n  :: term\n  : desc\n    ``` =html\n    code\nafter\n",
-    "html": "<ul><li>intro<dl><dt>term</dt><dd>desc<code>=html code after</code></dd></dl></li></ul>"
+    "html": "<ul><li>intro<dl><dt>term</dt><dd><p>desc</p>code</dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-intro-raw-b0-c4-open-item",
@@ -1302,7 +1302,7 @@
   {
     "id": "q0-intro-raw-b0-c6-open-para",
     "source": "- intro\n  :: term\n  : desc\n      ``` =html\n      code\nafter\n",
-    "html": "<ul><li>intro<dl><dt>term</dt><dd>desc<code>=html code after</code></dd></dl></li></ul>"
+    "html": "<ul><li>intro<dl><dt>term</dt><dd><p>desc</p>code</dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-intro-raw-b0-c6-open-item",
@@ -1502,7 +1502,7 @@
   {
     "id": "q0-termpara-tick-b0-c4-open-para",
     "source": "- :: term\n  : desc\n\n    text\n    ```\n    code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><p>text<code>code after</code></p></dd></dl></li></ul>"
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-termpara-tick-b0-c4-open-item",
@@ -1542,7 +1542,7 @@
   {
     "id": "q0-termpara-tick-b0-c6-open-para",
     "source": "- :: term\n  : desc\n\n    text\n      ```\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><p>text<code>code after</code></p></dd></dl></li></ul>"
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-termpara-tick-b0-c6-open-item",
@@ -1742,7 +1742,7 @@
   {
     "id": "q0-termpara-tilde-b0-c4-open-para",
     "source": "- :: term\n  : desc\n\n    text\n    ~~~\n    code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><p>text ~~~ code after</p></dd></dl></li></ul>"
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-termpara-tilde-b0-c4-open-item",
@@ -1782,7 +1782,7 @@
   {
     "id": "q0-termpara-tilde-b0-c6-open-para",
     "source": "- :: term\n  : desc\n\n    text\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><p>text ~~~ code after</p></dd></dl></li></ul>"
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-termpara-tilde-b0-c6-open-item",
@@ -1982,7 +1982,7 @@
   {
     "id": "q0-termpara-raw-b0-c4-open-para",
     "source": "- :: term\n  : desc\n\n    text\n    ``` =html\n    code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><p>text<code>=html code after</code></p></dd></dl></li></ul>"
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p>code</dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-termpara-raw-b0-c4-open-item",
@@ -2022,7 +2022,7 @@
   {
     "id": "q0-termpara-raw-b0-c6-open-para",
     "source": "- :: term\n  : desc\n\n    text\n      ``` =html\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><p>text<code>=html code after</code></p></dd></dl></li></ul>"
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p>code</dd></dl></li></ul><p>after</p>"
   },
   {
     "id": "q0-termpara-raw-b0-c6-open-item",
@@ -2222,7 +2222,7 @@
   {
     "id": "q1-term-tick-b0-c4-open-para",
     "source": "> - :: term\n>   : desc\n>     ```\n>     code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>desc<code>code after</code></dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-term-tick-b0-c4-open-item",
@@ -2262,7 +2262,7 @@
   {
     "id": "q1-term-tick-b0-c6-open-para",
     "source": "> - :: term\n>   : desc\n>       ```\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>desc<code>code after</code></dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-term-tick-b0-c6-open-item",
@@ -2462,7 +2462,7 @@
   {
     "id": "q1-term-tilde-b0-c4-open-para",
     "source": "> - :: term\n>   : desc\n>     ~~~\n>     code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>desc ~~~ code after</dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-term-tilde-b0-c4-open-item",
@@ -2502,7 +2502,7 @@
   {
     "id": "q1-term-tilde-b0-c6-open-para",
     "source": "> - :: term\n>   : desc\n>       ~~~\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>desc ~~~ code after</dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-term-tilde-b0-c6-open-item",
@@ -2702,7 +2702,7 @@
   {
     "id": "q1-term-raw-b0-c4-open-para",
     "source": "> - :: term\n>   : desc\n>     ``` =html\n>     code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>desc<code>=html code after</code></dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p>code</dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-term-raw-b0-c4-open-item",
@@ -2742,7 +2742,7 @@
   {
     "id": "q1-term-raw-b0-c6-open-para",
     "source": "> - :: term\n>   : desc\n>       ``` =html\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>desc<code>=html code after</code></dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p>code</dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-term-raw-b0-c6-open-item",
@@ -2942,7 +2942,7 @@
   {
     "id": "q1-intro-tick-b0-c4-open-para",
     "source": "> - intro\n>   :: term\n>   : desc\n>     ```\n>     code\n> after\n",
-    "html": "<blockquote><ul><li>intro<dl><dt>term</dt><dd>desc<code>code after</code></dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>intro<dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-intro-tick-b0-c4-open-item",
@@ -2982,7 +2982,7 @@
   {
     "id": "q1-intro-tick-b0-c6-open-para",
     "source": "> - intro\n>   :: term\n>   : desc\n>       ```\n>       code\n> after\n",
-    "html": "<blockquote><ul><li>intro<dl><dt>term</dt><dd>desc<code>code after</code></dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>intro<dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-intro-tick-b0-c6-open-item",
@@ -3182,7 +3182,7 @@
   {
     "id": "q1-intro-tilde-b0-c4-open-para",
     "source": "> - intro\n>   :: term\n>   : desc\n>     ~~~\n>     code\n> after\n",
-    "html": "<blockquote><ul><li>intro<dl><dt>term</dt><dd>desc ~~~ code after</dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>intro<dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-intro-tilde-b0-c4-open-item",
@@ -3222,7 +3222,7 @@
   {
     "id": "q1-intro-tilde-b0-c6-open-para",
     "source": "> - intro\n>   :: term\n>   : desc\n>       ~~~\n>       code\n> after\n",
-    "html": "<blockquote><ul><li>intro<dl><dt>term</dt><dd>desc ~~~ code after</dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>intro<dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-intro-tilde-b0-c6-open-item",
@@ -3422,7 +3422,7 @@
   {
     "id": "q1-intro-raw-b0-c4-open-para",
     "source": "> - intro\n>   :: term\n>   : desc\n>     ``` =html\n>     code\n> after\n",
-    "html": "<blockquote><ul><li>intro<dl><dt>term</dt><dd>desc<code>=html code after</code></dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>intro<dl><dt>term</dt><dd><p>desc</p>code</dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-intro-raw-b0-c4-open-item",
@@ -3462,7 +3462,7 @@
   {
     "id": "q1-intro-raw-b0-c6-open-para",
     "source": "> - intro\n>   :: term\n>   : desc\n>       ``` =html\n>       code\n> after\n",
-    "html": "<blockquote><ul><li>intro<dl><dt>term</dt><dd>desc<code>=html code after</code></dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>intro<dl><dt>term</dt><dd><p>desc</p>code</dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-intro-raw-b0-c6-open-item",
@@ -3662,7 +3662,7 @@
   {
     "id": "q1-termpara-tick-b0-c4-open-para",
     "source": "> - :: term\n>   : desc\n>\n>     text\n>     ```\n>     code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text<code>code after</code></p></dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-termpara-tick-b0-c4-open-item",
@@ -3702,7 +3702,7 @@
   {
     "id": "q1-termpara-tick-b0-c6-open-para",
     "source": "> - :: term\n>   : desc\n>\n>     text\n>       ```\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text<code>code after</code></p></dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-termpara-tick-b0-c6-open-item",
@@ -3902,7 +3902,7 @@
   {
     "id": "q1-termpara-tilde-b0-c4-open-para",
     "source": "> - :: term\n>   : desc\n>\n>     text\n>     ~~~\n>     code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text ~~~ code after</p></dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-termpara-tilde-b0-c4-open-item",
@@ -3942,7 +3942,7 @@
   {
     "id": "q1-termpara-tilde-b0-c6-open-para",
     "source": "> - :: term\n>   : desc\n>\n>     text\n>       ~~~\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text ~~~ code after</p></dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-termpara-tilde-b0-c6-open-item",
@@ -4142,7 +4142,7 @@
   {
     "id": "q1-termpara-raw-b0-c4-open-para",
     "source": "> - :: term\n>   : desc\n>\n>     text\n>     ``` =html\n>     code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text<code>=html code after</code></p></dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p>code</dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-termpara-raw-b0-c4-open-item",
@@ -4182,7 +4182,7 @@
   {
     "id": "q1-termpara-raw-b0-c6-open-para",
     "source": "> - :: term\n>   : desc\n>\n>     text\n>       ``` =html\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text<code>=html code after</code></p></dd></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p>code</dd></dl></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "q1-termpara-raw-b0-c6-open-item",
@@ -4382,7 +4382,7 @@
   {
     "id": "q2-term-tick-b0-c4-open-para",
     "source": "> > - :: term\n> >   : desc\n> >     ```\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>desc<code>code after</code></dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-term-tick-b0-c4-open-item",
@@ -4422,7 +4422,7 @@
   {
     "id": "q2-term-tick-b0-c6-open-para",
     "source": "> > - :: term\n> >   : desc\n> >       ```\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>desc<code>code after</code></dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-term-tick-b0-c6-open-item",
@@ -4622,7 +4622,7 @@
   {
     "id": "q2-term-tilde-b0-c4-open-para",
     "source": "> > - :: term\n> >   : desc\n> >     ~~~\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>desc ~~~ code after</dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-term-tilde-b0-c4-open-item",
@@ -4662,7 +4662,7 @@
   {
     "id": "q2-term-tilde-b0-c6-open-para",
     "source": "> > - :: term\n> >   : desc\n> >       ~~~\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>desc ~~~ code after</dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-term-tilde-b0-c6-open-item",
@@ -4862,7 +4862,7 @@
   {
     "id": "q2-term-raw-b0-c4-open-para",
     "source": "> > - :: term\n> >   : desc\n> >     ``` =html\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>desc<code>=html code after</code></dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p>code</dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-term-raw-b0-c4-open-item",
@@ -4902,7 +4902,7 @@
   {
     "id": "q2-term-raw-b0-c6-open-para",
     "source": "> > - :: term\n> >   : desc\n> >       ``` =html\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>desc<code>=html code after</code></dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p>code</dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-term-raw-b0-c6-open-item",
@@ -5102,7 +5102,7 @@
   {
     "id": "q2-intro-tick-b0-c4-open-para",
     "source": "> > - intro\n> >   :: term\n> >   : desc\n> >     ```\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>intro<dl><dt>term</dt><dd>desc<code>code after</code></dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>intro<dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-intro-tick-b0-c4-open-item",
@@ -5142,7 +5142,7 @@
   {
     "id": "q2-intro-tick-b0-c6-open-para",
     "source": "> > - intro\n> >   :: term\n> >   : desc\n> >       ```\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>intro<dl><dt>term</dt><dd>desc<code>code after</code></dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>intro<dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-intro-tick-b0-c6-open-item",
@@ -5342,7 +5342,7 @@
   {
     "id": "q2-intro-tilde-b0-c4-open-para",
     "source": "> > - intro\n> >   :: term\n> >   : desc\n> >     ~~~\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>intro<dl><dt>term</dt><dd>desc ~~~ code after</dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>intro<dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-intro-tilde-b0-c4-open-item",
@@ -5382,7 +5382,7 @@
   {
     "id": "q2-intro-tilde-b0-c6-open-para",
     "source": "> > - intro\n> >   :: term\n> >   : desc\n> >       ~~~\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>intro<dl><dt>term</dt><dd>desc ~~~ code after</dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>intro<dl><dt>term</dt><dd><p>desc</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-intro-tilde-b0-c6-open-item",
@@ -5582,7 +5582,7 @@
   {
     "id": "q2-intro-raw-b0-c4-open-para",
     "source": "> > - intro\n> >   :: term\n> >   : desc\n> >     ``` =html\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>intro<dl><dt>term</dt><dd>desc<code>=html code after</code></dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>intro<dl><dt>term</dt><dd><p>desc</p>code</dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-intro-raw-b0-c4-open-item",
@@ -5622,7 +5622,7 @@
   {
     "id": "q2-intro-raw-b0-c6-open-para",
     "source": "> > - intro\n> >   :: term\n> >   : desc\n> >       ``` =html\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>intro<dl><dt>term</dt><dd>desc<code>=html code after</code></dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>intro<dl><dt>term</dt><dd><p>desc</p>code</dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-intro-raw-b0-c6-open-item",
@@ -5822,7 +5822,7 @@
   {
     "id": "q2-termpara-tick-b0-c4-open-para",
     "source": "> > - :: term\n> >   : desc\n> >\n> >     text\n> >     ```\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text<code>code after</code></p></dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-termpara-tick-b0-c4-open-item",
@@ -5862,7 +5862,7 @@
   {
     "id": "q2-termpara-tick-b0-c6-open-para",
     "source": "> > - :: term\n> >   : desc\n> >\n> >     text\n> >       ```\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text<code>code after</code></p></dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-termpara-tick-b0-c6-open-item",
@@ -6062,7 +6062,7 @@
   {
     "id": "q2-termpara-tilde-b0-c4-open-para",
     "source": "> > - :: term\n> >   : desc\n> >\n> >     text\n> >     ~~~\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text ~~~ code after</p></dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-termpara-tilde-b0-c4-open-item",
@@ -6102,7 +6102,7 @@
   {
     "id": "q2-termpara-tilde-b0-c6-open-para",
     "source": "> > - :: term\n> >   : desc\n> >\n> >     text\n> >       ~~~\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text ~~~ code after</p></dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p><pre><code>code</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-termpara-tilde-b0-c6-open-item",
@@ -6302,7 +6302,7 @@
   {
     "id": "q2-termpara-raw-b0-c4-open-para",
     "source": "> > - :: term\n> >   : desc\n> >\n> >     text\n> >     ``` =html\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text<code>=html code after</code></p></dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p>code</dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-termpara-raw-b0-c4-open-item",
@@ -6342,7 +6342,7 @@
   {
     "id": "q2-termpara-raw-b0-c6-open-para",
     "source": "> > - :: term\n> >   : desc\n> >\n> >     text\n> >       ``` =html\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text<code>=html code after</code></p></dd></dl></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><p>text</p>code</dd></dl></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "q2-termpara-raw-b0-c6-open-item",

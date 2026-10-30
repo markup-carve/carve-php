@@ -3848,6 +3848,8 @@ class MarkdownToCarve
             || preg_match('/^(?:>|[-*+](?=[ \t]|$)|#{1,6}(?=[ \t]|$))/', $text) === 1
             || preg_match('/^\|.*\|[ \t]*$/', $text) === 1
             || preg_match('/^ {0,3}\[[^\]]*\]:[ \t]*\S/', $text) === 1
+            // A fence run opens a fence over a paragraph without a closer (carve#4018).
+            || preg_match('/^~{3,}/', $text) === 1
         ) {
             return '\\' . $text;
         }

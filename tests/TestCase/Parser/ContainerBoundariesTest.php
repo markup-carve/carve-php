@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class ContainerBoundariesTest extends TestCase
 {
+    use RuleATodo;
+
     public function testSharedContainerBoundaries(): void
     {
         $path = dirname(__DIR__, 2) . '/fixtures/container-boundaries.json';

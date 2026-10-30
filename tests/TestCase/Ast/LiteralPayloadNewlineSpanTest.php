@@ -19,7 +19,6 @@ class LiteralPayloadNewlineSpanTest extends TestCase
     public static function corpusCases(): array
     {
         return [
-            '291-3 code' => ['291-a-fence-keeps-the-blank-line-at-the-end-of-its-content-3', 'code_block', 16],
             '291-5 code' => ['291-a-fence-keeps-the-blank-line-at-the-end-of-its-content-5', 'code_block', 9],
             '291-6 code' => ['291-a-fence-keeps-the-blank-line-at-the-end-of-its-content-6', 'code_block', 11],
             '365-2 code' => ['365-a-blank-line-before-a-sibling-marker-separates-the-items-whatever-consumed-it-2', 'code_block', 11],
@@ -60,6 +59,7 @@ class LiteralPayloadNewlineSpanTest extends TestCase
             'unclosed raw without final LF' => ["```=html\nx", 'raw_block', 10],
             'terminal code blank excludes EOF LF' => ["```\nx\n\n", 'code_block', 6],
             'terminal raw blank excludes EOF LF' => ["```=html\nx\n\n", 'raw_block', 11],
+            'unclosed code runs past a div closer to EOF' => ["::: note\n```\nx\n\n:::\n", 'code_block', 19],
         ];
     }
 

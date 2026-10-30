@@ -1953,19 +1953,6 @@ final class ListBlockBuilder
         // The nested parser decides whether trailing blanks are
         // fence payload or spacing outside the last block.
 
-        // THE OWNERSHIP ANSWER IS HANDED DOWN, not re-derived. The
-        // closer this stream armed its fence on sits below the line
-        // that ended the stream, so the nested parse sees an opener
-        // with none and reads the body back as an inline code span -
-        // carve#1399 one container further in (markup-carve/carve#2509).
-        // Written at the fence's own column so the parse one level down
-        // sees the closer that the collected stream could not retain.
-        if ($subInterruptedParagraphFence && $subTrailingState->fence !== null) {
-            $subLines[] = str_repeat(' ', $subTrailingState->fence->column)
-                . str_repeat($subTrailingState->fence->char, $subTrailingState->fence->length);
-            $subLineMap[] = -1;
-        }
-
         return new IndentedListContinuation(
             $i,
             $subLines,

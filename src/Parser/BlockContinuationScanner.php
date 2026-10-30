@@ -2046,15 +2046,6 @@ final class BlockContinuationScanner
             && ($this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
                 || $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
         ) {
-            if (
-                $trailingState->fence !== null
-                && $run->interruptedParagraphFence
-                && ($this->getListParser)()->parseListItemMarker($nextTrimmed) === null
-            ) {
-                $itemLines[] = str_repeat($trailingState->fence->char, $trailingState->fence->length);
-                $itemLineMap[] = -1;
-            }
-
             return false;
         }
 
@@ -2706,7 +2697,6 @@ final class BlockContinuationScanner
         bool $releasedNoteFenceText,
         bool &$inlineAuthoredFence,
     ): void {
-        $failedFenceColumn = null;
         // A completed floor block leaves the following authored block
         // to the same body reparse instead of stripping its base twice.
         if (
@@ -2737,61 +2727,32 @@ final class BlockContinuationScanner
                 ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
             $column = IndentationHelper::getLeadingColumns($nextLine);
             if ($opener !== null && $column > $contentIndent) {
-                $descriptionBlockFence = $run->openDefinitionBody !== null
-                    && !$run->recentDefinitionParagraph
-                    && $column >= $contentIndent + $run->openDefinitionBody;
+                // A fence reaching a note or description body stays with that body (CARVE-P0-004).
+                $noteBodyFence = $run->markerNoteItem
+                    && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                    && $this->leadNoteExtendsThrough($itemLines, $run->noteCursor, $run->noteBroken);
+                $closedNoteBodyFence = $run->markerNoteItem && ($trailingState->inFootnoteBody || !$run->sawNestedNote)
+                    && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                    && $this->noteKeepsItsBody($itemLines, $run->markerRunCursor, $run->markerRunBroken)
+                    && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $run->noteSourceCursor, $run->noteSourceBroken);
                 if (
-                    !$trailingState->openParagraph
-                    || $descriptionBlockFence
-                    || $legacyRawAdmission
-                    || $this->listAuthoredFenceCloserAhead($lines, $i, $opener, $column, $contentIndent, $baseIndent, $run->authoredFenceMisses, $run->authoredFenceHits)
+                    ($run->nestedNoteBodyColumn === null || $column < $run->nestedNoteBodyColumn)
+                    && !($noteBodyFence && $run->leadNoteHadBlank && !$closedNoteBodyFence)
+                    && (
+                        $run->openDefinitionBody === null
+                        || !$run->definitionBodyHasTerm
+                        || $column < $contentIndent + $run->openDefinitionBody
+                    )
                 ) {
-                    // A fence reaching a note or description body stays with that body (CARVE-P0-004).
-                    $noteBodyFence = $run->markerNoteItem
-                        && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                        && $this->leadNoteExtendsThrough($itemLines, $run->noteCursor, $run->noteBroken);
-                    $closedNoteBodyFence = $run->markerNoteItem && ($trailingState->inFootnoteBody || !$run->sawNestedNote)
-                        && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                        && $this->noteKeepsItsBody($itemLines, $run->markerRunCursor, $run->markerRunBroken)
-                        && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $run->noteSourceCursor, $run->noteSourceBroken);
-                    if (
-                        ($run->nestedNoteBodyColumn === null || $column < $run->nestedNoteBodyColumn)
-                        && !($noteBodyFence && $run->leadNoteHadBlank && !$closedNoteBodyFence)
-                        && (
-                            $run->openDefinitionBody === null
-                            || !$run->definitionBodyHasTerm
-                            || $column < $contentIndent + $run->openDefinitionBody
-                        )
-                    ) {
-                        // Under a marker-line note the fence opens in the note on its authored base,
-                        // unless it reaches the content column of a list the note opened.
-                        if (!$closedNoteBodyFence) {
-                            $run->authoredCodeColumn = $column;
-                        } elseif ($column < $this->noteChildContentColumn($itemLines, $contentIndent, $run->leadNoteHadBlank)) {
-                            $run->authoredCodeColumn = $column - BlockGrammar::FOOTNOTE_BODY_COLUMN;
-                        }
-                    }
-                } else {
-                    $inlineAuthoredFence = true;
-                    $failedFenceColumn = $column;
-                    if (
-                        $run->itemOwnFenceRuns && !$run->markerNoteItem && $run->openDefinitionBody === null && !$run->pendingDefinitionTerm && !$run->pendingAttachedAttributes
-                        && !$this->isCommentLineOrFence(ltrim($itemLines[count($itemLines) - 1] ?? '', " \t"))
-                    ) {
-                        $run->unclosedFenceColumn ??= $column;
-                        $unclosedFenceBase ??= $run->unclosedFenceColumn - $contentIndent;
-                    }
-                    if (($opener['char'] ?? $opener['fence'][0]) === '`') {
-                        $run->inlineCodeParagraph = true;
-                        $run->inlineDefinitionBody = $run->openDefinitionBody;
-                        $run->inlineParagraphColumn = $column;
-                        $run->inlineFenceColumn = $column;
+                    // Under a marker-line note the fence opens in the note on its authored base,
+                    // unless it reaches the content column of a list the note opened.
+                    if (!$closedNoteBodyFence) {
+                        $run->authoredCodeColumn = $column;
+                    } elseif ($column < $this->noteChildContentColumn($itemLines, $contentIndent, $run->leadNoteHadBlank)) {
+                        $run->authoredCodeColumn = $column - BlockGrammar::FOOTNOTE_BODY_COLUMN;
                     }
                 }
             }
-        }
-        if ($run->unclosedFenceColumn === null && $failedFenceColumn !== null && $run->openDefinitionBody === null && !$trailingState->inFootnoteBody && $i + 2 < $count && isset($lines[$i + 1], $lines[$i + 2]) && IndentationHelper::isBlankLine($lines[$i + 1]) && !IndentationHelper::isBlankLine($lines[$i + 2]) && IndentationHelper::getLeadingColumns($lines[$i + 2]) >= $failedFenceColumn) {
-            $inlineAuthoredFence = false;
         }
     }
 
@@ -3695,16 +3656,6 @@ final class BlockContinuationScanner
             && ($nextIndent === 0 || !$trailingState->afterComment)
             && !($leadIsBareContinuationMarker && $nextIndent === 0 && $this->continuationFollowerIsEligible($i))
         ) {
-            // The closer lookahead can find a closer beyond the line that
-            // ends this item. Preserve that decision when the collected
-            // item is parsed on its own: without the synthetic boundary
-            // closer, the second parse sees a truncated stream and turns
-            // the same opener back into inline code.
-            if (($trailingState->fence !== null) && $run->interruptedParagraphFence) {
-                $itemLines[] = str_repeat($trailingState->fence->char, $trailingState->fence->length);
-                $itemLineMap[] = -1;
-            }
-
             return false;
         }
 

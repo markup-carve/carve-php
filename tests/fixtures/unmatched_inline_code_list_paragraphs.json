@@ -672,22 +672,22 @@
   {
     "id": "boundary-2",
     "source": "- a\n    ```\n        > %% c\n        c\n\nafter\n",
-    "html": "<ul><li>a\n<code></code><blockquote></blockquote>\n    c\n  </li></ul><p>after</p>"
+    "html": "<ul><li>a\n    <pre><code>    &gt; %% c\n    c\n\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "boundary-3",
     "source": "- a\n    ```\n  - %% c\n  c\n\nafter\n",
-    "html": "<ul><li>a\n<code></code><ul><li></li></ul>\n    c\n  </li></ul><p>after</p>"
+    "html": "<ul><li>a\n    <pre><code>- %% c\nc\n\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "boundary-4",
     "source": "- a\n    ```\n    - %% c\n    c\n\nafter\n",
-    "html": "<ul><li>a\n<code></code><ul><li></li></ul>\n    c\n  </li></ul><p>after</p>"
+    "html": "<ul><li>a\n    <pre><code>- %% c\nc\n\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "boundary-5",
     "source": "- a\n    ```\n        - %% c\n        c\n\nafter\n",
-    "html": "<ul><li>a\n<code></code><ul><li></li></ul>\n    c\n  </li></ul><p>after</p>"
+    "html": "<ul><li>a\n    <pre><code>    - %% c\n    c\n\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "boundary-6",
@@ -702,7 +702,7 @@
   {
     "id": "boundary-8",
     "source": "- a\n    ```\n        ::: note\n        c\n\nafter\n",
-    "html": "<ul><li>a\n<code></code><aside class=\"admonition note\" aria-label=\"Note\"><p>c</p></aside></li></ul><p>after</p>"
+    "html": "<ul><li>a\n    <pre><code>    ::: note\n    c\n\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "boundary-9",
@@ -717,7 +717,7 @@
   {
     "id": "boundary-11",
     "source": "- a\n    ```\n        :: term\n        c\n\nafter\n",
-    "html": "<ul><li>a\n<code></code><dl><dt>term\nc</dt></dl></li></ul><p>after</p>"
+    "html": "<ul><li>a\n    <pre><code>    :: term\n    c\n\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "boundary-12",
@@ -732,7 +732,7 @@
   {
     "id": "boundary-14",
     "source": "- a\n    ```\n        : def\n        c\n\nafter\n",
-    "html": "<ul><li>a\n<code>\n: def\nc</code></li></ul><p>after</p>"
+    "html": "<ul><li>a\n    <pre><code>    : def\n    c\n\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "boundary-15",
@@ -747,7 +747,7 @@
   {
     "id": "boundary-17",
     "source": "- a\n    ```\n        ~~~ x\n        c\n\nafter\n",
-    "html": "<ul><li>a\n<code>\n~~~ x\nc</code></li></ul><p>after</p>"
+    "html": "<ul><li>a\n    <pre><code>    ~~~ x\n    c\n\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "boundary-18",
@@ -762,22 +762,22 @@
   {
     "id": "boundary-20",
     "source": "> - a\n>     ```\n>         > %% c\n>         c\n> \n> after\n",
-    "html": "<blockquote><ul><li>a\n<code></code><blockquote></blockquote>\n      c\n    </li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>    &gt; %% c\n    c\n\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "boundary-21",
     "source": "> - a\n>     ```\n>   - %% c\n>   c\n> \n> after\n",
-    "html": "<blockquote><ul><li>a\n<code></code><ul><li></li></ul>\n      c\n    </li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>- %% c\nc\n\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "boundary-22",
     "source": "> - a\n>     ```\n>     - %% c\n>     c\n> \n> after\n",
-    "html": "<blockquote><ul><li>a\n<code></code><ul><li></li></ul>\n      c\n    </li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>- %% c\nc\n\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "boundary-23",
     "source": "> - a\n>     ```\n>         - %% c\n>         c\n> \n> after\n",
-    "html": "<blockquote><ul><li>a\n<code></code><ul><li></li></ul>\n      c\n    </li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>    - %% c\n    c\n\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "boundary-24",
@@ -792,7 +792,7 @@
   {
     "id": "boundary-26",
     "source": "> - a\n>     ```\n>         ::: note\n>         c\n> \n> after\n",
-    "html": "<blockquote><ul><li>a\n<code></code><aside class=\"admonition note\" aria-label=\"Note\"><p>c</p></aside></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>    ::: note\n    c\n\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "boundary-27",
@@ -807,7 +807,7 @@
   {
     "id": "boundary-29",
     "source": "> - a\n>     ```\n>         :: term\n>         c\n> \n> after\n",
-    "html": "<blockquote><ul><li>a\n<code></code><dl><dt>term\nc</dt></dl></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>    :: term\n    c\n\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "boundary-30",
@@ -822,7 +822,7 @@
   {
     "id": "boundary-32",
     "source": "> - a\n>     ```\n>         : def\n>         c\n> \n> after\n",
-    "html": "<blockquote><ul><li>a\n<code>\n: def\nc</code></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>    : def\n    c\n\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "boundary-33",
@@ -837,7 +837,7 @@
   {
     "id": "boundary-35",
     "source": "> - a\n>     ```\n>         ~~~ x\n>         c\n> \n> after\n",
-    "html": "<blockquote><ul><li>a\n<code>\n~~~ x\nc</code></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <pre><code>    ~~~ x\n    c\n\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "boundary-36",
@@ -852,22 +852,22 @@
   {
     "id": "boundary-38",
     "source": "> > - a\n> >     ```\n> >         > %% c\n> >         c\n> > \n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code></code><blockquote></blockquote>\n        c\n      </li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>    &gt; %% c\n    c\n\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "boundary-39",
     "source": "> > - a\n> >     ```\n> >   - %% c\n> >   c\n> > \n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code></code><ul><li></li></ul>\n        c\n      </li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>- %% c\nc\n\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "boundary-40",
     "source": "> > - a\n> >     ```\n> >     - %% c\n> >     c\n> > \n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code></code><ul><li></li></ul>\n        c\n      </li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>- %% c\nc\n\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "boundary-41",
     "source": "> > - a\n> >     ```\n> >         - %% c\n> >         c\n> > \n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code></code><ul><li></li></ul>\n        c\n      </li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>    - %% c\n    c\n\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "boundary-42",
@@ -882,7 +882,7 @@
   {
     "id": "boundary-44",
     "source": "> > - a\n> >     ```\n> >         ::: note\n> >         c\n> > \n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code></code><aside class=\"admonition note\" aria-label=\"Note\"><p>c</p></aside></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>    ::: note\n    c\n\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "boundary-45",
@@ -897,7 +897,7 @@
   {
     "id": "boundary-47",
     "source": "> > - a\n> >     ```\n> >         :: term\n> >         c\n> > \n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code></code><dl><dt>term\nc</dt></dl></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>    :: term\n    c\n\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "boundary-48",
@@ -912,7 +912,7 @@
   {
     "id": "boundary-50",
     "source": "> > - a\n> >     ```\n> >         : def\n> >         c\n> > \n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code>\n: def\nc</code></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>    : def\n    c\n\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "boundary-51",
@@ -927,7 +927,7 @@
   {
     "id": "boundary-53",
     "source": "> > - a\n> >     ```\n> >         ~~~ x\n> >         c\n> > \n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code>\n~~~ x\nc</code></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>    ~~~ x\n    c\n\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "inline-following-code-0",

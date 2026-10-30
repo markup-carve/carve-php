@@ -6713,8 +6713,13 @@ class DjotToCarve
                         $nativeWidth++;
                     }
                     $ticks = str_repeat('`', $nativeWidth);
-                    $output .= substr($source, $copied, $i - $copied) . ($payload === '' ? '`<code></code>`{=html}' : ($nativeWidth >= 3 ? '{%%}' : '') . $ticks . $payload . $ticks);
+                    // A closer of three or more that starts its line would open a fence (carve#4018).
+                    $closerGuard = $nativeWidth >= 3 && preg_match('/\n[ \t]*(?:>[ \t]*)*$/', $payload) === 1 ? '{%%}' : '';
+                    $output .= substr($source, $copied, $i - $copied) . ($payload === '' ? '`<code></code>`{=html}' : ($nativeWidth >= 3 ? '{%%}' : '') . $ticks . $payload . $ticks . $closerGuard);
                     $copied = $end + ($closed ? $width : 0);
+                } elseif ($width >= 3 && $closed && preg_match('/\n[ \t]*(?:>[ \t]*)*$/', $payload) === 1 && !$this->opensDjotCodeBlock($source, $i)) {
+                    $output .= substr($source, $copied, $end + $width - $copied) . '{%%}';
+                    $copied = $end + $width;
                 }
                 $i = $end + ($closed ? $width : 0);
 
@@ -8311,5 +8316,26 @@ class DjotToCarve
         unset($line);
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Whether a run after nothing but container markers opens a Djot code block, i.e. its line does not continue a paragraph.
+     *
+     * @param string $source
+     * @param int $at
+     */
+    private function opensDjotCodeBlock(string $source, int $at): bool
+    {
+        $lineStart = ($break = strrpos(substr($source, 0, $at), "\n")) === false ? 0 : $break + 1;
+        if (preg_match('/^(?:[ \t]*(?:>|[-*+](?: \[[ xX]\])?|[0-9]+[.)])(?:[ \t]+|$))*[ \t]*$/', substr($source, $lineStart, $at - $lineStart)) !== 1) {
+            return false;
+        }
+        if ($lineStart === 0) {
+            return true;
+        }
+        $previousStart = ($break = strrpos(substr($source, 0, $lineStart - 1), "\n")) === false ? 0 : $break + 1;
+        $previous = trim((string)preg_replace('/^(?:[ \t]*>)*/', '', substr($source, $previousStart, $lineStart - 1 - $previousStart)));
+
+        return $previous === '' || str_ends_with($previous, '|');
     }
 }

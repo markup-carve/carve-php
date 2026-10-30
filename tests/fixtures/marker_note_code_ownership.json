@@ -1692,7 +1692,7 @@
   {
     "id": "continued-review-I-quote-lazy-first",
     "source": "> - [^n]: text\n    - child\n>     ```\n>     code\n>     ```\n> after [^n]\n",
-    "html": "<blockquote><ul><li></li></ul></blockquote><ul><li>child</li></ul><blockquote><p><code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><pre><code>code</code></pre><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text - child<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-review-I-quote-lazy-more",
@@ -2422,7 +2422,7 @@
   {
     "id": "closer-generic-47",
     "source": "- a\n    - child\n    :: b\n\n      more\n    ~~~\n    code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more ~~~ code after</li></ul>"
+    "html": "<ul><li><p>a</p><ul><li>child</li></ul><dl><dt>b</dt></dl><p>more</p><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-49",
@@ -2442,7 +2442,7 @@
   {
     "id": "closer-generic-53",
     "source": "- a\n    - child\n    :: b\n      more\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b more ~~~ code after</dt></dl></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-55",
@@ -2452,7 +2452,7 @@
   {
     "id": "closer-generic-59",
     "source": "- a\n    - child\n    :: b\n\n      more\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more ~~~ code after</li></ul>"
+    "html": "<ul><li><p>a</p><ul><li>child</li></ul><dl><dt>b</dt></dl><p>more</p><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-61",
@@ -2472,7 +2472,7 @@
   {
     "id": "closer-generic-65",
     "source": "- a\n    - child\n    :: b\n      more\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b more ~~~ code after</dt></dl></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-67",
@@ -2482,7 +2482,7 @@
   {
     "id": "closer-generic-71",
     "source": "- a\n    - child\n    :: b\n\n      more\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more ~~~ code after</li></ul>"
+    "html": "<ul><li><p>a</p><ul><li>child</li></ul><dl><dt>b</dt></dl><p>more</p><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-74",
@@ -2602,7 +2602,7 @@
   {
     "id": "closer-generic-137",
     "source": "- a\n    - child\n    :: b\n      :: t\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt><dt>t ~~~ code after</dt></dl></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt><dt>t</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-139",
@@ -2977,7 +2977,7 @@
   {
     "id": "closer-generic-429",
     "source": "- a\n    more\n    b\n\n      :: t\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a more b<dl><dt>t ~~~ code after</dt></dl></li></ul>"
+    "html": "<ul><li>a more b<dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-581",
@@ -3087,7 +3087,7 @@
   {
     "id": "closer-generic-623",
     "source": "> - a\n>     - child\n>     :: b\n> \n>       more\n>     ~~~\n>     code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more ~~~ code after</li></ul></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><ul><li>child</li></ul><dl><dt>b</dt></dl><p>more</p><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-625",
@@ -3107,7 +3107,7 @@
   {
     "id": "closer-generic-629",
     "source": "> - a\n>     - child\n>     :: b\n>       more\n>       ~~~\n>       code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b more ~~~ code after</dt></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-631",
@@ -3117,7 +3117,7 @@
   {
     "id": "closer-generic-635",
     "source": "> - a\n>     - child\n>     :: b\n> \n>       more\n>       ~~~\n>       code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more ~~~ code after</li></ul></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><ul><li>child</li></ul><dl><dt>b</dt></dl><p>more</p><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-637",
@@ -3137,7 +3137,7 @@
   {
     "id": "closer-generic-641",
     "source": "> - a\n>     - child\n>     :: b\n>       more\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b more ~~~ code after</dt></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-643",
@@ -3147,7 +3147,7 @@
   {
     "id": "closer-generic-647",
     "source": "> - a\n>     - child\n>     :: b\n> \n>       more\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more ~~~ code after</li></ul></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><ul><li>child</li></ul><dl><dt>b</dt></dl><p>more</p><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-650",
@@ -3267,7 +3267,7 @@
   {
     "id": "closer-generic-713",
     "source": "> - a\n>     - child\n>     :: b\n>       :: t\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt><dt>t ~~~ code after</dt></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt><dt>t</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-715",
@@ -3642,7 +3642,7 @@
   {
     "id": "closer-generic-1005",
     "source": "> - a\n>     more\n>     b\n> \n>       :: t\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a more b<dl><dt>t ~~~ code after</dt></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a more b<dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-after-closer-0",

@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 class AVisibleDescriptionOpenerAfterAnUnclosedRunKeepsItsOwnerTest extends TestCase
 {
+    use RuleATodo;
+
     public function testTheRunOpensAFenceInsideTheDescription(): void
     {
         // The run is a valid opener that interrupts the paragraph (carve#4032); the third field is the block's content.

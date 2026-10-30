@@ -631,7 +631,7 @@ class BlockParser
     private function recordUnclosedCodeFence(int $start, int $end, string $marker): void
     {
         $line = $this->sourceLineFor($start);
-        $source = $this->state->source->sourceLines[$line] ?? '';
+        $source = $this->state->source->authoredLines[$line] ?? $this->state->source->sourceLines[$line] ?? '';
         $column = strpos($source, $marker);
         $endLine = $end > $start ? $this->sourceLineFor($end - 1) + 2 : $line + 2;
         $next = $this->state->source->sourceLines[$endLine - 1] ?? null;
@@ -3150,12 +3150,8 @@ class BlockParser
             $i++;
         }
 
-        // A fence opener reaching this point is at block start (no open
-        // paragraph): a mid-paragraph unterminated fence never gets here -- the
-        // §10 closer-lookahead keeps it inside the paragraph as an inline
-        // verbatim run. So an unclosed opener is always a block code fence that
-        // runs to the end of the block, even when empty (matching carve-js /
-        // canonical djot), rather than degrading to an inline code span.
+        // An unclosed opener is a block code fence that runs to the end of its
+        // container, even when empty (carve#4018).
         if (!$closed) {
             $this->recordUnclosedCodeFence($start, $i, str_repeat($fenceChar, $fenceLength));
             $this->addWarning('Unclosed code fence', $start, 1, true);
