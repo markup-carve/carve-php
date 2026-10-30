@@ -91,15 +91,11 @@ final class ContainerLabelParser
     /**
      * The label before its trailing comment, without the separating space run.
      *
-     * The space of a `\ ` escape is not part of that run, and a braced comment
-     * takes no run at all (CARVE-P9-041).
+     * The space of a `\ ` escape is not part of that run (CARVE-P9-041).
      */
     public static function cut(string $label, int $commentOffset): string
     {
         $before = substr($label, 0, $commentOffset);
-        if ($label[$commentOffset] === '{') {
-            return $before;
-        }
         $cut = rtrim($before, ' ');
         $escaped = strlen($cut) < strlen($before) && strspn(strrev($cut), '\\') % 2 === 1;
 

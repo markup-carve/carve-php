@@ -2617,16 +2617,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
-     * @param array<string> $classes
-     *
-     * @return list<string>
-     */
-    private function classTokens(array $classes): array
-    {
-        return preg_split('/[ \t\n\r]+/', trim(implode(' ', $classes), " \t\n\r")) ?: [];
-    }
-
-    /**
      * @return array{string, string, string}
      */
     private function divLayoutFrame(Div $node): array
@@ -2683,7 +2673,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $attrs = $this->getRenderableAttributes($node);
             $attrs['class'] = trim('admonition ' . implode(' ', array_merge($types, $others)));
             if (in_array($classes[0], Div::ADMONITION_TYPES, true)) {
-                $attrs['class'] = implode(' ', array_unique(['admonition', ...$this->classTokens($classes)]));
+                $attrs['class'] = implode(' ', ['admonition', $classes[0], ...array_unique(array_slice($classes, 1))]);
             }
             $hasAuthoredName = false;
             foreach (array_keys($attrs) as $name) {
@@ -2723,7 +2713,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // the fenced-div primitive the block-extension mechanism builds on.
         $attributes = $this->getRenderableAttributes($node);
         if ($node->isTyped() && isset($attributes['class']) && $classes !== []) {
-            $attributes['class'] = implode(' ', array_unique($this->classTokens($classes)));
+            $baseClass = array_shift($classes);
+            $attributes['class'] = implode(' ', [$baseClass, ...array_unique($classes)]);
         }
         $attrs = $this->renderAttributeArray($attributes, 'div');
         // PART 10 §13a: a `<div>` with no attribute is any foreign div, so a bare one is marked.
