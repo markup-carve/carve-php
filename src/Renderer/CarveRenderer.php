@@ -1248,6 +1248,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected ?int $lastRegionMarker = null;
 
     /**
+     * Columns the next block's continuation lines move past a task box.
+     */
+    protected int $pendingMarkerLineShift = 0;
+
+    /**
      * Collected definitions written among the body's blocks rather than at its end.
      *
      * @var array<int, true>
@@ -1854,12 +1859,37 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // still sees it.
         $atAnAuthoredBodyColumn = $this->atAnAuthoredBodyColumn;
         $this->atAnAuthoredBodyColumn = false;
+        $markerLineShift = $this->pendingMarkerLineShift;
+        $this->pendingMarkerLineShift = 0;
         try {
-            return $this->renderBlockBody($node, $atAnAuthoredBodyColumn);
+            $rendered = $this->renderBlockBody($node, $atAnAuthoredBodyColumn);
+
+            return $markerLineShift > 0 && $node instanceof ListBlock ? $this->shiftMarkerLineList($node, $rendered, $markerLineShift) : $rendered;
         } finally {
             $this->escapeUnit = $previous;
             $this->atAnAuthoredBodyColumn = $atAnAuthoredBodyColumn;
         }
+    }
+
+    /**
+     * A sub-list on a task item's marker line owns the columns after the box
+     * (CARVE-P11-002), so its continuation lines move past it.
+     */
+    protected function shiftMarkerLineList(ListBlock $list, string $rendered, int $shift): string
+    {
+        $first = $list->getChildren()[0] ?? null;
+        if (str_starts_with($rendered, '{') || ($first !== null && $this->renderAttrs($first) !== '')) {
+            return $rendered;
+        }
+        $lines = explode("\n", $rendered);
+        $padding = str_repeat(' ', $shift);
+        foreach ($lines as $index => $line) {
+            if ($index > 0 && !str_starts_with($line, $this->markerColumn())) {
+                $lines[$index] = $this->indentContinuationLine($line, $padding);
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     protected function renderBlockBody(Node $node, bool $atAnAuthoredBodyColumn = false): string
@@ -2199,10 +2229,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($needsLooseItem) {
                     $this->recordListTightnessLost($item);
                 }
+                $this->pendingMarkerLineShift = $item->isTask() && $itemAttrs === '' ? strlen(self::taskMarker($item)) + 1 : 0;
                 $content = $this->trimNonNbsp($this->renderListItem(
                     $item,
                     $node->isTight() && !$needsLooseItem,
                 ));
+                $this->pendingMarkerLineShift = 0;
                 // A definition authored on an item's marker line is collected
                 // into the document, leaving the item empty. Spell it back on
                 // that same marker line. Using `+` for the empty item would
@@ -2419,8 +2451,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             && !$previous instanceof Table
             && !$previous instanceof Div
             && !$previous instanceof LinkReferenceDefinition
+            && !$previous instanceof ListBlock
             && !($previous instanceof BlockQuote && $previous->isFenced())
         ) {
+            return false;
+        }
+        if ($previous instanceof ListBlock && $this->listEndsInADefinition($previous)) {
             return false;
         }
         $before = $previous->getPos();
@@ -2430,6 +2466,26 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return $after->startLine === $before->endLine + 1 + $this->leadingAttributeLines($block, $rendered);
+    }
+
+    /**
+     * A definition written into a list's last item stays apart from a marker
+     * below the list, as a collected definition does.
+     */
+    protected function listEndsInADefinition(ListBlock $list): bool
+    {
+        $last = $list;
+        while ($last instanceof ListBlock || $last instanceof ListItem) {
+            $children = $last->getChildren();
+            if ($children === []) {
+                $definition = $this->definitionsByLine[$last->getPos()->startLine ?? 0] ?? null;
+
+                return $definition !== null && isset($this->definitionsWrittenInPlace[spl_object_id($definition)]);
+            }
+            $last = $children[count($children) - 1];
+        }
+
+        return false;
     }
 
     /**

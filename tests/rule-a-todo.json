@@ -402,27 +402,7 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\FmtKeepsARegionsSelectionTest::testFmtWritesTheFixtureBytes with data set \"a-closer-after-a-list-stays-at-column-0\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\FmtKeepsARegionsSelectionTest::testFmtWritesTheFixtureBytes with data set \"a-closer-after-a-loose-list-stays-at-column-0\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\FmtKeepsARegionsSelectionTest::testFmtWritesTheFixtureBytes with data set \"nested-closers-after-a-list-stay-at-column-0\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\FmtKeepsARegionsSelectionTest::testFmtWritesTheFixtureBytes with data set \"normalization-outside-a-region-leaves-it-alone\"",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\FmtKeepsARegionsSelectionTest::testTheReadingIsKept with data set \"below a non-marker comment\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\FmtKeepsARegionsSelectionTest::testTheReadingIsKept with data set \"below an image in an item\"",
             "ticket": "carve-php#4244"
         },
         {
@@ -4615,10 +4595,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\TabIndentationTest::testHeadingWithLeadingTab",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Transform\\IncludeConformanceTest::testVector with data set \"i01b-region-host-renders-no-marker [I1b]\"",
             "ticket": "carve-php#4244"
         },
         {
