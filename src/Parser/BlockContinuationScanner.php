@@ -209,60 +209,8 @@ final class BlockContinuationScanner
         while ($i < $count) {
             $nextLine = $lines[$i];
             $priorSourceLine = $this->sourceLineFor($i) - 1;
-            if (
-                !IndentationHelper::isBlankLine($nextLine)
-                && str_contains($this->state->source->sourceLines[$priorSourceLine] ?? '', '+')
-                && $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $priorSourceLine) !== null
-                && IndentationHelper::getLeadingColumns($nextLine, $contentIndent) < $contentIndent
-                && !$this->continuationFollowerIsEligible($i)
-                // A refused stacked quote `+` reads like a letter, so its paragraph takes a lazy line (carve#3421).
-                && !BlockQuoteBuilder::isStackedFirstBlockQuoteMarker($this->state->source->sourceLines[$priorSourceLine] ?? '')
-            ) {
-                break;
-            }
-            if (
-                preg_match_all('/(?:[-*] |\d+[.)] )/', $sourceLead) === 2
-                && !IndentationHelper::isBlankLine($nextLine)
-                && IndentationHelper::getLeadingColumns($nextLine, 1) === 0
-                && trim($this->state->source->sourceLines[$this->sourceLineFor($i) - 1] ?? '') === ''
-            ) {
-                $priorNonBlank = $this->sourceLineFor($i) - 1;
-                while ($priorNonBlank >= 0 && trim($this->state->source->sourceLines[$priorNonBlank] ?? '') === '') {
-                    $priorNonBlank--;
-                }
-                $lastSourceBody = ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$priorNonBlank] ?? '');
-                if (preg_match('/^[ \t]+\+[ \t]*$/D', $lastSourceBody) === 1) {
-                    break;
-                }
-            }
-            $priorSource = $this->state->source->sourceLines[$this->sourceLineFor($i) - 1] ?? '';
-            $priorBody = ContainerPrefix::stripQuoteMarkers($priorSource);
-            if (
-                preg_match_all('/(?:[-*] |\d+[.)] )/', $sourceLead) === 2
-                && preg_match('/^[ \t]+\+[ \t]*$/D', $priorBody) === 1
-                && IndentationHelper::getLeadingColumns($priorBody, $contentIndent) >= $contentIndent
-                && !IndentationHelper::isBlankLine($nextLine)
-                && IndentationHelper::getLeadingColumns($nextLine, 1) === 0
-                && !$this->isBlockElementStart(ltrim($nextLine, " \t"), $lines, $i)
-                && !$this->startsNewBlock(ltrim($nextLine, " \t"), $lines, $i)
-                && !$this->isFoldableInvisibleLine(ltrim($nextLine, " \t"), $lines, $i)
-            ) {
-                $itemLines[] = ' ' . ltrim($nextLine, " \t");
-                $itemLineMap[] = $this->sourceLineFor($i);
-                $trailingState = $this->advanceTrailingState($trailingState, 'text');
-                $i++;
-
-                continue;
-            }
-
             if (IndentationHelper::isBlankLine($nextLine)) {
                 if ($lowComment && $openCommentLength === null) {
-                    break;
-                }
-                if (
-                    preg_match_all('/(?:[-*] |\d+[.)] )/', $sourceLead) === 2
-                    && preg_match('/^[ \t]+\+[ \t]*$/D', $priorBody) === 1
-                ) {
                     break;
                 }
                 $bareLeadQuoteState = null;
@@ -352,15 +300,6 @@ final class BlockContinuationScanner
             // every other engine folds it.
             if ($nextIndent < $contentIndent || $isBlockQuoteLazyLine) {
                 $nextTrimmed = ltrim($nextLine, " \t");
-                $previousSource = $this->state->source->sourceLines[$this->sourceLineFor($i) - 1] ?? '';
-                $previousBody = ContainerPrefix::stripQuoteMarkers($previousSource);
-                if (
-                    $nextIndent === 0
-                    && preg_match('/^[ \t]+\+[ \t]*$/D', $previousBody) === 1
-                    && preg_match_all('/(?:[-*] |\d+[.)] )/', $sourceLead) >= 3
-                ) {
-                    break;
-                }
                 // A comment span's closing run is free of the column; a payload
                 // line that misses the item's prefix ends the item before the
                 // span is classified (`CARVE-P0-005`).
@@ -582,10 +521,6 @@ final class BlockContinuationScanner
             }
             if ($bareContinuationLead) {
                 $claimLine = ltrim($stripped, " \t");
-                $claimSource = ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '');
-                if (preg_match('/^[ \t]+(?:(?:[-*] |\d+[.)] ))?\+[ \t]*$/D', $claimSource) === 1) {
-                    $bareContinuationLead = false;
-                }
                 $claimOpen = $this->advanceTrailingState(new TrailingBlockState(), $claimLine, true)->openParagraph;
                 $quoteWidth = ContainerPrefix::quoteMarkerWidth($claimLine, 0);
                 if ($quoteWidth !== null) {
@@ -2008,7 +1943,6 @@ final class BlockContinuationScanner
                     && isset($lines[$i + 1])
                     && IndentationHelper::isBlankLine($lines[$i + 1])))
         ) {
-            $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($i), 'list item');
             $i++;
 
             return true;
@@ -2152,7 +2086,7 @@ final class BlockContinuationScanner
                 ($this->getListParser)(),
                 $this->sourceLineFor($i - 1),
             );
-            $attachedChildFollower = $priorDecision['reason'] === null && $priorDecision['owner'] !== null
+            $attachedChildFollower = $priorDecision['owner'] !== null
                 && $priorDecision['owner']['kind'] !== 'list'
                 && $priorDecision['owner']['column'] >= IndentationHelper::getLeadingColumns(
                     $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
@@ -5023,7 +4957,7 @@ final class BlockContinuationScanner
     {
         $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($index));
 
-        return $decision['reason'] === null && $decision['owner'] !== null
+        return $decision['owner'] !== null
             && $decision['owner']['kind'] === 'list';
     }
 

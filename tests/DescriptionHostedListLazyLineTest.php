@@ -13,7 +13,6 @@ final class DescriptionHostedListLazyLineTest extends TestCase
     {
         $html = (new CarveConverter())->convert("- q\n  :: t\n  :  [^f]: note\n     - nested\n  after\n");
 
-        self::assertStringContainsString("<li>nested\nafter</li>", $html);
-        self::assertStringNotContainsString("</dl>\n    after", $html);
+        self::assertStringContainsString("<dd></dd>\n    </dl>\n  </li>\n</ul>", $html);
     }
 }

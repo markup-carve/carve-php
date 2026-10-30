@@ -376,6 +376,11 @@ class MarkdownToCarve
      */
     public function convert(string $markdown): string
     {
+        return EmptyListItemSpelling::spell($this->importDocument($markdown));
+    }
+
+    private function importDocument(string $markdown): string
+    {
         $whitespaceOnly = strspn($markdown, " \t\r\n") === strlen($markdown) ? $markdown : null;
         $this->inlineContext->importWriter = new CarveRenderer();
         $workScope = ImportWork::$on ? ImportWork::enter() : null;
@@ -683,8 +688,8 @@ class MarkdownToCarve
                 && ($listCols->isEmpty() || strspn($line, ' ') < $listCols->innermost())
                 && preg_match('/^([-*+]|\d{1,9}[.)])[ \t]*$/', $trimmed) === 1
             ) {
-                $line = rtrim($line, " \t") . ' +';
-                $trimmed = $trimmed . ' +';
+                $line = rtrim($line, " \t") . ' ' . EmptyListItemSpelling::PLACEHOLDER;
+                $trimmed = $trimmed . ' ' . EmptyListItemSpelling::PLACEHOLDER;
             }
             $isBlank = $trimmed === '';
             $isHeading = (bool)preg_match('/^#{1,6}(?:[ \t]|$)/', $trimmed);
@@ -1745,7 +1750,7 @@ class MarkdownToCarve
                 && !$bareParagraphMarker
                 && ($prevLineType !== 'text' || $listMarkers->hasListAt($column))
             ) {
-                $lines[$i] = $marker . ' +';
+                $lines[$i] = $marker . ' ' . EmptyListItemSpelling::PLACEHOLDER;
                 $emptyMarkerLines[$i] = true;
                 if (trim($next) === '') {
                     $emptyMarkerColumn = $column;
@@ -3639,7 +3644,7 @@ class MarkdownToCarve
             ($openBefore === null || $this->indentWidth($text) < $openBefore)
             && preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]*$/', $text) === 1
         ) {
-            $text = rtrim($text, " \t") . ' +';
+            $text = rtrim($text, " \t") . ' ' . EmptyListItemSpelling::PLACEHOLDER;
             $written = $text;
         }
         $opensItem = preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]/', $text) === 1;

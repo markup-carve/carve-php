@@ -315,23 +315,25 @@ class BlockParser
     }
 
     /**
-     * PART 9 §17 L3: a stacked `- > +` takes its block at the column of any opener on that line.
+     * Which lone `+` lines the one attach rule refuses, by index. Runs the ownership walk alone.
      *
-     * @return list<int>
+     * @param array<int, string> $lines
+     *
+     * @return array<int, array{line: int, column: int, host: string, reason: string}|null>
      */
-    private function openerColumns(string $line, int $plus): array
+    public function refusedPlusLinesOf(array $lines): array
     {
-        $columns = [];
-        $previous = ' ';
-        for ($offset = 0; $offset < $plus; $offset++) {
-            $char = $line[$offset];
-            if ($char !== ' ' && $char !== "\t" && ($previous === ' ' || $previous === "\t")) {
-                $columns[] = ContinuationMarkerClassifier::columnAt($line, $offset);
-            }
-            $previous = $char;
-        }
+        $walk = new BlockOwnershipWalk(
+            $this->listParser,
+            $this->fencedBlockParser,
+            $this->tableParser,
+            fn (string $line): bool => $this->isReferenceDefinitionLine($line),
+            fn (string $line): bool => $this->isBlockAttributeLine($line),
+            fn (array $run): ?int => WrappedBlockAttributeScanner::scan($run, 0, $this->inlineParser)['length'] ?? null,
+        );
+        $walk->own($lines, PlusLetter::for(implode("\n", $lines)));
 
-        return $columns;
+        return $walk->refusedPlus;
     }
 
     /**
@@ -339,293 +341,7 @@ class BlockParser
      */
     public function getRefusedContinuationMarkers(): array
     {
-        $markers = array_values(array_filter(
-            $this->state->session->refusedContinuationMarkers,
-            function (array $marker): bool {
-                $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $marker['line'] - 1);
-
-                if ($decision['column'] < 0) {
-                    return $this->state->session->firstBlockMarkerOwner($this->state->source, $this->listParser, $marker['line'] - 1) !== null
-                        && !$this->firstBlockQuoteAtAncestorColumn($marker['line'] - 1);
-                }
-
-                return $decision['owner'] !== null && $decision['reason'] !== null;
-            },
-        ));
-        $unclosedEnds = [];
-        foreach ($this->state->session->unclosedCodeFences as $unclosed) {
-            $unclosedEnds[$unclosed['line'] - 1] = $unclosed['reason'] === 'container' ? $unclosed['endLine'] - 1 : null;
-        }
-        $codeFence = null;
-        $codeFenceEnd = null;
-        $commentFence = null;
-        $rawLines = null;
-        foreach ($this->state->source->markerLines ?: $this->state->source->sourceLines as $index => $line) {
-            $fenceLine = ltrim($line, " \t");
-            while (($quoteBody = ContainerPrefix::quoteContent($fenceLine)) !== null) {
-                $fenceLine = ltrim($quoteBody, " \t");
-            }
-            if ($codeFence !== null && $codeFenceEnd !== null && $index >= $codeFenceEnd) {
-                $codeFence = null;
-            }
-            if ($codeFence !== null) {
-                if ($this->fencedBlockParser->isCodeFenceCloser($fenceLine, $codeFence['char'], $codeFence['length'])) {
-                    $codeFence = null;
-                }
-
-                continue;
-            }
-            if ($commentFence !== null) {
-                if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($fenceLine, $commentFence)) {
-                    $commentFence = null;
-                }
-
-                continue;
-            }
-            $codeFence = $this->fencedBlockParser->parseCodeFenceOpener($fenceLine);
-            if ($codeFence !== null) {
-                $codeFenceEnd = $unclosedEnds[$index] ?? null;
-
-                continue;
-            }
-            $commentFence = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($fenceLine)['length'] ?? null;
-            if ($commentFence !== null) {
-                continue;
-            }
-            $plus = strpos($line, '+');
-            if ($plus === false) {
-                continue;
-            }
-            // First-block + markers have an owner, but no separate-line decision.
-            $firstBlock = $this->state->session->firstBlockMarkerOwner($this->state->source, $this->listParser, $index, evenRefused: true);
-            if (($firstBlock['kind'] ?? null) === 'list' && $firstBlock['depth'] === 0) {
-                $follower = $this->state->source->sourceLines[$index + 1] ?? null;
-                if ($follower !== null && trim($follower) !== '' && !$this->firstBlockQuoteAtAncestorColumn($index)) {
-                    $followerColumn = ContinuationMarkerClassifier::columnAt($follower, strspn($follower, " \t"));
-                    $sibling = ($followerColumn === 0 || $followerColumn === $firstBlock['column'])
-                        && $this->listParser->parseListItemMarker(ltrim($follower, " \t")) !== null;
-                    if (
-                        $sibling || $followerColumn !== 0
-                            && $followerColumn !== $firstBlock['column']
-                            && $followerColumn !== $firstBlock['content']
-                    ) {
-                        $markers[] = [
-                            'line' => $index + 1,
-                            'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,
-                            'host' => 'list item',
-                            'reason' => $sibling ? 'sibling' : ($followerColumn < $firstBlock['column'] ? 'left' : 'right'),
-                        ];
-                    }
-                }
-            }
-            // CARVE-P9-067: a note's or a description's first-block form pulls no column-0 list and refuses a missing
-            // or indented follower; the parser already records a description's blank or end.
-            if (in_array($firstBlock['kind'] ?? null, ['footnote', 'description'], true)) {
-                $follower = $this->state->source->sourceLines[$index + 1] ?? null;
-                if ($follower === '' && $index + 1 === array_key_last($this->state->source->sourceLines)) {
-                    $follower = null;
-                }
-                $followerColumn = ContinuationMarkerClassifier::columnAt($follower ?? '', strspn($follower ?? '', " \t"));
-                $reason = null;
-                if ($follower !== null && $followerColumn === 0 && $this->listParser->parseListItemMarker($follower) !== null) {
-                    $reason = 'list';
-                } elseif ($firstBlock['depth'] === 0 && ($follower === null || trim($follower) === '')) {
-                    $reason = $firstBlock['kind'] === 'footnote' ? ($follower === null ? 'document' : 'blank') : null;
-                } elseif ($firstBlock['depth'] === 0 && $followerColumn > $firstBlock['column']) {
-                    $reason = 'right';
-                }
-                if ($reason !== null) {
-                    $markers[] = [
-                        'line' => $index + 1,
-                        'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,
-                        'host' => $firstBlock['kind'] === 'footnote' ? 'footnote body' : 'definition description',
-                        'reason' => $reason,
-                    ];
-                }
-            }
-            // CARVE-P9-067: a quote's first-block `> +` with no eligible block below stays text in the quote.
-            if (($firstBlock['kind'] ?? null) === 'quote') {
-                $follower = $this->state->source->sourceLines[$index + 1] ?? null;
-                if ($follower === '' && $index + 1 === array_key_last($this->state->source->sourceLines)) {
-                    $follower = null;
-                }
-                $followerColumn = ContinuationMarkerClassifier::columnAt($follower ?? '', strspn($follower ?? '', " \t"));
-                $quoteColumn = ContinuationMarkerClassifier::columnAt($line, (int)strpos($line, '>'));
-                $reason = null;
-                $stacked = BlockQuoteBuilder::isStackedFirstBlockQuoteMarker($line);
-                if ($follower === null || trim($follower) === '') {
-                    $reason = $follower === null ? 'document' : 'blank';
-                } elseif (
-                    $stacked && trim(str_replace('>', '', $follower)) !== ''
-                    && $this->listParser->parseListItemMarker(ltrim($follower, " \t")) === null
-                    && !BlockQuoteBuilder::stackedFollowerEligible($line, $follower)
-                    && (ContainerPrefix::quoteContent(ltrim($follower, " \t")) === null || $line[0] === '>'
-                        || $followerColumn > IndentationHelper::getLeadingColumns($line))
-                ) {
-                    // carve#3421: only column 0, the line's column and the owning quote's column take a follower.
-                    $reason = $followerColumn > $quoteColumn ? 'right' : 'left';
-                } elseif (ContainerPrefix::quoteContent(ltrim($follower, " \t")) !== null) {
-                    $reason = trim(str_replace('>', '', $follower)) === '' ? 'blank' : null;
-                } elseif ($followerColumn === 0 && $this->listParser->parseListItemMarker($follower) !== null) {
-                    $reason = 'list';
-                } elseif ($followerColumn !== 0 && $followerColumn !== $quoteColumn && !in_array($followerColumn, $this->openerColumns($line, $plus), true)) {
-                    $reason = $followerColumn > $quoteColumn ? 'right' : 'left';
-                } elseif ($followerColumn !== 0 && $this->listParser->parseListItemMarker(ltrim($follower, " \t")) !== null) {
-                    $reason = 'sibling';
-                } elseif (isset($this->state->source->refusedQuotePlus[$index])) {
-                    // The walk refused it by the follower's raw column, which the rewritten line no longer shows.
-                    $rawLines ??= $this->splitLines($this->state->source->originalSource);
-                    $raw = $rawLines[$index + 1] ?? '';
-                    $reason = ContinuationMarkerClassifier::columnAt($raw, strspn($raw, " \t")) > $quoteColumn ? 'right' : 'left';
-                }
-                if ($reason !== null) {
-                    $markers[] = [
-                        'line' => $index + 1,
-                        'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,
-                        'host' => 'block quote',
-                        'reason' => $reason,
-                    ];
-                }
-            }
-            // carve#3421 (2026-10-22): a quoted `+` below the quote's first line, followed by a list item at its column
-            // in the same quote, stays text; lint still reports it, as carve-js does.
-            $quoted = $this->quotedSourceLine($line);
-            if ($quoted !== null && $quoted['depth'] > 0 && trim($quoted['body']) === '+' && $firstBlock === null) {
-                $previous = $index > 0 ? $this->quotedSourceLine($this->state->source->sourceLines[$index - 1]) : null;
-                $follower = $this->quotedSourceLine($this->state->source->sourceLines[$index + 1] ?? '');
-                if (
-                    $previous !== null && $previous['depth'] === $quoted['depth']
-                    && $follower !== null && $follower['depth'] === $quoted['depth']
-                    && $follower['column'] === $quoted['column']
-                    && $this->listParser->parseListItemMarker(ltrim($follower['body'], " \t")) !== null
-                ) {
-                    $markers[] = [
-                        'line' => $index + 1,
-                        'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,
-                        'host' => 'block quote',
-                        'reason' => 'sibling',
-                    ];
-                }
-            }
-            $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $index);
-            if ($decision['column'] < 0 || $decision['reason'] === null) {
-                continue;
-            }
-            $previous = $this->state->source->sourceLines[$index - 1] ?? '';
-            $previousItem = $this->listParser->parseListItemMarker(ltrim($previous, " \t"));
-            $taskCheckboxColumn = ($previousItem['type'] ?? null) === 'task'
-                && $decision['column'] === IndentationHelper::getLeadingColumns($previous) + 2;
-            if ($decision['owner'] === null && !$taskCheckboxColumn) {
-                // A `+` at a column no open container claims stays paragraph text, but is still refused.
-                if (
-                    $decision['reason'] === 'wrong-column' && $decision['open'] && $firstBlock === null
-                    && ($decision['depth'] > 0 || ($this->quotedSourceLine($previous) !== null
-                        && IndentationHelper::getLeadingColumns($previous) > 0))
-                    && !$this->state->session->plusAtHostContentColumn($this->state->source, $this->listParser, $index)
-                ) {
-                    $markers[] = [
-                        'line' => $index + 1,
-                        'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,
-                        'host' => 'block quote',
-                        'reason' => 'wrong-column',
-                    ];
-                }
-
-                continue;
-            }
-            if ($this->leadBottomOpensFence($previous) && $decision['column'] >= $this->leadBottomColumn($previous)) {
-                continue;
-            }
-            $host = match ($decision['owner']['kind'] ?? null) {
-                'list' => 'list item',
-                'quote' => 'block quote',
-                'description' => 'definition description',
-                'footnote' => 'footnote body',
-                default => 'document',
-            };
-            $markers[] = [
-                'line' => $index + 1,
-                'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,
-                'host' => $host,
-                'reason' => $decision['reason'],
-            ];
-        }
-
-        return [...$markers, ...array_values($this->state->session->unclaimedDocumentMarkers)];
-    }
-
-    /**
-     * carve#3421 ruling 5: a document-level `+` no container claims is reported when a block follows it.
-     *
-     * @param array<string> $lines
-     * @param int $end
-     * @param int $start
-     */
-    private function recordUnclaimedDocumentPlus(array $lines, int $start, int $end): void
-    {
-        for ($k = $start; $k < $end; $k++) {
-            $follower = $lines[$k + 1] ?? null;
-            if ($follower === null || preg_match('/^\+[ \t]*$/', $lines[$k]) !== 1 || $follower === '' || strspn($follower, " \t") > 0) {
-                continue;
-            }
-            if (
-                $this->listParser->parseListItemMarker($follower) !== null
-                || $follower[0] !== '%' && $this->startsInterruptingBlock($follower, $lines, $k + 1)
-            ) {
-                $line = $this->sourceLineFor($k);
-                $this->state->session->unclaimedDocumentMarkers[$line] = [
-                    'line' => $line + 1,
-                    'column' => 1,
-                    'host' => 'document',
-                    'reason' => 'unclaimed',
-                ];
-            }
-        }
-    }
-
-    /**
-     * The quote depth of a source line, its body after the prefixes, and the body's first content column.
-     *
-     * @return array{depth: int, body: string, column: int}|null
-     */
-    private function quotedSourceLine(string $line): ?array
-    {
-        $offset = strspn($line, " \t");
-        $depth = 0;
-        while ($depth < 64 && ($width = ContainerPrefix::quoteMarkerWidth($line, $offset)) !== null) {
-            $offset += $width;
-            $depth++;
-            $offset += strspn($line, " \t", $offset);
-        }
-        if ($depth === 0) {
-            return null;
-        }
-
-        return ['depth' => $depth, 'body' => substr($line, $offset), 'column' => ContinuationMarkerClassifier::columnAt($line, $offset)];
-    }
-
-    private function firstBlockQuoteAtAncestorColumn(int $index): bool
-    {
-        $line = $this->state->source->sourceLines[$index] ?? '';
-        $follower = $this->state->source->sourceLines[$index + 1] ?? '';
-        if (!str_starts_with(ltrim($follower, " \t"), '>')) {
-            return false;
-        }
-        $followerColumn = IndentationHelper::getLeadingColumns($follower);
-        $offset = strspn($line, " \t");
-        for ($depth = 0; $depth < 64; $depth++) {
-            $marker = $this->listParser->parseListItemMarker(substr($line, $offset));
-            if ($marker === null) {
-                break;
-            }
-            $column = ContinuationMarkerClassifier::columnAt($line, $offset);
-            if ($column === $followerColumn) {
-                return true;
-            }
-            $offset += strlen(substr($line, $offset)) - strlen($marker['content']);
-        }
-
-        return false;
+        return array_values(array_filter($this->state->source->refusedPlus));
     }
 
     private function recordUnclosedCodeFence(int $start, int $end, string $marker): void
@@ -1032,17 +748,29 @@ class BlockParser
         // Only the root document is traced; a parse re-entered from it is not.
         $walk->trace = $this->traceNext ? [] : null;
         $this->traceNext = false;
-        $lines = $walk->own($lines);
+        $plusLetter = PlusLetter::for($input);
+        $lines = $walk->own($lines, $plusLetter);
         if ($walk->trace !== null) {
             $this->decisionTrace = $walk->trace;
         }
         $this->state->source->sourceLines = array_replace($this->state->source->sourceLines, $lines);
         $this->state->source->lazyLines = $walk->lazyLines;
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
-        $this->state->source->markerLines = $walk->refusedPlusLines === [] ? [] : array_replace($this->state->source->sourceLines, $walk->refusedPlusLines);
         $this->state->source->closingLines = $walk->closingLines;
         $this->state->source->frontmatter = $walk->frontmatter;
-        $this->state->source->refusedQuotePlus = $walk->refusedPlus;
+        $this->state->source->plusHosts = $walk->plusHosts;
+        $this->state->source->refusedPlus = $walk->refusedPlus;
+        // Spans are verified against the source text, so it spells a refused `+` as the readers see it.
+        $authoredSource = $this->state->source->originalSource;
+        $authoredPlusLines = $this->state->source->authoredLines;
+        foreach (array_keys($walk->refusedPlus) as $refused) {
+            $start = $this->state->source->lineStartOffsets[$refused] ?? null;
+            $plus = strrpos($authoredPlusLines[$refused] ?? '', '+');
+            if ($start !== null && $plus !== false && strlen($plusLetter) === 1) {
+                $this->state->source->authoredLines[$refused][$plus] = $plusLetter;
+                $this->state->source->originalSource[$start + $plus] = $plusLetter;
+            }
+        }
 
         // Each physical byte may be inspected a small constant number of times
         // by the parser-backed marker probe below. Exhaustion deliberately
@@ -1165,184 +893,16 @@ class BlockParser
         // abbreviation-expansion budget (output-amplification DoS guard).
         $document->setSourceLength($sourceLength);
 
-        $this->adjustNestedFenceContinuationBlanks($document);
+        if ($walk->refusedPlus !== []) {
+            $this->state->source->originalSource = $authoredSource;
+            $this->state->source->authoredLines = $authoredPlusLines;
+            PlusLetter::restore($document, $plusLetter);
+            foreach (array_keys($walk->refusedPlus) as $refused) {
+                $this->state->source->sourceLines[$refused] = str_replace($plusLetter, '+', $this->state->source->sourceLines[$refused]);
+            }
+        }
 
         return $document;
-    }
-
-    private function adjustNestedFenceContinuationBlanks(Node $document): void
-    {
-        $lines = $this->state->source->sourceLines;
-        $changes = [];
-        $lastMarkerFence = -1;
-        $stackedFence = null;
-        $explicitCloserTrim = false;
-        foreach ($lines as $index => $line) {
-            $body = ContainerPrefix::stripQuoteMarkers($line);
-            if (preg_match('/^((?:[-*] |\d+[.)] )){2,}(`{3,}|~{3,})/', $body, $stackedOpener) === 1) {
-                $stackedFence = $stackedOpener[2];
-            } elseif (
-                $stackedFence !== null
-                && preg_match('/^[ \t]+' . preg_quote($stackedFence, '/') . '[ \t]*$/D', $body) === 1
-            ) {
-                $afterCloser = ContainerPrefix::stripQuoteMarkers($lines[$index + 2] ?? '');
-                if (
-                    IndentationHelper::isBlankLine($lines[$index + 1] ?? '')
-                    && (!IndentationHelper::isBlankLine($lines[$index - 1] ?? '')
-                        || IndentationHelper::isBlankLine($lines[$index - 2] ?? ''))
-                    && preg_match('/^[ \t]+\+[ \t]*$/D', $afterCloser) === 1
-                    && $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $index + 2)['reason'] !== null
-                ) {
-                    $explicitCloserTrim = true;
-                }
-                $stackedFence = null;
-            }
-            $indented = preg_match('/^[ \t]+\+[ \t]*$/D', $body) === 1;
-            if ($indented) {
-                $previous = $lastMarkerFence;
-                if (
-                    preg_match('/^([ \t]*)((?:(?:[-*] |\d+[.)] ))+)(`{3,}|~{3,})/', ContainerPrefix::stripQuoteMarkers($lines[$previous] ?? ''), $opener) === 1
-                    && ($opener[1] !== '' || preg_match_all('/(?:[-*] |\d+[.)] )/', $opener[2]) >= 2)
-                ) {
-                    $follower = $lines[$index + 1] ?? '';
-                    $contentColumn = IndentationHelper::getLeadingColumns($opener[1]) + strlen($opener[2]);
-                    // A marker one column left is ordinary text and must not trim the fence blank.
-                    preg_match('/(?:[-*] |\d+[.)] )$/D', $opener[2], $lastMarker);
-                    $lastMarkerColumn = $contentColumn - strlen($lastMarker[0] ?? '');
-                    if (
-                        IndentationHelper::getLeadingColumns($body) === $lastMarkerColumn
-                        && $index > $previous + 2
-                        && trim($lines[$index - 1] ?? '') === '' && !IndentationHelper::isBlankLine($follower)
-                        && $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $index)['reason'] !== null
-                    ) {
-                        $changes[$previous + 1] = -1;
-                    }
-                }
-            }
-            if (preg_match('/^([ \t]*)((?:(?:[-*] |\d+[.)] ))+)(`{3,}|~{3,})/', $body) === 1) {
-                $lastMarkerFence = $index;
-            } elseif (preg_match('/^[ \t]*(`{3,}|~{3,})[ \t]*$/D', $body) === 1) {
-                $lastMarkerFence = -1;
-            }
-        }
-        if ($changes === [] && !$explicitCloserTrim) {
-            return;
-        }
-        $stack = [$document];
-        $unpositioned = [];
-        $codeBlocks = [];
-        $seen = [];
-        $parents = [];
-        while ($stack !== []) {
-            $node = array_pop($stack);
-            $id = spl_object_id($node);
-            if (isset($seen[$id])) {
-                continue;
-            }
-            $seen[$id] = true;
-            if ($node instanceof CodeBlock) {
-                $codeBlocks[] = $node;
-                $position = $node->getPos();
-                $delta = $position === null ? 0 : ($changes[$position->startLine] ?? 0);
-                if ($position === null) {
-                    $unpositioned[] = $node;
-                } elseif ($delta !== 0) {
-                    $this->adjustCodeBlankCount($node, $delta, $parents);
-                }
-            }
-            foreach (array_reverse($node->getChildren()) as $child) {
-                $parents[spl_object_id($child)] ??= $node;
-                $stack[] = $child;
-            }
-        }
-        if ($explicitCloserTrim && count($codeBlocks) === 1) {
-            $this->adjustCodeBlankCount($codeBlocks[0], -1, $parents);
-        }
-        if (count($changes) === 1 && $unpositioned !== []) {
-            $opening = array_key_first($changes);
-            $openingBody = ContainerPrefix::stripQuoteMarkers($lines[$opening - 1] ?? '');
-            if (preg_match('/^[ \t]{0,3}\d+[.)] (`{3,}|~{3,})/', $openingBody) === 1) {
-                return;
-            }
-            $before = implode("\n", array_slice($lines, 0, $opening - 1));
-            if (preg_match('/(?:^|\n)(?:> ?)*[ \t]*(?:(?:[-*] |\d+[.)] ))?(`{3,}|~{3,})/', $before) !== 1) {
-                $this->adjustCodeBlankCount($unpositioned[0], $changes[$opening], $parents);
-            }
-        }
-    }
-
-    /**
-     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $code
-     * @param int $delta
-     * @param array<int, \MarkupCarve\Carve\Node\Node> $parents
-     *
-     * @return void
-     */
-    private function adjustCodeBlankCount(CodeBlock $code, int $delta, array $parents): void
-    {
-        if ($delta > 0) {
-            $code->appendContent(str_repeat("\n", $delta));
-        } else {
-            $content = $code->getContent();
-            if (str_ends_with($content, "\n")) {
-                $code->setContent(substr($content, 0, -1));
-                $this->releaseTrailingBlankLine($code, $parents);
-            }
-        }
-    }
-
-    /**
-     * The blank dropped from the payload separates the container's next block,
-     * so the span and every ancestor ending with it give that line back
-     * (PART 12 §4, carve-php#3718).
-     *
-     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $code
-     * @param array<int, \MarkupCarve\Carve\Node\Node> $parents
-     *
-     * @return void
-     */
-    private function releaseTrailingBlankLine(CodeBlock $code, array $parents): void
-    {
-        $pos = $code->getPos();
-        if ($pos === null || $pos->endColumn !== 1 || $pos->endLine - 2 <= $pos->startLine - 1) {
-            return;
-        }
-        $lines = $this->state->source->sourceLines;
-        $covered = 0;
-        for ($line = $pos->endLine - 2; $line > $pos->startLine - 1; $line--) {
-            if (!IndentationHelper::isBlankLine(ContainerPrefix::stripQuoteMarkers($lines[$line] ?? 'x'))) {
-                break;
-            }
-            $covered++;
-        }
-        $payload = explode("\n", $code->getContent());
-        array_pop($payload);
-        $held = 0;
-        for ($i = count($payload) - 1; $i >= 0 && trim($payload[$i], " \t") === ''; $i--) {
-            $held++;
-        }
-        $releasedStart = $this->state->source->lineStartOffsets[$pos->endLine - 2] ?? null;
-        $index = $this->state->source->positionIndex;
-        if ($covered <= $held || $releasedStart === null || $index === null) {
-            return;
-        }
-        $oldEnd = $pos->endOffset;
-        $newEnd = $index->span($releasedStart, $releasedStart, 1, 1, $releasedStart, $releasedStart)->endOffset;
-        for ($node = $code; $node !== null; $node = $parents[spl_object_id($node)] ?? null) {
-            $span = $node->getPos();
-            if ($span === null || $span->endOffset !== $oldEnd) {
-                continue;
-            }
-            $node->setPos(new SourceSpan(
-                $span->startLine,
-                $span->endLine - 1,
-                $span->startColumn,
-                1,
-                $span->startOffset,
-                $newEnd,
-                $span->file,
-            ));
-        }
     }
 
     protected function promoteBlockImages(Node $node): void
@@ -4343,7 +3903,6 @@ class BlockParser
             $i++;
         }
         if ($topLevel && !$itemBody) {
-            $this->recordUnclaimedDocumentPlus($lines, $start, $i);
         }
 
         $content = implode("\n", $contentParts);
@@ -4624,24 +4183,6 @@ class BlockParser
         bool $itemBody = false,
     ): bool {
         $line = $lines[$i];
-
-        if (
-            count($contentLines) === 1 && trim($contentLines[0], " \t") === '+'
-            && $this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null
-        ) {
-            $prior = $this->sourceLineFor($i - 1);
-            if ($prior >= 0) {
-                $marker = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $prior);
-                if (
-                    ($marker['owner']['kind'] ?? null) === 'list' && $marker['reason'] === 'sibling'
-                ) {
-                    return true;
-                }
-                if (($marker['owner']['kind'] ?? null) === 'quote' && $marker['reason'] === 'sibling' && $marker['depth'] > 0) {
-                    return false;
-                }
-            }
-        }
 
         // A definition-shaped lazy line in a quote is paragraph
         // text, so it cannot break the run (carve-php#1908, PART 1 S4).

@@ -1161,7 +1161,7 @@ HTML;
         $html = '<ul><li id="empty"></li></ul>';
         $result = $this->converter->convert($html);
 
-        $this->assertSame("-{#empty} +\n", $result);
+        $this->assertSame("-{#empty} {empty}\n", $result);
         $this->assertStringContainsString('<li id="empty">', (new CarveConverter())->convert($result));
     }
 

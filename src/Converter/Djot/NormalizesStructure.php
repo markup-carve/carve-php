@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Converter\Djot;
 
 use Closure;
 use LogicException;
+use MarkupCarve\Carve\Converter\EmptyListItemSpelling;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Footnote;
@@ -618,7 +619,7 @@ trait NormalizesStructure
             ) {
                 // Carve spells an empty item with a continuation marker. A lone
                 // `+` already is that marker and stays as written.
-                $text = rtrim($text, " \t") . ' +';
+                $text = rtrim($text, " \t") . ' ' . EmptyListItemSpelling::PLACEHOLDER;
                 $visible = $text;
                 $structure->paragraph = false;
                 $emptyItem = true;
@@ -628,7 +629,7 @@ trait NormalizesStructure
                 && preg_match('/^(?:[*-][ \t]*){3,}$/', $text) !== 1
                 && preg_match('/^((?:(?:[-*]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]+)+)(?:[-*]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]*$/', $text, $emptyNested) === 1
             ) {
-                $text = rtrim($text, " \t") . ' +';
+                $text = rtrim($text, " \t") . ' ' . EmptyListItemSpelling::PLACEHOLDER;
                 $visible = $text;
                 $structure->paragraph = false;
                 $emptyItem = true;
@@ -1897,7 +1898,7 @@ trait NormalizesStructure
         while (true) {
             $body = $noteHead[2];
             if (preg_match('/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]*$/', $body) === 1) {
-                $body = rtrim($body, " \t") . ' +';
+                $body = rtrim($body, " \t") . ' ' . EmptyListItemSpelling::PLACEHOLDER;
             }
             $childBody = $body;
             $child = preg_match('/^((?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)(?=[^ \t])/', $body, $childMatch) === 1;
@@ -1966,13 +1967,13 @@ trait NormalizesStructure
                     $writtenBody = '*' . substr($writtenBody, 1);
                     $structure->out[] = $noteHead[1] . $emptyNote . "\n  " . $writtenBody;
                 } else {
-                    $structure->out[] = $noteHead[1] . ($child && $childBody === '+' ? $emptyNote . "\n  " : '') . $writtenBody;
+                    $structure->out[] = $noteHead[1] . ($child && $childBody === EmptyListItemSpelling::PLACEHOLDER ? $emptyNote . "\n  " : '') . $writtenBody;
                 }
             }
             if (preg_match('/^(:{3,})(?:[ \t]+.*)?$/', $content, $inlineDiv) === 1) {
                 $structure->divs[] = ['width' => strlen($inlineDiv[1]), 'prefix' => str_repeat(' ', $contentColumn) . $inlineQuote['prefix'], 'depth' => $structure->depth, 'start' => $lineOffsets[$n], 'invalid' => $fenceParser->parseDivFenceOpener($content)['invalidMetadata'] ?? false] + ($context !== null ? ['itemColumn' => $context->column + 1] : []);
             }
-            $structure->paragraph = !($rows[$n] ?? false) && $content !== '' && !($child && $content === '+') && !(str_starts_with($content, '{') && ($this->readDjotWordAttributes($content, 0)['end'] ?? -1) === strlen($content)) && preg_match('/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]*$/', $content) !== 1 && preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|\[[^\]\n]*\]:|(?:[*-][ \t]*){3,}$)/', $content) !== 1 && preg_match('/^(`{3,}|~{3,})[ \t]*[a-zA-Z0-9_+#.-]*$/', $content) !== 1;
+            $structure->paragraph = !($rows[$n] ?? false) && $content !== '' && !($child && $content === EmptyListItemSpelling::PLACEHOLDER) && !(str_starts_with($content, '{') && ($this->readDjotWordAttributes($content, 0)['end'] ?? -1) === strlen($content)) && preg_match('/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]*$/', $content) !== 1 && preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|\[[^\]\n]*\]:|(?:[*-][ \t]*){3,}$)/', $content) !== 1 && preg_match('/^(`{3,}|~{3,})[ \t]*[a-zA-Z0-9_+#.-]*$/', $content) !== 1;
             preg_match('/^(#{1,6})(?:[ \t]|$)/', $content, $noteHeading);
             $structure->headingMarker = $noteHeading[1] ?? '';
             $structure->blank = !$structure->paragraph;

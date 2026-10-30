@@ -45,7 +45,38 @@ class HtmlImportReportTest extends TestCase
      *
      * @var array<string, array{reason: string, carve?: string, diagnostics?: list<string>, ast?: string}>
      */
-    private const AHEAD_OF_PIN = [];
+    private const AHEAD_OF_PIN = [
+        'list-table-for-block-cells' => [
+            'reason' => 'carve#4409: `- +` over a closer is a literal plus, so an empty cell is `- {empty}`; the pinned fixture predates the rule',
+            'carve' => '{.steps header-rows=1}
+::: list-table "Setup /steps/"
+- - Step
+  - What
+  - Note
+- - 1
+
+  - Install the tool.
+
+    ```
+    npm install carve
+    ```
+
+  -{.hint} Once per machine
+- - ^
+  - - Check the version
+    - Read the help
+  -{header} Optional
+- - 2
+  - Run it\\
+    on a file
+  - <
+- - 3
+  - \\^
+  - {empty}
+:::
+',
+        ],
+    ];
 
     /**
      * The other side of the same window: a fixture the pin states and this

@@ -28,7 +28,7 @@ class ARuledContainerBoundariesRemainStableTest extends TestCase
         yield '3653 intermediate fence opens before nested reparse' => ["- outer\n  - inner\n ```\n  +\n  ```\nnext\n", "<ul>\n<li>outer\n<ul>\n<li>inner</li>\n</ul>\n</li>\n</ul>\n<pre><code> +\n ```\nnext\n</code></pre>"];
         yield '625 outside tilde closer opens a fence below the list' => ["- outer\n  - head\n     ~~~\n     a\n ~~~\n\n    tail\n", "<ul>\n<li>outer\n<ul>\n<li>head\n<pre><code>a\n</code></pre>\n</li>\n</ul>\n</li>\n</ul>\n<pre><code>\n   tail\n</code></pre>"];
         yield '625 outside backtick closer opens a fence below the list' => ["- outer\n  - head\n     ```\n     a\n ```\n\n  tail\n", "<ul>\n<li>outer\n<ul>\n<li>head\n<pre><code>a\n</code></pre>\n</li>\n</ul>\n</li>\n</ul>\n<pre><code>\n tail\n</code></pre>"];
-        yield '3654 quoted marker' => [":: term\n: body\n  > +\nnext\n", "<dl>\n<dt>term</dt>\n<dd>\n<p>body</p>\n<blockquote><p>next</p></blockquote>\n</dd>\n</dl>"];
+        yield '3654 quoted marker' => [":: term\n: body\n  > +\nnext\n", "<dl>\n<dt>term</dt>\n<dd>\n<p>body</p>\n<blockquote><p>+\nnext</p></blockquote>\n</dd>\n</dl>"];
     }
 
     #[DataProvider('examples')]

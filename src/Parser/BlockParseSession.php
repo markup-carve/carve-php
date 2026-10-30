@@ -120,8 +120,6 @@ final class BlockParseSession
         return $this->parsedNestedListContentColumns[$item] ?? null;
     }
 
-    private ?ContinuationMarkerClassifier $continuationMarkers = null;
-
     /**
      * @var \WeakMap<\MarkupCarve\Carve\Node\Block\ListItem, bool>|null
      */
@@ -139,51 +137,26 @@ final class BlockParseSession
     }
 
     /**
-     * @return array{owner: array{kind: string, column: int, depth: int, content: int, first: bool}|null, reason: string|null, column: int, depth: int, stale: bool, open: bool}
+     * @return array{owner: array{kind: string, column: int, depth: int, content: int, first: bool, list: int|null, note: int|null}|null, column: int, depth: int}
      */
     public function continuationMarkerDecision(BlockSourceState $source, ListParser $lists, int $line): array
     {
-        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->markerLines ?: $source->sourceLines, $lists);
-        // An unprefixed `+` the walk read as lazy text is no marker (carve#3885).
-        if (isset($source->lazyLines[$line]) && !str_starts_with(ltrim($source->sourceLines[$line] ?? '', " \t"), '>')) {
-            return ['owner' => null, 'reason' => null, 'column' => -1, 'depth' => 0, 'stale' => false, 'open' => false];
+        $host = $source->plusHosts[$line] ?? null;
+        if ($host === null || $host['first']) {
+            return ['owner' => null, 'column' => -1, 'depth' => 0];
         }
 
-        return $this->continuationMarkers->decision($line);
+        return ['owner' => $host, 'column' => $host['column'], 'depth' => $host['depth']];
     }
 
     /**
-     * @return array{kind: string, column: int, depth: int, content: int, first: bool}|null
+     * @return array{kind: string, column: int, depth: int, content: int, first: bool, list: int|null, note: int|null}|null
      */
-    public function firstBlockMarkerOwner(BlockSourceState $source, ListParser $lists, int $line, bool $evenRefused = false): ?array
+    public function firstBlockMarkerOwner(BlockSourceState $source, ListParser $lists, int $line): ?array
     {
-        if (!$evenRefused && isset($source->refusedQuotePlus[$line])) {
-            return null;
-        }
-        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->markerLines ?: $source->sourceLines, $lists);
+        $host = $source->plusHosts[$line] ?? null;
 
-        return $this->continuationMarkers->firstBlockOwner($line);
-    }
-
-    public function plusAtHostContentColumn(BlockSourceState $source, ListParser $lists, int $line): bool
-    {
-        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->markerLines ?: $source->sourceLines, $lists);
-
-        return $this->continuationMarkers->atHostContentColumn($line);
-    }
-
-    public function innermostListColumnBefore(BlockSourceState $source, ListParser $lists, int $line): ?int
-    {
-        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->markerLines ?: $source->sourceLines, $lists);
-
-        return $this->continuationMarkers->innermostListColumnBefore($line);
-    }
-
-    public function footnoteColumnBefore(BlockSourceState $source, ListParser $lists, int $line): ?int
-    {
-        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->markerLines ?: $source->sourceLines, $lists);
-
-        return $this->continuationMarkers->footnoteColumnBefore($line);
+        return $host !== null && $host['first'] ? $host : null;
     }
 
     /**
@@ -192,43 +165,11 @@ final class BlockParseSession
     public array $unclosedCodeFences = [];
 
     /**
-     * @var list<array{line: int, column: int, host: string, reason: string}>
-     */
-    public array $refusedContinuationMarkers = [];
-
-    /**
-     * @var array<int, array{line: int, column: int, host: string, reason: string}>
-     */
-    public array $unclaimedDocumentMarkers = [];
-
-    /**
      * The opener line and `>` offsets of quotes a stacked `+` nests, handed from collection to span assignment.
      *
      * @var array{0: int, 1: array<int>}|null
      */
     public ?array $nestedQuoteOpenerOffsets = null;
-
-    public function recordRefusedContinuationMarker(BlockSourceState $source, int $line, string $host): void
-    {
-        $next = $source->sourceLines[$line + 1] ?? null;
-        if ($next === '' && $line + 1 === array_key_last($source->sourceLines)) {
-            $next = null;
-        }
-        if ($next !== null && trim($next) !== '') {
-            return;
-        }
-        $physical = $source->markerLines[$line] ?? $source->sourceLines[$line] ?? '';
-        $plus = strpos($physical, '+');
-        if ($plus === false) {
-            return;
-        }
-        $this->refusedContinuationMarkers[] = [
-            'line' => $line + 1,
-            'column' => mb_strlen(substr($physical, 0, $plus), 'UTF-8') + 1,
-            'host' => $host,
-            'reason' => $next === null ? 'document' : 'blank',
-        ];
-    }
 
     /**
      * @var array<string, \MarkupCarve\Carve\Parser\ReferenceDefinition>

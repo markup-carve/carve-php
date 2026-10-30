@@ -20,12 +20,12 @@ class AnEmptyMarkdownListItemIsAFirstBlockItemTest extends TestCase
     public static function shapes(): array
     {
         return [
-            'a bullet item' => ["- a\n-\n- b", "- a\n- +\n- b"],
-            'an ordered item' => ["1. a\n2.\n3. b", "1. a\n2. +\n3. b"],
-            'the only item' => ['-', '- +'],
-            'a nested item' => ["- a\n  - b\n  -\n- c", "- a\n  - b\n  - +\n- c"],
-            'after a heading' => ["# h\n-", "# h\n\n- +"],
-            'after a block quote' => ["> q\n-", "> q\n\n- +"],
+            'a bullet item' => ["- a\n-\n- b", "- a\n- {empty}\n- b"],
+            'an ordered item' => ["1. a\n2.\n3. b", "1. a\n2. {empty}\n3. b"],
+            'the only item' => ['-', '- {empty}'],
+            'a nested item' => ["- a\n  - b\n  -\n- c", "- a\n  - b\n  - {empty}\n- c"],
+            'after a heading' => ["# h\n-", "# h\n\n- {empty}"],
+            'after a block quote' => ["> q\n-", "> q\n\n- {empty}"],
             'a setext underline after text' => ["text\n-", '## text'],
             'a marker indented into the item above' => ["- a\n  -\n- b", "- ## a\n- b"],
         ];

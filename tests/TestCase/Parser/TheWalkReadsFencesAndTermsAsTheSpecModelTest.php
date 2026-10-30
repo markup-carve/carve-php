@@ -86,7 +86,7 @@ class TheWalkReadsFencesAndTermsAsTheSpecModelTest extends TestCase
             ],
             'a refused plus before a quote off its column' => [
                 "- a\n- b\n+\n > q\ntail\n",
-                "<ul><li>a</li><li>b\n    <blockquote><p>q\ntail</p></blockquote></li></ul>",
+                "<ul><li>a</li><li>b\n+</li></ul><blockquote><p>q\ntail</p></blockquote>",
             ],
         ];
     }

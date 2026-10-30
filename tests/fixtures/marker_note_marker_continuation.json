@@ -157,7 +157,7 @@
   {
     "id": "matrix-n4817",
     "source": "> 1. [^n]: text\n>       - deep\n>     - child\n> after [^n]\n",
-    "html": "<blockquote><ol><li><ul><li>child\nafter <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></li></ul></li></ol></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- deep<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ol><li></li></ol></blockquote>"
   },
   {
     "id": "matrix-n5229",
@@ -231,7 +231,7 @@
   {
     "id": "matrix-n6650",
     "source": "- [^n]: text\n    - child\n    # h\n    > q\n  - s\nafter [^n]\n",
-    "html": "<ul><li><ul><li>s\nafter <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></li></ul></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child</p><h1 id=\"h\">h</h1><blockquote><p>q</p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul>"
   },
   {
     "id": "matrix-n6684",
@@ -246,7 +246,7 @@
   {
     "id": "matrix-n6734",
     "source": "- [^n]: text\n    - child\n    > q\n  - s\n    ```\nafter [^n]\n",
-    "html": "<ul><li><ul><li>s\n        <pre><code></code></pre></li></ul></li></ul><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child</p><blockquote><p>q</p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child</p><blockquote><p>q\n- s</p></blockquote><pre><code></code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "matrix-n6758",
@@ -331,7 +331,7 @@
   {
     "id": "matrix-n7235",
     "source": "> - [^n]: text\n>     - child\n>     :::\n>     1. o\n>     1. o\n>     [^m]: other\n>   - s\n> after [^n]\n",
-    "html": "<blockquote><ul><li><ul><li>s\nafter <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></li></ul></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child</p><div><ol><li>o</li><li>o</li></ol></div><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul></blockquote>"
   },
   {
     "id": "matrix-n7267",
@@ -346,7 +346,7 @@
   {
     "id": "matrix-n7329",
     "source": "> - [^n]: text\n>     - child\n>   x\n>   - s\n>\n>     - child\n>     1. o\nafter [^n]\n",
-    "html": "<blockquote><ul><li><ul><li>s\n          <ul><li>child</li></ul><ol><li>o\nafter <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></li></ol></li></ul></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child\nx<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul></blockquote>"
   },
   {
     "id": "matrix-n7367",

@@ -102,7 +102,7 @@ class AnImportedItemsAttributesAbutItsMarkerTest extends TestCase
     {
         $carve = $this->import('<ul><li id="x"></li></ul>');
 
-        $this->assertSame("-{#x} +\n", $carve);
+        $this->assertSame("-{#x} {empty}\n", $carve);
         $this->assertStringContainsString('<li id="x">', $this->html($carve));
     }
 

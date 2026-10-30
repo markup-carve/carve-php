@@ -31,8 +31,8 @@
   },
   {
     "source": "- - ```\n\n\n  +\ntail\n",
-    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    <p>+\ntail</p>\n  </li>\n</ul>",
-    "fmt": "- - ```\n\n    ```\n\n  \\+\n  tail\n"
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>\n\n</code></pre>\n      </li>\n    </ul>\n    <p>+\ntail</p>\n  </li>\n</ul>",
+    "fmt": "- - ```\n\n\n    ```\n\n  \\+\n  tail\n"
   },
   {
     "source": "- - - ```\n      x\n\n\n    +\ntail\n",
@@ -42,7 +42,7 @@
   },
   {
     "source": "- 1. ```\n\n\n  +\ntail\n",
-    "html": "<ul>\n  <li>\n    <ol>\n      <li>\n        <pre><code>\n</code></pre>\n      </li>\n    </ol>\n    <p>+\ntail</p>\n  </li>\n</ul>",
-    "fmt": "- 1. ```\n\n     ```\n\n  \\+\n  tail\n"
+    "html": "<ul>\n  <li>\n    <ol>\n      <li>\n        <pre><code>\n\n</code></pre>\n      </li>\n    </ol>\n    <p>+\ntail</p>\n  </li>\n</ul>",
+    "fmt": "- 1. ```\n\n\n     ```\n\n  \\+\n  tail\n"
   }
 ]

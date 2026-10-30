@@ -14,6 +14,6 @@ class IndentedTableContinuationIsParagraphTest extends TestCase
     {
         $render = static fn (string $source): string => (new HtmlRenderer())->render((new BlockParser())->parse($source));
         $table = $render("| a |\n+ |\n");
-        self::assertSame($table . "<p>+ |</p>\n", $render("| a |\n  + |\n"));
+        self::assertSame($table, $render("| a |\n  + |\n"));
     }
 }

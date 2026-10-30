@@ -15,7 +15,7 @@ final class NestedQuoteAfterEmptySiblingItemTest extends TestCase
         $formatted = CarveConverter::toCarve($source);
         $converter = new CarveConverter();
 
-        self::assertSame("- +\n- > - +\n", $formatted);
+        self::assertSame("- {empty}\n- > - {empty}\n", $formatted);
         self::assertSame($converter->convert($source), $converter->convert($formatted));
         self::assertSame($formatted, CarveConverter::toCarve($formatted));
     }
@@ -25,7 +25,7 @@ final class NestedQuoteAfterEmptySiblingItemTest extends TestCase
         $html = (new CarveConverter())->convert("- +\n- > - +\n");
 
         self::assertSame(
-            "<ul>\n  <li></li>\n  <li>\n    <blockquote>\n      <ul>\n        <li></li>\n      </ul>\n    </blockquote>\n  </li>\n</ul>",
+            "<ul>\n  <li>+</li>\n  <li>\n    <blockquote>\n      <ul>\n        <li>+</li>\n      </ul>\n    </blockquote>\n  </li>\n</ul>",
             $html,
         );
     }

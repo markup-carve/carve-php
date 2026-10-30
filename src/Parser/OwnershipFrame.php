@@ -34,8 +34,11 @@ final class OwnershipFrame
      * @param int|null $plus
      * @param int|null $docMarker
      * @param int|null $line
+     * @param int|null $tableLine
      * @param string|null $family
      * @param int|null $opened
+     * @param int|null $written
+     * @param bool $task
      */
     public function __construct(
         public string $kind,
@@ -57,8 +60,11 @@ final class OwnershipFrame
         public ?int $plus = null,
         public ?int $docMarker = null,
         public ?int $line = null,
+        public ?int $tableLine = null,
         public ?string $family = null,
         public ?int $opened = null,
+        public ?int $written = null,
+        public bool $task = false,
     ) {
     }
 }

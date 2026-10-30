@@ -20,7 +20,7 @@ final class AQuoteAttachedParagraphKeepsLazyContinuationTest extends TestCase
     public function testAttachedParagraphStillEndsAtAnInterruptingBlock(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<blockquote><p>q</p></blockquote>\n<ul>\n  <li>s</li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<blockquote><p>q\n- s</p></blockquote>\n"),
             CarveConverter::create()->convert("> +\nq\n- s\n"),
         );
     }

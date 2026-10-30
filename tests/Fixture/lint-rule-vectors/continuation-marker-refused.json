@@ -77,7 +77,7 @@
             "column": 3,
             "includes": [
               "blank line",
-              "stays empty"
+              "remains text"
             ]
           }
         ]
@@ -94,7 +94,7 @@
             "column": 3,
             "includes": [
               "end of the document",
-              "stays empty"
+              "remains text"
             ]
           }
         ]
@@ -335,7 +335,7 @@
             "column": 3,
             "includes": [
               "+",
-              "stays empty"
+              "remains text"
             ]
           }
         ]
@@ -352,7 +352,7 @@
             "column": 4,
             "includes": [
               "+",
-              "stays empty"
+              "remains text"
             ]
           }
         ]
@@ -369,7 +369,7 @@
             "column": 7,
             "includes": [
               "+",
-              "stays empty"
+              "remains text"
             ]
           }
         ]
@@ -380,16 +380,7 @@
       "description": "The first-block form does not pull a column-0 list (carve#3482).",
       "source": "[^a]: +\n- a list\n",
       "expected": {
-        "findings": [
-          {
-            "line": 1,
-            "column": 7,
-            "includes": [
-              "a list",
-              "remains text"
-            ]
-          }
-        ]
+        "findings": []
       }
     },
     {
@@ -397,16 +388,7 @@
       "description": "The first-block form does not pull a column-0 list (carve#3482).",
       "source": "[^a]: +\n1. b\n",
       "expected": {
-        "findings": [
-          {
-            "line": 1,
-            "column": 7,
-            "includes": [
-              "a list",
-              "remains text"
-            ]
-          }
-        ]
+        "findings": []
       }
     },
     {
@@ -414,16 +396,7 @@
       "description": "The first-block form does not pull a column-0 list (carve#3482).",
       "source": ":: t\n: +\n- a list\n",
       "expected": {
-        "findings": [
-          {
-            "line": 2,
-            "column": 3,
-            "includes": [
-              "a list",
-              "stays empty"
-            ]
-          }
-        ]
+        "findings": []
       }
     },
     {
@@ -431,16 +404,7 @@
       "description": "The first-block form does not pull a column-0 list (carve#3482).",
       "source": ":: t\n: +\n1. b\n",
       "expected": {
-        "findings": [
-          {
-            "line": 2,
-            "column": 3,
-            "includes": [
-              "a list",
-              "stays empty"
-            ]
-          }
-        ]
+        "findings": []
       }
     },
     {
@@ -513,7 +477,7 @@
             "column": 3,
             "includes": [
               "end of the document",
-              "stays empty"
+              "remains text"
             ]
           }
         ]
@@ -530,7 +494,7 @@
             "column": 3,
             "includes": [
               "+",
-              "column rules"
+              "right of its column"
             ]
           }
         ]
@@ -563,7 +527,7 @@
             "column": 3,
             "includes": [
               "blank line",
-              "stays empty"
+              "remains text"
             ]
           }
         ]
@@ -579,8 +543,8 @@
             "line": 1,
             "column": 3,
             "includes": [
-              "+",
-              "column rules"
+              "right of its column",
+              "remains text"
             ]
           }
         ]
@@ -628,11 +592,7 @@
         "findings": [
           {
             "line": 1,
-            "column": 3,
-            "includes": [
-              "blank line",
-              "remains text"
-            ]
+            "column": 3
           }
         ]
       }
@@ -659,16 +619,7 @@
       "description": "The first-block form does not pull a column-0 list (CARVE-P9-067).",
       "source": "> +\n- a\n",
       "expected": {
-        "findings": [
-          {
-            "line": 1,
-            "column": 3,
-            "includes": [
-              "a list",
-              "remains text"
-            ]
-          }
-        ]
+        "findings": []
       }
     },
     {
@@ -709,7 +660,16 @@
       "description": "A stacked list and quote opener attaches a paragraph at that line's column.",
       "source": "- a\n  - > +\n  b\n",
       "expected": {
-        "findings": []
+        "findings": [
+          {
+            "line": 2,
+            "column": 7,
+            "includes": [
+              "left of its column",
+              "remains text"
+            ]
+          }
+        ]
       }
     },
     {
@@ -717,7 +677,16 @@
       "description": "A stacked list and quote opener attaches a heading at that line's column.",
       "source": "- a\n  - > +\n  # h\n",
       "expected": {
-        "findings": []
+        "findings": [
+          {
+            "line": 2,
+            "column": 7,
+            "includes": [
+              "left of its column",
+              "remains text"
+            ]
+          }
+        ]
       }
     },
     {

@@ -24,6 +24,16 @@ final class BlockOwnershipWalk
     /**
      * @var string
      */
+    private const DESCRIPTION_LEAD = '/^: +(?=[^ \t])/';
+
+    /**
+     * @var string
+     */
+    private const BARE_QUOTE_MARKERS = '/^(?:>[ \t]*)*$/D';
+
+    /**
+     * @var string
+     */
     private const FRONTMATTER_OPENER = '/^---(?:[ \t]*$|(?! *[^\S ])( (?! )|[A-Za-z0-9]+[ \t]*$))/D';
 
     /**
@@ -53,18 +63,31 @@ final class BlockOwnershipWalk
     public array $fenceOpenerLines = [];
 
     /**
-     * Refused `+` lines the walk framed lazy, as they read unframed: the marker classifier reads these.
+     * Every lone `+` the one attach rule refused, keyed by line index (CARVE-P9-085): each is written as the letter.
+     * The value is its lint finding, or null where the rule does not report it.
      *
-     * @var array<int, string>
-     */
-    public array $refusedPlusLines = [];
-
-    /**
-     * Quote first-block `+` lines whose follower stands at an ineligible raw column, keyed by line index.
-     *
-     * @var array<int, true>
+     * @var array<int, array{line: int, column: int, host: string, reason: string}|null>
      */
     public array $refusedPlus = [];
+
+    /**
+     * The host of every lone `+` the one attach rule accepted, keyed by line index.
+     *
+     * @var array<int, array{kind: string, column: int, depth: int, content: int, first: bool, list: int|null, note: int|null}>
+     */
+    public array $plusHosts = [];
+
+    /**
+     * The private byte a refused `+` is written as until the tree is built.
+     */
+    private string $letter = "\x01";
+
+    /**
+     * The frames at the last accepted `+`, its host's marker column and quote depth, and where its block starts.
+     *
+     * @var array{frames: array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>, column: int, depth: int, from: int, item: bool, kind: string}|null
+     */
+    private ?array $attachedTo = null;
 
     /**
      * @var array{widest: array<string, array<int, int>>, lastComment: array<int, int>}|null
@@ -132,11 +155,13 @@ final class BlockOwnershipWalk
 
     /**
      * @param array<int, string> $lines
+     * @param string $letter
      *
      * @return array<int, string>
      */
-    public function own(array $lines): array
+    public function own(array $lines, string $letter = "\x01"): array
     {
+        $this->letter = $letter;
         $this->lines = $lines;
         $this->runs = null;
         $this->textFences = [];
@@ -147,8 +172,9 @@ final class BlockOwnershipWalk
         $this->wrappedAttributeEnd = -1;
         $this->lazyLines = [];
         $this->fenceOpenerLines = [];
-        $this->refusedPlusLines = [];
         $this->refusedPlus = [];
+        $this->plusHosts = [];
+        $this->attachedTo = null;
         $this->frames = [new OwnershipFrame('doc', 0, 0, 0)];
         $result = [];
         $afterPlus = false;
@@ -178,53 +204,46 @@ final class BlockOwnershipWalk
             $this->src = $lines[$at];
             $this->out = '';
             $this->m = self::indentCols($this->src);
-            $reached = 0;
-            $plus = null;
-            $refusedPlus = false;
-            $inWrappedAttribute = $at <= $this->wrappedAttributeEnd;
-            $frameCount = count($this->frames);
-            // A quote's first-block `+` reads a follower by its raw column (CARVE-P9-067).
-            $topFrame = $this->frames[$frameCount - 1];
-            $quotePlus = $topFrame->kind === 'quote' && $topFrame->plus === $at - 1 ? $topFrame : null;
-            $baseAt = -1;
-            if ($quotePlus !== null) {
-                foreach ($this->frames as $k => $f) {
-                    if ($f->line === $at - 1) {
-                        $baseAt = $k;
-
-                        break;
+            // A `+` right after the block a `+` attached reaches the same host, whose
+            // frames the walk closed when it read that block where it stands.
+            if ($this->attachedTo !== null && str_contains($this->src, '+')) {
+                $stands = $this->levelOf($this->src, $this->attachedTo['depth']);
+                if ($stands !== null && self::isPlus($stands['rest'])) {
+                    if (
+                        $this->attachedBlockEndsAt($at)
+                        && $this->attachesAt($this->attachedTo['kind'], $at, self::docColumn($lines[$at], $stands['rest']), count($this->attachedTo['frames']) - 1, $this->attachedTo['frames'])
+                    ) {
+                        $this->frames = $this->attachedTo['frames'];
                     }
+                    $this->attachedTo = null;
                 }
             }
-            $stackCol = null;
-            // Column 0 of the follower's own quote level, past host quote prefixes.
-            $zero = 0;
+            $reached = 0;
+            $plus = null;
+            $refusedHost = null;
+            $inWrappedAttribute = $at <= $this->wrappedAttributeEnd;
+            $frameCount = count($this->frames);
             // S2: the deepest open frame the line reaches.
             for ($k = 1; $k < $frameCount; $k++) {
                 $f = $this->frames[$k];
-                if ($quotePlus !== null && $stackCol === null && $f->line === $at - 1) {
-                    $stackCol = -1;
-                }
-                if ($f->markerCol !== null && preg_match('/^\+[ \t]*$/D', $this->m['rest']) === 1 && $this->m['col'] === $f->markerCol) {
-                    if ($f->kind === 'quote' || ($this->m['col'] < $f->col && $this->attachesAt($at + 1, $f->markerCol, $this->quoteDepth($k)))) {
+                // A lone `+` reaches the marker column of an open marker container.
+                if (
+                    $f->markerCol !== null && $this->m['col'] === $f->markerCol && ($f->kind === 'quote' || $this->m['col'] < $f->col)
+                    && self::isPlus($this->m['rest'])
+                ) {
+                    if ($this->attachesAt($f->kind, $at, self::docColumn($lines[$at], $this->m['rest']), $k)) {
                         $plus = $k;
 
                         break;
                     }
-                    $refusedPlus = $refusedPlus || $this->m['col'] < $f->col;
+                    $refusedHost = $k;
                 }
                 if ($f->kind === 'quote') {
                     if (preg_match(self::QUOTE, $this->m['rest'], $q) !== 1) {
                         break;
                     }
-                    if ($stackCol === -1) {
-                        $stackCol = self::docColumn($lines[$at], $this->m['rest']);
-                    }
                     $this->lead($this->frames[$k - 1]->canon);
                     $this->take(strlen($this->src) - strlen($q[1] ?? ''));
-                    if ($k < $baseAt) {
-                        $zero = self::docColumn($lines[$at], $this->src);
-                    }
                     $this->m = self::indentCols($this->src);
                     $reached = $k;
 
@@ -240,10 +259,19 @@ final class BlockOwnershipWalk
 
                 continue;
             }
+            // A lone `+` nothing took is a plain letter and ends nothing (carve#4396). Payload stays as written.
+            if (
+                $plus === null && self::isPlus($this->m['rest'])
+                && !($this->frames[$frameCount - 1]->kind === 'fence' && $reached === $frameCount - 1)
+            ) {
+                $this->refusePlus($at, $this->separatePlusFinding($at, $refusedHost, $reached));
+            }
             if ($plus !== null) {
                 $this->frames = array_slice($this->frames, 0, $plus + 1);
                 $this->frames[$plus]->para = false;
+                $this->holdAttachedTo($plus, $at + 1);
                 $this->lead($this->frames[$plus]->markerCanon);
+                $this->plusHosts[$at] = $this->hostRecord($plus, self::columnOf($this->out), false);
                 $result[] = $this->out . $this->src;
                 $afterPlus = true;
                 // S2: a lone `+` taken at a marker column (B-plus-start).
@@ -256,17 +284,6 @@ final class BlockOwnershipWalk
             $plusFollower = $afterPlus;
             $afterPlus = false;
             $missed = $reached < count($this->frames) - 1;
-            // A follower at an ineligible raw column refuses the `+` whatever block it starts (CARVE-P9-067, carve#3421).
-            $stacked = $stackCol !== null && $stackCol >= 0;
-            if (
-                $quotePlus !== null && ($missed || $stacked) && $this->m['rest'] !== ''
-                && preg_match('/^\+[ \t]*$/D', $this->m['rest']) !== 1
-            ) {
-                $col = $stacked ? $stackCol : self::docColumn($lines[$at], $this->m['rest']);
-                if ($col !== 0 && $col !== $zero && $col !== $this->frames[$baseAt]->docMarker && $col !== $quotePlus->docMarker) {
-                    $this->refusedPlus[$at - 1] = true;
-                }
-            }
             $this->reach = $reached;
             $innerIndex = count($this->frames) - 1;
             $inner = $this->frames[$innerIndex];
@@ -323,26 +340,40 @@ final class BlockOwnershipWalk
                 $missedNote = $missedNote || $this->frames[$k]->kind === 'note';
                 $missedItem = $missedItem || $this->frames[$k]->kind === 'item';
             }
-            $ownerKind = $this->frames[$reached]->kind;
-            $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts
-                && !($form->kind === 'dd' && $missedNote)
+            // A `: ` description is a sibling at any column where its list's owner reads it (CARVE-P0-024 S3).
+            $missedQuote = false;
+            for ($k = $reached + 1; $k <= $topIndex; $k++) {
+                $missedQuote = $missedQuote || $this->frames[$k]->kind === 'quote';
+            }
+            // PART 0 [B-term-keep]: past a missed quote or note a marker leaves a term, and past a quote a separator too (carve#4300).
+            $termRefuses = $this->frames[$topIndex]->last === 'term' && ($this->listParser->parseListItemMarker($this->m['rest']) !== null
+                ? $missedQuote || $missedNote
+                : $missedQuote && preg_match(self::DESCRIPTION_LEAD, $this->m['rest']) === 1);
+            // A caption at its owner's block column attaches to a quote it follows and is never its lazy line (carve#4312).
+            $captionsQuote = $form->caption && $this->m['col'] === $this->frames[$reached]->col && $missedQuote && !$missedNote;
+            if ($captionsQuote) {
+                $this->softLeaf = true;
+            }
+            $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts && !$captionsQuote && !$termRefuses && $form->kind !== 'dd'
                 && !($form->kind === 'item' && $next->kind === 'item' && $next->axes === $form->axes);
-            if ($lazy && $missedNote && $form->kind === 'item' && ($ownerKind === 'item' || $ownerKind === 'dd' || $missedItem)) {
-                // The marker opens past the missed note, and the readers still see the note's lazy line.
+            // Past a missed note a marker opens only beside a missed list (carve#4160).
+            if ($lazy && $missedNote && $form->kind === 'item' && $missedItem) {
+                // The readers still see the note's lazy line.
                 $this->lazyLines[$at] = true;
                 $lazy = false;
             }
             // S4: a line that missed a frame folds into the deepest open paragraph.
             if ($lazy) {
+                // A separator line the quote still marks is text, so the term is over for a later line.
+                if ($this->frames[$topIndex]->last === 'term' && preg_match(self::DESCRIPTION_LEAD, $this->m['rest']) === 1) {
+                    $this->frames[$topIndex]->last = 'para';
+                }
+                // The readers open a list at a folded marker (§10 I2), so a `+` there is decided too.
+                if ($form->kind === 'item') {
+                    $this->decideFoldedMarkerPlus($at, $reached + 1);
+                }
                 // Past a missed note the line is framed lazy in the deepest container (carve#3926).
                 if ($missedNote && $this->frames[$topIndex]->plus !== $at - 1) {
-                    if ($refusedPlus) {
-                        $owner = $this->frames[$reached];
-                        $limit = $next->kind === 'quote' ? PHP_INT_MAX : $next->canon - 1;
-                        $col = min(min(max($this->m['col'] - $owner->cut, $owner->canon), $limit), $this->m['col']);
-                        $authored = substr($this->src, 0, strlen($this->src) - strlen($this->m['rest']));
-                        $this->refusedPlusLines[$at] = $this->out . ($col === $this->m['col'] ? $authored : str_repeat(' ', $col)) . $this->m['rest'];
-                    }
                     $this->lead(0);
                     for ($k = $reached + 1; $k <= $topIndex; $k++) {
                         if ($this->frames[$k]->kind === 'quote') {
@@ -351,9 +382,7 @@ final class BlockOwnershipWalk
                     }
                     $leaf = $this->frames[$topIndex];
                     $result[] = $this->out . str_repeat(' ', $leaf->kind === 'quote' ? 0 : (int)$leaf->reader) . BlockGrammar::LAZY_FRAME . $this->src;
-                    if (!$refusedPlus) {
-                        $this->lazyLines[$at] = true;
-                    }
+                    $this->lazyLines[$at] = true;
                     $this->emitLazy($at, $reached);
 
                     continue;
@@ -365,18 +394,57 @@ final class BlockOwnershipWalk
                     $this->textFences[count($result)] = $owner->canon;
                 }
                 $result[] = $this->out . $this->src;
-                // A `+` the walk refuses at a marker column stays for the readers to refuse.
-                if (!$refusedPlus && !$this->plusMeetsMovedItem($reached)) {
-                    $this->lazyLines[$at] = true;
-                }
+                $this->lazyLines[$at] = true;
                 $this->emitLazy($at, $reached);
 
                 continue;
             }
+            // A lone `+` at a marker column attaches a paragraph written there and the host keeps it (§17 L3):
+            // S4 tests the lines after it against that paragraph, so a sibling marker interrupts it.
+            $lonePlus = $plusFollower ? ($this->frames[$reached + 1] ?? null) : null;
+            if (
+                $lonePlus !== null && $reached === count($this->frames) - 2 && $form->kind === 'text' && $this->m['rest'] !== ''
+                && ($lonePlus->kind === 'item' || (($lonePlus->kind === 'dd' || $lonePlus->kind === 'note') && $lonePlus->plus === $at - 1))
+                && !self::isPlus($this->m['rest'])
+            ) {
+                $this->lead($lonePlus->markerCanon);
+                $result[] = $this->out . $this->src;
+                $lonePlus->absorbs = $this->absorbsColon($this->m['rest']);
+                $lonePlus->para = true;
+                $lonePlus->last = 'para';
+                if ($this->trace !== null) {
+                    $this->emit($at, 'S5', $this->ownerPath(), 'CARVE-P0-024', 'text', ['plus' => $at]);
+                }
+
+                continue;
+            }
+            // An attribute run after it leads the `+`'s one block, so the item stays open for the line after the run.
+            if (
+                $lonePlus !== null && $lonePlus->kind === 'item' && $reached === count($this->frames) - 2 && $this->m['col'] === $lonePlus->markerCol
+                && $this->frames[$reached]->kind !== 'dd' && $this->m['rest'] !== '' && $this->m['rest'][0] === '{' && ($this->isAttributeLine)($this->m['rest'])
+            ) {
+                $runNext = $this->levelOf($lines[$at + 1] ?? '', $this->quoteDepth($reached + 1));
+                if ($runNext !== null && $runNext['rest'] !== '' && $runNext['col'] >= $lonePlus->col) {
+                    $this->lead($lonePlus->markerCanon);
+                    $result[] = $this->out . $this->src;
+                    $afterPlus = true;
+                    if ($this->trace !== null) {
+                        $this->emit($at, 'S5', $this->ownerPath(), 'CARVE-P0-024', 'leaf', ['plus' => $at]);
+                    }
+
+                    continue;
+                }
+            }
             if (
                 $missed && !$plusFollower && $this->m['rest'] !== '' && !$afterSoftLeaf
-                && !($inner->kind === 'fence' && $inner->family !== 'code') && !$this->frames[$topIndex]->para
+                && !($inner->kind === 'fence' && $inner->family !== 'code')
+                && (!$this->frames[$topIndex]->para || ($termRefuses && $next?->kind !== 'item') || ($form->kind === 'leaf' && $form->interrupts
+                    && (($this->isDefinition)($this->m['rest']) || $this->abbreviationAtColumnZero($reached, $form))))
             ) {
+                $this->closingLines[$at] = true;
+            }
+            // A column-0 abbreviation definition ends a document-level term too (carve#4412).
+            if (!$missed && $this->frames[$reached]->last === 'term' && $this->abbreviationAtColumnZero($reached, $form)) {
                 $this->closingLines[$at] = true;
             }
             // S5: apply the line, the boundary table T of CARVE-P0-003.
@@ -429,33 +497,16 @@ final class BlockOwnershipWalk
         return $this->frameTextFences($result);
     }
 
+    private function abbreviationAtColumnZero(int $reached, OwnershipForm $form): bool
+    {
+        return $reached === 0 && $form->kind === 'leaf' && $this->m['col'] === 0 && str_starts_with($this->m['rest'], '*[');
+    }
+
     private function emitLazy(int $at, int $reached): void
     {
         if ($this->trace !== null) {
             $this->emit($at, 'S4', $this->ownerPath(), 'CARVE-P0-006', 'lazy', ['reached' => $this->ownerPath($reached)]);
         }
-    }
-
-    /**
-     * A lone `+` at the column an indented item's marker was moved to reaches that item (PART 0 S3).
-     */
-    private function plusMeetsMovedItem(int $reached): bool
-    {
-        if (preg_match('/^\+[ \t]*$/D', $this->m['rest']) !== 1) {
-            return false;
-        }
-        $count = count($this->frames);
-        for ($k = $reached + 1; $k < $count; $k++) {
-            $f = $this->frames[$k];
-            if ($f->kind === 'quote') {
-                return false;
-            }
-            if ($f->kind === 'item' && $f->markerCol !== null && $f->markerCanon === $this->m['col'] && $f->markerCol > $this->m['col']) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -533,6 +584,7 @@ final class BlockOwnershipWalk
         $reader ??= $this->frames[$owner]->reader ?? $this->frames[$owner]->canon;
         $this->frames[$owner]->para = $form->kind === 'term';
         $this->frames[$owner]->last = $form->kind;
+        $this->frames[$owner]->tableLine = $form->table ? $this->at : null;
         if ($form->kind === 'term') {
             $this->frames[$owner]->termCut = $col - $canon;
         }
@@ -566,6 +618,7 @@ final class BlockOwnershipWalk
                 markerCanon: $canon,
                 docMarker: self::docColumn($this->lines[$this->at], $this->src),
                 line: $this->at,
+                written: self::columnOf($this->out),
             );
             preg_match(self::QUOTE, $this->src, $q);
             $this->take(strlen($this->src) - strlen($q[1] ?? ''));
@@ -583,17 +636,27 @@ final class BlockOwnershipWalk
                 markerCol: $col,
                 markerCanon: $canon,
                 axes: $form->axes,
+                task: $form->task,
                 reader: $reader + $form->width,
                 docMarker: self::docColumn($this->lines[$this->at], $this->src),
                 line: $this->at,
+                written: self::columnOf($this->out),
             );
+            // Content behind a lead tab is paragraph text, whatever it spells (corpus 684, 736, 840).
+            $leadTab = str_contains(substr($this->src, 0, $form->head), "\t");
             $this->take($form->head);
             $this->m = self::indentCols($this->src);
-            $this->content(count($this->frames) - 1, $col + $form->head, $canon + $form->head);
+            $top = count($this->frames) - 1;
+            // The readers set a note's marker-line content at its body column.
+            if ($form->kind === 'note') {
+                $this->content($top, $this->frames[$top]->col - $this->m['col'], $this->frames[$top]->canon - $this->m['col']);
+            } else {
+                $this->content($top, $col + $form->head, $canon + $form->head, $leadTab);
+            }
         }
     }
 
-    private function content(int $frame, int $start, int $canon): void
+    private function content(int $frame, int $start, int $canon, bool $leadTab = false): void
     {
         if ($this->m['rest'] === '' || count($this->frames) > BlockGrammar::MAX_NESTING_DEPTH) {
             return;
@@ -602,12 +665,29 @@ final class BlockOwnershipWalk
         $form = $this->classify($this->m['rest'], $this->frames[$frame], $this->frames[$frame]->kind === 'quote' ? $this->m['col'] : $start + $this->m['col']);
         $this->onMarkerLine = false;
         if ($form->kind === 'text') {
-            $this->lead($this->m['col']);
-            $this->frames[$frame]->absorbs = $this->absorbsColon($this->m['rest']);
-            $this->frames[$frame]->para = true;
-            if (preg_match('/^\+[ \t]*$/D', $this->m['rest']) === 1) {
-                $this->frames[$frame]->plus = $this->at;
+            $plus = false;
+            if ($leadTab && self::isPlus($this->m['rest'])) {
+                $this->refusePlus($this->at, null);
+            } elseif (self::isPlus($this->m['rest'])) {
+                // Past the one space after a `>` the `+` is the quote's text (corpus 646).
+                $f = $this->frames[$frame];
+                $plus = !($f->kind === 'quote' && $this->m['col'] > 0)
+                    && $this->attachesAt($f->kind, $this->at, (int)$f->docMarker, $frame);
+                if ($plus) {
+                    $f->plus = $this->at;
+                    $this->holdAttachedTo($frame, $this->at + 1);
+                } else {
+                    $this->refusePlus($this->at, $f->kind === 'quote' && $this->m['col'] > 0
+                        ? null
+                        : $this->plusFinding($this->at, $f->kind, (int)$f->docMarker, $frame));
+                }
             }
+            $this->lead($this->m['col']);
+            if ($plus) {
+                $this->plusHosts[$this->at] = $this->hostRecord($frame, self::columnOf($this->out), true);
+            }
+            $this->frames[$frame]->absorbs = $this->absorbsColon($this->m['rest']);
+            $this->frames[$frame]->para = !$plus;
             $this->frames[$frame]->last = 'para';
 
             return;
@@ -769,6 +849,13 @@ final class BlockOwnershipWalk
         if (preg_match('/^\[\^[^\]]+\]: +/', $rest, $note) === 1 && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $rest) === 1) {
             return new OwnershipForm(kind: 'note', width: 2, head: strlen($note[0]), interrupts: true);
         }
+        // T6: a continuation row right under a row of the owner's table is that table's line (carve#4161).
+        if (
+            ($rest[0] === '|' && $this->tables->isTableRow($rest))
+            || ($rest[0] === '+' && $owner->tableLine === $this->at - 1 && $this->tables->isContinuationRow($rest))
+        ) {
+            return new OwnershipForm(kind: 'leaf', interrupts: true, table: true);
+        }
         $marker = $this->listParser->parseListItemMarker($rest);
         if ($marker !== null) {
             // A term is not a paragraph a marker continues.
@@ -787,6 +874,7 @@ final class BlockOwnershipWalk
                     width: $width,
                     head: $head['content'],
                     interrupts: false,
+                    task: isset($marker['taskMarker']),
                     axes: $marker['type'] === 'ordered'
                         ? substr((string)$marker['marker'], -1)
                     : substr((string)$marker['marker'], 0, 1),
@@ -804,7 +892,6 @@ final class BlockOwnershipWalk
         if (
             preg_match('/^(#{1,6}) +(?=.*[^ \t\n\r])(.*)$/D', $rest) === 1
             || preg_match('/^(-{3,}|\*{3,}|_{3,})[ \t]*$/D', $rest) === 1
-            || ($rest[0] === '|' && $this->tables->isTableRow($rest))
             || ($this->isDefinition)($rest)
             || preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1
             || ($rest[0] === '{' && (($this->isAttributeLine)($rest) || $this->opensWrappedAttribute($rest, $owner)))
@@ -820,7 +907,7 @@ final class BlockOwnershipWalk
             }
             $this->softLeaf = in_array($owner->last, [null, 'para', 'term'], true);
 
-            return new OwnershipForm(kind: 'leaf', interrupts: false);
+            return new OwnershipForm(kind: 'leaf', interrupts: false, caption: true);
         }
 
         return new OwnershipForm(kind: 'text', interrupts: false);
@@ -906,22 +993,355 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * Whether line `$next` holds a block at `$col` under `$depth` quote levels.
+     * The one attach rule (PART 9 §17 L3, carve#4409): the host gives its marker column and the
+     * quote prefixes the next line must carry, and the column is measured on the authored line.
+     *
+     * @param string $kind
+     * @param int $at
+     * @param int $column
+     * @param int $hostIndex
+     * @param array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>|null $frames
      */
-    private function attachesAt(int $next, int $col, int $depth): bool
+    private function attachesAt(string $kind, int $at, int $column, int $hostIndex, ?array $frames = null): bool
     {
-        if (!isset($this->lines[$next])) {
+        $line = $this->lines[$at + 1] ?? null;
+        if ($line === null) {
             return false;
         }
-        $m = self::indentCols($this->lines[$next]);
+        $m = $this->throughQuotes($line, $hostIndex, $frames ?? $this->frames);
+        if ($m === null) {
+            return false;
+        }
+        $rest = rtrim($m['rest'], " \t");
+        // A line of nothing but quote markers is blank at its own level: it holds no block.
+        if (preg_match(self::BARE_QUOTE_MARKERS, $rest) === 1 || self::docColumn($line, $m['rest']) !== $column) {
+            return false;
+        }
+        if (preg_match('/^(:{3,})$/D', $rest, $closer) === 1) {
+            foreach ($this->frames as $f) {
+                if ($f->kind === 'colon' && $f->run === strlen($closer[1])) {
+                    return false;
+                }
+            }
+        }
+
+        return match ($kind) {
+            'item' => $this->listParser->parseListItemMarker($rest) === null,
+            'dd' => preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $rest) !== 1 && preg_match('/^:( +)(?=[ \t]*[^ \t])/', $rest) !== 1,
+            default => true,
+        };
+    }
+
+    /**
+     * The line behind the quotes around frame `$hostIndex`. A `>` left of a frame holding that
+     * quote has ended the frame, so it is not that quote's prefix.
+     *
+     * @param string $line
+     * @param int $hostIndex
+     * @param array<int, \MarkupCarve\Carve\Parser\OwnershipFrame> $frames
+     *
+     * @return array{col: int, rest: string}|null
+     */
+    private function throughQuotes(string $line, int $hostIndex, array $frames): ?array
+    {
+        $m = self::indentCols($line);
+        $floor = 0;
+        for ($k = 1; $k < $hostIndex; $k++) {
+            if ($frames[$k]->kind !== 'quote') {
+                $floor = $frames[$k]->col;
+
+                continue;
+            }
+            if ($m['col'] < $floor || preg_match(self::QUOTE, $m['rest'], $q) !== 1) {
+                return null;
+            }
+            $m = self::indentCols($q[1] ?? '');
+            $floor = 0;
+        }
+
+        return $m;
+    }
+
+    private function holdAttachedTo(int $host, int $from): void
+    {
+        $this->attachedTo = [
+            'frames' => array_slice($this->frames, 0, $host + 1),
+            'column' => (int)$this->frames[$host]->markerCol,
+            'depth' => $this->quoteDepth($host),
+            'from' => $from,
+            'item' => $this->frames[$host]->kind === 'item',
+            'kind' => $this->frames[$host]->kind,
+        ];
+    }
+
+    /**
+     * Whether the lines since the last accepted `+` hold exactly one block.
+     */
+    private function attachedBlockEndsAt(int $at): bool
+    {
+        $held = $this->attachedTo;
+        if ($held === null) {
+            return false;
+        }
+        $last = $at;
+        while ($held['item'] && $last > $held['from'] && trim($this->lines[$last - 1]) === '') {
+            $last--;
+        }
+        if ($last <= $held['from']) {
+            return false;
+        }
+        $own = [];
+        for ($k = $held['from']; $k < $last; $k++) {
+            $level = $this->levelOf($this->lines[$k], $held['depth']);
+            if ($level === null) {
+                return false;
+            }
+            $own[] = $level;
+        }
+        $first = $own[0]['rest'];
+        if (preg_match('/^(`{3,}|~{3,}|%{3,})/', $first, $open) === 1) {
+            for ($k = 1, $n = count($own); $k < $n; $k++) {
+                if (str_starts_with($own[$k]['rest'], $open[1]) && rtrim($own[$k]['rest'], " \t" . $open[1][0]) === '') {
+                    return $k === $n - 1;
+                }
+            }
+
+            return false;
+        }
+        $softLeaf = $this->softLeaf;
+        $reach = $this->reach;
+        $this->reach = 0;
+        $form = $this->classify($first, new OwnershipFrame('doc', 0, 0, 0), 0);
+        $oneBlock = true;
+        foreach ($own as $k => $line) {
+            if ($k === 0) {
+                continue;
+            }
+            if ($line['rest'] === '') {
+                $oneBlock = false;
+
+                break;
+            }
+            $next = $this->classify($line['rest'], new OwnershipFrame('doc', 0, 0, 0, para: $form->kind === 'text'), 0);
+            if ($form->kind === 'text' ? $next->interrupts : !($first[0] === '|' && $line['rest'][0] === '|') && !($form->kind === 'quote' || $form->kind === 'item' || $form->kind === 'colon')) {
+                $oneBlock = false;
+
+                break;
+            }
+        }
+        $this->softLeaf = $softLeaf;
+        $this->reach = $reach;
+
+        return $oneBlock;
+    }
+
+    /**
+     * The `+` closing a marker chain on a line the walk folds stays for the readers only if it attaches.
+     */
+    private function decideFoldedMarkerPlus(int $at, int $hostIndex): void
+    {
+        $tail = $this->m['rest'];
+        $column = self::docColumn($this->lines[$at], $tail);
+        for ($guard = 0; $guard <= BlockGrammar::MAX_NESTING_DEPTH; $guard++) {
+            $head = $this->listParser->markerHeadAt($tail);
+            if ($head === null) {
+                return;
+            }
+            $body = (string)substr($tail, $head['content']);
+            $inner = self::indentCols($body);
+            $column = self::docColumn($this->lines[$at], $inner['rest']);
+            if (self::isPlus($inner['rest'])) {
+                $marker = $column - (strlen($tail) - strlen($inner['rest']));
+                if (!$this->attachesAt('item', $at, $marker, $hostIndex)) {
+                    $this->src = (string)substr($this->src, 0, strlen($this->src) - strlen($inner['rest'])) . $this->letter . (string)substr($inner['rest'], 1);
+                    $this->m = self::indentCols($this->src);
+                    $this->refusedPlus[$at] = $this->plusFinding($at, 'item', $marker, $hostIndex);
+                }
+
+                return;
+            }
+            $tail = $inner['rest'];
+        }
+    }
+
+    /**
+     * @param int $at
+     * @param array{line: int, column: int, host: string, reason: string}|null $finding
+     */
+    private function refusePlus(int $at, ?array $finding): void
+    {
+        $this->src = str_replace('+', $this->letter, $this->src);
+        $this->m = self::indentCols($this->src);
+        $this->refusedPlus[$at] = $finding;
+    }
+
+    /**
+     * The finding for a `+` that reached no marker column's attachment, on a line of its own.
+     *
+     * @return array{line: int, column: int, host: string, reason: string}|null
+     */
+    private function separatePlusFinding(int $at, ?int $host, int $reached): ?array
+    {
+        if ($host !== null) {
+            return $this->plusFinding($at, $this->frames[$host]->kind, self::docColumn($this->lines[$at], $this->m['rest']), $host);
+        }
+        $owner = $this->frames[$reached];
+        $column = $this->m['col'];
+        if ($owner->kind === 'doc') {
+            return $this->blockFollowsAtZero($at) ? $this->finding($at, 'document', 'unclaimed') : null;
+        }
+        if ($owner->kind === 'quote' && $column === 0) {
+            $next = $this->levelOf($this->lines[$at + 1] ?? '', $this->quoteDepth($reached + 1));
+
+            return $next !== null && $next['col'] === 0 && $this->listParser->parseListItemMarker($next['rest']) !== null
+                ? $this->finding($at, 'quote', 'sibling')
+                : null;
+        }
+        // A task box is content (CARVE-P0-008), so a `+` at its column is still off every marker.
+        if ($column === $owner->col && $owner->axes !== null && !$owner->task) {
+            return null;
+        }
+        if ($column === $owner->col && $owner->kind !== 'item') {
+            return null;
+        }
+
+        return $this->finding($at, $owner->kind, 'wrong-column');
+    }
+
+    /**
+     * Why the one attach rule refused a `+` at a host's marker column.
+     *
+     * @return array{line: int, column: int, host: string, reason: string}
+     */
+    private function plusFinding(int $at, string $kind, int $column, int $hostIndex): array
+    {
+        $count = count($this->lines);
+        $next = $this->lines[$at + 1] ?? null;
+        if ($next === null || ($next === '' && $at + 2 === $count)) {
+            return $this->finding($at, $kind, 'document');
+        }
+        $level = $this->throughQuotes($next, $hostIndex, $this->frames);
+        if ($level === null) {
+            return $this->finding($at, $kind, 'left');
+        }
+        if (preg_match(self::BARE_QUOTE_MARKERS, rtrim($level['rest'], " \t")) === 1) {
+            return $this->finding($at, $kind, 'blank');
+        }
+        $followerColumn = self::docColumn($next, $level['rest']);
+        if ($followerColumn !== $column) {
+            return $this->finding($at, $kind, $followerColumn < $column ? 'left' : 'right');
+        }
+
+        return $this->finding($at, $kind, preg_match('/^:{3,}[ \t]*$/D', $level['rest']) === 1 ? 'closer' : 'sibling');
+    }
+
+    /**
+     * @return array{line: int, column: int, host: string, reason: string}
+     */
+    private function finding(int $at, string $kind, string $reason): array
+    {
+        $line = $this->lines[$at];
+
+        return [
+            'line' => $at + 1,
+            'column' => mb_strlen(substr($line, 0, (int)strrpos($line, '+')), 'UTF-8') + 1,
+            'host' => match ($kind) {
+                'item' => 'list item',
+                'dd' => 'definition description',
+                'note' => 'footnote body',
+                'quote' => 'block quote',
+                default => 'document',
+            },
+            'reason' => $reason,
+        ];
+    }
+
+    /**
+     * @return array{col: int, rest: string}|null
+     */
+    private function levelOf(string $line, int $depth): ?array
+    {
+        $m = self::indentCols($line);
         for ($d = 0; $d < $depth; $d++) {
             if (preg_match(self::QUOTE, $m['rest'], $q) !== 1) {
-                return false;
+                return null;
             }
             $m = self::indentCols($q[1] ?? '');
         }
 
-        return trim($m['rest']) !== '' && $m['col'] === $col;
+        return $m;
+    }
+
+    private function blockFollowsAtZero(int $at): bool
+    {
+        $reach = $this->reach;
+        $this->reach = 0;
+        $next = $this->lines[$at + 1] ?? '';
+        if ($next === '' || $next[0] === ' ' || $next[0] === "\t" || $next[0] === '%') {
+            return false;
+        }
+        if ($this->listParser->parseListItemMarker($next) !== null) {
+            return true;
+        }
+        $softLeaf = $this->softLeaf;
+        $form = $this->classify($next, $this->frames[0], 0);
+        $this->softLeaf = $softLeaf;
+        $this->reach = $reach;
+
+        return $form->interrupts;
+    }
+
+    /**
+     * @return array{kind: string, column: int, depth: int, content: int, first: bool, list: int|null, note: int|null}
+     */
+    private function hostRecord(int $frame, int $column, bool $first): array
+    {
+        $f = $this->frames[$frame];
+        $list = null;
+        $note = null;
+        for ($k = $frame; $k > 0; $k--) {
+            $open = $this->frames[$k];
+            if ($open->kind === 'item' && $list === null) {
+                $list = $open->written;
+            }
+            if ($open->kind === 'note' && $note === null) {
+                $note = $open->written;
+            }
+        }
+
+        return [
+            'kind' => match ($f->kind) {
+                'item' => 'list',
+                'dd' => 'description',
+                'note' => 'footnote',
+                default => $f->kind,
+            },
+            'column' => $first && $f->kind !== 'quote' ? (int)$f->written : $column,
+            'depth' => $this->quoteDepth($frame) + ($first && $f->kind === 'quote' ? 1 : 0),
+            'content' => $column,
+            'first' => $first,
+            'list' => $list,
+            'note' => $note,
+        ];
+    }
+
+    private static function isPlus(string $rest): bool
+    {
+        return preg_match('/^\+[ \t]*$/D', $rest) === 1;
+    }
+
+    /**
+     * The column the end of `$written` reaches.
+     */
+    private static function columnOf(string $written): int
+    {
+        $col = 0;
+        $len = strlen($written);
+        for ($i = 0; $i < $len; $i++) {
+            $col = $written[$i] === "\t" ? (intdiv($col, 4) + 1) * 4 : $col + 1;
+        }
+
+        return $col;
     }
 
     private function quoteDepth(int $below): int

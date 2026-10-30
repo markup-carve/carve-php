@@ -602,6 +602,41 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     public function render(Document $document): string
     {
+        return $this->withoutIdlePlusEscapes($this->renderDocument($document));
+    }
+
+    /**
+     * PART 11 §2: a lone `+` the one attach rule would refuse is a plain letter, so it takes no escape.
+     */
+    private function withoutIdlePlusEscapes(string $carve): string
+    {
+        if (!str_contains($carve, '\\+')) {
+            return $carve;
+        }
+        $lines = explode("\n", $carve);
+        $bare = [];
+        foreach ($lines as $at => $line) {
+            if (preg_match('/^((?:[ \t]*>)*[ \t]*(?:(?:[-*]|\d+[.)]|[A-Za-z][.)]|\[\^[^\]]+\]:|:)[ \t]+(?:\[[ xX]\][ \t]+)?)*)\\\\\+[ \t]*$/D', $line, $m) === 1) {
+                $bare[$at] = $line;
+                $lines[$at] = $m[1] . '+';
+            }
+        }
+        if ($bare === []) {
+            return $carve;
+        }
+        $refused = ($this->rebaseProbe ??= new BlockParser())->refusedPlusLinesOf($lines);
+        foreach ($bare as $at => $line) {
+            // The canonical form keeps a description's escape (corpus 436).
+            if (!array_key_exists($at, $refused) || preg_match('/^[ \t>]*:[ \t]/', $line) === 1) {
+                $lines[$at] = $line;
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    private function renderDocument(Document $document): string
+    {
         $this->ensureWriterState();
         $budgetLength = $document->getExpansionBudgetLength();
         $this->separatorExpansionLimit = max(1000000, $budgetLength > intdiv(PHP_INT_MAX, 8) ? PHP_INT_MAX : $budgetLength * 8);
@@ -1615,7 +1650,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
                     } elseif (
                         $parts !== [] && $item !== null && $block instanceof Paragraph
-                        && $previousEmitted instanceof ListBlock && $rendered === '+'
+                        && $previousEmitted instanceof ListBlock
+                        && ($rendered === '+' || str_starts_with($rendered, "+\n") || str_starts_with($rendered, "\\+\n"))
                     ) {
                         $parentList = $item->getParent();
                         $separator = $parentList instanceof ListBlock && $parentList->isTight() ? "\n" : "\n\n";
@@ -2266,7 +2302,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 }
                 $lines = $content === '' ? [''] : explode("\n", $content);
                 $first = array_shift($lines);
-                $out .= $prefix . ($first === '' ? '+' : $first) . "\n";
+                $out .= $prefix . ($first === '' ? self::EMPTY_BODY_SENTINEL : $first) . "\n";
                 $continuation = str_repeat(' ', $continuationWidth);
                 foreach ($lines as $line) {
                     // A BLANK continuation line stays blank: indenting it emits a
@@ -3411,7 +3447,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 }
 
                 $lines = explode("\n", $body);
-                $out[] = self::DEFINITION_BODY_MARKER . array_shift($lines);
+                $first = array_shift($lines);
+                // The canonical form spells a description's literal `+` with its escape (corpus 436).
+                $out[] = self::DEFINITION_BODY_MARKER . ($first === '+' && $lines !== [] && ($child->getChildren()[0] ?? null) instanceof Paragraph ? '\\+' : $first);
                 // A paragraph's guarded opener must stay below the body's column on write-back.
                 $children = $child->getChildren();
                 $paragraphContinuation = count($children) === 1 && $children[0] instanceof Paragraph;

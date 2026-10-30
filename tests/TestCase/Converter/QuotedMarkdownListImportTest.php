@@ -19,7 +19,7 @@ final class QuotedMarkdownListImportTest extends TestCase
         return [
             'empty sibling item' => [
                 "> -\n> - a\n",
-                "> - +\n> - a\n",
+                "> - {empty}\n> - a\n",
                 "<blockquote>\n  <ul>\n    <li></li>\n    <li>a</li>\n  </ul>\n</blockquote>",
             ],
             'empty fenced item' => [

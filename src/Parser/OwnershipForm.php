@@ -24,6 +24,9 @@ final class OwnershipForm
      * @param bool $lineBlock
      * @param int|null $run
      * @param string|null $family
+     * @param bool $task
+     * @param bool $caption
+     * @param bool $table
      */
     public function __construct(
         public readonly string $kind,
@@ -36,6 +39,9 @@ final class OwnershipForm
         public readonly int $head = 0,
         public readonly ?string $axes = null,
         public readonly ?string $family = null,
+        public readonly bool $task = false,
+        public readonly bool $caption = false,
+        public readonly bool $table = false,
     ) {
     }
 }

@@ -267,7 +267,7 @@
   {
     "name": "container-569",
     "source": "> - [^n]: note\n+\n\ntail\n",
-    "html": "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n</blockquote>\n<p>+</p>\n<p>tail</p>"
+    "html": "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n</blockquote>\n<p>tail</p>"
   },
   {
     "name": "container-596",

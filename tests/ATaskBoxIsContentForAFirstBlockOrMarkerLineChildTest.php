@@ -18,11 +18,11 @@ final class ATaskBoxIsContentForAFirstBlockOrMarkerLineChildTest extends TestCas
      */
     public static function documents(): iterable
     {
-        yield 'nested first-block task item takes its follower (#4277)' => ["- - [ ] +\n    s\n", "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"s\"> s</li>\n    </ul>\n  </li>\n</ul>"];
-        yield 'follower past the box' => ["- - [ ] +\n      s\n", "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"s\"> s</li>\n    </ul>\n  </li>\n</ul>"];
-        yield 'checked box' => ["- - [x] +\n     s\n", "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"s\"> s</li>\n    </ul>\n  </li>\n</ul>"];
-        yield 'quoted ordered host' => ["> 1. - [ ] +\n>      s\n", "<blockquote>\n  <ol>\n    <li>\n      <ul class=\"task-list\">\n        <li><input type=\"checkbox\" disabled aria-label=\"s\"> s</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"];
-        yield 'follower below the content column stays out' => ["- - [ ] +\n   s\n", "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled> </li>\n    </ul>\n    s\n  </li>\n</ul>"];
+        yield 'nested first-block task item takes its follower (#4277)' => ["- - [ ] +\n    s\n", "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"+ s\"> +\ns</li>\n    </ul>\n  </li>\n</ul>"];
+        yield 'follower past the box' => ["- - [ ] +\n      s\n", "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"+ s\"> +\ns</li>\n    </ul>\n  </li>\n</ul>"];
+        yield 'checked box' => ["- - [x] +\n     s\n", "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ s\"> +\ns</li>\n    </ul>\n  </li>\n</ul>"];
+        yield 'quoted ordered host' => ["> 1. - [ ] +\n>      s\n", "<blockquote>\n  <ol>\n    <li>\n      <ul class=\"task-list\">\n        <li><input type=\"checkbox\" disabled aria-label=\"+ s\"> +\ns</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"];
+        yield 'follower below the content column stays out' => ["- - [ ] +\n   s\n", "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"+ s\"> +\ns</li>\n    </ul>\n  </li>\n</ul>"];
         yield 'bullet short of the ordered child\'s content column (#4284)' => ["* [ ] 1. p\n       - a\n", "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ol>\n      <li>p\n- a</li>\n    </ol>\n  </li>\n</ul>"];
         yield 'two columns short' => ["* [ ] 1. p\n        - a\n", "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ol>\n      <li>p\n- a</li>\n    </ol>\n  </li>\n</ul>"];
         yield 'in a box column' => ["* [ ] 1. p\n   - a\n", "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ol>\n      <li>p\n- a</li>\n    </ol>\n  </li>\n</ul>"];

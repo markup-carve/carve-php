@@ -725,45 +725,8 @@ trait BlockListMethods
         if ($prior < 0 || $current < 0) {
             return false;
         }
-        $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $prior);
-        if ($decision['owner'] !== null && $decision['reason'] === null) {
-            return true;
-        }
-        $first = $this->state->session->firstBlockMarkerOwner($this->state->source, $this->listParser, $prior);
-        if ($first === null) {
-            return false;
-        }
-        $line = $this->state->source->sourceLines[$current] ?? '';
-        $opener = $this->state->source->sourceLines[$prior] ?? '';
-        // Below a hosted stacked opener, any non-list block at document column 0 attaches (carve#3421).
-        if (
-            ($line[0] ?? ' ') !== ' ' && $line[0] !== "\t" && $line[0] !== '>'
-            && !$this->isContinuationMarker($line)
-            && ContainerPrefix::quoteContent(ltrim($opener, " \t")) !== null
-            && BlockQuoteBuilder::isStackedFirstBlockQuoteMarker($opener)
-        ) {
-            return $this->listParser->parseListItemMarker($line) === null;
-        }
-        $openingBody = $opener;
-        $body = $line;
-        while (($next = ContainerPrefix::quoteContent($openingBody)) !== null) {
-            $openingBody = $next;
-            $body = ContainerPrefix::quoteContent($body) ?? '';
-            if ($body === '') {
-                return false;
-            }
-        }
-        $origin = ContinuationMarkerClassifier::columnAt($opener, strlen($opener) - strlen($openingBody));
-        if ($origin === 0) {
-            $origin = IndentationHelper::getLeadingColumns($opener);
-        }
-        $column = ContinuationMarkerClassifier::columnAt($line, strlen($line) - strlen($body) + strspn($body, " \t"));
-        if ($column !== 0 && $column !== $origin) {
-            return false;
-        }
-        $trimmed = ltrim($body, " \t");
 
-        return $this->listParser->parseListItemMarker($trimmed) === null;
+        return isset($this->state->source->plusHosts[$prior]);
     }
 
     protected function isContinuationMarker(string $line): bool
@@ -1133,29 +1096,7 @@ trait BlockListMethods
                 }
                 $lineIndent = IndentationHelper::getLeadingColumns($line, $baseIndent + 1);
                 $trimmed = ltrim($line, " \t");
-                $unclosedFences = $this->state->session->unclosedCodeFences;
-                $lastUnclosedFence = $unclosedFences === [] ? null : $unclosedFences[array_key_last($unclosedFences)];
-                $refusedAfterCloser = $this->isContinuationMarker($trimmed)
-                    && $index > 0
-                    && $lastUnclosedFence !== null
-                    && $lastUnclosedFence['reason'] === 'continuation'
-                    && $lastUnclosedFence['endLine'] === $this->sourceLineFor($index)
-                    && $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($index))['reason'] === 'blank'
-                    && $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($index - 1))['reason'] === null
-                    && $this->isContinuationMarker(ltrim($lines[$index - 1], " \t"));
-                if ($refusedAfterCloser) {
-                    $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($index), 'list item');
-                }
                 $continuationBoundary = $this->isContinuationMarker($trimmed);
-                if (
-                    $attachedKind === self::ATTACHED_PENDING
-                    && $continuationBoundary
-                    && $index > 0
-                    && ($this->state->session->firstBlockMarkerOwner($this->state->source, $this->listParser, $this->sourceLineFor($index - 1))['kind'] ?? null) === 'list'
-                    && $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($index))['reason'] !== null
-                ) {
-                    $continuationBoundary = false;
-                }
                 if (
                     $attachedKind === self::ATTACHED_SPANNING . ':table'
                     && $this->tableParser->isContinuationRow($trimmed)
@@ -1163,18 +1104,6 @@ trait BlockListMethods
                     && $this->tableParser->analyzeSeparatorRow(ltrim($lines[$index - 1], " \t")) !== null
                 ) {
                     return true;
-                }
-                if ($continuationBoundary && $index > 0 && $this->isContinuationMarker(ltrim($lines[$index - 1], " \t"))) {
-                    $markerLine = $this->sourceLineFor($index);
-                    $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $markerLine);
-                    $priorDecision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($index - 1));
-                    $continuationBoundary = !(
-                        $decision['reason'] !== null
-                        && $priorDecision['reason'] === null
-                        && ($decision['owner']['kind'] ?? null) === 'list'
-                        && ($priorDecision['owner']['kind'] ?? null) === 'list'
-                        && $decision['column'] === $priorDecision['column']
-                    );
                 }
                 if (
                     IndentationHelper::isBlankLine($line)
@@ -1185,7 +1114,7 @@ trait BlockListMethods
                             || $continuationBoundary))
                     || ($lineIndent === $baseIndent
                         && $trailingState->fence === null
-                        && ($this->listParser->parseListItemMarker($trimmed) !== null || $continuationBoundary && !$refusedAfterCloser))
+                        && ($this->listParser->parseListItemMarker($trimmed) !== null || $continuationBoundary))
                 ) {
                     return true;
                 }
@@ -1420,7 +1349,7 @@ trait BlockListMethods
         }
         if ($index !== null && $this->isContinuationMarker($nextTrimmed)) {
             $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($index));
-            if ($decision['owner'] !== null && $decision['reason'] === null) {
+            if ($decision['owner'] !== null) {
                 return true;
             }
         }

@@ -21,10 +21,10 @@ class AnEmptyListItemIsWrittenAsAFirstBlockItemTest extends TestCase
     public static function imports(): array
     {
         return [
-            'a bullet item' => ['<ul><li>a</li><li></li><li>b</li></ul>', "- a\n- +\n- b\n"],
-            'an ordered item' => ['<ol><li>a</li><li></li><li>b</li></ol>', "1. a\n2. +\n3. b\n"],
-            'a task item' => ['<ul><li><input type="checkbox"> a</li><li><input type="checkbox" checked></li></ul>', "- [ ] a\n- [x] +\n"],
-            'an attributed item' => ['<ul><li id="x"></li></ul>', "-{#x} +\n"],
+            'a bullet item' => ['<ul><li>a</li><li></li><li>b</li></ul>', "- a\n- {empty}\n- b\n"],
+            'an ordered item' => ['<ol><li>a</li><li></li><li>b</li></ol>', "1. a\n2. {empty}\n3. b\n"],
+            'a task item' => ['<ul><li><input type="checkbox"> a</li><li><input type="checkbox" checked></li></ul>', "- [ ] a\n- [x] {empty}\n"],
+            'an attributed item' => ['<ul><li id="x"></li></ul>', "-{#x} {empty}\n"],
         ];
     }
 

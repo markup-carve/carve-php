@@ -15,15 +15,13 @@ use PHPUnit\Framework\TestCase;
  * been a comment". In the FIRST-BLOCK form - `: +` for a description, `- +`
  * for a list item - no paragraph is open, so the `+` genuinely IS a marker and
  * the clause reads its payload's column. A payload at any column other than 0
- * is refused, and the body ends there exactly as it ends at a comment
- * (markup-carve/carve#1821).
+ * refuses the marker, and the `+` then reads like a letter (carve#4396).
  *
- * WHY A RELATION AND NOT A PAIR OF GOLDENS. The clause states that two
- * SPELLINGS give one answer. Two independent goldens cannot express that: a
- * change repairing one spelling and drifting the other passes both. So the
- * band below asserts the marker spelling EQUALS its comment control, and the
- * column-0 rows assert the one pair that must NOT agree - without which a form
- * that refused everything would satisfy all the rest.
+ * WHY A RELATION AND NOT A PAIR OF GOLDENS. The clause states that a refused
+ * `+` and a letter give one answer. So the band below asserts the marker
+ * spelling EQUALS its letter control, and the column-0 rows assert the
+ * attached reading, without which a form that refused everything would
+ * satisfy all the rest.
  *
  * THE LIST ITEM IS NOT A FREE PASS. The oracle already answered the item and
  * did not change for it, but that is a fact about the oracle: this engine is
@@ -74,11 +72,11 @@ class AnEmptyBodyClaimsNoLineBelowColumnZeroTest extends TestCase
     #[DataProvider('refusedBandProvider')]
     public function testTheMarkerEndsTheBodyExactlyWhereItsCommentDoes(string $container, int $col): void
     {
+        $letter = str_replace('+', 'z', $this->marker($container, $col));
         $this->assertSame(
-            $this->html($this->comment($container, $col)),
+            str_replace('z', '+', $this->html($letter)),
             $this->html($this->marker($container, $col)),
-            "{$container} at payload column {$col}: the marker spelling must end the body "
-                . 'exactly where its comment control does',
+            "{$container} at payload column {$col}: the refused marker must read like a letter",
         );
     }
 
@@ -86,15 +84,15 @@ class AnEmptyBodyClaimsNoLineBelowColumnZeroTest extends TestCase
     {
         // The relation above is satisfied by any answer both spellings share,
         // so it cannot say WHICH answer. These pin the oracle's.
-        $dd = "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>flush</p>";
+        $dd = "<dl>\n  <dt>t</dt>\n  <dd>+\nflush</dd>\n</dl>";
+        $commented = "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>flush</p>";
         foreach ([1, 2] as $col) {
             $this->assertSame($dd, $this->html($this->marker('description', $col)));
-            $this->assertSame($dd, $this->html($this->comment('description', $col)));
+            $this->assertSame($commented, $this->html($this->comment('description', $col)));
         }
 
-        $li = "<ul>\n  <li></li>\n</ul>\n<p>flush</p>";
-        $this->assertSame($li, $this->html($this->marker('item', 1)));
-        $this->assertSame($li, $this->html($this->comment('item', 1)));
+        $this->assertSame("<ul>\n  <li>+\nflush</li>\n</ul>", $this->html($this->marker('item', 1)));
+        $this->assertSame("<ul>\n  <li></li>\n</ul>\n<p>flush</p>", $this->html($this->comment('item', 1)));
     }
 
     public function testALineAtTheContentColumnIsTheContainersFirstBlock(): void
@@ -102,11 +100,11 @@ class AnEmptyBodyClaimsNoLineBelowColumnZeroTest extends TestCase
         // The other end of the band. A change that refused everything would
         // pass the rows above and break these.
         $dd = "<dl>\n  <dt>t</dt>\n  <dd>flush</dd>\n</dl>";
-        $this->assertSame($dd, $this->html($this->marker('description', 3)));
+        $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>+\nflush</dd>\n</dl>", $this->html($this->marker('description', 3)));
         $this->assertSame($dd, $this->html($this->comment('description', 3)));
 
         $li = "<ul>\n  <li>flush</li>\n</ul>";
-        $this->assertSame($li, $this->html($this->marker('item', 2)));
+        $this->assertSame("<ul>\n  <li>+\nflush</li>\n</ul>", $this->html($this->marker('item', 2)));
         $this->assertSame($li, $this->html($this->comment('item', 2)));
     }
 
