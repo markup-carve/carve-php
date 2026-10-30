@@ -1542,6 +1542,24 @@ class InlineParser
     /**
      * The end of a directive at `$pos` that stays literal text, or null.
      */
+
+    /**
+     * The end of a literal directive at $pos whose text holds a token a scan
+     * would read as an opener; its tokens are not parsed (CARVE-P6-001).
+     */
+    private function literalDirectiveWithOpenerEnd(string $text, int $pos): ?int
+    {
+        if ($text[$pos] !== '{' || ($text[$pos + 1] ?? '') !== '{') {
+            return null;
+        }
+        $end = $this->literalDirectiveEnd($text, $pos);
+        if ($end === null || strcspn($text, '`[', $pos, $end - $pos) === $end - $pos) {
+            return null;
+        }
+
+        return $end;
+    }
+
     private function literalDirectiveEnd(string $text, int $pos): ?int
     {
         $shape = IncludeDirectiveSyntax::shape($text, $pos);
@@ -3494,7 +3512,7 @@ class InlineParser
         }
 
         // Keep the smart typography fat-arrow token literal for the symbol pass.
-        if ($delimiter === '=' && $nextChar === '>') {
+        if ($delimiter === '=' && ($nextChar === '>' || $this->isComparisonEquals($text, $pos))) {
             return null;
         }
 
@@ -3566,6 +3584,7 @@ class InlineParser
         $attached = [];
         // The last opener of each other kind the walk has passed.
         $lastOpener = [];
+        $literalEnd = 0;
         $searchPos = $searchStart;
         while ($searchPos < $length) {
             if (isset($destinationEnds[$searchPos])) {
@@ -3578,6 +3597,16 @@ class InlineParser
                 break;
             }
             $char = $text[$searchPos];
+            // A literal directive's tokens open nothing, but a closer inside it closes (CARVE-P6-001, CARVE-P9-043).
+            if ($searchPos < $literalEnd) {
+                if ($char !== $delimiter) {
+                    $searchPos++;
+
+                    continue;
+                }
+            } elseif ($char === '{' && ($text[$searchPos + 1] ?? '') === '{') {
+                $literalEnd = $this->literalDirectiveEnd($text, $searchPos) ?? 0;
+            }
             // The closer of a pair this walk attached opens nothing.
             $child = $char !== $delimiter && !in_array($char, $this->openSpanKinds, true) && !isset($attached[$searchPos + 1])
                 ? $this->bracedPairIndex?->bareAttributes($searchPos) : null;
@@ -3743,6 +3772,14 @@ class InlineParser
                 $lastOpener[$char] = $searchPos;
             }
 
+            // The `=` of a comparison neither opens nor closes (PART 9 section 9).
+            if ($char === '=' && $delimiter === '=' && $this->isComparisonEquals($text, $searchPos)) {
+                $failedStarts[] = $searchPos + 1;
+                $searchPos++;
+
+                continue;
+            }
+
             // Check for closing delimiter
             if ($char === $delimiter) {
                 // Check if this can be a closer (not preceded by whitespace)
@@ -3799,6 +3836,19 @@ class InlineParser
     }
 
     /**
+     * Whether the `=` at $at belongs to a `!=`, `<=` or `>=`.
+     */
+    private function isComparisonEquals(string $text, int $at): bool
+    {
+        if ($at === 0 || !str_contains('!<>', $text[$at - 1]) || $this->isEscapedAt($text, $at - 1)) {
+            return false;
+        }
+
+        // `<==` and `<=>` are arrows, which give their `=` to a closer.
+        return $text[$at - 1] !== '<' || !in_array($text[$at + 1] ?? '', ['=', '>'], true);
+    }
+
+    /**
      * Whether the bare delimiter at $at can open: `guarded` behind a `_` or `/`.
      */
     private function bareOpenerKind(string $text, int $at): string
@@ -3808,7 +3858,7 @@ class InlineParser
         $before = $at > 0 ? $text[$at - 1] : '';
         if (
             $next === '' || StringUtil::isWhitespaceChar($next) || $next === $char || $before === $char
-            || ($char === '=' && $next === '>') || $this->hasGraphemeExtender($text, $at + 1)
+            || ($char === '=' && ($next === '>' || $this->isComparisonEquals($text, $at))) || $this->hasGraphemeExtender($text, $at + 1)
         ) {
             return 'none';
         }
@@ -4183,10 +4233,13 @@ class InlineParser
                 $node = new Substitution();
                 $outer = $this->openSpanKinds;
                 $this->openSpanKinds = [];
+                $outerMarkupDepth = $this->markupContentDepth;
+                $this->markupContentDepth = $this->inlineDepth + 1;
                 try {
                     $this->parseInlinesAt($node->getOld(), substr($text, $pos + 2, $arrow - $pos - 2), $pos + 2);
                     $this->parseInlinesAt($node->getNew(), substr($text, $arrow + 2, $close - $arrow - 2), $arrow + 2);
                 } finally {
+                    $this->markupContentDepth = $outerMarkupDepth;
                     $this->openSpanKinds = $outer;
                 }
 
@@ -4319,6 +4372,12 @@ class InlineParser
             // A CLOSER INSIDE A CLOSED VERBATIM RUN IS CODE, not this span's
             // closer: the run is closed by an equal-length backtick run
             // anywhere later in the block (markup-carve/carve#2079).
+            $literalEnd = $this->literalDirectiveWithOpenerEnd($text, $searchPos);
+            if ($literalEnd !== null) {
+                $searchPos = $literalEnd;
+
+                continue;
+            }
             if ($text[$searchPos] === '`') {
                 $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
                 if ($codeEnd !== null) {
@@ -5414,6 +5473,12 @@ class InlineParser
 
                     continue;
                 }
+                $literalEnd = $this->literalDirectiveWithOpenerEnd($text, $at);
+                if ($literalEnd !== null) {
+                    $at = $literalEnd - 1;
+
+                    continue;
+                }
                 $end = null;
                 $attributeEnd = null;
                 if ($char === '{' && preg_match('/[.#:a-zA-Z]/', $text[$at + 1] ?? '')) {
@@ -5558,6 +5623,12 @@ class InlineParser
             }
             if ($text[$searchPos] === '\\') {
                 $searchPos += 2;
+
+                continue;
+            }
+            $literalEnd = $this->literalDirectiveWithOpenerEnd($text, $searchPos);
+            if ($literalEnd !== null) {
+                $searchPos = $literalEnd;
 
                 continue;
             }

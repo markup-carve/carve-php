@@ -2214,6 +2214,9 @@ final class InlineStage
             return preg_replace_callback($pattern, static fn (array $match): string => $protect($open) . $match[1] . $protect($close), $subject) ?? $subject;
         };
         if ($this->context->convertHighlight) {
+            // A bare `=` beside `!`, `<` or `>` reads as a comparison.
+            $line = $replaceNativeInline('/(?<=[!<>])==(?!\s)([^=]+?)(?<!\s)==/', '{=$1=}', $line);
+            $line = $replaceNativeInline('/==(?!\s)([^=]*?[!<>])==/', '{=$1=}', $line);
             $line = $replaceNativeInline('/==(?!\s)([^=]+?)(?<!\s)==/', '=$1=', $line);
         }
 
@@ -2267,6 +2270,7 @@ final class InlineStage
                 flags: PREG_OFFSET_CAPTURE,
             ) ?? $line;
             $line = $replaceNativeInline('/<mark>([^<]+)<\/mark>(?=\w)/i', '{=$1=}', $line);
+            $line = $replaceNativeInline('/<mark>([^<]*[!>])<\/mark>/i', '{=$1=}', $line);
             $line = $replaceNativeInline('/<mark>([^<]+)<\/mark>/i', '=$1=', $line);
             // §8c writes `underline` as `<u>`, which this table did not read back
             // at all (carve#2838). The bare `_x_` form is preferred, braced where

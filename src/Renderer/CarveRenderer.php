@@ -5686,6 +5686,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             || preg_match('/[A-Za-z0-9_]/', $prevChar) === 1
             || $prevChar === $delimiter
             || ($prevChar === '/' && ($delimiter === '/' || $delimiter === '_'))
+            // A bare closer after these reads as a comparison, and an arrow's `=` closes (PART 9 section 9).
+            || ($delimiter === '=' && preg_match('/(?<!\\\\)[!<>]\z|<==|<=>|==>/', $content) === 1)
             || preg_match('/[A-Za-z0-9_]/', $nextChar) === 1
             || preg_match('/\A[\p{Mn}\p{Mc}\p{Me}\x{FE00}-\x{FE0F}\x{200D}]/u', $nextChar) === 1
             || str_starts_with($content, $delimiter)

@@ -1426,9 +1426,6 @@ class CarveCorpusTest extends TestCase
         '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-6' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
         '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-7' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
         '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-8' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
-        '794-the-equals-of-a-comparison-neither-opens-nor-closes-a-highlight' => 'carve#4169: the = of a <= or >= opens and closes no bare highlight',
-        '794-the-equals-of-a-comparison-neither-opens-nor-closes-a-highlight-2' => 'carve#4169: the = of a <= or >= opens and closes no bare highlight',
-        '794-the-equals-of-a-comparison-neither-opens-nor-closes-a-highlight-3' => 'carve#4169: the = of a <= or >= opens and closes no bare highlight',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame-2' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
     ];

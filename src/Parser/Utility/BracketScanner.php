@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser\Utility;
 
 use MarkupCarve\Carve\Parser\InlineParser;
+use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use function str_repeat;
 use function strlen;
 use function strpos;
@@ -332,6 +333,13 @@ final class BracketScanner
                 $close = strpos($text, $next . '}', $pos + 2);
                 if ($close !== false) {
                     return $close + 2;
+                }
+            }
+            // A literal directive's tokens are not parsed (CARVE-P6-001).
+            if ($next === '{') {
+                $shape = IncludeDirectiveSyntax::shape($text, $pos);
+                if ($shape !== null && IncludeDirectiveSyntax::isLiteralInline($shape)) {
+                    return $shape['end'];
                 }
             }
         }
