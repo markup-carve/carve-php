@@ -3594,7 +3594,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             } else {
                 $rows[] = $this->renderTableRow($cells, $this->renderAttrs($row));
             }
-            foreach ($continuations[$rowIndex] as $line) {
+            foreach ($this->dropPaddingInsideOpenRuns($continuations[$rowIndex]) as $line) {
                 if ($this->alignTables) {
                     $rowSlots[] = ['prefix' => '+', 'cells' => $line, 'attrs' => ''];
                 } else {
@@ -3847,6 +3847,64 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return $head;
+    }
+
+    /**
+     * Drops the empty padding slots after a `+` line's verbatim run that stays
+     * open into the next line: the parser reads them as run content
+     * (CARVE-P2-019 rule 2 over CARVE-P12-069). The run resumes in the same
+     * column on the next line.
+     *
+     * @param array<int, array<int, string>> $lines
+     *
+     * @return array<int, array<int, string>>
+     */
+    protected function dropPaddingInsideOpenRuns(array $lines): array
+    {
+        $openColumn = null;
+        $openLength = 0;
+        foreach ($lines as $lineIndex => $slots) {
+            $carried = $openColumn;
+            $openColumn = null;
+            foreach ($slots as $slot => $text) {
+                $length = $slot === $carried ? $openLength : 0;
+                $at = 0;
+                $end = strlen($text);
+                while ($at < $end) {
+                    if ($length === 0 && $text[$at] === '\\') {
+                        $at += 2;
+
+                        continue;
+                    }
+                    if ($text[$at] !== '`') {
+                        $at++;
+
+                        continue;
+                    }
+                    $run = strspn($text, '`', $at);
+                    if ($length === 0) {
+                        $length = $run;
+                    } elseif ($run === $length) {
+                        $length = 0;
+                    }
+                    $at += $run;
+                }
+                if ($length > 0) {
+                    $openColumn = $slot;
+                    $openLength = $length;
+                    $lines[$lineIndex] = array_slice($slots, 0, $slot + 1);
+                    foreach (array_slice($slots, $slot + 1) as $rest) {
+                        if ($rest !== ' ') {
+                            $lines[$lineIndex] = $slots;
+                        }
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        return $lines;
     }
 
     /**
