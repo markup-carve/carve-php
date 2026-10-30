@@ -318,6 +318,7 @@ final class BlockOwnershipWalk
             }
             $ownerKind = $this->frames[$reached]->kind;
             $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts
+                && !($form->kind === 'dd' && $missedNote)
                 && !($form->kind === 'item' && $next->kind === 'item' && $next->axes === $form->axes);
             if ($lazy && $missedNote && $form->kind === 'item' && ($ownerKind === 'item' || $ownerKind === 'dd' || $missedItem)) {
                 // The marker opens past the missed note, and the readers still see the note's lazy line.
