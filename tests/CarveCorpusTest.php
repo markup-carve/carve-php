@@ -1404,7 +1404,6 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
-        '740-lazy-quote-owners' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
         '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
         '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-2' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
         '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-3' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
@@ -1420,12 +1419,9 @@ class CarveCorpusTest extends TestCase
         '791-the-empty-block-is-a-member-of-a-bracketed-span-s-attribute-run-2' => 'carve#4107: the empty block is a member of a bracketed span\'s attribute run',
         '791-the-empty-block-is-a-member-of-a-bracketed-span-s-attribute-run-3' => 'carve#4107: the empty block is a member of a bracketed span\'s attribute run',
         '791-the-empty-block-is-a-member-of-a-bracketed-span-s-attribute-run-5' => 'carve#4107: the empty block is a member of a bracketed span\'s attribute run',
-        '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-2' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
-        '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-4' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
         '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-5' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
         '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-6' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
         '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-7' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
-        '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-8' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame-2' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
     ];
