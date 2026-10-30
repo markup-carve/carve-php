@@ -595,6 +595,9 @@ final class TrailingBlockStateScanner
                 $seed->nestedColumn = $previous->nestedColumn;
                 $seed->inFootnoteBody = $previous->inFootnoteBody;
                 $seed->footnoteColumn = $previous->footnoteColumn;
+                $seed->quotedTable = $previous->quotedTable;
+                $seed->quoteInner = $previous->quoteInner;
+                $seed->nestedIsQuote = $previous->nestedIsQuote;
                 $reachesNested = $previous->nestedColumn > 0
                     && IndentationHelper::pastLeadingWhitespace($line, $quoteAt) - $quoteAt >= $previous->nestedColumn;
             }
