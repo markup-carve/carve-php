@@ -39,7 +39,7 @@ class DjotEmptyListItemTest extends TestCase
             'continuation marker' => ['+', '+', '<p>+</p>'],
             'before a paragraph' => ["-\na", "- {empty}\n\na", '<ul><li></li></ul><p>a</p>'],
             'before a quote' => ["-\n> q", "- {empty}\n\n> q", '<ul><li></li></ul><blockquote><p>q</p></blockquote>'],
-            'before indented content' => ["-\n  a", "- a", '<ul><li>a</li></ul>'],
+            'before indented content' => ["-\n  a", '- a', '<ul><li>a</li></ul>'],
             'before a sibling' => ["-\n- b", "- {empty}\n- b", '<ul><li></li><li>b</li></ul>'],
             'nested' => [
                 "- a\n  -\n- c", "- a\n  - {empty}\n- c",
