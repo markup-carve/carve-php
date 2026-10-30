@@ -22,17 +22,17 @@ class AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest extends TestCase
     public static function caseProvider(): array
     {
         return [
-            'dd-```-closed' => [":: t\n: - ``` x\ncode\n```\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>"],
+            'dd-```-closed' => [":: t\n: - ``` x\ncode\n```\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code</p>\n<pre><code></code></pre>"],
             'dd-```-unterminated' => [":: t\n: - ``` x\ncode\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code</p>"],
-            'dd-~~~-closed' => [":: t\n: - ~~~ x\ncode\n~~~\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n~~~</p>"],
+            'dd-~~~-closed' => [":: t\n: - ~~~ x\ncode\n~~~\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code</p>\n<pre><code></code></pre>"],
             'dd-~~~-unterminated' => [":: t\n: - ~~~ x\ncode\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code</p>"],
-            'dd-infoless' => [":: t\n: - ```\ncode\n```\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>"],
-            'ctrl-item-host' => ["- - ``` x\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
+            'dd-infoless' => [":: t\n: - ```\ncode\n```\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code</p>\n<pre><code></code></pre>"],
+            'ctrl-item-host' => ["- - ``` x\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code</p>\n<pre><code></code></pre>"],
             'ctrl-fn-host' => ["[^f]: b\n\n  - ``` x\n  code\n  ```\n\nx[^f]\n", "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>b</p>\n      <ul>\n        <li>\n          <pre><code class=\"language-x\"></code></pre>\n        </li>\n      </ul>\n      <p>code\n<code></code><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"],
-            'corpus/455-2' => [":: t\n: - ~~~ x\ncode\n~~~\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n~~~</p>"],
-            'corpus/455-3' => [":: t\n: - ```\ncode\n```\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>"],
+            'corpus/455-2' => [":: t\n: - ~~~ x\ncode\n~~~\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code</p>\n<pre><code></code></pre>"],
+            'corpus/455-3' => [":: t\n: - ```\ncode\n```\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code</p>\n<pre><code></code></pre>"],
             'corpus/455-4' => [":: t\n: - ``` x\ncode\n\n:: t2\n: plain\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code</p>\n<dl>\n  <dt>t2</dt>\n  <dd>plain</dd>\n</dl>"],
-            'corpus/455' => [":: t\n: - ``` x\ncode\n```\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>"],
+            'corpus/455' => [":: t\n: - ``` x\ncode\n```\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code</p>\n<pre><code></code></pre>"],
             'dd-body-lead-not-a-fence-is-unframed' => [":: t\n: - plain\ncont\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>plain\ncont</li>\n    </ul>\n  </dd>\n</dl>"],
         ];
     }

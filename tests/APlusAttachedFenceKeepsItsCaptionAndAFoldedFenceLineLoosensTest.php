@@ -82,8 +82,9 @@ class APlusAttachedFenceKeepsItsCaptionAndAFoldedFenceLineLoosensTest extends Te
     public static function foldedLines(): array
     {
         return [
-            'backtick' => ["- - text\n  ```\n  x\n\n  cap\n- c\n", true],
-            'tilde' => ["- - text\n  ~~~\n  x\n\n  cap\n- c\n", true],
+            // The fence interrupts the sub-item, so the blank and `cap` are its payload.
+            'backtick' => ["- - text\n  ```\n  x\n\n  cap\n- c\n", false],
+            'tilde' => ["- - text\n  ~~~\n  x\n\n  cap\n- c\n", false],
             'image control' => ["- - text\n  ![i](x.png)\n  x\n\n  cap\n- c\n", true],
             'no blank control' => ["- - text\n  ```\n  x\n  cap\n- c\n", false],
         ];

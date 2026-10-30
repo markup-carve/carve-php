@@ -18,7 +18,7 @@ class ContainerFenceLookaheadTest extends TestCase
     public function testFenceDecisionSurvivesTheItemBoundaryItCreates(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>y\n<code></code></p>",
+            "<ul>\n  <li>a\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>y</p>\n<pre><code></code></pre>",
             $this->html("- a\n  ```\n  b\n y\n  ```\n"),
         );
     }
@@ -27,7 +27,7 @@ class ContainerFenceLookaheadTest extends TestCase
     public function testFenceCloserMustBeAtTheItemContentColumn(string $closer): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a\n<code>\nb\ny\n</code></li>\n</ul>",
+            "<ul>\n  <li>a\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>y</p>\n<pre><code></code></pre>",
             $this->html("- a\n  ```\n  b\n y\n{$closer}\n"),
         );
     }
@@ -46,7 +46,7 @@ class ContainerFenceLookaheadTest extends TestCase
     public function testFenceCloserMustBeAtTheDefinitionBodyColumn(string $closer): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>a\n<code>\nb\ny\n</code></dd>\n</dl>",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <pre><code>b\n</code></pre>\n  </dd>\n</dl>\n<p>y</p>\n<pre><code></code></pre>",
             $this->html(":: t\n: a\n  ```\n  b\n y\n{$closer}\n"),
         );
     }

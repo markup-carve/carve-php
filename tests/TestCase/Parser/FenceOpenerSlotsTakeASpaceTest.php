@@ -181,7 +181,7 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
     {
         $fence = substr($opener, 0, 3);
 
-        $this->assertStringNotContainsString('<pre', $this->html("{$opener}\nx\n{$fence}\n"));
+        $this->assertOnlyTheTrailingFenceOpens($this->html("{$opener}\nx\n{$fence}\n"));
     }
 
     /**
@@ -285,7 +285,7 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
         $fence = substr($opener, 0, 3);
         $out = $this->html("{$opener}\nx\n{$fence}\n");
 
-        $this->assertStringNotContainsString('<pre', $out);
+        $this->assertOnlyTheTrailingFenceOpens($out);
         $this->assertStringNotContainsString('language-js', $out);
     }
 
@@ -386,6 +386,16 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
         return (new CarveConverter())->convert($source);
     }
 
+    /**
+     * The opener line stays prose; the trailing fence line is a valid opener that
+     * interrupts the paragraph and runs empty to the end (carve#4032).
+     */
+    private function assertOnlyTheTrailingFenceOpens(string $out): void
+    {
+        $this->assertStringEndsWith("</p>\n<pre><code></code></pre>", $out);
+        $this->assertSame(1, substr_count($out, '<pre'));
+    }
+
     #[DataProvider('codeFenceOpenerProvider')]
     public function testANonSpaceRunLeavesTheCodeFenceLineAsProse(string $opener): void
     {
@@ -396,7 +406,7 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
         // grammar asks for.
         $out = $this->html("{$opener}\nx\n```\n");
 
-        $this->assertStringNotContainsString('<pre', $out);
+        $this->assertOnlyTheTrailingFenceOpens($out);
         $this->assertStringNotContainsString('title="T"', $out);
         $this->assertStringNotContainsString('language-js', $out);
     }
@@ -461,7 +471,7 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
         // also pass for a fence that opened and dropped its info string.
         $out = $this->html("{$opener}\nx\n```\n");
 
-        $this->assertStringNotContainsString('<pre', $out);
+        $this->assertOnlyTheTrailingFenceOpens($out);
         $this->assertStringNotContainsString($marker, $out);
         $this->assertStringContainsString('<p><code>', $out);
     }

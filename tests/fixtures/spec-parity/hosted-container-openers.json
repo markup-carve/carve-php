@@ -12,12 +12,12 @@
   {
     "id": "hosted-container-openers/558-a-container-boundary-is-read-at-the-container-s-own-column-4",
     "source": "- outer\n  - para\n    ```\n    code\n\n  # h\n    ```\n",
-    "html": "<ul>\n  <li>outer\n    <ul>\n      <li>para\n<code>\ncode</code></li>\n    </ul>\n    <h1 id=\"h\">h</h1>\n    <pre><code></code></pre>\n  </li>\n</ul>\n"
+    "html": "<ul>\n  <li>outer\n    <ul>\n      <li>para\n        <pre><code>code\n\n</code></pre>\n      </li>\n    </ul>\n    <h1 id=\"h\">h</h1>\n    <pre><code></code></pre>\n  </li>\n</ul>\n"
   },
   {
     "id": "hosted-container-openers/558-a-container-boundary-is-read-at-the-container-s-own-column-5",
     "source": "- a\n  ```\n  b\n\ny\n  ```\n",
-    "html": "<ul>\n  <li>a\n<code>\nb</code></li>\n</ul>\n<p>y\n<code></code></p>\n"
+    "html": "<ul>\n  <li>a\n    <pre><code>b\n\n</code></pre>\n  </li>\n</ul>\n<p>y</p>\n<pre><code></code></pre>\n"
   },
   {
     "id": "hosted-container-openers/558-a-container-boundary-is-read-at-the-container-s-own-column",

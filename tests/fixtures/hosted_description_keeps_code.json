@@ -92,7 +92,7 @@
   {
     "id": "unclosed-over-indented-run-stays-body-text",
     "source": "- intro\n  :: term\n  : body\n\n    text\n      ```\n      code\n",
-    "html": "<ul><li>intro\n    <dl><dt>term</dt><dd><p>body</p><p>text\n<code>\ncode</code></p></dd></dl></li></ul>"
+    "html": "<ul><li>intro\n    <dl><dt>term</dt><dd><p>body</p><p>text</p><pre><code>code\n</code></pre></dd></dl></li></ul>"
   },
   {
     "id": "standalone-description-control",

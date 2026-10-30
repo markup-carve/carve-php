@@ -2,7 +2,7 @@
   {
     "id": "bare-term-code-0",
     "source": "- :: term\n  ```\n  code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\nafter\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -18,7 +18,7 @@
   {
     "id": "bare-term-code-2",
     "source": "- :: term\n  ~~~\n  code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\nafter\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -34,7 +34,7 @@
   {
     "id": "bare-term-code-4",
     "source": "- :: term\n  ```php\n  code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\nafter\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -50,7 +50,7 @@
   {
     "id": "bare-term-code-6",
     "source": "- :: term\n  ~~~js\n  code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\nafter\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -66,7 +66,7 @@
   {
     "id": "bare-term-code-8",
     "source": "- :: term\n    ```\n    code\nafter\n",
-    "html": "<ul><li><dl><dt>term\n  <code>\n  code\nafter</code></dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -80,7 +80,7 @@
   {
     "id": "bare-term-code-10",
     "source": "- :: term\n    ~~~\n    code\nafter\n",
-    "html": "<ul><li><dl><dt>term\n  ~~~\n  code\nafter</dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -94,7 +94,7 @@
   {
     "id": "bare-term-code-12",
     "source": "- :: term\n    ```php\n    code\nafter\n",
-    "html": "<ul><li><dl><dt>term\n  <code>php\n  code\nafter</code></dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -108,7 +108,7 @@
   {
     "id": "bare-term-code-14",
     "source": "- :: term\n    ~~~js\n    code\nafter\n",
-    "html": "<ul><li><dl><dt>term\n  ~~~js\n  code\nafter</dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -122,7 +122,7 @@
   {
     "id": "bare-term-code-16",
     "source": "- :: term\n      ```\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term\n    <code>\n    code\nafter</code></dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -136,7 +136,7 @@
   {
     "id": "bare-term-code-18",
     "source": "- :: term\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term\n    ~~~\n    code\nafter</dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -150,7 +150,7 @@
   {
     "id": "bare-term-code-20",
     "source": "- :: term\n      ```php\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term\n    <code>php\n    code\nafter</code></dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -164,7 +164,7 @@
   {
     "id": "bare-term-code-22",
     "source": "- :: term\n      ~~~js\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term\n    ~~~js\n    code\nafter</dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -178,7 +178,7 @@
   {
     "id": "bare-term-code-24",
     "source": "- :: term\n        ```\n        code\nafter\n",
-    "html": "<ul><li><dl><dt>term\n      <code>\n      code\nafter</code></dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -192,7 +192,7 @@
   {
     "id": "bare-term-code-26",
     "source": "- :: term\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li><dl><dt>term\n      ~~~\n      code\nafter</dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -206,7 +206,7 @@
   {
     "id": "bare-term-code-28",
     "source": "- :: term\n        ```php\n        code\nafter\n",
-    "html": "<ul><li><dl><dt>term\n      <code>php\n      code\nafter</code></dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -220,7 +220,7 @@
   {
     "id": "bare-term-code-30",
     "source": "- :: term\n        ~~~js\n        code\nafter\n",
-    "html": "<ul><li><dl><dt>term\n      ~~~js\n      code\nafter</dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -234,7 +234,7 @@
   {
     "id": "bare-term-code-32",
     "source": "- :: term\n  : first\n  :: second\n  ```\n  code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\nafter\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -250,7 +250,7 @@
   {
     "id": "bare-term-code-34",
     "source": "- :: term\n  : first\n  :: second\n  ~~~\n  code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\nafter\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -266,7 +266,7 @@
   {
     "id": "bare-term-code-36",
     "source": "- :: term\n  : first\n  :: second\n  ```php\n  code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\nafter\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -282,7 +282,7 @@
   {
     "id": "bare-term-code-38",
     "source": "- :: term\n  : first\n  :: second\n  ~~~js\n  code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\nafter\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -298,7 +298,7 @@
   {
     "id": "bare-term-code-40",
     "source": "- :: term\n  : first\n  :: second\n    ```\n    code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n  <code>\n  code\nafter</code></dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -312,7 +312,7 @@
   {
     "id": "bare-term-code-42",
     "source": "- :: term\n  : first\n  :: second\n    ~~~\n    code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n  ~~~\n  code\nafter</dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -326,7 +326,7 @@
   {
     "id": "bare-term-code-44",
     "source": "- :: term\n  : first\n  :: second\n    ```php\n    code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n  <code>php\n  code\nafter</code></dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -340,7 +340,7 @@
   {
     "id": "bare-term-code-46",
     "source": "- :: term\n  : first\n  :: second\n    ~~~js\n    code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n  ~~~js\n  code\nafter</dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -354,7 +354,7 @@
   {
     "id": "bare-term-code-48",
     "source": "- :: term\n  : first\n  :: second\n      ```\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n    <code>\n    code\nafter</code></dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -368,7 +368,7 @@
   {
     "id": "bare-term-code-50",
     "source": "- :: term\n  : first\n  :: second\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n    ~~~\n    code\nafter</dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -382,7 +382,7 @@
   {
     "id": "bare-term-code-52",
     "source": "- :: term\n  : first\n  :: second\n      ```php\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n    <code>php\n    code\nafter</code></dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -396,7 +396,7 @@
   {
     "id": "bare-term-code-54",
     "source": "- :: term\n  : first\n  :: second\n      ~~~js\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n    ~~~js\n    code\nafter</dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -410,7 +410,7 @@
   {
     "id": "bare-term-code-56",
     "source": "- :: term\n  : first\n  :: second\n        ```\n        code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n      <code>\n      code\nafter</code></dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -424,7 +424,7 @@
   {
     "id": "bare-term-code-58",
     "source": "- :: term\n  : first\n  :: second\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n      ~~~\n      code\nafter</dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -438,7 +438,7 @@
   {
     "id": "bare-term-code-60",
     "source": "- :: term\n  : first\n  :: second\n        ```php\n        code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n      <code>php\n      code\nafter</code></dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -452,7 +452,7 @@
   {
     "id": "bare-term-code-62",
     "source": "- :: term\n  : first\n  :: second\n        ~~~js\n        code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n      ~~~js\n      code\nafter</dt></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -466,7 +466,7 @@
   {
     "id": "bare-term-code-64",
     "source": "> - :: term\n>   ```\n>   code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\nafter\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -482,7 +482,7 @@
   {
     "id": "bare-term-code-66",
     "source": "> - :: term\n>   ~~~\n>   code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\nafter\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -498,7 +498,7 @@
   {
     "id": "bare-term-code-68",
     "source": "> - :: term\n>   ```php\n>   code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\nafter\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -514,7 +514,7 @@
   {
     "id": "bare-term-code-70",
     "source": "> - :: term\n>   ~~~js\n>   code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\nafter\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -530,7 +530,7 @@
   {
     "id": "bare-term-code-72",
     "source": "> - :: term\n>     ```\n>     code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  <code>\n  code\nafter</code></dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -544,7 +544,7 @@
   {
     "id": "bare-term-code-74",
     "source": "> - :: term\n>     ~~~\n>     code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~\n  code\nafter</dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -558,7 +558,7 @@
   {
     "id": "bare-term-code-76",
     "source": "> - :: term\n>     ```php\n>     code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  <code>php\n  code\nafter</code></dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -572,7 +572,7 @@
   {
     "id": "bare-term-code-78",
     "source": "> - :: term\n>     ~~~js\n>     code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~js\n  code\nafter</dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -586,7 +586,7 @@
   {
     "id": "bare-term-code-80",
     "source": "> - :: term\n>       ```\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    <code>\n    code\nafter</code></dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -600,7 +600,7 @@
   {
     "id": "bare-term-code-82",
     "source": "> - :: term\n>       ~~~\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~\n    code\nafter</dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -614,7 +614,7 @@
   {
     "id": "bare-term-code-84",
     "source": "> - :: term\n>       ```php\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    <code>php\n    code\nafter</code></dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -628,7 +628,7 @@
   {
     "id": "bare-term-code-86",
     "source": "> - :: term\n>       ~~~js\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~js\n    code\nafter</dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -642,7 +642,7 @@
   {
     "id": "bare-term-code-88",
     "source": "> - :: term\n>         ```\n>         code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n      <code>\n      code\nafter</code></dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -656,7 +656,7 @@
   {
     "id": "bare-term-code-90",
     "source": "> - :: term\n>         ~~~\n>         code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n      ~~~\n      code\nafter</dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -670,7 +670,7 @@
   {
     "id": "bare-term-code-92",
     "source": "> - :: term\n>         ```php\n>         code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n      <code>php\n      code\nafter</code></dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -684,7 +684,7 @@
   {
     "id": "bare-term-code-94",
     "source": "> - :: term\n>         ~~~js\n>         code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n      ~~~js\n      code\nafter</dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -698,7 +698,7 @@
   {
     "id": "bare-term-code-96",
     "source": "> - :: term\n>   : first\n>   :: second\n>   ```\n>   code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\nafter\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -714,7 +714,7 @@
   {
     "id": "bare-term-code-98",
     "source": "> - :: term\n>   : first\n>   :: second\n>   ~~~\n>   code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\nafter\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -730,7 +730,7 @@
   {
     "id": "bare-term-code-100",
     "source": "> - :: term\n>   : first\n>   :: second\n>   ```php\n>   code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\nafter\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -746,7 +746,7 @@
   {
     "id": "bare-term-code-102",
     "source": "> - :: term\n>   : first\n>   :: second\n>   ~~~js\n>   code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\nafter\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -762,7 +762,7 @@
   {
     "id": "bare-term-code-104",
     "source": "> - :: term\n>   : first\n>   :: second\n>     ```\n>     code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n  <code>\n  code\nafter</code></dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -776,7 +776,7 @@
   {
     "id": "bare-term-code-106",
     "source": "> - :: term\n>   : first\n>   :: second\n>     ~~~\n>     code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n  ~~~\n  code\nafter</dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -790,7 +790,7 @@
   {
     "id": "bare-term-code-108",
     "source": "> - :: term\n>   : first\n>   :: second\n>     ```php\n>     code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n  <code>php\n  code\nafter</code></dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -804,7 +804,7 @@
   {
     "id": "bare-term-code-110",
     "source": "> - :: term\n>   : first\n>   :: second\n>     ~~~js\n>     code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n  ~~~js\n  code\nafter</dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -818,7 +818,7 @@
   {
     "id": "bare-term-code-112",
     "source": "> - :: term\n>   : first\n>   :: second\n>       ```\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n    <code>\n    code\nafter</code></dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -832,7 +832,7 @@
   {
     "id": "bare-term-code-114",
     "source": "> - :: term\n>   : first\n>   :: second\n>       ~~~\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n    ~~~\n    code\nafter</dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -846,7 +846,7 @@
   {
     "id": "bare-term-code-116",
     "source": "> - :: term\n>   : first\n>   :: second\n>       ```php\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n    <code>php\n    code\nafter</code></dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -860,7 +860,7 @@
   {
     "id": "bare-term-code-118",
     "source": "> - :: term\n>   : first\n>   :: second\n>       ~~~js\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n    ~~~js\n    code\nafter</dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -874,7 +874,7 @@
   {
     "id": "bare-term-code-120",
     "source": "> - :: term\n>   : first\n>   :: second\n>         ```\n>         code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n      <code>\n      code\nafter</code></dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -888,7 +888,7 @@
   {
     "id": "bare-term-code-122",
     "source": "> - :: term\n>   : first\n>   :: second\n>         ~~~\n>         code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n      ~~~\n      code\nafter</dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -902,7 +902,7 @@
   {
     "id": "bare-term-code-124",
     "source": "> - :: term\n>   : first\n>   :: second\n>         ```php\n>         code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n      <code>php\n      code\nafter</code></dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -916,7 +916,7 @@
   {
     "id": "bare-term-code-126",
     "source": "> - :: term\n>   : first\n>   :: second\n>         ~~~js\n>         code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n      ~~~js\n      code\nafter</dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -930,7 +930,7 @@
   {
     "id": "bare-term-code-128",
     "source": "> > - :: term\n> >   ```\n> >   code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\nafter\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -946,7 +946,7 @@
   {
     "id": "bare-term-code-130",
     "source": "> > - :: term\n> >   ~~~\n> >   code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\nafter\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -962,7 +962,7 @@
   {
     "id": "bare-term-code-132",
     "source": "> > - :: term\n> >   ```php\n> >   code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\nafter\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -978,7 +978,7 @@
   {
     "id": "bare-term-code-134",
     "source": "> > - :: term\n> >   ~~~js\n> >   code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\nafter\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -994,7 +994,7 @@
   {
     "id": "bare-term-code-136",
     "source": "> > - :: term\n> >     ```\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  <code>\n  code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1008,7 +1008,7 @@
   {
     "id": "bare-term-code-138",
     "source": "> > - :: term\n> >     ~~~\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~\n  code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1022,7 +1022,7 @@
   {
     "id": "bare-term-code-140",
     "source": "> > - :: term\n> >     ```php\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  <code>php\n  code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1036,7 +1036,7 @@
   {
     "id": "bare-term-code-142",
     "source": "> > - :: term\n> >     ~~~js\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~js\n  code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1050,7 +1050,7 @@
   {
     "id": "bare-term-code-144",
     "source": "> > - :: term\n> >       ```\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    <code>\n    code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1064,7 +1064,7 @@
   {
     "id": "bare-term-code-146",
     "source": "> > - :: term\n> >       ~~~\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~\n    code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1078,7 +1078,7 @@
   {
     "id": "bare-term-code-148",
     "source": "> > - :: term\n> >       ```php\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    <code>php\n    code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1092,7 +1092,7 @@
   {
     "id": "bare-term-code-150",
     "source": "> > - :: term\n> >       ~~~js\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~js\n    code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1106,7 +1106,7 @@
   {
     "id": "bare-term-code-152",
     "source": "> > - :: term\n> >         ```\n> >         code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n      <code>\n      code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1120,7 +1120,7 @@
   {
     "id": "bare-term-code-154",
     "source": "> > - :: term\n> >         ~~~\n> >         code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n      ~~~\n      code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1134,7 +1134,7 @@
   {
     "id": "bare-term-code-156",
     "source": "> > - :: term\n> >         ```php\n> >         code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n      <code>php\n      code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1148,7 +1148,7 @@
   {
     "id": "bare-term-code-158",
     "source": "> > - :: term\n> >         ~~~js\n> >         code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n      ~~~js\n      code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1162,7 +1162,7 @@
   {
     "id": "bare-term-code-160",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >   ```\n> >   code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\nafter\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -1178,7 +1178,7 @@
   {
     "id": "bare-term-code-162",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >   ~~~\n> >   code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\nafter\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -1194,7 +1194,7 @@
   {
     "id": "bare-term-code-164",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >   ```php\n> >   code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\nafter\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -1210,7 +1210,7 @@
   {
     "id": "bare-term-code-166",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >   ~~~js\n> >   code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\nafter\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\nafter\n"
     ]
@@ -1226,7 +1226,7 @@
   {
     "id": "bare-term-code-168",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >     ```\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n  <code>\n  code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1240,7 +1240,7 @@
   {
     "id": "bare-term-code-170",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >     ~~~\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n  ~~~\n  code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1254,7 +1254,7 @@
   {
     "id": "bare-term-code-172",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >     ```php\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n  <code>php\n  code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1268,7 +1268,7 @@
   {
     "id": "bare-term-code-174",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >     ~~~js\n> >     code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n  ~~~js\n  code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1282,7 +1282,7 @@
   {
     "id": "bare-term-code-176",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >       ```\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n    <code>\n    code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1296,7 +1296,7 @@
   {
     "id": "bare-term-code-178",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >       ~~~\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n    ~~~\n    code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1310,7 +1310,7 @@
   {
     "id": "bare-term-code-180",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >       ```php\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n    <code>php\n    code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1324,7 +1324,7 @@
   {
     "id": "bare-term-code-182",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >       ~~~js\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n    ~~~js\n    code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1338,7 +1338,7 @@
   {
     "id": "bare-term-code-184",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >         ```\n> >         code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n      <code>\n      code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1352,7 +1352,7 @@
   {
     "id": "bare-term-code-186",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >         ~~~\n> >         code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n      ~~~\n      code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1366,7 +1366,7 @@
   {
     "id": "bare-term-code-188",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >         ```php\n> >         code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n      <code>php\n      code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-php\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -1380,7 +1380,7 @@
   {
     "id": "bare-term-code-190",
     "source": "> > - :: term\n> >   : first\n> >   :: second\n> >         ~~~js\n> >         code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second\n      ~~~js\n      code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>first</dd><dt>second</dt></dl><pre><code class=\"language-js\">code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -2372,7 +2372,7 @@
   {
     "id": "pending-term-static-review-4",
     "source": "- :: term\n      : desc\n      ```\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>desc\n<code>\ncode\nafter</code></dd></dl></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt><dd>desc</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -2466,7 +2466,7 @@
   {
     "id": "pending-term-static-review-16",
     "source": "- :: term\n    - child\n      ```\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><ul><li>child\n<code>\ncode\nafter</code></li></ul></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><ul><li>child\n        <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -2496,7 +2496,7 @@
   {
     "id": "pending-term-static-review-20",
     "source": "- paragraph\n  :: term\n      ```\n      code\nafter\n",
-    "html": "<ul><li>paragraph\n    <dl><dt>term\n    <code>\n    code\nafter</code></dt></dl></li></ul>",
+    "html": "<ul><li>paragraph\n    <dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -2526,7 +2526,7 @@
   {
     "id": "pending-term-static-review-24",
     "source": "- > quote\n  :: term\n      ```\n      code\nafter\n",
-    "html": "<ul><li><blockquote><p>quote</p></blockquote><dl><dt>term\n    <code>\n    code\nafter</code></dt></dl></li></ul>",
+    "html": "<ul><li><blockquote><p>quote</p></blockquote><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -2602,7 +2602,7 @@
   {
     "id": "pending-term-static-review-36",
     "source": "> - :: term\n>       : desc\n>       ```\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>desc\n<code>\ncode\nafter</code></dd></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>desc</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -2696,7 +2696,7 @@
   {
     "id": "pending-term-static-review-48",
     "source": "> - :: term\n>     - child\n>       ```\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><ul><li>child\n<code>\ncode\nafter</code></li></ul></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><ul><li>child\n          <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -2726,7 +2726,7 @@
   {
     "id": "pending-term-static-review-52",
     "source": "> - paragraph\n>   :: term\n>       ```\n>       code\n> after\n",
-    "html": "<blockquote><ul><li>paragraph\n      <dl><dt>term\n    <code>\n    code\nafter</code></dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li>paragraph\n      <dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -2756,7 +2756,7 @@
   {
     "id": "pending-term-static-review-56",
     "source": "> - > quote\n>   :: term\n>       ```\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><blockquote><p>quote</p></blockquote><dl><dt>term\n    <code>\n    code\nafter</code></dt></dl></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><blockquote><p>quote</p></blockquote><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -2832,7 +2832,7 @@
   {
     "id": "pending-term-static-review-68",
     "source": "> > - :: term\n> >       : desc\n> >       ```\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>desc\n<code>\ncode\nafter</code></dd></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>desc</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -2926,7 +2926,7 @@
   {
     "id": "pending-term-static-review-80",
     "source": "> > - :: term\n> >     - child\n> >       ```\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><ul><li>child\n<code>\ncode\nafter</code></li></ul></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><ul><li>child\n            <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -2956,7 +2956,7 @@
   {
     "id": "pending-term-static-review-84",
     "source": "> > - paragraph\n> >   :: term\n> >       ```\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>paragraph\n        <dl><dt>term\n    <code>\n    code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>paragraph\n        <dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -2986,7 +2986,7 @@
   {
     "id": "pending-term-static-review-88",
     "source": "> > - > quote\n> >   :: term\n> >       ```\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><blockquote><p>quote</p></blockquote><dl><dt>term\n    <code>\n    code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><blockquote><p>quote</p></blockquote><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -3464,7 +3464,7 @@
   {
     "id": "opaque-comment-0",
     "source": "- :: term\n  ```\n  %% literal\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       "%% literal\ncode\ntail\n"
     ]
@@ -3472,7 +3472,7 @@
   {
     "id": "opaque-comment-1",
     "source": "- :: term\n  ```\n  %%%\n  :: fake\n  %%%\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       "%%%\n:: fake\n%%%\ncode\ntail\n"
     ]
@@ -3480,7 +3480,7 @@
   {
     "id": "opaque-comment-2",
     "source": "- :: term\n  ```\n  :: other\n  %% literal\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       ":: other\n%% literal\ncode\ntail\n"
     ]
@@ -3488,7 +3488,7 @@
   {
     "id": "opaque-comment-3",
     "source": "- :: term\n  ```\n  {.k\n  #x}\n  %% literal\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       "{.k\n#x}\n%% literal\ncode\ntail\n"
     ]
@@ -3528,7 +3528,7 @@
   {
     "id": "opaque-comment-8",
     "source": "- :: term\n  ~~~\n  %% literal\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       "%% literal\ncode\ntail\n"
     ]
@@ -3536,7 +3536,7 @@
   {
     "id": "opaque-comment-9",
     "source": "- :: term\n  ~~~\n  %%%\n  :: fake\n  %%%\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       "%%%\n:: fake\n%%%\ncode\ntail\n"
     ]
@@ -3544,7 +3544,7 @@
   {
     "id": "opaque-comment-10",
     "source": "- :: term\n  ~~~\n  :: other\n  %% literal\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       ":: other\n%% literal\ncode\ntail\n"
     ]
@@ -3552,7 +3552,7 @@
   {
     "id": "opaque-comment-11",
     "source": "- :: term\n  ~~~\n  {.k\n  #x}\n  %% literal\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       "{.k\n#x}\n%% literal\ncode\ntail\n"
     ]
@@ -3592,7 +3592,7 @@
   {
     "id": "opaque-comment-16",
     "source": "- :: term\n  ~~~ raw\n  %% literal\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       "%% literal\ncode\ntail\n"
     ]
@@ -3600,7 +3600,7 @@
   {
     "id": "opaque-comment-17",
     "source": "- :: term\n  ~~~ raw\n  %%%\n  :: fake\n  %%%\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       "%%%\n:: fake\n%%%\ncode\ntail\n"
     ]
@@ -3608,7 +3608,7 @@
   {
     "id": "opaque-comment-18",
     "source": "- :: term\n  ~~~ raw\n  :: other\n  %% literal\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       ":: other\n%% literal\ncode\ntail\n"
     ]
@@ -3616,7 +3616,7 @@
   {
     "id": "opaque-comment-19",
     "source": "- :: term\n  ~~~ raw\n  {.k\n  #x}\n  %% literal\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       "{.k\n#x}\n%% literal\ncode\ntail\n"
     ]
@@ -3656,25 +3656,25 @@
   {
     "id": "opaque-comment-24",
     "source": "- :: term\n    ```\n    %% literal\n    code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n  <code></code></dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-25",
     "source": "- :: term\n    ```\n    %%%\n    :: fake\n    %%%\n    code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n  <code></code></dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-26",
     "source": "- :: term\n    ```\n    :: other\n    %% literal\n    code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n  <code></code></dt><dt>other</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-27",
     "source": "- :: term\n    ```\n    {.k\n    #x}\n    %% literal\n    code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n  <code>\n  {.k\n  #x}</code></dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
@@ -3712,25 +3712,25 @@
   {
     "id": "opaque-comment-32",
     "source": "- :: term\n    ~~~\n    %% literal\n    code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n  ~~~</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-33",
     "source": "- :: term\n    ~~~\n    %%%\n    :: fake\n    %%%\n    code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n  ~~~</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-34",
     "source": "- :: term\n    ~~~\n    :: other\n    %% literal\n    code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n  ~~~</dt><dt>other</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-35",
     "source": "- :: term\n    ~~~\n    {.k\n    #x}\n    %% literal\n    code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n  ~~~\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
@@ -3768,25 +3768,25 @@
   {
     "id": "opaque-comment-40",
     "source": "- :: term\n    ~~~ raw\n    %% literal\n    code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n  ~~~ raw</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-41",
     "source": "- :: term\n    ~~~ raw\n    %%%\n    :: fake\n    %%%\n    code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n  ~~~ raw</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-42",
     "source": "- :: term\n    ~~~ raw\n    :: other\n    %% literal\n    code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n  ~~~ raw</dt><dt>other</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-43",
     "source": "- :: term\n    ~~~ raw\n    {.k\n    #x}\n    %% literal\n    code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n  ~~~ raw\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
@@ -3824,25 +3824,25 @@
   {
     "id": "opaque-comment-48",
     "source": "- :: term\n      ```\n      %% literal\n      code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n    <code></code></dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-49",
     "source": "- :: term\n      ```\n      %%%\n      :: fake\n      %%%\n      code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n    <code></code></dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-50",
     "source": "- :: term\n      ```\n      :: other\n      %% literal\n      code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n    <code></code></dt><dt>other</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-51",
     "source": "- :: term\n      ```\n      {.k\n      #x}\n      %% literal\n      code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n    <code>\n    {.k\n    #x}</code></dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
@@ -3880,25 +3880,25 @@
   {
     "id": "opaque-comment-56",
     "source": "- :: term\n      ~~~\n      %% literal\n      code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n    ~~~</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-57",
     "source": "- :: term\n      ~~~\n      %%%\n      :: fake\n      %%%\n      code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n    ~~~</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-58",
     "source": "- :: term\n      ~~~\n      :: other\n      %% literal\n      code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n    ~~~</dt><dt>other</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-59",
     "source": "- :: term\n      ~~~\n      {.k\n      #x}\n      %% literal\n      code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n    ~~~\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
@@ -3936,25 +3936,25 @@
   {
     "id": "opaque-comment-64",
     "source": "- :: term\n      ~~~ raw\n      %% literal\n      code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n    ~~~ raw</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-65",
     "source": "- :: term\n      ~~~ raw\n      %%%\n      :: fake\n      %%%\n      code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n    ~~~ raw</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-66",
     "source": "- :: term\n      ~~~ raw\n      :: other\n      %% literal\n      code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n    ~~~ raw</dt><dt>other</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-67",
     "source": "- :: term\n      ~~~ raw\n      {.k\n      #x}\n      %% literal\n      code\ntail\n",
-    "html": "<ul><li><dl><dt>term\n    ~~~ raw\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}</dt></dl>\n    code\ntail\n  </li></ul>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": []
   },
   {
@@ -3992,7 +3992,7 @@
   {
     "id": "opaque-comment-72",
     "source": "> - :: term\n>   ```\n>   %% literal\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       "%% literal\ncode\ntail\n"
     ]
@@ -4000,7 +4000,7 @@
   {
     "id": "opaque-comment-73",
     "source": "> - :: term\n>   ```\n>   %%%\n>   :: fake\n>   %%%\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       "%%%\n:: fake\n%%%\ncode\ntail\n"
     ]
@@ -4008,7 +4008,7 @@
   {
     "id": "opaque-comment-74",
     "source": "> - :: term\n>   ```\n>   :: other\n>   %% literal\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       ":: other\n%% literal\ncode\ntail\n"
     ]
@@ -4016,7 +4016,7 @@
   {
     "id": "opaque-comment-75",
     "source": "> - :: term\n>   ```\n>   {.k\n>   #x}\n>   %% literal\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       "{.k\n#x}\n%% literal\ncode\ntail\n"
     ]
@@ -4056,7 +4056,7 @@
   {
     "id": "opaque-comment-80",
     "source": "> - :: term\n>   ~~~\n>   %% literal\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       "%% literal\ncode\ntail\n"
     ]
@@ -4064,7 +4064,7 @@
   {
     "id": "opaque-comment-81",
     "source": "> - :: term\n>   ~~~\n>   %%%\n>   :: fake\n>   %%%\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       "%%%\n:: fake\n%%%\ncode\ntail\n"
     ]
@@ -4072,7 +4072,7 @@
   {
     "id": "opaque-comment-82",
     "source": "> - :: term\n>   ~~~\n>   :: other\n>   %% literal\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       ":: other\n%% literal\ncode\ntail\n"
     ]
@@ -4080,7 +4080,7 @@
   {
     "id": "opaque-comment-83",
     "source": "> - :: term\n>   ~~~\n>   {.k\n>   #x}\n>   %% literal\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       "{.k\n#x}\n%% literal\ncode\ntail\n"
     ]
@@ -4120,7 +4120,7 @@
   {
     "id": "opaque-comment-88",
     "source": "> - :: term\n>   ~~~ raw\n>   %% literal\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       "%% literal\ncode\ntail\n"
     ]
@@ -4128,7 +4128,7 @@
   {
     "id": "opaque-comment-89",
     "source": "> - :: term\n>   ~~~ raw\n>   %%%\n>   :: fake\n>   %%%\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       "%%%\n:: fake\n%%%\ncode\ntail\n"
     ]
@@ -4136,7 +4136,7 @@
   {
     "id": "opaque-comment-90",
     "source": "> - :: term\n>   ~~~ raw\n>   :: other\n>   %% literal\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       ":: other\n%% literal\ncode\ntail\n"
     ]
@@ -4144,7 +4144,7 @@
   {
     "id": "opaque-comment-91",
     "source": "> - :: term\n>   ~~~ raw\n>   {.k\n>   #x}\n>   %% literal\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       "{.k\n#x}\n%% literal\ncode\ntail\n"
     ]
@@ -4184,25 +4184,25 @@
   {
     "id": "opaque-comment-96",
     "source": "> - :: term\n>     ```\n>     %% literal\n>     code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  <code></code></dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-97",
     "source": "> - :: term\n>     ```\n>     %%%\n>     :: fake\n>     %%%\n>     code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  <code></code></dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-98",
     "source": "> - :: term\n>     ```\n>     :: other\n>     %% literal\n>     code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  <code></code></dt><dt>other</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-99",
     "source": "> - :: term\n>     ```\n>     {.k\n>     #x}\n>     %% literal\n>     code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  <code>\n  {.k\n  #x}</code></dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -4240,25 +4240,25 @@
   {
     "id": "opaque-comment-104",
     "source": "> - :: term\n>     ~~~\n>     %% literal\n>     code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-105",
     "source": "> - :: term\n>     ~~~\n>     %%%\n>     :: fake\n>     %%%\n>     code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-106",
     "source": "> - :: term\n>     ~~~\n>     :: other\n>     %% literal\n>     code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~</dt><dt>other</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-107",
     "source": "> - :: term\n>     ~~~\n>     {.k\n>     #x}\n>     %% literal\n>     code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -4296,25 +4296,25 @@
   {
     "id": "opaque-comment-112",
     "source": "> - :: term\n>     ~~~ raw\n>     %% literal\n>     code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~ raw</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-113",
     "source": "> - :: term\n>     ~~~ raw\n>     %%%\n>     :: fake\n>     %%%\n>     code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~ raw</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-114",
     "source": "> - :: term\n>     ~~~ raw\n>     :: other\n>     %% literal\n>     code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~ raw</dt><dt>other</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-115",
     "source": "> - :: term\n>     ~~~ raw\n>     {.k\n>     #x}\n>     %% literal\n>     code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~ raw\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -4352,25 +4352,25 @@
   {
     "id": "opaque-comment-120",
     "source": "> - :: term\n>       ```\n>       %% literal\n>       code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    <code></code></dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-121",
     "source": "> - :: term\n>       ```\n>       %%%\n>       :: fake\n>       %%%\n>       code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    <code></code></dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-122",
     "source": "> - :: term\n>       ```\n>       :: other\n>       %% literal\n>       code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    <code></code></dt><dt>other</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-123",
     "source": "> - :: term\n>       ```\n>       {.k\n>       #x}\n>       %% literal\n>       code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    <code>\n    {.k\n    #x}</code></dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -4408,25 +4408,25 @@
   {
     "id": "opaque-comment-128",
     "source": "> - :: term\n>       ~~~\n>       %% literal\n>       code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-129",
     "source": "> - :: term\n>       ~~~\n>       %%%\n>       :: fake\n>       %%%\n>       code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-130",
     "source": "> - :: term\n>       ~~~\n>       :: other\n>       %% literal\n>       code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~</dt><dt>other</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-131",
     "source": "> - :: term\n>       ~~~\n>       {.k\n>       #x}\n>       %% literal\n>       code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -4464,25 +4464,25 @@
   {
     "id": "opaque-comment-136",
     "source": "> - :: term\n>       ~~~ raw\n>       %% literal\n>       code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~ raw</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-137",
     "source": "> - :: term\n>       ~~~ raw\n>       %%%\n>       :: fake\n>       %%%\n>       code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~ raw</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-138",
     "source": "> - :: term\n>       ~~~ raw\n>       :: other\n>       %% literal\n>       code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~ raw</dt><dt>other</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-139",
     "source": "> - :: term\n>       ~~~ raw\n>       {.k\n>       #x}\n>       %% literal\n>       code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~ raw\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}</dt></dl>\n      code\ntail\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -4520,7 +4520,7 @@
   {
     "id": "opaque-comment-144",
     "source": "> > - :: term\n> >   ```\n> >   %% literal\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       "%% literal\ncode\ntail\n"
     ]
@@ -4528,7 +4528,7 @@
   {
     "id": "opaque-comment-145",
     "source": "> > - :: term\n> >   ```\n> >   %%%\n> >   :: fake\n> >   %%%\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       "%%%\n:: fake\n%%%\ncode\ntail\n"
     ]
@@ -4536,7 +4536,7 @@
   {
     "id": "opaque-comment-146",
     "source": "> > - :: term\n> >   ```\n> >   :: other\n> >   %% literal\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       ":: other\n%% literal\ncode\ntail\n"
     ]
@@ -4544,7 +4544,7 @@
   {
     "id": "opaque-comment-147",
     "source": "> > - :: term\n> >   ```\n> >   {.k\n> >   #x}\n> >   %% literal\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       "{.k\n#x}\n%% literal\ncode\ntail\n"
     ]
@@ -4584,7 +4584,7 @@
   {
     "id": "opaque-comment-152",
     "source": "> > - :: term\n> >   ~~~\n> >   %% literal\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       "%% literal\ncode\ntail\n"
     ]
@@ -4592,7 +4592,7 @@
   {
     "id": "opaque-comment-153",
     "source": "> > - :: term\n> >   ~~~\n> >   %%%\n> >   :: fake\n> >   %%%\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       "%%%\n:: fake\n%%%\ncode\ntail\n"
     ]
@@ -4600,7 +4600,7 @@
   {
     "id": "opaque-comment-154",
     "source": "> > - :: term\n> >   ~~~\n> >   :: other\n> >   %% literal\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       ":: other\n%% literal\ncode\ntail\n"
     ]
@@ -4608,7 +4608,7 @@
   {
     "id": "opaque-comment-155",
     "source": "> > - :: term\n> >   ~~~\n> >   {.k\n> >   #x}\n> >   %% literal\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       "{.k\n#x}\n%% literal\ncode\ntail\n"
     ]
@@ -4648,7 +4648,7 @@
   {
     "id": "opaque-comment-160",
     "source": "> > - :: term\n> >   ~~~ raw\n> >   %% literal\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       "%% literal\ncode\ntail\n"
     ]
@@ -4656,7 +4656,7 @@
   {
     "id": "opaque-comment-161",
     "source": "> > - :: term\n> >   ~~~ raw\n> >   %%%\n> >   :: fake\n> >   %%%\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       "%%%\n:: fake\n%%%\ncode\ntail\n"
     ]
@@ -4664,7 +4664,7 @@
   {
     "id": "opaque-comment-162",
     "source": "> > - :: term\n> >   ~~~ raw\n> >   :: other\n> >   %% literal\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       ":: other\n%% literal\ncode\ntail\n"
     ]
@@ -4672,7 +4672,7 @@
   {
     "id": "opaque-comment-163",
     "source": "> > - :: term\n> >   ~~~ raw\n> >   {.k\n> >   #x}\n> >   %% literal\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       "{.k\n#x}\n%% literal\ncode\ntail\n"
     ]
@@ -4712,25 +4712,25 @@
   {
     "id": "opaque-comment-168",
     "source": "> > - :: term\n> >     ```\n> >     %% literal\n> >     code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  <code></code></dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-169",
     "source": "> > - :: term\n> >     ```\n> >     %%%\n> >     :: fake\n> >     %%%\n> >     code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  <code></code></dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-170",
     "source": "> > - :: term\n> >     ```\n> >     :: other\n> >     %% literal\n> >     code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  <code></code></dt><dt>other</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-171",
     "source": "> > - :: term\n> >     ```\n> >     {.k\n> >     #x}\n> >     %% literal\n> >     code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  <code>\n  {.k\n  #x}</code></dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -4768,25 +4768,25 @@
   {
     "id": "opaque-comment-176",
     "source": "> > - :: term\n> >     ~~~\n> >     %% literal\n> >     code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-177",
     "source": "> > - :: term\n> >     ~~~\n> >     %%%\n> >     :: fake\n> >     %%%\n> >     code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-178",
     "source": "> > - :: term\n> >     ~~~\n> >     :: other\n> >     %% literal\n> >     code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~</dt><dt>other</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-179",
     "source": "> > - :: term\n> >     ~~~\n> >     {.k\n> >     #x}\n> >     %% literal\n> >     code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -4824,25 +4824,25 @@
   {
     "id": "opaque-comment-184",
     "source": "> > - :: term\n> >     ~~~ raw\n> >     %% literal\n> >     code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~ raw</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-185",
     "source": "> > - :: term\n> >     ~~~ raw\n> >     %%%\n> >     :: fake\n> >     %%%\n> >     code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~ raw</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-186",
     "source": "> > - :: term\n> >     ~~~ raw\n> >     :: other\n> >     %% literal\n> >     code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~ raw</dt><dt>other</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-187",
     "source": "> > - :: term\n> >     ~~~ raw\n> >     {.k\n> >     #x}\n> >     %% literal\n> >     code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~ raw\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -4880,25 +4880,25 @@
   {
     "id": "opaque-comment-192",
     "source": "> > - :: term\n> >       ```\n> >       %% literal\n> >       code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    <code></code></dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-193",
     "source": "> > - :: term\n> >       ```\n> >       %%%\n> >       :: fake\n> >       %%%\n> >       code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    <code></code></dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-194",
     "source": "> > - :: term\n> >       ```\n> >       :: other\n> >       %% literal\n> >       code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    <code></code></dt><dt>other</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-195",
     "source": "> > - :: term\n> >       ```\n> >       {.k\n> >       #x}\n> >       %% literal\n> >       code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    <code>\n    {.k\n    #x}</code></dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -4936,25 +4936,25 @@
   {
     "id": "opaque-comment-200",
     "source": "> > - :: term\n> >       ~~~\n> >       %% literal\n> >       code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-201",
     "source": "> > - :: term\n> >       ~~~\n> >       %%%\n> >       :: fake\n> >       %%%\n> >       code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-202",
     "source": "> > - :: term\n> >       ~~~\n> >       :: other\n> >       %% literal\n> >       code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~</dt><dt>other</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-203",
     "source": "> > - :: term\n> >       ~~~\n> >       {.k\n> >       #x}\n> >       %% literal\n> >       code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -4992,25 +4992,25 @@
   {
     "id": "opaque-comment-208",
     "source": "> > - :: term\n> >       ~~~ raw\n> >       %% literal\n> >       code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~ raw</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-209",
     "source": "> > - :: term\n> >       ~~~ raw\n> >       %%%\n> >       :: fake\n> >       %%%\n> >       code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~ raw</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-210",
     "source": "> > - :: term\n> >       ~~~ raw\n> >       :: other\n> >       %% literal\n> >       code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~ raw</dt><dt>other</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
     "id": "opaque-comment-211",
     "source": "> > - :: term\n> >       ~~~ raw\n> >       {.k\n> >       #x}\n> >       %% literal\n> >       code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~ raw\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}</dt></dl>\n        code\ntail\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {

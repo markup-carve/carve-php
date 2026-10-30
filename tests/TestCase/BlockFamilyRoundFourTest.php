@@ -13,9 +13,9 @@ class BlockFamilyRoundFourTest extends TestCase
     {
         $json = <<<'JSON'
 [
-  {"id":"r4_035","source":":: t\n: 1. para\n      - li\n```\n","expected":"<dl>\n<dt>t</dt>\n<dd>\n<ol>\n<li>para\n<ul>\n<li>li\n<code></code></li>\n</ul>\n</li>\n</ol>\n</dd>\n</dl>"},
-  {"id":"r4_036","source":":: t\n: 1. para\n         - li\n```\n","expected":"<dl>\n<dt>t</dt>\n<dd>\n<ol>\n<li>para\n<ul>\n<li>li\n<code></code></li>\n</ul>\n</li>\n</ol>\n</dd>\n</dl>"},
-  {"id":"r4_045","source":":: t\n: - para\n     - li\n```\n","expected":"<dl>\n<dt>t</dt>\n<dd>\n<ul>\n<li>para\n<ul>\n<li>li\n<code></code></li>\n</ul>\n</li>\n</ul>\n</dd>\n</dl>"}
+  {"id":"r4_035","source":":: t\n: 1. para\n      - li\n```\n","expected":"<dl>\n<dt>t</dt>\n<dd>\n<ol>\n<li>para\n<ul>\n<li>li</li>\n</ul>\n</li>\n</ol>\n</dd>\n</dl>\n<pre><code></code></pre>"},
+  {"id":"r4_036","source":":: t\n: 1. para\n         - li\n```\n","expected":"<dl>\n<dt>t</dt>\n<dd>\n<ol>\n<li>para\n<ul>\n<li>li</li>\n</ul>\n</li>\n</ol>\n</dd>\n</dl>\n<pre><code></code></pre>"},
+  {"id":"r4_045","source":":: t\n: - para\n     - li\n```\n","expected":"<dl>\n<dt>t</dt>\n<dd>\n<ul>\n<li>para\n<ul>\n<li>li</li>\n</ul>\n</li>\n</ul>\n</dd>\n</dl>\n<pre><code></code></pre>"}
 ]
 JSON;
         $cases = json_decode($json, true, 512, JSON_THROW_ON_ERROR);

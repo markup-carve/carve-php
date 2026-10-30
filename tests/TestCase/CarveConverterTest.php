@@ -232,9 +232,9 @@ class CarveConverterTest extends TestCase
         // is NOT a fenced code block: the info string must be a single token
         // (optionally + a [label]). The line falls back to inline parsing, so
         // there is no class attribute to inject into -- the quotes/`=` become
-        // inert inline-code content.
+        // inert inline-code content. The bare ``` below is a valid opener of its own.
         $djot = "``` php\" onclick=\"alert(1)\necho 1;\n```";
-        $expected = "<p><code> php\" onclick=\"alert(1)\necho 1;\n</code></p>\n";
+        $expected = "<p><code> php\" onclick=\"alert(1)\necho 1;</code></p>\n<pre><code></code></pre>\n";
 
         $this->assertSame(substr($expected, 0, -1), $this->converter->convert($djot));
     }
@@ -3215,8 +3215,8 @@ DJOT;
 
         // The code span is normal code (not raw); {=html …} is literal
         // text, and the #id within it is a Carve tag (tags are core
-        // syntax, on by default). The ``` on line two is empty code.
-        $expected = "<p><code>&lt;b&gt;foo&lt;/b&gt;</code>{=html <span class=\"tag\"><strong>#id</strong></span>}\n<code></code></p>\n";
+        // syntax, on by default). The ``` on line two opens an empty code block.
+        $expected = "<p><code>&lt;b&gt;foo&lt;/b&gt;</code>{=html <span class=\"tag\"><strong>#id</strong></span>}</p>\n<pre><code></code></pre>\n";
         $this->assertSame(substr($expected, 0, -1), $result);
     }
 
@@ -3232,14 +3232,13 @@ DJOT;
 
     // ==================== Bare Backticks as Inline Code ====================
 
-    public function testBareBackticksAtEndOfParagraphIsInlineCode(): void
+    public function testBareBackticksAtEndOfParagraphOpenAnEmptyCodeBlock(): void
     {
-        // Triple backticks at end of paragraph with no closing = inline code
+        // A valid opener interrupts the paragraph even with no closer (carve#4032)
         $djot = "Some text\n```";
         $result = $this->converter->convert($djot);
 
-        // Should be one paragraph with empty inline code at end
-        $this->assertSame(substr("<p>Some text\n<code></code></p>\n", 0, -1), $result);
+        $this->assertSame(substr("<p>Some text</p>\n<pre><code></code></pre>\n", 0, -1), $result);
     }
 
     public function testBareBackticksAloneIsInlineCode(): void

@@ -9,8 +9,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A code fence with no closer, ended by a CONTAINER's closer or by a bare quote
- * marker, keeps the blank line at the end of its content.
+ * A code fence with no closer keeps its blank lines; a `:::` host closer
+ * inside it is payload (markup-carve/carve#4032).
  *
  * The fence collector refused to absorb a blank LAST line, to avoid the phantom
  * element `explode("\n", ...)` leaves behind for a terminal newline. That
@@ -43,8 +43,8 @@ class ContainerClosedFenceKeepsItsBlankTest extends TestCase
     public static function containerShapes(): array
     {
         return [
-            'a div closer ends the fence' => ["::: note\n```\nx\n\n:::\n", "x\n\n"],
-            'two blanks before a div closer' => ["::: note\n```\nx\n\n\n:::\n", "x\n\n\n"],
+            'a div closer is fence payload' => ["::: note\n```\nx\n\n:::\n", "x\n\n:::\n"],
+            'two blanks before a div closer' => ["::: note\n```\nx\n\n\n:::\n", "x\n\n\n:::\n"],
             'a bare quote marker ends the fence' => ["> ```\n> x\n>\n", "x\n\n"],
         ];
     }

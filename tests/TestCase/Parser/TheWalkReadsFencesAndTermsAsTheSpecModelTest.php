@@ -55,7 +55,7 @@ class TheWalkReadsFencesAndTermsAsTheSpecModelTest extends TestCase
             ],
             'a plus whose follower is off its column stays text' => [
                 "- outer\n  - inner\n ```\n  +\n  ```\nnext\n",
-                "<ul><li>outer\n    <ul><li>inner\n<code></code><pre><code>next\n</code></pre></li></ul></li></ul>",
+                "<ul><li>outer\n    <ul><li>inner</li></ul></li></ul><pre><code> +\n ```\nnext\n</code></pre>",
             ],
             'a plus with a quote follower in the next item' => [
                 "- a\n> \n  - b\n  +\n> q\n",
@@ -77,9 +77,9 @@ class TheWalkReadsFencesAndTermsAsTheSpecModelTest extends TestCase
                 ":: p\n:  :: t\n   :  ::: x\n      ~~~\n      code\n      ~~~\n",
                 "<dl><dt>p</dt><dd><dl><dt>t</dt><dd><div class=\"x\"><pre><code>code\n</code></pre></div></dd></dl></dd></dl>",
             ],
-            'a framed text fence leaves the list loose' => [
+            'a framed fence keeps the list tight' => [
                 "- x\n  para\n  ```\n     ```\n\n  y\n",
-                "<ul><li><p>x\npara\n<code></code></p><p>y</p></li></ul>",
+                "<ul><li>x\npara\n    <pre><code>   ```\n\ny\n</code></pre></li></ul>",
             ],
             'a refused plus before a quote off its column' => [
                 "- a\n- b\n+\n > q\ntail\n",

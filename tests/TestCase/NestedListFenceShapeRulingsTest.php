@@ -25,7 +25,8 @@ class NestedListFenceShapeRulingsTest extends TestCase
         $deepPlus = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code>x\n</code></pre>\n          </li>\n        </ul>\n        +\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
         $deepAttach = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code>x\n</code></pre>\n          </li>\n        </ul>\n        +\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
         $emptyPlus = "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    +\n  </li>\n</ul>\n<p>tail</p>";
-        $laterAttributePrefix = "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li>head\n<code>\na\n</code></li>\n    </ul>\n    <p>tail</p>\n  </li>\n";
+        // The column-0 run is a valid opener and runs to the end (carve#4032).
+        $laterAttributePrefix = "<ul>\n  <li>outer\n    <ul>\n      <li>head\n        <pre><code>a\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n  tail\n";
         $laterAttributeSource = "- outer\n  - head\n     ```\n     a\n```\n\n  tail\n";
 
         $div2 = "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"d\">\n\n        </div>\n      </li>\n    </ul>\n    +\ntail\n  </li>\n</ul>";
@@ -48,19 +49,19 @@ class NestedListFenceShapeRulingsTest extends TestCase
             'third-level-plus-attaches' => ["- - - ```\n      x\n    +\ntail\n", $deepAttach],
             'later-sibling-attribute' => [
                 $laterAttributeSource . "- next\n\n  {.x}\n  para",
-                $laterAttributePrefix . "  <li><p>next</p>\n    <p class=\"x\">para</p>\n  </li>\n</ul>",
+                $laterAttributePrefix . "- next\n\n  {.x}\n  para</code></pre>",
             ],
             'third-sibling-attribute' => [
                 $laterAttributeSource . "- next\n- third\n\n  {.x}\n  para",
-                $laterAttributePrefix . "  <li><p>next</p></li>\n  <li><p>third</p>\n    <p class=\"x\">para</p>\n  </li>\n</ul>",
+                $laterAttributePrefix . "- next\n- third\n\n  {.x}\n  para</code></pre>",
             ],
             'later-paragraph-attribute' => [
                 $laterAttributeSource . "- next\n\n  para\n\n  {.x}\n  after",
-                $laterAttributePrefix . "  <li><p>next</p>\n    <p>para</p>\n    <p class=\"x\">after</p>\n  </li>\n</ul>",
+                $laterAttributePrefix . "- next\n\n  para\n\n  {.x}\n  after</code></pre>",
             ],
             'same-item-attribute-after-tail' => [
                 $laterAttributeSource . "\n  {.x}\n  para",
-                "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li>head\n<code>\na\n</code></li>\n    </ul>\n    <p>tail</p>\n    <p class=\"x\">para</p>\n  </li>\n</ul>",
+                $laterAttributePrefix . "\n  {.x}\n  para</code></pre>",
             ],
         ];
     }

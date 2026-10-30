@@ -44,7 +44,7 @@ class ALineUnderAFoldedMarkerIsReadInTheBodyTest extends TestCase
             'bullet, definition, line at the column' => [":: t\n: d\n  - para\n    [r]: /u\n  more\n\n[r][]\n", '<dl><dt>t</dt><dd><p>d - para</p><p>more</p></dd></dl><p><a href="/u">r</a></p>'],
             'bullet, heading' => [":: t\n: d\n  - para\n    # H\nx\n", '<dl><dt>t</dt><dd><p>d - para</p><h1 id="H">H</h1></dd></dl><p>x</p>'],
             'bullet, attribute' => [":: t\n: d\n  - para\n    {#k}\nx\n", '<dl><dt>t</dt><dd>d - para</dd></dl><p>x</p>'],
-            'task, unclosed fences, definitions' => [":: term\n: para\n  - [ ] ~~~\n        ``` js\n       [r]: /in\n  +\n     [s]: /s\n\n[r][] [s][]\n", '<dl><dt>term</dt><dd><p>para - [ ] ~~~ <code> js</code></p><p>+</p></dd></dl><p><a href="/in">r</a><a href="/s">s</a></p>'],
+            'task, unclosed fences, definitions' => [":: term\n: para\n  - [ ] ~~~\n        ``` js\n       [r]: /in\n  +\n     [s]: /s\n\n[r][] [s][]\n", '<dl><dt>term</dt><dd><p>para - [ ] ~~~</p><pre><code class="language-js">[r]: /in + [s]: /s </code></pre></dd></dl><p>[r][] [s][]</p>'],
             'note, bullet, definition' => ["[^n]: d\n  - para\n    [r]: /u\nx\n\n[r][] [^n]\n", '<p>x</p><p><a href="/u">r</a>' . $noteref . '</p>' . $notes('<p>d - para' . $backlink . '</p>')],
             'note, bullet, heading' => ["[^n]: d\n  - para\n    # H\nx\n\n[^n]\n", '<p>x</p><p>' . $noteref . '</p>' . $notes('<p>d - para</p><h1 id="H">H</h1><p>' . $backlink . '</p>')],
             'control: definition without the marker' => [":: t\n: d\n   [r]: /u\nx\n\n[r][]\n", '<dl><dt>t</dt><dd>d</dd></dl><p>x</p><p><a href="/u">r</a></p>'],

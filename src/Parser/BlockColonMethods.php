@@ -411,64 +411,7 @@ trait BlockColonMethods
                     }
                 }
             }
-            $codeIndent = 0;
-            $unclosedCode = $nestingAware ? $this->fencedBlockParser->parseCodeFenceOpener($lines[$i]) : null;
-            // A plain line before a fence-shaped line in a closed line block
-            // leaves that later run to the box. Probe the shifted run only in
-            // this shape, so ordinary indented runs keep their paragraph read.
-            $plainLead = $nestingAware && $unclosedCode === null
-                && preg_match('/^[ \t]+(?:`{3,}|~{3,})/', $lines[$i]) === 1
-                && $this->closedNestedLiteralBeforeFence($innerLines, true);
-            if ($plainLead) {
-                $codeIndent = IndentationHelper::getLeadingColumns($lines[$i]);
-                if ($codeIndent > 0) {
-                    $unclosedCode = $this->fencedBlockParser->parseCodeFenceOpener(
-                        IndentationHelper::stripLeadingColumns($lines[$i], $codeIndent),
-                    );
-                }
-            }
-            $boxColumn = $unclosedCode === null ? null : $this->authoredColumnOf($start, $lines[$start]);
-            $nextColumn = $unclosedCode === null || !isset($lines[$i + 1])
-                ? null : $this->authoredColumnOf($i + 1, $lines[$i + 1]);
-            if (
-                $nestingAware && $unclosedCode !== null
-                && $boxColumn !== null && $nextColumn !== null
-                && (
-                    $nextColumn > $boxColumn
-                    || ($nextColumn === $boxColumn
-                        && $this->fencedBlockParser->isDivFenceCloser($lines[$i + 1], $fenceLength))
-                )
-                && (($codeIndent === 0 && ($this->closedNestedLiteralBeforeFence($innerLines)
-                    || ($innerLines === [] && $boxColumn > 0)))
-                    || $codeIndent > 0)
-                && !$this->hasCodeFenceCloserAhead($lines, $i, $unclosedCode['char'], $unclosedCode['length'])
-            ) {
-                for (; $i < $count; $i++) {
-                    $authoredColumn = $this->authoredColumnOf($i, $lines[$i]);
-                    if (
-                        $authoredColumn !== null
-                        && !IndentationHelper::isBlankLine($lines[$i])
-                        && (
-                            $authoredColumn < $boxColumn
-                            || ($authoredColumn === $boxColumn
-                                && $this->fencedBlockParser->isDivFenceCloser($lines[$i], $fenceLength))
-                        )
-                    ) {
-                        break;
-                    }
-                    $innerLines[] = IndentationHelper::stripLeadingColumns($lines[$i], $codeIndent);
-                    $innerLineMap[] = $this->sourceLineFor($i);
-                }
-                if (
-                    $i < $count && $this->fencedBlockParser->isDivFenceCloser($lines[$i], $fenceLength)
-                    && $this->authoredColumnOf($i, $lines[$i]) === $boxColumn
-                ) {
-                    continue;
-                }
-
-                break;
-            }
-            $skippedTo = $this->appendOpaqueColonFenceSpan($lines, $i, $innerLines, $innerLineMap)
+            $skippedTo = $this->appendOpaqueColonFenceSpan($lines, $i, $innerLines, $innerLineMap, (bool)end($literal))
                 ?? (end($literal) ? $this->appendIndentedLiteralRunSpan($lines, $i, $innerLines, $innerLineMap) : null);
             if ($skippedTo !== null) {
                 $i = $skippedTo;
@@ -476,15 +419,6 @@ trait BlockColonMethods
 
                 continue;
             }
-            if ($nestingAware && !end($literal) && !$paragraphOpen) {
-                $skippedTo = $this->appendUnclosedFenceToHostCloser($lines, $i, (int)end($stack), (int)end($columns), $innerLines, $innerLineMap);
-                if ($skippedTo !== null) {
-                    $i = $skippedTo;
-
-                    continue;
-                }
-            }
-
             $currentLine = $lines[$i];
             $paragraphOpen = $this->opensColonBodyParagraph($currentLine, $paragraphOpen);
             $bare = $this->isBareColonFence($currentLine, $colonLength);
@@ -539,49 +473,6 @@ trait BlockColonMethods
             'consumed' => $i - $start,
             'closed' => $closed,
         ];
-    }
-
-    /**
-     * @param list<string> $innerLines
-     * @param bool $plainLead
-     */
-    private function closedNestedLiteralBeforeFence(array $innerLines, bool $plainLead = false): bool
-    {
-        $last = $innerLines[count($innerLines) - 1] ?? '';
-        $column = IndentationHelper::getLeadingColumns($last);
-        if ($column === 0) {
-            return false;
-        }
-        for ($i = count($innerLines) - 2; $i >= 0; $i--) {
-            $line = $innerLines[$i];
-            if (IndentationHelper::getLeadingColumns($line) >= $column) {
-                continue;
-            }
-            $trimmed = ltrim($line, " \t");
-            $marker = $this->listParser->parseListItemMarker($trimmed);
-            $offset = $marker === null ? null : $this->listParser->markerContentOffset($trimmed);
-            $literal = $marker === null ? null : $this->fencedBlockParser->parseDivFenceOpener($marker['content']);
-
-            $closed = $offset !== null && $literal !== null && $literal['className'] === '|'
-                && IndentationHelper::getLeadingColumns($line) + $offset === $column
-                && $this->fencedBlockParser->isDivFenceCloser(
-                    IndentationHelper::stripLeadingColumns($last, $column),
-                    $literal['length'],
-                );
-            if (!$closed || !$plainLead) {
-                return $closed;
-            }
-            $first = ltrim($innerLines[$i + 1] ?? '', " \t");
-
-            // A closer, comment or fence is not a plain payload lead.
-            return $first !== ''
-                && !str_starts_with($first, '%%')
-                && !$this->fencedBlockParser->isDivFenceCloser($first, $literal['length'])
-                && $this->fencedBlockParser->parseCodeFenceOpener($first) === null
-                && $this->fencedBlockParser->parseRawBlockOpener($first) === null;
-        }
-
-        return false;
     }
 
     /**
@@ -679,8 +570,9 @@ trait BlockColonMethods
      * @param int $start
      * @param list<string> $innerLines
      * @param list<int> $innerLineMap
+     * @param bool $literal
      */
-    protected function appendOpaqueColonFenceSpan(array $lines, int $start, array &$innerLines, array &$innerLineMap): ?int
+    protected function appendOpaqueColonFenceSpan(array $lines, int $start, array &$innerLines, array &$innerLineMap, bool $literal = false): ?int
     {
         $line = $lines[$start];
         $count = count($lines);
@@ -690,7 +582,7 @@ trait BlockColonMethods
         $rawFenceInfo = $this->fencedBlockParser->parseRawBlockOpener($line);
         if (
             $rawFenceInfo !== null
-            && $this->hasCodeFenceCloserAhead($lines, $start, $rawFenceInfo['fence'][0], $rawFenceInfo['length'])
+            && (!$literal || $this->hasCodeFenceCloserAhead($lines, $start, $rawFenceInfo['fence'][0], $rawFenceInfo['length']))
         ) {
             $fenceChar = $rawFenceInfo['fence'][0];
             $fenceLength = $rawFenceInfo['length'];
@@ -698,7 +590,7 @@ trait BlockColonMethods
             $codeFenceInfo = $this->fencedBlockParser->parseCodeFenceOpener($line);
             if (
                 $codeFenceInfo !== null
-                && $this->hasCodeFenceCloserAhead($lines, $start, $codeFenceInfo['char'], $codeFenceInfo['length'])
+                && (!$literal || $this->hasCodeFenceCloserAhead($lines, $start, $codeFenceInfo['char'], $codeFenceInfo['length']))
             ) {
                 $fenceChar = $codeFenceInfo['char'];
                 $fenceLength = $codeFenceInfo['length'];
@@ -728,48 +620,6 @@ trait BlockColonMethods
             if ($i > $start && $this->fencedBlockParser->isFencedCommentCloserAnyColumn($lines[$i], $commentInfo['length'])) {
                 return $i + 1;
             }
-        }
-
-        return $count;
-    }
-
-    /**
-     * An unclosed code or raw fence runs to the innermost container's own
-     * closer, which stays structural. Every other colon line before it, of any
-     * width, is fence content (A CLOSER IS REQUIRED, markup-carve/carve#3201).
-     *
-     * @param array<string> $lines
-     * @param int $start
-     * @param int $hostLength
-     * @param int $hostColumn
-     * @param list<string> $innerLines
-     * @param list<int> $innerLineMap
-     */
-    private function appendUnclosedFenceToHostCloser(
-        array $lines,
-        int $start,
-        int $hostLength,
-        int $hostColumn,
-        array &$innerLines,
-        array &$innerLineMap,
-    ): ?int {
-        $raw = $this->fencedBlockParser->parseRawBlockOpener($lines[$start]);
-        $code = $raw === null ? $this->fencedBlockParser->parseCodeFenceOpener($lines[$start]) : null;
-        $char = $raw !== null ? $raw['fence'][0] : ($code['char'] ?? null);
-        $length = $raw['length'] ?? $code['length'] ?? 0;
-        if ($char === null || $this->hasCodeFenceCloserAhead($lines, $start, $char, $length)) {
-            return null;
-        }
-        $count = count($lines);
-        for ($i = $start; $i < $count; $i++) {
-            if ($i > $start && $this->isBareColonFence($lines[$i], $colonLength) && $colonLength === $hostLength) {
-                $column = IndentationHelper::getLeadingColumns($lines[$i], $hostColumn + 1);
-                if (!$this->state->frame->hostedColonFences || $column === 0 || $column === $hostColumn) {
-                    return $i;
-                }
-            }
-            $innerLines[] = $lines[$i];
-            $innerLineMap[] = $this->sourceLineFor($i);
         }
 
         return $count;

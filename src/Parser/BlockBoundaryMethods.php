@@ -372,13 +372,10 @@ trait BlockBoundaryMethods
             return true;
         }
 
-        // Code fences (``` or ~~~). Only a fence with a closer ahead opens a
-        // block; an unterminated one stays paragraph text (PART 9 §10 I4). The
-        // same rule lives in startsNewBlock(), and for a long time only that
-        // copy had it - so the rule held at the top level and failed inside
-        // every container that reaches the decision through here (carve-php#642).
+        // Code fences (``` or ~~~), closer or not (PART 9 §10 I4). The same
+        // rule lives in startsNewBlock() (carve-php#642).
         if (preg_match('/^[`~]{3,}/', $line)) {
-            return $this->hasClosingFenceAhead($line, $lines, $index);
+            return $this->opensCodeFence($line);
         }
 
         // Fenced divs / admonitions (::: but not glued typed text like :::note)

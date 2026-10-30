@@ -9,13 +9,14 @@ use PHPUnit\Framework\TestCase;
 
 class ADescriptionFenceCloserStaysInsideItsOwnerTest extends TestCase
 {
-    public function testQuoteEndsTheCloserSearchAtTheDescriptionBodyColumn(): void
+    public function testQuoteEndsTheUnclosedFenceAtTheDescriptionBodyColumn(): void
     {
         $source = ":: term\n: detail\n  ```\n  code\n> payload\n  ```\nafter\n";
         $html = (new CarveConverter())->convert($source);
 
-        self::assertStringContainsString("<dd>detail\n<code>\ncode</code></dd>", $html);
-        self::assertStringNotContainsString('<pre><code>', $html);
+        // The unclosed fence ends with the description; the later run opens its own (carve#4032).
+        self::assertStringContainsString("<dd>\n    <p>detail</p>\n    <pre><code>code\n</code></pre>\n  </dd>", $html);
+        self::assertStringEndsWith("</blockquote>\n<pre><code>after\n</code></pre>", $html);
         self::assertStringContainsString('<blockquote>', $html);
     }
 

@@ -114,14 +114,15 @@ class ParagraphInterruptionTest extends TestCase
         $this->assertInstanceOf(CodeBlock::class, $children[1]);
     }
 
-    public function testUnterminatedCodeFenceDoesNotInterruptParagraph(): void
+    public function testUnterminatedCodeFenceInterruptsParagraph(): void
     {
         $parser = new BlockParser();
         $doc = $parser->parse("Code:\n```\necho hello");
 
         $children = $doc->getChildren();
-        $this->assertCount(1, $children);
+        $this->assertCount(2, $children);
         $this->assertInstanceOf(Paragraph::class, $children[0]);
+        $this->assertInstanceOf(CodeBlock::class, $children[1]);
     }
 
     public function testDivInterruptsParagraphWhenClosed(): void

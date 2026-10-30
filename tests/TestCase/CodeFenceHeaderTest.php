@@ -89,7 +89,7 @@ class CodeFenceHeaderTest extends TestCase
         code
         ```
         CARVE;
-        $expected = "<p><code>js title=\"x\"\ncode\n</code></p>\n";
+        $expected = "<p><code>js title=\"x\"\ncode</code></p>\n<pre><code></code></pre>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
@@ -101,7 +101,7 @@ class CodeFenceHeaderTest extends TestCase
         code
         ```
         CARVE;
-        $expected = "<p><code>php [Composer] \"x\"\ncode\n</code></p>\n";
+        $expected = "<p><code>php [Composer] \"x\"\ncode</code></p>\n<pre><code></code></pre>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
@@ -111,7 +111,7 @@ class CodeFenceHeaderTest extends TestCase
         // Header/label must be space-separated from the language (grammar:
         // space+). A glued quote or bracket is not metadata -> inline span.
         $carve = "```php\"x\"\ncode\n```";
-        $expected = "<p><code>php\"x\"\ncode\n</code></p>\n";
+        $expected = "<p><code>php\"x\"\ncode</code></p>\n<pre><code></code></pre>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
@@ -119,7 +119,7 @@ class CodeFenceHeaderTest extends TestCase
     public function testLabelGluedToHeaderFallsBack(): void
     {
         $carve = "```php \"x\"[Install]\ncode\n```";
-        $expected = "<p><code>php \"x\"[Install]\ncode\n</code></p>\n";
+        $expected = "<p><code>php \"x\"[Install]\ncode</code></p>\n<pre><code></code></pre>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
@@ -129,7 +129,7 @@ class CodeFenceHeaderTest extends TestCase
         // A leading `=` is the raw-block opener's territory; a malformed raw
         // opener carrying a header must fall back, not become a code fence.
         $carve = "```=html \"x\"\ncode\n```";
-        $expected = "<p><code>=html \"x\"\ncode\n</code></p>\n";
+        $expected = "<p><code>=html \"x\"\ncode</code></p>\n<pre><code></code></pre>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }

@@ -156,14 +156,15 @@ class CanonicalFenceInfoCarriesNoSpaceTest extends TestCase
      * The slot the fix must NOT touch. These separators are `space+` inside
      * `code_fence_info`; removing one does not tighten the opener, it stops the
      * line being a fence opener and the run falls back to an inline code span
-     * (the INVALID-FENCE FALLBACK). So the reader is checked here too: if a later
+     * (the INVALID-FENCE FALLBACK) and the closer opens an empty fence of its own
+     * (carve#4032). So the reader is checked here too: if a later
      * change were to join the parts without a separator, the writer would emit a
      * document that no longer holds a code block at all.
      */
     public function testTheSeparatorsInsideTheInfoStringAreNotTheSameSlot(): void
     {
-        $this->assertStringNotContainsString('<pre', self::toHtml("```php\"t\"\nx\n```\n"));
-        $this->assertStringNotContainsString('<pre', self::toHtml("```php[l]\nx\n```\n"));
+        $this->assertSame("<p><code>php\"t\"\nx</code></p>\n<pre><code></code></pre>", self::toHtml("```php\"t\"\nx\n```\n"));
+        $this->assertSame("<p><code>php[l]\nx</code></p>\n<pre><code></code></pre>", self::toHtml("```php[l]\nx\n```\n"));
 
         $source = "```php \"t\" [l]\nx\n```\n";
         $this->assertSame($source, CarveConverter::toCarve($source));

@@ -20,11 +20,12 @@ class AFenceAfterAClosedNestedLineBlockOpensInTheBoxTest extends TestCase
         self::assertStringContainsString('<li>tail</li>', $html);
     }
 
-    public function testOpenItemParagraphKeepsTheRunInline(): void
+    public function testOpenItemParagraphYieldsToTheFenceRun(): void
     {
         $html = CarveConverter::create()->convert("- ::: box\n  - x\n   ```\n  :::\n");
 
-        self::assertStringContainsString("<li>x\n<code></code></li>", $html);
+        self::assertStringContainsString("<li>x</li>", $html);
+        self::assertStringContainsString("<pre><code>:::\n</code></pre>", $html);
     }
 
     public function testStarItemReleasesTheFenceToTheBox(): void
@@ -36,12 +37,12 @@ class AFenceAfterAClosedNestedLineBlockOpensInTheBoxTest extends TestCase
         self::assertStringContainsString('<li>tail</li>', $html);
     }
 
-    public function testEmptyFenceBeforeTheBoxCloserIsStillABlock(): void
+    public function testTheBoxCloserInsideAnUnclosedFenceIsPayload(): void
     {
         $source = "- ::: box\n  - ::: |\n    ```\n    :::\n   ```\n  :::\n- tail\n";
         $html = CarveConverter::create()->convert($source);
 
-        self::assertStringContainsString('<pre><code></code></pre>', $html);
+        self::assertStringContainsString("<pre><code>:::\n</code></pre>", $html);
         self::assertStringContainsString('<li>tail</li>', $html);
     }
 
@@ -56,11 +57,11 @@ class AFenceAfterAClosedNestedLineBlockOpensInTheBoxTest extends TestCase
         }
     }
 
-    public function testAColonRunWithoutANestedLiteralStillClosesTheBox(): void
+    public function testAColonRunInsideAnUnclosedFenceIsPayload(): void
     {
         $source = "::: warning\n- item\n  :::\n```\n:::\nafter\n";
         $html = CarveConverter::create()->convert($source);
 
-        self::assertStringContainsString("<pre><code></code></pre>\n</aside>\n<p>after</p>", $html);
+        self::assertStringContainsString("<pre><code>:::\nafter\n</code></pre>\n</aside>", $html);
     }
 }

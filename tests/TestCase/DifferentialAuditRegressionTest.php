@@ -74,7 +74,7 @@ class DifferentialAuditRegressionTest extends TestCase
     public function testInvalidFenceInfoDoesNotInterruptAParagraph(): void
     {
         $html = (new CarveConverter())->convert("{ \n~~~%\n~~~\n");
-        $this->assertSame(preg_replace('/\n\z/', '', "<p>{\n~~~%\n~~~</p>\n"), $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>{\n~~~%</p>\n<pre><code></code></pre>\n"), $html);
     }
 
     public function testTagNodeSurvivesInsideAHeadingDerivedLinkLabel(): void

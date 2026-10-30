@@ -97,8 +97,6 @@ final class BlockParseFrame
      */
     public array $itemSourceBoundaryPositions = [];
 
-    public ?IndexedFenceView $descriptionFenceView = null;
-
     public ?IndexedFenceView $literalSourceFenceView = null;
 
     public ?LiteralCommentClosers $literalSourceCommentView = null;
@@ -109,20 +107,6 @@ final class BlockParseFrame
      * @var array<int, int>
      */
     public array $literalSourceBoundaryPositions = [];
-
-    public ?RangeMaximum $descriptionBoundaryView = null;
-
-    public ?RangeMaximum $descriptionVisibleBoundaryView = null;
-
-    /**
-     * @var array<int, int>
-     */
-    public array $descriptionBoundaryPositions = [];
-
-    /**
-     * @var array<int, int>
-     */
-    public array $descriptionVisibleBoundaryPositions = [];
 
     public function sourceLineFor(int $index): int
     {

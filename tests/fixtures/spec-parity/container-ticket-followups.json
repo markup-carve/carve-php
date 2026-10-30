@@ -2,7 +2,7 @@
   {
     "id": "3233/2",
     "source": "::: box\n    ```\n    code\n    ```\nafter\n",
-    "html": "<div class=\"box\">\n  <p><code>\ncode\n</code>\nafter</p>\n</div>"
+    "html": "<div class=\"box\">\n  <pre><code>code\n</code></pre>\n  <p>after</p>\n</div>"
   },
   {
     "id": "3241/0",

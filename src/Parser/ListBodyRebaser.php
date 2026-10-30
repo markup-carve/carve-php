@@ -23,7 +23,6 @@ final class ListBodyRebaser
      * @param \Closure(string, array{type: string, content: string, attributesWidth?: int}): int $listMarkerWidthCallback
      * @param \Closure(int): int $sourceLineForCallback
      * @param \MarkupCarve\Carve\Parser\BlockParserState $state
-     * @param \MarkupCarve\Carve\Parser\BlockContinuationScanner $continuations
      * @param \Closure $getFencedBlockParser
      * @param \Closure $getListParser
      * @param \Closure $getTableParser
@@ -34,14 +33,11 @@ final class ListBodyRebaser
      * @param \Closure $footnoteBodyResumesAfterCallback
      * @param \Closure $isBlockElementStartCallback
      * @param \Closure $isCommentLineOrFenceCallback
-     * @param \Closure $itemFenceCloserAheadCallback
-     * @param \Closure $itemFenceOpenerAtCallback
      * @param \Closure $lineOpensBlockForLoosenessCallback
      * @param \Closure $startsNewBlockCallback
      */
     public function __construct(
         private BlockParserState $state,
-        private BlockContinuationScanner $continuations,
         private Closure $getFencedBlockParser,
         private Closure $getListParser,
         private Closure $getTableParser,
@@ -55,8 +51,6 @@ final class ListBodyRebaser
         private Closure $footnoteBodyResumesAfterCallback,
         private Closure $isBlockElementStartCallback,
         private Closure $isCommentLineOrFenceCallback,
-        private Closure $itemFenceCloserAheadCallback,
-        private Closure $itemFenceOpenerAtCallback,
         private Closure $lineOpensBlockForLoosenessCallback,
         private Closure $listMarkerWidthCallback,
         private Closure $sourceLineForCallback,
@@ -523,7 +517,6 @@ final class ListBodyRebaser
         $probeAfterBlank = false;
         $skipUntil = -1;
         $probeHadCodeFence = false;
-        $hasRetainedTab = null;
         $noteBodyColumn = null;
         foreach ($lines as $index => $line) {
             if ($beforeLeadNote !== null && $index === $leadNoteTextEnd + 1) {
@@ -564,22 +557,6 @@ final class ListBodyRebaser
                 && ($probeNestedColumns === [] || $base >= end($probeNestedColumns))
             ) {
                 $probeHadCodeFence = true;
-            }
-            if (
-                !$hasBlankBoundary && !$probeHadCodeFence && $leadNoteTextEnd < 0
-                && $probeNestedColumns !== [] && $base > 0 && $base < end($probeNestedColumns)
-                && !($hasRetainedTab ??= str_contains(implode("\n", $lines), "\t"))
-            ) {
-                $subject = ltrim($line, " \t");
-                $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject)
-                    ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($subject);
-                $priorLine = ltrim($lines[$index - 1] ?? '', " \t");
-                $priorMarkerOffset = ($this->getListParser)()->markerWalkOffset($priorLine, 0);
-                $priorMarkerFence = $priorMarkerOffset !== null
-                    && ($this->itemFenceOpenerAtCallback)(substr($priorLine, $priorMarkerOffset)) !== null;
-                if ($fence !== null && !$priorMarkerFence && !$this->continuations->sourceFenceCloserInView($lines, $index, $fence, $base, true)) {
-                    return false;
-                }
             }
             while ($probeNestedColumns !== [] && $base < end($probeNestedColumns)) {
                 array_pop($probeNestedColumns);
@@ -1273,29 +1250,6 @@ final class ListBodyRebaser
     }
 
     /**
-     * Keep a nested fence inside its marker-line paragraph when its closer is absent.
-     *
-     * @param array<string> $lines
-     * @param int $index
-     * @param array<int> $nestedColumns
-     * @param bool $afterBlank
-     */
-    private function keepsNestedFenceInline(array $lines, int $index, array $nestedColumns, bool $afterBlank): bool
-    {
-        $line = $lines[$index];
-        $previousMarker = $index > 0 ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$index - 1], " \t")) : null;
-        $nestedFence = $previousMarker === null || preg_match('/^`{3,}[ \t]*$/', ltrim($line, " \t")) !== 1
-            ? null : ($this->itemFenceOpenerAtCallback)($line);
-        $fenceColumn = IndentationHelper::getLeadingColumns($line);
-
-        return !$afterBlank && $nestedColumns !== [] && $fenceColumn < end($nestedColumns)
-            && $previousMarker !== null
-            && !($this->lineOpensBlockForLoosenessCallback)($previousMarker['content'], true)
-            && $nestedFence !== null
-            && !($this->itemFenceCloserAheadCallback)($lines, $index, $nestedFence, $fenceColumn, 0);
-    }
-
-    /**
      * Apply an authored block base after a container's minimum content column
      * has been stripped. Item calls exclude sublists because their residual
      * indentation is another list level; definition and footnote bodies include
@@ -1350,19 +1304,10 @@ final class ListBodyRebaser
         $minimumColonIsLiteral = false;
         $beforeLeadNote = null;
         $seenBlank = false;
-        $nestedInlineParagraph = false;
-        $childContentFloor = $leadNestedColumn ?? 0;
-        $foldedChildFence = false;
         $shiftedSeparator = $this->shiftedTermSeparatorIndex($lines, $eligible);
         $shiftedOwner = false;
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
-            $lineMarker = ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t"));
-            if ($lineMarker !== null && !IndentationHelper::isBlankLine($line)) {
-                $childContentFloor = IndentationHelper::getLeadingColumns($line)
-                    + ($this->listMarkerWidthCallback)(ltrim($line, " \t"), $lineMarker);
-                $foldedChildFence = false;
-            }
             if ($i < $protectedPrefixEnd) {
                 continue;
             }
@@ -1374,7 +1319,6 @@ final class ListBodyRebaser
             if (IndentationHelper::isBlankLine($line)) {
                 $afterBlank = true;
                 $seenBlank = true;
-                $nestedInlineParagraph = false;
 
                 continue;
             }
@@ -1404,17 +1348,6 @@ final class ListBodyRebaser
             if ($i <= $minimumColonEnd && $minimumColonIsLiteral && ($line[0] === ' ' || $line[0] === "\t")) {
                 continue;
             }
-            if (
-                $nestedInlineParagraph && !$afterBlank
-                && ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($line, " \t"), 0)
-            ) {
-                continue;
-            }
-            if ($this->keepsNestedFenceInline($lines, $i, $nestedColumns, $afterBlank)) {
-                $nestedInlineParagraph = true;
-
-                continue;
-            }
             // A CODE-FENCE OPENER AT THE ITEM'S CONTENT COLUMN IS ALWAYS
             // WALKED, even when it is not an authored-base candidate, so the
             // fence-body scan below runs and the closer-column check keeps an
@@ -1432,13 +1365,6 @@ final class ListBodyRebaser
             if ($i === $shiftedSeparator) {
                 $nestedColumns = [];
                 $shiftedOwner = true;
-            }
-            if (
-                $foldedChildFence && !$afterBlank && $base < $childContentFloor
-                && ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($line, " \t"), 0)
-            ) {
-                // CARVE-P0-015: a lazy below-column run does not end its child container.
-                continue;
             }
             if ($unclosedFenceBase !== null && $i > $unclosedFenceStart && $base === $unclosedFenceBase && $base > 0) {
                 $nestedColumns = [];
@@ -1472,15 +1398,6 @@ final class ListBodyRebaser
                         true,
                     );
                 }
-                $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t"));
-                if (
-                    $blockState->openParagraph && $blockState->fence === null && !$blockState->hasOpenDiv() && $fence !== null
-                    && !($this->itemFenceCloserAheadCallback)($lines, $i, $fence, $base, end($nestedColumns))
-                ) {
-                    $afterBlank = false;
-
-                    continue;
-                }
             }
             while ($nestedColumns !== [] && $base < end($nestedColumns)) {
                 array_pop($nestedColumns);
@@ -1497,27 +1414,6 @@ final class ListBodyRebaser
                 continue;
             }
             if ($nestedColumns !== [] && $base >= end($nestedColumns)) {
-                $precedingMarker = $i > 0
-                    ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$i - 1], " \t")) : null;
-                $childFence = $precedingMarker === null || $precedingMarker['content'] === ''
-                    || ($this->lineOpensBlockForLoosenessCallback)($precedingMarker['content'], true)
-                    ? null : ($this->itemFenceOpenerAtCallback)($line);
-                if (
-                    $childFence !== null
-                    && !str_contains($line, "\t")
-                    && !str_contains($this->state->source->sourceLines[($this->sourceLineForCallback)($i)] ?? '', '>')
-                    && !($this->itemFenceCloserAheadCallback)(
-                        $lines,
-                        $i,
-                        $childFence,
-                        $base,
-                        end($nestedColumns),
-                    )
-                ) {
-                    // CARVE-P0-014: retain the child's paragraph when its fence has no in-column closer.
-                    $foldedChildFence = true;
-                }
-
                 continue;
             }
             if (
@@ -1673,47 +1569,6 @@ final class ListBodyRebaser
             $end = $i;
             $code = ($this->getFencedBlockParser)()->parseCodeFenceOpener($opener)
                 ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($opener);
-            $precedingMarker = $i > 0
-                ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$i - 1], " \t")) : null;
-            if (
-                $code !== null && $precedingMarker !== null && $precedingMarker['content'] !== ''
-                && !($this->lineOpensBlockForLoosenessCallback)($precedingMarker['content'], true)
-            ) {
-                $childColumn = IndentationHelper::getLeadingColumns($lines[$i - 1])
-                    + ($this->listMarkerWidthCallback)(ltrim($lines[$i - 1], " \t"), $precedingMarker);
-                $attributeInFenceRun = isset($lines[$i + 1])
-                    && ($this->isBlockAttributeLineCallback)(ltrim($lines[$i + 1], " \t"));
-                $tableBoundaryAttribute = isset($lines[$i + 1], $lines[$i + 2])
-                    && IndentationHelper::getLeadingColumns($lines[$i + 1]) < $childColumn
-                    && ($this->getTableParser)()->isTableRow(ltrim($lines[$i + 1], " \t"))
-                    && ($this->isBlockAttributeLineCallback)(ltrim($lines[$i + 2], " \t"));
-                // CARVE-P0-014: a below-column run cannot authorize a fence under a child's lead.
-                if (!$attributeInFenceRun && !$tableBoundaryAttribute && $base >= $childColumn && !($this->itemFenceCloserAheadCallback)($lines, $i, $code, $base, $childColumn)) {
-                    $foldedChildFence = true;
-                    $afterBlank = false;
-
-                    continue;
-                }
-            }
-            if ($code !== null && $skipOnlyClosedOpaqueAtMinimum) {
-                for (; $blockStateCursor < $i; $blockStateCursor++) {
-                    if (($this->isBlockAttributeLineCallback)(ltrim($lines[$blockStateCursor], " \t"))) {
-                        continue;
-                    }
-                    $blockState = ($this->advanceTrailingStateWithFenceLookaheadCallback)(
-                        $blockState,
-                        $lines[$blockStateCursor],
-                        $lines,
-                        $blockStateCursor,
-                        true,
-                    );
-                }
-                if ($blockState->openParagraph && !($this->itemFenceCloserAheadCallback)($lines, $i, $code, $base, 0)) {
-                    $afterBlank = false;
-
-                    continue;
-                }
-            }
             // A VERBATIM extent has no blank line: a whitespace-only line in a
             // fenced body is a content line, so the rebase below owes it the
             // same dedent as every other line (CARVE-P11-016, PART 9 section 24
@@ -1745,14 +1600,6 @@ final class ListBodyRebaser
 
             $commentClose = null;
             if ($code !== null) {
-                if (
-                    $unclosedFenceBase !== null && $i > $unclosedFenceStart
-                    && !($this->itemFenceCloserAheadCallback)($lines, $i, $code, $base, 0)
-                ) {
-                    $lines[$i] = BlockGrammar::LAZY_FRAME . $opener;
-
-                    continue;
-                }
                 $end = $this->rebasedCodeFenceEnd($lines, $i, $count, $base, $code['fence']);
             } elseif ($comment !== null) {
                 $commentClose = $this->rebasedCommentFenceCloser($lines, $i, $count, strlen($comment['fence']));

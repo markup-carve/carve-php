@@ -189,11 +189,6 @@ final class DefinitionListBuilder
                     $separatorColumn = self::authoredSubjectColumn($authored, BlockGrammar::stripLazyFrame($nextLine));
                     $lazySeparator = $termColumn !== null && $separatorColumn !== null && $separatorColumn < $termColumn;
                 }
-                $quotedFence = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)])
-                    ? ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($nextLine, " \t"))
-                    : null;
-                $quotedUnclosedFenceIsTermText = $quotedFence !== null
-                    && !$this->continuations->sourceFenceCloserInView($lines, $i, $quotedFence, 0);
                 $belowTermComment = $termColumn !== null
                     && preg_match('/^[ \t]*%%/', $nextLine) === 1
                     && $authoredColumn > IndentationHelper::getLeadingColumns($termSourceLine)
@@ -207,7 +202,7 @@ final class DefinitionListBuilder
                     IndentationHelper::isBlankLine($nextLine)
                     || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextLine)
                     || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $nextLine)
-                    || (!$literalDefinition && !$lazySeparator && !$quotedUnclosedFenceIsTermText && $this->endsDefinitionTerm($nextLine, $lines, $i))
+                    || (!$literalDefinition && !$lazySeparator && $this->endsDefinitionTerm($nextLine, $lines, $i))
                     || (($nextLine[0] ?? '') === '{'
                         && $this->wrappedBlockAttributeLength($lines, $i) !== null)
                     // A construct that renders nothing is not term text. The
@@ -1426,15 +1421,9 @@ final class DefinitionListBuilder
             && $this->isBlockAttributeLine($l->trimmedCont);
         $l->paragraphFence = ($this->getFencedBlockParser)()->parseRawBlockOpener($l->trimmedCont)
             ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($l->trimmedCont);
-        $l->paragraphFenceHasNoCloser = $l->paragraphFence !== null
-            // Only a line the walk opened a fence on can open one (carve#3885).
-            && (!isset($this->state->source->fenceOpenerLines[$this->sourceLineFor($b->i)]) || !$this->descriptionBodyCloserAhead(
-                $b->lines,
-                $b->i,
-                $l->paragraphFence,
-                $b->continuationColumn,
-                $l->contColumn,
-            ));
+        // Only a line the walk opened a fence on can open one (carve#3885).
+        $l->paragraphFenceIsText = $l->paragraphFence !== null
+            && !isset($this->state->source->fenceOpenerLines[$this->sourceLineFor($b->i)]);
     }
 
     /**
@@ -1462,7 +1451,7 @@ final class DefinitionListBuilder
         ($this->advanceNestedLeadFenceStateCallback)($b->nestedLeadFence, $b->body);
         if (
             (
-                ($l->indent === 0 && $l->paragraphFenceHasNoCloser && $b->nestedLeadFence->length === 0
+                ($l->indent === 0 && $l->paragraphFenceIsText && $b->nestedLeadFence->length === 0
                     && !$b->bodyAtColumnBlock)
                 || ($l->indent > 0 && $l->indent < $b->continuationColumn
                     && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) !== 1
@@ -1543,7 +1532,7 @@ final class DefinitionListBuilder
         if (
             !IndentationHelper::isBlankLine($l->contLine)
             && $l->indent > 0
-            && ($l->indent !== $b->continuationColumn || $l->paragraphFenceHasNoCloser)
+            && ($l->indent !== $b->continuationColumn || $l->paragraphFenceIsText)
             && !$l->definitionPastTheColumn
             && !$l->attributePastTheColumn
             && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) !== 1
@@ -1553,7 +1542,7 @@ final class DefinitionListBuilder
             && ($b->lastOpenerIsParagraph ??= $this->bodyEntryStartsParagraph($b->body[$l->lastBodyKey]))
             // A nested marker keeps its own entry; a later fence folds into its item.
             && ($this->getListParser)()->parseListItemMarker(ltrim($b->body[$l->lastBodyKey], " \t")) === null
-            && ($belowColumnMarker || $l->paragraphFenceHasNoCloser
+            && ($belowColumnMarker || $l->paragraphFenceIsText
                 || ($b->descriptionAtDocumentOrQuote
                     && $l->indent < $b->continuationColumn && $l->belowDescriptionTextOpener)
                 || !$this->lineOpensBlockForLooseness($l->trimmedCont, true, invisibleArms: false))
@@ -1649,7 +1638,7 @@ final class DefinitionListBuilder
                     || ($b->nestedDescriptionBodyColumn !== null
                         && $l->contColumn >= $b->continuationColumn + $b->nestedDescriptionBodyColumn)
                     || ($this->getListParser)()->parseListItemMarker($b->lead()) !== null,
-                'eligible' => !$l->paragraphFenceHasNoCloser,
+                'eligible' => !$l->paragraphFenceIsText,
                 'paragraph' => $l->lastBodyKey !== null && ($b->body[$l->lastBodyKey] ?? '') !== ''
                     && ($b->lastOpenerIsParagraph ??= $this->bodyEntryStartsParagraph($b->body[$l->lastBodyKey])),
             ];
@@ -1981,15 +1970,8 @@ final class DefinitionListBuilder
             $closerKnownAhead = isset($b->bodyFenceSource[$b->bodyStateCursor])
                 && $wasOpenParagraph
                 && !$wasInFence
-                && ($b->bodyFenceSource[$b->bodyStateCursor]['columns'] > $b->continuationColumn
-                    ? $b->bodyFenceSource[$b->bodyStateCursor]['eligible']
-                    : $this->descriptionBodyCloserAhead(
-                        $b->lines,
-                        $b->bodyFenceSource[$b->bodyStateCursor]['index'],
-                        $b->bodyFenceSource[$b->bodyStateCursor]['opener'],
-                        $b->continuationColumn,
-                        $b->bodyFenceSource[$b->bodyStateCursor]['columns'],
-                    ));
+                && ($b->bodyFenceSource[$b->bodyStateCursor]['columns'] <= $b->continuationColumn
+                    || $b->bodyFenceSource[$b->bodyStateCursor]['eligible']);
             $trackerLine = $bodyLine;
             if (!$closerKnownAhead && $wasOpenParagraph && !$wasInFence && $useIndexedBodyFence) {
                 $fenceAt = IndentationHelper::pastLeadingWhitespace($bodyLine);
@@ -2003,14 +1985,10 @@ final class DefinitionListBuilder
                     ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject);
                 if ($opener !== null) {
                     $b->bodyFenceView->advance($b->body);
-                    if ($b->bodyFenceView->contains($b->bodyStateCursor + 1, count($b->body), $column, $opener['char'] ?? $opener['fence'][0], $opener['length'])) {
-                        $closerKnownAhead = true;
-                    } else {
+                    if (!$b->bodyFenceView->contains($b->bodyStateCursor + 1, count($b->body), $column, $opener['char'] ?? $opener['fence'][0], $opener['length'])) {
                         $trackerLine = 'text';
                     }
                 }
-                // This entry's lookahead is settled, including a neutralized opener.
-                $closerKnownAhead = true;
             }
             $b->bodyState = $this->advanceTrailingStateWithFenceLookahead(
                 $b->bodyState,
@@ -2018,15 +1996,7 @@ final class DefinitionListBuilder
                 $b->body,
                 $b->bodyStateCursor,
                 !isset($b->bodyLazy[$b->bodyStateCursor]),
-                // THE CLOSER LOOKAHEAD READS AT THE SAME BASE. The
-                // opener was rebased above, so a closer written at
-                // the same authored base is only visible to §10's
-                // lookahead once it is stripped too - otherwise the
-                // fence looks unterminated, arms nothing, and the
-                // body reports a paragraph a closed fence does not
-                // leave (markup-carve/carve#1930, carve-php#1899).
                 $b->bodyOpenerBase ?? 0,
-                closerKnownAhead: $closerKnownAhead,
             );
             if ($wasInFence && $b->bodyState->fence === null) {
                 $b->bodyInterruptedParagraphFence = false;
@@ -2467,7 +2437,6 @@ final class DefinitionListBuilder
      * @param \MarkupCarve\Carve\Parser\TrailingBlockState $state
      * @param string $line
      * @param array<string> $lines
-     * @param bool $closerKnownAhead
      * @param int $stripColumns
      * @param bool $atContentColumn
      * @param int $index
@@ -2479,9 +2448,8 @@ final class DefinitionListBuilder
         int $index,
         bool $atContentColumn = false,
         int $stripColumns = 0,
-        bool $closerKnownAhead = false,
     ): TrailingBlockState {
-        return $this->continuations->advanceTrailingStateWithFenceLookaheadCore($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
+        return $this->continuations->advanceTrailingStateWithFenceLookaheadCore($state, $line, $lines, $index, $atContentColumn, $stripColumns);
     }
 
     private function applyPendingAttributes(Node $node): void
@@ -2541,23 +2509,6 @@ final class DefinitionListBuilder
         $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($index));
 
         return (new IndentedContainerColumn(0))->ownsContinuation($decision, 'description');
-    }
-
-    /**
-     * @param array<string> $lines
-     * @param int $openIndex Source index of the fence-shaped line.
-     * @param array{fence: string, length: int, char?: string} $opener
-     * @param int $bodyColumn The description body's content column.
-     * @param int $openerColumns Leading columns of the fence-shaped line.
-     */
-    private function descriptionBodyCloserAhead(
-        array $lines,
-        int $openIndex,
-        array $opener,
-        int $bodyColumn,
-        int $openerColumns,
-    ): bool {
-        return $this->continuations->descriptionBodyCloserAhead($lines, $openIndex, $opener, $bodyColumn, $openerColumns);
     }
 
     /**

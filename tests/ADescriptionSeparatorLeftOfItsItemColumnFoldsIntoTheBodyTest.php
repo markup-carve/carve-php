@@ -78,7 +78,7 @@ class ADescriptionSeparatorLeftOfItsItemColumnFoldsIntoTheBodyTest extends TestC
             ],
             'separator after an unclosed fence line in a tight item' => [
                 "- item\n  :: A\n  :  first\n  ```\n :  next\n",
-                "<ul>\n  <li>item\n    <dl>\n      <dt>A</dt>\n      <dd>first\n<code>\n:  next</code></dd>\n    </dl>\n  </li>\n</ul>",
+                "<ul>\n  <li>item\n    <dl>\n      <dt>A</dt>\n      <dd>first</dd>\n    </dl>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>:  next</p>",
             ],
         ];
     }

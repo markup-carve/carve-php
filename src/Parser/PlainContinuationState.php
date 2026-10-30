@@ -165,8 +165,6 @@ final class PlainContinuationState
 
     public bool $termCodeTailAfterBlank = false;
 
-    public bool $termCodeTailHasCloser = false;
-
     public bool $definitionBodyHasTerm = false;
 
     public ?int $recentDefinitionBodyColumn = null;

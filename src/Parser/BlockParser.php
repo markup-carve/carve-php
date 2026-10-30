@@ -5801,8 +5801,7 @@ class BlockParser
                     return false;
                 }
 
-                // Code fences interrupt only if a matching closer exists ahead.
-                return $this->hasClosingFenceAhead($line, $lines, $index);
+                return $this->opensCodeFence($line);
             case ':':
                 // Definition list term (`:: term`, not `:::` div) is a
                 // first-class block opener (§24 C3), so it interrupts an open
@@ -5825,60 +5824,15 @@ class BlockParser
     }
 
     /**
+     * A valid code or raw opener interrupts whether or not a closer follows
+     * (PART 9 §10 I4).
+     *
      * @param string $line
-     * @param array<string>|null $lines
-     * @param int|null $index
      */
-    protected function hasClosingFenceAhead(string $line, ?array $lines, ?int $index): bool
+    protected function opensCodeFence(string $line): bool
     {
-        $opener = $this->fencedBlockParser->parseRawBlockOpener($line)
-            ?? $this->fencedBlockParser->parseCodeFenceOpener($line);
-        if ($opener === null) {
-            return false;
-        }
-
-        if ($lines === null || $index === null) {
-            return true;
-        }
-
-        $char = $opener['char'] ?? $opener['fence'][0];
-        $length = $opener['length'];
-        $count = count($lines);
-
-        // REFUTE FROM THE INDEX FIRST. The scan below is O(remaining lines) and
-        // this predicate is asked once per fence-shaped line, so a document of
-        // UNCLOSABLE fences pays it once per fence - which is quadratic, and is
-        // what `AttachedFenceLookaheadScaleTest` measures. The index is built
-        // once per line set and is a SUPERSET of what the matcher below can
-        // accept, so a negative answer here is final and a positive one still
-        // goes to the real scan (the invariant `fenceCloserIndex()` documents).
-        //
-        // The other three callers of that index already refute this way; this
-        // one scanned because nothing asked it often enough to matter until the
-        // §17 L3 boundary started classifying every attached run's first line.
-        if (!$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $char, $length, $index)) {
-            return false;
-        }
-
-        // The literal index is cached against this exact line set. Its answer
-        // matches the built-in closer rule, including column zero.
-        if ($this->fencedBlockParser::class === FencedBlockParser::class) {
-            return $this->codeCloserPossible(
-                $this->fenceCloserIndex($lines, true)['code'],
-                $char,
-                $length,
-                $index,
-            );
-        }
-
-        // A custom fence parser may accept a different closer spelling.
-        for ($i = $index + 1; $i < $count; $i++) {
-            if ($this->fencedBlockParser->isCodeFenceCloser($lines[$i], $char, $length)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->fencedBlockParser->parseRawBlockOpener($line) !== null
+            || $this->fencedBlockParser->parseCodeFenceOpener($line) !== null;
     }
 
     /**

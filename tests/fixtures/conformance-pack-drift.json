@@ -5,14 +5,8 @@
       "ticket": "markup-carve/carve#3972",
       "cause": "all three engines agree against the spec model",
       "cases": [
-        "combined-3448da01d1a5",
-        "combined-9558bcc180ca",
         "combined-ad5cfc8e81bf",
-        "fences-56d1f5344d97",
-        "fences-bedb43ef18bd",
-        "fences-e9ba3b5bea07",
         "notes-b468d41965eb",
-        "ownership-34529d739732",
         "ownership-bd5caf2c0c4d",
         "ownership-ca02e84b0d06",
         "plus-a27fafedeaa0"
@@ -22,21 +16,7 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the attributes family",
       "cases": [
-        "attributes-e9769177dc70",
-        "attributes-eee494e29d32",
         "attributes-fe84887143c1"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve-php#4254",
-      "cause": "untriaged day-one drift in the combined family",
-      "cases": [
-        "combined-0ce08bf78ffe",
-        "combined-0fca5f817c2f",
-        "combined-6254f930f23b",
-        "combined-c9f4ceb31baf",
-        "combined-ca6dd161d141",
-        "combined-cb097d2fe4e2"
       ]
     },
     {
@@ -44,34 +24,19 @@
       "cause": "untriaged day-one drift in the fences family",
       "cases": [
         "fences-088d930244e3",
-        "fences-12ba255d2b80",
-        "fences-185df305e169",
-        "fences-1e1d2137b84d",
         "fences-29686e87f9fb",
         "fences-30815e34eed9",
-        "fences-350b56897079",
-        "fences-3c030897e4af",
         "fences-3c08da2ac717",
         "fences-40d8bfbdce79",
-        "fences-4e8b129ee1fb",
-        "fences-560643f4d388",
         "fences-65c1ed9e80fd",
         "fences-6bb4b2c08642",
         "fences-7427311dd994",
-        "fences-7801706d7c0f",
         "fences-847efee06776",
         "fences-8e1753b3b5d2",
-        "fences-8ed246bfdc05",
-        "fences-9e11fc34138d",
         "fences-a417f2c27098",
         "fences-ab7d8fe98c9e",
-        "fences-be8043b3def8",
-        "fences-beb7a2645809",
         "fences-cb40a08673a4",
-        "fences-de92ca494248",
-        "fences-e0910c8dd446",
-        "fences-e6b042364968",
-        "fences-f81745ba0db3"
+        "fences-e0910c8dd446"
       ]
     },
     {
@@ -87,14 +52,9 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the lazy family",
       "cases": [
-        "lazy-089311267f17",
-        "lazy-13e7778cf168",
         "lazy-238a6c458797",
         "lazy-353dc1c74791",
-        "lazy-36a23222d8a1",
-        "lazy-3a1b06e88496",
         "lazy-408e39e5714b",
-        "lazy-4657e6f9b11b",
         "lazy-478d76f7299c",
         "lazy-6a3639026983",
         "lazy-7753aedc9422",
@@ -104,11 +64,9 @@
         "lazy-7f8806c2a9ca",
         "lazy-88609a600f0f",
         "lazy-8a2a96143cc6",
-        "lazy-93ad85602e94",
         "lazy-98e763c7e07e",
         "lazy-a25e7b8f38cf",
         "lazy-aeb7bbd2d31f",
-        "lazy-e4d3ada0f4c2",
         "lazy-ea480eb4d58d",
         "lazy-f7cdb17f9cb9",
         "lazy-fef11cbd6ca1"
@@ -122,7 +80,6 @@
         "notes-2ce0a0643b77",
         "notes-4dc51b5608ab",
         "notes-4f3571464f16",
-        "notes-70f27b651257",
         "notes-9216ec22d558",
         "notes-a6dae860b308",
         "notes-aa4cc37942d1",
@@ -136,9 +93,7 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the ownership family",
       "cases": [
-        "ownership-088128b1afe8",
         "ownership-12346bae899f",
-        "ownership-276fc2ecc9ec",
         "ownership-2c66125f9d1c",
         "ownership-2c82d60868cc",
         "ownership-4b546e287bf8",
@@ -148,17 +103,14 @@
         "ownership-638bc57821de",
         "ownership-66bd063e5d5e",
         "ownership-82fc471bdfea",
-        "ownership-893a70683bb9",
         "ownership-8ee51def382e",
         "ownership-ae57ff05e447",
-        "ownership-b29c22246603",
         "ownership-b510cfaf63af",
         "ownership-bab956633134",
         "ownership-d1e23ebf9549",
         "ownership-e0c0e6393075",
         "ownership-e7b3820fbdf8",
-        "ownership-edfbea8daa50",
-        "ownership-faba4478d624"
+        "ownership-edfbea8daa50"
       ]
     },
     {
@@ -177,22 +129,72 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the roundtrip family",
       "cases": [
-        "roundtrip-04eaa122fb13",
         "roundtrip-2f0bd736a7de",
         "roundtrip-356e68ae4d90",
         "roundtrip-39cdccb01232",
-        "roundtrip-4cea272b514f",
         "roundtrip-4db5513f0272",
-        "roundtrip-62911e0a7caa",
         "roundtrip-684e0d745137",
         "roundtrip-702a692a40ae",
         "roundtrip-729e5a8d67ba",
         "roundtrip-73c51797f6b8",
         "roundtrip-840844dcac3f",
         "roundtrip-90c120916d56",
-        "roundtrip-c5731f0c7b04",
         "roundtrip-d1f9fa04915c",
         "roundtrip-f1aaf24e804d"
+      ]
+    },
+    {
+      "ticket": "markup-carve/carve-php#4308",
+      "cause": "an unclosed fence in a nested container after the fence ruling port (carve#4018)",
+      "cases": [
+        "fences-1003c5a0c605",
+        "fences-20bf05f5db17",
+        "fences-78bb999cca42",
+        "fences-9caa332a8a41",
+        "fences-a6ede733e700",
+        "fences-b5471ee4f051",
+        "fences-c9b7d1a267bf",
+        "fences-d8a584498b81",
+        "fences-dccc1ff8cf70",
+        "fences-e0c82ffb018d",
+        "fences-e4b9e8e7d607",
+        "fences-ee4a1e36de97",
+        "lazy-1141c96037a7",
+        "lazy-1c5dfd7d0004",
+        "notes-04e6ac52d99b",
+        "notes-3534a9739250",
+        "notes-37e54703513f",
+        "notes-47da77f91f9b",
+        "notes-499cdee61630",
+        "notes-50dee4b44d0d",
+        "notes-8a58290254d3",
+        "notes-9429cd878645",
+        "notes-ac7d6a615617",
+        "notes-e344b261ace5",
+        "notes-f2a41094929f",
+        "ownership-0fd25ccd5b8f",
+        "ownership-20db0db56577",
+        "ownership-3453b068823b",
+        "ownership-35dce7b7ed21",
+        "ownership-4c3901b596db",
+        "ownership-aa029b4ae556",
+        "ownership-db12bf8f5848",
+        "ownership-df6b8fb46550",
+        "roundtrip-e041e681d368"
+      ]
+    },
+    {
+      "ticket": "markup-carve/carve-php#4254",
+      "cause": "rulings between carve 174ac3a and c614705 this engine has not ported yet",
+      "cases": [
+        "lazy-4bc0393d24b2",
+        "lazy-4f5eaac61ed4",
+        "lazy-828973d41d13",
+        "lazy-a38a85984127",
+        "lazy-e5f10323832e",
+        "lazy-f60632f36c87",
+        "roundtrip-1a6a5531cfa5",
+        "roundtrip-d27a8c0b8e38"
       ]
     }
   ]

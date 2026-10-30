@@ -72,14 +72,6 @@ final class BlockOwnershipWalk
     private ?array $runs = null;
 
     /**
-     * Per fence character, a max segment tree over columns of the closer runs
-     * still ahead of the walk, advanced in line order.
-     *
-     * @var array{next: int, at: array<int, array<int, array{string, int}>>, trees: array<string, array{size: int, max: array<int, int>, columns: array<int, array{suffix: array<int, int>, from: int}>}>}|null
-     */
-    private ?array $ahead = null;
-
-    /**
      * Fence-shaped lines the walk read as paragraph text: result index to owner column.
      *
      * @var array<int, int>
@@ -93,13 +85,6 @@ final class BlockOwnershipWalk
      * @var array<int, true>
      */
     public array $closingLines = [];
-
-    /**
-     * Whether the current top-level block read a fence-shaped line as text.
-     * The readers frame such a line anew (CARVE-P2-006), so the walk does not
-     * decide what closes after it.
-     */
-    private bool $textFence = false;
 
     /**
      * Whether the line just read was an abbreviation under a paragraph or a
@@ -144,10 +129,8 @@ final class BlockOwnershipWalk
     {
         $this->lines = $lines;
         $this->runs = null;
-        $this->ahead = null;
         $this->textFences = [];
         $this->closingLines = [];
-        $this->textFence = false;
         $this->softLeaf = false;
         $this->reach = 0;
         $this->lazyLines = [];
@@ -176,9 +159,6 @@ final class BlockOwnershipWalk
             }
         }
         for ($at = $start; $at < $count; $at++) {
-            if (count($this->frames) === 1 && !$this->frames[0]->para) {
-                $this->textFence = false;
-            }
             $afterSoftLeaf = $this->softLeaf;
             $this->softLeaf = false;
             $this->at = $at;
@@ -374,7 +354,7 @@ final class BlockOwnershipWalk
                 continue;
             }
             if (
-                $missed && !$plusFollower && $this->m['rest'] !== '' && !$this->textFence && !$afterSoftLeaf
+                $missed && !$plusFollower && $this->m['rest'] !== '' && !$afterSoftLeaf
                 && $inner->kind !== 'fence' && !$this->frames[$topIndex]->para
             ) {
                 $this->closingLines[$at] = true;
@@ -674,15 +654,8 @@ final class BlockOwnershipWalk
                 return $closerCol <= $col && preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $r, $c) === 1
                     && $c[1][0] === $run[0] && strlen($c[1]) >= strlen($run);
             };
-            // A closer below the owner's column never matches (CARVE-P0-014).
-            $reachable = $this->closerAhead($run, $this->at, $owner->col, $col);
-            if ($owner->para && !$reachable) {
-                $this->textFence = true;
 
-                return new OwnershipForm(kind: 'text', interrupts: false);
-            }
-
-            return new OwnershipForm(kind: 'fence', interrupts: $reachable, closes: $closes, family: 'code');
+            return new OwnershipForm(kind: 'fence', interrupts: true, closes: $closes, family: 'code');
         }
         if (preg_match('/^(%{3,})(.*)$/D', $rest, $comment) === 1) {
             $run = strlen($comment[1]);
@@ -784,85 +757,6 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * Whether a closer for `$run` lies after line `$at`, written from column
-     * `$lo` to column `$hi`. The walk asks in line order, so each line leaves
-     * the index once.
-     */
-    private function closerAhead(string $run, int $at, int $lo, int $hi): bool
-    {
-        $this->ahead ??= $this->aheadIndex();
-        while ($this->ahead['next'] <= $at) {
-            foreach ($this->ahead['at'][$this->ahead['next']] ?? [] as [$ch, $col]) {
-                $tree = &$this->ahead['trees'][$ch];
-                $from = ++$tree['columns'][$col]['from'];
-                $k = $tree['size'] + $col;
-                $tree['max'][$k] = $tree['columns'][$col]['suffix'][$from] ?? 0;
-                for ($k >>= 1; $k > 0; $k >>= 1) {
-                    $tree['max'][$k] = max($tree['max'][2 * $k], $tree['max'][2 * $k + 1]);
-                }
-                unset($tree);
-            }
-            $this->ahead['next']++;
-        }
-        $tree = $this->ahead['trees'][$run[0]];
-        $widest = 0;
-        for ($l = $tree['size'] + $lo, $r = $tree['size'] + min($hi, $tree['size'] - 1) + 1; $l < $r; $l >>= 1, $r >>= 1) {
-            if (($l & 1) === 1) {
-                $widest = max($widest, $tree['max'][$l++]);
-            }
-            if (($r & 1) === 1) {
-                $widest = max($widest, $tree['max'][--$r]);
-            }
-        }
-
-        return $widest >= strlen($run);
-    }
-
-    /**
-     * @return array{next: int, at: array<int, array<int, array{string, int}>>, trees: array<string, array{size: int, max: array<int, int>, columns: array<int, array{suffix: array<int, int>, from: int}>}>}
-     */
-    private function aheadIndex(): array
-    {
-        $found = ['`' => [], '~' => []];
-        $at = [];
-        foreach ($this->lines as $j => $line) {
-            $m = self::quotedMeasure($line);
-            if (preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $m['rest'], $c) !== 1) {
-                continue;
-            }
-            $found[$c[1][0]][] = [$m['col'], strlen($c[1])];
-            $at[$j][] = [$c[1][0], $m['col']];
-        }
-        $trees = [];
-        foreach ($found as $ch => $runs) {
-            $size = 1;
-            $lengths = [];
-            foreach ($runs as [$col, $length]) {
-                while ($size <= $col) {
-                    $size *= 2;
-                }
-                $lengths[$col][] = $length;
-            }
-            $max = array_fill(0, 2 * $size, 0);
-            $columns = [];
-            foreach ($lengths as $col => $list) {
-                $suffix = [];
-                for ($k = count($list) - 1; $k >= 0; $k--) {
-                    $suffix[$k] = max($list[$k], $suffix[$k + 1] ?? 0);
-                }
-                $columns[$col] = ['suffix' => $suffix, 'from' => 0];
-                $max[$size + $col] = $suffix[0];
-            }
-            for ($k = $size - 1; $k > 0; $k--) {
-                $max[$k] = max($max[2 * $k], $max[2 * $k + 1]);
-            }
-            $trees[$ch] = ['size' => $size, 'max' => $max, 'columns' => $columns];
-        }
-
-        return ['next' => 0, 'at' => $at, 'trees' => $trees];
-    }
-
-    /**
      * A fence-shaped line the walk read as paragraph text is framed LAZY at its
      * owner's column when a closer-shaped run lies below it at its column or
      * deeper, so the readers cannot pair it with a moved opener (CARVE-P2-006).
@@ -941,19 +835,6 @@ final class BlockOwnershipWalk
         }
 
         return $depth;
-    }
-
-    /**
-     * @return array{col: int, rest: string}
-     */
-    private static function quotedMeasure(string $line): array
-    {
-        $m = self::indentCols($line);
-        while (preg_match(self::QUOTE, $m['rest'], $q) === 1) {
-            $m = self::indentCols($q[1] ?? '');
-        }
-
-        return $m;
     }
 
     /**

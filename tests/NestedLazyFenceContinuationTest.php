@@ -9,19 +9,20 @@ use PHPUnit\Framework\TestCase;
 
 final class NestedLazyFenceContinuationTest extends TestCase
 {
-    public function testPlainLineAfterFoldedNestedFenceStaysInItem(): void
+    public function testPlainLineAfterAnUnclosedNestedFenceLeavesTheItem(): void
     {
+        // The run opens an empty fence in the outer item (carve#4032), so the next line is not lazy.
         $converter = new CarveConverter();
         foreach (
             [
-                "- - text\n  ~~~\n+ continuation\n" => "text\n~~~\n+ continuation",
-                "* * item\n  ~~~\n+ next\n" => "item\n~~~\n+ next",
-                "- - text\n  ~~~\nordinary words\n" => "text\n~~~\nordinary words",
-            ] as $source => $content
+                "- - text\n  ~~~\n+ continuation\n" => ['text', '+ continuation'],
+                "* * item\n  ~~~\n+ next\n" => ['item', '+ next'],
+                "- - text\n  ~~~\nordinary words\n" => ['text', 'ordinary words'],
+            ] as $source => [$content, $after]
         ) {
             $html = $converter->convert($source);
             self::assertStringContainsString('<li>' . $content . '</li>', $html);
-            self::assertStringNotContainsString('</ul>\n<p>', $html);
+            self::assertStringEndsWith("<pre><code></code></pre>\n  </li>\n</ul>\n<p>{$after}</p>", $html);
         }
     }
 }

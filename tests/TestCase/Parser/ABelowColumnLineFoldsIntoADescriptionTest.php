@@ -38,15 +38,33 @@ class ABelowColumnLineFoldsIntoADescriptionTest extends TestCase
                 ":: t\n: :::\n  a\n y\n  :::\n",
                 "<dl>\n  <dt>t</dt>\n  <dd>\n    <div>\n      <p>a\ny</p>\n    </div>\n  </dd>\n</dl>\n",
             ],
-            'into an unclosed inline run' => [
-                ":: t\n: a\n  ```\n  b\n y\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>a\n<code>\nb\ny</code></dd>\n</dl>\n",
-            ],
         ];
     }
 
     #[DataProvider('folds')]
     public function testTheLineFoldsIntoTheOpenParagraph(string $source, string $expected): void
+    {
+        $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
+    }
+
+    /**
+     * An unclosed fence interrupts the paragraph and ends with the body (carve#4032),
+     * so the line below has no paragraph to fold into.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function anUnclosedFence(): array
+    {
+        return [
+            'below an unclosed fence' => [
+                ":: t\n: a\n  ```\n  b\n y\n",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <pre><code>b\n</code></pre>\n  </dd>\n</dl>\n<p>y</p>\n",
+            ],
+        ];
+    }
+
+    #[DataProvider('anUnclosedFence')]
+    public function testAnUnclosedFenceLeavesNoParagraphToFoldInto(string $source, string $expected): void
     {
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }

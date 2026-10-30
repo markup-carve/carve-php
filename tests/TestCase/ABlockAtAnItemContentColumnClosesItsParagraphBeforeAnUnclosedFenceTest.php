@@ -11,8 +11,9 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A block at an item's content column ends the item's paragraph
- * (CARVE-P0-010, CARVE-P0-011), so an unclosed fence below it opens no span
- * and the container's own closer ends it (A CLOSER IS REQUIRED).
+ * (CARVE-P0-010, CARVE-P0-011). An unclosed fence below it runs to the end of
+ * the container, so the `:::` closer and the lines after it are payload
+ * (carve#4032).
  */
 class ABlockAtAnItemContentColumnClosesItsParagraphBeforeAnUnclosedFenceTest extends TestCase
 {
@@ -21,24 +22,24 @@ class ABlockAtAnItemContentColumnClosesItsParagraphBeforeAnUnclosedFenceTest ext
     /**
      * @var string
      */
-    private const ENDS_AT_CLOSER = "  <pre><code>code\n::::\n</code></pre>\n</aside>\n<p>after <strong>b</strong></p>";
+    private const RUNS_PAST_THE_CLOSER = "  <pre><code>code\n::::\n:::\nafter *b*\n</code></pre>\n</aside>";
 
     /**
      * @param array<string> $lines
      */
     #[DataProvider('closingProvider')]
-    public function testTheFenceEndsAtTheCloser(array $lines): void
+    public function testTheFenceRunsPastTheCloser(array $lines): void
     {
-        $this->assertStringEndsWith(self::ENDS_AT_CLOSER, $this->render($lines));
+        $this->assertStringEndsWith(self::RUNS_PAST_THE_CLOSER, $this->render($lines));
     }
 
     /**
      * @param array<string> $lines
      */
     #[DataProvider('openProvider')]
-    public function testAParagraphLeftOpenKeepsTheFenceAsText(array $lines): void
+    public function testAParagraphLeftOpenStillLetsTheFenceInterrupt(array $lines): void
     {
-        $this->assertStringContainsString("<p>after <strong>b</strong></p>\n    </div>", $this->render($lines));
+        $this->assertStringEndsWith(self::RUNS_PAST_THE_CLOSER, $this->render($lines));
     }
 
     /**

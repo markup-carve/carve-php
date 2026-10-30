@@ -76,17 +76,17 @@ class AClosedFenceInADescriptionBodyEndsItTest extends TestCase
     }
 
     /**
-     * THE UNTERMINATED TWIN KEEPS THE OLD ANSWER, and is the control that says
-     * this ruling is about a CLOSED fence rather than about fences. An opener
-     * with no closer opens no block, so the paragraph above it really is still
-     * open and `tail` folds into the body.
+     * THE UNTERMINATED TWIN KEEPS THE OLD ANSWER for the div and comment kinds,
+     * the control that says this ruling is about a CLOSED fence rather than
+     * about fences. Their opener with no closer opens no block, so the paragraph
+     * above it really is still open and `tail` folds into the body.
      *
      * @return array<string, array{0: string, 1: int}>
      */
     public static function unterminatedFenceProvider(): array
     {
         $rows = [];
-        foreach (['div' => '::: note', 'code' => '```', 'comment' => '%%%'] as $kind => $open) {
+        foreach (['div' => '::: note', 'comment' => '%%%'] as $kind => $open) {
             foreach ([3, 4, 5, 6] as $column) {
                 $rows["an unterminated {$kind} fence at column {$column}"] = [$open, $column];
             }
@@ -104,6 +104,33 @@ class AClosedFenceInADescriptionBodyEndsItTest extends TestCase
         );
 
         $this->assertDoesNotMatchRegularExpression('~</dl>\s*<p>tail</p>~', $html);
+    }
+
+    /**
+     * An unclosed code fence opens anyway and runs to the end of the body
+     * (carve#4032), so `tail` is the document's.
+     *
+     * @return array<string, array{0: string, 1: int}>
+     */
+    public static function unterminatedCodeFenceProvider(): array
+    {
+        $rows = [];
+        foreach ([3, 4, 5, 6] as $column) {
+            $rows["an unterminated code fence at column {$column}"] = ['```', $column];
+        }
+
+        return $rows;
+    }
+
+    #[DataProvider('unterminatedCodeFenceProvider')]
+    public function testAnUnterminatedCodeFenceEndsTheBody(string $open, int $column): void
+    {
+        $pad = str_repeat(' ', $column);
+        $html = $this->converter->convert(
+            ":: term\n:  definition\n{$pad}{$open}\n{$pad}body\ntail\n",
+        );
+
+        $this->assertMatchesRegularExpression('~<pre><code>body\n</code></pre>\s*</dd>\s*</dl>\s*<p>tail</p>~', $html);
     }
 
     /**

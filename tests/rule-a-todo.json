@@ -66,18 +66,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\AFenceAfterAClosedNestedLineBlockOpensInTheBoxTest::testInfoAndTildeFencesOpenAfterTheNestedLiteral",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\AFenceAfterAClosedNestedLineBlockOpensInTheBoxTest::testStarItemReleasesTheFenceToTheBox",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\AFenceAfterAClosedNestedLineBlockOpensInTheBoxTest::testUnclosedFenceOwnsTheRemainingBoxContent",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\AHostedContinuationDivOpensShiftedBlocksTest::testRootAndRootBoxKeepShiftedOpenersAsText",
             "ticket": "carve-php#4244"
         },
@@ -478,22 +466,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\ABlockAtAnItemContentColumnClosesItsParagraphBeforeAnUnclosedFenceTest::testAParagraphLeftOpenKeepsTheFenceAsText with data set \"definition below the column of an item with trailing spaces\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\ABlockAtAnItemContentColumnClosesItsParagraphBeforeAnUnclosedFenceTest::testAParagraphLeftOpenKeepsTheFenceAsText with data set \"definition below the column\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\ABlockAtAnItemContentColumnClosesItsParagraphBeforeAnUnclosedFenceTest::testAParagraphLeftOpenKeepsTheFenceAsText with data set \"table row below the column\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\ABlockAtAnItemContentColumnClosesItsParagraphBeforeAnUnclosedFenceTest::testTheFenceEndsAtTheCloser with data set \"footnote definition\"",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\ABlockOpenerRegistersAgainstTheColumnItReachesTest::testADefinitionRegistersFromEveryColumnItReaches with data set \"below every column\"",
             "ticket": "carve-php#4244"
         },
@@ -703,10 +675,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\ADescriptionBodyHostLineTest::testDescriptionBodyHostLine with data set \"reg-n-desc-footnote-4747\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\ADescriptionBodyHostLineTest::testDescriptionBodyHostLine with data set \"reg-n-desc-item-4766\"",
             "ticket": "carve-php#4244"
         },
         {
@@ -2114,22 +2082,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\ABelowBaseFenceRunEndsContainersDownToItsOwnerTest::testAColonBodyKeepsTheRunInside with data set \"blank above the fence 0\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\ABelowBaseFenceRunEndsContainersDownToItsOwnerTest::testAColonBodyKeepsTheRunInside with data set \"blank above the fence 1\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\ABelowBaseFenceRunEndsContainersDownToItsOwnerTest::testTheOwnerTableIsUnchangedWithNoParagraphOpen with data set \"depth 2, run at column 1\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\ABelowBaseFenceRunEndsContainersDownToItsOwnerTest::testTheOwnerTableIsUnchangedWithNoParagraphOpen with data set \"depth 3, run at column 1\"",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\ABelowColumnLineAfterAClosedBlockLeavesTheListTest::testOwnership with data set \"heading-heading-text-band-1\"",
             "ticket": "carve-php#4243"
         },
@@ -2259,10 +2211,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\ABlockAtAMarkerLineNotesBodyColumnOpensInTheNoteTest::testTheBlockOpensInTheNote with data set \"a quote, with a fence in its lazy paragraph\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\ABlockAtAMarkerLineNotesBodyColumnOpensInTheNoteTest::testTheBlockOpensInTheNote with data set \"an unclosed fence after a term opens and runs to the note end\"",
             "ticket": "carve-php#4244"
         },
         {
@@ -4251,10 +4199,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AQuotesLazyCommentLineIsStillACommentTest::testADefinitionOnTheSameLineIsOrdinaryTextInstead",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\ARuledContainerBoundariesRemainStableTest::testRenderedHtml with data set \"3653 refused marker in quote\"",
             "ticket": "carve-php#4244"
         },
         {
@@ -8460,10 +8404,6 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\VerseOwnershipBoundariesTest::testLazyList",
             "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testReading with data set \"indented fence run is payload, not a closer\"",
-            "ticket": "carve-php#4243"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TheContinuationMarkerSColumnGateReachesEveryContainerTest::testTheMarkerAndCommentRespectTheirOwners with data set \"a footnote body in a block quote, at its minimum column\"",
