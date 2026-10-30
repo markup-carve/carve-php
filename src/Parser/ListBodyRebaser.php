@@ -116,10 +116,12 @@ final class ListBodyRebaser
         $opensList = ($this->getListParser)()->parseListItemMarker($lines[$start]) !== null;
         $contentColumn = $this->containerContentColumn($lines[$start], 0);
         $termOpen = !$opensList && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $lines[$start]) === 1;
+        $bodyParagraph = false;
         for ($j = $start + 1; $j < $count; $j++) {
             $candidate = $lines[$j];
             if (IndentationHelper::isBlankLine($candidate)) {
                 $termOpen = false;
+                $bodyParagraph = false;
 
                 continue;
             }
@@ -133,6 +135,9 @@ final class ListBodyRebaser
                 if ($contentColumn !== null && $indent < $contentColumn) {
                     break;
                 }
+                $bodyParagraph = $bodyParagraph
+                    && !($this->isBlockElementStartCallback)(ltrim($candidate, " \t"), $lines, $j)
+                    && !($this->startsNewBlockCallback)(ltrim($candidate, " \t"), $lines, $j);
                 if (!$opensList && $contentColumn === null) {
                     $comment = ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn($candidate);
                     if ($comment !== null) {
@@ -160,6 +165,16 @@ final class ListBodyRebaser
                     || preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $candidate) === 1
                 );
             if (!$continues) {
+                // A lazy line of the description's open paragraph stays in the body (PART 1 S4).
+                if (
+                    $bodyParagraph
+                    && !($this->isBlockElementStartCallback)($candidate, $lines, $j)
+                    && !($this->startsNewBlockCallback)($candidate, $lines, $j)
+                ) {
+                    $end = $j;
+
+                    continue;
+                }
                 if ($termOpen && ($candidate[0] ?? '') === '{') {
                     $attributeLength = ($this->isBlockAttributeLineCallback)($candidate)
                         ? 1
@@ -187,6 +202,9 @@ final class ListBodyRebaser
             }
             if (!$opensList) {
                 $termOpen = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $candidate) === 1;
+                $bodyParagraph = preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $candidate, $body) === 1
+                    && !($this->isBlockElementStartCallback)($body[2], $lines, $j)
+                    && !($this->startsNewBlockCallback)($body[2], $lines, $j);
             }
             $contentColumn = $this->containerContentColumn($candidate, 0) ?? $contentColumn;
             $end = $j;

@@ -2867,7 +2867,16 @@ final class BlockContinuationScanner
             $run->attributeDivFence = $attributeFenceOpener;
         }
         $itemLines[] = $contentLine;
-        $run->openDefinitionBody = $this->advanceItemDefinitionBody($run->openDefinitionBody, $contentLine);
+        // A lazy line of the description's open paragraph keeps its body open (PART 1 S4).
+        $lazyBodyLine = $run->recentDefinitionParagraph && $trailingState->openParagraph
+            && !$this->lineOpensBlockForLooseness(ltrim($contentLine, " \t"), true);
+        if (
+            !$lazyBodyLine
+            || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $contentLine) === 1
+            || preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $contentLine) === 1
+        ) {
+            $run->openDefinitionBody = $this->advanceItemDefinitionBody($run->openDefinitionBody, $contentLine);
+        }
         if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $contentLine, $definitionMatch) === 1) {
             $bodyHead = $definitionMatch[2];
             $run->recentDefinitionParagraph = !$this->isBlockElementStart($bodyHead) && !$this->startsNewBlock($bodyHead);
