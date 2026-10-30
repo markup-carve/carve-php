@@ -2112,12 +2112,17 @@ final class DefinitionListBuilder
 
             return true;
         }
+        // A below-column line the ownership walk read as closing containers ends the body (PART 1 S4).
+        $walkCloses = $l->indent < $b->continuationColumn && !IndentationHelper::isBlankLine($l->contLine)
+            && !str_starts_with(ltrim($l->contLine, " \t"), BlockGrammar::LAZY_FRAME)
+            && isset($this->state->source->closingLines[$this->sourceLineFor($b->i)]);
         if (
             $b->bodyState->fence !== null
             && $b->bodyInterruptedParagraphFence
             && $b->bodyOpenerBase !== null && $b->bodyOpenerBase > 0
             && $l->indent < $b->continuationColumn
             && !IndentationHelper::isBlankLine($l->contLine)
+            && !$walkCloses
         ) {
             $b->body[] = str_repeat(' ', $b->continuationColumn) . BlockGrammar::LAZY_FRAME . ltrim($l->contLine, " \t");
             $b->bodyMap[] = $this->sourceLineFor($b->i);
@@ -2125,10 +2130,6 @@ final class DefinitionListBuilder
 
             return true;
         }
-        // A below-column line the ownership walk read as closing containers ends the body (PART 1 S4).
-        $walkCloses = $l->indent < $b->continuationColumn && !IndentationHelper::isBlankLine($l->contLine)
-            && !str_starts_with(ltrim($l->contLine, " \t"), BlockGrammar::LAZY_FRAME)
-            && isset($this->state->source->closingLines[$this->sourceLineFor($b->i)]);
         if (!$paragraphOpen || ($b->bodyEndsWithAttribute && !$bodyTermOpen) || $walkCloses) {
             // AND THE BOUNDARY CLOSER IS SYNTHESIZED, exactly as
             // the list-item collector synthesizes it: the closer
@@ -2138,7 +2139,8 @@ final class DefinitionListBuilder
             // into inline code. Carried with no source line, because
             // the authored closer is still the document's to read.
             if (($b->bodyState->fence !== null) && $b->bodyInterruptedParagraphFence) {
-                $b->body[] = str_repeat($b->bodyState->fence->char, $b->bodyState->fence->length);
+                $b->body[] = str_repeat(' ', ($b->bodyOpenerBase ?? 0) + $b->bodyState->fence->column)
+                    . str_repeat($b->bodyState->fence->char, $b->bodyState->fence->length);
                 $b->bodyMap[] = -1;
             }
 
