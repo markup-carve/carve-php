@@ -158,6 +158,21 @@ final class ContinuationMarkerClassifier
             && !str_starts_with($head, '>');
     }
 
+    /**
+     * Whether a list item below stack entry $below holds content at $column.
+     */
+    private function listContentAt(int $column, int $depth, int $below): bool
+    {
+        for ($at = $below - 1; $at >= 0; $at--) {
+            $entry = $this->stack[$at];
+            if ($entry['kind'] === 'list' && $entry['content'] === $column && $entry['depth'] === $depth) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function clearTermColumnsUnlessDescription(string $head, int $column, int $depth): void
     {
         if (str_starts_with($head, ': ') || $head === '') {
@@ -435,6 +450,7 @@ final class ContinuationMarkerClassifier
                 if (
                     $entry['kind'] === 'description' && $column >= $entry['column']
                     && $column < $entry['content']
+                    && !$this->listContentAt($column, $depth, $at)
                 ) {
                     $this->descriptionLazy = $this->descriptionLazy || str_starts_with($head, '>');
 
