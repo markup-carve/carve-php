@@ -2586,13 +2586,6 @@ final class BlockContinuationScanner
                 ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
             if ($floorOpener !== null && !$this->listAuthoredFenceCloserAhead($lines, $i, $floorOpener, $contentIndent, $contentIndent, $baseIndent, $run->authoredFenceMisses, $run->authoredFenceHits)) {
                 $run->minimumFenceBase = true;
-                if (
-                    $run->itemOwnFenceRuns && !$run->markerNoteItem && $run->openDefinitionBody === null && !$run->pendingDefinitionTerm && !$run->pendingAttachedAttributes
-                    && !$this->isCommentLineOrFence(ltrim($itemLines[count($itemLines) - 1] ?? '', " \t"))
-                ) {
-                    $run->unclosedFenceColumn ??= $contentIndent;
-                    $unclosedFenceBase ??= 0;
-                }
                 $run->floorExistingDiv = $trailingState->hasOpenDiv() || $trailingState->divDepth > 0;
                 $run->floorInlineLength = $floorOpener['length'];
                 $run->floorParagraphWitness = true;
@@ -2949,14 +2942,6 @@ final class BlockContinuationScanner
         if (
             $quotedLazyOpener || $quotedLazyMarker || $failedReplayFence || $descendantParagraphFence
             || ($authoredTermContinuation && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0))
-        ) {
-            return $this->advanceTrailingState($trailingState, 'text', true);
-        }
-        if (
-            $wasOpenParagraph
-            && !$wasInFence
-            && $run->authoredCodeColumn === null
-            && $this->itemFenceRunOutlivesAtSource($lines, $i, $contentLine, $contentIndent)
         ) {
             return $this->advanceTrailingState($trailingState, 'text', true);
         }
@@ -3642,14 +3627,6 @@ final class BlockContinuationScanner
             && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($lastItemLine, " \t")) !== null;
         if (($outsideAttributeFence || $outsideAfterAttributeFence) && $this->attributeOwnerIsDiv($itemLines)) {
             return false;
-        }
-        if ($run->descriptionFence !== null && $nextIndent < $run->descriptionFence['body']) {
-            $itemLines[] = str_repeat(' ', max(0, $run->descriptionFence['body'] - $contentIndent))
-                . BlockGrammar::LAZY_FRAME . $nextTrimmed;
-            $itemLineMap[] = $this->sourceLineFor($i);
-            $i++;
-
-            return true;
         }
         if (
             !$trailingState->openParagraph
