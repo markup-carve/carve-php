@@ -1773,7 +1773,7 @@ final class ListBlockBuilder
                     break;
                 }
                 if (
-                    !$subTrailingState->openParagraph
+                    (!$subTrailingState->openParagraph || isset($this->state->source->closingLines[$this->sourceLineFor($i)]))
                     && (
                         !$subTrailingState->inDiv
                         || $subTrailingState->hasLiteralDiv()

@@ -355,7 +355,7 @@ final class BlockOwnershipWalk
             }
             if (
                 $missed && !$plusFollower && $this->m['rest'] !== '' && !$afterSoftLeaf
-                && $inner->kind !== 'fence' && !$this->frames[$topIndex]->para
+                && !($inner->kind === 'fence' && $inner->family !== 'code') && !$this->frames[$topIndex]->para
             ) {
                 $this->closingLines[$at] = true;
             }

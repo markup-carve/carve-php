@@ -893,6 +893,7 @@ final class DefinitionListBuilder
         if (
             $b->body !== [] && preg_match('/^\^ +\S/', $l->contLine) === 1
             && (str_starts_with($b->body[0], '![') || $quotedBody && $b->bodyNestedState->openParagraph)
+            && !isset($this->state->source->closingLines[$this->sourceLineFor($b->i)])
         ) {
             $b->body[array_key_last($b->body)] .= "\n" . $l->contLine;
             $b->i++;
@@ -2124,7 +2125,11 @@ final class DefinitionListBuilder
 
             return true;
         }
-        if (!$paragraphOpen || ($b->bodyEndsWithAttribute && !$bodyTermOpen)) {
+        // A below-column line the ownership walk read as closing containers ends the body (PART 1 S4).
+        $walkCloses = $l->indent < $b->continuationColumn && !IndentationHelper::isBlankLine($l->contLine)
+            && !str_starts_with(ltrim($l->contLine, " \t"), BlockGrammar::LAZY_FRAME)
+            && isset($this->state->source->closingLines[$this->sourceLineFor($b->i)]);
+        if (!$paragraphOpen || ($b->bodyEndsWithAttribute && !$bodyTermOpen) || $walkCloses) {
             // AND THE BOUNDARY CLOSER IS SYNTHESIZED, exactly as
             // the list-item collector synthesizes it: the closer
             // that armed this fence stands past the line ending the
