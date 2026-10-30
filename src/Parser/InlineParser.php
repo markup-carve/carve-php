@@ -99,6 +99,13 @@ class InlineParser
     protected int $textOrigin = 0;
 
     /**
+     * Absolute offsets of the `*` of each combined closer that ended a `%%` comment.
+     *
+     * @var array<int, true>
+     */
+    protected array $commentCuts = [];
+
+    /**
      * The unsliced inline source for delimiter-sensitive typography.
      */
     private string $blockInlineSource = '';
@@ -672,6 +679,7 @@ class InlineParser
         $this->delimiterStack = [];
         $this->currentLine = $sourceLine;
         $this->textOrigin = 0;
+        $this->commentCuts = [];
         $this->blockInlineSource = $text;
         // Only when a diagnostic can actually be kept: this is one pass over
         // the block, and the default parse has no use for it.
@@ -1198,8 +1206,7 @@ class InlineParser
             }
 
             if ($this->isLineCommentOpener($text, $pos)) {
-                $nl = strpos($text, "\n", $pos);
-                $end = $nl === false ? $length : $nl;
+                $end = $this->lineCommentEnd($text, $pos);
                 $content = substr($text, $pos + 2, $end - ($pos + 2));
                 // One ASCII space separates `%%` from its content.
                 if ($content !== '' && $content[0] === ' ') {
@@ -1811,6 +1818,73 @@ class InlineParser
         }
 
         return $previous === ' ' || $previous === "\n";
+    }
+
+    /**
+     * Where the `%%` comment at $at ends: at the closer token of a combined
+     * shape it stands in, whether or not that shape forms, else at its line's
+     * end (carve#4042).
+     */
+    private function lineCommentEnd(string $text, int $at): int
+    {
+        $lineBreak = strpos($text, "\n", $at);
+        $lineEnd = $lineBreak === false ? strlen($text) : $lineBreak;
+        // A span's content lost the `/` of the closer its comment was cut at.
+        if ($this->commentCuts !== []) {
+            $star = $at + 2;
+            while (($star = strpos($text, '*', $star)) !== false && $star < $lineEnd) {
+                if (isset($this->commentCuts[$this->textOrigin + $star])) {
+                    return $star;
+                }
+                $star++;
+            }
+        }
+        $closer = $this->combinedCloserToken($text, $at + 2, $lineEnd);
+        if ($closer === null || !$this->combinedShapeBefore($text, $at)) {
+            return $lineEnd;
+        }
+        $this->commentCuts[$this->textOrigin + $closer] = true;
+
+        return $closer;
+    }
+
+    /**
+     * The first `*` in [$from, $end) that starts a combined closer token.
+     */
+    private function combinedCloserToken(string $text, int $from, int $end): ?int
+    {
+        while (($closer = strpos($text, '*/', $from)) !== false && $closer < $end) {
+            $after = $text[$closer + 2] ?? '';
+            if (
+                $closer > 0 && !StringUtil::isWhitespaceChar($text[$closer - 1])
+                && ($after === '' || !ctype_alnum($after)) && !$this->hasGraphemeExtender($text, $closer + 2)
+            ) {
+                return $closer;
+            }
+            $from = $closer + 1;
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether a combined opener shape before $at has no closer token of its own before $at.
+     */
+    private function combinedShapeBefore(string $text, int $at): bool
+    {
+        $before = substr($text, 0, $at);
+        while (($open = strrpos($before, '/*')) !== false) {
+            $next = $text[$open + 2] ?? '';
+            if (
+                $next !== '' && !StringUtil::isWhitespaceChar($next) && !$this->hasGraphemeExtender($text, $open + 2)
+                && ($open === 0 || !ctype_alnum($text[$open - 1])) && !$this->isEscapedAt($text, $open)
+            ) {
+                return $this->combinedCloserToken($text, $open + 2, $at) === null;
+            }
+            $before = substr($before, 0, $open);
+        }
+
+        return false;
     }
 
     protected function flushText(Node $parent, string $text): void
@@ -3584,6 +3658,7 @@ class InlineParser
         $attached = [];
         // The last opener of each other kind the walk has passed.
         $lastOpener = [];
+        $passedOpeners = [];
         $literalEnd = 0;
         $searchPos = $searchStart;
         while ($searchPos < $length) {
@@ -3616,7 +3691,10 @@ class InlineParser
             $guards = $guard !== null ? substr($text, $guardFrom, $searchPos - $guardFrom) : '';
             if (
                 $child !== null && $guard !== null && $guard >= $searchStart
-                && (str_contains($guards, $delimiter) || array_intersect(str_split($guards), $this->openSpanKinds) !== [])
+                && (
+                    str_contains($guards, $delimiter) || array_intersect(str_split($guards), $this->openSpanKinds) !== []
+                    || $this->guardKindHeld($text, $guards, $guardFrom, $passedOpeners)
+                )
             ) {
                 $child = null;
             }
@@ -3747,8 +3825,8 @@ class InlineParser
             // the combined token's `*/` closer already skipped the comment this
             // way; only the delimiter scan carried the give-up.
             if ($this->isLineCommentOpener($text, $searchPos)) {
-                $commentLineEnd = strpos($text, "\n", $searchPos + 2);
-                if ($commentLineEnd === false) {
+                $commentLineEnd = $this->lineCommentEnd($text, $searchPos);
+                if ($commentLineEnd === $length) {
                     break;
                 }
                 $searchPos = $commentLineEnd;
@@ -3770,6 +3848,7 @@ class InlineParser
                 && $this->bareOpenerKind($text, $searchPos) !== 'none'
             ) {
                 $lastOpener[$char] = $searchPos;
+                $passedOpeners[$char][] = $searchPos;
             }
 
             // The `=` of a comparison neither opens nor closes (PART 9 section 9).
@@ -3895,6 +3974,37 @@ class InlineParser
     }
 
     /**
+     * A guard whose kind an earlier entry of this walk still holds is not pushed
+     * (E3), so it stays a guard (carve#3973 X1).
+     *
+     * @param string $text
+     * @param string $guards
+     * @param int $guardFrom
+     * @param array<string, array<int, int>> $passedOpeners
+     */
+    private function guardKindHeld(string $text, string $guards, int $guardFrom, array $passedOpeners): bool
+    {
+        foreach (str_split($guards) as $kind) {
+            $reach = -1;
+            foreach ($passedOpeners[$kind] ?? [] as $open) {
+                if ($open >= $guardFrom) {
+                    break;
+                }
+                if ($open <= $reach || $this->bareOpenerKind($text, $open) !== 'open') {
+                    continue;
+                }
+                $close = $this->delimitedClose($text, $open, $kind, $text[$open - 1] === '{' && !$this->isEscapedAt($text, $open - 1));
+                if ($close === null || $close > $guardFrom) {
+                    return true;
+                }
+                $reach = $close;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * A span of another kind open at the child's opener that closes before the
      * child's closer demotes that opener (E2), so the child's block is content.
      *
@@ -3962,6 +4072,7 @@ class InlineParser
         }
         $failedStarts = [$start];
         $attached = [];
+        $passedOpeners = [];
         $searchPos = $start;
         while ($searchPos + 1 < $length) {
             if (
@@ -3989,6 +4100,15 @@ class InlineParser
             $char = $text[$searchPos];
             // The holders the bare walk skips, minus the kinds this token opens (E3).
             $child = $char !== '/' && $char !== '*' && !isset($attached[$searchPos + 1]) ? $this->bracedPairIndex?->bareAttributes($searchPos) : null;
+            if ($child !== null && $child['guard'] !== null && $child['guard'] >= $start) {
+                $guardFrom = max($child['guardFrom'], $start);
+                if ($this->guardKindHeld($text, substr($text, $guardFrom, $searchPos - $guardFrom), $guardFrom, $passedOpeners)) {
+                    $child = null;
+                }
+            }
+            if ($char !== '/' && $char !== '*' && str_contains('_~=', $char) && $this->bareOpenerKind($text, $searchPos) !== 'none') {
+                $passedOpeners[$char][] = $searchPos;
+            }
             if ($child !== null) {
                 $attached[$child['close'] + 1] = $child['end'];
             }
@@ -5511,8 +5631,7 @@ class InlineParser
                 } elseif ($char === '<') {
                     $end = $this->findCrossrefEnd($text, $at) ?? $this->findAutolinkEnd($text, $at);
                 } elseif ($char === '%' && $this->isLineCommentOpener($text, $at)) {
-                    $lineEnd = strpos($text, "\n", $at);
-                    $end = min($lineEnd === false ? $length : $lineEnd, $labels !== [] ? $labels[array_key_last($labels)] : $length);
+                    $end = min($this->lineCommentEnd($text, $at), $labels !== [] ? $labels[array_key_last($labels)] : $length);
                     $lineComments[$at] = $end;
                 } elseif ($char === '{' && ($text[$at + 1] ?? '') === '#' && isset($bounds[$at - 1]) && !$this->hasDecoratedBracedOpener($text, $at)) {
                     $close = $this->findAttributeEnd($text, $at);
