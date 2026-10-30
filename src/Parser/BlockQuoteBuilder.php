@@ -2242,7 +2242,7 @@ final class BlockQuoteBuilder
             return false;
         }
         $last = $lines[array_key_last($lines)];
-        if (preg_match('/^:{3,}[ \t]*$/', ltrim($last, " \t")) !== 1) {
+        if (preg_match('/^(:{3,})[ \t]*$/', ltrim($last, " \t"), $run) !== 1) {
             return false;
         }
         $column = IndentationHelper::getLeadingColumns($last);
@@ -2250,8 +2250,10 @@ final class BlockQuoteBuilder
             if (IndentationHelper::getLeadingColumns($lines[$back]) !== $column) {
                 continue;
             }
+            $opener = ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($lines[$back], " \t"));
 
-            return (($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($lines[$back], " \t"))['className'] ?? null) === '|';
+            // Only an exact-length run closes it; a longer one is payload (PART 0 FAMILIES).
+            return ($opener['className'] ?? null) === '|' && $opener['length'] === strlen($run[1]);
         }
 
         return false;
