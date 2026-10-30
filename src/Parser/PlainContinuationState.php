@@ -143,6 +143,13 @@ final class PlainContinuationState
      */
     public ?array $definitionBlankAnswer = null;
 
+    /**
+     * The open-term answer for the blank run ending at the first index.
+     *
+     * @var array{0: int, 1: bool}|null
+     */
+    public ?array $termBlankAnswer = null;
+
     public bool $pendingDefinitionTerm = false;
 
     public ?int $authoredTermColumn = null;

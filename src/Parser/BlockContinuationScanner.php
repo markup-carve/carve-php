@@ -3878,6 +3878,7 @@ final class BlockContinuationScanner
             || $run->termCodeTailFence !== null
             || ($run->unclosedFenceColumn !== null && $run->itemOwnFenceRuns && !$run->markerNoteItem)
             || $definitionContinuesBlank
+            || $this->openTermTakesDescriptionPastBlank($run, $itemLines, $lines, $i, $count, $contentIndent)
         ) {
             if ($run->termCodeTailFence !== null) {
                 $run->termCodeTailAfterBlank = true;
@@ -3893,6 +3894,46 @@ final class BlockContinuationScanner
         }
 
         return false;
+    }
+
+    /**
+     * A term the item holds takes a description past a blank run (CARVE-P9-016).
+     *
+     * @param \MarkupCarve\Carve\Parser\PlainContinuationState $run
+     * @param array<string> $itemLines
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     * @param int $contentIndent
+     */
+    private function openTermTakesDescriptionPastBlank(
+        PlainContinuationState $run,
+        array $itemLines,
+        array $lines,
+        int $i,
+        int $count,
+        int $contentIndent,
+    ): bool {
+        // One answer per blank run: its later blanks are collected lines already.
+        if ($run->termBlankAnswer !== null && $run->termBlankAnswer[0] === $i - 1) {
+            $run->termBlankAnswer[0] = $i;
+
+            return $run->termBlankAnswer[1];
+        }
+        $last = '';
+        for ($k = count($itemLines) - 1; $k >= 0 && $last === ''; $k--) {
+            $last = trim($itemLines[$k]);
+        }
+        $answer = false;
+        if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $last) === 1 && IndentationHelper::getLeadingColumns($itemLines[$k + 1]) === 0) {
+            for ($j = $i + 1; $j < $count && IndentationHelper::isBlankLine($lines[$j]); $j++) {
+            }
+            $answer = $j < $count && IndentationHelper::getLeadingColumns($lines[$j], $contentIndent + 1) === $contentIndent
+                && preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, ltrim($lines[$j], " \t")) === 1;
+        }
+        $run->termBlankAnswer = [$i, $answer];
+
+        return $answer;
     }
 
     /**
