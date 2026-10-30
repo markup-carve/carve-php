@@ -2125,6 +2125,18 @@ final class DefinitionListBuilder
             return true;
         }
         if (!$paragraphOpen || ($b->bodyEndsWithAttribute && !$bodyTermOpen)) {
+            // AND THE BOUNDARY CLOSER IS SYNTHESIZED, exactly as
+            // the list-item collector synthesizes it: the closer
+            // that armed this fence stands past the line ending the
+            // body, so the body is parsed on its own from a
+            // truncated stream and §10 I4 turns the same opener back
+            // into inline code. Carried with no source line, because
+            // the authored closer is still the document's to read.
+            if (($b->bodyState->fence !== null) && $b->bodyInterruptedParagraphFence) {
+                $b->body[] = str_repeat($b->bodyState->fence->char, $b->bodyState->fence->length);
+                $b->bodyMap[] = -1;
+            }
+
             return false;
         }
         if (
