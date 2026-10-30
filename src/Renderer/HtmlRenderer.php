@@ -2502,6 +2502,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($node instanceof InlineFootnote) {
             return true;
         }
+        if (UnresolvedReference::sourceOf($node) !== null) {
+            return false;
+        }
         foreach ($node->getChildren() as $child) {
             if (!$child instanceof Footnote && $this->holdsANoteBounded($child, $depth + 1)) {
                 return true;
@@ -2522,7 +2525,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 }
             } elseif ($current instanceof InlineFootnote) {
                 return true;
-            } else {
+            } elseif (UnresolvedReference::sourceOf($current) === null) {
                 $children = $current->getChildren();
                 if (count($children) === 1) {
                     $child = reset($children);
@@ -2614,6 +2617,16 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
+     * @param array<string> $classes
+     *
+     * @return list<string>
+     */
+    private function classTokens(array $classes): array
+    {
+        return preg_split('/[ \t\n\r]+/', trim(implode(' ', $classes), " \t\n\r")) ?: [];
+    }
+
+    /**
      * @return array{string, string, string}
      */
     private function divLayoutFrame(Div $node): array
@@ -2670,7 +2683,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $attrs = $this->getRenderableAttributes($node);
             $attrs['class'] = trim('admonition ' . implode(' ', array_merge($types, $others)));
             if (in_array($classes[0], Div::ADMONITION_TYPES, true)) {
-                $attrs['class'] = implode(' ', ['admonition', $classes[0], ...array_unique(array_slice($classes, 1))]);
+                $attrs['class'] = implode(' ', array_unique(['admonition', ...$this->classTokens($classes)]));
             }
             $hasAuthoredName = false;
             foreach (array_keys($attrs) as $name) {
@@ -2710,8 +2723,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // the fenced-div primitive the block-extension mechanism builds on.
         $attributes = $this->getRenderableAttributes($node);
         if ($node->isTyped() && isset($attributes['class']) && $classes !== []) {
-            $baseClass = array_shift($classes);
-            $attributes['class'] = implode(' ', [$baseClass, ...array_unique($classes)]);
+            $attributes['class'] = implode(' ', array_unique($this->classTokens($classes)));
         }
         $attrs = $this->renderAttributeArray($attributes, 'div');
         // PART 10 §13a: a `<div>` with no attribute is any foreign div, so a bare one is marked.
@@ -4746,7 +4758,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // the framing.
         $parent = $node->getParent();
         $loose = $parent instanceof DefinitionList && $parent->isLoose();
-        if (count($visible) === 1 && $visible[0] instanceof Paragraph) {
+        if (count($visible) === 1 && $visible[0] instanceof Paragraph && !$this->isBlockImageParagraph($visible[0])) {
             $inner = $this->renderChildren($visible[0]);
             $body = $loose
                 ? '<p' . $this->renderAttributes($visible[0], 'p') . '>' . $inner . '</p>'

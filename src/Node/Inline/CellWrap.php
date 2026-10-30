@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node\Inline;
 
+use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\TableCell;
 
 /**
@@ -42,11 +43,26 @@ class CellWrap extends InlineNode
     }
 
     /**
-     * The text this wrap renders as: none when it leads its table cell, where it
-     * records the source line but separates nothing.
+     * The text this wrap renders as: none when it leads its table cell or only
+     * comments follow it (T6), where it records the source line but separates nothing.
      */
     public function visibleText(): string
     {
-        return $this->getParent() instanceof TableCell && $this->getPreviousSibling() === null ? '' : ' ';
+        if (!$this->getParent() instanceof TableCell) {
+            return ' ';
+        }
+        if ($this->getPreviousSibling() === null) {
+            return '';
+        }
+        $children = $this->getParent()->getChildren();
+        for ($sibling = end($children); $sibling !== false && $sibling !== $this; $sibling = prev($children)) {
+            if ($sibling instanceof self || ($sibling instanceof Comment && !$sibling->isDelimited())) {
+                continue;
+            }
+
+            return ' ';
+        }
+
+        return '';
     }
 }

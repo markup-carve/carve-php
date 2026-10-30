@@ -248,6 +248,21 @@ class HeadingIdTracker
     }
 
     /**
+     * Register a numbered caption's label, as markup where the caption allows it.
+     *
+     * @param string $id
+     * @param string $text
+     * @param list<\MarkupCarve\Carve\Node\Node>|null $nodes
+     */
+    public function setCaptionLabel(string $id, string $text, ?array $nodes): void
+    {
+        if ($id !== '' && !isset($this->textById[$id]) && $nodes !== null) {
+            $this->nodesById[$id] = $nodes;
+        }
+        $this->setTextForId($id, $text);
+    }
+
+    /**
      * Track an explicit ID from a non-heading element
      *
      * This prevents auto-generated heading IDs from conflicting
@@ -374,7 +389,9 @@ class HeadingIdTracker
             '…' => '...',
             '→' => '->',
             '←' => '<-',
-            '⇒' => '=>',
+            '⇒' => '==>',
+            '⇐' => '<==',
+            '⇔' => '<=>',
             '≤' => '<=',
             '≥' => '>=',
             '≠' => '!=',

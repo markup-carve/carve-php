@@ -1359,6 +1359,7 @@ class BlockParser
                 ) {
                     if ($child->getAttributeEntries() !== []) {
                         $image->mergeLeadingAttributes($child->getAttributeEntries(), $child->getAttributeOrder());
+                        $image->setRenderHint('blockAttributesMerged', '1');
                         foreach (array_keys($child->getAttributeEntries()) as $key) {
                             $child->removeAttribute((string)$key);
                         }
@@ -1577,9 +1578,14 @@ class BlockParser
         $session->pendingAttributeOrder = [];
         $session->discoveringDefinitions = true;
         $this->footnoteBodyDepth++;
+        $host = $session->footnotes[$label] ?? new Footnote($label);
+        $warnings = $session->warnings;
         try {
             if (count($body['lines']) !== 1 || rtrim($body['lines'][0], " \t") !== '{empty}') {
-                $this->parseBlocks($session->footnotes[$label], $body['lines'], 0, $body['lineMap']);
+                $this->parseBlocks($host, $body['lines'], 0, $body['lineMap']);
+            }
+            if (!isset($session->footnotes[$label])) {
+                $session->warnings = $warnings;
             }
             $this->endContainerAttributeScope();
         } finally {
@@ -4103,6 +4109,12 @@ class BlockParser
                     $definition['label'],
                 );
             }
+            // Only the label loses (PART 9R R2): definitions inside this body are
+            // still collected. The key holds a newline, which no label key does.
+            $this->state->session->discoveredFootnoteBodies["\n" . $start . "\n" . $key] = [
+                'lines' => $bodyLines,
+                'lineMap' => $bodyLineMap,
+            ];
         }
 
         return $i - $start;
@@ -5273,7 +5285,7 @@ class BlockParser
                 break;
             }
             $captionLine = BlockGrammar::stripLazyFrame($nextLine);
-            $sourceLine = $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? null;
+            $sourceLine = $this->state->source->authoredLines[$this->sourceLineFor($i)] ?? null;
             if ($sourceLine !== null) {
                 $authored = ltrim($sourceLine, " \t");
                 $quoted = ContainerPrefix::quoteContent($authored);
@@ -5287,6 +5299,9 @@ class BlockParser
                 $excess = strspn($captionLine, " \t") - $authoredIndent;
                 if ($excess > 0) {
                     $captionLine = substr($captionLine, $excess);
+                } elseif ($excess < 0 && $this->listParser->parseListItemMarker(ltrim($captionLine, " \t")) !== null) {
+                    // The ownership walk moved this marker line; a caption keeps its run (CARVE-P2-020).
+                    $captionLine = str_repeat(' ', -$excess) . $captionLine;
                 }
             }
             $captionLines[] = $captionLine;

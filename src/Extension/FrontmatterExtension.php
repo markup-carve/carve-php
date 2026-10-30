@@ -95,7 +95,7 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
     /**
      * @var string
      */
-    protected const OPEN_PATTERN = '/^--- ?(\w*)[ \t]*$/';
+    protected const OPEN_PATTERN = '/^--- ?([a-zA-Z0-9]*)[ \t]*$/';
 
     protected ?Frontmatter $frontmatter = null;
 
