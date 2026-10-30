@@ -21,11 +21,9 @@
         "fences-30815e34eed9",
         "fences-3c08da2ac717",
         "fences-40d8bfbdce79",
-        "fences-65c1ed9e80fd",
         "fences-6bb4b2c08642",
         "fences-7427311dd994",
         "fences-8e1753b3b5d2",
-        "fences-a417f2c27098",
         "fences-ab7d8fe98c9e",
         "fences-cb40a08673a4",
         "fences-e0910c8dd446"
@@ -55,8 +53,6 @@
         "lazy-7f31fa259b62",
         "lazy-7f8806c2a9ca",
         "lazy-88609a600f0f",
-        "lazy-8a2a96143cc6",
-        "lazy-98e763c7e07e",
         "lazy-a25e7b8f38cf",
         "lazy-aeb7bbd2d31f",
         "lazy-ea480eb4d58d",
@@ -90,7 +86,6 @@
         "ownership-2c82d60868cc",
         "ownership-4b546e287bf8",
         "ownership-515b9fdab518",
-        "ownership-530a2b9a948e",
         "ownership-56430089e054",
         "ownership-638bc57821de",
         "ownership-8ee51def382e",
@@ -126,8 +121,7 @@
         "roundtrip-73c51797f6b8",
         "roundtrip-840844dcac3f",
         "roundtrip-90c120916d56",
-        "roundtrip-d1f9fa04915c",
-        "roundtrip-f1aaf24e804d"
+        "roundtrip-d1f9fa04915c"
       ]
     },
     {
