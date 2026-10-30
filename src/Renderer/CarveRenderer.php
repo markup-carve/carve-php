@@ -278,6 +278,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     private bool $paragraphAtAuthoredBodyColumn = false;
 
+    /**
+     * @var bool
+     */
+    private bool $codeEndsItsParagraph = false;
+
+    /**
+     * @var string
+     */
+    private const DEFINITION_SHAPED_LAST_LINE = '/\n[ \t]*\[[^\]\n^]+\]:[ \t][^\n]*\z/';
+
     private bool $inCaption = false;
 
     private function renderCaptionInlines(Caption $caption): string
@@ -4853,6 +4863,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         bool $nextOpensVerbatim = false,
     ): string {
         $this->ensureWriterState();
+        $siblings = ($node instanceof Code || $node instanceof Math) && $node->getAttributeEntries() === [] && $node->getParent() instanceof Paragraph ? $node->getParent()->getChildren() : [];
+        $this->codeEndsItsParagraph = $siblings !== [] && end($siblings) === $node;
         $withAttrs = fn (string $body): string => $body . $this->renderAttrs($node);
         $this->pendingVerbatimCellWraps = $node instanceof Code || $node instanceof Math || $node instanceof RawInline ? $node->getCellWraps() : null;
         // An unresolved reference renders as the source the author
@@ -5805,7 +5817,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $listMarker = $nodeType !== 'code' || $this->paragraphAtAuthoredBodyColumn
             ? '|[-*+.](?: +|\{)|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] +'
             : '';
-        $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|\[[^\]\n]+\]:[ \t]' . $colon . $listMarker . '))/';
+        // A definition-shaped last line stays put: the padded closer ends its destination (CARVE-P11-078).
+        $definition = $this->codeEndsItsParagraph
+            ? '\[(?:\^[^\]\n]+\]:[ \t]|[^\]\n]+\]:[ \t](?=[^\n]*\n))'
+            : '\[[^\]\n]+\]:[ \t]';
+        $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|' . $definition . $colon . $listMarker . '))/';
 
         return (string)preg_replace($marker, "\n" . str_repeat($this->verbatimSentinels[7], match ($nodeType) {
             'math' => 3, 'raw_inline' => 4, 'literal_inline' => 5, default => 2
@@ -5885,6 +5901,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $needsPad = $boundaryStart !== null || $boundaryEnd !== null
             || str_starts_with($content, '`')
             || str_ends_with($content, '`')
+            || ($this->codeEndsItsParagraph && preg_match(self::DEFINITION_SHAPED_LAST_LINE, $content) === 1)
             || (str_starts_with($content, ' ')
                 && str_ends_with($content, ' ')
                 && strspn($content, ' ') !== strlen($content));
@@ -5908,6 +5925,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // joining space become the marker renderTable() cuts the row at.
         if ($cellWraps !== null && $this->tableCellDepth > 0) {
             $content = $this->markVerbatimCellWraps($content, $cellWraps);
+        }
+
+        // A join that is the value's first space cannot also be padded: the
+        // padding strip would take it. Only the unclosed spelling keeps it (CARVE-P11-002).
+        if ($needsPad && $boundaryStart === null && $cellWraps !== null && ($cellWraps[0]['offset'] ?? null) === 0) {
+            if (!$this->codeMayRunToEnd) {
+                throw new SourceUnspellableException('code', 'a join at the start of the value needs an unclosed run, and this one does not end');
+            }
+
+            return $fence . $content;
         }
 
         // Block normalization removes a pad before a newline. An unclosed
@@ -6443,6 +6470,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     private function restoreTypedVerbatimGuards(string $text): string
     {
+        // No prefixed column keeps a marker line in a quoted item; a lazy one does (CARVE-P11-078).
+        $text = (string)preg_replace(
+            '/^[ \t>]*>[ \t]*' . $this->verbatimLineGuardPattern() . '(?=(?:[-*+.](?: +|\{)|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] +))/m',
+            '',
+            $text,
+        );
         $sentinel = preg_quote($this->verbatimSentinels[7], '/');
         $guard = '(?<!' . $sentinel . ')(?:' . $sentinel . '){2,5}(?!' . $sentinel . ')';
         $text = (string)preg_replace_callback(
