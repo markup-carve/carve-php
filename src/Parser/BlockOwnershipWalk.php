@@ -103,6 +103,10 @@ final class BlockOwnershipWalk
 
     private int $at = 0;
 
+    private int $wrappedAttributeEnd = -1;
+
+    private bool $onMarkerLine = false;
+
     /**
      * Decision trace records (docs/decision-trace.md in carve), or null when
      * tracing is off. Step ids follow PART 0 (CARVE-P0-024).
@@ -117,6 +121,7 @@ final class BlockOwnershipWalk
         private readonly TableParser $tables,
         private readonly Closure $isDefinition,
         private readonly Closure $isAttributeLine,
+        private readonly Closure $wrappedAttributeLength,
     ) {
     }
 
@@ -133,6 +138,7 @@ final class BlockOwnershipWalk
         $this->closingLines = [];
         $this->softLeaf = false;
         $this->reach = 0;
+        $this->wrappedAttributeEnd = -1;
         $this->lazyLines = [];
         $this->fenceOpenerLines = [];
         $this->refusedPlusLines = [];
@@ -168,6 +174,7 @@ final class BlockOwnershipWalk
             $reached = 0;
             $plus = null;
             $refusedPlus = false;
+            $inWrappedAttribute = $at <= $this->wrappedAttributeEnd;
             $frameCount = count($this->frames);
             // A quote's first-block `+` reads a follower by its raw column (CARVE-P9-067).
             $topFrame = $this->frames[$frameCount - 1];
@@ -216,10 +223,15 @@ final class BlockOwnershipWalk
 
                     continue;
                 }
-                if ($this->m['rest'] !== '' && $this->m['col'] < $f->col) {
+                if ($this->m['rest'] !== '' && $this->m['col'] < $f->col && !$inWrappedAttribute) {
                     break;
                 }
                 $reached = $k;
+            }
+            if ($inWrappedAttribute) {
+                $result[] = $this->out . str_repeat(' ', $this->frames[$reached]->canon) . $this->m['rest'];
+
+                continue;
             }
             if ($plus !== null) {
                 $this->frames = array_slice($this->frames, 0, $plus + 1);
@@ -578,7 +590,9 @@ final class BlockOwnershipWalk
         if ($this->m['rest'] === '' || count($this->frames) > BlockGrammar::MAX_NESTING_DEPTH) {
             return;
         }
+        $this->onMarkerLine = true;
         $form = $this->classify($this->m['rest'], $this->frames[$frame], $this->frames[$frame]->kind === 'quote' ? $this->m['col'] : $start + $this->m['col']);
+        $this->onMarkerLine = false;
         if ($form->kind === 'text') {
             $this->lead($this->m['col']);
             $this->frames[$frame]->absorbs = $this->absorbsColon($this->m['rest']);
@@ -625,6 +639,57 @@ final class BlockOwnershipWalk
         $rest = rtrim($rest, " \t");
 
         return preg_match('/^:{3,}/', $rest) === 1 && $this->fenced->parseDivFenceOpener($rest) === null;
+    }
+
+    /**
+     * A wrapped attribute block is one line to its owner (A5, carve#4089), so its
+     * later lines stay with the opener whatever their column. A later line without
+     * the owner's quote markers does not continue it (PART 4).
+     */
+    private function opensWrappedAttribute(string $rest, OwnershipFrame $owner): bool
+    {
+        // A line below its deepest open frame stays with the existing lazy reading.
+        if (!$this->onMarkerLine && $this->reach < count($this->frames) - 1) {
+            return false;
+        }
+        if (($owner->kind === 'item' || $owner->kind === 'dd') && $this->m['col'] !== $owner->col) {
+            return false;
+        }
+        $depth = 0;
+        foreach ($this->frames as $frame) {
+            if ($this->onMarkerLine && $frame->kind !== 'quote' && $frame->kind !== 'doc') {
+                return false;
+            }
+            $depth += $frame->kind === 'quote' ? 1 : 0;
+            if ($frame === $owner) {
+                break;
+            }
+        }
+        $run = [$rest];
+        $count = count($this->lines);
+        for ($j = $this->at + 1; $j < $count; $j++) {
+            $line = $this->lines[$j];
+            for ($d = 0; $d < $depth; $d++) {
+                if (preg_match(self::QUOTE, ltrim($line, " \t"), $q) !== 1) {
+                    return false;
+                }
+                $line = $q[1] ?? '';
+            }
+            $run[] = $line;
+            if (preg_match('/\}[ \t]*$/D', $line) === 1) {
+                break;
+            }
+            if (trim($line, " \t") === '' || ltrim($line, " \t")[0] === '{') {
+                return false;
+            }
+        }
+        $length = count($run);
+        if ($length < 2 || ($this->wrappedAttributeLength)($run) !== $length) {
+            return false;
+        }
+        $this->wrappedAttributeEnd = $this->at + $length - 1;
+
+        return true;
     }
 
     private function classify(string $rest, OwnershipFrame $owner, int $col): OwnershipForm
@@ -734,13 +799,17 @@ final class BlockOwnershipWalk
             || ($rest[0] === '|' && $this->tables->isTableRow($rest))
             || ($this->isDefinition)($rest)
             || preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1
-            || ($rest[0] === '{' && ($this->isAttributeLine)($rest))
+            || ($rest[0] === '{' && (($this->isAttributeLine)($rest) || $this->opensWrappedAttribute($rest, $owner)))
         ) {
             $this->softLeaf = $owner->para && str_starts_with($rest, '*[') && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1;
 
             return new OwnershipForm(kind: 'leaf', interrupts: true);
         }
         if (preg_match('/^\^ +(?=.*[^ \t\n\r\f])(.*?)[ \t]*$/D', $rest) === 1) {
+            // A caret line with no host above it is paragraph text (PART 9 §10 I7).
+            if ($owner->last === null && $owner->kind !== 'dd') {
+                return new OwnershipForm(kind: 'text', interrupts: false);
+            }
             $this->softLeaf = in_array($owner->last, [null, 'para', 'term'], true);
 
             return new OwnershipForm(kind: 'leaf', interrupts: false);

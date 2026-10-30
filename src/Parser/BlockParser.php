@@ -1027,6 +1027,7 @@ class BlockParser
             $this->tableParser,
             fn (string $line): bool => $this->isReferenceDefinitionLine($line),
             fn (string $line): bool => $this->isBlockAttributeLine($line),
+            fn (array $run): ?int => WrappedBlockAttributeScanner::scan($run, 0, $this->inlineParser)['length'] ?? null,
         );
         // Only the root document is traced; a parse re-entered from it is not.
         $walk->trace = $this->traceNext ? [] : null;
