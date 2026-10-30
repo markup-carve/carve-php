@@ -504,7 +504,7 @@ trait BlockListMethods
         while ($i < $count && str_starts_with($lines[$i], '- ')) {
             $content = substr($lines[$i], 2);
             if (
-                $content === '' || $content !== rtrim($content, " \t")
+                $content === '' || $content !== trim($content, " \t")
                 || !$this->inlineParser->canCopyPlainText($content)
                 || $this->listParser->parseListItemMarker($content) !== null
             ) {
