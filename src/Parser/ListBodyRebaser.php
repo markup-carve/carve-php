@@ -216,24 +216,9 @@ final class ListBodyRebaser
         $noteBodyColumn = IndentationHelper::getLeadingColumns($lines[$start]) + BlockGrammar::FOOTNOTE_BODY_COLUMN;
         for ($j = $start + 1; $j < $count; $j++) {
             $candidate = $lines[$j];
-            // A table at the note's column after a comment still belongs to the note.
-            $comment = ltrim($candidate, " \t");
-            $commentEndsNote = str_starts_with($comment, '%%');
-            if (
-                $commentEndsNote && IndentationHelper::getLeadingColumns($candidate, $noteBodyColumn) >= $noteBodyColumn
-                && $j + 1 < $count
-                && IndentationHelper::getLeadingColumns($lines[$j + 1], $noteBodyColumn) >= $noteBodyColumn
-                && ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($lines[$j + 1], " \t"), 0)
-            ) {
-                $commentEndsNote = false;
-            }
-            if ($commentEndsNote && !str_starts_with($comment, '%%%')) {
-                $nextIsNoteTable = IndentationHelper::getLeadingColumns($candidate, $noteBodyColumn) >= $noteBodyColumn
-                    && $j + 1 < $count
-                    && IndentationHelper::getLeadingColumns($lines[$j + 1], $noteBodyColumn) >= $noteBodyColumn
-                    && ($this->getTableParser)()->isTableRow(ltrim($lines[$j + 1], " \t"));
-                $commentEndsNote = !$nextIsNoteTable;
-            }
+            // A comment at the note's body column is an ordinary note line (CARVE-P0-005).
+            $commentEndsNote = str_starts_with(ltrim($candidate, " \t"), '%%')
+                && IndentationHelper::getLeadingColumns($candidate, $noteBodyColumn) < $noteBodyColumn;
             if (
                 $stopAtDefinition
                 && (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($candidate, " \t")) === 1 || $commentEndsNote)
