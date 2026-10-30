@@ -158,10 +158,16 @@ final class ContinuationMarkerClassifier
             && !str_starts_with($head, '>');
     }
 
-    private function clearTermColumnsUnlessDescription(string $head): void
+    private function clearTermColumnsUnlessDescription(string $head, int $column, int $depth): void
     {
-        if (!str_starts_with($head, ': ')) {
-            $this->termColumns = [];
+        if (str_starts_with($head, ': ') || $head === '') {
+            return;
+        }
+        // A body line past the term keeps the list open for a sibling description (CARVE-P9-016).
+        foreach ($this->termColumns as $at => $termColumn) {
+            if ($at >= $depth && $termColumn >= $column) {
+                unset($this->termColumns[$at]);
+            }
         }
     }
 
@@ -406,7 +412,7 @@ final class ContinuationMarkerClassifier
             $this->stack = array_values(array_filter($this->stack, static fn (array $entry): bool => $entry['kind'] !== 'quote'));
         }
         $head = ltrim($body, " \t");
-        $this->clearTermColumnsUnlessDescription($head);
+        $this->clearTermColumnsUnlessDescription($head, $column, $depth);
         if ($this->paragraphKeepsBelowColumnLine($body, $column) || $this->descriptionKeepsLazyLine($head, $column, $depth)) {
             return;
         }
@@ -519,7 +525,6 @@ final class ContinuationMarkerClassifier
                 if (($this->termColumns[$depth] ?? null) !== $innerColumn) {
                     break;
                 }
-                unset($this->termColumns[$depth]);
                 $this->descriptionLazy = false;
                 $bodyOffset = 1 + strspn(substr($inner, 1), " \t");
                 $content = ltrim(substr($inner, $bodyOffset), " \t");

@@ -17,14 +17,9 @@
       "cause": "untriaged day-one drift in the fences family",
       "cases": [
         "fences-088d930244e3",
-        "fences-29686e87f9fb",
-        "fences-30815e34eed9",
-        "fences-3c08da2ac717",
-        "fences-40d8bfbdce79",
         "fences-6bb4b2c08642",
         "fences-7427311dd994",
         "fences-8e1753b3b5d2",
-        "fences-ab7d8fe98c9e",
         "fences-cb40a08673a4",
         "fences-e0910c8dd446"
       ]
@@ -52,7 +47,6 @@
         "lazy-7eae4bb5a252",
         "lazy-7f31fa259b62",
         "lazy-7f8806c2a9ca",
-        "lazy-88609a600f0f",
         "lazy-a25e7b8f38cf",
         "lazy-aeb7bbd2d31f",
         "lazy-ea480eb4d58d",
@@ -86,13 +80,10 @@
         "ownership-2c82d60868cc",
         "ownership-4b546e287bf8",
         "ownership-515b9fdab518",
-        "ownership-56430089e054",
         "ownership-638bc57821de",
         "ownership-8ee51def382e",
         "ownership-ae57ff05e447",
-        "ownership-b510cfaf63af",
         "ownership-bab956633134",
-        "ownership-e0c0e6393075",
         "ownership-e7b3820fbdf8",
         "ownership-edfbea8daa50"
       ]
@@ -117,10 +108,8 @@
         "roundtrip-39cdccb01232",
         "roundtrip-684e0d745137",
         "roundtrip-702a692a40ae",
-        "roundtrip-729e5a8d67ba",
         "roundtrip-73c51797f6b8",
         "roundtrip-840844dcac3f",
-        "roundtrip-90c120916d56",
         "roundtrip-d1f9fa04915c"
       ]
     },
