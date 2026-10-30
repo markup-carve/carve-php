@@ -346,7 +346,7 @@ final class BlockOwnershipWalk
                 }
                 $result[] = $this->out . $this->src;
                 // A `+` the walk refuses at a marker column stays for the readers to refuse.
-                if (!$refusedPlus) {
+                if (!$refusedPlus && !$this->plusMeetsMovedItem($reached)) {
                     $this->lazyLines[$at] = true;
                 }
                 $this->emitLazy($at, $reached);
@@ -414,6 +414,28 @@ final class BlockOwnershipWalk
         if ($this->trace !== null) {
             $this->emit($at, 'S4', $this->ownerPath(), 'CARVE-P0-006', 'lazy', ['reached' => $this->ownerPath($reached)]);
         }
+    }
+
+    /**
+     * A lone `+` at the column an indented item's marker was moved to reaches that item (PART 0 S3).
+     */
+    private function plusMeetsMovedItem(int $reached): bool
+    {
+        if (preg_match('/^\+[ \t]*$/D', $this->m['rest']) !== 1) {
+            return false;
+        }
+        $count = count($this->frames);
+        for ($k = $reached + 1; $k < $count; $k++) {
+            $f = $this->frames[$k];
+            if ($f->kind === 'quote') {
+                return false;
+            }
+            if ($f->kind === 'item' && $f->markerCol !== null && $f->markerCanon === $this->m['col'] && $f->markerCol > $this->m['col']) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
