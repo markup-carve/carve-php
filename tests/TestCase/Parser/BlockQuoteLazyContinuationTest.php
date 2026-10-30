@@ -44,13 +44,12 @@ class BlockQuoteLazyContinuationTest extends TestCase
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($djot));
     }
 
-    public function testFenceLikeLineInsideOpenParagraphStaysParagraphText(): void
+    public function testFenceLineInsideOpenParagraphOpensAnUnclosedFence(): void
     {
-        // Regression guard: a code fence does NOT interrupt an open paragraph in
-        // strict mode, so the fence-looking line is paragraph text and the next
-        // unquoted line keeps lazily continuing the paragraph.
+        // A valid fence opener interrupts an open paragraph even without a closer
+        // (carve#4032), so the unquoted line below is not a lazy continuation.
         $djot = "> text\n> ```\nlazy";
-        $expected = "<blockquote><p>text\n<code>\nlazy</code></p></blockquote>\n";
+        $expected = "<blockquote>\n  <p>text</p>\n  <pre><code></code></pre>\n</blockquote>\n<p>lazy</p>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($djot));
     }

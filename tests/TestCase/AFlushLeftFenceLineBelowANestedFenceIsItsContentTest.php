@@ -31,7 +31,7 @@ class AFlushLeftFenceLineBelowANestedFenceIsItsContentTest extends TestCase
             'ctrl-closer-at-content-column' => [":: t\n: - ```\n    ```\n\n:: t\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n  <dt>t</dt>\n</dl>"],
             'ctrl-closed-then-flush-left' => [":: t\n: - ```\n    x\n    ```\n```\n\n:: u\n: v\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code>x\n</code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<pre><code>\n:: u\n: v\n</code></pre>"],
             'ctrl-fence-owns-its-content' => [":: t\n: - ```\n  a\n```\n\n:: u\n: v\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    <p>a</p>\n  </dd>\n</dl>\n<pre><code>\n:: u\n: v\n</code></pre>"],
-            'ctrl-term-indented-fence' => [":: t\n   ```\n", "<dl>\n  <dt>t\n   <code></code></dt>\n</dl>"],
+            'ctrl-term-indented-fence' => [":: t\n   ```\n", "<dl>\n  <dt>t</dt>\n</dl>\n<pre><code></code></pre>"],
             'ctrl-term-fence-closed-ahead' => [":: t\n```\nx\n```\n", "<dl>\n  <dt>t</dt>\n</dl>\n<pre><code>x\n</code></pre>"],
             'ctrl-plain-description-body' => [":: t\n: ```\n```\n\n:: u\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n<pre><code>\n:: u\n</code></pre>"],
             'ctrl-list-item-host' => ["- ```\n```\n\nx\n", "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<pre><code>\nx\n</code></pre>"],

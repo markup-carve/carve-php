@@ -20,7 +20,7 @@
   {
     "id": "ci-triage/extra-2",
     "source": "> - a\n>   - ::: box\n>  - next\n>     :::\n- tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>a\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n  <ul>\n    <li>next\n      <div>\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n    <li>next\n      <div>\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n",
     "checker_pin": "078a5922",
     "reference_head": "21e28d03",
     "classification": "C",
@@ -29,7 +29,7 @@
   {
     "id": "ci-triage/extra-3",
     "source": ":: t\n:  - a\n  %% c\ntail",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        tail\n      </li>\n    </ul>\n  </dd>\n</dl>\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>\n",
     "checker_pin": "078a5922",
     "reference_head": "21e28d03",
     "classification": "C",

@@ -433,37 +433,6 @@ final class ListBlockBuilder
      */
     private function foldedBlankLoosensList(array $itemLines, array $itemLineMap, ListItem $item): bool
     {
-        $directParagraphs = array_filter($item->getChildren(), static fn (Node $child): bool => $child instanceof Paragraph);
-        if (count($directParagraphs) > 1) {
-            foreach ($itemLines as $index => $line) {
-                if ($line !== '' || $index === 0 || $index === count($itemLines) - 1) {
-                    continue;
-                }
-                $openerSource = $this->state->source->sourceLines[$itemLineMap[$index - 1] ?? -1] ?? '';
-                $followerSource = $this->state->source->sourceLines[$itemLineMap[$index + 1] ?? -1] ?? '';
-                while (
-                    ($openerBody = ContainerPrefix::quoteContent($openerSource)) !== null
-                    && ($followerBody = ContainerPrefix::quoteContent($followerSource)) !== null
-                ) {
-                    $openerSource = $openerBody;
-                    $followerSource = $followerBody;
-                }
-                if (IndentationHelper::getLeadingColumns($followerSource) <= IndentationHelper::getLeadingColumns($openerSource)) {
-                    continue;
-                }
-                $follower = ltrim($followerSource, " \t");
-                if (preg_match('/^#{1,6}(?:[ \t]|$)/', $follower) === 1 || $this->isBlockElementStart($follower) || $this->startsNewBlock($follower)) {
-                    continue;
-                }
-                $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($itemLines[$index - 1], " \t"));
-                if ($opener === null) {
-                    continue;
-                }
-                if (!$this->itemFenceCloserAhead($itemLines, $index - 1, $opener, 0)) {
-                    return true;
-                }
-            }
-        }
         $foldedBeforeBlank = false;
         $previous = null;
         $hasQuote = count(array_filter($item->getChildren(), static fn (Node $child): bool => $child instanceof BlockQuote)) > 0;
@@ -1355,7 +1324,6 @@ final class ListBlockBuilder
         // shows. See the hand-down below the loop.
         $subInterruptedParagraphFence = false;
         $subTermCodeFence = null;
-        $subInlineFenceParagraph = false;
         // Entries this loop DEDENTED by the item's content column,
         // by index - the same proof collectMarkerLeadItem() records
         // and for the same reader (markup-carve/carve#1896).
@@ -1671,43 +1639,8 @@ final class ListBlockBuilder
                     ? null
                     : $this->itemFenceOpenerAt($stripped);
                 if ($subFenceOpener !== null) {
-                    $subFenceColumns = $subIndent + IndentationHelper::getLeadingColumns($stripped);
-                    // CARVE-P0-014: only closers inside the nested item's content column can interrupt its paragraph.
-                    $hostColumn = $subFenceColumns >= $subIndent + $subTrailingState->nestedColumn
-                        && !str_contains($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '', "\t")
-                        ? $subIndent + $subTrailingState->nestedColumn : $subIndent;
-                    if ($this->itemFenceCloserAhead($lines, $i, $subFenceOpener, $subFenceColumns, $hostColumn)) {
-                        $subTrailingState = $this->advanceTrailingState($subTrailingState, $stripped, true);
-                        $subInterruptedParagraphFence = $subTrailingState->fence !== null;
-                    } else {
-                        if (
-                            !$afterSubTerm && !$subTrailingState->nestedIsQuote && $subOpenCommentLength === null
-                            && !$subTrailingState->hasOpenDiv() && !$subTrailingState->inFootnoteBody
-                            && $subTrailingState->nestedColumn > 0
-                            && $subFenceColumns >= $subIndent + $subTrailingState->nestedColumn
-                            && $this->continuations->itemFenceRunOutlivesAtSource(
-                                $lines,
-                                $i,
-                                IndentationHelper::stripLeadingColumns($subLine, $subIndent + $subTrailingState->nestedColumn),
-                                $subIndent + $subTrailingState->nestedColumn,
-                            )
-                        ) {
-                            $unclosedFenceBase ??= $subFenceColumns - $subIndent;
-                        }
-                        $subInlineFenceParagraph = true;
-                        if (!$afterSubTerm && !$subTrailingState->nestedIsQuote && IndentationHelper::getLeadingColumns($stripped, $subTrailingState->nestedColumn) < $subTrailingState->nestedColumn) {
-                            $subLines[count($subLines) - 1] = BlockGrammar::LAZY_FRAME . ltrim($stripped, " \t");
-                        }
-                        // A neutral prose line advances every
-                        // non-fence flag exactly as this failed
-                        // opener must; only its literal bytes differ.
-                        // A line block reads its own payload.
-                        $subTrailingState = $this->advanceTrailingState(
-                            $subTrailingState,
-                            $subTrailingState->hasLiteralDiv() ? $stripped : 'text',
-                            true,
-                        );
-                    }
+                    $subTrailingState = $this->advanceTrailingState($subTrailingState, $stripped, true);
+                    $subInterruptedParagraphFence = $subTrailingState->fence !== null;
                 } else {
                     $wasSubInFence = $subTrailingState->fence !== null;
                     $trackedLine = $subMarkerComment ?? $stripped;
@@ -1717,16 +1650,6 @@ final class ListBlockBuilder
                             $trackedLine = (string)preg_replace('/[^ \t]/', ' ', substr($stripped, 0, $markerOffset))
                                 . substr($stripped, $markerOffset);
                         }
-                    }
-                    // A closer at the host column ends a fence opened past it, as the item's own parse reads it.
-                    if (
-                        $subInterruptedParagraphFence
-                        && $subTrailingState->fence !== null
-                        && $subTrailingState->fence->column > 0
-                        && IndentationHelper::getLeadingColumns($stripped, 1) === 0
-                        && ($this->getFencedBlockParser)()->isCodeFenceCloser($stripped, $subTrailingState->fence->char, $subTrailingState->fence->length)
-                    ) {
-                        $trackedLine = str_repeat(' ', $subTrailingState->fence->column) . $stripped;
                     }
                     $subTrailingState = $subTrailingState->hasLiteralDiv()
                         ? $this->continuations->advanceLiteralStateWithSourceFenceLookahead($subTrailingState, $trackedLine, $lines, $i, $subIndent)
@@ -1838,28 +1761,6 @@ final class ListBlockBuilder
 
                     continue;
                 }
-                // A FENCE RUN THAT OPENS NOTHING IS PARAGRAPH TEXT
-                // (`CARVE-P0-014`, markup-carve/carve#2509). §10 I4
-                // opens a fence over an open paragraph only when a
-                // closer follows at the run's OWN column; with none
-                // the run is inline verbatim text, so no container
-                // ends and the line folds into the paragraph the
-                // stack still holds. Asked before the block-start
-                // break below, which cannot tell the two apart.
-                if (
-                    $subTrailingState->openParagraph
-                    && $subTrailingState->fence === null
-                    && $subLines !== []
-                    && $this->fenceRunOpensNothing($trimmedLine, $lines, $i, $lineIndent)
-                ) {
-                    $subLines[] = $trimmedLine;
-                    $subLineMap[] = $this->sourceLineFor($i);
-                    $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text');
-                    $sawBlankLine = false;
-                    $i++;
-
-                    continue;
-                }
                 // Content at base indent that's not a matching list marker
                 // Check if it's a block element - if so, end list content collection
                 // Use isBlockElementStart() which detects blocks regardless of mode
@@ -1881,17 +1782,8 @@ final class ListBlockBuilder
                 ) {
                     break;
                 }
-                if ($subInlineFenceParagraph && $subLines !== []) {
-                    if ($this->itemFenceOpenerAt($subLines[count($subLines) - 1]) !== null) {
-                        $subLines[] = BlockGrammar::LAZY_FRAME . BlockGrammar::stripLazyFrame($trimmedLine);
-                        $subLineMap[] = $this->sourceLineFor($i);
-                    } else {
-                        $subLines[count($subLines) - 1] .= "\n" . BlockGrammar::stripLazyFrame($trimmedLine);
-                    }
-                } else {
-                    $subLines[] = $trimmedLine;
-                    $subLineMap[] = $this->sourceLineFor($i);
-                }
+                $subLines[] = $trimmedLine;
+                $subLineMap[] = $this->sourceLineFor($i);
                 $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
                 $sawBlankLine = false;
                 $i++;
@@ -1962,22 +1854,6 @@ final class ListBlockBuilder
                             && !$this->blankSinceLastTerm($subLines)))
                 ) {
                     $subLines[] = BlockGrammar::LAZY_FRAME . $trimmedLine;
-                    $subLineMap[] = $this->sourceLineFor($i);
-                    $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text');
-                    $i++;
-
-                    continue;
-                }
-                if (
-                    !$sawBlankLine
-                    && $subTermColumn === null
-                    && $subTrailingState->openParagraph
-                    && $subLines !== []
-                    && $this->fenceRunOpensNothing($trimmedLine, $lines, $i, $lineIndent)
-                ) {
-                    // An existing inline fence keeps its ordinary paragraph boundary.
-                    $subLines[] = $subInlineFenceParagraph
-                        ? $trimmedLine : BlockGrammar::LAZY_FRAME . $trimmedLine;
                     $subLineMap[] = $this->sourceLineFor($i);
                     $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text');
                     $i++;
@@ -2061,18 +1937,6 @@ final class ListBlockBuilder
             } elseif (
                 !$sawBlankLine
                 && $subTrailingState->openParagraph
-                && $subLines !== []
-                && $lineIndent >= $subIndent + $subTrailingState->nestedColumn
-                && $this->fenceRunOpensNothing(ltrim($subLine, " \t"), $lines, $i, $lineIndent)
-            ) {
-                // PART 0 O3: a below-column unmatched run lazily folds into the child's paragraph.
-                $subLines[] = BlockGrammar::LAZY_FRAME . ltrim($subLine, " \t");
-                $subLineMap[] = $this->sourceLineFor($i);
-                $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text');
-                $i++;
-            } elseif (
-                !$sawBlankLine
-                && $subTrailingState->openParagraph
                 && !($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($subLine, " \t"), 0)
                 && !$this->isBlockElementStart(ltrim($subLine, " \t"), $lines, $i)
                 && !$this->startsNewBlock(ltrim($subLine, " \t"), $lines, $i)
@@ -2088,19 +1952,6 @@ final class ListBlockBuilder
         }
         // The nested parser decides whether trailing blanks are
         // fence payload or spacing outside the last block.
-
-        // THE OWNERSHIP ANSWER IS HANDED DOWN, not re-derived. The
-        // closer this stream armed its fence on sits below the line
-        // that ended the stream, so the nested parse sees an opener
-        // with none and reads the body back as an inline code span -
-        // carve#1399 one container further in (markup-carve/carve#2509).
-        // Written at the fence's own column so the parse one level down
-        // sees the closer that the collected stream could not retain.
-        if ($subInterruptedParagraphFence && $subTrailingState->fence !== null) {
-            $subLines[] = str_repeat(' ', $subTrailingState->fence->column)
-                . str_repeat($subTrailingState->fence->char, $subTrailingState->fence->length);
-            $subLineMap[] = -1;
-        }
 
         return new IndentedListContinuation(
             $i,
@@ -2429,7 +2280,6 @@ final class ListBlockBuilder
     {
         return $this->bodyRebaser ??= new ListBodyRebaser(
             $this->state,
-            $this->continuations,
             $this->getFencedBlockParser,
             $this->getListParser,
             $this->getTableParser,
@@ -2443,8 +2293,6 @@ final class ListBlockBuilder
             $this->footnoteBodyResumesAfter(...),
             $this->isBlockElementStart(...),
             $this->isCommentLineOrFence(...),
-            $this->itemFenceCloserAhead(...),
-            $this->itemFenceOpenerAt(...),
             $this->lineOpensBlockForLooseness(...),
             $this->listMarkerWidth(...),
             $this->sourceLineFor(...),
@@ -2620,7 +2468,6 @@ final class ListBlockBuilder
      * @param \MarkupCarve\Carve\Parser\TrailingBlockState $state
      * @param string $line
      * @param array<string> $lines
-     * @param bool $closerKnownAhead
      * @param int $stripColumns
      * @param bool $atContentColumn
      * @param int $index
@@ -2632,9 +2479,8 @@ final class ListBlockBuilder
         int $index,
         bool $atContentColumn = false,
         int $stripColumns = 0,
-        bool $closerKnownAhead = false,
     ): TrailingBlockState {
-        return $this->continuations->advanceTrailingStateWithFenceLookaheadCore($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
+        return $this->continuations->advanceTrailingStateWithFenceLookaheadCore($state, $line, $lines, $index, $atContentColumn, $stripColumns);
     }
 
     /**
@@ -2830,17 +2676,6 @@ final class ListBlockBuilder
     private function continuationMarkerHasIndentedFollower(int $index, int $count, array $lines): bool
     {
         return ($this->continuationMarkerHasIndentedFollowerCallback)($index, $count, $lines);
-    }
-
-    /**
-     * @param string $trimmed The run with its indentation removed.
-     * @param array<string> $lines The SOURCE view, where a closer below the
-     * @param int $index Source index of the run.
-     * @param int $columns Leading columns of the run.
-     */
-    private function fenceRunOpensNothing(string $trimmed, array $lines, int $index, int $columns): bool
-    {
-        return $this->continuations->fenceRunOpensNothing($trimmed, $lines, $index, $columns);
     }
 
     /**
@@ -3417,18 +3252,6 @@ final class ListBlockBuilder
     private function isFoldableInvisibleLine(string $line): bool
     {
         return ($this->isFoldableInvisibleLineCallback)($line);
-    }
-
-    /**
-     * @param array<string> $lines The SOURCE view.
-     * @param int $openIndex Source index of the run.
-     * @param array{fence: string, length: int, char?: string} $opener
-     * @param int $columns Leading columns of the run.
-     * @param int|null $hostColumns
-     */
-    private function itemFenceCloserAhead(array $lines, int $openIndex, array $opener, int $columns, ?int $hostColumns = null): bool
-    {
-        return $this->continuations->itemFenceCloserAhead($lines, $openIndex, $opener, $columns, $hostColumns);
     }
 
     /**

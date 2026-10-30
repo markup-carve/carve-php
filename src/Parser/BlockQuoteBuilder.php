@@ -1340,7 +1340,7 @@ final class BlockQuoteBuilder
             if ($open !== null && $column >= ($colon['base'] ?? $colon['column'])) {
                 $char = $open['char'] ?? $open['fence'][0];
                 if (
-                    $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $open['length'], $memo, -1)
+                    ($this->quotedCodeFenceHasCloserCallback)($lines, $index, $state['innerDepth'] + 1, $char, $open['length'], $memo, -1, false)
                 ) {
                     $host['fence'] = ['char' => $char, 'length' => $open['length'], 'column' => -1, 'base' => $colon['base'] ?? $colon['column']];
                     $state['paragraphOpen'] = false;
@@ -1499,7 +1499,7 @@ final class BlockQuoteBuilder
             $afterLiteral && !$blockStart && $colon !== null && $colon['body']
             && !($colon['paragraphBoundary'] ?? false) && !($host['paragraphBoundary'] ?? false)
             && $floor === ($colon['base'] ?? $colon['column']) && $at > $floor && $at < $closedLiteralColumn
-            && !$this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $at, true)
+            && !($this->quotedCodeFenceHasCloserCallback)($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $at, true)
             && !($memo[IndentationHelper::getLeadingColumns($lines[$index]) . ':' . ($state['innerDepth'] + 1) . ':' . $at . ':' . $char]['inlineBoundary'] ?? true)
         ) {
             $sourceLine = $this->sourceLineFor($index);
@@ -1517,21 +1517,14 @@ final class BlockQuoteBuilder
             $host['pending'] !== null && $char === $host['pending']['char'] && $length >= $host['pending']['length']
             // A tilde run has no inline pairing: one that opens a fence of its
             // own is not the pending run's end.
-            && !($char === '~' && $at > $host['pending']['column'] && $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $at))
+            && !($char === '~' && $at > $host['pending']['column'])
         ) {
             $host['pending'] = null;
 
             return false;
         }
         $fence = ['char' => $char, 'length' => $length, 'column' => $floor];
-        if (
-            $at >= $floor
-            && (
-                $blockStart || !$paragraph
-                || $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $at)
-                || ($at > $floor && $colon === null && $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $floor))
-            )
-        ) {
+        if ($at >= $floor) {
             $host['fence'] = ['char' => $char, 'length' => $length, 'column' => $at, 'base' => $floor];
             $state['paragraphOpen'] = false;
 
@@ -1664,15 +1657,7 @@ final class BlockQuoteBuilder
             return false;
         }
 
-        $owner = 0;
-        foreach ($columns as $hostColumn) {
-            $owner = $hostColumn <= $column ? max($owner, $hostColumn) : $owner;
-        }
-        $char = $run['char'] ?? $run['fence'][0];
-
-        return $this->quotedCodeFenceHasCloser($lines, $index, $innerDepth + 1, $char, $run['length'], $memo, $column)
-            || ($owner > 0 && $owner < $column
-                && $this->quotedCodeFenceHasCloser($lines, $index, $innerDepth + 1, $char, $run['length'], $memo, $owner));
+        return true;
     }
 
     /**
@@ -1741,16 +1726,7 @@ final class BlockQuoteBuilder
                     $leaf = ContainerPrefix::afterLeadingQuoteMarkers($content);
                     $opener = ($this->getFencedBlockParser)()->parseRawBlockOpener($leaf)
                         ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($leaf);
-                    $interrupts = $opener !== null
-                        ? $this->quotedCodeFenceHasCloser(
-                            $sourceLines,
-                            $sourceIndex,
-                            $depth + 1,
-                            $opener['char'] ?? $opener['fence'][0],
-                            $opener['length'],
-                            $codeCloserMemo,
-                        )
-                        : $this->endsBlockQuote($leaf, true, $sourceLines, $sourceIndex);
+                    $interrupts = $opener !== null || $this->endsBlockQuote($leaf, true, $sourceLines, $sourceIndex);
                     if (!IndentationHelper::isBlankLine($leaf) && !$interrupts) {
                         $state['colonClaims'] = array_values(array_filter($state['colonClaims'], static fn (array $claim): bool => $claim['body']));
 
@@ -1827,30 +1803,16 @@ final class BlockQuoteBuilder
                 return;
             }
 
-            // A fence interrupts a paragraph only when its own quoted region
-            // contains a closer. At block start it needs no closer.
+            // A fence opener interrupts a paragraph, closer or not (PART 9 §10 I4).
             $fenceInfo = ($this->getFencedBlockParser)()->parseRawBlockOpener($content)
                 ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($content);
             if ($fenceInfo !== null) {
-                $char = $fenceInfo['char'] ?? $fenceInfo['fence'][0];
-                if (
-                    !$state['paragraphOpen']
-                    || $this->quotedCodeFenceHasCloser(
-                        $sourceLines,
-                        $sourceIndex,
-                        $state['innerDepth'] + 1,
-                        $char,
-                        $fenceInfo['length'],
-                        $codeCloserMemo,
-                    )
-                ) {
-                    $state['mode'] = BlockQuoteLazyMode::CodeFence;
-                    $state['fenceChar'] = $char;
-                    $state['fenceLength'] = $fenceInfo['length'];
-                    $state['paragraphOpen'] = false;
+                $state['mode'] = BlockQuoteLazyMode::CodeFence;
+                $state['fenceChar'] = $fenceInfo['char'] ?? $fenceInfo['fence'][0];
+                $state['fenceLength'] = $fenceInfo['length'];
+                $state['paragraphOpen'] = false;
 
-                    return;
-                }
+                return;
             }
             if (!$state['paragraphOpen']) {
                 $commentInfo = ($this->getFencedBlockParser)()->parseFencedCommentOpener($content);

@@ -23,7 +23,7 @@ class ALeftOfBaseCodeLineAndANestedHeadingTest extends TestCase
         return [
             'left of base in a box' => [
                 "- ::: box\n     ```\n    x\n     y\n  :::\nafter\n",
-                "<pre><code>x\ny\n</code></pre>",
+                "<pre><code>x\ny\n:::\n</code></pre>",
             ],
             'left of base in an item after a blank' => [
                 "- a\n\n     ```\n    x\n     y\n     ```\n",
@@ -31,7 +31,7 @@ class ALeftOfBaseCodeLineAndANestedHeadingTest extends TestCase
             ],
             'right of base keeps its residue' => [
                 "- ::: box\n     ```\n       z\n  :::\nafter\n",
-                "<pre><code>  z\n</code></pre>",
+                "<pre><code>  z\n:::\n</code></pre>",
             ],
             'an unclosed fence after a nested heading' => [
                 "- a\n    - # h\n  ~~~\nafter\n",

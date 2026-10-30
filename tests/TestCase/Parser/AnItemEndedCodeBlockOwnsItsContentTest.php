@@ -118,7 +118,8 @@ class AnItemEndedCodeBlockOwnsItsContentTest extends TestCase
         unset($block, $item);
         $blocks = $this->collect($this->publish($source), ['code_block']);
 
-        $this->assertCount(1, $blocks);
+        // The second block is the trailing fence line, an opener of its own (carve#4032).
+        $this->assertCount(2, $blocks);
         [$start, $end] = $this->extent($blocks[0]);
         $slice = substr($source, $start, $end - $start);
 
@@ -146,7 +147,7 @@ class AnItemEndedCodeBlockOwnsItsContentTest extends TestCase
         unset($item);
         $blocks = $this->collect($this->publish($source), ['code_block']);
 
-        $this->assertCount(1, $blocks);
+        $this->assertCount(2, $blocks);
         $this->assertSame($block, $this->extent($blocks[0]));
     }
 

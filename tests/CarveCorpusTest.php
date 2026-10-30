@@ -1368,6 +1368,21 @@ class CarveCorpusTest extends TestCase
         'an-opener-is-open-where-it-stands-so-a-combined-token-after-a-guarded-star-stays-split',
         'a-first-block-plus-hands-its-block-to-the-host-as-the-host-reads-it',
         'a-verbatim-run-a-continuation-row-opens-stays-open-into-the-next-continuation-row',
+        // Arrived with the pin move to carve c614705; the rows this engine does
+        // not render yet are deferred in KNOWN_GAPS under their ruling.
+        'the-rest-of-a-split-combined-token-is-read-again-as-inline-content',
+        'a-comment-inside-a-split-combined-token-is-removed-before-pairing',
+        'a-block-glued-to-a-combined-closer-inside-a-braced-emphasis-span',
+        'a-wrapped-attribute-opener-indented-in-a-body-is-paragraph-text',
+        'whitespace-after-a-leading-content-tab-is-not-content',
+        'a-line-below-a-list-item-folds-into-the-open-paragraph-of-a-div-or-an-absorbed-colon-run',
+        'a-braced-opener-whose-closers-the-spans-inside-it-take-stays-text',
+        'the-empty-block-is-a-member-of-a-bracketed-span-s-attribute-run',
+        'a-glued-attribute-run-is-one-physical-line',
+        'an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line',
+        'the-equals-of-a-comparison-neither-opens-nor-closes-a-highlight',
+        'a-toc-marker-that-places-nothing-renders-the-kind-floor',
+        'a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame',
     ];
 
     /**
@@ -1388,7 +1403,35 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [];
+    protected const KNOWN_GAPS = [
+        '740-lazy-quote-owners' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
+        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
+        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-2' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
+        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-3' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
+        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-4' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
+        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-5' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
+        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-6' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
+        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-7' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
+        '785-a-comment-inside-a-split-combined-token-is-removed-before-pairing-8' => 'carve#4052: a %% comment is removed before the delimiter stack runs',
+        '787-a-wrapped-attribute-opener-indented-in-a-body-is-paragraph-text' => 'carve#4096: an over-indented wrapped attribute opener is paragraph text',
+        '787-a-wrapped-attribute-opener-indented-in-a-body-is-paragraph-text-2' => 'carve#4096: an over-indented wrapped attribute opener is paragraph text',
+        '787-a-wrapped-attribute-opener-indented-in-a-body-is-paragraph-text-3' => 'carve#4096: an over-indented wrapped attribute opener is paragraph text',
+        '787-a-wrapped-attribute-opener-indented-in-a-body-is-paragraph-text-4' => 'carve#4096: an over-indented wrapped attribute opener is paragraph text',
+        '791-the-empty-block-is-a-member-of-a-bracketed-span-s-attribute-run-2' => 'carve#4107: the empty block is a member of a bracketed span\'s attribute run',
+        '791-the-empty-block-is-a-member-of-a-bracketed-span-s-attribute-run-3' => 'carve#4107: the empty block is a member of a bracketed span\'s attribute run',
+        '791-the-empty-block-is-a-member-of-a-bracketed-span-s-attribute-run-5' => 'carve#4107: the empty block is a member of a bracketed span\'s attribute run',
+        '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-2' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
+        '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-4' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
+        '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-5' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
+        '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-6' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
+        '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-7' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
+        '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-8' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
+        '794-the-equals-of-a-comparison-neither-opens-nor-closes-a-highlight' => 'carve#4169: the = of a <= or >= opens and closes no bare highlight',
+        '794-the-equals-of-a-comparison-neither-opens-nor-closes-a-highlight-2' => 'carve#4169: the = of a <= or >= opens and closes no bare highlight',
+        '794-the-equals-of-a-comparison-neither-opens-nor-closes-a-highlight-3' => 'carve#4169: the = of a <= or >= opens and closes no bare highlight',
+        '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
+        '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame-2' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
+    ];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED

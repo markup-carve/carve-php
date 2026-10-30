@@ -22,9 +22,9 @@ class AnItemLineUnderAPlainParagraphStaysLazyInTheCloserScanTest extends TestCas
     public static function provider(): array
     {
         $lazyPrefix = "<aside class=\"admonition note\" aria-label=\"Note\">\n  <p>para\n";
-        $lazySuffix = "\n<code>\ncode</code></p>\n  <div>\n    <div>\n      <p>after <strong>b</strong></p>\n    </div>\n  </div>\n</aside>";
+        $lazySuffix = "</p>\n  <pre><code>code\n::::\n:::\nafter *b*\n</code></pre>\n</aside>";
         $itemPrefix = "<aside class=\"admonition note\" aria-label=\"Note\">\n";
-        $itemSuffix = "  <pre><code>code\n::::\n</code></pre>\n</aside>\n<p>after <strong>b</strong></p>";
+        $itemSuffix = "  <pre><code>code\n::::\n:::\nafter *b*\n</code></pre>\n</aside>";
 
         return [
             'plain paragraph, bullet comment' => ["::: note\npara\n- %% c\n```\ncode\n::::\n:::\nafter *b*\n", $lazyPrefix . '-' . $lazySuffix],

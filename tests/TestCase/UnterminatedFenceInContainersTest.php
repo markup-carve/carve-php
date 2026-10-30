@@ -8,17 +8,9 @@ use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
- * PART 9 §10's I4: an unterminated ``` or ~~~ opener does not interrupt. The
- * line stays paragraph text and a stray ``` opens an unclosed inline verbatim
- * run.
- *
- * This engine applied that at the top level only. `hasClosingFenceAhead`
- * returns TRUE when the surrounding lines are not supplied, so every caller
- * that passes just the line - which is most of the container paths - got
- * "interrupt" regardless of whether a closer exists (carve-php#642).
- *
- * carve-rs is correct in all four contexts; carve-js was correct in three and
- * is fixed for the fourth in carve-js#541.
+ * An unterminated ``` or ~~~ opener interrupts an open paragraph in every
+ * container, as at the top level, and runs to its container's end
+ * (markup-carve/carve#4032).
  */
 class UnterminatedFenceInContainersTest extends TestCase
 {
@@ -36,14 +28,14 @@ class UnterminatedFenceInContainersTest extends TestCase
 
     public function testTopLevelIsUnchanged(): void
     {
-        // Corpus 81-paragraph-interruption-18, already correct.
-        $this->assertSame('<p>a <code></code></p>', $this->squash($this->converter->convert("a\n```\n")));
+        // Corpus 81-paragraph-interruption-18.
+        $this->assertSame('<p>a</p> <pre><code></code></pre>', $this->squash($this->converter->convert("a\n```\n")));
     }
 
     public function testInAListItem(): void
     {
         $this->assertSame(
-            '<ul> <li>a <code></code></li> </ul>',
+            '<ul> <li>a</li> </ul> <pre><code></code></pre>',
             $this->squash($this->converter->convert("* a\n```\n")),
         );
     }
@@ -51,24 +43,22 @@ class UnterminatedFenceInContainersTest extends TestCase
     public function testInABlockquote(): void
     {
         $this->assertSame(
-            '<blockquote><p>a <code></code></p></blockquote>',
+            '<blockquote><p>a</p></blockquote> <pre><code></code></pre>',
             $this->squash($this->converter->convert("> a\n```\n")),
         );
     }
 
     public function testInAnAdmonitionBody(): void
     {
-        // The spurious trailing <div> is the sharp end: the `:::` that closes
-        // the admonition was being read a second time as an opener.
+        // The host's `:::` closer inside the unclosed fence is payload.
         $html = $this->squash($this->converter->convert("::: note\na\n```\n:::\n"));
 
-        $this->assertSame('<aside class="admonition note" aria-label="Note"> <p>a <code></code></p> </aside>', $html);
+        $this->assertSame('<aside class="admonition note" aria-label="Note"> <p>a</p> <pre><code>::: </code></pre> </aside>', $html);
         $this->assertStringNotContainsString('<div>', $html);
     }
 
     public function testAClosedFenceStillInterrupts(): void
     {
-        // The guard is about the closer, not about containers.
         $html = $this->squash($this->converter->convert("* a\n```\nx\n```\n"));
 
         $this->assertStringContainsString('<pre><code>x', $html);

@@ -15,8 +15,7 @@ class AQuotedItemCommentEndsTheQuoteBeforeAnUnclosedFenceTest extends TestCase
         foreach (["> - para\n> - %% c", "> - para\n> - {#x}"] as $quote) {
             $source = "::: note\n" . $quote . "\n```\ncode\n::::\n:::\nafter *b*\n";
             $expected = "<aside class=\"admonition note\" aria-label=\"Note\">\n  <blockquote>\n    "
-                . $list . "\n  </blockquote>\n  <pre><code>code\n::::\n</code></pre>\n</aside>\n"
-                . "<p>after <strong>b</strong></p>\n";
+                . $list . "\n  </blockquote>\n  <pre><code>code\n::::\n:::\nafter *b*\n</code></pre>\n</aside>\n";
             self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source), $quote);
         }
     }
@@ -25,8 +24,8 @@ class AQuotedItemCommentEndsTheQuoteBeforeAnUnclosedFenceTest extends TestCase
     {
         $source = "::: note\n> para\n> - %% c\n```\ncode\n::::\n:::\nafter *b*\n";
         $expected = "<aside class=\"admonition note\" aria-label=\"Note\">\n"
-            . "  <blockquote><p>para\n-\n<code>\ncode</code></p></blockquote>\n"
-            . "  <div>\n    <div>\n      <p>after <strong>b</strong></p>\n    </div>\n  </div>\n</aside>\n";
+            . "  <blockquote><p>para\n-</p></blockquote>\n"
+            . "  <pre><code>code\n::::\n:::\nafter *b*\n</code></pre>\n</aside>\n";
         self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
@@ -41,8 +40,7 @@ class AQuotedItemCommentEndsTheQuoteBeforeAnUnclosedFenceTest extends TestCase
         foreach ($cases as [$quote, $list]) {
             $source = "::: note\n" . $quote . "\n```\ncode\n::::\n:::\nafter *b*\n";
             $expected = "<aside class=\"admonition note\" aria-label=\"Note\">\n  <blockquote>\n    "
-                . $list . "\n  </blockquote>\n  <pre><code>code\n::::\n</code></pre>\n</aside>\n"
-                . "<p>after <strong>b</strong></p>\n";
+                . $list . "\n  </blockquote>\n  <pre><code>code\n::::\n:::\nafter *b*\n</code></pre>\n</aside>\n";
             self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source), $quote);
         }
     }

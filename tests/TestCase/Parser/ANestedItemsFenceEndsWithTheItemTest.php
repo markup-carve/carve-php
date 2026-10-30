@@ -11,9 +11,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * A nested item's fence ends with the item, not with the collected body.
  *
- * PART 9 SS10 I4 opens a fence over an open paragraph only when a closer follows
- * at the run's own column; an unterminated opener stays paragraph text, and the
- * stray run in that prose becomes an unclosed inline verbatim run. The outer
+ * Since carve#4032 a valid fence opener interrupts an open paragraph whether or
+ * not a closer follows, so the column-0 run below opens its own fence. The outer
  * item's trailing tracker read a flat stream, so a fence written at the NESTED
  * item's content column stayed open for the rest of the body: the payload line
  * that left the nested container did not end it, and the unterminated column-0
@@ -48,73 +47,73 @@ class ANestedItemsFenceEndsWithTheItemTest extends TestCase
         return [
             'code opener at column 4, payload at column 2, run at column 0' => [
                 "- a\n  - b\n\n    ```\n  a\n```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'code opener at column 4, payload at column 2, run at column 1' => [
                 "- a\n  - b\n\n    ```\n  a\n ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'code opener at column 4, payload at column 3, run at column 0' => [
                 "- a\n  - b\n\n    ```\n   a\n```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'code opener at column 4, payload at column 3, run at column 1' => [
                 "- a\n  - b\n\n    ```\n   a\n ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'code opener at column 5, payload at column 2, run at column 0' => [
                 "- a\n  - b\n\n     ```\n  a\n```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'code opener at column 5, payload at column 2, run at column 1' => [
                 "- a\n  - b\n\n     ```\n  a\n ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'code opener at column 5, payload at column 3, run at column 0' => [
                 "- a\n  - b\n\n     ```\n   a\n```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'code opener at column 5, payload at column 3, run at column 1' => [
                 "- a\n  - b\n\n     ```\n   a\n ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n<code></code>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'tilde opener at column 4, payload at column 2, run at column 0' => [
                 "- a\n  - b\n\n    ~~~\n  a\n~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'tilde opener at column 4, payload at column 2, run at column 1' => [
                 "- a\n  - b\n\n    ~~~\n  a\n ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'tilde opener at column 4, payload at column 3, run at column 0' => [
                 "- a\n  - b\n\n    ~~~\n   a\n~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'tilde opener at column 4, payload at column 3, run at column 1' => [
                 "- a\n  - b\n\n    ~~~\n   a\n ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'tilde opener at column 5, payload at column 2, run at column 0' => [
                 "- a\n  - b\n\n     ~~~\n  a\n~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'tilde opener at column 5, payload at column 2, run at column 1' => [
                 "- a\n  - b\n\n     ~~~\n  a\n ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'tilde opener at column 5, payload at column 3, run at column 0' => [
                 "- a\n  - b\n\n     ~~~\n   a\n~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'tilde opener at column 5, payload at column 3, run at column 1' => [
                 "- a\n  - b\n\n     ~~~\n   a\n ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n~~~\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    a\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
         ];
     }
 
     #[DataProvider('nestedFenceShapes')]
-    public function testTheRunBelowTheNestedColumnStaysParagraphText(string $source, string $expected): void
+    public function testTheRunBelowTheNestedColumnLeavesTheItem(string $source, string $expected): void
     {
         $this->assertSame($expected, $this->html($source));
     }

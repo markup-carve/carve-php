@@ -22,13 +22,13 @@ class UnfinishedFenceOnANestedLeadOwnsItsBodyTest extends TestCase
     public static function ownedProvider(): array
     {
         return [
-            'flush-left body and closer' => ["- - ``` x\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
-            'body indented one below column' => ["- - ``` x\n code\n ```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
-            'three levels deep' => ["- - - ``` x\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code class=\"language-x\"></code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
-            'a quoted fence needs marked body lines' => ["> - ``` x\ncode\n```\n", "<blockquote>\n  <ul>\n    <li>\n      <pre><code class=\"language-x\"></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>code\n<code></code></p>"],
-            'ordered markers' => ["1. 1. ``` x\ncode\n```\n", "<ol>\n  <li>\n    <ol>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ol>\n  </li>\n</ol>\n<p>code\n<code></code></p>"],
-            'tilde fence' => ["- - ~~~ x\ncode\n~~~\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n~~~</p>"],
-            'no info string' => ["- - ```\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
+            'flush-left body and closer' => ["- - ``` x\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code</p>\n<pre><code></code></pre>"],
+            'body indented one below column' => ["- - ``` x\n code\n ```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code</p>\n<pre><code></code></pre>"],
+            'three levels deep' => ["- - - ``` x\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code class=\"language-x\"></code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code</p>\n<pre><code></code></pre>"],
+            'a quoted fence needs marked body lines' => ["> - ``` x\ncode\n```\n", "<blockquote>\n  <ul>\n    <li>\n      <pre><code class=\"language-x\"></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>code</p>\n<pre><code></code></pre>"],
+            'ordered markers' => ["1. 1. ``` x\ncode\n```\n", "<ol>\n  <li>\n    <ol>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ol>\n  </li>\n</ol>\n<p>code</p>\n<pre><code></code></pre>"],
+            'tilde fence' => ["- - ~~~ x\ncode\n~~~\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code</p>\n<pre><code></code></pre>"],
+            'no info string' => ["- - ```\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code</p>\n<pre><code></code></pre>"],
             'no closer at all' => ["- - ``` x\ncode\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code</p>"],
             'plain follower below nested content column' => ["- - ```\ntail\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>"],
             'outer paragraph after a three-level fence takes a lazy line' => ["- - - ```\n  tail\ntail\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code></code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n    tail\ntail\n  </li>\n</ul>"],
@@ -36,8 +36,8 @@ class UnfinishedFenceOnANestedLeadOwnsItsBodyTest extends TestCase
             'quoted outer paragraph takes a lazy line' => ["> - - - ```\n>   tail\n> tail\n", "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>\n              <pre><code></code></pre>\n            </li>\n          </ul>\n        </li>\n      </ul>\n      tail\ntail\n    </li>\n  </ul>\n</blockquote>"],
             'quote padding keeps the outer paragraph claim' => [">  - - - ```\n>    tail\n>  tail\n", "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>\n              <pre><code></code></pre>\n            </li>\n          </ul>\n        </li>\n      </ul>\n      tail\ntail\n    </li>\n  </ul>\n</blockquote>"],
             'closer is only line below' => ["- - ``` x\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>"],
-            'trailing lazy item' => ["- - ``` x\ncode\n```\n- lazy\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code>\n- lazy</code></p>"],
-            'a closer with body below it' => ["- - ``` x\na\n```\nb\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>a\n<code>\nb</code></p>"],
+            'trailing lazy item' => ["- - ``` x\ncode\n```\n- lazy\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code</p>\n<pre><code>- lazy\n</code></pre>"],
+            'a closer with body below it' => ["- - ``` x\na\n```\nb\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>a</p>\n<pre><code>b\n</code></pre>"],
             'two closing runs' => ["- - ``` x\na\n```\nb\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>a</p>\n<pre><code>b\n</code></pre>"],
         ];
     }
@@ -54,9 +54,9 @@ class UnfinishedFenceOnANestedLeadOwnsItsBodyTest extends TestCase
     public static function unchangedProvider(): array
     {
         return [
-            'outermost depth 1 (control)' => ["- ``` x\ncode\n```\n", "<ul>\n  <li>\n    <pre><code class=\"language-x\"></code></pre>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
+            'outermost depth 1 (control)' => ["- ``` x\ncode\n```\n", "<ul>\n  <li>\n    <pre><code class=\"language-x\"></code></pre>\n  </li>\n</ul>\n<p>code</p>\n<pre><code></code></pre>"],
             'body at content column (control)' => ["- - ``` x\n    code\n    ```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"],
-            'blank line above body (control)' => ["- - ``` x\n\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
+            'blank line above body (control)' => ["- - ``` x\n\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code</p>\n<pre><code></code></pre>"],
             'colon container on lead (control)' => [
                 "- - ::: d\nbody\n:::\n", '<ul>
   <li>

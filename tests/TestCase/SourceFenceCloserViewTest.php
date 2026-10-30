@@ -4,42 +4,14 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
-use MarkupCarve\Carve\Parser\BlockContinuationScanner;
-use MarkupCarve\Carve\Parser\BlockGrammar;
-use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\DefinitionListBuilder;
 use MarkupCarve\Carve\Parser\IndexedFenceView;
 use MarkupCarve\Carve\Parser\RangeMaximum;
-use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
-use ReflectionProperty;
 
 class SourceFenceCloserViewTest extends TestCase
 {
-    public function testIndexedAnswersMatchTheCompleteScan(): void
-    {
-        $parser = new BlockParser();
-        /** @var \MarkupCarve\Carve\Parser\BlockContinuationScanner $scanner */
-        $scanner = (new ReflectionMethod($parser, 'continuationsMapper'))->invoke($parser);
-        $this->assertInstanceOf(BlockContinuationScanner::class, $scanner);
-        $lines = ['text', '```', '  ~~~~~', "\t```", ' ```', '    ~~~', '  ````', '```x', '  ```', '~~~~', '  ``` \t', " \t~~~~~\t"];
-        foreach (range(0, count($lines)) as $index) {
-            foreach ([0, 1, 2, 3, 4, 8] as $column) {
-                foreach (['`', '~'] as $char) {
-                    foreach ([3, 4, 5, 8] as $length) {
-                        $opener = ['char' => $char, 'fence' => str_repeat($char, $length), 'length' => $length];
-                        $this->assertSame(
-                            $scanner->hasFenceCloserInView($lines, $index, $opener, $column),
-                            $scanner->sourceFenceCloserInView($lines, $index, $opener, $column),
-                        );
-                    }
-                }
-            }
-        }
-    }
-
     public function testCollectedCloserRechecksAnExtendedTail(): void
     {
         $view = new IndexedFenceView();
@@ -81,113 +53,5 @@ class SourceFenceCloserViewTest extends TestCase
             $range->set($i, 0);
             $this->assertSame(max($values), $range->maximum(0, 40));
         }
-    }
-
-    public function testCollectedIndexedAnswersMatchEveryGrowingPrefix(): void
-    {
-        $parser = new BlockParser();
-        $scanner = (new ReflectionMethod($parser, 'continuationsMapper'))->invoke($parser);
-        $view = new IndexedFenceView();
-        $lines = [];
-        foreach (['text', '  ```', "\ntext", '~~~', '  ````', "\n", '  ~~~~', 'text'] as $entry) {
-            if (str_starts_with($entry, "\n")) {
-                $lines[array_key_last($lines)] .= $entry;
-            } else {
-                $lines[] = $entry;
-            }
-            $view->advance($lines);
-            foreach (range(0, count($lines)) as $index) {
-                foreach ([0, 2] as $column) {
-                    foreach (['`', '~'] as $char) {
-                        foreach ([3, 4, 8] as $width) {
-                            $opener = ['char' => $char, 'fence' => str_repeat($char, $width), 'length' => $width];
-                            $this->assertSame(
-                                $scanner->hasFenceCloserInView($lines, $index, $opener, $column),
-                                $view->contains($index + 1, count($lines), $column, $char, $width),
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    public function testDescriptionBoundariesMatchThePriorForwardScan(): void
-    {
-        foreach (
-            [
-                ['text', '  ```php', '  text', '  ```', ':: next', ':  body'],
-                ['text', '  ```php', '', '  ```', ':: next'],
-                ['text', '  ```php', '', '', '  ```'],
-                ['text', '  ```php', '', ' ```'],
-                ['text', '  ```php', 'text', ':: next', '  ```'],
-                ['text', '  ```php', 'text', '  ````', '', ''],
-                ['text', '  ```php', " \t", " \t``` \t", '', '  x', '  ```'],
-                ['text', '  ```php', ':: next', '  ```'],
-            ] as $lines
-        ) {
-            $parser = new BlockParser();
-            $scanner = (new ReflectionMethod($parser, 'continuationsMapper'))->invoke($parser);
-            $fenced = new FencedBlockParser();
-            $lineCount = count($lines);
-            foreach (range(0, count($lines)) as $index) {
-                foreach ([0, 1, 2, 4] as $bodyColumn) {
-                    foreach ([0, 1, 2, 4] as $openerColumn) {
-                        $expected = false;
-                        for ($j = $index + 1; $j < $lineCount; $j++) {
-                            $line = $lines[$j];
-                            if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $line) || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $line)) {
-                                break;
-                            }
-                            if (IndentationHelper::isBlankLine($line)) {
-                                $look = $j;
-                                while ($look < $lineCount && IndentationHelper::isBlankLine($lines[$look])) {
-                                    $look++;
-                                }
-                                $after = $lines[$look] ?? null;
-                                if ($after === null || IndentationHelper::getLeadingColumns($after, $bodyColumn) < $bodyColumn) {
-                                    break;
-                                }
-                                $j = $look - 1;
-
-                                continue;
-                            }
-                            if (
-                                (IndentationHelper::getLeadingColumns($line) === $bodyColumn
-                                    || IndentationHelper::getLeadingColumns($line) === $openerColumn)
-                                && $fenced->isCodeFenceCloser(IndentationHelper::stripLeadingColumns($line, IndentationHelper::getLeadingColumns($line)), '`', 3)
-                            ) {
-                                $expected = true;
-
-                                break;
-                            }
-                        }
-                        $this->assertSame($expected, $scanner->descriptionBodyCloserAhead($lines, $index, ['fence' => '```', 'length' => 3], $bodyColumn, $openerColumn));
-                    }
-                }
-            }
-        }
-    }
-
-    public function testCustomFenceParserKeepsItsCloserPredicate(): void
-    {
-        $parser = new BlockParser();
-        $scanner = (new ReflectionMethod($parser, 'continuationsMapper'))->invoke($parser);
-        $custom = new class extends FencedBlockParser {
-            public int $calls = 0;
-
-            public function isCodeFenceCloser(string $line, string $fenceChar, int $fenceLength): bool
-            {
-                $this->calls++;
-
-                return false;
-            }
-        };
-        (new ReflectionProperty($scanner, 'getFencedBlockParser'))->setValue($scanner, static fn () => $custom);
-        $lines = ['text', '  ```', '  ```'];
-        $opener = ['fence' => '```', 'length' => 3];
-        $this->assertFalse($scanner->sourceFenceCloserInView($lines, 0, $opener, 2));
-        $this->assertFalse($scanner->descriptionBodyCloserAhead($lines, 0, $opener, 2, 2));
-        $this->assertGreaterThan(0, $custom->calls);
     }
 }

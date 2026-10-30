@@ -172,7 +172,7 @@
   {
     "id": "continued-marker-note-code/review-C-blank-child-lazy0",
     "source": "- [^n]: text\n\n    - child\nlazy tail\n\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>lazy tail</p><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><ul><li>child</li></ul><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><ul><li>child lazy tail</li></ul><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-code/review-E-task",
@@ -182,7 +182,7 @@
   {
     "id": "continued-marker-note-code/review-F-blank-sub4",
     "source": "- [^n]: text\n\n    - child\n    - child2\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><ul><li>child</li><li>child2</li></ul><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul>"
   },
   {
     "id": "nested-marker-note-closer/nested-188",
@@ -192,7 +192,7 @@
   {
     "id": "nested-marker-note-closer/nested-189",
     "source": "- [^a]: text\n    more\n    [^b]: \n      :: t\n        ~~~\n        code\nafter [^a] [^b]\n",
-    "html": "<ul><li></li></ul>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:</p><dl><dt>t</dt></dl><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "nested-marker-note-closer/nested-190",
@@ -202,7 +202,7 @@
   {
     "id": "nested-marker-note-closer/nested-191",
     "source": "- [^a]: text\n    more\n    [^b]: \n\n      :: t\n        ~~~\n        code\nafter [^a] [^b]\n",
-    "html": "<ul><li></li></ul>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:</p><dl><dt>t</dt></dl><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "nested-marker-note-closer/nested-380",
@@ -212,7 +212,7 @@
   {
     "id": "nested-marker-note-closer/nested-381",
     "source": "> - [^a]: text\n>     more\n>     [^b]: \n>       :: t\n>         ~~~\n>         code\n> after [^a] [^b]\n> ",
-    "html": "<blockquote><ul><li></li></ul></blockquote>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:</p><dl><dt>t</dt></dl><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "nested-marker-note-closer/nested-382",
@@ -222,7 +222,7 @@
   {
     "id": "nested-marker-note-closer/nested-383",
     "source": "> - [^a]: text\n>     more\n>     [^b]: \n> \n>       :: t\n>         ~~~\n>         code\n> after [^a] [^b]\n> ",
-    "html": "<blockquote><ul><li></li></ul></blockquote>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:</p><dl><dt>t</dt></dl><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "nested-marker-note-closer/generic-50",

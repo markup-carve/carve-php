@@ -46,7 +46,7 @@ final class DescriptionBodyLine
      */
     public ?array $paragraphFence = null;
 
-    public bool $paragraphFenceHasNoCloser = false;
+    public bool $paragraphFenceIsText = false;
 
     public function __construct(
         public string $contLine,

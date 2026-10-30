@@ -63,10 +63,10 @@ class AQuotedItemFenceDoesNotKeepAnUnmarkedLineTest extends TestCase
         $this->assertSame($expected . $converter->convert($tail), $converter->convert($source . $tail));
     }
 
-    public function testAnUnterminatedRunInAParagraphStaysLazy(): void
+    public function testAnUnterminatedFenceInterruptsTheParagraph(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<blockquote>\n  <ul>\n    <li>a\n<code>\npayload\nflush</code></li>\n  </ul>\n</blockquote>\n"),
+            preg_replace('/\n\z/', '', "<blockquote>\n  <ul>\n    <li>a\n      <pre><code>payload\n</code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>flush</p>\n"),
             (new CarveConverter())->convert("> - a\n>     ```\n>     payload\nflush\n"),
         );
     }

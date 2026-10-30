@@ -61,8 +61,10 @@ final class CorpusPopulation
     public static function expectedSize(): int
     {
         $count = 0;
-        foreach (['core.md', 'extensions.md', 'edge-cases.md'] as $page) {
-            $path = __DIR__ . '/../spec/resources/examples/' . $page;
+        $root = __DIR__ . '/../spec/resources/examples/';
+        // The edge-case page is one file per section since carve#4132.
+        $pages = [$root . 'core.md', $root . 'extensions.md', ...(glob($root . 'edge-cases/*.md') ?: [$root . 'edge-cases.md'])];
+        foreach ($pages as $path) {
             if (!is_file($path)) {
                 throw new RuntimeException('Missing corpus source page: ' . $path);
             }

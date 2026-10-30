@@ -84,12 +84,15 @@ class ContinuationFenceInteriorBlankLoosenessTest extends TestCase
             [
                 "- a\n  - s\n    t\n     ~~~\n\n  more\n",
                 "- a\n  - sub\n     ```\n\n  more\n",
-                "- a\n\n  > q\n    ```\n\n  more\n",
             ] as $source
         ) {
             $html = $this->converter->convert($source);
             self::assertStringContainsString('<li><p>a</p>', $html);
             self::assertStringContainsString('<p>more</p>', $html);
         }
+
+        // The opener interrupts the quote paragraph, so the fence takes the blank and `more`.
+        $html = $this->converter->convert("- a\n\n  > q\n    ```\n\n  more\n");
+        self::assertStringContainsString("<li>a\n    <blockquote><p>q</p></blockquote>\n    <pre><code>\nmore\n</code></pre>", $html);
     }
 }

@@ -30,7 +30,7 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
      */
     public static function belowTheColumnProvider(): array
     {
-        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n<p>body\n<code></code></p>\n";
+        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n<p>body</p>\n<pre><code></code></pre>\n";
 
         return [
             'at column 0' => [
@@ -57,7 +57,7 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
     public function testABelowColumnTildeLineDoesNotFoldIntoAnOpenFence(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n<p>body\n~~~</p>\n"),
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n<p>body</p>\n<pre><code></code></pre>\n"),
             $this->html(":: t\n:  ~~~\nbody\n~~~\n"),
         );
     }
@@ -147,11 +147,11 @@ class DefinitionBodyFenceBelowTheColumnTest extends TestCase
         // The two spellings that already answered this way, so the definition
         // spelling closes the set rather than being enumerated beside them.
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>\n"),
             $this->html("- ```\nx\n```\n"),
         );
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<blockquote>\n  <pre><code></code></pre>\n</blockquote>\n<p>x\n<code></code></p>\n"),
+            preg_replace('/\n\z/', '', "<blockquote>\n  <pre><code></code></pre>\n</blockquote>\n<p>x</p>\n<pre><code></code></pre>\n"),
             $this->html("> ```\nx\n```\n"),
         );
     }

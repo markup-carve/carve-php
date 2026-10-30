@@ -118,10 +118,10 @@ class AWhitespaceOnlyCodeLineKeepsTheFencesResidueTest extends TestCase
         $this->assertSame($converter->convert($plain), $converter->convert($source));
     }
 
-    public function testAnUnterminatedFencePastTheContentColumnStaysInline(): void
+    public function testAnUnterminatedFencePastTheContentColumnEndsWithTheItem(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a\n<code>\nb\ntail</code></li>\n</ul>",
+            "<ul>\n  <li>a\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>tail</p>",
             trim((new CarveConverter())->convert("- a\n    ```\n    b\ntail\n")),
         );
     }

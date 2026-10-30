@@ -2,7 +2,7 @@
   {
     "id": "562-a-quoted-item-that-ends-on-a-block-past-its-column-holds-no-paragraph-2",
     "source": "> - a\n>     ```\n>     ~~~\n>     code\n>     ~~~\ntail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>a\n<code></code>\n      <pre><code>code\n</code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>\n"
+    "html": "<blockquote>\n  <ul>\n    <li>a\n      <pre><code>~~~\ncode\n~~~\n</code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>\n"
   },
   {
     "id": "562-a-quoted-item-that-ends-on-a-block-past-its-column-holds-no-paragraph-3",

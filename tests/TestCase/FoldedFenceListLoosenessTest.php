@@ -10,25 +10,20 @@ use PHPUnit\Framework\TestCase;
 
 class FoldedFenceListLoosenessTest extends TestCase
 {
-    public function testBlankSeparatedParagraphsAfterAFoldedFenceAreLoose(): void
+    /**
+     * An unclosed run opens a fence in the item (carve#4032), so nothing folds and nothing loosens.
+     */
+    public function testAnUnclosedRunOpensAFenceInsteadOfFolding(): void
     {
-        self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li><p>h\n<code></code></p>\n    <p>b\n<code></code></p>\n  </li>\n</ul>\n"),
-            (new CarveConverter())->convert("- h\n  ```\n\n  b\n```\n"),
-        );
-        self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li><p>o\n<code>\nx</code></p>\n    <p>t</p>\n  </li>\n</ul>\n"),
-            (new CarveConverter())->convert("- o\n  ```\nx\n\n  t\n"),
-        );
         foreach (['```', '~~~'] as $run) {
-            $beforeCloser = "- h\n  {$run}\n\n  b\n{$run}\n";
-            $noCloser = "- o\n  {$run}\nx\n\n  t\n";
-            foreach ([$beforeCloser, $noCloser] as $source) {
-                $html = (new CarveConverter())->convert($source);
-                self::assertStringContainsString('<li><p>', $html);
-                self::assertSame(2, substr_count($html, '<p>'));
-                self::assertSame(2, substr_count($html, '</p>'));
-            }
+            self::assertSame(
+                "<ul>\n  <li>h\n    <pre><code>\nb\n</code></pre>\n  </li>\n</ul>\n<pre><code></code></pre>",
+                (new CarveConverter())->convert("- h\n  {$run}\n\n  b\n{$run}\n"),
+            );
+            self::assertSame(
+                "<ul>\n  <li>o\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x</p>\n<p>t</p>",
+                (new CarveConverter())->convert("- o\n  {$run}\nx\n\n  t\n"),
+            );
         }
     }
 

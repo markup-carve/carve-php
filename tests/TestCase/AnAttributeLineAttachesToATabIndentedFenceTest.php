@@ -41,13 +41,13 @@ class AnAttributeLineAttachesToATabIndentedFenceTest extends TestCase
             }
         }
 
-        yield 'g003' => ["- a\n\t::: note\n   {.c}\n\t\t```\nx\n```\nafter\n", '<ul><li>a<aside class="admonition note" aria-label="Note"><pre class="c"><code></code></pre></aside></li></ul><p>x<code>after</code></p>'];
-        yield 'g004' => ["- a\n\t::: tip\n  {.c}\n      ```\nx\n```\nafter\n", '<ul><li>a<aside class="admonition tip" aria-label="Tip"><pre class="c"><code></code></pre></aside></li></ul><p>x<code>after</code></p>'];
-        yield 'g015' => ["1. a\n \t::: box\n   {.c}\n\t\t```\nx\n```\nafter\n", '<ol><li>a<div class="box"><pre class="c"><code></code></pre></div></li></ol><p>x<code>after</code></p>'];
+        yield 'g003' => ["- a\n\t::: note\n   {.c}\n\t\t```\nx\n```\nafter\n", '<ul><li>a<aside class="admonition note" aria-label="Note"><pre class="c"><code></code></pre></aside></li></ul><p>x</p><pre><code>after </code></pre>'];
+        yield 'g004' => ["- a\n\t::: tip\n  {.c}\n      ```\nx\n```\nafter\n", '<ul><li>a<aside class="admonition tip" aria-label="Tip"><pre class="c"><code></code></pre></aside></li></ul><p>x</p><pre><code>after </code></pre>'];
+        yield 'g015' => ["1. a\n \t::: box\n   {.c}\n\t\t```\nx\n```\nafter\n", '<ol><li>a<div class="box"><pre class="c"><code></code></pre></div></li></ol><p>x</p><pre><code>after </code></pre>'];
         yield 'g019' => ["1. a\n  :::\n  \t{.c}\n  \t\t```\nafter\n", '<ol><li>a</li></ol><div><pre class="c"><code>after </code></pre></div>'];
-        yield 'g021' => ["- a\n\t::: tip\n  \t{.c}\n\t\t```\nx\n```\nafter\n", '<ul><li>a<aside class="admonition tip" aria-label="Tip"><pre class="c"><code></code></pre></aside></li></ul><p>x<code>after</code></p>'];
+        yield 'g021' => ["- a\n\t::: tip\n  \t{.c}\n\t\t```\nx\n```\nafter\n", '<ul><li>a<aside class="admonition tip" aria-label="Tip"><pre class="c"><code></code></pre></aside></li></ul><p>x</p><pre><code>after </code></pre>'];
         yield 'g033' => ["1. a\n  :::\n   {.c}\n\t\t```\n```\n", '<ol><li>a</li></ol><div><pre class="c"><code></code></pre></div>'];
-        yield 'g043' => ["- a\n  \t::: box\n   {.c}\n\t ```\nx\n```\nafter\n", '<ul><li>a<div class="box"><pre class="c"><code></code></pre></div></li></ul><p>x<code>after</code></p>'];
+        yield 'g043' => ["- a\n  \t::: box\n   {.c}\n\t ```\nx\n```\nafter\n", '<ul><li>a<div class="box"><pre class="c"><code></code></pre></div></li></ul><p>x</p><pre><code>after </code></pre>'];
         yield 'g050' => ["1. a\n  :::\n\t{.c}\n  \t\t```\nx\n```\nafter\n", '<ol><li>a</li></ol><div><pre class="c"><code>x </code></pre><p>after</p></div>'];
         yield 'g086' => ["1. a\n  :::\n   {.c}\n\t ```\nx\n```\nafter\n", '<ol><li>a</li></ol><div><pre class="c"><code>x </code></pre><p>after</p></div>'];
         yield 'g089' => ["1. a\n\t::: box\n   \t{.c}\n  ```\nafter\n", '<ol><li>a<div class="box"></div></li></ol><p><code>after</code></p>'];

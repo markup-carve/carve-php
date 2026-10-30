@@ -376,50 +376,12 @@ final class BlockContinuationScanner
 
                     continue;
                 }
-                // Only a comment below the content column retains the item.
-                $sourceCommentLine = $this->state->source->sourceLines[$itemLineMap[count($itemLineMap) - 1] ?? -1] ?? '';
-                $followingComment = ($this->getFencedBlockParser)()->parseDivFenceOpener($bottom) !== null
-                    && $itemLines !== []
-                    && $this->isCommentLineOrFence(ltrim($itemLines[array_key_last($itemLines)], " \t"))
-                    && IndentationHelper::getLeadingColumns($sourceCommentLine) < $contentIndent
-                    && preg_match('/^[ \t]*[`~]{3,}/m', implode("\n", $itemLines)) !== 1
-                    && ContainerPrefix::quoteContent($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '') === null;
-                $fenceAfterComment = $followingComment
-                    ? ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed) : null;
-                if (
-                    $fenceAfterComment !== null
-                    && !$this->sourceFenceCloserInView($lines, $i, $fenceAfterComment, 0)
-                ) {
-                    $itemLines[] = $nextIndent > 0 ? ' ' . $nextTrimmed : $nextTrimmed;
-                    $itemLineMap[] = $this->sourceLineFor($i);
-                    $trailingState = $this->advanceTrailingState($trailingState, $nextTrimmed, true);
-                    $i++;
-
-                    continue;
-                }
                 // A sibling marker or a block opener at the base column belongs
                 // to the caller's loop, and a stream ending in a closed block
                 // has nothing to continue: both end the item.
                 // The deepest frame decides continuation after a closed fence
                 // in either host (markup-carve/carve#2895).
                 ($this->advanceNestedLeadFenceStateCallback)($nestedFence, $itemLines);
-                $lastLine = $itemLines[count($itemLines) - 1] ?? '';
-                $priorLine = $itemLines[count($itemLines) - 2] ?? '';
-                $nestedOpener = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($lastLine, " \t"));
-                // An unclosed fence in the inner item leaves no paragraph for a flush follower.
-                $nestedUnclosedFence = $nextIndent === 0
-                    && ($this->getListParser)()->parseListItemMarker($lead) !== null
-                    && $this->isCommentLineOrFence(ltrim($priorLine, " \t"))
-                    && $nestedOpener !== null
-                    && !$this->sourceFenceCloserInView(
-                        $lines,
-                        $i - 1,
-                        $nestedOpener,
-                        IndentationHelper::getLeadingColumns($lines[$i - 1]),
-                    );
-                if ($nestedUnclosedFence) {
-                    break;
-                }
                 $lastItemLine = array_key_last($itemLines);
                 $closedNestedFence = $nextIndent === 0
                     && $lastItemLine !== null
@@ -560,14 +522,6 @@ final class BlockContinuationScanner
             ) {
                 $stripped = ' ' . $stripped;
             }
-            $inlineCodeCandidate = ltrim($stripped, " \t");
-            $inlineCodeOpener = $trailingState->openParagraph && !$trailingState->hasLiteralDiv()
-                && str_starts_with($inlineCodeCandidate, '````')
-                ? ($this->getFencedBlockParser)()->parseCodeFenceOpener($inlineCodeCandidate)
-                : null;
-            $inlineCodeWithoutCloser = $inlineCodeOpener !== null && strlen($inlineCodeOpener['fence']) >= 4 && $inlineCodeOpener['info'] !== ''
-                && !$this->sourceFenceCloserInView($lines, $i, $inlineCodeOpener, $nextIndent);
-
             $authoredBaseEligible[count($itemLines)] = true;
             $itemLines[] = $stripped;
             $itemLineMap[] = $this->sourceLineFor($i);
@@ -595,7 +549,7 @@ final class BlockContinuationScanner
             if ($inCommentSpan && !$trailingState->hasLiteralDiv()) {
                 // Opaque payload, or the closer that travels with its opener.
                 $trailingState->openParagraph = false;
-            } elseif ($inlineCodeWithoutCloser || isset($this->state->session->blockQuoteInlineFenceSourceLines[$this->sourceLineFor($i)])) {
+            } elseif (isset($this->state->session->blockQuoteInlineFenceSourceLines[$this->sourceLineFor($i)])) {
                 $trailingState = $this->advanceTrailingState($trailingState, 'x', true);
             } else {
                 $trailingState = $trailingState->hasLiteralDiv()
@@ -617,7 +571,7 @@ final class BlockContinuationScanner
                 $trailingState->openParagraph = false;
             }
             if (
-                !$inCommentSpan && !$inlineCodeWithoutCloser
+                !$inCommentSpan
                 && $trailingState->fence === null
                 && !$trailingState->hasLiteralDiv()
                 && str_starts_with(ltrim($stripped, " \t"), '[^')
@@ -2060,19 +2014,14 @@ final class BlockContinuationScanner
             return true;
         }
 
-        if ($run->termCodeTailFence !== null && $run->termCodeTailHasCloser && $nextIndent < $contentIndent) {
+        // A line below the item's column ends a fence after a term (PART 0 S2).
+        if ($run->termCodeTailFence !== null && $nextIndent < $contentIndent) {
             return false;
         }
 
         if (
             $run->termCodeTailFence !== null && !$isBlockQuoteLazyLine
             && !($nextIndent <= $baseIndent && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null)
-            && !($nextIndent < $contentIndent
-                && !($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
-                && ($this->isBlockElementStart($nextTrimmed, $lines, $i)
-                    || $this->startsNewBlock($nextTrimmed, $lines, $i)
-                    || $this->isBlockAttributeLine($nextTrimmed)
-                    || $this->isFoldableInvisibleLine($nextTrimmed)))
             && !($nextIndent === $contentIndent
                 && ($this->getFencedBlockParser)()->isCodeFenceCloser(
                     $nextTrimmed,
@@ -2080,9 +2029,7 @@ final class BlockContinuationScanner
                     $run->termCodeTailFence['length'],
                 ))
         ) {
-            $itemLines[] = $nextIndent < $contentIndent
-                ? BlockGrammar::LAZY_FRAME . $nextTrimmed
-                : IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+            $itemLines[] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
             $itemLineMap[] = $this->sourceLineFor($i);
             if ($trailingState->fence === null) {
                 $trailingState->openParagraph = true;
@@ -2099,15 +2046,6 @@ final class BlockContinuationScanner
             && ($this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
                 || $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
         ) {
-            if (
-                $trailingState->fence !== null
-                && $run->interruptedParagraphFence
-                && ($this->getListParser)()->parseListItemMarker($nextTrimmed) === null
-            ) {
-                $itemLines[] = str_repeat($trailingState->fence->char, $trailingState->fence->length);
-                $itemLineMap[] = -1;
-            }
-
             return false;
         }
 
@@ -2393,7 +2331,6 @@ final class BlockContinuationScanner
             $run->termCodeTailFence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
             ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
             if ($run->termCodeTailFence !== null) {
-                $run->termCodeTailHasCloser = $this->listAuthoredFenceCloserAhead($lines, $i, $run->termCodeTailFence, $contentIndent, $contentIndent, $baseIndent, $run->authoredFenceMisses, $run->authoredFenceHits);
                 $trailingState->openParagraph = false;
                 $trailingState->quoteParagraph = false;
                 $trailingState->nestedColumn = 0;
@@ -2484,10 +2421,7 @@ final class BlockContinuationScanner
                 && $run->pendingTermFence === null && $run->authoredTermColumn > $contentIndent
             ) {
                 $run->pendingDefinitionTerm = false;
-                $termBoundaryFence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
-                    ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
-                $run->authoredFenceOwnsLazy = $termBoundaryFence !== null
-                    && !$this->sourceFenceCloserInView($lines, $i, $termBoundaryFence, $run->authoredTermColumn, true);
+                $run->authoredFenceOwnsLazy = false;
                 $trailingState->openParagraph = false;
                 $run->inlineCodeParagraph = false;
             }
@@ -2719,18 +2653,6 @@ final class BlockContinuationScanner
         $releasedNoteFenceText = $run->releasedNoteParagraphColumn !== null && $trailingState->openParagraph
             && IndentationHelper::getLeadingColumns($nextLine) > $run->releasedNoteParagraphColumn
             && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0);
-        $noteFence = $run->markerNoteItem && $trailingState->inFootnoteBody
-            ? ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed) : null;
-        if (
-            $run->markerNoteItem && ($run->sawNestedNote || $run->leadNoteHadBlank) && $trailingState->inFootnoteBody
-            && $column <= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-            && $noteFence !== null
-            && !$this->sourceFenceCloserInView($lines, $i, $noteFence, $column, true)
-        ) {
-            $trailingState->openParagraph = false;
-            // An unclosed run after a nested definition ends with the item.
-            $run->authoredFenceOwnsLazy = !$run->sawNestedNote;
-        }
 
         return $releasedNoteFenceText;
     }
@@ -2774,9 +2696,7 @@ final class BlockContinuationScanner
         bool $legacyRawAdmission,
         bool $releasedNoteFenceText,
         bool &$inlineAuthoredFence,
-    ): bool {
-        $failedFenceColumn = null;
-        $unclosedNoteText = false;
+    ): void {
         // A completed floor block leaves the following authored block
         // to the same body reparse instead of stripping its base twice.
         if (
@@ -2807,77 +2727,33 @@ final class BlockContinuationScanner
                 ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
             $column = IndentationHelper::getLeadingColumns($nextLine);
             if ($opener !== null && $column > $contentIndent) {
-                $descriptionBlockFence = $run->openDefinitionBody !== null
-                    && !$run->recentDefinitionParagraph
-                    && $column >= $contentIndent + $run->openDefinitionBody;
-                // An unclosed run in a marker-line note's open paragraph is that paragraph's text.
-                $unclosedNoteText = $run->markerNoteItem && !$run->sawNestedNote
-                    && (!$run->leadNoteHadBlank || $this->endsOnParagraphText($itemLines))
+                // A fence reaching a note or description body stays with that body (CARVE-P0-004).
+                $noteBodyFence = $run->markerNoteItem
+                    && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                    && $this->leadNoteExtendsThrough($itemLines, $run->noteCursor, $run->noteBroken);
+                $closedNoteBodyFence = $run->markerNoteItem && ($trailingState->inFootnoteBody || !$run->sawNestedNote)
                     && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
                     && $this->noteKeepsItsBody($itemLines, $run->markerRunCursor, $run->markerRunBroken)
-                    && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $run->noteSourceCursor, $run->noteSourceBroken)
-                    && $this->leadNoteExtendsThrough($itemLines, $run->noteCursor, $run->noteBroken)
-                    && !$this->fenceClosesWithinColumn($lines, $i, $opener, $column, $run->noteCloserMemo);
+                    && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $run->noteSourceCursor, $run->noteSourceBroken);
                 if (
-                    !$unclosedNoteText && (!$trailingState->openParagraph
-                    || $descriptionBlockFence
-                    || $legacyRawAdmission
-                    || $this->listAuthoredFenceCloserAhead($lines, $i, $opener, $column, $contentIndent, $baseIndent, $run->authoredFenceMisses, $run->authoredFenceHits))
+                    ($run->nestedNoteBodyColumn === null || $column < $run->nestedNoteBodyColumn)
+                    && !($noteBodyFence && $run->leadNoteHadBlank && !$closedNoteBodyFence)
+                    && (
+                        $run->openDefinitionBody === null
+                        || !$run->definitionBodyHasTerm
+                        || $column < $contentIndent + $run->openDefinitionBody
+                    )
                 ) {
-                    // A fence reaching a note or description body stays with that body (CARVE-P0-004).
-                    $noteBodyFence = $run->markerNoteItem
-                        && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                        && $this->leadNoteExtendsThrough($itemLines, $run->noteCursor, $run->noteBroken);
-                    $closedNoteBodyFence = $run->markerNoteItem && ($trailingState->inFootnoteBody || !$run->sawNestedNote)
-                        && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                        && $this->noteKeepsItsBody($itemLines, $run->markerRunCursor, $run->markerRunBroken)
-                        && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $run->noteSourceCursor, $run->noteSourceBroken)
-                        && (
-                            $this->fenceClosesWithinColumn($lines, $i, $opener, $column, $run->noteCloserMemo)
-                            // With no paragraph open an unclosed fence opens too, and runs to the note's end.
-                            || !$this->endsOnParagraphText($itemLines)
-                        );
-                    if (
-                        ($run->nestedNoteBodyColumn === null || $column < $run->nestedNoteBodyColumn)
-                        && !($noteBodyFence && $run->leadNoteHadBlank && !$closedNoteBodyFence)
-                        && (
-                            $run->openDefinitionBody === null
-                            || !$run->definitionBodyHasTerm
-                            || $column < $contentIndent + $run->openDefinitionBody
-                        )
-                    ) {
-                        // Under a marker-line note the fence opens in the note on its authored base,
-                        // unless it reaches the content column of a list the note opened.
-                        if (!$closedNoteBodyFence) {
-                            $run->authoredCodeColumn = $column;
-                        } elseif ($column < $this->noteChildContentColumn($itemLines, $contentIndent, $run->leadNoteHadBlank)) {
-                            $run->authoredCodeColumn = $column - BlockGrammar::FOOTNOTE_BODY_COLUMN;
-                        }
-                    }
-                } elseif (!$unclosedNoteText) {
-                    $inlineAuthoredFence = true;
-                    $failedFenceColumn = $column;
-                    if (
-                        $run->itemOwnFenceRuns && !$run->markerNoteItem && $run->openDefinitionBody === null && !$run->pendingDefinitionTerm && !$run->pendingAttachedAttributes
-                        && !$this->isCommentLineOrFence(ltrim($itemLines[count($itemLines) - 1] ?? '', " \t"))
-                    ) {
-                        $run->unclosedFenceColumn ??= $column;
-                        $unclosedFenceBase ??= $run->unclosedFenceColumn - $contentIndent;
-                    }
-                    if (($opener['char'] ?? $opener['fence'][0]) === '`') {
-                        $run->inlineCodeParagraph = true;
-                        $run->inlineDefinitionBody = $run->openDefinitionBody;
-                        $run->inlineParagraphColumn = $column;
-                        $run->inlineFenceColumn = $column;
+                    // Under a marker-line note the fence opens in the note on its authored base,
+                    // unless it reaches the content column of a list the note opened.
+                    if (!$closedNoteBodyFence) {
+                        $run->authoredCodeColumn = $column;
+                    } elseif ($column < $this->noteChildContentColumn($itemLines, $contentIndent, $run->leadNoteHadBlank)) {
+                        $run->authoredCodeColumn = $column - BlockGrammar::FOOTNOTE_BODY_COLUMN;
                     }
                 }
             }
         }
-        if ($run->unclosedFenceColumn === null && $failedFenceColumn !== null && $run->openDefinitionBody === null && !$trailingState->inFootnoteBody && $i + 2 < $count && isset($lines[$i + 1], $lines[$i + 2]) && IndentationHelper::isBlankLine($lines[$i + 1]) && !IndentationHelper::isBlankLine($lines[$i + 2]) && IndentationHelper::getLeadingColumns($lines[$i + 2]) >= $failedFenceColumn) {
-            $inlineAuthoredFence = false;
-        }
-
-        return $unclosedNoteText;
     }
 
     /**
@@ -2893,7 +2769,6 @@ final class BlockContinuationScanner
      * @param bool $termContinuation
      * @param bool $closesMetadataSameBaseFence
      * @param bool $inlineAuthoredFence
-     * @param bool $unclosedNoteText
      */
     private function buildPlainContentLine(
         PlainContinuationState $run,
@@ -2906,13 +2781,12 @@ final class BlockContinuationScanner
         bool $termContinuation,
         bool $closesMetadataSameBaseFence,
         bool $inlineAuthoredFence,
-        bool $unclosedNoteText,
     ): string {
         $stripColumn = $run->authoredCodeColumn !== null
             && IndentationHelper::getLeadingColumns($nextLine, $run->authoredCodeColumn) >= $run->authoredCodeColumn
             ? $run->authoredCodeColumn : $contentIndent;
         $contentLine = $inlineAuthoredFence && !$termContinuation
-            && ($run->openDefinitionBody === null || $column < $contentIndent + $run->openDefinitionBody) && !$unclosedNoteText
+            && ($run->openDefinitionBody === null || $column < $contentIndent + $run->openDefinitionBody)
             && !($trailingState->inFootnoteBody && $column > $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN)
             ? BlockGrammar::LAZY_FRAME . $nextTrimmed
             : IndentationHelper::stripLeadingColumns($nextLine, $stripColumn);
@@ -3052,20 +2926,6 @@ final class BlockContinuationScanner
         bool $wasAfterComment,
         bool $wasInFence,
     ): TrailingBlockState {
-        // A CLOSER PAST THE BLANK THAT ENDS THIS ITEM IS NOT THIS
-        // FENCE'S (§10 I4 over carve#1379, markup-carve/carve#2509).
-        // The general lookahead reads to end of source, so a run whose
-        // only closer sits under a blank no later line continues at the
-        // content column armed a fence the item cannot hold and
-        // swallowed the blank; `CARVE-P0-014` folds the run into the
-        // paragraph instead. carve-php#2660 asked this one container in;
-        // the single-item path asks it here.
-        $floorLookaheadOpener = $run->minimumFenceBase && $wasOpenParagraph && !$wasAfterComment && !$wasInFence && $run->authoredCodeColumn === null
-            ? ($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($contentLine, " \t"))
-                ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($contentLine, " \t"))
-            : null;
-        $floorLookaheadRejected = $floorLookaheadOpener !== null
-            && !$this->sourceFenceCloserInView($lines, $i, $floorLookaheadOpener, $contentIndent + IndentationHelper::getLeadingColumns($contentLine));
         $descendantParagraphFence = $run->markerNoteItem && !$run->sawNestedNote
             && $trailingState->quoteParagraph && $column > $contentIndent
             && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0);
@@ -3103,9 +2963,6 @@ final class BlockContinuationScanner
         if ($trailingState->hasLiteralDiv()) {
             return $this->advanceLiteralStateWithSourceFenceLookahead($trailingState, $trackedContent, $lines, $i, $contentIndent);
         }
-        if ($floorLookaheadRejected) {
-            return $this->advanceTrailingState($trailingState, 'text', true);
-        }
 
         return $this->advanceTrailingStateWithFenceLookahead(
             $trailingState,
@@ -3114,7 +2971,6 @@ final class BlockContinuationScanner
             $i,
             true,
             $run->authoredCodeColumn ?? $contentIndent,
-            $run->authoredCodeColumn !== null,
         );
     }
 
@@ -3161,7 +3017,6 @@ final class BlockContinuationScanner
             $bodyColumn = $contentIndent + $run->openDefinitionBody;
             if (
                 $opener !== null && $descriptionColumn !== null && $descriptionColumn > $bodyColumn
-                && $this->descriptionBodyCloserAhead($lines, $i, $opener, $bodyColumn, $descriptionColumn)
             ) {
                 $run->descriptionFence = [
                     'body' => $bodyColumn,
@@ -3454,7 +3309,7 @@ final class BlockContinuationScanner
         );
         $releasedNoteFenceText = $this->trackReleasedNoteFence($run, $lines, $i, $contentIndent, $trailingState, $nextLine, $nextTrimmed, $column);
         $inlineAuthoredFence = $run->inlineCodeParagraph || $termContinuation || $failedReplayFence || $releasedNoteFenceText;
-        $unclosedNoteText = $this->resolveAuthoredCodeColumn(
+        $this->resolveAuthoredCodeColumn(
             $run,
             $lines,
             $i,
@@ -3476,14 +3331,6 @@ final class BlockContinuationScanner
         if ($legacyRawAdmission && $run->authoredCodeColumn !== null) {
             $trailingState->openParagraph = false;
         }
-        if ($unclosedNoteText) {
-            $itemLines[] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
-            $itemLineMap[] = $this->sourceLineFor($i);
-            $run->noteCursor = count($itemLines);
-            $i++;
-
-            return true;
-        }
         $contentLine = $this->buildPlainContentLine(
             $run,
             $lines,
@@ -3495,7 +3342,6 @@ final class BlockContinuationScanner
             $termContinuation,
             $closesMetadataSameBaseFence,
             $inlineAuthoredFence,
-            $unclosedNoteText,
         );
         [$inCommentSpan, $trackedContent] = $this->pushPlainContentLine(
             $run,
@@ -3769,28 +3615,7 @@ final class BlockContinuationScanner
         bool $leadIsBareContinuationMarker,
     ): ?bool {
         // Only a comment below the content column retains the item.
-        $sourceFenceLine = $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '';
         $sourceCommentLine = $this->state->source->sourceLines[$itemLineMap[count($itemLineMap) - 1] ?? -1] ?? '';
-        $commentRetainsFence = $itemLines !== []
-            && $this->isCommentLineOrFence(ltrim($itemLines[array_key_last($itemLines)], " \t"))
-            && IndentationHelper::getLeadingColumns($sourceCommentLine) < $contentIndent
-            && !$this->isCommentLineOrFence(ltrim($itemLines[0], " \t"))
-            && preg_match('/^[ \t]*[`~]{3,}/m', implode("\n", $itemLines)) !== 1
-            && IndentationHelper::getLeadingColumns($sourceFenceLine) === 0
-            && ContainerPrefix::quoteContent($sourceFenceLine) === null;
-        $followingFence = $trailingState->fence === null
-            && $nextIndent < $contentIndent
-            && $commentRetainsFence
-            ? ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
-            : null;
-        if ($followingFence !== null && !$this->sourceFenceCloserInView($lines, $i, $followingFence, 0)) {
-            $itemLines[] = $nextTrimmed;
-            $itemLineMap[] = $this->sourceLineFor($i);
-            $trailingState = $this->advanceTrailingState($trailingState, $nextTrimmed, true);
-            $i++;
-
-            return true;
-        }
         if (
             $run->recentDefinitionParagraph
             && $nextIndent < $contentIndent
@@ -3831,16 +3656,6 @@ final class BlockContinuationScanner
             && ($nextIndent === 0 || !$trailingState->afterComment)
             && !($leadIsBareContinuationMarker && $nextIndent === 0 && $this->continuationFollowerIsEligible($i))
         ) {
-            // The closer lookahead can find a closer beyond the line that
-            // ends this item. Preserve that decision when the collected
-            // item is parsed on its own: without the synthetic boundary
-            // closer, the second parse sees a truncated stream and turns
-            // the same opener back into inline code.
-            if (($trailingState->fence !== null) && $run->interruptedParagraphFence) {
-                $itemLines[] = str_repeat($trailingState->fence->char, $trailingState->fence->length);
-                $itemLineMap[] = -1;
-            }
-
             return false;
         }
 
@@ -4366,20 +4181,8 @@ final class BlockContinuationScanner
     }
 
     /**
-     * Track a collected line with the §10 closer lookahead available.
-     *
-     * An unterminated code-fence-shaped line opens no block when a paragraph
-     * is already open; it is inline verbatim text and leaves that paragraph
-     * available for lazy continuation. The one-line state machine cannot know
-     * whether a closer exists, so container collectors that own the remaining
-     * lines ask here before arming `inFence` (carve#1414, corpus 367).
-     *
-     * `$closerKnownAhead` is that same answer, settled against the SOURCE. A
-     * collector that hands its OWN collected lines here shows a view that stops
-     * at the line it is classifying, so a closer written under a below-column
-     * line is invisible to the search below while `CARVE-P0-014` has it count
-     * (carve-php#2233). Such a collector settles the question where it can see
-     * the source and says so here.
+     * Track a collected line. A code or raw opener needs no closer to open
+     * (PART 9 §10 I4), so the opener line alone decides.
      *
      * @param \MarkupCarve\Carve\Parser\TrailingBlockState $state
      * @param string $line
@@ -4387,7 +4190,6 @@ final class BlockContinuationScanner
      * @param int $index
      * @param bool $atContentColumn
      * @param int $stripColumns
-     * @param bool $closerKnownAhead
      *
      * @return \MarkupCarve\Carve\Parser\TrailingBlockState
      */
@@ -4398,27 +4200,7 @@ final class BlockContinuationScanner
         int $index,
         bool $atContentColumn = false,
         int $stripColumns = 0,
-        bool $closerKnownAhead = false,
     ): TrailingBlockState {
-        if ($state->openParagraph && !$state->afterComment && $state->fence === null && !$closerKnownAhead) {
-            $fenceAt = IndentationHelper::pastLeadingWhitespace($line);
-            $subject = $line;
-            if (($this->getFencedBlockParser)()->isCodeFenceHead($line, $fenceAt)) {
-                $subject = substr($line, $fenceAt);
-                $stripColumns += IndentationHelper::getLeadingColumns($line);
-            }
-            $opener = ($this->getFencedBlockParser)()->parseRawBlockOpener($subject)
-                ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject);
-            if (
-                $opener !== null
-                && !$this->hasFenceCloserInView($lines, $index, $opener, $stripColumns)
-            ) {
-                // A neutral prose line advances every non-fence flag exactly as
-                // this failed opener must; only its literal bytes differ.
-                return $this->advanceTrailingState($state, 'text', $atContentColumn);
-            }
-        }
-
         return $this->advanceTrailingState($state, $line, $atContentColumn);
     }
 
@@ -4601,229 +4383,6 @@ final class BlockContinuationScanner
     }
 
     /**
-     * A list marker written at column 0 does not end a description's closer
-     * search: CARVE-P0-014 looks for a closer anywhere ahead at the owner's
-     * column or deeper. A marker the walk moved there still does.
-     *
-     * @param string $line
-     * @param int $index
-     */
-    private function authoredColumnZeroMarker(string $line, int $index): bool
-    {
-        if (IndentationHelper::getLeadingColumns($line) !== 0 || ($this->getListParser)()->parseListItemMarker($line) === null) {
-            return false;
-        }
-        $authored = $this->state->source->authoredLines[$this->sourceLineFor($index)] ?? null;
-
-        return $authored !== null && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers($authored)) === 0;
-    }
-
-    /**
-     * Does a description body's fence find its closer in the SOURCE?
-     *
-     * §10 I4 opens a fence after a paragraph only when a closer follows, and
-     * `CARVE-P0-014` searches past below-column lines that do not end the
-     * body. A visible block opener outside the body ends the search.
-     * The body collector's own tracker asks {@see self::hasFenceCloserInView()}
-     * of the lines it has COLLECTED, which stop at the line being classified,
-     * so it cannot see such a closer and left the fence unarmed
-     * (carve-php#2233).
-     *
-     * BOUNDED WHERE THE BODY REALLY ENDS, which is the half `hasFenceCloserInView()`
-     * has no way to spell: a new entry marker, two blanks, or a blank without
-     * an indented continuation ends the description. A closer past that
-     * boundary belongs to the document (corpus `478-*-5`, carve-php#2681).
-     *
-     * 01-layout.ebnf counts a closer at the body or authored opener column.
-     *
-     * REFUTED FROM THE INDEX FIRST, as the other closer lookaheads are: the
-     * index is a SUPERSET of what the matcher below accepts, so a negative
-     * answer is final, and a body of fences no closer can ever match pays one
-     * binary search each instead of one forward scan each.
-     *
-     * @param array<string> $lines
-     * @param int $openIndex Source index of the fence-shaped line.
-     * @param array{fence: string, length: int, char?: string} $opener
-     * @param int $bodyColumn The description body's content column.
-     * @param int $openerColumns Leading columns of the fence-shaped line.
-     */
-    public function descriptionBodyCloserAhead(
-        array $lines,
-        int $openIndex,
-        array $opener,
-        int $bodyColumn,
-        int $openerColumns,
-    ): bool {
-        $char = $opener['char'] ?? $opener['fence'][0];
-        if (!$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $char, $opener['length'], $openIndex)) {
-            return false;
-        }
-        if (($this->getFencedBlockParser)()::class === FencedBlockParser::class) {
-            $frame = $this->state->frame;
-            if ($frame->descriptionFenceView === null || $frame->descriptionBoundaryView === null) {
-                $frame->descriptionFenceView = new IndexedFenceView();
-                $frame->descriptionFenceView->advance($lines);
-                $frame->descriptionBoundaryView = new RangeMaximum();
-                $frame->descriptionBoundaryPositions = [];
-                $frame->descriptionVisibleBoundaryView = new RangeMaximum();
-                $frame->descriptionVisibleBoundaryPositions = [];
-                $count = count($lines);
-                $blankFollowers = [];
-                $nextContent = $count;
-                for ($j = $count - 1; $j >= 0; $j--) {
-                    if (IndentationHelper::isBlankLine($lines[$j])) {
-                        $blankFollowers[$j] = $nextContent;
-                    } else {
-                        $nextContent = $j;
-                    }
-                }
-                for ($j = 0; $j < $count; $j++) {
-                    $threshold = 0;
-                    if (
-                        preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $lines[$j])
-                        || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $lines[$j])
-                    ) {
-                        $threshold = PHP_INT_MAX;
-                    } elseif (IndentationHelper::isBlankLine($lines[$j])) {
-                        $after = $lines[$blankFollowers[$j]] ?? null;
-                        $threshold = $after === null
-                            ? PHP_INT_MAX
-                            : PHP_INT_MAX - IndentationHelper::getLeadingColumns($after) - 1;
-                    } else {
-                        $subject = $lines[$j];
-                        if (
-                            (($this->lineOpensBlockForLooseness($subject, true, invisibleArms: false)
-                                    && !$this->authoredColumnZeroMarker($subject, $j))
-                                || (IndentationHelper::getLeadingColumns($subject) === 0
-                                    && $this->isBlockAttributeLine(ltrim($subject, " \t")))
-                                || ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($subject, " \t")) !== null)
-                            && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($subject, " \t")) === null
-                            && ($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($subject, " \t")) === null
-                        ) {
-                            $slot = count($frame->descriptionVisibleBoundaryPositions);
-                            $frame->descriptionVisibleBoundaryPositions[] = $j;
-                            $frame->descriptionVisibleBoundaryView->set($slot, PHP_INT_MAX - IndentationHelper::getLeadingColumns($lines[$j]) - 1);
-                        }
-                    }
-                    if ($threshold > 0) {
-                        $slot = count($frame->descriptionBoundaryPositions);
-                        $frame->descriptionBoundaryPositions[] = $j;
-                        $frame->descriptionBoundaryView->set($slot, $threshold);
-                    }
-                }
-            }
-            $boundaries = $frame->descriptionBoundaryView;
-            $positions = $frame->descriptionBoundaryPositions;
-            $low = 0;
-            $high = count($positions);
-            while ($low < $high) {
-                $mid = intdiv($low + $high, 2);
-                if ($positions[$mid] <= $openIndex) {
-                    $low = $mid + 1;
-                } else {
-                    $high = $mid;
-                }
-            }
-            $start = $low;
-            $high = count($positions);
-            // Find the first boundary whose threshold excludes this body column.
-            while ($low < $high) {
-                $mid = intdiv($low + $high, 2);
-                if ($boundaries->maximum($start, $mid + 1) >= PHP_INT_MAX - $bodyColumn) {
-                    $high = $mid;
-                } else {
-                    $low = $mid + 1;
-                }
-            }
-
-            $end = $positions[$low] ?? count($lines);
-            if ($openerColumns >= $bodyColumn) {
-                $visiblePositions = $frame->descriptionVisibleBoundaryPositions;
-                $visibleBoundaries = $frame->descriptionVisibleBoundaryView;
-                assert($visibleBoundaries !== null);
-                $first = 0;
-                $high = count($visiblePositions);
-                while ($first < $high) {
-                    $mid = intdiv($first + $high, 2);
-                    if ($visiblePositions[$mid] <= $openIndex) {
-                        $first = $mid + 1;
-                    } else {
-                        $high = $mid;
-                    }
-                }
-                $low = $first;
-                $high = count($visiblePositions);
-                while ($low < $high) {
-                    $mid = intdiv($low + $high, 2);
-                    if ($visibleBoundaries->maximum($first, $mid + 1) >= PHP_INT_MAX - $bodyColumn) {
-                        $high = $mid;
-                    } else {
-                        $low = $mid + 1;
-                    }
-                }
-                $end = min($end, $visiblePositions[$low] ?? count($lines));
-            }
-
-            return $frame->descriptionFenceView->contains($openIndex + 1, $end, $bodyColumn, $char, $opener['length'])
-                || ($openerColumns !== $bodyColumn
-                    && $frame->descriptionFenceView->contains($openIndex + 1, $end, $openerColumns, $char, $opener['length']));
-        }
-
-        $count = count($lines);
-        for ($j = $openIndex + 1; $j < $count; $j++) {
-            $line = $lines[$j];
-            if (
-                preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $line)
-                || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $line)
-            ) {
-                return false;
-            }
-            if (IndentationHelper::isBlankLine($line)) {
-                $look = $j;
-                while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
-                    $look++;
-                }
-                $after = $lines[$look] ?? null;
-                if (
-                    $after === null
-                    || IndentationHelper::getLeadingColumns($after, $bodyColumn) < $bodyColumn
-                ) {
-                    return false;
-                }
-                $j = $look - 1;
-
-                continue;
-            }
-            $column = IndentationHelper::getLeadingColumns($line);
-            if (
-                $openerColumns > $bodyColumn && $column < $bodyColumn
-                && (($this->lineOpensBlockForLooseness($line, true, invisibleArms: false) && !$this->authoredColumnZeroMarker($line, $j))
-                    || ($column === 0 && $this->isBlockAttributeLine(ltrim($line, " \t")))
-                    || ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($line, " \t")) !== null
-                    )
-                && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t")) === null
-                && ($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($line, " \t")) === null
-            ) {
-                return false;
-            }
-            if ($column !== $bodyColumn && $column !== $openerColumns) {
-                continue;
-            }
-            if (
-                ($this->getFencedBlockParser)()->isCodeFenceCloser(
-                    IndentationHelper::stripLeadingColumns($line, $column),
-                    $char,
-                    $opener['length'],
-                )
-            ) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * A code or raw fence opener on a line, whatever column it was written at.
      *
      * @param string $line
@@ -4836,27 +4395,6 @@ final class BlockContinuationScanner
 
         return ($this->getFencedBlockParser)()->parseRawBlockOpener($subject)
             ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject);
-    }
-
-    /**
-     * Is a code or raw fence run at `$columns` an opener that opens nothing?
-     *
-     * §10 I4 opens a fence over an open paragraph only when a closer follows,
-     * and `CARVE-P0-004`'s owner table never sees a run that opens nothing: it
-     * is inline verbatim text, so the paragraph the container stack holds takes
-     * it and nothing ends (`CARVE-P0-014`, markup-carve/carve#2509).
-     *
-     * @param string $trimmed The run with its indentation removed.
-     * @param array<string> $lines The SOURCE view, where a closer below the
-     *   collected stream's last line is still visible.
-     * @param int $index Source index of the run.
-     * @param int $columns Leading columns of the run.
-     */
-    public function fenceRunOpensNothing(string $trimmed, array $lines, int $index, int $columns): bool
-    {
-        $opener = $this->itemFenceOpenerAt($trimmed);
-
-        return $opener !== null && !$this->itemFenceCloserAhead($lines, $index, $opener, $columns);
     }
 
     /**
@@ -4884,12 +4422,6 @@ final class BlockContinuationScanner
             return true;
         }
         if (($misses[$key] ?? -1) > $index) {
-            return false;
-        }
-        if (
-            !$this->sourceFenceCloserInView($lines, $index, $opener, $column)
-            && !$this->sourceFenceCloserInView($lines, $index, $opener, $floor)
-        ) {
             return false;
         }
         $afterBlank = false;
@@ -5065,158 +4597,6 @@ final class BlockContinuationScanner
     }
 
     /**
-     * Does a fence run written at `$columns` have a closer of its own?
-     *
-     * AT THE RUN'S OWN COLUMN, which is where §10 has a closer written and the
-     * only column `CARVE-P0-013` reads one at: a run below it is not a closer
-     * and one indented past it is body text.
-     *
-     * BOUNDED AT A MARKER BELOW THAT COLUMN, which ends the item holding the
-     * run. Unbounded, the scan accepted a closer out of the next SIBLING item
-     * and opened a fence in an item whose own lines hold no closer at all
-     * (markup-carve/carve#2509).
-     *
-     * REFUTED FROM THE INDEX FIRST, as the other closer lookaheads are: the
-     * index is a superset of what the matcher accepts, so a negative answer is
-     * final and a ladder of closerless fences pays one binary search each.
-     *
-     * @param array<string> $lines The SOURCE view.
-     * @param int $openIndex Source index of the run.
-     * @param array{fence: string, length: int, char?: string} $opener
-     * @param int $columns Leading columns of the run.
-     * @param int|null $hostColumns The host's content column, where a closer also ends the fence.
-     */
-    public function itemFenceCloserAhead(array $lines, int $openIndex, array $opener, int $columns, ?int $hostColumns = null): bool
-    {
-        $prior = $lines[$openIndex - 1] ?? '';
-        if ((($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($prior, " \t"))['className'] ?? null) === '|') {
-            // A literal div reads its first body line as text, even when it looks like a fence.
-            return false;
-        }
-        $char = $opener['char'] ?? $opener['fence'][0];
-        if (!$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $char, $opener['length'], $openIndex)) {
-            return false;
-        }
-
-        $count = count($lines);
-        for ($j = $openIndex + 1; $j < $count; $j++) {
-            $line = $lines[$j];
-            $indent = IndentationHelper::getLeadingColumns($line, $columns + 1);
-            if ($indent < $columns) {
-                if (($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null) {
-                    return false;
-                }
-                // An opener past the host column may close at the host column.
-                // Other lines there are fence payload, including a `+`.
-                if ($hostColumns !== null && $indent === $hostColumns && !IndentationHelper::isBlankLine($line)) {
-                    if (($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($line, " \t"), $char, $opener['length'])) {
-                        return true;
-                    }
-
-                    continue;
-                }
-
-                continue;
-            }
-            if ($indent !== $columns) {
-                continue;
-            }
-            $candidate = $columns > 0 ? IndentationHelper::stripLeadingColumns($line, $columns) : $line;
-            if (($this->getFencedBlockParser)()->isCodeFenceCloser($candidate, $char, $opener['length'])) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param array<string> $lines
-     * @param int $index
-     * @param array{fence: string, length: int, char?: string} $opener
-     * @param int $stripColumns
-     */
-    public function hasFenceCloserInView(array $lines, int $index, array $opener, int $stripColumns): bool
-    {
-        $char = $opener['char'] ?? $opener['fence'][0];
-        $authored = $stripColumns + $this->walkShiftAt($lines, $index);
-        $count = count($lines);
-        for ($i = $index + 1; $i < $count; $i++) {
-            $indent = $authored > 0 ? IndentationHelper::getLeadingColumns($lines[$i], $authored + 1) : 0;
-            if ($indent < $stripColumns || $indent > $authored) {
-                continue;
-            }
-            $line = $indent > 0
-                ? IndentationHelper::stripLeadingColumns($lines[$i], $indent)
-                : $lines[$i];
-            if (($this->getFencedBlockParser)()->isCodeFenceCloser($line, $char, $opener['length'])) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param array<string> $lines Immutable source lines in the current frame.
-     * @param int $index
-     * @param array{fence: string, length: int, char?: string} $opener
-     * @param int $stripColumns
-     * @param bool $atOrBelow
-     */
-    public function sourceFenceCloserInView(array $lines, int $index, array $opener, int $stripColumns, bool $atOrBelow = false): bool
-    {
-        if (($this->getFencedBlockParser)()::class !== FencedBlockParser::class) {
-            return $this->hasFenceCloserInView($lines, $index, $opener, $stripColumns);
-        }
-        $cache =&$this->state->frame->viewCodeClosers;
-        if ($cache === null) {
-            $byColumn = [];
-            foreach ($lines as $i => $line) {
-                if (preg_match('/^[ \t]*(`{3,}|~{3,})[ \t]*$/', $line, $match) === 1) {
-                    $column = IndentationHelper::getLeadingColumns($line);
-                    $byColumn[$column][$match[1][0]][strlen($match[1])] = $i;
-                }
-            }
-            $cache = [];
-            foreach ($byColumn as $column => $byCharacter) {
-                foreach ($byCharacter as $char => $byRun) {
-                    ksort($byRun);
-                    $runs = array_keys($byRun);
-                    $lastAtLeast = [];
-                    $best = -1;
-                    for ($k = count($runs) - 1; $k >= 0; $k--) {
-                        $best = max($best, $byRun[$runs[$k]]);
-                        $lastAtLeast[$k] = $best;
-                    }
-                    ksort($lastAtLeast);
-                    $cache[$column][$char] = ['runs' => $runs, 'lastAtLeast' => $lastAtLeast];
-                }
-            }
-        }
-
-        if ($atOrBelow) {
-            foreach ($cache as $column => $closers) {
-                if ($column <= $stripColumns && $this->codeCloserPossible($closers, $opener['char'] ?? $opener['fence'][0], $opener['length'], $index)) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        $char = $opener['char'] ?? $opener['fence'][0];
-        $authored = $stripColumns + $this->walkShiftAt($lines, $index);
-        for ($column = $stripColumns; $column <= $authored; $column++) {
-            if ($this->codeCloserPossible($cache[$column] ?? [], $char, $opener['length'], $index)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * Columns the ownership walk moved line `$index` left by, when `$lines` is the walked source view.
      *
      * A closer between the walked and the authored opener column still closes (CARVE-P0-014).
@@ -5346,7 +4726,6 @@ final class BlockContinuationScanner
      * @param \MarkupCarve\Carve\Parser\TrailingBlockState $state
      * @param string $line
      * @param array<string> $lines
-     * @param bool $closerKnownAhead
      * @param int $stripColumns
      * @param bool $atContentColumn
      * @param int $index
@@ -5358,9 +4737,8 @@ final class BlockContinuationScanner
         int $index,
         bool $atContentColumn = false,
         int $stripColumns = 0,
-        bool $closerKnownAhead = false,
     ): TrailingBlockState {
-        return $this->advanceTrailingStateWithFenceLookaheadCore($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
+        return $this->advanceTrailingStateWithFenceLookaheadCore($state, $line, $lines, $index, $atContentColumn, $stripColumns);
     }
 
     /**
@@ -5431,23 +4809,6 @@ final class BlockContinuationScanner
         }
 
         return $found;
-    }
-
-    /**
-     * Whether the last collected line leaves a paragraph open: plain text or a list item's text.
-     *
-     * @param array<string> $itemLines
-     */
-    private function endsOnParagraphText(array $itemLines): bool
-    {
-        $last = ltrim($itemLines[count($itemLines) - 1] ?? '', " \t");
-
-        if ($last === '' || str_starts_with($last, BlockGrammar::LAZY_FRAME) || $this->isCommentLineOrFence($last)) {
-            return false;
-        }
-
-        return ($this->getListParser)()->parseListItemMarker($last) !== null
-            || (!$this->isBlockElementStart($last) && !$this->startsNewBlock($last));
     }
 
     /**
@@ -5528,45 +4889,6 @@ final class BlockContinuationScanner
         }
 
         return $contentIndent + IndentationHelper::getLeadingColumns($match[1] . 'x') + strlen($match[2]) + strlen($match[3]);
-    }
-
-    /**
-     * Whether the fence opened at `$column` closes there before any line drops below it.
-     *
-     * @param array<string> $lines
-     * @param int $index
-     * @param array<string, mixed> $opener
-     * @param int $column
-     * @param array<string, int> $memo where a closerless scan stopped, per column and fence
-     */
-    private function fenceClosesWithinColumn(array $lines, int $index, array $opener, int $column, array &$memo): bool
-    {
-        /** @var string $fence */
-        $fence = $opener['fence'];
-        $key = $column . $fence;
-        if (isset($memo[$key]) && $index < $memo[$key]) {
-            return false;
-        }
-        for ($j = $index + 1, $count = count($lines); $j < $count; $j++) {
-            if (IndentationHelper::isBlankLine($lines[$j])) {
-                continue;
-            }
-            if (IndentationHelper::getLeadingColumns($lines[$j], $column) < $column) {
-                $memo[$key] = $j;
-
-                return false;
-            }
-            if (
-                IndentationHelper::getLeadingColumns($lines[$j]) === $column
-                && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($lines[$j], " \t"), $fence[0], strlen($fence))
-            ) {
-                return true;
-            }
-        }
-
-        $memo[$key] = $count;
-
-        return false;
     }
 
     /**

@@ -46,14 +46,13 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     }
 
     /**
-     * Corpus row 1: the ticket's shape. The empty inline code in the residue is
-     * a property of the backtick run, not of this rule - row 5 shows a tilde
-     * fence leaving plain text there.
+     * Corpus row 1: the ticket's shape. The flush-left closer opens a new fence
+     * in the residue (markup-carve/carve#4032).
      */
     public function testAColumnZeroBodyClosesTheItem(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>\n"),
             $this->converter->convert("- ```\nx\n```\n"),
         );
     }
@@ -66,7 +65,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testAColumnOneBodyClosesTheItemToo(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>\n"),
             $this->converter->convert("- ```\n x\n ```\n"),
         );
     }
@@ -93,20 +92,19 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testTheBlockQuoteAnalogueIsUnchanged(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<blockquote>\n  <pre><code></code></pre>\n</blockquote>\n<p>x\n<code></code></p>\n"),
+            preg_replace('/\n\z/', '', "<blockquote>\n  <pre><code></code></pre>\n</blockquote>\n<p>x</p>\n<pre><code></code></pre>\n"),
             $this->converter->convert("> ```\nx\n```\n"),
         );
     }
 
     /**
-     * Corpus row 5: a tilde fence. The residue is plain text, which is what
-     * shows the empty inline code in rows 1 and 2 belongs to the backtick run
-     * rather than to this rule.
+     * Corpus row 5: a tilde fence. The residue reads the same as the backtick
+     * spelling.
      */
     public function testATildeFenceLeavesPlainTextInTheResidue(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n~~~</p>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>\n"),
             $this->converter->convert("- ~~~\nx\n~~~\n"),
         );
     }
@@ -121,7 +119,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testACollectedLineAtTheContentColumnDoesNotReopenTheFold(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code>x\n</code></pre>\n  </li>\n</ul>\n<p>y\n<code></code></p>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <pre><code>x\n</code></pre>\n  </li>\n</ul>\n<p>y</p>\n<pre><code></code></pre>\n"),
             $this->converter->convert("- ```\n  x\n y\n  ```\n"),
         );
     }
@@ -135,7 +133,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testAFenceOpenedOnAContinuationLineEndsAtTheSameLine(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>y\n<code></code></p>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>y</p>\n<pre><code></code></pre>\n"),
             $this->converter->convert("- a\n  ```\n  b\n y\n  ```\n"),
         );
     }
@@ -148,7 +146,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testAPostBlankFenceEndsAtAColumnZeroLine(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>\n"),
             $this->converter->convert("- a\n\n  ```\nx\n```\n"),
         );
     }
@@ -161,7 +159,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testAPostBlankFenceEndsAtAnIntermediateColumnLine(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>\n"),
             $this->converter->convert("- a\n\n  ```\n x\n ```\n"),
         );
     }

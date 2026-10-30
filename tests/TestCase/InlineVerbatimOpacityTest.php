@@ -55,8 +55,8 @@ class InlineVerbatimOpacityTest extends TestCase
         $this->assertSame('<p><a href="u">a <code>]</code> b</a></p>', $this->html('[a `]` b](u)'));
     }
 
-    public function testPureUnclosedRunToEndOfBlock(): void
+    public function testABareRunLineOpensAFenceToEndOfBlock(): void
     {
-        $this->assertSame("<p>text\n<code>\ncode</code></p>", $this->html("text\n```\ncode"));
+        $this->assertSame("<p>text</p>\n<pre><code>code</code></pre>", $this->html("text\n```\ncode"));
     }
 }

@@ -23,21 +23,25 @@ class AFoldedFenceRunKeepsBlankSeparatedParagraphsLooseTest extends TestCase
         ];
     }
 
+    /**
+     * An unterminated run opens a fence that holds the blank and the tail (carve#4032).
+     */
     #[DataProvider('runs')]
-    public function testBlankBelowAnUnterminatedRunLoosensTheItem(string $run): void
+    public function testBlankBelowAnUnterminatedRunStaysInTheFence(string $run): void
     {
         $html = CarveConverter::create()->convert("- q\n  {$run}\n\n  tail\n");
 
-        $this->assertSame(2, substr_count($html, '<p>'));
+        $this->assertSame(0, substr_count($html, '<p>'));
+        $this->assertStringContainsString("<pre><code>\ntail\n</code></pre>", $html);
     }
 
-    public function testFmtUsesTheBlankToExpressLooseness(): void
+    public function testFmtKeepsTheUnterminatedRunAFence(): void
     {
         $source = "- outer\n  - head\n     ~~~\n     a\n ~~~\n\n    tail\n";
 
         $formatted = CarveConverter::create(null, new CarveRenderer())->convert($source);
 
         $this->assertStringNotContainsString('{loose}', $formatted);
-        $this->assertStringContainsString("\n\n    tail\n", $formatted);
+        $this->assertSame("- outer\n  - head\n    ```\n    a\n    ```\n\n```\n\n   tail\n```\n", $formatted);
     }
 }

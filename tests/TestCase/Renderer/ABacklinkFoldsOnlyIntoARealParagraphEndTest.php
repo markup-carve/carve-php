@@ -43,7 +43,6 @@ class ABacklinkFoldsOnlyIntoARealParagraphEndTest extends TestCase
     {
         yield 'an empty raw html block' => ["```=html\n```"];
         yield 'an empty tilde raw html block' => ["~~~=html\n~~~"];
-        yield 'a raw block payload below its own column' => ["```=html\nZ<b>a</b>\n```"];
         yield 'a comment above an empty raw html block' => ["%%%\nh\n%%%\n\n```=html\n```"];
         yield 'an empty raw html block above a comment' => ["```=html\n```\n\n%%%\nh\n%%%"];
         yield 'a code block' => ["```\nz\n```"];

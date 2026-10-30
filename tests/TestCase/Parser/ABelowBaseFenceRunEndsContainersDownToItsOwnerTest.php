@@ -53,9 +53,9 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
     /**
      * The half where a container still holds an open paragraph.
      *
-     * No blank above the fence, and no closer at the fence's own column, so
-     * §10 I4 leaves the fence as prose. Every line folds into the paragraph the
-     * item holds, including the run below the base, and nothing ends.
+     * No blank above the fence, and no closer at the fence's own column. The
+     * fence still interrupts (carve#4032) and runs to the end of its item; the
+     * run below the base opens an empty fence in the owner it reaches.
      *
      * @return array<string, array{string, string}>
      */
@@ -64,129 +64,129 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
         return [
             'code at depth 2, run at column 0' => [
                 "- a\n  - b\n    ```\n    p\n```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n<code>\np\n</code></li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'code at depth 2, run at column 1' => [
                 "- a\n  - b\n    ```\n    p\n ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n<code>\np\n</code></li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'code at depth 2, run at column 2' => [
                 "- a\n  - b\n    ```\n    p\n  ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n<code>\np\n</code></li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n    <pre><code></code></pre>\n  </li>\n</ul>",
             ],
             'code at depth 2, run at column 3' => [
                 "- a\n  - b\n    ```\n    p\n   ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n<code>\np\n</code></li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n    <pre><code></code></pre>\n  </li>\n</ul>",
             ],
             'tilde at depth 2, run at column 0' => [
                 "- a\n  - b\n    ~~~\n    p\n~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n~~~\np\n~~~</li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'tilde at depth 2, run at column 1' => [
                 "- a\n  - b\n    ~~~\n    p\n ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n~~~\np\n~~~</li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'tilde at depth 2, run at column 2' => [
                 "- a\n  - b\n    ~~~\n    p\n  ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n~~~\np\n~~~</li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n    <pre><code></code></pre>\n  </li>\n</ul>",
             ],
             'tilde at depth 2, run at column 3' => [
                 "- a\n  - b\n    ~~~\n    p\n   ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n~~~\np\n~~~</li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n    <pre><code></code></pre>\n  </li>\n</ul>",
             ],
             'raw at depth 2, run at column 0' => [
                 "- a\n  - b\n    ```=html\n    p\n```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n<code>=html\np\n</code></li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        p\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'raw at depth 2, run at column 1' => [
                 "- a\n  - b\n    ```=html\n    p\n ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n<code>=html\np\n</code></li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        p\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'raw at depth 2, run at column 2' => [
                 "- a\n  - b\n    ```=html\n    p\n  ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n<code>=html\np\n</code></li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        p\n      </li>\n    </ul>\n    <pre><code></code></pre>\n  </li>\n</ul>",
             ],
             'raw at depth 2, run at column 3' => [
                 "- a\n  - b\n    ```=html\n    p\n   ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n<code>=html\np\n</code></li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        p\n      </li>\n    </ul>\n    <pre><code></code></pre>\n  </li>\n</ul>",
             ],
             'code at depth 3, run at column 0' => [
                 "- a\n  - b\n    - c\n      ```\n      p\n```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>\np\n</code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'code at depth 3, run at column 1' => [
                 "- a\n  - b\n    - c\n      ```\n      p\n ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>\np\n</code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'code at depth 3, run at column 2' => [
                 "- a\n  - b\n    - c\n      ```\n      p\n  ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>\np\n</code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n    <pre><code></code></pre>\n  </li>\n</ul>",
             ],
             'code at depth 3, run at column 3' => [
                 "- a\n  - b\n    - c\n      ```\n      p\n   ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>\np\n</code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n    <pre><code></code></pre>\n  </li>\n</ul>",
             ],
             'code at depth 3, run at column 4' => [
                 "- a\n  - b\n    - c\n      ```\n      p\n    ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>\np\n</code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
             ],
             'code at depth 3, run at column 5' => [
                 "- a\n  - b\n    - c\n      ```\n      p\n     ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>\np\n</code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
             ],
             'tilde at depth 3, run at column 0' => [
                 "- a\n  - b\n    - c\n      ~~~\n      p\n~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n~~~\np\n~~~</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'tilde at depth 3, run at column 1' => [
                 "- a\n  - b\n    - c\n      ~~~\n      p\n ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n~~~\np\n~~~</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'tilde at depth 3, run at column 2' => [
                 "- a\n  - b\n    - c\n      ~~~\n      p\n  ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n~~~\np\n~~~</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n    <pre><code></code></pre>\n  </li>\n</ul>",
             ],
             'tilde at depth 3, run at column 3' => [
                 "- a\n  - b\n    - c\n      ~~~\n      p\n   ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n~~~\np\n~~~</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n    <pre><code></code></pre>\n  </li>\n</ul>",
             ],
             'tilde at depth 3, run at column 4' => [
                 "- a\n  - b\n    - c\n      ~~~\n      p\n    ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n~~~\np\n~~~</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
             ],
             'tilde at depth 3, run at column 5' => [
                 "- a\n  - b\n    - c\n      ~~~\n      p\n     ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n~~~\np\n~~~</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
             ],
             'raw at depth 3, run at column 0' => [
                 "- a\n  - b\n    - c\n      ```=html\n      p\n```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>=html\np\n</code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            p\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'raw at depth 3, run at column 1' => [
                 "- a\n  - b\n    - c\n      ```=html\n      p\n ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>=html\np\n</code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            p\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'raw at depth 3, run at column 2' => [
                 "- a\n  - b\n    - c\n      ```=html\n      p\n  ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>=html\np\n</code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            p\n          </li>\n        </ul>\n      </li>\n    </ul>\n    <pre><code></code></pre>\n  </li>\n</ul>",
             ],
             'raw at depth 3, run at column 3' => [
                 "- a\n  - b\n    - c\n      ```=html\n      p\n   ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>=html\np\n</code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            p\n          </li>\n        </ul>\n      </li>\n    </ul>\n    <pre><code></code></pre>\n  </li>\n</ul>",
             ],
             'raw at depth 3, run at column 4' => [
                 "- a\n  - b\n    - c\n      ```=html\n      p\n    ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>=html\np\n</code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            p\n          </li>\n        </ul>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
             ],
             'raw at depth 3, run at column 5' => [
                 "- a\n  - b\n    - c\n      ```=html\n      p\n     ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>=html\np\n</code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            p\n          </li>\n        </ul>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
             ],
         ];
     }
 
     #[DataProvider('openParagraphHalf')]
-    public function testABelowBaseRunFoldsIntoTheOpenParagraph(string $source, string $html): void
+    public function testABelowBaseRunAfterAnUnclosedFenceFindsItsOwner(string $source, string $html): void
     {
         $this->assertSame($html, $this->html($source));
     }
@@ -194,9 +194,9 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
     /**
      * The half where the fence did interrupt, and its body has to survive.
      *
-     * A closer does sit at the fence's own column, so §10 I4 opens the fence and
-     * the paragraph ends. The flush-left line below then finds nothing open, the
-     * owner table sends it to the document, and the fence is left unterminated -
+     * The fence opens and the paragraph ends. The flush-left line below then
+     * finds nothing open, the owner table sends it to the document, and the
+     * fence is left unterminated -
      * but the body it opened is still a code block, exactly as it is one level
      * up. The closer the container's break removes from the item's own lines is
      * handed down rather than re-derived (markup-carve/carve#1399 one level in).
@@ -208,27 +208,27 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
         return [
             'code at depth 2' => [
                 "- a\n  - b\n    ```\n    p\nx\n    ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x\n<code></code></p>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>",
             ],
             'tilde at depth 2' => [
                 "- a\n  - b\n    ~~~\n    p\nx\n    ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x\n~~~</p>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>",
             ],
             'raw at depth 2' => [
                 "- a\n  - b\n    ```=html\n    p\nx\n    ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        p\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x\n<code></code></p>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        p\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>",
             ],
             'code at depth 3' => [
                 "- a\n  - b\n    - c\n      ```\n      p\nx\n      ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x\n<code></code></p>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>",
             ],
             'tilde at depth 3' => [
                 "- a\n  - b\n    - c\n      ~~~\n      p\nx\n      ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x\n~~~</p>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>",
             ],
             'raw at depth 3' => [
                 "- a\n  - b\n    - c\n      ```=html\n      p\nx\n      ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            p\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x\n<code></code></p>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            p\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>",
             ],
         ];
     }
@@ -257,7 +257,7 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
             ],
             'depth 2, run at column 1' => [
                 "- a\n  - b\n\n    ```\n    p\n ```\n\n    tail\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p><code></code></p>\n<p>tail</p>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n   tail\n</code></pre>",
             ],
             'depth 2, run at column 2' => [
                 "- a\n  - b\n\n    ```\n    p\n  ```\n\n    tail\n",
@@ -273,7 +273,7 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
             ],
             'depth 3, run at column 1' => [
                 "- a\n  - b\n    - c\n\n      ```\n      p\n ```\n\n      tail\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p><code></code></p>\n<p>tail</p>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n     tail\n</code></pre>",
             ],
             'depth 3, run at column 2' => [
                 "- a\n  - b\n    - c\n\n      ```\n      p\n  ```\n\n      tail\n",
@@ -314,27 +314,27 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
         return [
             'code, no closer' => [
                 "- a\n  ```\n  p\n```\n",
-                "<ul>\n  <li>a\n<code>\np\n</code></li>\n</ul>",
+                "<ul>\n  <li>a\n    <pre><code>p\n</code></pre>\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'code, interrupted' => [
                 "- a\n  ```\n  p\nx\n  ```\n",
-                "<ul>\n  <li>a\n    <pre><code>p\n</code></pre>\n  </li>\n</ul>\n<p>x\n<code></code></p>",
+                "<ul>\n  <li>a\n    <pre><code>p\n</code></pre>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>",
             ],
             'tilde, no closer' => [
                 "- a\n  ~~~\n  p\n~~~\n",
-                "<ul>\n  <li>a\n~~~\np\n~~~</li>\n</ul>",
+                "<ul>\n  <li>a\n    <pre><code>p\n</code></pre>\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'tilde, interrupted' => [
                 "- a\n  ~~~\n  p\nx\n  ~~~\n",
-                "<ul>\n  <li>a\n    <pre><code>p\n</code></pre>\n  </li>\n</ul>\n<p>x\n~~~</p>",
+                "<ul>\n  <li>a\n    <pre><code>p\n</code></pre>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>",
             ],
             'raw, no closer' => [
                 "- a\n  ```=html\n  p\n```\n",
-                "<ul>\n  <li>a\n<code>=html\np\n</code></li>\n</ul>",
+                "<ul>\n  <li>a\n    p\n  </li>\n</ul>\n<pre><code></code></pre>",
             ],
             'raw, interrupted' => [
                 "- a\n  ```=html\n  p\nx\n  ```\n",
-                "<ul>\n  <li>a\n    p\n  </li>\n</ul>\n<p>x\n<code></code></p>",
+                "<ul>\n  <li>a\n    p\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>",
             ],
         ];
     }
@@ -349,8 +349,7 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
      * CONTROL: a marker below the fence's column ends the item holding it.
      *
      * The closer written under such a marker belongs to the next SIBLING, so the
-     * fence has none and stays prose. Unbounded, the lookahead accepted it and
-     * opened a fence in an item whose own lines hold no closer at all.
+     * fence runs unclosed to the end of its own item (carve#4032).
      *
      * @return array<string, array{string, string}>
      */
@@ -359,25 +358,25 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
         return [
             'depth 2, marker at column 0' => [
                 "- a\n  - b\n    ```\n    p\n- z\n    ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n<code>\np</code></li>\n    </ul>\n  </li>\n  <li>z\n<code></code></li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n  <li>z\n    <pre><code></code></pre>\n  </li>\n</ul>",
             ],
             'depth 2, marker at column 2' => [
                 "- a\n  - b\n    ```\n    p\n  - z\n    ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n<code>\np</code></li>\n      <li>z\n<code></code></li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n      <li>z\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
             ],
             'depth 3, marker at column 0' => [
                 "- a\n  - b\n    - c\n      ```\n      p\n- z\n      ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>\np</code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n  <li>z\n<code></code></li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n  <li>z\n    <pre><code></code></pre>\n  </li>\n</ul>",
             ],
             'depth 3, marker at column 4' => [
                 "- a\n  - b\n    - c\n      ```\n      p\n    - z\n      ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>\np</code></li>\n          <li>z\n<code></code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n          <li>z\n            <pre><code></code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
             ],
         ];
     }
 
     #[DataProvider('aSiblingMarkerCutsTheLookahead')]
-    public function testASiblingsCloserDoesNotOpenThisFence(string $source, string $html): void
+    public function testASiblingsCloserDoesNotCloseThisFence(string $source, string $html): void
     {
         $this->assertSame($html, $this->html($source));
     }
@@ -386,7 +385,7 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
      * CONTROL: a run indented past the fence's column is body text.
      *
      * The closer has to be written at the fence's own column. One deeper does
-     * not close it, so the fence still has none.
+     * not close it, so the fence runs unclosed to the end of its item.
      *
      * @return array<string, array{string, string}>
      */
@@ -395,11 +394,11 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
         return [
             'depth 2' => [
                 "- a\n  - b\n    ```\n    p\n      ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n<code>\np\n</code></li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n  ```\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
             ],
             'depth 3' => [
                 "- a\n  - b\n    - c\n      ```\n      p\n        ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n<code>\np\n</code></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n  ```\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
             ],
         ];
     }
@@ -414,7 +413,7 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
      * CONTROL: the colon host, which `CARVE-P0-014` answers the other way.
      *
      * A colon body can hold an open paragraph, so an indented fence inside one is
-     * that container's question and the run below the base folds with it. A fix
+     * that container's question and the run below the base closes it there. A fix
      * for the item host must not reach here.
      *
      * @return array<string, array{string, string}>
@@ -424,11 +423,11 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
         return [
             'blank above the fence 0' => [
                 ":::\n  ```\n  p\n```\n:::\n",
-                "<div>\n  <p><code>\np\n</code></p>\n</div>",
+                "<div>\n  <pre><code>p\n</code></pre>\n</div>",
             ],
             'blank above the fence 1' => [
                 ":::\n\n  ```\n  p\n```\n:::\n",
-                "<div>\n  <p><code>\np\n</code></p>\n</div>",
+                "<div>\n  <pre><code>p\n</code></pre>\n</div>",
             ],
         ];
     }
@@ -471,11 +470,8 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
      * A closer past a blank line no later line continues, at all three depths.
      *
      * The blank ends the item (carve#1379), so a closer written under it is the
-     * document's and §10 I4 has nothing to arm the fence on. At ONE container
-     * deep the run therefore folds into the paragraph the item still holds; two
-     * and three deep an ancestor collector has already answered I4 for the line
-     * and the fence opens, which is the asymmetry carve-php#2661 reports and the
-     * oracle keeps.
+     * document's. At every depth the fence opens anyway (carve#4032) and runs
+     * unclosed to the end of its item.
      *
      * @return array<string, array{string, string}>
      */
@@ -484,31 +480,31 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
         return [
             'code at depth 1 folds' => [
                 "- a\n  ```\n  p\n\ndone\n  ```\n",
-                "<ul>\n  <li>a\n<code>\np</code></li>\n</ul>\n<p>done\n<code></code></p>",
+                "<ul>\n  <li>a\n    <pre><code>p\n\n</code></pre>\n  </li>\n</ul>\n<p>done</p>\n<pre><code></code></pre>",
             ],
             'tilde at depth 1 folds' => [
                 "- a\n  ~~~\n  p\n\ndone\n  ~~~\n",
-                "<ul>\n  <li>a\n~~~\np</li>\n</ul>\n<p>done\n~~~</p>",
+                "<ul>\n  <li>a\n    <pre><code>p\n\n</code></pre>\n  </li>\n</ul>\n<p>done</p>\n<pre><code></code></pre>",
             ],
             'code at depth 1, fence past the content column, folds' => [
                 "- a\n   ```\n   p\n\ndone\n   ```\n",
-                "<ul>\n  <li>a\n<code>\np</code></li>\n</ul>\n<p>done\n<code></code></p>",
+                "<ul>\n  <li>a\n    <pre><code>p\n\n</code></pre>\n  </li>\n</ul>\n<p>done</p>\n<pre><code></code></pre>",
             ],
             'code at depth 2 opens' => [
                 "- a\n  - b\n    ```\n    p\n\ndone\n    ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>done\n<code></code></p>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>done</p>\n<pre><code></code></pre>",
             ],
             'tilde at depth 2 opens' => [
                 "- a\n  - b\n    ~~~\n    p\n\ndone\n    ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>done\n~~~</p>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>done</p>\n<pre><code></code></pre>",
             ],
             'code at depth 3 opens' => [
                 "- a\n  - b\n    - c\n      ```\n      p\n\ndone\n      ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>done\n<code></code></p>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>done</p>\n<pre><code></code></pre>",
             ],
             'tilde at depth 3 opens' => [
                 "- a\n  - b\n    - c\n      ~~~\n      p\n\ndone\n      ~~~\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>done\n~~~</p>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>done</p>\n<pre><code></code></pre>",
             ],
         ];
     }

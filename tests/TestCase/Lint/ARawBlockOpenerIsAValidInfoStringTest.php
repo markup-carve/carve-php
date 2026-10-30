@@ -47,15 +47,15 @@ class ARawBlockOpenerIsAValidInfoStringTest extends TestCase
             ],
             'raw opener with trailing text still falls back' => [
                 "x\n\n   ```=latex x\n   y\n   ```\n",
-                ['fence-opener-fallback 3:4', 'fence-delimiter-indentation 5:4'],
+                ['fence-opener-fallback 3:4'],
             ],
             'a format that does not start with a letter still falls back' => [
                 "x\n\n   ```=1bad\n   y\n   ```\n",
-                ['fence-opener-fallback 3:4', 'fence-delimiter-indentation 5:4'],
+                ['fence-opener-fallback 3:4'],
             ],
             'an invalid code fence info string still falls back' => [
                 "x\n\n   ```js title=\"x\"\n   y\n   ```\n",
-                ['fence-opener-fallback 3:4', 'fence-delimiter-indentation 5:4'],
+                ['fence-opener-fallback 3:4'],
             ],
         ];
     }

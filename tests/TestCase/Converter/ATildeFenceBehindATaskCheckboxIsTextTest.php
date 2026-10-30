@@ -165,17 +165,15 @@ final class ATildeFenceBehindATaskCheckboxIsTextTest extends TestCase
                 "- [ ] ~~\n",
                 "- [ ] ~~\n",
             ],
-            // Four columns past the item's content column, where a fence would
-            // be indented code and a Carve fence interrupts no paragraph either
-            // way. Widening escapeBlockOpener writes a backslash here that
-            // guards nothing; this pins that it does not.
+            // Four columns in, Markdown reads paragraph text; a Carve fence
+            // interrupts a paragraph without a closer (carve#4018), so it is escaped.
             'a tilde fence four columns into an item paragraph keeps its run' => [
                 "- foo\n      ~~~\n",
-                "- foo\n  ~~~\n",
+                "- foo\n  \\~~~\n",
             ],
             'a tilde fence four columns into a paragraph keeps its run' => [
                 "foo\n    ~~~\n",
-                "foo\n~~~\n",
+                "foo\n\\~~~\n",
             ],
         ];
     }

@@ -48,17 +48,17 @@ class RawBlockFenceConformanceTest extends TestCase
         return [
             'list item' => [
                 "- q\n  ```\ntail\n",
-                "<ul>\n  <li>q\n<code>\ntail</code></li>\n</ul>\n",
+                "<ul>\n  <li>q\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>tail</p>\n",
             ],
             'definition body' => [
                 ":: t\n:  a\n   ```\ntail\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>a\n<code>\ntail</code></dd>\n</dl>\n",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n<p>tail</p>\n",
             ],
         ];
     }
 
     #[DataProvider('unterminatedContentColumnFences')]
-    public function testUnterminatedFenceStaysInTheOpenParagraph(string $source, string $expected): void
+    public function testUnterminatedFenceEndsWithItsContainer(string $source, string $expected): void
     {
         self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert($source));
     }
