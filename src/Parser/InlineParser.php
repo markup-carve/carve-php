@@ -3858,14 +3858,12 @@ class InlineParser
     private function crossedByOpenSpan(string $text, int $at, int $close, int $from, string $delimiter, array $lastOpener): bool
     {
         foreach ($lastOpener as $kind => $open) {
-            if ($kind === $text[$at]) {
-                continue;
-            }
             if ($this->bareOpenerKind($text, $open) !== 'open' && !$this->guardStands($text, $open, $from, $delimiter)) {
                 continue;
             }
             $outer = $this->delimitedClose($text, $open, (string)$kind, $open > 0 && $text[$open - 1] === '{' && !$this->isEscapedAt($text, $open - 1));
-            if ($outer !== null && $outer > $at && $outer < $close) {
+            // The child's opener closes the open span of its own kind, so it opens nothing.
+            if ($kind === $text[$at] ? $outer === $at : $outer !== null && $outer > $at && $outer < $close) {
                 return true;
             }
         }
