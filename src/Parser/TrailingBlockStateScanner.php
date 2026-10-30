@@ -448,7 +448,12 @@ final class TrailingBlockStateScanner
                 $fenceChar,
                 $fenceLength,
                 $fenceColumn,
-                ($nestedColumnOnEntry > 0 && $fenceColumn >= $nestedColumnOnEntry) ? $nestedColumnOnEntry : 0,
+                match (true) {
+                    $nestedColumnOnEntry > 0 && $fenceColumn >= $nestedColumnOnEntry => $nestedColumnOnEntry,
+                    $wasInFootnoteBody && $fenceColumn >= $state->footnoteColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                        => $state->footnoteColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN,
+                    default => 0,
+                },
             );
             $state->openParagraph = false;
 
@@ -679,6 +684,9 @@ final class TrailingBlockStateScanner
                 $state->afterInvisible = $wasAfterInvisible;
                 $state->afterComment = $wasAfterComment;
             }
+            // A comment in a footnote's body leaves the body open.
+            $state->inFootnoteBody = $wasInFootnoteBody
+                && IndentationHelper::getLeadingColumns($line) >= $state->footnoteColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN;
 
             return $state;
         }
