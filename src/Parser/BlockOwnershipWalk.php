@@ -729,7 +729,7 @@ final class BlockOwnershipWalk
             return new OwnershipForm(kind: 'dd', width: $w, head: $w, interrupts: false);
         }
         if (
-            preg_match('/^(#{1,6}) +(?=.*[^ \t\n\r\f])(.*)$/D', $rest) === 1
+            preg_match('/^(#{1,6}) +(?=.*[^ \t\n\r])(.*)$/D', $rest) === 1
             || preg_match('/^(-{3,}|\*{3,}|_{3,})[ \t]*$/D', $rest) === 1
             || ($rest[0] === '|' && $this->tables->isTableRow($rest))
             || ($this->isDefinition)($rest)
