@@ -83,6 +83,7 @@ final class BracedPairIndex
                 }
             }
         }
+        $combinedClosers = isset($bareTables['*']) ? new SplFixedArray($length + 3) : null;
         $openMarks = [];
         $guardClosers = [];
         for ($at = 0; $at < $length; $at++) {
@@ -135,6 +136,11 @@ final class BracedPairIndex
                 }
                 $table[$at] = $stop;
             }
+            if ($combinedClosers !== null) {
+                $star = $bareTables['*'][$at] ?? -1;
+                $combinedClosers[$at] = !is_int($star) || $star === -1 ? -1
+                    : (($text[$star + 1] ?? '') === '/' ? $star : ($combinedClosers[$star + 1] ?? -1));
+            }
             // A braced opener's marker is not content before a bare opener.
             $before = $at > 0 && !isset($openMarks[$at - 1]) ? $text[$at - 1] : '';
             $canOpenBare = isset($bareTables[$char]) && $next !== '' && !StringUtil::isWhitespaceChar($next)
@@ -143,6 +149,24 @@ final class BracedPairIndex
             // A standing guard's walk takes its host whole, block included.
             if ($canOpenBare && isset($guardClosers[$at])) {
                 $bareClose = $guardClosers[$at];
+            }
+            // A combined span closes at its `*/`, where its block attaches.
+            $combined = false;
+            if ($canOpenBare && $char === '/' && $next === '*' && !isset($guardClosers[$at])) {
+                $star = $combinedClosers[$at + 2] ?? -1;
+                if (is_int($star) && $star !== -1 && isset($attributeTails[$star + 2])) {
+                    $bareClose = $star + 1;
+                    $combined = true;
+                }
+            }
+            // The closer of a pair that opens here is no opener, so its block is text.
+            $closesHere = null;
+            if (
+                $canOpenBare && is_int($bareClose) && $bareClose !== -1 && isset($this->bareAttributes[$bareClose])
+                && $this->bareBeforeAllows($char, $before)
+            ) {
+                unset($this->bareAttributes[$bareClose]);
+                $closesHere = $bareClose;
             }
             $bareTail = null;
             if (is_int($bareClose) && $bareClose !== -1) {
@@ -216,8 +240,18 @@ final class BracedPairIndex
                     $stop = $table[$attributeTails[$child] ?? $child] ?? -1;
                 } else {
                     $stop = $table[$at + 1] ?? -1;
+                    if (
+                        $closesHere !== null && $char !== $marker && ($stop === -1 || $stop >= $closesHere)
+                        && !str_contains(substr($text, $at, $closesHere - $at), $marker)
+                    ) {
+                        $stop = $table[$closesHere + 1] ?? -1;
+                    }
                     if ($bareTail !== null && $char !== $marker && ($stop === -1 || $stop >= $bareClose)) {
                         $after = $table[$bareTail] ?? -1;
+                        // A host holding this span's marker leaves its block text when nothing closes behind it.
+                        if ($after === -1 && ($marker === '/' || ($marker === '*' && $combined)) && str_contains(substr($text, $at, $bareClose - $at), $marker)) {
+                            $after = $stop;
+                        }
                         // A guard of this span's kind is literal (E3), so the block is text and can hold the closer.
                         if (
                             ($guard === null || !str_contains(substr($text, $guardFrom, $at - $guardFrom), $marker))
