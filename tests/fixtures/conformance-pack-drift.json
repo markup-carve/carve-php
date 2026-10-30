@@ -127,9 +127,6 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "rulings between carve 174ac3a and c614705 this engine has not ported yet",
       "cases": [
-        "lazy-4f5eaac61ed4",
-        "lazy-828973d41d13",
-        "lazy-a38a85984127",
         "lazy-e5f10323832e",
         "roundtrip-1a6a5531cfa5"
       ]
