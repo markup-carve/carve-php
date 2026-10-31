@@ -73,6 +73,22 @@ final class TrailingBlockState
         return $this->inDiv || $this->nestedDiv !== null;
     }
 
+    /**
+     * The internal closer a marker-column `+` supplies to an open body fence.
+     * The marker is outside that fence, but body readers omit the marker line.
+     */
+    public function attachmentCloser(): ?string
+    {
+        if ($this->fence !== null) {
+            return str_repeat(' ', $this->fence->column) . str_repeat($this->fence->char, $this->fence->length);
+        }
+        if ($this->inDiv && $this->divFenceLength > 0) {
+            return str_repeat(':', $this->divFenceLength);
+        }
+
+        return null;
+    }
+
     public function hasLiteralDiv(): bool
     {
         $state = $this;

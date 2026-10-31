@@ -3532,6 +3532,14 @@ class BlockParser
                     static fn (string $a): bool => (bool)preg_match('/^\[\^[^\]]+\]:/', $a),
                 );
                 if ($attached !== []) {
+                    // The accepted marker ends a fence in this body before its
+                    // attached block is read (CARVE-P9-067).
+                    $closer = $trailingState->attachmentCloser();
+                    if ($closer !== null) {
+                        $bodyLines[] = $closer;
+                        $bodyLineMap[] = -1;
+                        $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $closer);
+                    }
                     $bodyLines[] = '';
                     $bodyLineMap[] = -1;
                     $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, '');

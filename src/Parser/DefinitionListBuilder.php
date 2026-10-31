@@ -1063,6 +1063,14 @@ final class DefinitionListBuilder
      */
     private function attachFlushLeftDescriptionBlock(DescriptionBodyCollection $b): bool
     {
+        // The marker sits outside the body's open fence. Give the body reader
+        // the same boundary the ownership walk already gave it (CARVE-P9-067).
+        $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+        $closer = $b->bodyNestedState->attachmentCloser();
+        if ($closer !== null) {
+            $b->body[] = $closer;
+            $b->bodyMap[] = -1;
+        }
         $markerColumn = IndentationHelper::getLeadingColumns($b->lines[$b->i]);
         $b->i++;
         if (!$this->continuationFollowerIsEligible($b->i)) {
