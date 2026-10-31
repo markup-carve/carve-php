@@ -355,6 +355,9 @@ final class BlockOwnershipWalk
                     } elseif (preg_match('/^(%{3,})/', $rest, $c) === 1 && ($this->closerRuns()['lastComment'][strlen($c[1])] ?? -1) > $at) {
                         $this->frames[$innerIndex]->span = $c[1];
                     }
+                    if ($rest !== '') {
+                        $this->frames[$innerIndex]->para = true;
+                    }
                 }
                 $result[] = $this->out . $this->src;
                 if ($this->trace !== null) {
@@ -365,7 +368,7 @@ final class BlockOwnershipWalk
 
                 continue;
             }
-            if ($inner->kind === 'fence') {
+            if ($inner->kind === 'fence' && !($inner->lineBlock && $inner->para && $this->m['rest'] !== '')) {
                 array_pop($this->frames);
             }
             // S3: the line's form, the record's `form` field.
