@@ -691,7 +691,7 @@ class HeadingIdTracker
                 if ($expandReferences) {
                     $id = $this->findId($child->getTargetId());
                     if ($id !== null && isset($this->nodesById[$id])) {
-                        $this->collectDisplayNodes($this->nodesById[$id], true, $nodes, $depth + 1, false);
+                        $this->collectDisplayNodes($this->nodesById[$id], $insideLink, $nodes, $depth + 1, false);
                     }
                 }
 

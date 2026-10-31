@@ -12,6 +12,8 @@ use MarkupCarve\Carve\Extension\IndexExtension;
 use MarkupCarve\Carve\Extension\MentionsExtension;
 use MarkupCarve\Carve\Extension\TableOfContentsExtension;
 use MarkupCarve\Carve\Extension\TocPlacementExtension;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Strong;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -161,6 +163,27 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         $this->assertInstanceOf(Text::class, $inside[0]);
 
         $outside = $tracker->deriveDisplayNodes([$link], false);
+        $this->assertCount(1, $outside);
+        $this->assertInstanceOf(Link::class, $outside[0]);
+        $this->assertSame('/u', $outside[0]->getDestination());
+    }
+
+    public function testAnExpandedHeadingReferenceKeepsTheCallersLinkContext(): void
+    {
+        $tracker = new HeadingIdTracker();
+        $heading = new Heading();
+        $heading->setAttribute('id', 'target');
+        $link = new Link('/u');
+        $link->appendChild(new Text('a'));
+        $heading->appendChild($link);
+        $this->assertSame('target', $tracker->getIdForHeading($heading));
+
+        $reference = new HeadingRef('target');
+        $inside = $tracker->deriveDisplayNodes([$reference], true);
+        $this->assertCount(1, $inside);
+        $this->assertInstanceOf(Text::class, $inside[0]);
+
+        $outside = $tracker->deriveDisplayNodes([$reference], false);
         $this->assertCount(1, $outside);
         $this->assertInstanceOf(Link::class, $outside[0]);
         $this->assertSame('/u', $outside[0]->getDestination());
