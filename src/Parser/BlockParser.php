@@ -1094,6 +1094,16 @@ class BlockParser
             ),
         );
 
+        if (count($paragraph->getChildren()) > 1) {
+            foreach (array_keys($paragraph->getAttributeEntries()) as $key) {
+                $paragraph->removeAttribute($key);
+            }
+            $parent->replaceChildNode($paragraph, $figure);
+            $figure->appendChild($paragraph);
+            $figure->appendChild($caption);
+
+            return;
+        }
         $figure->appendChild($image);
         $figure->appendChild($caption);
         $parent->replaceChildNode($paragraph, $figure);
@@ -4623,9 +4633,13 @@ class BlockParser
         $paragraph = new Paragraph();
         $this->inlineParser->parse($paragraph, $content, $sourceLine);
 
-        $children = $paragraph->getChildren();
-
-        if (count($children) !== 1) {
+        // A comment renders nothing, so it leaves an image the paragraph's whole
+        // content (18:317, carve#4568).
+        $children = array_values(array_filter(
+            $paragraph->getChildren(),
+            static fn (Node $child): bool => !$child instanceof Comment,
+        ));
+        if (count($children) !== 1 || ($children[0] instanceof Math && count($paragraph->getChildren()) !== 1)) {
             return false;
         }
 
@@ -4651,6 +4665,26 @@ class BlockParser
         }
 
         return $children[0] instanceof Math && self::isCaptionableDisplayMath($children[0]);
+    }
+
+    /**
+     * Structural-only lines all the way down: a nested quote or a bare fence of
+     * them holds nothing a caption could be about (13:150-155, carve#4573).
+     */
+    private static function holdsNothingCaptionable(Node $node): bool
+    {
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Comment) {
+                continue;
+            }
+            $container = $child instanceof BlockQuote
+                || ($child instanceof Div && $child->getLabel() === null && $child->getAttributeEntries() === []);
+            if (!$container || !self::holdsNothingCaptionable($child)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -4974,7 +5008,7 @@ class BlockParser
             // `| a |` / blank / `>` / blank / `^ cap` captioned an empty quote
             // nobody wrote the caption under (markup-carve/carve#2892).
             // A comment renders nothing, so it holds no caption content either.
-            if (array_filter($lastChild->getChildren(), static fn ($child): bool => !$child instanceof Comment) === []) {
+            if (self::holdsNothingCaptionable($lastChild)) {
                 return null;
             }
 
@@ -4998,9 +5032,13 @@ class BlockParser
         if ($lastChild instanceof Paragraph) {
             $this->parseDeferredScratchInlines($lastChild);
             $paragraphChildren = $lastChild->getChildren();
+            $visibleChildren = array_values(array_filter(
+                $paragraphChildren,
+                static fn (Node $child): bool => !$child instanceof Comment,
+            ));
             if (
-                count($paragraphChildren) === 1
-                && $paragraphChildren[0] instanceof Image
+                count($visibleChildren) === 1
+                && $visibleChildren[0] instanceof Image
             ) {
                 // An UNRESOLVED reference image is not an image: `[nope]`
                 // resolves to nothing, so every writer emits the author's
@@ -5010,7 +5048,7 @@ class BlockParser
                 // (carve-php#751). PART 12 §3a keeps the node with `ref` and
                 // `rawRef` precisely so it can be recognized below, where the
                 // slot is held until resolution settles the question.
-                $image = $paragraphChildren[0];
+                $image = $visibleChildren[0];
 
                 // Hold the slot rather than binding it: whether this is a
                 // figure is not decided until every definition is known.
@@ -5046,7 +5084,18 @@ class BlockParser
                 // Create caption
                 $caption = $this->parseCaptionNode($captionText, $start, $captionLines, $markerWidth, null);
 
-                // Build figure: image + caption
+                // Build figure: image + caption. A paragraph with a comment stays
+                // whole so the writers keep the comment; it renders as a block image.
+                if (count($paragraphChildren) > 1) {
+                    foreach (array_keys($lastChild->getAttributeEntries()) as $key) {
+                        $lastChild->removeAttribute($key);
+                    }
+                    $parent->replaceChild(count($children) - 1, $figure);
+                    $figure->appendChild($lastChild);
+                    $figure->appendChild($caption);
+
+                    return $linesConsumed;
+                }
                 $figure->appendChild($image);
                 $figure->appendChild($caption);
 
