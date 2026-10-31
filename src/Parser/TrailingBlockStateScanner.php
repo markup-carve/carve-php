@@ -907,7 +907,9 @@ final class TrailingBlockStateScanner
         //
         // Re-arm from the prior quote state. No known input reaches this line
         // with both the quote paragraph and paragraph-end flags set.
-        $state->quoteParagraph = $wasQuoteParagraph;
+        // A caption at the content column ends the quote; it is no lazy line (CARVE-P2-008).
+        $state->quoteParagraph = $wasQuoteParagraph
+            && preg_match('/\^ +.*' . StringUtil::NON_WHITESPACE_CLASS . '/A', $line, $ignored, 0, $at) !== 1;
 
         return $state;
     }
