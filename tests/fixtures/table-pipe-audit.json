@@ -1228,7 +1228,7 @@
   {
     "mode": "native-export",
     "name": "destination-backslash",
-    "source": "|= [a](/a\\|b) |= z |\n",
+    "source": "|= [a](/a\\\\\\|b) |= z |\n",
     "contains": [
       "href=\"/a%5C%7Cb\""
     ],

@@ -33,6 +33,27 @@ final class DeepCheckInlineRulingsTest extends TestCase
         yield 'a continuation cell takes a header a span marker extends (carve#4566)' => ["|= a | < |\n+ | | c |", "<table>\n  <thead>\n    <tr><th scope=\"col\" colspan=\"2\">a</th><th scope=\"col\">c</th></tr>\n  </thead>\n</table>"];
     }
 
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function cellDestinations(): iterable
+    {
+        yield 'a pipe' => ['| [x](/a\\|b) |'];
+        yield 'a backslash and a pipe' => ['| [x](/a\\\\\\|b) |'];
+        yield 'two backslashes and a pipe' => ['| [x](/a\\\\\\\\\\|b) |'];
+        yield 'an image' => ['| ![x](/a\\|b) |'];
+        yield 'an unpaired parenthesis and a pipe' => ['| [x](/a\\(\\|b) |'];
+    }
+
+    #[DataProvider('cellDestinations')]
+    public function testTheFormatterKeepsACellDestination(string $source): void
+    {
+        $formatted = CarveConverter::toCarve($source);
+
+        self::assertSame((new CarveConverter())->convert($source), (new CarveConverter())->convert($formatted));
+        self::assertSame($formatted, CarveConverter::toCarve($formatted));
+    }
+
     #[DataProvider('documents')]
     public function testRender(string $source, string $expected): void
     {

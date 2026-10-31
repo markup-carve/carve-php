@@ -11,7 +11,11 @@ final class DestinationEncoding
         return self::href(self::escapes($value), $table);
     }
 
-    public static function escapes(string $value): string
+    /**
+     * @param string $value
+     * @param bool $inTableCell A cell reads `\\|` as a pipe (carve#4549), so a bare pipe would end the cell.
+     */
+    public static function escapes(string $value, bool $inTableCell = false): string
     {
         $openers = [];
         $unpaired = [];
@@ -34,6 +38,11 @@ final class DestinationEncoding
         for ($i = 0; $i < $length; $i++) {
             $char = $value[$i];
             $next = $value[$i + 1] ?? '';
+            if ($inTableCell && ($char === '|' || ($char === '\\' && $next === '|'))) {
+                $out .= '\\' . $char;
+
+                continue;
+            }
             $out .= isset($unpaired[$i]) || ($char === '\\' && ($next === '' || in_array($next, ['\\', '(', ')'], true))) ? '\\' . $char : $char;
         }
 

@@ -7381,7 +7381,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function escapeDestinationEscapes(string $text): string
     {
-        return DestinationEncoding::escapes($text);
+        return DestinationEncoding::escapes($text, $this->tableCellDepth > 0);
     }
 
     protected function escapeQuoted(string $text): string
