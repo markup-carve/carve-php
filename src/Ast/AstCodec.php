@@ -1380,6 +1380,13 @@ class AstCodec
             return true;
         }
 
+        // The span fields are written by hand, so the reflected default walk
+        // below cannot see them. An ingested one is the cell's default extent
+        // and the encoder deliberately omits it (PART 12 §22, carve#4651).
+        if ($type === 'table_cell' && ($field === 'colspan' || $field === 'rowspan') && $value === 1) {
+            return true;
+        }
+
         $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
         if ($class === null) {
             return false;
