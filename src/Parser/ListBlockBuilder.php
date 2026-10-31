@@ -3023,6 +3023,7 @@ final class ListBlockBuilder
         $contentColumn = $this->sourceContentColumn($itemLineMap[0] ?? -1) + $markerWidth;
         $itemLines[0] = str_repeat(' ', $boxWidth) . $lead;
         $childOpen = true;
+        $siblingBody = false;
         $afterBlank = false;
         foreach ($itemLines as $at => $line) {
             if (IndentationHelper::isBlankLine($line)) {
@@ -3037,6 +3038,13 @@ final class ListBlockBuilder
             if ($at === 0 || str_contains($line, "\n") || str_starts_with($line, BlockGrammar::LAZY_FRAME)) {
                 continue;
             }
+            // A moved sibling's body moves with it.
+            if ($siblingBody && $line[0] === ' ') {
+                $itemLines[$at] = str_repeat(' ', $boxWidth) . $line;
+
+                continue;
+            }
+            $siblingBody = false;
             $marker = $lists->parseListItemMarker(ltrim($line, " \t"));
             if ($marker === null) {
                 // A paragraph after a blank at the item's content column closes the child, so a later marker there is no sibling of it.
@@ -3053,6 +3061,7 @@ final class ListBlockBuilder
             } elseif ($sibling && $childOpen && $line[0] !== ' ') {
                 // The collector reads a sibling of the child at column 0; it stands at the child's column.
                 $itemLines[$at] = str_repeat(' ', $boxWidth) . $line;
+                $siblingBody = true;
             }
         }
 
