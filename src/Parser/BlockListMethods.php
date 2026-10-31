@@ -1165,7 +1165,13 @@ trait BlockListMethods
             static fn (string $line): string => IndentationHelper::stripLeadingColumns($line, $baseIndent),
         );
         if ($attached !== [] && $i < $count && $this->isCaptionLine(IndentationHelper::stripLeadingColumns($lines[$i], $baseIndent))) {
-            $first = $attached[0];
+            // The attribute run before a fence leads it, so the fence still takes the caption (PART 9 §5).
+            $lead = 0;
+            $lastAttached = count($attached) - 1;
+            while ($lead < $lastAttached && $this->isBlockAttributeLine($attached[$lead])) {
+                $lead++;
+            }
+            $first = $attached[$lead];
             $code = $this->fencedBlockParser->parseCodeFenceOpener($first)
                 ?? $this->fencedBlockParser->parseRawBlockOpener($first);
             $div = $this->fencedBlockParser->parseDivFenceOpener($first);
