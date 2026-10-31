@@ -3850,8 +3850,23 @@ class BlockParser
         $line = self::stripLazyFrame($lines[$start]);
         // A collector may have joined a framed lazy line into this one.
         $line = str_replace("\n" . BlockGrammar::LAZY_FRAME, "\n", $line);
-        // Strip leading whitespace from first line (matching JS reference)
         $content = ltrim($line, " \t");
+        if (str_starts_with($line, "\t")) {
+            // A tab after a marker's space belongs to its content. The body
+            // was rebased here, so identify it on the authored line before
+            // treating a leading tab as ordinary indentation.
+            $authored = ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '');
+            $authored = ltrim($authored, " \t");
+            if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $authored, $note) === 1) {
+                $authored = $note[2];
+            }
+            $markerContent = $itemBody ? $this->listParser->innermostMarkerContentOffset($authored) : null;
+            $descriptionTab = preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $authored, $description) === 1
+                && str_starts_with($description[2], "\t");
+            if ($descriptionTab || $markerContent !== null && ($authored[$markerContent] ?? '') === "\t") {
+                $content = $line;
+            }
+        }
         $codeIncludeLine = IncludeDirectiveSyntax::codeIncludeLine(explode("\n", $content, 2)[0]);
         $standaloneCodeInclude = $codeIncludeLine !== null;
         /** @var list<string> $contentParts */

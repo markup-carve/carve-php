@@ -109,7 +109,7 @@ final class DefinitionListBuilder
     {
         while ($i < $count && preg_match(BlockGrammar::DEFINITION_TERM_PATTERN . 's', $lines[$i], $m)) {
             $termStart = $i;
-            $termText = trim($m[1], StringUtil::WHITESPACE_CHARS);
+            $termText = rtrim($m[1], StringUtil::WHITESPACE_CHARS);
             // A comment past the container column stays a comment and does
             // not end the term (markup-carve/carve#2411). Like a paragraph,
             // the term's inline content never reaches across it, so each run
@@ -654,7 +654,7 @@ final class DefinitionListBuilder
                 $lines[$i] = ltrim($lines[$i], " \t");
             }
         } else {
-            $body = [trim($m[2], StringUtil::WHITESPACE_CHARS)];
+            $body = [rtrim($m[2], StringUtil::WHITESPACE_CHARS)];
             $bodyMap = [$this->sourceLineFor($definitionStart)];
         }
         // A nested item owns lines that reach its column; a document or quote body keeps its own band.

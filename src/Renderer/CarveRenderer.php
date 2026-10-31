@@ -2287,7 +2287,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $this->recordListTightnessLost($item);
                 }
                 $this->pendingMarkerLineShift = $item->isTask() && $itemAttrs === '' ? strlen(self::taskMarker($item)) + 1 : 0;
-                $content = $this->trimNonNbsp($this->renderListItem(
+                $content = $this->trimMarkerBody($this->renderListItem(
                     $item,
                     $node->isTight() && !$needsLooseItem,
                 ));
@@ -3455,7 +3455,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 } finally {
                     $this->indentedHostDepth--;
                 }
-                $body = $this->trimNonNbsp($body);
+                $body = $this->trimMarkerBody($body);
                 if ($body === '') {
                     $out[] = self::DEFINITION_BODY_MARKER . self::EMPTY_BODY_SENTINEL;
 
@@ -6746,6 +6746,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function trimNonNbsp(string $text): string
     {
         return trim($text, " \t\n\r");
+    }
+
+    /**
+     * A tab after a marker's spaces is body content, including at its start.
+     */
+    protected function trimMarkerBody(string $text): string
+    {
+        return rtrim(ltrim($text, " \n\r"), " \t\n\r");
     }
 
     /**

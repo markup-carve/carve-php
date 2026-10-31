@@ -72,22 +72,22 @@
     {
         "ticket": "carve#4404",
         "source": "- - \t+\n  x\n",
-        "html": "<ul>\n  <li>\n    <ul>\n      <li>+\nx</li>\n    </ul>\n  </li>\n</ul>"
+        "html": "<ul>\n  <li>\n    <ul>\n      <li>\t+\nx</li>\n    </ul>\n  </li>\n</ul>"
     },
     {
         "ticket": "carve#4404",
         "source": "- \t+\nx\n",
-        "html": "<ul>\n  <li>+\nx</li>\n</ul>"
+        "html": "<ul>\n  <li>\t+\nx</li>\n</ul>"
     },
     {
         "ticket": "carve#4404",
         "source": " - \t+\n>\n",
-        "html": "<ul>\n  <li>+</li>\n</ul>\n<blockquote>\n\n</blockquote>"
+        "html": "<ul>\n  <li>\t+</li>\n</ul>\n<blockquote>\n\n</blockquote>"
     },
     {
         "ticket": "carve#4404",
         "source": "> - \t- +\nx\n",
-        "html": "<blockquote>\n  <ul>\n    <li>- +\nx</li>\n  </ul>\n</blockquote>"
+        "html": "<blockquote>\n  <ul>\n    <li>\t- +\nx</li>\n  </ul>\n</blockquote>"
     },
     {
         "ticket": "carve#4412",

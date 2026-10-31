@@ -8,8 +8,8 @@ use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A tab after the definition-term separator is stripped, not content
- * (carve-php#884, spec markup-carve/carve#794).
+ * A tab after the definition-term separator stays content under the later
+ * ruling in markup-carve/carve#4610.
  *
  * The three `DEFINITION_TERM_*` patterns each had `(?=\S)` or `\S` straight
  * after ` +`, requiring the term to begin on a non-space. So `:: <TAB>x` was a
@@ -18,29 +18,24 @@ use PHPUnit\Framework\TestCase;
  *
  * TWO RULES MEET HERE and the fix keeps them apart:
  *
- *   `:: <TAB>x` the separator space IS present; the tab is leading whitespace
- *                on the term and is stripped. This is what changed.
+ *   `:: <TAB>x` the separator space IS present; the tab starts term content.
  *   `::<TAB>x` no separator space at all, so the line stays prose. Pinned by
  *                corpus 176-a-marker-separator-is-a-space-never-a-tab, and the
  *                reason the leading space stays required instead of the
  *                separator widening to `[ \t]+`.
  *
- * All three constants moved together. The docblock above them says why they were
- * unified in the first place: "a fix applied to the one a bug report named would
- * have left the rest deciding the old way." The PREFIX one matters most - it is
- * what strips the marker, so leaving it narrow would keep the tab as the term's
- * first character even once the other two matched.
+ * All three constants move together, so term recognition and capture agree.
  */
 class DefinitionTermSeparatorTabTest extends TestCase
 {
     private function html(string $source): string
     {
-        return trim((string)preg_replace('/\s+/', ' ', (new CarveConverter())->convert($source)));
+        return trim((string)preg_replace('/\n[ ]*/', ' ', (new CarveConverter())->convert($source)));
     }
 
-    public function testATabAfterTheSeparatorIsStripped(): void
+    public function testATabAfterTheSeparatorStaysContent(): void
     {
-        $this->assertSame('<dl> <dt>x</dt> </dl>', $this->html(":: \tx\n"));
+        $this->assertSame("<dl> <dt>\tx</dt> </dl>", $this->html(":: \tx\n"));
     }
 
     public function testATabInsteadOfTheSeparatorIsStillProse(): void
@@ -68,13 +63,13 @@ class DefinitionTermSeparatorTabTest extends TestCase
         $this->assertStringNotContainsString('<dt>', $this->html(":::  x\n"));
     }
 
-    public function testTheTermStripsItsTabWithADescriptionToo(): void
+    public function testTheTermKeepsItsTabWithADescriptionToo(): void
     {
         // The whole construct, not the term line alone - this is the path that
         // goes through the PREFIX constant.
         $html = $this->html(":: \tterm\n:  body\n");
 
-        $this->assertStringContainsString('<dt>term</dt>', $html);
+        $this->assertStringContainsString("<dt>\tterm</dt>", $html);
         $this->assertStringContainsString('<dd>', $html);
     }
 }

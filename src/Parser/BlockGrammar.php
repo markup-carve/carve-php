@@ -62,7 +62,7 @@ final class BlockGrammar
      *
      * @var string
      */
-    public const DEFINITION_TERM_LINE_PREFIX = '/^::(?!:) [ \t]*(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/';
+    public const DEFINITION_TERM_LINE_PREFIX = '/^::(?!:) +(?=[ \t]*' . StringUtil::NON_WHITESPACE_CLASS . ')/';
 
     /**
      * A footnote body's own column: the indent PART 9 §16 asks a continuation
@@ -228,12 +228,12 @@ final class BlockGrammar
      *
      * @var string
      */
-    public const DEFINITION_TERM_LINE_PATTERN = '/^::(?!:) [ \t]*' . StringUtil::NON_WHITESPACE_CLASS . '/';
+    public const DEFINITION_TERM_LINE_PATTERN = '/^::(?!:) +(?=[ \t]*' . StringUtil::NON_WHITESPACE_CLASS . ')/';
 
     /**
      * @var string
      */
-    public const DEFINITION_TERM_PATTERN = '/^::(?!:) [ \t]*(?=' . StringUtil::NON_WHITESPACE_CLASS . ')(.+)$/';
+    public const DEFINITION_TERM_PATTERN = '/^::(?!:) +(?=[ \t]*' . StringUtil::NON_WHITESPACE_CLASS . ')([^ ].*)$/';
 
     /**
      * The width of the `:` marker the separator run follows.

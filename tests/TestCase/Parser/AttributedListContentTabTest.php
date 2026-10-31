@@ -15,10 +15,10 @@ final class AttributedListContentTabTest extends TestCase
      */
     public static function cases(): iterable
     {
-        yield 'empty bullet attributes' => ["-{} \tx\n", '<li>x</li>'];
-        yield 'classed bullet attributes' => ["-{.c} \tx\n", '<li class="c">x</li>'];
-        yield 'ordered marker attributes' => ["1.{} \tx\n", '<li>x</li>'];
-        yield 'nested marker attributes' => ["- a\n  -{} \tx\n", '<li>x</li>'];
+        yield 'empty bullet attributes' => ["-{} \tx\n", "<li>\tx</li>"];
+        yield 'classed bullet attributes' => ["-{.c} \tx\n", "<li class=\"c\">\tx</li>"];
+        yield 'ordered marker attributes' => ["1.{} \tx\n", "<li>\tx</li>"];
+        yield 'nested marker attributes' => ["- a\n  -{} \tx\n", "<li>\tx</li>"];
         yield 'missing separator stays literal' => ["-{}\tx\n", '<p>-{}' . "\t" . 'x</p>'];
     }
 

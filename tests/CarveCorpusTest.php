@@ -1616,7 +1616,6 @@ class CarveCorpusTest extends TestCase
         '853-an-abbreviation-definition-below-a-content-column-stands-in-the-document-3' => 'carve#4507: an abbreviation definition below a content column defines',
         '853-an-abbreviation-definition-below-a-content-column-stands-in-the-document-4' => 'carve#4507: an abbreviation definition below a content column defines',
         '853-an-abbreviation-definition-below-a-content-column-stands-in-the-document-5' => 'carve#4507: an abbreviation definition below a content column defines',
-        '853-a-whitespace-run-after-a-tab-sets-the-content-column-where-the-content-starts' => 'carve#4446: block ownership the spec model pins and this engine owes',
         '855-a-line-below-an-unclosed-fence-in-a-described-item-keeps-its-lazy-line' => 'carve#4484: a line below an unclosed fence in a described item keeps its lazy line',
         '855-a-line-below-an-unclosed-fence-in-a-described-item-keeps-its-lazy-line-2' => 'carve#4484: a line below an unclosed fence in a described item keeps its lazy line',
         '855-a-line-below-an-unclosed-fence-in-a-described-item-keeps-its-lazy-line-3' => 'carve#4484: a line below an unclosed fence in a described item keeps its lazy line',
@@ -1653,20 +1652,6 @@ class CarveCorpusTest extends TestCase
         '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',
         '872-the-third-confirmation-round-s-model-findings-7' => 'carve#4617: a comment body line that misses its owner is hidden',
         '872-the-third-confirmation-round-s-model-findings-8' => 'carve#4617: a comment body line that misses its owner is hidden',
-        '222-a-tab-as-the-first-character-of-a-definition-term' => 'carve#4610: a tab after a marker separator keeps the content column and stays content',
-        '439-a-colon-followed-by-only-whitespace-is-not-a-description-8' => 'carve#4610: a tab after a marker separator keeps the content column and stays content',
-        '684-a-post-marker-tab-keeps-a-quote-literal' => 'carve#4610: a tab after a marker separator keeps the content column and stays content',
-        '736-model-syntax-boundaries-and-ownership-4' => 'carve#4610: a tab after a marker separator keeps the content column and stays content',
-        '788-whitespace-after-a-leading-content-tab-is-not-content' => 'carve#4610: a tab after a marker separator keeps the content column and stays content',
-        '788-whitespace-after-a-leading-content-tab-is-not-content-2' => 'carve#4610: a tab after a marker separator keeps the content column and stays content',
-        '788-whitespace-after-a-leading-content-tab-is-not-content-3' => 'carve#4610: a tab after a marker separator keeps the content column and stays content',
-        '840-content-behind-a-lead-tab-offers-no-first-block' => 'carve#4610: a tab after a marker separator keeps the content column and stays content',
-        '840-content-behind-a-lead-tab-offers-no-first-block-2' => 'carve#4610: a tab after a marker separator keeps the content column and stays content',
-        '840-content-behind-a-lead-tab-offers-no-first-block-3' => 'carve#4610: a tab after a marker separator keeps the content column and stays content',
-        '840-content-behind-a-lead-tab-offers-no-first-block-4' => 'carve#4610: a tab after a marker separator keeps the content column and stays content',
-        '840-content-behind-a-lead-tab-offers-no-first-block-5' => 'carve#4610: a tab after a marker separator keeps the content column and stays content',
-        '853-a-whitespace-run-after-a-tab-sets-the-content-column-where-the-content-starts-3' => 'carve#4610: a tab after a marker separator keeps the content column and stays content',
-        '864-a-leading-content-tab-sets-the-item-s-content-column-where-the-content-starts' => 'carve#4610: a tab after a marker separator keeps the content column and stays content',
     ];
 
     /**

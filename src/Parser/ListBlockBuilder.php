@@ -916,7 +916,7 @@ final class ListBlockBuilder
             $markerHead = substr($trimmedLine, 0, strlen($trimmedLine) - strlen($itemContent));
             $padding = preg_match('/[ \t]+$/', $markerHead, $paddingMatch) === 1 ? $paddingMatch[0] : '';
             $itemContent = rtrim($itemContent, " \t");
-            if (str_contains($padding, "\t")) {
+            if (str_contains($padding, "\t") || str_starts_with($itemContent, "\t")) {
                 $itemContent = BlockGrammar::LAZY_FRAME . $itemContent;
             }
 
