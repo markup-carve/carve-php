@@ -134,6 +134,17 @@ final class PlainContinuationState
 
     public ?int $openCommentLength = null;
 
+    /**
+     * A code fence a child description's or note's marker line opened, still open.
+     *
+     * @var array{char: string, length: int, column: int, base: int}|null
+     */
+    public ?array $markerLineFence = null;
+
+    public int $markerLineFenceCursor = 0;
+
+    public ?int $markerLineFenceTerm = null;
+
     public ?int $openDefinitionBody = null;
 
     /**

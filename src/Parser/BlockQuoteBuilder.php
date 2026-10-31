@@ -569,6 +569,11 @@ final class BlockQuoteBuilder
             }
         }
 
+        // The separator after an attachment no later line followed is no blank of the source.
+        if (end($innerLines) === '' && end($innerLineMap) === -1) {
+            array_pop($innerLines);
+            array_pop($innerLineMap);
+        }
         $blockQuote->setPos($this->wholeLinesSpan($start, $i - 1, $quoteOpeningColumn));
         $parts[] = [$innerLines, $innerLineMap];
         foreach ($parts as [$partLines, $partLineMap]) {

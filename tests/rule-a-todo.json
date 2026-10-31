@@ -4086,10 +4086,6 @@
             "ticket": "carve-php#4243"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-19669\"",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-2723\"",
             "ticket": "carve-php#4244"
         },
@@ -4798,15 +4794,7 @@
             "ticket": "carve-php#4308"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-5595\"",
-            "ticket": "carve-php#4308"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-10111\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-10251\"",
             "ticket": "carve-php#4308"
         },
         {

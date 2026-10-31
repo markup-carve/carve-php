@@ -3821,6 +3821,7 @@ final class BlockContinuationScanner
             || $run->termCodeTailFence !== null
             || ($run->unclosedFenceColumn !== null && $run->itemOwnFenceRuns && !$run->markerNoteItem)
             || $definitionContinuesBlank
+            || $this->childMarkerLineFenceOpen($run, $itemLines)
             || $this->openTermTakesDescriptionPastBlank($run, $itemLines, $lines, $i, $count, $contentIndent)
         ) {
             if ($run->termCodeTailFence !== null) {
@@ -3837,6 +3838,65 @@ final class BlockContinuationScanner
         }
 
         return false;
+    }
+
+    /**
+     * Whether a child description's or note's marker line opened a fence that is still open.
+     *
+     * A blank reaches that body too (PART 0 S2), so the run is the fence's payload. Each line is read once.
+     *
+     * @param \MarkupCarve\Carve\Parser\PlainContinuationState $run
+     * @param array<string> $itemLines
+     */
+    public function childMarkerLineFenceOpen(PlainContinuationState $run, array $itemLines): bool
+    {
+        for ($count = count($itemLines); $run->markerLineFenceCursor < $count; $run->markerLineFenceCursor++) {
+            $line = explode("\n", $itemLines[$run->markerLineFenceCursor], 2)[0];
+            $column = IndentationHelper::getLeadingColumns($line);
+            $text = ltrim($line, " \t");
+            $open = $run->markerLineFence;
+            if ($open !== null) {
+                $closer = [];
+                if (
+                    in_array($column, [$open['column'], $open['base']], true)
+                    && preg_match('/^(`{3,}|~{3,})[ \t]*$/', $text, $closer) === 1
+                    && $closer[1][0] === $open['char'] && strlen($closer[1]) >= $open['length']
+                ) {
+                    $run->markerLineFence = null;
+                }
+
+                continue;
+            }
+            for ($marker = ($this->getListParser)()->parseListItemMarker($text); $text !== '' && $marker !== null; $marker = ($this->getListParser)()->parseListItemMarker($text)) {
+                $column += $this->listMarkerWidth($text, $marker);
+                $text = $marker['content'];
+            }
+            if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $text) === 1) {
+                $run->markerLineFenceTerm = $column;
+
+                continue;
+            }
+            $lead = null;
+            if ($run->markerLineFenceTerm === $column && preg_match('/^: +(?=[^ \t])/', $text, $description) === 1) {
+                $lead = strlen($description[0]);
+            } elseif (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $text, $note) === 1) {
+                $lead = strlen($text) - strlen($note[2]);
+            }
+            if ($lead === null) {
+                continue;
+            }
+            $body = substr($text, $lead);
+            if (preg_match('/^`{3,}|^~{3,}/', $body, $fence) === 1 && ($this->getFencedBlockParser)()->parseCodeFenceOpener($body) !== null) {
+                $run->markerLineFence = [
+                    'char' => $fence[0][0],
+                    'length' => strlen($fence[0]),
+                    'column' => $column + $lead,
+                    'base' => $column + ($text[0] === ':' ? $lead : BlockGrammar::FOOTNOTE_BODY_COLUMN),
+                ];
+            }
+        }
+
+        return $run->markerLineFence !== null;
     }
 
     /**

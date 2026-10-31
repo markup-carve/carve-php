@@ -26,7 +26,7 @@ class AFenceInADescriptionsListItemClosesInsideTheItemTest extends TestCase
 
         return [
             'opener past the item column' => [":: t\n: - x\n     ```\nx\n", $item],
-            'opener past the item column, blank before the line' => [":: t\n: - x\n    ~~~\n\nx\n", $item],
+            'opener past the item column, blank before the line' => [":: t\n: - x\n    ~~~\n\nx\n", str_replace('<code></code>', "<code>\n</code>", $item)],
             'closer of the inner item opens a fence in the outer one' => [":: t\n: - - ```\n     ```\nx\n", $nested],
             'same, with a wider body column' => [":: t\n:  - - ```\n      ```\nx\n", $nested],
         ];
