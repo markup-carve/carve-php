@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Ast;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -16,6 +17,8 @@ use PHPUnit\Framework\TestCase;
  */
 class ADroppedFenceBlankLeavesTheSpanTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, bool, int}>
      */
@@ -24,9 +27,9 @@ class ADroppedFenceBlankLeavesTheSpanTest extends TestCase
         $slug = '626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-';
 
         return [
-            '626-5' => [$slug . '5', false, 9],
+            '626-5' => [$slug . '5', false, 10],
             '626-6' => [$slug . '6', false, 19],
-            '626-7' => [$slug . '7', false, 10],
+            '626-7' => [$slug . '7', false, 11],
             '626-5 CRLF' => [$slug . '5', true, 11],
             '626-6 CRLF' => [$slug . '6', true, 22],
             '626-7 CRLF' => [$slug . '7', true, 12],

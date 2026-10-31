@@ -45,7 +45,7 @@ final class ANestedTermReleasesItsSourceColumnTest extends TestCase
     public function testBelowNestedTermColumnReturnsToDescription(): void
     {
         self::assertSame(
-            "<ul>\n  <li>a\n    <dl>\n      <dt>outer</dt>\n      <dd>\n        <p>detail</p>\n        <dl>\n          <dt>inner</dt>\n        </dl>\n        <p>:  tail</p>\n      </dd>\n    </dl>\n  </li>\n</ul>",
+            "<ul>\n  <li>a\n    <dl>\n      <dt>outer</dt>\n      <dd>\n        <p>detail</p>\n        <dl>\n          <dt>inner</dt>\n        </dl>\n      </dd>\n      <dd>tail</dd>\n    </dl>\n  </li>\n</ul>",
             CarveConverter::create()->convert("- a\n  :: outer\n  :  detail\n     :: inner\n    :  tail\n"),
         );
     }
@@ -76,7 +76,7 @@ final class ANestedTermReleasesItsSourceColumnTest extends TestCase
     {
         $html = CarveConverter::create()->convert("> :: outer\n> :  detail\n>     :: inner\n>  :  tail\n");
         self::assertStringContainsString('<dt>inner</dt>', $html);
-        self::assertStringContainsString('<p>:  tail</p>', $html);
+        self::assertStringContainsString('<dd>tail</dd>', $html);
         self::assertStringNotContainsString("<dt>inner\n:  tail</dt>", $html);
     }
 

@@ -129,8 +129,8 @@ class AMarkdownThematicBreakImportsAsACarveBreakTest extends TestCase
     public static function afterProvider(): array
     {
         return [
-            'an empty item' => ["***\n-", "---\n\n- +"],
-            'an empty ordered item' => ["***\n1.", "---\n\n1. +"],
+            'an empty item' => ["***\n-", "---\n\n- {empty}"],
+            'an empty ordered item' => ["***\n1.", "---\n\n1. {empty}"],
             'indented code' => ["***\n    code", "---\n\n```\ncode\n```"],
             'a heading' => ["***\n# h", "---\n\n# h"],
             'an ordered item that does not start at one' => ["***\n2. x", "---\n\n2. x"],

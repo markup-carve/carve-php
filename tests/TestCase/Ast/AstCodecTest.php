@@ -432,6 +432,8 @@ class AstCodecTest extends TestCase
         '743-a-later-term-after-a-shifted-separator-opens-in-the-outer-item.crv',
         // carve-php#4166
         '744-a-task-item-uses-the-ordered-item-column-rule-2.crv',
+        // carve#4432, at the pin to carve b7876589
+        '856-a-quote-at-the-content-column-stays-in-the-item-after-a-refused-separator.crv',
     ];
 
     /**

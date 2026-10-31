@@ -12,7 +12,7 @@ final class AFirstBlockMarkerInASiblingListItemTest extends TestCase
     public function testSiblingItemOwnsAnEmptyFirstBlockMarker(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote><p>a</p></blockquote>\n  </li>\n  <li></li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote><p>a</p></blockquote>\n  </li>\n  <li>+</li>\n</ul>\n"),
             CarveConverter::create()->convert("- > a\n- +\n"),
         );
     }

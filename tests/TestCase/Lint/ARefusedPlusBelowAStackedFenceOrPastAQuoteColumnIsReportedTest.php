@@ -29,7 +29,7 @@ final class ARefusedPlusBelowAStackedFenceOrPastAQuoteColumnIsReportedTest exten
             'quote, past its column at the end' => ["> q\n>   +\n", ['2:5']],
             'nested quote, past its column' => ["> > q\n> >   +\n> > para\n", ['2:7']],
             'document, past column 0' => ["q\n  +\npara\n", []],
-            'item, past its column' => ["- a\n   +\n  b\n", []],
+            'item, past its column' => ["- a\n   +\n  b\n", ['2:4']],
         ];
     }
 

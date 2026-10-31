@@ -16,7 +16,7 @@ final class QuoteAfterLazyPlusMarkerTest extends TestCase
     public static function attachedQuotes(): array
     {
         return [
-            'empty' => ["> a\n  x\n+\n>\n", "<blockquote>\n  <p>a\nx</p>\n  <blockquote>\n\n  </blockquote>\n</blockquote>"],
+            'empty' => ["> a\n  x\n+\n>\n", "<blockquote><p>a\nx\n+</p></blockquote>"],
             'nonempty' => ["> a\n  x\n+\n> q\n", "<blockquote>\n  <p>a\nx</p>\n  <blockquote><p>q</p></blockquote>\n</blockquote>"],
         ];
     }

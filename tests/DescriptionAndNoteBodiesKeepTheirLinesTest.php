@@ -38,7 +38,7 @@ final class DescriptionAndNoteBodiesKeepTheirLinesTest extends TestCase
             ],
             'two stacked +' => [
                 ":: t\n:  +\n:  +\n",
-                "<dl>\n  <dt>t</dt>\n  <dd></dd>\n  <dd></dd>\n</dl>",
+                "<dl>\n  <dt>t</dt>\n  <dd>+</dd>\n  <dd>+</dd>\n</dl>",
             ],
             'marker-line term past a blank' => [
                 "- :: term\n\n  : definition\n",

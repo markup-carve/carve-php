@@ -28,10 +28,6 @@ final class FenceAndContinuationConformanceTest extends TestCase
                     static fn ($warning): bool => $warning->rule === $rule,
                 ));
                 $expected = $vector['expected']['findings'];
-                if ($rule === 'continuation-marker-refused' && $vector['name'] === 'item-first-block-indented') {
-                    // carve#3772: the content-column follower consumes this first-block attachment.
-                    $expected = [];
-                }
                 self::assertSame(
                     array_map(static fn (array $f): array => [$f['line'], $f['column']], $expected),
                     array_map(static fn ($w): array => [$w->line, $w->column], $actual),

@@ -54,7 +54,7 @@ class AnInvisibleLineAfterARefusedNestedPlusTest extends TestCase
             ],
             'comment-still-folds' => [
                 "- - ```\n  +\n%% c\npara\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    +\n    para\n  </li>\n</ul>",
+                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    +\n  </li>\n</ul>\n<p>para</p>",
             ],
         ];
     }

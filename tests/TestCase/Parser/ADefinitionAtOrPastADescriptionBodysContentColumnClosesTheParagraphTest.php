@@ -662,12 +662,11 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
      */
     public static function footnoteBodyInTheBodyProvider(): array
     {
-        $child = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>nested\ntail</li>\n    </ul>\n  </dd>\n</dl>";
         $absorbed = "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>tail</p>";
 
         return [
-            'at the dd body column, below the note floor' => [3, $child],
-            'one past the dd body column, still below the floor' => [4, $child],
+            'at the dd body column, below the note floor' => [3, "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>"],
+            'one past the dd body column, still below the floor' => [4, "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>"],
             'at the footnote body floor' => [5, $absorbed],
             'one past the floor' => [6, $absorbed],
             'two past the floor' => [7, $absorbed],

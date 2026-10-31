@@ -22,7 +22,7 @@ final class IndentedListAttachedParagraphTest extends TestCase
     public function testFlushLeftLineAttachesToEmptyItem(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', self::TABLE . "<ul>\n  <li>line two</li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', self::TABLE . "<ul>\n  <li>+\nline two</li>\n</ul>\n"),
             CarveConverter::create()->convert("| a | b |\n  - +\nline two\n"),
         );
     }

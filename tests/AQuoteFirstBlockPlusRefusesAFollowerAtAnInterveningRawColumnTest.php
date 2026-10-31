@@ -55,6 +55,10 @@ class AQuoteFirstBlockPlusRefusesAFollowerAtAnInterveningRawColumnTest extends T
                         continue;
                     }
                     foreach ([0, 1, 2] as $depth) {
+                        // A follower carrying an enclosing quote's prefix reaches the innermost marker column (carve#4409).
+                        if ($depth > 0 && $col === strlen($lead) && str_contains($stack, '> >')) {
+                            continue;
+                        }
                         foreach (['q', '# h', '| a |', '***', '::: note', '{.c}'] as $block) {
                             $follower = str_repeat(' ', $col) . str_repeat('> ', $depth) . $block;
                             $doc = static fn (string $end): string => implode("\n", [...$pre, substr($opener, 0, -1) . $end, $follower]) . "\n";

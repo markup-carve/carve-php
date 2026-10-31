@@ -47,7 +47,7 @@ final class ADeepestQuotedParagraphKeepsLazyLineTest extends TestCase
     {
         $html = CarveConverter::create()->convert("> > - > +\n> > - > +\n> s\n");
 
-        self::assertStringContainsString('<blockquote><p>s</p></blockquote>', $html);
-        self::assertStringNotContainsString("<blockquote><p>+\ns</p></blockquote>", $html);
+        self::assertStringContainsString("<blockquote><p>+\ns</p></blockquote>", $html);
+        self::assertStringNotContainsString('<blockquote><p>s</p></blockquote>', $html);
     }
 }

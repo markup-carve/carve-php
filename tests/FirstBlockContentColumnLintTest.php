@@ -16,10 +16,10 @@ final class FirstBlockContentColumnLintTest extends TestCase
     public static function followers(): array
     {
         return [
-            'bullet' => ["- +\n  x\n", false],
-            'ordered' => ["1. +\n   x\n", false],
-            'wide ordered' => ["10. +\n    x\n", false],
-            'nested' => ["- a\n  - +\n    x\n", false],
+            'bullet' => ["- +\n  x\n", true],
+            'ordered' => ["1. +\n   x\n", true],
+            'wide ordered' => ["10. +\n    x\n", true],
+            'nested' => ["- a\n  - +\n    x\n", true],
             'past content column' => ["- +\n   x\n", true],
         ];
     }

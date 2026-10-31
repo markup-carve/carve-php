@@ -246,7 +246,7 @@ CRV;
         // Corpus 617-3 is an unmarked CSV fence, so it remains ordinary code.
         // Rows 588-3 and 588-4 now fall back because their lines end in plus.
         // Corpus 673 adds one accepted link-title-padding document.
-        $this->assertSame(72, $accepted, 'A fast-path routing change needs explicit review.');
+        $this->assertSame(74, $accepted, 'A fast-path routing change needs explicit review.');
     }
 
     public function testAmbiguousOrStatefulDocumentsFallBackBeforePublishingOutput(): void

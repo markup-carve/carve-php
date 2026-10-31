@@ -2971,6 +2971,10 @@ class AstCodec
             $wire['classes'] = $classes;
         }
         [$attrs, $order] = self::attrsFromWire($wire);
+        // A typed div's directive classes lead its attributes, whatever slot the authored class holds (corpus 858).
+        if ($node instanceof Div && is_string($data['kind'] ?? null) && $data['kind'] !== '' && isset($attrs['class'])) {
+            $attrs = ['class' => $attrs['class']] + $attrs;
+        }
         if ($this->decodeImporterHints && $node instanceof Heading && array_key_exists('id', $attrs) && !in_array('#id', $order, true)) {
             array_unshift($order, '#id');
         }

@@ -21,10 +21,10 @@ class AStackedQuoteOpenedOnAMarkerLineStartsAtItsMarkerTest extends TestCase
      */
     public static function sources(): iterable
     {
-        yield 'two stacked quotes' => ["- > > +\n> q\n", ['1:3 [2,11)', '1:5 [4,11)', '2:1 [8,11)']];
-        yield 'three stacked quotes' => ["- > > > +\n> q\n", ['1:3 [2,13)', '1:5 [4,13)', '1:7 [6,13)', '2:1 [10,13)']];
+        yield 'two stacked quotes' => ["- > > +\n> q\n", ['1:3 [2,7)', '1:5 [4,7)', '2:1 [8,11)']];
+        yield 'three stacked quotes' => ["- > > > +\n> q\n", ['1:3 [2,9)', '1:5 [4,9)', '1:7 [6,9)', '2:1 [10,13)']];
         yield 'in a nested item' => ["- a\n  - > > +\n      > q\n", ['2:5 [8,23)', '2:7 [10,23)', '3:7 [20,23)']];
-        yield 'in a host quote' => ["> - > > +\n> > q\n", ['1:1 [0,15)', '1:5 [4,15)', '1:7 [6,15)', '2:3 [12,15)']];
+        yield 'in a host quote' => ["> - > > +\n> > q\n", ['1:1 [0,15)', '1:5 [4,9)', '1:7 [6,9)', '2:3 [12,15)']];
     }
 
     /**

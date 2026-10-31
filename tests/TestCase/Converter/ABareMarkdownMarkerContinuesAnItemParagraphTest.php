@@ -24,9 +24,9 @@ class ABareMarkdownMarkerContinuesAnItemParagraphTest extends TestCase
             'later ordered number' => ["- a\n  x\n  10. ", "- a\n  x\n  10.", 1],
             'task item' => ["- [ ] a\n  x\n  +", "- [ ] a\n  x\n  +", 1],
             'nested item' => ["- a\n  - b\n    x\n    +", "- a\n  - b\n    x\n    +", 2],
-            'blank closes paragraph' => ["- a\n\n  +", "{loose}\n- a\n\n  - +", 2],
-            'one column short' => ["- a\n  x\n +", "- a\n  x\n\n* +", 2],
-            'quoted paragraph' => ["> - a\n>   x\n>   +", "> - a\n>   x\n>   \\+", 1],
+            'blank closes paragraph' => ["- a\n\n  +", "{loose}\n- a\n\n  - {empty}", 2],
+            'one column short' => ["- a\n  x\n +", "- a\n  x\n\n* {empty}", 2],
+            'quoted paragraph' => ["> - a\n>   x\n>   +", "> - a\n>   x\n>   +", 1],
         ];
     }
 

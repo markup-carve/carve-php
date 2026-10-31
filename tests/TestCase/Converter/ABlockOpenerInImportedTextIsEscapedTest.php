@@ -48,13 +48,13 @@ class ABlockOpenerInImportedTextIsEscapedTest extends TestCase
             'a bare text run' => ['<div>- x</div>', '\\- x'],
             'a list item' => ['<ul><li>- x</li></ul>', '- \\- x'],
             'a list item after a hard break' => ['<ul><li>a<br>- x</li></ul>', "- a\\\n  \\- x"],
-            'a lone plus in a list item' => ['<ul><li>+</li></ul>', '- \\+'],
+            'a lone plus in a list item' => ['<ul><li>+</li></ul>', '- +'],
             'a description' => ['<dl><dt>t</dt><dd># x</dd></dl>', ":: t\n: \\# x"],
             // The first marker has no attachable follower, so the second `+`
             // stays literal in the item without an escape (carve-php#3986).
             'a lone plus below the first part of an item' => ['<ul><li>a<div>+</div></li></ul>', "- a\n+\n+"],
             'a comment that starts the paragraph' => ['<p><!-- c -->- x</p>', '{%  c  %}- x'],
-            'a lone plus in a description' => ['<dl><dt>t</dt><dd>+</dd></dl>', ":: t\n: \\+"],
+            'a lone plus in a description' => ['<dl><dt>t</dt><dd>+</dd></dl>', ":: t\n: +"],
             'text in a quote' => ['<blockquote>1. x</blockquote>', '> 1\\. x'],
             'no opener' => ['<p>x - y</p>', 'x - y'],
             'a plus with text' => ['<p>+ x</p>', '+ x'],

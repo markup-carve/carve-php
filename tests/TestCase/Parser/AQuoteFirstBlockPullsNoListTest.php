@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * The first-block form pulls only non-list blocks (CARVE-P9-067), so a list
- * item at the quote's column refuses `> +`; the `+` then reads like a letter.
+ * item at the quote's column attaches to `> +` (carve#4409).
  */
 final class AQuoteFirstBlockPullsNoListTest extends TestCase
 {
@@ -32,8 +32,8 @@ final class AQuoteFirstBlockPullsNoListTest extends TestCase
     #[DataProvider('provider')]
     public function testTheRefusedPlusReadsLikeALetter(string $source): void
     {
-        $letter = str_replace('> +', '> x', $source);
-        $expected = str_replace('<p>x', '<p>+', (new CarveConverter())->convert($letter));
+        $attached = (string)preg_replace('/> \+\n *(?=-|1\.)/', '> ', $source);
+        $expected = (new CarveConverter())->convert($attached);
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
@@ -41,29 +41,18 @@ final class AQuoteFirstBlockPullsNoListTest extends TestCase
     #[DataProvider('provider')]
     public function testLintReportsTheRefusedPlus(string $source): void
     {
-        $lines = explode("\n", $source);
-        $line = 0;
-        foreach ($lines as $index => $text) {
-            if (str_ends_with($text, '> +')) {
-                $line = $index + 1;
-            }
-        }
         $found = array_map(
             static fn ($warning): string => $warning->rule . '@' . $warning->line . ':' . $warning->column,
             (new DocumentLinter())->lint($source),
         );
 
-        $expected = ['continuation-marker-refused@' . $line . ':' . strlen($lines[$line - 1])];
-        if ($source === "- a\n  > +\n  - b\n") {
-            $expected[] = 'list-marker-without-blank-line@3:3';
-        }
-        $this->assertSame($expected, $found);
+        $this->assertSame([], $found);
     }
 
     public function testTheListLineFoldsIntoTheQuotedPlus(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>\n    <blockquote><p>+\n- b</p></blockquote>\n  </li>\n</ul>",
+            "<ul>\n  <li>\n    <blockquote>\n      <ul>\n        <li>b</li>\n      </ul>\n    </blockquote>\n  </li>\n</ul>",
             trim((new CarveConverter())->convert("- > +\n  - b\n")),
         );
     }

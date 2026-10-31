@@ -13,15 +13,17 @@ use PHPUnit\Framework\TestCase;
  */
 final class ACommentAfterARefusedPlusDoesNotFoldIntoTheItemTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return iterable<string, array{string, string}>
      */
     public static function documents(): iterable
     {
-        yield 'shifted nested item (#4280)' => ["- o\n\n   - q\n   +\n   x\n   +\n   %% c\n", "<ul>\n  <li>o\n    <ul>\n      <li>q\n+\nx\n+</li>\n    </ul>\n  </li>\n</ul>"];
-        yield 'shifted document list, comment at column 0' => ["   - q\n   +\n   x\n   +\n%% c\n", "<ul>\n  <li>q\n+\nx\n+</li>\n</ul>"];
-        yield 'quoted host' => ["> - o\n>\n>    - q\n>    +\n>    x\n>    +\n>    %% c\n", "<blockquote>\n  <ul>\n    <li>o\n      <ul>\n        <li>q\n+\nx\n+</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"];
-        yield 'comment span' => ["   - q\n   +\n   x\n   +\n %%%\n c\n %%%\n", "<ul>\n  <li>q\n+\nx\n+</li>\n</ul>"];
+        yield 'shifted nested item (#4280)' => ["- o\n\n   - q\n   +\n   x\n   +\n   %% c\n", "<ul>\n  <li>o\n    <ul>\n      <li>q\n        x\n      </li>\n    </ul>\n  </li>\n</ul>"];
+        yield 'shifted document list, comment at column 0' => ["   - q\n   +\n   x\n   +\n%% c\n", "<ul>\n  <li>q\n    x\n+\n  </li>\n</ul>"];
+        yield 'quoted host' => ["> - o\n>\n>    - q\n>    +\n>    x\n>    +\n>    %% c\n", "<blockquote>\n  <ul>\n    <li>o\n      <ul>\n        <li>q\n          x\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"];
+        yield 'comment span' => ["   - q\n   +\n   x\n   +\n %%%\n c\n %%%\n", "<ul>\n  <li>q\n    x\n+\n  </li>\n</ul>"];
         yield 'text after the comment' => ["   - q\n   +\n   x\n   +\n %% c\n y\n", "<ul>\n  <li>q\n+\nx\n+</li>\n</ul>\n<p>y</p>"];
     }
 

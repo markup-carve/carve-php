@@ -1,0 +1,3307 @@
+{
+ "provenance": "spec model at markup-carve/carve c17e949c",
+ "attach": {
+  "4409-list-after-marker-line": {
+   "ticket": "4409",
+   "source": ":: t\n: +\n- l\n",
+   "html": "<dl><dt>t</dt><dd><ul><li>l</li></ul></dd></dl>"
+  },
+  "4409-corpus-838": {
+   "ticket": "4409",
+   "source": ":: t\n: - +\np\n",
+   "html": "<dl><dt>t</dt><dd><ul><li>+ p</li></ul></dd></dl>"
+  },
+  "4409-corpus-826-5": {
+   "ticket": "4409",
+   "source": "- a\n  * +\n[r]: /u\n  after\n",
+   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><p>after</p>"
+  },
+  "4409-sub1-note-list": {
+   "ticket": "4409",
+   "source": "[^a]: +\n- l\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ul><li>l</li></ul></li>"
+  },
+  "4409-sub1-note-para": {
+   "ticket": "4409",
+   "source": "[^a]: +\nflush\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>flush</p></li>"
+  },
+  "4409-sub1-desc-para": {
+   "ticket": "4409",
+   "source": ":: t\n: +\nflush\n",
+   "html": "<dl><dt>t</dt><dd>flush</dd></dl>"
+  },
+  "4409-sub2-quote-over-quote": {
+   "ticket": "4409",
+   "source": "> +\n> x\n",
+   "html": "<blockquote><blockquote><p>x</p></blockquote></blockquote>"
+  },
+  "4409-sub3-item-over-sibling": {
+   "ticket": "4409",
+   "source": "- +\n- b\n",
+   "html": "<ul><li>+</li><li>b</li></ul>"
+  },
+  "4409-sub4-item-content-column": {
+   "ticket": "4409",
+   "source": "- +\n  para\n",
+   "html": "<ul><li>+ para</li></ul>"
+  },
+  "4409-separate-at-own-column": {
+   "ticket": "4409",
+   "source": "- a\n+\npara\n",
+   "html": "<ul><li>a para</li></ul>"
+  },
+  "4409-separate-off-column": {
+   "ticket": "4409",
+   "source": "- a\n+\n  para\n",
+   "html": "<ul><li>a + para</li></ul>"
+  },
+  "4409-separate-list-in-desc": {
+   "ticket": "4409",
+   "source": ":: t\n: x\n+\n- l\n",
+   "html": "<dl><dt>t</dt><dd><p>x</p><ul><li>l</li></ul></dd></dl>"
+  },
+  "4409-separate-list-in-quote": {
+   "ticket": "4409",
+   "source": "> a\n+\n- l\n",
+   "html": "<blockquote><p>a</p><ul><li>l</li></ul></blockquote>"
+  },
+  "4409-separate-item-sibling-stays": {
+   "ticket": "4409",
+   "source": "- a\n+\n- b\n",
+   "html": "<ul><li>a +</li><li>b</li></ul>"
+  },
+  "4396-quoted-note": {
+   "ticket": "4396",
+   "source": "> [^b]: +\npara\n\n[^b]\n",
+   "html": "<blockquote></blockquote><p><a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ para</p></li>"
+  },
+  "4408-para-then-shifted-sibling": {
+   "ticket": "4408",
+   "source": ":: t\n: +\nl\n : b\n",
+   "html": "<dl><dt>t</dt><dd>l</dd><dd>b</dd></dl>"
+  },
+  "4408-block-then-shifted-sibling": {
+   "ticket": "4408",
+   "source": ":: t\n: +\n# H\n : b\n",
+   "html": "<dl><dt>t</dt><dd><h1 id=\"H\">H</h1></dd><dd>b</dd></dl>"
+  },
+  "4408-refused-past-term": {
+   "ticket": "4408",
+   "source": ":: t\n : +\nl\n : b\n",
+   "html": "<dl><dt>t</dt><dd>+ l</dd><dd>b</dd></dl>"
+  },
+  "4152-part1-stacked-column-zero": {
+   "ticket": "4152",
+   "source": "- - +\npara\n",
+   "html": "<ul><li><ul><li>+ para</li></ul></li></ul>"
+  },
+  "4152-part2-note-content-column": {
+   "ticket": "4152",
+   "source": "[^a]: +\n  flush\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ flush</p></li>"
+  },
+  "4152-desc-past-content-column": {
+   "ticket": "4152",
+   "source": ":: t\n: +\n    flush\n",
+   "html": "<dl><dt>t</dt><dd>+ flush</dd></dl>"
+  },
+  "4152-corpus-643-list-in-note": {
+   "ticket": "4152",
+   "source": "[^a]: +\n- a list\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ul><li>a list</li></ul></li>"
+  },
+  "4097-heading-closes-quote": {
+   "ticket": "4097",
+   "source": "> [^b]: +\n# H\n\nr[^b]\n",
+   "html": "<blockquote></blockquote><section id=\"H\"><h1>H</h1><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p></section> NOTES: <li id=\"fn1\"><p>+</p></li>"
+  },
+  "4097-paragraph-folds": {
+   "ticket": "4097",
+   "source": "> [^b]: +\npara\n\nr[^b]\n",
+   "html": "<blockquote></blockquote><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ para</p></li>"
+  },
+  "4097-marker-column-attaches": {
+   "ticket": "4097",
+   "source": "> [^b]: +\n> # H\n\nr[^b]\n",
+   "html": "<blockquote></blockquote><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><h1 id=\"H\">H</h1></li>"
+  },
+  "4120-flush-plus": {
+   "ticket": "4120",
+   "source": ":: t\n : d\n+\np\n",
+   "html": "<dl><dt>t</dt><dd>d + p</dd></dl>"
+  },
+  "4120-flush-plus-indented": {
+   "ticket": "4120",
+   "source": "  :: t\n   : d\n  +\n  p\n",
+   "html": "<dl><dt>t</dt><dd>d + p</dd></dl>"
+  },
+  "4120-fence-column-one-plus": {
+   "ticket": "4120",
+   "source": ":: t\n: ```\n +\n> q\n: a\n",
+   "html": "<dl><dt>t</dt><dd><pre><code></code></pre></dd></dl><p>+</p><blockquote><p>q : a</p></blockquote>"
+  },
+  "4120-fence-column-one-plus-indented": {
+   "ticket": "4120",
+   "source": "  :: t\n  : ```\n   +\n  > q\n  : a\n",
+   "html": "<dl><dt>t</dt><dd><pre><code></code></pre></dd></dl><p>+</p><blockquote><p>q : a</p></blockquote>"
+  },
+  "4120-item-twin": {
+   "ticket": "4120",
+   "source": "- ```\n +\n> q\n",
+   "html": "<ul><li><pre><code></code></pre></li></ul><p>+</p><blockquote><p>q</p></blockquote>"
+  },
+  "4226-column-one-fence": {
+   "ticket": "4226",
+   "source": "- a\n  - +\n ```\nx\n```\n",
+   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><pre><code>x\n</code></pre>"
+  },
+  "4226-column-one-quote": {
+   "ticket": "4226",
+   "source": "- a\n  - +\n > q\n",
+   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><blockquote><p>q</p></blockquote>"
+  },
+  "4222-stacked-in-note": {
+   "ticket": "4222",
+   "source": "[^a]: - - +\n  para\ntail\n\nr[^a]\n",
+   "html": "<p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ul><li><ul><li>+ para tail</li></ul></li></ul></li>"
+  },
+  "4356-description-host": {
+   "ticket": "4356",
+   "source": ":: t\n: - +\np\n",
+   "html": "<dl><dt>t</dt><dd><ul><li>+ p</li></ul></dd></dl>"
+  },
+  "4356-note-host": {
+   "ticket": "4356",
+   "source": "[^n]: - +\np\n\nr[^n]\n",
+   "html": "<p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ul><li>+ p</li></ul></li>"
+  },
+  "twin-item-paragraph-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "- +\npara\n",
+   "html": "<ul><li>para</li></ul>"
+  },
+  "twin-item-heading-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "- +\n# H\n",
+   "html": "<ul><li><h1 id=\"H\">H</h1></li></ul>"
+  },
+  "twin-item-fence-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "- +\n```\nx\n```\n",
+   "html": "<ul><li><pre><code>x\n</code></pre></li></ul>"
+  },
+  "twin-item-quote-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "- +\n> q\n",
+   "html": "<ul><li><blockquote><p>q</p></blockquote></li></ul>"
+  },
+  "twin-item-paragraph-at-content-column": {
+   "ticket": "P9-067",
+   "source": "- +\n  para\n",
+   "html": "<ul><li>+ para</li></ul>"
+  },
+  "twin-item-paragraph-at-column-one": {
+   "ticket": "P9-067",
+   "source": "- +\n para\n",
+   "html": "<ul><li>+ para</li></ul>"
+  },
+  "twin-description-paragraph-at-marker-column": {
+   "ticket": "P9-067",
+   "source": ":: t\n: +\npara\n",
+   "html": "<dl><dt>t</dt><dd>para</dd></dl>"
+  },
+  "twin-description-heading-at-marker-column": {
+   "ticket": "P9-067",
+   "source": ":: t\n: +\n# H\n",
+   "html": "<dl><dt>t</dt><dd><h1 id=\"H\">H</h1></dd></dl>"
+  },
+  "twin-description-fence-at-marker-column": {
+   "ticket": "P9-067",
+   "source": ":: t\n: +\n```\nx\n```\n",
+   "html": "<dl><dt>t</dt><dd><pre><code>x\n</code></pre></dd></dl>"
+  },
+  "twin-description-quote-at-marker-column": {
+   "ticket": "P9-067",
+   "source": ":: t\n: +\n> q\n",
+   "html": "<dl><dt>t</dt><dd><blockquote><p>q</p></blockquote></dd></dl>"
+  },
+  "twin-description-paragraph-at-content-column": {
+   "ticket": "P9-067",
+   "source": ":: t\n: +\n  para\n",
+   "html": "<dl><dt>t</dt><dd>+ para</dd></dl>"
+  },
+  "twin-description-paragraph-at-column-one": {
+   "ticket": "P9-067",
+   "source": ":: t\n: +\n para\n",
+   "html": "<dl><dt>t</dt><dd>+ para</dd></dl>"
+  },
+  "twin-description-list-at-marker-column": {
+   "ticket": "P9-067",
+   "source": ":: t\n: +\n- l\n",
+   "html": "<dl><dt>t</dt><dd><ul><li>l</li></ul></dd></dl>"
+  },
+  "twin-note-paragraph-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "[^a]: +\npara\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>para</p></li>"
+  },
+  "twin-note-heading-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "[^a]: +\n# H\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><h1 id=\"H\">H</h1></li>"
+  },
+  "twin-note-fence-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "[^a]: +\n```\nx\n```\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><pre><code>x\n</code></pre></li>"
+  },
+  "twin-note-quote-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "[^a]: +\n> q\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><blockquote><p>q</p></blockquote></li>"
+  },
+  "twin-note-paragraph-at-content-column": {
+   "ticket": "P9-067",
+   "source": "[^a]: +\n  para\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ para</p></li>"
+  },
+  "twin-note-paragraph-at-column-one": {
+   "ticket": "P9-067",
+   "source": "[^a]: +\n para\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ para</p></li>"
+  },
+  "twin-note-list-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "[^a]: +\n- l\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ul><li>l</li></ul></li>"
+  },
+  "twin-quote-paragraph-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "> +\npara\n",
+   "html": "<blockquote><p>para</p></blockquote>"
+  },
+  "twin-quote-heading-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "> +\n# H\n",
+   "html": "<blockquote><h1 id=\"H\">H</h1></blockquote>"
+  },
+  "twin-quote-fence-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "> +\n```\nx\n```\n",
+   "html": "<blockquote><pre><code>x\n</code></pre></blockquote>"
+  },
+  "twin-quote-quote-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "> +\n> q\n",
+   "html": "<blockquote><blockquote><p>q</p></blockquote></blockquote>"
+  },
+  "twin-quote-paragraph-at-content-column": {
+   "ticket": "P9-067",
+   "source": "> +\n  para\n",
+   "html": "<blockquote><p>+ para</p></blockquote>"
+  },
+  "twin-quote-paragraph-at-column-one": {
+   "ticket": "P9-067",
+   "source": "> +\n para\n",
+   "html": "<blockquote><p>+ para</p></blockquote>"
+  },
+  "twin-quote-list-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "> +\n- l\n",
+   "html": "<blockquote><ul><li>l</li></ul></blockquote>"
+  },
+  "twin-nested-item-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "- a\n  - +\n  para\n",
+   "html": "<ul><li>a <ul><li>para</li></ul></li></ul>"
+  },
+  "twin-nested-item-column-zero-refused": {
+   "ticket": "P9-067",
+   "source": "- a\n  - +\npara\n",
+   "html": "<ul><li>a <ul><li>+ para</li></ul></li></ul>"
+  },
+  "twin-nested-item-column-one-refused": {
+   "ticket": "P9-067",
+   "source": "- a\n  - +\n para\n",
+   "html": "<ul><li>a <ul><li>+ para</li></ul></li></ul>"
+  },
+  "twin-nested-description-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "- a\n  :: t\n  : +\n  para\n",
+   "html": "<ul><li>a <dl><dt>t</dt><dd>para</dd></dl></li></ul>"
+  },
+  "twin-nested-description-column-zero-refused": {
+   "ticket": "P9-067",
+   "source": "- a\n  :: t\n  : +\npara\n",
+   "html": "<ul><li>a <dl><dt>t</dt><dd>+ para</dd></dl></li></ul>"
+  },
+  "twin-nested-description-column-one-refused": {
+   "ticket": "P9-067",
+   "source": "- a\n  :: t\n  : +\n para\n",
+   "html": "<ul><li>a <dl><dt>t</dt><dd>+ para</dd></dl></li></ul>"
+  },
+  "twin-nested-quote-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "- a\n  > +\n  para\n",
+   "html": "<ul><li>a <blockquote><p>para</p></blockquote></li></ul>"
+  },
+  "twin-nested-quote-column-zero-refused": {
+   "ticket": "P9-067",
+   "source": "- a\n  > +\npara\n",
+   "html": "<ul><li>a <blockquote><p>+ para</p></blockquote></li></ul>"
+  },
+  "twin-nested-quote-column-one-refused": {
+   "ticket": "P9-067",
+   "source": "- a\n  > +\n para\n",
+   "html": "<ul><li>a <blockquote><p>+ para</p></blockquote></li></ul>"
+  },
+  "twin-nested-note-at-marker-column": {
+   "ticket": "P9-067",
+   "source": "- a\n  [^n]: +\n  para\n\nr[^n]\n",
+   "html": "<ul><li>a</li></ul><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>para</p></li>"
+  },
+  "twin-nested-note-column-zero-refused": {
+   "ticket": "P9-067",
+   "source": "- a\n  [^n]: +\npara\n\nr[^n]\n",
+   "html": "<ul><li>a</li></ul><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ para</p></li>"
+  },
+  "A-384-a-continuation-marker-attaches-only-a-flush-left-block-2": {
+   "ticket": "A",
+   "source": "* * +\n  x\n",
+   "html": "<ul><li><ul><li>x</li></ul></li></ul>"
+  },
+  "A-384-a-continuation-marker-attaches-only-a-flush-left-block-3": {
+   "ticket": "A",
+   "source": "* * +\n x\n",
+   "html": "<ul><li><ul><li>+ x</li></ul></li></ul>"
+  },
+  "A-384-a-continuation-marker-attaches-only-a-flush-left-block-5": {
+   "ticket": "A",
+   "source": "- +\n  x\n",
+   "html": "<ul><li>+ x</li></ul>"
+  },
+  "A-384-a-continuation-marker-attaches-only-a-flush-left-block": {
+   "ticket": "A",
+   "source": "* * +\nx\n",
+   "html": "<ul><li><ul><li>+ x</li></ul></li></ul>"
+  },
+  "A-436-an-empty-description-body-claims-no-line-below-column-0-2": {
+   "ticket": "A",
+   "source": ":: t\n:  +\n flush\n",
+   "html": "<dl><dt>t</dt><dd>+ flush</dd></dl>"
+  },
+  "A-436-an-empty-description-body-claims-no-line-below-column-0-4": {
+   "ticket": "A",
+   "source": ":: t\n:  +\n  flush\n",
+   "html": "<dl><dt>t</dt><dd>+ flush</dd></dl>"
+  },
+  "A-436-an-empty-description-body-claims-no-line-below-column-0-7": {
+   "ticket": "A",
+   "source": "- +\n flush\n",
+   "html": "<ul><li>+ flush</li></ul>"
+  },
+  "A-437-a-leading-continuation-marker-in-a-footnote-body-or-a-quote-is-text-3": {
+   "ticket": "A",
+   "source": "[^a]: +\n  flush\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ flush</p></li>"
+  },
+  "A-588-a-block-quote-and-a-footnote-body-take-the-first-block-form-5": {
+   "ticket": "A",
+   "source": "> > +\n```\nx\n```\n",
+   "html": "<blockquote><blockquote><p>+</p></blockquote></blockquote><pre><code>x\n</code></pre>"
+  },
+  "A-626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-5": {
+   "ticket": "A",
+   "source": "- - ```\n\n\n  +\ntail\n",
+   "html": "<ul><li><ul><li><pre><code>\n\n</code></pre></li></ul><p>+ tail</p></li></ul>"
+  },
+  "A-626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-7": {
+   "ticket": "A",
+   "source": "- 1. ```\n\n\n  +\ntail\n",
+   "html": "<ul><li><ol><li><pre><code>\n\n</code></pre></li></ol><p>+ tail</p></li></ul>"
+  },
+  "A-630-a-continuation-marker-stands-alone-at-column-zero-or-right-after-a-block-opener-10": {
+   "ticket": "A",
+   "source": "  > +\nq\n",
+   "html": "<blockquote><p>+ q</p></blockquote>"
+  },
+  "A-630-a-continuation-marker-stands-alone-at-column-zero-or-right-after-a-block-opener-13": {
+   "ticket": "A",
+   "source": "- - +\npara\n",
+   "html": "<ul><li><ul><li>+ para</li></ul></li></ul>"
+  },
+  "A-630-a-continuation-marker-stands-alone-at-column-zero-or-right-after-a-block-opener-16": {
+   "ticket": "A",
+   "source": "1. - +\npara\n",
+   "html": "<ol><li><ul><li>+ para</li></ul></li></ol>"
+  },
+  "A-630-a-continuation-marker-stands-alone-at-column-zero-or-right-after-a-block-opener-18": {
+   "ticket": "A",
+   "source": "- a\n  - +\npara\n",
+   "html": "<ul><li>a <ul><li>+ para</li></ul></li></ul>"
+  },
+  "A-631-a-task-item-takes-a-first-block-continuation-marker-after-its-checkbox-4": {
+   "ticket": "A",
+   "source": "- - [ ] +\n```\ncode\n```\n",
+   "html": "<ul><li><ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +</li></ul></li></ul><pre><code>code\n</code></pre>"
+  },
+  "A-632-a-continuation-marker-uses-its-container-column-28": {
+   "ticket": "A",
+   "source": "- a\n  - +\n> b\n",
+   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><blockquote><p>b</p></blockquote>"
+  },
+  "A-632-a-continuation-marker-uses-its-container-column-29": {
+   "ticket": "A",
+   "source": "- - +\n> q\n",
+   "html": "<ul><li><ul><li>+</li></ul></li></ul><blockquote><p>q</p></blockquote>"
+  },
+  "A-632-a-continuation-marker-uses-its-container-column-30": {
+   "ticket": "A",
+   "source": "- - [ ] +\n> q\n",
+   "html": "<ul><li><ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +</li></ul></li></ul><blockquote><p>q</p></blockquote>"
+  },
+  "A-632-a-continuation-marker-uses-its-container-column-33": {
+   "ticket": "A",
+   "source": "1. - +\n> q\n",
+   "html": "<ol><li><ul><li>+</li></ul></li></ol><blockquote><p>q</p></blockquote>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-10": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n    > b\n",
+   "html": "<ul><li>foo <ul><li>+ <blockquote><p>b</p></blockquote></li></ul></li></ul>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-11": {
+   "ticket": "A",
+   "source": "- foo\n  - [ ] +\n> b\n",
+   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +</li></ul></li></ul><blockquote><p>b</p></blockquote>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-12": {
+   "ticket": "A",
+   "source": "- foo\n  - [ ] +\n > b\n",
+   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +</li></ul></li></ul><blockquote><p>b</p></blockquote>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-14": {
+   "ticket": "A",
+   "source": "- foo\n  - [ ] +\n    > b\n",
+   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled> + <blockquote><p>b</p></blockquote></li></ul></li></ul>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-15": {
+   "ticket": "A",
+   "source": "- foo\n  1. +\n> b\n",
+   "html": "<ul><li>foo <ol><li>+</li></ol></li></ul><blockquote><p>b</p></blockquote>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-16": {
+   "ticket": "A",
+   "source": "- foo\n  1. +\n > b\n",
+   "html": "<ul><li>foo <ol><li>+</li></ol></li></ul><blockquote><p>b</p></blockquote>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-18": {
+   "ticket": "A",
+   "source": "- foo\n  1. +\n    > b\n",
+   "html": "<ul><li>foo <ol><li>+</li></ol><blockquote><p>b</p></blockquote></li></ul>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-19": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n```\nx\n```\n",
+   "html": "<ul><li>foo <ul><li>+</li></ul></li></ul><pre><code>x\n</code></pre>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-20": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n ```\n x\n ```\n",
+   "html": "<ul><li>foo <ul><li>+</li></ul></li></ul><pre><code>x\n</code></pre>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-22": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n    ```\n    x\n    ```\n",
+   "html": "<ul><li>foo <ul><li>+<pre><code>x\n</code></pre></li></ul></li></ul>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-23": {
+   "ticket": "A",
+   "source": "- foo\n  - [ ] +\n```\nx\n```\n",
+   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +</li></ul></li></ul><pre><code>x\n</code></pre>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-24": {
+   "ticket": "A",
+   "source": "- foo\n  - [ ] +\n ```\n x\n ```\n",
+   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +</li></ul></li></ul><pre><code>x\n</code></pre>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-26": {
+   "ticket": "A",
+   "source": "- foo\n  - [ ] +\n    ```\n    x\n    ```\n",
+   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +<pre><code>x\n</code></pre></li></ul></li></ul>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-27": {
+   "ticket": "A",
+   "source": "- foo\n  1. +\n```\nx\n```\n",
+   "html": "<ul><li>foo <ol><li>+</li></ol></li></ul><pre><code>x\n</code></pre>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-28": {
+   "ticket": "A",
+   "source": "- foo\n  1. +\n ```\n x\n ```\n",
+   "html": "<ul><li>foo <ol><li>+</li></ol></li></ul><pre><code>x\n</code></pre>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-30": {
+   "ticket": "A",
+   "source": "- foo\n  1. +\n    ```\n    x\n    ```\n",
+   "html": "<ul><li>foo <ol><li>+</li></ol><pre><code>x\n</code></pre></li></ul>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-31": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n  - x\n",
+   "html": "<ul><li>foo <ul><li>+</li><li>x</li></ul></li></ul>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-33": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n  * x\n",
+   "html": "<ul><li>foo <ul><li>+</li></ul><ul><li>x</li></ul></li></ul>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-34": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n  1. x\n",
+   "html": "<ul><li>foo <ul><li>+</li></ul><ol><li>x</li></ol></li></ul>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-35": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n  - [ ] x\n",
+   "html": "<ul><li>foo <ul><li>+</li></ul><ul class=\"task-list\"><li><input type=\"checkbox\" disabled> x</li></ul></li></ul>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-36": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n    - x\n",
+   "html": "<ul><li>foo <ul><li>+ <ul><li>x</li></ul></li></ul></li></ul>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-5": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n> b\n",
+   "html": "<ul><li>foo <ul><li>+</li></ul></li></ul><blockquote><p>b</p></blockquote>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-6": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n x\n",
+   "html": "<ul><li>foo <ul><li>+ x</li></ul></li></ul>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-7": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n> b\n",
+   "html": "<ul><li>foo <ul><li>+</li></ul></li></ul><blockquote><p>b</p></blockquote>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-8": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n > b\n",
+   "html": "<ul><li>foo <ul><li>+</li></ul></li></ul><blockquote><p>b</p></blockquote>"
+  },
+  "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n- x\n",
+   "html": "<ul><li>foo <ul><li>+</li></ul></li><li>x</li></ul>"
+  },
+  "A-634-a-refused-continuation-plus-remains-text-23": {
+   "ticket": "A",
+   "source": "- +\n",
+   "html": "<ul><li>+</li></ul>"
+  },
+  "A-634-a-refused-continuation-plus-remains-text-24": {
+   "ticket": "A",
+   "source": "- +\n\npara\n",
+   "html": "<ul><li>+</li></ul><p>para</p>"
+  },
+  "A-634-a-refused-continuation-plus-remains-text-25": {
+   "ticket": "A",
+   "source": "- +\n- b\n",
+   "html": "<ul><li>+</li><li>b</li></ul>"
+  },
+  "A-634-a-refused-continuation-plus-remains-text-26": {
+   "ticket": "A",
+   "source": "1. +\n",
+   "html": "<ol><li>+</li></ol>"
+  },
+  "A-634-a-refused-continuation-plus-remains-text-27": {
+   "ticket": "A",
+   "source": "- [ ] +\n",
+   "html": "<ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +</li></ul>"
+  },
+  "A-634-a-refused-continuation-plus-remains-text-28": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n  - b\n",
+   "html": "<ul><li>foo <ul><li>+</li><li>b</li></ul></li></ul>"
+  },
+  "A-634-a-refused-continuation-plus-remains-text-30": {
+   "ticket": "A",
+   "source": "> > +\nflush\n",
+   "html": "<blockquote><blockquote><p>+ flush</p></blockquote></blockquote>"
+  },
+  "A-634-a-refused-continuation-plus-remains-text-31": {
+   "ticket": "A",
+   "source": "- a\n  - - +\n  > b\n",
+   "html": "<ul><li>a <ul><li><ul><li>+</li></ul></li></ul><blockquote><p>b</p></blockquote></li></ul>"
+  },
+  "A-634-a-refused-continuation-plus-remains-text-32": {
+   "ticket": "A",
+   "source": "- a\n  - - +\n> b\n",
+   "html": "<ul><li>a <ul><li><ul><li>+</li></ul></li></ul></li></ul><blockquote><p>b</p></blockquote>"
+  },
+  "A-643-a-first-block-marker-does-not-pull-a-column-zero-list-into-a-note-or-description-2": {
+   "ticket": "A",
+   "source": ":: t\n: +\n- a list\n",
+   "html": "<dl><dt>t</dt><dd><ul><li>a list</li></ul></dd></dl>"
+  },
+  "A-643-a-first-block-marker-does-not-pull-a-column-zero-list-into-a-note-or-description": {
+   "ticket": "A",
+   "source": "[^a]: +\n- a list\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ul><li>a list</li></ul></li>"
+  },
+  "A-646-a-quote-prefixed-plus-takes-one-space-after-each-quote-marker-and-attaches-a-quote-2": {
+   "ticket": "A",
+   "source": "> > +\nq\n",
+   "html": "<blockquote><blockquote><p>+ q</p></blockquote></blockquote>"
+  },
+  "A-649-a-first-block-plus-refuses-a-follower-at-an-intervening-column-4": {
+   "ticket": "A",
+   "source": "> > +\n  > q\n",
+   "html": "<blockquote><blockquote><p>+ q</p></blockquote></blockquote>"
+  },
+  "A-649-a-first-block-plus-refuses-a-follower-at-an-intervening-column-5": {
+   "ticket": "A",
+   "source": "- a\n  > > +\n    > q\n",
+   "html": "<ul><li>a <blockquote><blockquote><p>+ q</p></blockquote></blockquote></li></ul>"
+  },
+  "A-651-a-stacked-first-block-plus-takes-a-follower-only-at-column-zero-or-its-line-s-column-2": {
+   "ticket": "A",
+   "source": "- - +\n  b\n",
+   "html": "<ul><li><ul><li>b</li></ul></li></ul>"
+  },
+  "A-652-a-quote-s-first-block-plus-refuses-a-list-follower-in-every-host": {
+   "ticket": "A",
+   "source": "> - > q\n>   > > +\n>   > - s\n",
+   "html": "<blockquote><ul><li><blockquote><p>q</p><blockquote><ul><li>s</li></ul></blockquote></blockquote></li></ul></blockquote>"
+  },
+  "A-728-a-first-block-item-takes-the-next-owned-block-2": {
+   "ticket": "A",
+   "source": "- +\n  x\n# h\n",
+   "html": "<ul><li>+ x</li></ul><section id=\"h\"><h1>h</h1></section>"
+  },
+  "A-728-a-first-block-item-takes-the-next-owned-block-3": {
+   "ticket": "A",
+   "source": "- +\n  x\n---\n",
+   "html": "<ul><li>+ x</li></ul><hr>"
+  },
+  "A-728-a-first-block-item-takes-the-next-owned-block-4": {
+   "ticket": "A",
+   "source": "- +\n\tx\n>\n",
+   "html": "<ul><li>+ x</li></ul><blockquote></blockquote>"
+  },
+  "A-728-a-first-block-item-takes-the-next-owned-block": {
+   "ticket": "A",
+   "source": "- +\n  x\n>\n",
+   "html": "<ul><li>+ x</li></ul><blockquote></blockquote>"
+  },
+  "A-734-a-nested-first-block-item-releases-the-next-root-block-2": {
+   "ticket": "A",
+   "source": "- - +\n    x\n# tail\n",
+   "html": "<ul><li><ul><li>+ x</li></ul></li></ul><section id=\"tail\"><h1>tail</h1></section>"
+  },
+  "A-734-a-nested-first-block-item-releases-the-next-root-block-3": {
+   "ticket": "A",
+   "source": "- - +\n    x\n---\n",
+   "html": "<ul><li><ul><li>+ x</li></ul></li></ul><hr>"
+  },
+  "A-734-a-nested-first-block-item-releases-the-next-root-block-4": {
+   "ticket": "A",
+   "source": "- - +\n    x\n::: note\ntail\n:::\n",
+   "html": "<ul><li><ul><li>+ x</li></ul></li></ul><aside class=\"admonition note\"><p>tail</p></aside>"
+  },
+  "A-734-a-nested-first-block-item-releases-the-next-root-block-5": {
+   "ticket": "A",
+   "source": "- - +\n    x\n:: tail\n:  definition\n",
+   "html": "<ul><li><ul><li>+ x</li></ul></li></ul><dl><dt>tail</dt><dd>definition</dd></dl>"
+  },
+  "A-734-a-nested-first-block-item-releases-the-next-root-block": {
+   "ticket": "A",
+   "source": "- - +\n    x\n> tail\n",
+   "html": "<ul><li><ul><li>+ x</li></ul></li></ul><blockquote><p>tail</p></blockquote>"
+  },
+  "A-750-a-below-column-line-returns-to-its-definition-body": {
+   "ticket": "A",
+   "source": ":: t\n: - +\n  x\n",
+   "html": "<dl><dt>t</dt><dd><ul><li>x</li></ul></dd></dl>"
+  },
+  "A-757-an-intervening-column-refuses-a-description-hosted-first-block": {
+   "ticket": "A",
+   "source": ":: t\n: - +\n # H\n",
+   "html": "<dl><dt>t</dt><dd><ul><li>+</li></ul></dd></dl><section id=\"H\"><h1>H</h1></section>"
+  },
+  "A-760-a-heading-inside-the-intervening-band-stays-description-text": {
+   "ticket": "A",
+   "source": ":: t\n: - +\n   # H\n",
+   "html": "<dl><dt>t</dt><dd><ul><li>+</li></ul><h1 id=\"H\">H</h1></dd></dl>"
+  },
+  "A-782-a-first-block-plus-hands-its-block-to-the-host-as-the-host-reads-it-10": {
+   "ticket": "A",
+   "source": "- +\n  ```\n  x\n- b\n",
+   "html": "<ul><li>+<pre><code>x\n</code></pre></li><li>b</li></ul>"
+  },
+  "A-782-a-first-block-plus-hands-its-block-to-the-host-as-the-host-reads-it-12": {
+   "ticket": "A",
+   "source": "- +\n  {.x}\n  ```\n  x\n",
+   "html": "<ul><li>+<pre class=\"x\"><code>x\n</code></pre></li></ul>"
+  },
+  "A-782-a-first-block-plus-hands-its-block-to-the-host-as-the-host-reads-it-5": {
+   "ticket": "A",
+   "source": "- +\n  ```\n  x\n",
+   "html": "<ul><li>+<pre><code>x\n</code></pre></li></ul>"
+  },
+  "A-782-a-first-block-plus-hands-its-block-to-the-host-as-the-host-reads-it-6": {
+   "ticket": "A",
+   "source": "- foo\n  - +\n    ```\n    x\n    ``\n",
+   "html": "<ul><li>foo <ul><li>+<pre><code>x\n``\n</code></pre></li></ul></li></ul>"
+  },
+  "A-782-a-first-block-plus-hands-its-block-to-the-host-as-the-host-reads-it-7": {
+   "ticket": "A",
+   "source": "- a\n  - ```\n +\n````\n",
+   "html": "<ul><li>a <ul><li><pre><code></code></pre></li></ul></li></ul><p>+</p><pre><code></code></pre>"
+  },
+  "A-782-a-first-block-plus-hands-its-block-to-the-host-as-the-host-reads-it-9": {
+   "ticket": "A",
+   "source": "- +\n  ```\n  x\n  ```\n  para\n",
+   "html": "<ul><li>+<pre><code>x\n</code></pre>para</li></ul>"
+  },
+  "A-801-a-footnote-body-takes-its-first-block-at-its-body-column-2": {
+   "ticket": "A",
+   "source": "[^a]: +\n  - x\n  - y\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ - x - y</p></li>"
+  },
+  "A-801-a-footnote-body-takes-its-first-block-at-its-body-column-3": {
+   "ticket": "A",
+   "source": "[^a]: +\n\n  later\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+</p><p>later</p></li>"
+  },
+  "A-801-a-footnote-body-takes-its-first-block-at-its-body-column-5": {
+   "ticket": "A",
+   "source": "- - +\npara\n",
+   "html": "<ul><li><ul><li>+ para</li></ul></li></ul>"
+  },
+  "A-801-a-footnote-body-takes-its-first-block-at-its-body-column-6": {
+   "ticket": "A",
+   "source": ":: t\n: +\n    flush\n",
+   "html": "<dl><dt>t</dt><dd>+ flush</dd></dl>"
+  },
+  "A-801-a-footnote-body-takes-its-first-block-at-its-body-column-7": {
+   "ticket": "A",
+   "source": "- [^q]: +\n  para\n\nr[^q]\n",
+   "html": "<ul><li></li></ul><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>para</p></li>"
+  },
+  "A-801-a-footnote-body-takes-its-first-block-at-its-body-column-8": {
+   "ticket": "A",
+   "source": "- [^q]: +\n    flush\n\nr[^q]\n",
+   "html": "<ul><li></li></ul><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ flush</p></li>"
+  },
+  "A-801-a-footnote-body-takes-its-first-block-at-its-body-column": {
+   "ticket": "A",
+   "source": "[^a]: +\n  flush\n\nsee[^a]\n",
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ flush</p></li>"
+  },
+  "A-802-an-unprefixed-line-does-not-reach-a-quoted-note-s-first-block-7": {
+   "ticket": "A",
+   "source": "> [^b]: +\n>   flush\n\nr[^b]\n",
+   "html": "<blockquote></blockquote><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ flush</p></li>"
+  },
+  "A-806-a-description-body-in-an-item-takes-a-column-zero-block-after-its-first-block-plus-2": {
+   "ticket": "A",
+   "source": "- a\n  - b\n    :: t\n    : +\n```\nx\n```\n",
+   "html": "<ul><li>a <ul><li>b <dl><dt>t</dt><dd>+</dd></dl></li></ul></li></ul><pre><code>x\n</code></pre>"
+  },
+  "A-806-a-description-body-in-an-item-takes-a-column-zero-block-after-its-first-block-plus-3": {
+   "ticket": "A",
+   "source": "1. a\n   :: t\n   : +\n> q\n",
+   "html": "<ol><li>a <dl><dt>t</dt><dd>+</dd></dl></li></ol><blockquote><p>q</p></blockquote>"
+  },
+  "A-806-a-description-body-in-an-item-takes-a-column-zero-block-after-its-first-block-plus-4": {
+   "ticket": "A",
+   "source": "- a\n  :: t\n  : +\n# H\n",
+   "html": "<ul><li>a <dl><dt>t</dt><dd>+</dd></dl></li></ul><section id=\"H\"><h1>H</h1></section>"
+  },
+  "A-806-a-description-body-in-an-item-takes-a-column-zero-block-after-its-first-block-plus-5": {
+   "ticket": "A",
+   "source": "- a\n  :: t\n  : +\n```\nx\n\nsee\n",
+   "html": "<ul><li>a <dl><dt>t</dt><dd>+</dd></dl></li></ul><pre><code>x\n\nsee\n</code></pre>"
+  },
+  "A-806-a-description-body-in-an-item-takes-a-column-zero-block-after-its-first-block-plus": {
+   "ticket": "A",
+   "source": "- a\n  :: t\n  : +\n```\nx\n```\n",
+   "html": "<ul><li>a <dl><dt>t</dt><dd>+</dd></dl></li></ul><pre><code>x\n</code></pre>"
+  },
+  "A-806-a-marker-folds-into-the-paragraph-a-first-block-plus-took": {
+   "ticket": "A",
+   "source": "- +\n  b\n * w1\n",
+   "html": "<ul><li>+ b * w1</li></ul>"
+  },
+  "A-811-a-first-block-plus-does-not-take-the-closer-of-its-div-2": {
+   "ticket": "A",
+   "source": "::: d\n:: t\n: d\n  :: u\n  : +\n:::\nafter\n",
+   "html": "<div class=\"d\"><dl><dt>t</dt><dd><p>d</p><dl><dt>u</dt><dd>+</dd></dl></dd></dl></div><p>after</p>"
+  },
+  "A-811-a-first-block-plus-does-not-take-the-closer-of-its-div": {
+   "ticket": "A",
+   "source": "::: d\n- d\n  - +\n:::\nafter\n",
+   "html": "<div class=\"d\"><ul><li>d <ul><li>+</li></ul></li></ul></div><p>after</p>"
+  },
+  "A-811-a-lazy-line-after-a-narrower-list-in-a-note-folds-into-its-item": {
+   "ticket": "A",
+   "source": "[^a]: 1. +\n  - y\ntail\n\nr[^a]\n",
+   "html": "<p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ol><li>+</li></ol><ul><li>y tail</li></ul></li>"
+  },
+  "A-815-a-line-below-an-empty-div-after-a-first-block-plus-is-not-lazy-4": {
+   "ticket": "A",
+   "source": "- +\n  ::: d\n  {.c}\nafter\n",
+   "html": "<ul><li>+ <div class=\"d\"></div></li></ul><p>after</p>"
+  },
+  "A-815-a-line-below-an-empty-div-after-a-first-block-plus-is-not-lazy": {
+   "ticket": "A",
+   "source": "::: d\n- d\n  - e\n    - +\n  :::\nafter\n",
+   "html": "<div class=\"d\"><ul><li>d <ul><li>e <ul><li>+</li></ul></li></ul><div></div></li></ul><p>after</p></div>"
+  },
+  "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus-2": {
+   "ticket": "A",
+   "source": "- +\n  %% c\nafter\n",
+   "html": "<ul><li>+</li></ul><p>after</p>"
+  },
+  "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus-3": {
+   "ticket": "A",
+   "source": "- a\n  * +\n    [r]: /u\nafter\n",
+   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><p>after</p>"
+  },
+  "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus-4": {
+   "ticket": "A",
+   "source": "- +\n  %% c\n  %% d\n```\nz\n```\n",
+   "html": "<ul><li>+</li></ul><pre><code>z\n</code></pre>"
+  },
+  "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus-5": {
+   "ticket": "A",
+   "source": "- a\n  * +\n[r]: /u\n  after\n",
+   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><p>after</p>"
+  },
+  "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus-6": {
+   "ticket": "A",
+   "source": "- a\n  * +\n%% c\n  after\n",
+   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><p>after</p>"
+  },
+  "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus": {
+   "ticket": "A",
+   "source": "- a\n  * +\n    %% c\nafter\n",
+   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><p>after</p>"
+  },
+  "A-838-an-item-on-a-body-s-marker-line-takes-a-column-zero-block-after-its-plus-2": {
+   "ticket": "A",
+   "source": "[^n]: - +\np\n\nr[^n]\n",
+   "html": "<p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ul><li>+ p</li></ul></li>"
+  },
+  "A-838-an-item-on-a-body-s-marker-line-takes-a-column-zero-block-after-its-plus": {
+   "ticket": "A",
+   "source": ":: t\n: - +\np\n",
+   "html": "<dl><dt>t</dt><dd><ul><li>+ p</li></ul></dd></dl>"
+  }
+ },
+ "refused": [
+  {
+   "source": "- [^n1]: - [ ] a\n\n     +\n  para\n\n[^n1]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> 1. +\n    para\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. 1. +\n| c |\n",
+   "plusLine": 0
+  },
+  {
+   "source": "[^n0]: +\n      para\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. 1. :: t\n      : ```\n        code\n+\n para\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- a\n+\n[^c]: n\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: - > +\n> para\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> - # H\n     +\n> :: u\n> : v\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] > [^n2]: +\n> :: u\n> : v\n\n[^n2]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "[^n0]: :: t\n  : ```\n    code\n    ```\n     +\n- sib\n\n[^n0]\n",
+   "plusLine": 4
+  },
+  {
+   "source": "> > q\n>     +\n>\n>   para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] :: t\n  : > a\n    > b\n>   +\n> [^c]: n\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: - [ ] ```\n    code\n    ```\n +\n| c |\n",
+   "plusLine": 4
+  },
+  {
+   "source": "> - [ ] 1. ~~~\n>      code\n    +\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. - [ ] # H\n +\n  ```\n  f\n  ```\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> - - [ ] ```\n>     code\n>     +\n> r\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- a\n     +\n1. sib\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: 1. a\n +\npara\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] - [ ] # H\n +\n\npara\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> # H\n  +\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] - +\n  > r\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> [^n1]: - > q\n>  +\n    - sib\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: a\n +\n# H2\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- a\n +\npara\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] - [ ] 1. +\n:: u\n: v\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> +\n>   > r\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> # H\n>       +\n> :: u\n> : v\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: 1. +\n:::\nz\n:::\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> a\n> \n>    +\n>   ```\n>   f\n>   ```\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: # H\n     +\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] - [ ] a\n+\n    - sib\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. [^n1]: - s\n +\n      para\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: :::\n  d\n +\n# H2\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: 1. +\n   para\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- +\n  - sib\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- :::\n  d\n      +\n\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. - [ ] - +\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: 1. 1. a\n  +\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. > q\n+\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: a\n\n+\n> r\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: - [ ] ```\n    code\n    ```\n  +\n    - sib\n",
+   "plusLine": 4
+  },
+  {
+   "source": "- [ ] :: t\n  : - [ ] +\n```\nf\n```\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] - > a\n    > b\n>    +\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: 1. a\n+\n# H2\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- - ```\n    code\n    ```\n   +\n      para\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- :::\n  d\n      +\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: - [ ] a\n    b\n +\n| c |\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] - +\n  - sib\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] ```\n  code\n   +\n   para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- - +\n  > r\n",
+   "plusLine": 0
+  },
+  {
+   "source": "[^n0]: :: t\n  : :::\n    d\n +\n para\n\n[^n0]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. a\n   b\n+\n[^c]: n\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. :: t\n   : +\n    - sib\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> - [ ] 1. # H\n   +\n>   para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> > > ```\n> > > code\n> > > ```\n>   +\n> >    para\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: - [ ] > - s\n> +\n>    para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- > > +\n> > > r\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: > +\n>\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] - +\n  para\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: :: t\n  : a\n    b\n   +\n| c |\n",
+   "plusLine": 4
+  },
+  {
+   "source": ":: t\n: a\n    +\n```\nf\n```\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> :: t\n> : [^n2]: ~~~\n>     code\n>      +\n| c |\n\n[^n2]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- [ ] - [ ] +\n  > r\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> - [ ] [^n2]: +\n>\n>   para\n\n[^n2]\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: - # H\n   +\n[^c]: n\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. - [ ] ~~~\n     code\n      +\n  para\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: - [ ] - [ ] a\n\n+\n- sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: [^n1]: +\n[^c]: n\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: - [ ] - > q\n\n   +\n  ```\n  f\n  ```\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- [ ] > ```\n  > code\n  > ```\n> +\n:: u\n: v\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- [ ] :: t\n  : - +\n:: u\n: v\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> - s\n>   +\n>   - sib\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> :: t\n> : 1. ~~~\n>      code\n>    +\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. - [ ] > q\n  +\n    para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- - - s\n   +\n    para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: [^n1]: > :::\n    > d\n>      +\n>   ```\n>   f\n>   ```\n\n[^n0]\n\n[^n1]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] # H\n  +\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: 1. - [ ] ```\n       code\n     +\n:: u\n: v\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> - [ ] 1. ~~~\n>      code\n     +\n> :: u\n> : v\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. a\n    +\n[^c]: n\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> +\n> :: u\n> : v\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. - [ ] [^n2]: a\n\n      +\n# H2\n\n[^n2]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. > [^n2]: a\n>   +\n    - sib\n\n[^n2]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. a\n\n+\n para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: [^n1]: [^n2]: # H\n      +\n\n[^n0]\n\n[^n1]\n\n[^n2]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- ```\n  code\n +\n  para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- - [ ] [^n2]: # H\n  +\n  ```\n  f\n  ```\n\n[^n2]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. ```\n   code\n    +\n\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- # H\n+\n  ```\n  f\n  ```\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: [^n1]: ```\n    code\n    ```\n    +\n    para\n\n[^n0]\n\n[^n1]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- - [^n2]: +\n para\n\n[^n2]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] :::\n  d\n +\n\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] [^n1]: - [ ] +\n  > r\n\n[^n1]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> +\n```\nf\n```\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] - [ ] +\n```\nf\n```\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> [^n1]: a\n> \n   +\n1. sib\n\n[^n1]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. a\n   b\n    +\n:: u\n: v\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: :: t\n  : ~~~\n    code\n+\n\n  para\n\n[^n0]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "[^n0]: - +\n| c |\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [^n1]: > > q\n   +\n# H2\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. > - +\n> # H2\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] - [ ] a\n\n   +\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: - +\npara\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> :::\n> d\n>      +\n  para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] :: t\n  : 1. # H\n  +\n# H2\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: - - - s\n  +\n\n  para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: :: t\n  : [^n2]: a\n +\n para\n\n[^n0]\n\n[^n2]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> - ```\n>   code\n      +\n>   ```\n>   f\n>   ```\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- :::\n  d\n  +\n\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] 1. +\n# H2\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: +\n- sib\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] [^n1]: ```\n    code\n    ```\n   +\n1. sib\n\n[^n1]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> - [ ] +\n> r\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] [^n1]: [^n2]: :::\n      d\n+\n1. sib\n\n[^n1]\n\n[^n2]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> :: t\n> : - [ ] a\n      +\n>   > r\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. :: t\n   : - s\n +\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: - [ ] :::\n    d\n  +\npara\n",
+   "plusLine": 3
+  },
+  {
+   "source": "[^n0]: 1. > q\n  +\n  # H2\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. - > ```\n     > code\n    +\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] [^n1]: a\n\n     +\n   para\n\n[^n1]\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: - [ ] +\n  # H2\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. :: t\n   : # H\n      +\n   para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] - [ ] [^n2]: > q\n +\n  - sib\n\n[^n2]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: :::\n  d\n     +\n:: u\n: v\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. :: t\n   : [^n2]: +\n\n[^n2]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- # H\n    +\n\npara\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] - [^n2]: +\n\n[^n2]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> :::\n> d\n  +\n> :: u\n> : v\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. +\n  # H2\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. - [ ] > q\n +\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: a\n\n +\n  > r\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- [ ] > [^n2]: > q\n  > \n+\n\n[^n2]\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: > q\n\n     +\n| c |\n",
+   "plusLine": 3
+  },
+  {
+   "source": "[^n0]: 1. a\n  +\n  # H2\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. 1. :: t\n      : +\n      para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. :: t\n   : +\n      para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- :: t\n  : - ```\n      code\n      ```\n  +\n  - sib\n",
+   "plusLine": 4
+  },
+  {
+   "source": "- +\n```\nf\n```\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. - [^n2]: # H\n      +\n  para\n\n[^n2]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- +\n  > r\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> > ```\n> > code\n> > ```\n> +\n> r\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> :: t\n> : > q\n> \n    +\npara\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. - - [ ] - s\n     +\n\npara\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: - ~~~\n    code\n +\n> r\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: ~~~\n  code\n    +\n:::\nz\n:::\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- [^n1]: +\n\n[^n1]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- > ~~~\n  > code\n  +\n>     para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- :: t\n  : [^n2]: # H\n      +\n\n[^n2]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] # H\n+\n\npara\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: > > - s\n> >     +\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] 1. :: t\n     : - s\n    +\n  > r\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [^n1]: a\n    +\n1. sib\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] - [ ] +\n\npara\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- :: t\n  : ```\n    code\n    ```\n+\n:::\nz\n:::\n",
+   "plusLine": 4
+  },
+  {
+   "source": "> - [ ] > +\n:::\nz\n:::\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. - [ ] :: t\n     : ~~~\n       code\n      +\n- sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- [ ] > :: t\n  > : +\n    para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: > 1. - s\n>      +\n>     para\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> # H\n +\n:::\nz\n:::\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] > ```\n  > code\n  > ```\n>      +\n  - sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: - a\n\n    +\n    para\n",
+   "plusLine": 3
+  },
+  {
+   "source": "[^n0]: - 1. ~~~\n       code\n  +\n:::\nz\n:::\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: ~~~\n  code\n  +\n\n  para\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> ~~~\n> code\n    +\n> # H2\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: a\n  b\n+\n| c |\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. 1. > a\n      > b\n  +\n    para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. ~~~\n   code\n +\n1. sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- :: t\n  : 1. > q\n\n +\n```\nf\n```\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. :: t\n   : > q\n\n     +\n\npara\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. a\n  +\n1. sib\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. > q\n   +\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. ```\n   code\n  +\n\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. +\n1. sib\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> :: t\n> : [^n2]: :::\n>     d\n>  +\n\n[^n2]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "[^n0]: :::\n  d\n+\n- sib\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: :: t\n  : [^n2]: :::\n      d\n+\n1. sib\n\n[^n0]\n\n[^n2]\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: 1. > q\n   +\n    - sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> :: t\n> : 1. > q\n> \n      +\n>   # H2\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. 1. ```\n      code\n  +\n para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. - [ ] - [ ] +\n\npara\n",
+   "plusLine": 0
+  },
+  {
+   "source": "[^n0]: - [ ] :: t\n    : +\npara\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> 1. > q\n> \n> +\n> # H2\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] +\n```\nf\n```\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: > q\n +\n      para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: [^n1]: +\n:::\nz\n:::\n\n[^n0]\n\n[^n1]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. :: t\n   : # H\n+\n  - sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- > +\n> [^c]: n\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] :: t\n  : > q\n+\n> r\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: - > +\npara\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- - [ ] ~~~\n    code\n      +\n:::\nz\n:::\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- - > +\n>   ```\n>   f\n>   ```\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: ```\n  code\n  ```\n   +\n:::\nz\n:::\n",
+   "plusLine": 4
+  },
+  {
+   "source": ":: t\n: 1. > > q\n     > \n>    +\n>\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- :::\n  d\n     +\n\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> - > +\n  ```\n  f\n  ```\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. [^n1]: +\n```\nf\n```\n\n[^n1]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "[^n0]: ```\n  code\n   +\n# H2\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- +\n      para\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. ```\n   code\n   ```\n     +\n[^c]: n\n",
+   "plusLine": 3
+  },
+  {
+   "source": "[^n0]: :: t\n  : > +\n- sib\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] - 1. a\n       b\n    +\n:: u\n: v\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] a\n    +\n      para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- 1. +\npara\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- > - [ ] # H\n    +\n:: u\n: v\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: :: t\n  : :: t\n    : ~~~\n      code\n    +\n    para\n",
+   "plusLine": 5
+  },
+  {
+   "source": "- [ ] > 1. ```\n  >    code\n +\n  - sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. - [ ] [^n2]: > q\n\n     +\n:: u\n: v\n\n[^n2]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. > [^n2]: +\n>     - sib\n\n[^n2]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] :: t\n  : ~~~\n    code\n+\n# H2\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: - [ ] [^n2]: a\n+\n[^c]: n\n\n[^n2]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] [^n1]: - [ ] a\n      +\n[^c]: n\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: - [ ] :::\n    d\n      +\n:::\nz\n:::\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> +\n> [^c]: n\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- 1. - :::\n       d\n   +\n# H2\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> - - [ ] a\n> \n>    +\n| c |\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. > q\n   +\n    para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> +\n> :::\n> z\n> :::\n",
+   "plusLine": 0
+  },
+  {
+   "source": "[^n0]: > [^n2]: ```\n  >   code\n  >   ```\n      +\n  ```\n  f\n  ```\n\n[^n0]\n\n[^n2]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- :: t\n  : - a\n      b\n     +\n  para\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: 1. :::\n     d\n     +\n    para\n",
+   "plusLine": 3
+  },
+  {
+   "source": "[^n0]: > +\n\n  para\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: 1. [^n2]: a\n +\n\npara\n\n[^n2]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: a\n\n +\n1. sib\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] > q\n\n    +\n  ```\n  f\n  ```\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: [^n1]: a\n\n  +\n  ```\n  f\n  ```\n\n[^n1]\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: +\n\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: +\n| c |\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: - [ ] - [ ] +\n1. sib\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- - [ ] - s\n    +\n para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- - - [ ] a\n      b\n      +\n    para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. :: t\n   : :: t\n     : - s\n     +\n para\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: ```\n  code\n  ```\n    +\n| c |\n",
+   "plusLine": 4
+  },
+  {
+   "source": "- # H\n  +\n:: u\n: v\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] > - s\n> +\n   para\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: 1. - s\n +\n# H2\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: - [ ] :: t\n    : # H\n    +\n- sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: a\n    +\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. - [ ] - ~~~\n       code\n+\n    para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- - [ ] a\n    b\n  +\n- sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: :: t\n  : > ```\n    > code\n    > ```\n>   +\n  # H2\n\n[^n0]\n",
+   "plusLine": 4
+  },
+  {
+   "source": "1. - # H\n     +\n para\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: a\n  +\n\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: [^n1]: - ```\n      code\n +\n# H2\n\n[^n1]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. :: t\n   : > q\n    +\n    para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: a\n  b\n    +\n para\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. [^n1]: - a\n       b\n +\n  ```\n  f\n  ```\n\n[^n1]\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: ```\n  code\n +\n\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. > 1. > q\n   > \n +\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. +\n\n  para\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> > 1. :::\n> >    d\n> >    +\n> :: u\n> : v\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: > a\n>      +\n> :: u\n> : v\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. a\n   +\n\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: :: t\n  : a\n    b\n    +\n  para\n",
+   "plusLine": 4
+  },
+  {
+   "source": "[^n0]: - [ ] 1. +\n  > r\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- - [ ] +\n      para\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> +\n>   # H2\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: ```\n  code\n  ```\n    +\n\n  para\n",
+   "plusLine": 4
+  },
+  {
+   "source": ":: t\n: :: t\n  : a\n\n    +\n    - sib\n",
+   "plusLine": 4
+  },
+  {
+   "source": "> :: t\n> : > q\n>   +\n>     - sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] :: t\n  : > q\n\n   +\n| c |\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. - > q\n +\n para\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: ~~~\n  code\n +\n  # H2\n",
+   "plusLine": 3
+  },
+  {
+   "source": "[^n0]: > - [ ] +\n      para\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- # H\n +\n      para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> [^n1]: ```\n>   code\n>   ```\n    +\n:::\nz\n:::\n\n[^n1]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. - [ ] 1. +\n\n  para\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> :: t\n> : +\n>   para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: :: t\n  : a\n\n      +\n[^c]: n\n\n[^n0]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> - [ ] 1. # H\n+\n> :::\n> z\n> :::\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] :: t\n  : :: t\n    : > q\n     +\n\n  para\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. [^n1]: - +\npara\n\n[^n1]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> [^n1]: - ```\n>     code\n>     ```\n>     +\n>       para\n\n[^n1]\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: a\n +\n1. sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: :: t\n  : > a\n    > \n>    +\n1. sib\n",
+   "plusLine": 4
+  },
+  {
+   "source": "1. ```\n   code\n   ```\n      +\n[^c]: n\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- [ ] :: t\n  : - a\n   +\n   para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- # H\n      +\n      para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> - [ ] > q\n> \n  +\n\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] a\n  +\n```\nf\n```\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: > # H\n>      +\n1. sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: > - :::\n  >   d\n+\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. > +\n   para\n",
+   "plusLine": 0
+  },
+  {
+   "source": "[^n0]: 1. ~~~\n     code\n +\n  - sib\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: - - +\n  para\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- - [ ] 1. # H\n   +\n# H2\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: [^n1]: :: t\n    : a\n\n     +\n  - sib\n\n[^n1]\n",
+   "plusLine": 4
+  },
+  {
+   "source": "[^n0]: - - s\n      +\n:::\nz\n:::\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- - [ ] +\n\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: - +\n  ```\n  f\n  ```\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: > - # H\n  +\n> ```\n> f\n> ```\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. 1. - [ ] +\n[^c]: n\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- > > +\n- sib\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] - s\n +\n| c |\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> 1. > # H\n>      +\n```\nf\n```\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: 1. - [ ] :::\n       d\n    +\n- sib\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] - [ ] 1. ~~~\n       code\n +\n\n  para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] > q\n   +\n\npara\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: a\n\n   +\n1. sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- - +\n\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> :: t\n> : 1. +\n# H2\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] > :::\n  > d\n>    +\n>     - sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: [^n1]: - a\n\n     +\n```\nf\n```\n\n[^n1]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> - - [ ] +\n> 1. sib\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] +\n| c |\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- > a\n  > \n>      +\n  # H2\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> - +\n> r\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> > q\n   +\n  > r\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- - [ ] > a\n    > \n>     +\n\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. 1. :::\n      d\n      +\n  ```\n  f\n  ```\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. > q\n\n   +\n:: u\n: v\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> 1. - [ ] > q\n> +\n[^c]: n\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- :::\n  d\n +\n  - sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- - > a\n    > \n>    +\n>\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: 1. +\n      para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] 1. a\n     +\n\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] > +\n>   > r\n",
+   "plusLine": 0
+  },
+  {
+   "source": "[^n0]: - [ ] - [ ] ```\n      code\n+\n  - sib\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: 1. > q\n     +\n:: u\n: v\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: - # H\n      +\n  > r\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: [^n1]: +\n\n  para\n\n[^n0]\n\n[^n1]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] ```\n  code\n  ```\n   +\n   para\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- [ ] [^n1]: a\n +\n para\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: +\n# H2\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] [^n1]: :: t\n    : +\n# H2\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: :::\n  d\n   +\n| c |\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. a\n\n +\n\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- - s\n     +\n\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: :: t\n  : +\n  - sib\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> :: t\n> : 1. - s\n>       +\n\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. > 1. # H\n>      +\n> para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> - [ ] > q\n +\n> ```\n> f\n> ```\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: - [ ] - s\n      +\n| c |\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: [^n1]: :::\n    d\n     +\n  ```\n  f\n  ```\n\n[^n0]\n\n[^n1]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] > - [ ] ~~~\n  >   code\n      +\n    para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. 1. - ```\n        code\n     +\n\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. [^n1]: ```\n     code\n+\n:::\nz\n:::\n\n[^n1]\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: a\n  b\n +\n  ```\n  f\n  ```\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> [^n1]: 1. ```\n>      code\n>      ```\n+\n> ```\n> f\n> ```\n\n[^n1]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> [^n1]: :: t\n>   : +\n> # H2\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. - - [ ] :::\n       d\n      +\n  - sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- > [^n2]: ```\n  >   code\n  >   ```\n>     +\n  # H2\n\n[^n2]\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: 1. > ```\n     > code\n     > ```\n  +\n>  para\n",
+   "plusLine": 4
+  },
+  {
+   "source": "> - [ ] a\n> \n>  +\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- - s\n   +\n:::\nz\n:::\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] 1. - +\n  ```\n  f\n  ```\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. - - [ ] +\n\npara\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. :: t\n   : :::\n     d\n +\n para\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. 1. - a\n\n  +\n- sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. > 1. - s\n>    +\n>   # H2\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- - +\npara\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- > q\n +\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> > ```\n> > code\n> > ```\n  +\n>     - sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. :: t\n   : - > q\n      +\n      para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] :: t\n  : +\n| c |\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] [^n1]: +\n  > r\n\n[^n1]\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: 1. > +\n- sib\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- 1. [^n2]: :::\n       d\n    +\n  - sib\n\n[^n2]\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: 1. - [ ] :::\n       d\n    +\n| c |\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- [ ] 1. [^n2]: - s\n    +\n:::\nz\n:::\n\n[^n2]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> a\n> \n>       +\n:: u\n: v\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: 1. [^n2]: a\n+\n  ```\n  f\n  ```\n\n[^n0]\n\n[^n2]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: 1. ~~~\n     code\n   +\n:: u\n: v\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: - s\n+\n> r\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: a\n     +\n  - sib\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- ~~~\n  code\n+\n:: u\n: v\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- - 1. +\n- sib\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. - > :::\n     > d\n>      +\n\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: :: t\n  : [^n2]: a\n      b\n      +\n:: u\n: v\n\n[^n2]\n",
+   "plusLine": 4
+  },
+  {
+   "source": "1. - - ```\n       code\n       ```\n   +\n# H2\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> - [ ] :: t\n>   : a\n> \n+\n> 1. sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. :: t\n   : - a\n\n     +\n> r\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- > > q\n>  +\n>\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: - # H\n +\n\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [^n1]: > q\n   +\n\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> ```\n> code\n> ```\n   +\n  - sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": "[^n0]: ```\n  code\n    +\n  # H2\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> - - a\n> \n +\n> | c |\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [^n1]: - [ ] +\npara\n\n[^n1]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. 1. - [ ] > q\n+\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- :: t\n  : a\n     +\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. - [ ] > q\n   +\npara\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: 1. +\n  ```\n  f\n  ```\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "[^n0]: - s\n+\n- sib\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. - [ ] > +\n  ```\n  f\n  ```\n",
+   "plusLine": 0
+  },
+  {
+   "source": "[^n0]: - 1. # H\n   +\n[^c]: n\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- :: t\n  : - [ ] a\n    +\n\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] :::\n  d\n      +\n:::\nz\n:::\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> +\n>   para\n",
+   "plusLine": 0
+  },
+  {
+   "source": "[^n0]: a\n  b\n    +\n[^c]: n\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> - [ ] +\n>\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] # H\n      +\n\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- :: t\n  : 1. :::\n       d\n +\n1. sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- :: t\n  : - a\n      b\n    +\n:: u\n: v\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> - +\n>   # H2\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. - ~~~\n     code\n +\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- a\n +\n  > r\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: - - +\n:::\nz\n:::\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- > > q\n  > \n     +\n  > r\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: :: t\n  : ~~~\n    code\n  +\n  # H2\n",
+   "plusLine": 4
+  },
+  {
+   "source": ":: t\n: > - [ ] > q\n>   +\n- sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. [^n1]: > > q\n>     +\n\n  para\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: :: t\n  : [^n2]: ```\n      code\n      +\n    - sib\n\n[^n2]\n",
+   "plusLine": 4
+  },
+  {
+   "source": ":: t\n: a\n  b\n   +\n- sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> > :: t\n> > : a\n+\n> >   ```\n> >   f\n> >   ```\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> - [ ] :: t\n>   : a\n> \n   +\n> 1. sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> - [ ] +\n>     para\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: > > +\n  > r\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: +\n```\nf\n```\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. # H\n     +\n\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- - +\n\npara\n",
+   "plusLine": 0
+  },
+  {
+   "source": "[^n0]: - [ ] - [ ] a\n      b\n+\npara\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- - - +\n  ```\n  f\n  ```\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- a\n\n    +\n\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- - - [ ] +\n  para\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> > q\n>    +\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: - [^n2]: +\n  para\n\n[^n0]\n\n[^n2]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. - s\n  +\n      para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. - [^n2]: +\n:::\nz\n:::\n\n[^n2]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> [^n1]: [^n2]: > q\n> \n>  +\n>\n\n[^n1]\n\n[^n2]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [^n1]: a\n  +\n    - sib\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: a\n   +\n\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. - - +\n  # H2\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] [^n1]: - [ ] > q\n\n +\n  > r\n\n[^n1]\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: :: t\n  : [^n2]: +\n para\n\n[^n2]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: [^n1]: > :::\n    > d\n>  +\n> :: u\n> : v\n\n[^n0]\n\n[^n1]\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: ```\n  code\n+\n\npara\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- [ ] - s\n +\n    - sib\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> 1. > +\n para\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: - > > q\n      +\n>  para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> > q\n> \n   +\n  - sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- a\n  +\n[^c]: n\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. :: t\n   : # H\n   +\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- 1. ```\n     code\n     +\n:: u\n: v\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: :: t\n  : [^n2]: > q\n\n  +\n```\nf\n```\n\n[^n0]\n\n[^n2]\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: +\n# H2\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> a\n     +\n  # H2\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: - [ ] ```\n    code\n+\n- sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> :: t\n> : ```\n>   code\n +\n# H2\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: # H\n     +\n\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: [^n1]: # H\n  +\n\n[^n0]\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: > ~~~\n  > code\n>      +\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: +\n\n  para\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. - [ ] > a\n     > b\n    +\n  > r\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] > ```\n  > code\n>      +\n- sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> :: t\n> : ```\n>   code\n>   +\n>   para\n",
+   "plusLine": 3
+  },
+  {
+   "source": "[^n0]: - [ ] # H\n      +\npara\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- # H\n +\n  - sib\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: 1. - # H\n +\n para\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] > +\n      para\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] - s\n   +\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. +\n\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: 1. [^n2]: ~~~\n       code\n    +\n\npara\n\n[^n2]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- ~~~\n  code\n     +\n      para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. - [^n2]: - s\n  +\n para\n\n[^n2]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] :: t\n  : :::\n    d\n      +\n    para\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. > q\n\n  +\n:::\nz\n:::\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: [^n1]: > q\n      +\n  # H2\n\n[^n0]\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: :::\n  d\n +\n\n  para\n",
+   "plusLine": 3
+  },
+  {
+   "source": "[^n0]: > 1. - s\n>  +\n>  para\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] a\n +\n    - sib\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] > q\n\n  +\n1. sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: > ```\n  > code\n  > ```\n+\n>   para\n",
+   "plusLine": 4
+  },
+  {
+   "source": ":: t\n: ```\n  code\n     +\n  - sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. [^n1]: 1. +\n```\nf\n```\n\n[^n1]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- - [ ] - # H\n    +\n:::\nz\n:::\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> - +\n\n",
+   "plusLine": 0
+  },
+  {
+   "source": "[^n0]: 1. :: t\n     : +\n- sib\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: - - a\n  +\n  ```\n  f\n  ```\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> :::\n> d\n>      +\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> 1. a\n    +\n>  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: ~~~\n  code\n +\n\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] ```\n  code\n   +\n> r\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: ```\n  code\n  ```\n+\n:::\nz\n:::\n",
+   "plusLine": 4
+  },
+  {
+   "source": ":: t\n: :: t\n  : > a\n    > b\n      +\n> 1. sib\n",
+   "plusLine": 4
+  },
+  {
+   "source": "> > [^n2]: :::\n> >   d\n> >       +\n> > > r\n\n[^n2]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: 1. +\n\n  para\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> > q\n> \n  +\n>   ```\n>   f\n>   ```\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] :: t\n  : +\n para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: :::\n  d\n     +\n  para\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: :: t\n  : ```\n    code\n    ```\n     +\n  para\n\n[^n0]\n",
+   "plusLine": 4
+  },
+  {
+   "source": "- - a\n\n     +\n- sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: > +\n> para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: > - [ ] ~~~\n  >   code\n +\n  > r\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- > :: t\n  > : +\n> ```\n> f\n> ```\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [^n1]: a\n    +\n  ```\n  f\n  ```\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: - [ ] > +\n>   > r\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- ```\n  code\n  ```\n    +\n\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> - [ ] - [ ] # H\n +\npara\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: - +\n    - sib\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. - 1. - s\n   +\n[^c]: n\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: [^n1]: +\npara\n\n[^n0]\n\n[^n1]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. - [ ] - [ ] a\n       b\n+\n:::\nz\n:::\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: - [ ] > q\n  +\n:::\nz\n:::\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: [^n1]: :::\n    d\n   +\n  # H2\n\n[^n1]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- [ ] a\n  b\n     +\n    para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> ```\n> code\n  +\n# H2\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] > > +\n  ```\n  f\n  ```\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> ~~~\n> code\n     +\n> - sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- > 1. a\n>     +\n>  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. [^n1]: ```\n     code\n+\npara\n\n[^n1]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] 1. > # H\n>  +\n> :: u\n> : v\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] :: t\n  : - [ ] a\n    +\n\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] a\n\n +\n para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> - ~~~\n>   code\n>  +\n:: u\n: v\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> - s\n>    +\n> para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: 1. :::\n     d\n +\n   para\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> :::\n> d\n      +\n> 1. sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: :: t\n  : a\n +\n| c |\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- > 1. ```\n  >    code\n +\n1. sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: - # H\n   +\n para\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- - :::\n    d\n     +\n- sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: :: t\n  : :::\n    d\n+\n```\nf\n```\n",
+   "plusLine": 4
+  },
+  {
+   "source": "- # H\n     +\n para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. - :: t\n     : ```\n       code\n       ```\n  +\n:: u\n: v\n",
+   "plusLine": 4
+  },
+  {
+   "source": "[^n0]: - [ ] - [ ] - s\n    +\n# H2\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: - [ ] > :::\n    > d\n +\n>\n>   para\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- [ ] - # H\n     +\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. 1. :: t\n      : a\n\n+\n1. sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. - +\n1. sib\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: [^n1]: :: t\n    : ```\n      code\n      +\n```\nf\n```\n\n[^n1]\n",
+   "plusLine": 4
+  },
+  {
+   "source": "[^n0]: > q\n\n    +\n    - sib\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- > q\n\n   +\n| c |\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. > [^n2]: +\n\npara\n\n[^n2]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] > > q\n>     +\n> > r\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> :: t\n> : a\n> \n  +\n   para\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. > +\n  ```\n  f\n  ```\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] # H\n   +\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- > > q\n>  +\n  ```\n  f\n  ```\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> > 1. :::\n> >    d\n>   +\n> >    para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- - - s\n   +\n\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. a\n   b\n +\n| c |\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: +\n\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: > # H\n      +\n>   para\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: [^n1]: ~~~\n    code\n  +\n  ```\n  f\n  ```\n\n[^n0]\n\n[^n1]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] ```\n  code\n  ```\n +\npara\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: > q\n\n  +\n  ```\n  f\n  ```\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- [ ] > :: t\n  > : a\n  >   b\n +\n> ```\n> f\n> ```\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: > a\n>       +\n# H2\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. [^n1]: :: t\n     : > q\n\n   +\n\npara\n\n[^n1]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- [ ] > ```\n  > code\n    +\n>    para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> :::\n> d\n>   +\n:::\nz\n:::\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: > - +\n      para\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> 1. ```\n>    code\n>    ```\n +\n>   - sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> - - s\n     +\n> # H2\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: :: t\n  : +\n  > r\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- :: t\n  : > > q\n    +\n>   para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> ```\n> code\n  +\n>   para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] :: t\n  : - - s\n  +\n- sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: - :: t\n    : +\n1. sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> [^n1]: > a\n> +\n      para\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] 1. - s\n    +\n\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: 1. [^n2]: > q\n  +\n| c |\n\n[^n0]\n\n[^n2]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> > ```\n> > code\n> > ```\n+\npara\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. # H\n      +\n\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> - [ ] 1. +\n> | c |\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: 1. - ```\n       code\n  +\n",
+   "plusLine": 3
+  },
+  {
+   "source": "1. [^n1]: > q\n\n +\n para\n\n[^n1]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. > a\n   > b\n>    +\n# H2\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- 1. :: t\n     : +\n  ```\n  f\n  ```\n",
+   "plusLine": 1
+  },
+  {
+   "source": "> > [^n2]: ```\n> >   code\n  +\n> [^c]: n\n\n[^n2]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: ```\n  code\n  ```\n+\n[^c]: n\n\n[^n0]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "> :: t\n> : 1. # H\n   +\n  para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] :::\n  d\n      +\n    - sib\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. [^n1]: +\npara\n\n[^n1]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "1. 1. # H\n +\n  - sib\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: :: t\n  : a\n    b\n+\n| c |\n",
+   "plusLine": 4
+  },
+  {
+   "source": "[^n0]: a\n    +\n   para\n\n[^n0]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: a\n  b\n     +\n    - sib\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: - 1. :::\n       d\n +\n- sib\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: - [ ] > q\n\n     +\n> r\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: > - > q\n>      +\n\npara\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: :: t\n  : a\n    b\n     +\npara\n",
+   "plusLine": 4
+  },
+  {
+   "source": "[^n0]: - [ ] - +\n  - sib\n\n[^n0]\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> - s\n> +\n>   para\n",
+   "plusLine": 1
+  },
+  {
+   "source": ":: t\n: [^n1]: a\n+\n      para\n\n[^n1]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- - s\n      +\n  - sib\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- ~~~\n  code\n    +\n para\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: [^n1]: +\npara\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- a\n  b\n      +\n:: u\n: v\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- [ ] - [ ] ~~~\n    code\n+\n  ```\n  f\n  ```\n",
+   "plusLine": 2
+  },
+  {
+   "source": ":: t\n: - - > q\n      +\n  ```\n  f\n  ```\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. - - +\n:: u\n: v\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- [ ] +\n> r\n",
+   "plusLine": 0
+  },
+  {
+   "source": ":: t\n: > - +\n```\nf\n```\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [ ] > # H\n>   +\n>   para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "[^n0]: - [ ] a\n\n    +\n[^c]: n\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- ~~~\n  code\n   +\n\n  para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. :: t\n   : - [ ] > q\n   +\n> r\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: ~~~\n  code\n    +\n\n  para\n\n[^n0]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "> > +\n",
+   "plusLine": 0
+  },
+  {
+   "source": "> ```\n> code\n> ```\n>    +\n    para\n",
+   "plusLine": 3
+  },
+  {
+   "source": ":: t\n: :: t\n  : 1. +\n> r\n",
+   "plusLine": 2
+  },
+  {
+   "source": "1. - :: t\n     : ```\n       code\n       ```\n    +\n\npara\n",
+   "plusLine": 4
+  },
+  {
+   "source": "> - [ ] - +\n>     para\n",
+   "plusLine": 0
+  },
+  {
+   "source": "- 1. a\n\n +\n  para\n",
+   "plusLine": 2
+  },
+  {
+   "source": "- :: t\n  : +\n  para\n",
+   "plusLine": 1
+  },
+  {
+   "source": "1. [^n1]: # H\n   +\n| c |\n\n[^n1]\n",
+   "plusLine": 1
+  },
+  {
+   "source": "- [^n1]: > a\n    > b\n>  +\n> > r\n\n[^n1]\n",
+   "plusLine": 2
+  },
+  {
+   "source": "[^n0]: :: t\n  : a\n\n      +\n      para\n\n[^n0]\n",
+   "plusLine": 3
+  },
+  {
+   "source": "- > 1. ```\n  >    code\n>     +\n  - sib\n",
+   "plusLine": 2
+  }
+ ]
+}

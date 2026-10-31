@@ -36,20 +36,14 @@ class DefinitionOnEmptiedMarkerLineTest extends TestCase
     }
 
     /**
-     * The TOP-LEVEL emptied item keeps the older canonical form, `- +`, which
-     * corpus fixtures 16-reference-link-4 and
-     * 117-footnote-definition-inside-a-container-is-collected-2 pin. It
-     * round-trips there because nothing follows at a shallower column for the
-     * marker to capture, and the restoring branch must not reach it - a first
-     * draft keyed on the sibling COUNT rather than on depth, which rewrote both
-     * fixtures' form for any list holding two items.
+     * The TOP-LEVEL emptied item is written `- {empty}`, and the definition moves below it.
      */
     public function testATopLevelEmptiedItemKeepsTheContinuationMarkerForm(): void
     {
         $converter = CarveConverter::create();
         $formatted = $converter->toCarve("- a\n- [d]: u\n");
 
-        $this->assertSame("- a\n- +\n\n[d]: u\n", $formatted, 'the canonical bytes must match carve-js');
+        $this->assertSame("- a\n- {empty}\n\n[d]: u\n", $formatted, 'the canonical bytes must match carve-js');
         $this->assertSame($formatted, $converter->toCarve($formatted), 'fmt must be idempotent');
         $this->assertSame(
             $converter->convert("- a\n- [d]: u\n"),

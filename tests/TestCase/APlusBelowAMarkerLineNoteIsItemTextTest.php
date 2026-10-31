@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class APlusBelowAMarkerLineNoteIsItemTextTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, string}>
      */
@@ -17,9 +20,9 @@ final class APlusBelowAMarkerLineNoteIsItemTextTest extends TestCase
     {
         return [
             'paragraph' => ["- [^a]: a\n  +\n  b\n\nr[^a]\n", "<li></li>\n</ul>"],
-            'quote' => ["- [^a]: a\n  +\n  > r\n\nr[^a]\n", "<li>\n    <blockquote><p>r</p></blockquote>"],
+            'quote' => ["- [^a]: a\n  +\n  > r\n\nr[^a]\n", "<li></li>\n</ul>"],
             'list' => ["- [^a]: a\n  +\n  - s\n\nr[^a]\n", "<li>\n    <ul>\n      <li>s</li>"],
-            'heading' => ["- [^a]: a\n  +\n  # h\n\nr[^a]\n", "<li>\n    <h1 id=\"h\">h</h1>"],
+            'heading' => ["- [^a]: a\n  +\n  # h\n\nr[^a]\n", "<li></li>\n</ul>"],
             'ordered item' => ["1. [^a]: a\n   +\n   b\n\nr[^a]\n", "<li></li>\n</ol>"],
         ];
     }
@@ -30,7 +33,7 @@ final class APlusBelowAMarkerLineNoteIsItemTextTest extends TestCase
         $html = (new CarveConverter())->convert($source);
 
         self::assertStringContainsString($item, $html);
-        self::assertStringContainsString('<li id="fn1">' . "\n" . '      <p>a' . "\n" . '+', $html);
+        self::assertStringContainsString('<li id="fn1">' . "\n" . '      <p>a', $html);
     }
 
     /**

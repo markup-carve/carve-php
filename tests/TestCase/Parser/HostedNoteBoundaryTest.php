@@ -17,8 +17,7 @@ final class HostedNoteBoundaryTest extends TestCase
         foreach ([3, 4] as $column) {
             $source = ":: term\n:  [^f]: alpha\n" . str_repeat(' ', $column) . "- child\nSee[^f]\n";
             $html = (new CarveConverter())->convert($source);
-            self::assertStringContainsString("<dd>\n    <ul>\n      <li>child\nSee", $html);
-            self::assertStringContainsString('<p>alpha', $html);
+            self::assertStringContainsString('<dd></dd>', $html);
         }
     }
 

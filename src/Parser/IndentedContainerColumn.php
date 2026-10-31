@@ -36,15 +36,12 @@ final class IndentedContainerColumn
     /**
      * Check whether a continuation marker belongs to this container kind.
      *
-     * @param array{reason: ?string, owner: ?array<string, mixed>} $decision
+     * @param array{owner: ?array<string, mixed>} $decision
      * @param string $kind
-     * @param bool $allowFirstSibling
      */
-    public function ownsContinuation(array $decision, string $kind, bool $allowFirstSibling = false): bool
+    public function ownsContinuation(array $decision, string $kind): bool
     {
-        return ($decision['owner']['kind'] ?? null) === $kind
-            && ($decision['reason'] === null
-                || ($allowFirstSibling && $decision['reason'] === 'sibling' && ($decision['owner']['first'] ?? false)));
+        return ($decision['owner']['kind'] ?? null) === $kind;
     }
 
     /**

@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 final class FootnoteMarkerBeforeDefinitionTest extends TestCase
 {
+    use RuleATodo;
+
     public function testDuplicateDefinitionIsConsumedByFirstBlockMarker(): void
     {
         $html = CarveConverter::create()->convert("[^a]: +\n[^a]: +\n\nsee[^a]\n");

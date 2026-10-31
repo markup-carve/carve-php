@@ -144,11 +144,13 @@ class ProseMirrorCorpusTest extends TestCase
      *
      * The pin to carve 5f2ec15 adds one covered document whose table-cell
      * hard break changes through the bridge. Keep this ceiling at that measured
-     * count until the bridge preserves that spelling too.
+     * count until the bridge preserves that spelling too. The pin to carve
+     * b7876589 adds two more: a comment block in a line block (855) and a
+     * quote after a refused description separator (856).
      *
      * @var int
      */
-    private const MAXIMUM_COVERED_BUT_DIFFERING = 1;
+    private const MAXIMUM_COVERED_BUT_DIFFERING = 3;
 
     public function testTheCorpusSurvivesTheBridge(): void
     {

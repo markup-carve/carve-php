@@ -45,7 +45,7 @@ class ATableWhoseCellsHoldBlocksImportsAsAListTableTest extends TestCase
 
         $this->assertSame(
             "{header-rows=1 header-cols=1}\n::: list-table\n- - H\n  - I\n- - R\n  - - a\n"
-            . "- - ^\n  - b\n- - +\n  - +\n:::\n",
+            . "- - ^\n  - b\n- - {empty}\n  - {empty}\n:::\n",
             (new HtmlToCarve(listTableForBlockCells: true))->convert($html),
         );
     }

@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Test\PinnedOracleHtml;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -40,6 +41,8 @@ use PHPUnit\Framework\TestCase;
  */
 class BoundaryLineInsideAnOpenFenceTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * A code fence whose body holds a blank line: `a` and `b` are one block.
      *

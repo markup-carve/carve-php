@@ -27,11 +27,11 @@ class RelativeContinuationMarkerTest extends TestCase
         yield 'footnote refused' => ["[^a]: a\n+\n  > q", ''];
         yield 'table before marker' => ["- a\n  | a |\n  +\n  # H", "<ul>\n  <li>a\n    <table>\n      <tbody>\n        <tr><td>a</td></tr>\n      </tbody>\n    </table>\n    +\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>"];
         yield 'tab columns' => ["- a\n\t+\n\t# H", "<ul>\n  <li>a\n+\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>"];
-        yield 'stacked list' => ["- - +\n# H", "<ul>\n  <li>\n    <ul>\n      <li>\n        <h1 id=\"H\">H</h1>\n      </li>\n    </ul>\n  </li>\n</ul>"];
-        yield 'stacked quote' => ["- > +\n# H", "<ul>\n  <li>\n    <blockquote>\n      <h1 id=\"H\">H</h1>\n    </blockquote>\n  </li>\n</ul>"];
-        yield 'first block document column' => ["- a\n  - +\n> q", "<ul>\n  <li>a\n    <ul>\n      <li>\n        <blockquote><p>q</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>"];
+        yield 'stacked list' => ["- - +\n# H", "<ul>\n  <li>\n    <ul>\n      <li>+</li>\n    </ul>\n  </li>\n</ul>\n<section id=\"H\">\n  <h1>H</h1>\n</section>"];
+        yield 'stacked quote' => ["- > +\n# H", "<ul>\n  <li>\n    <blockquote><p>+</p></blockquote>\n  </li>\n</ul>\n<section id=\"H\">\n  <h1>H</h1>\n</section>"];
+        yield 'first block document column' => ["- a\n  - +\n> q", "<ul>\n  <li>a\n    <ul>\n      <li>+</li>\n    </ul>\n  </li>\n</ul>\n<blockquote><p>q</p></blockquote>"];
         yield 'first block opener column' => ["- a\n  - +\n  > q", "<ul>\n  <li>a\n    <ul>\n      <li>\n        <blockquote><p>q</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>"];
-        yield 'first block between columns' => ["- a\n  - +\n x", "<ul>\n  <li>a\n    <ul>\n      <li></li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"];
+        yield 'first block between columns' => ["- a\n  - +\n x", "<ul>\n  <li>a\n    <ul>\n      <li>+\nx</li>\n    </ul>\n  </li>\n</ul>"];
         yield 'left follower' => ["- a\n  - b\n  +\n# H", "<ul>\n  <li>a\n    <ul>\n      <li>b\n+</li>\n    </ul>\n  </li>\n</ul>\n<section id=\"H\">\n  <h1>H</h1>\n</section>"];
         yield 'right follower' => ["- a\n  - b\n  +\n    # H", "<ul>\n  <li>a\n    <ul>\n      <li>b\n+\n        <h1 id=\"H\">H</h1>\n      </li>\n    </ul>\n  </li>\n</ul>"];
         yield 'bullet sibling' => ["- a\n  - b\n  +\n  - c", "<ul>\n  <li>a\n    <ul>\n      <li>b\n+</li>\n      <li>c</li>\n    </ul>\n  </li>\n</ul>"];
@@ -41,10 +41,10 @@ class RelativeContinuationMarkerTest extends TestCase
         yield 'end refusal' => ["- a\n+", "<ul>\n  <li>a\n+</li>\n</ul>"];
         yield 'fence payload' => ["- ```\n  +\n\n  x\n  ```", "<ul>\n  <li>\n    <pre><code>+\n\nx\n</code></pre>\n  </li>\n</ul>"];
         yield 'lazy paragraph' => ["> - a\n  +", "<blockquote>\n  <ul>\n    <li>a\n+</li>\n  </ul>\n</blockquote>"];
-        yield 'refused paragraph interruption' => ["- a\n\n+\n- s", "<ul>\n  <li>a</li>\n</ul>\n<p>+</p>\n<ul>\n  <li>s</li>\n</ul>"];
+        yield 'refused paragraph interruption' => ["- a\n\n+\n- s", "<ul>\n  <li>a</li>\n</ul>\n<p>+\n- s</p>"];
         yield 'task first block' => ["- [x] +\n# H", "<ul class=\"task-list\">\n  <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled> \n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>"];
         yield 'ordered text' => ["1. [ ] +\n# H", "<ol>\n  <li>[ ] +</li>\n</ol>\n<section id=\"H\">\n  <h1>H</h1>\n</section>"];
-        yield 'empty task first block' => ['- [x] +', "<ul class=\"task-list\">\n  <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled> </li>\n</ul>"];
+        yield 'empty task first block' => ['- [x] +', "<ul class=\"task-list\">\n  <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+\"> +</li>\n</ul>"];
         yield 'nested quote marker' => ["- a\n  > q\n  +\n  para", "<ul>\n  <li>a\n    <blockquote>\n      <p>q</p>\n      <p>para</p>\n    </blockquote>\n  </li>\n</ul>"];
         yield 'right of marker' => ["- a\n  +\n    # H", "<ul>\n  <li>a\n+\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>"];
         yield 'description first block' => [":: t\n: +\n# H", "<dl>\n  <dt>t</dt>\n  <dd>\n    <h1 id=\"H\">H</h1>\n  </dd>\n</dl>"];

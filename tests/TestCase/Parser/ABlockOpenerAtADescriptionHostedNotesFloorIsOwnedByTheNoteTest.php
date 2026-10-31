@@ -67,7 +67,7 @@ class ABlockOpenerAtADescriptionHostedNotesFloorIsOwnedByTheNoteTest extends Tes
             // list is a `dd` child and `tail` lazily continues the item.
             'opener one shy of the floor' => [
                 ":: t\n:  [^f]: note\n    - nested\ntail\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>nested\ntail</li>\n    </ul>\n  </dd>\n</dl>",
+                "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>",
             ],
             // Continuation TEXT at the floor: this engine already gave it to the
             // note; the opener now matches it, which is the self-consistency

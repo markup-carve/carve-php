@@ -111,11 +111,11 @@ class SixFuzzShapesAgreeWithTheOracleTest extends TestCase
             ],
             'a definition term on a marker line, then an abbreviation' => [
                 ". :: t\n*[A]: b\n",
-                "<ol>\n  <li>\n    <dl>\n      <dt>t\n*[A]: b</dt>\n    </dl>\n  </li>\n</ol>\n",
+                "<ol>\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n  </li>\n</ol>\n",
             ],
             'the same term at document level' => [
                 ":: t\n*[A]: b\n",
-                "<dl>\n  <dt>t\n*[A]: b</dt>\n</dl>\n",
+                "<dl>\n  <dt>t</dt>\n</dl>\n",
             ],
             'a reference definition still ends the term' => [
                 ":: t\n[d]: u\n",

@@ -47,7 +47,7 @@ final class ANestedQuoteContinuationMarkerTest extends TestCase
             'glued double marker is text' => [">>+\nq\n", '<p>&gt;&gt;+ q</p>'],
             'glued double marker with space is text' => [">> +\nq\n", '<p>&gt;&gt; + q</p>'],
             'glued inner marker is quote text' => ["> >+\nq\n", '<blockquote><p>&gt;+ q</p></blockquote>'],
-            'first block marker inside nested quote' => ["> > +\nq\n", '<blockquote><blockquote><p>q</p></blockquote></blockquote>'],
+            'first block marker inside nested quote' => ["> > +\nq\n", '<blockquote><blockquote><p>+ q</p></blockquote></blockquote>'],
         ];
     }
 
@@ -73,7 +73,7 @@ final class ANestedQuoteContinuationMarkerTest extends TestCase
     public function testUnprefixedPlusDoesNotAttachListInsideQuote(): void
     {
         $source = "- a\n  > q\n  +\n  - b\n";
-        $expected = "<ul>\n  <li>a\n    <blockquote><p>q\n+\n- b</p></blockquote>\n  </li>\n</ul>\n";
+        $expected = "<ul>\n  <li>a\n    <blockquote>\n      <p>q</p>\n      <ul>\n        <li>b</li>\n      </ul>\n    </blockquote>\n  </li>\n</ul>\n";
 
         self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert($source));
     }
@@ -81,7 +81,7 @@ final class ANestedQuoteContinuationMarkerTest extends TestCase
     public function testFirstBlockPlusDoesNotAttachListInsideListItem(): void
     {
         $source = "- x\n\n  > +\n  - a\n";
-        $expected = "<ul>\n  <li>x\n    <blockquote><p>+\n- a</p></blockquote>\n  </li>\n</ul>\n";
+        $expected = "<ul>\n  <li>x\n    <blockquote>\n      <ul>\n        <li>a</li>\n      </ul>\n    </blockquote>\n  </li>\n</ul>\n";
 
         self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert($source));
     }

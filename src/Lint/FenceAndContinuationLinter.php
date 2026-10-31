@@ -104,7 +104,7 @@ final class FenceAndContinuationLinter
                 'blank' => 'a blank line',
                 'document' => 'the end of the document',
                 'sibling' => 'a sibling list item',
-                'list' => 'a list',
+                'closer' => 'the closer of an open div',
                 'left' => 'a block left of its column',
                 'right' => 'a block right of its column',
                 'unclaimed' => 'a block no open container claims',
@@ -113,7 +113,8 @@ final class FenceAndContinuationLinter
             $remedy = match ($marker['reason']) {
                 'blank' => 'Delete the blank line to attach the next block, or delete the +.',
                 'document' => 'Add a block after the +, or delete the +.',
-                'sibling', 'list' => 'Use a non-list block after the +, or delete the +.',
+                'sibling' => 'Use a block that is no sibling after the +, or delete the +.',
+                'closer' => 'Write a block before the closer, or delete the +.',
                 'left', 'right' => 'Align the next block with the +, or delete the +.',
                 'unclaimed' => 'Delete the +, or write it inside the paragraph text.',
                 default => 'Move the + to a container marker column, or write it as text.',
@@ -131,33 +132,13 @@ final class FenceAndContinuationLinter
                     $lead,
                     $following,
                     $marker['host'],
-                    $this->refusedMarkerEffect($marker, $rows[$marker['line'] - 1][0] ?? ''),
+                    sprintf('It remains text in the %s.', $marker['host']),
                     $remedy,
                 ),
             );
         }
 
         return $warnings;
-    }
-
-    /**
-     * PART 9 §17 L4: a refused first-block `+` adds no block to an item or a description, and stays text in a quote or a note.
-     *
-     * @param array{line: int, column: int, host: string, reason: string} $marker
-     * @param string $lineText
-     */
-    private function refusedMarkerEffect(array $marker, string $lineText): string
-    {
-        $lead = trim(str_replace('>', '', mb_substr($lineText, 0, $marker['column'] - 1, 'UTF-8')));
-        if ($lead === '' || !in_array($marker['host'], ['list item', 'definition description'], true)) {
-            return sprintf('It remains text in the %s.', $marker['host']);
-        }
-        $host = $marker['host'] === 'list item' ? 'item' : 'description';
-        if ($marker['reason'] === 'right') {
-            return sprintf('It adds no block to the %s, and the next line follows the ordinary column rules.', $host);
-        }
-
-        return sprintf('The %s stays empty.', $host);
     }
 
     /**

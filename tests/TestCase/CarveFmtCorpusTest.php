@@ -757,6 +757,10 @@ class CarveFmtCorpusTest extends TestCase
             if ($escaped === '+' && self::nestedFencePlus($source, $offsets[0])) {
                 continue;
             }
+            // The canonical form keeps a description's escape over its wrapped text (corpus 436).
+            if ($escaped === '+' && preg_match('/(?:^|\n)[ \t>]*:[ \t]+$/D', substr($source, 0, $offsets[0])) === 1) {
+                continue;
+            }
             $idle[$escaped] = ($idle[$escaped] ?? 0) + count($offsets);
         }
 

@@ -43,18 +43,18 @@ class AbbreviationUnderContinuationMarkerTest extends TestCase
      * nothing. Reverting the pattern to include `+` leaves this test passing,
      * which is what makes it a bound rather than a second proof.
      */
-    public function testARealBulletStillSuppressesTheDefinition(): void
+    public function testAColumnZeroDefinitionEndsARealBullet(): void
     {
         $html = $this->converter->convert("- item\n*[AB]: x\n\nAB here\n");
 
-        $this->assertStringNotContainsString('<abbr', $html);
+        $this->assertStringContainsString('<abbr', $html);
     }
 
-    public function testAnOrderedMarkerStillSuppressesTheDefinition(): void
+    public function testAColumnZeroDefinitionEndsAnOrderedItem(): void
     {
         $html = $this->converter->convert("1. item\n*[AB]: x\n\nAB here\n");
 
-        $this->assertStringNotContainsString('<abbr', $html);
+        $this->assertStringContainsString('<abbr', $html);
     }
 
     /**

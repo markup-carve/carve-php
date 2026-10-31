@@ -246,7 +246,7 @@ final class BlockQuoteBuilder
             }
 
             $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($i));
-            if ($decision['column'] >= 0 && $decision['reason'] === null && $openingDepth > 1) {
+            if ($decision['column'] >= 0 && $openingDepth > 1) {
                 $nextPhysical = ltrim($this->state->source->sourceLines[$this->sourceLineFor($i + 1)] ?? '', " \t");
                 $nextDepth = 0;
                 while (($rest = ContainerPrefix::quoteContent($nextPhysical)) !== null) {
@@ -367,7 +367,7 @@ final class BlockQuoteBuilder
             if ($decision['column'] >= 0) {
                 $nextSource = $this->state->source->sourceLines[$this->sourceLineFor($i + 1)] ?? '';
                 if (
-                    $decision['reason'] === null && ($decision['owner']['kind'] ?? null) === 'list'
+                    ($decision['owner']['kind'] ?? null) === 'list'
                     && $decision['column'] < $quoteOpeningColumn
                     && ContainerPrefix::quoteContent(ltrim($nextSource, " \t")) === null
                 ) {
@@ -699,7 +699,7 @@ final class BlockQuoteBuilder
         $sourceLine = $this->sourceLineFor($index);
         $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);
 
-        return $decision['reason'] === null && $decision['owner'] !== null
+        return $decision['owner'] !== null
             && $decision['owner']['kind'] === 'quote' && $decision['owner']['column'] === $column;
     }
 
@@ -746,30 +746,6 @@ final class BlockQuoteBuilder
         return $offsets;
     }
 
-    /**
-     * A stacked opener's `+` takes a follower at document column 0, its line's own column, or the column of the
-     * innermost quote, which owns the `+`; an intervening opener's column is refused (carve#3421).
-     */
-    public static function stackedFollowerEligible(string $opening, string $next): bool
-    {
-        $hostPrefix = preg_match('/^(?:> )*/', $opening, $host) === 1 ? $host[0] : '';
-        $hostDepth = substr_count($hostPrefix, '>');
-        $offset = strlen($hostPrefix);
-        $lineColumn = ContinuationMarkerClassifier::columnAt($opening, $offset + strspn($opening, " \t", $offset));
-        $quoteColumn = ContinuationMarkerClassifier::columnAt($opening, (int)strrpos(rtrim($opening), '>'));
-        $at = 0;
-        for ($level = 0; $level < $hostDepth; $level++) {
-            if (substr($next, $at, 1) !== '>' || !in_array(substr($next, $at + 1, 1), [' ', ''], true)) {
-                // A follower outside the host quotes reaches the innermost quote from document column 0.
-                return $next !== '' && !in_array($next[0], [' ', "\t"], true);
-            }
-            $at += substr($next, $at + 1, 1) === ' ' ? 2 : 1;
-        }
-        $column = ContinuationMarkerClassifier::columnAt($next, $at + strspn($next, " \t", $at));
-
-        return ($hostDepth === 0 && $column === 0) || $column === $lineColumn || $column === $quoteColumn;
-    }
-
     public static function isStackedFirstBlockQuoteMarker(string $line): bool
     {
         return preg_match(
@@ -792,68 +768,9 @@ final class BlockQuoteBuilder
         return $depth;
     }
 
-    private function firstBlockQuoteFollowerAtOrigin(int $start, int $follower, string $openingLine): bool
+    private function firstBlockQuoteFollowerAtOrigin(int $start): bool
     {
-        $opening = $this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '';
-        $next = $this->state->source->sourceLines[$this->sourceLineFor($follower)] ?? '';
-        $previous = $this->state->source->sourceLines[$this->sourceLineFor($start) - 1] ?? '';
-        if ($previous !== ltrim($previous, " \t") && ContainerPrefix::quoteContent(ltrim($previous, " \t")) !== null) {
-            return false;
-        }
-        $openingDepth = 0;
-        $openingBody = ltrim($opening, " \t");
-        while (($rest = ContainerPrefix::quoteContent($openingBody)) !== null) {
-            $openingBody = $rest;
-            $openingDepth++;
-        }
-        $nextDepth = 0;
-        $nextBody = ltrim($next, " \t");
-        while (($rest = ContainerPrefix::quoteContent($nextBody)) !== null) {
-            $nextBody = $rest;
-            $nextDepth++;
-        }
-        $owner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $this->sourceLineFor($start));
-        // A stacked opener's follower carries only its host prefixes (CARVE-P9-067).
-        if (
-            self::isStackedFirstBlockQuoteMarker($opening) && $nextDepth === $openingDepth
-            && ($this->getListParser)()->parseListItemMarker(ltrim($nextBody, " \t")) === null
-        ) {
-            return self::stackedFollowerEligible($opening, $next);
-        }
-        // An indented line in an ancestor quote is lazy text, not a block
-        // attached to a deeper quote's first-block marker.
-        if (
-            $nextDepth > 0 && $nextDepth < ($owner['depth'] ?? $openingDepth) - 1
-            && IndentationHelper::getLeadingColumns($nextBody) > 0
-        ) {
-            return false;
-        }
-        if (
-            $openingDepth > 0 && ($nextDepth > ($owner['depth'] ?? $openingDepth)
-            || ($owner['depth'] ?? $openingDepth) === $openingDepth && $nextDepth >= $openingDepth)
-        ) {
-            return false;
-        }
-        $column = IndentationHelper::getLeadingColumns($next);
-        // The first-block form pulls only non-list blocks, at any eligible column (CARVE-P9-067).
-        if (($this->getListParser)()->parseListItemMarker(ltrim($nextBody, " \t")) !== null) {
-            return false;
-        }
-        if (self::isStackedFirstBlockQuoteMarker($opening)) {
-            return self::stackedFollowerEligible($opening, $next);
-        }
-
-        if ($column === 0 || $column === IndentationHelper::getLeadingColumns($opening)) {
-            return true;
-        }
-        // The owning quote's own marker column takes it too.
-        if ($nextDepth === 0 && $column === ContinuationMarkerClassifier::columnAt($opening, (int)strrpos(rtrim($opening), '>'))) {
-            return true;
-        }
-
-        // A `- > +` quote sits past its list marker, so a follower at its `>` column attaches too.
-        return ($this->getListParser)()->parseListItemMarker(ltrim($opening, " \t")) !== null
-            && $column === ContinuationMarkerClassifier::columnAt($opening, $this->quoteMarkerColumn($start, $openingLine));
+        return isset($this->state->source->plusHosts[$this->sourceLineFor($start)]);
     }
 
     /**
@@ -1026,11 +943,11 @@ final class BlockQuoteBuilder
         }
         $nestedFirstBlock = ($openingOwner['kind'] ?? null) === 'quote' && $contentQuoteDepth > 0
             && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])
-            && $this->firstBlockQuoteFollowerAtOrigin($start, $i, $lines[$start]);
+            && $this->firstBlockQuoteFollowerAtOrigin($start);
         $firstBlock = ($openingOwner['kind'] ?? null) === 'quote' && $openingOwner['column'] === $contentColumn
             && $contentQuoteDepth === 0 && isset($lines[$i])
             && !IndentationHelper::isBlankLine($lines[$i])
-            && $this->firstBlockQuoteFollowerAtOrigin($start, $i, $lines[$start]);
+            && $this->firstBlockQuoteFollowerAtOrigin($start);
         if ($firstBlock) {
             $opening = $this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '';
             $origin = IndentationHelper::getLeadingColumns($opening);
@@ -1115,10 +1032,13 @@ final class BlockQuoteBuilder
                     $this->state->session->nestedQuoteOpenerOffsets = [$openerLine, $openerOffsets];
                 }
                 $attachedInnerLines = [];
+                // A follower that carries this quote's own prefix is read past it (`- > > +` over `  > q`).
+                $carriesOwnPrefix = $quoteFollower && $openingOwner !== null
+                    && $openingOwner['depth'] - 1 > substr_count($hostPrefix, '>');
                 foreach ($attached as $index => $attachedLine) {
                     $innerLine = $quoteFollower
-                        ? str_repeat('> ', $contentQuoteDepth) . $attachedLine
-                        : ContainerPrefix::quoteContent($attachedLine) ?? $attachedLine;
+                        ? str_repeat('> ', $contentQuoteDepth) . ($carriesOwnPrefix ? (ContainerPrefix::quoteContent($attachedLine) ?? $attachedLine) : $attachedLine)
+                        : ContainerPrefix::quoteContent(($openingOwner['depth'] ?? 0) > 1 ? ltrim($attachedLine, " \t") : $attachedLine) ?? $attachedLine;
                     $attachedInnerLines[] = $innerLine;
                     $innerLines[] = $innerLine;
                     $innerLineMap[] = $this->sourceLineFor($attachedLineMap[$index]);

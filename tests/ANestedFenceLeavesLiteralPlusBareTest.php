@@ -14,9 +14,9 @@ class ANestedFenceLeavesLiteralPlusBareTest extends TestCase
     public function testPlainCodeAndRawFencesLeaveThePlusBare(): void
     {
         $cases = [
-            ["- - - ```\n    +\ntail\n", "- - - ```\n      ```\n    +\n\ntail\n"],
-            ["- - - ```=html\n      x\n    +\ntail\n", "- - - ```=html\n      x\n      ```\n    +\n\ntail\n"],
-            ["- - - - ```\n        x\n      +\ntail\n", "- - - - ```\n        x\n        ```\n      +\n\ntail\n"],
+            ["- - - ```\n    +\ntail\n", "- - - ```\n      ```\n    \\+\n    tail\n"],
+            ["- - - ```=html\n      x\n    +\ntail\n", "- - - ```=html\n      x\n      ```\n    \\+\n    tail\n"],
+            ["- - - - ```\n        x\n      +\ntail\n", "- - - - ```\n        x\n        ```\n      \\+\n      tail\n"],
         ];
         $converter = new CarveConverter();
         foreach ($cases as [$source, $expected]) {

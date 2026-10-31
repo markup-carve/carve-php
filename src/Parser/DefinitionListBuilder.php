@@ -127,6 +127,9 @@ final class DefinitionListBuilder
             $pastColumnDefinitionOpen = false;
             while ($i < $count) {
                 $nextLine = $lines[$i];
+                if (str_starts_with($nextLine, '*[') && isset($this->state->source->closingLines[$this->sourceLineFor($i)])) {
+                    break;
+                }
                 $authoredNext = ContainerPrefix::stripQuoteMarkers(
                     $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 );
@@ -630,21 +633,24 @@ final class DefinitionListBuilder
         $bodyMap = [];
         $firstBlockOwner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $definitionSource);
         if (($firstBlockOwner['kind'] ?? null) === 'description' && $firstBlockOwner['column'] === $definitionColumn) {
-            $this->state->session->recordRefusedContinuationMarker($this->state->source, $definitionSource, 'definition description');
             [$i, $body, $bodyRawMap] = $this->collectAttachedBlock(
                 $lines,
                 $i,
                 $count,
-                function (string $a, int $at): bool {
+                function (string $a, int $at) use ($continuationColumn, $definitionColumn): bool {
                     $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($at));
 
                     return IndentationHelper::isBlankLine($a)
-                        || $decision['column'] >= 0 && $decision['owner'] !== null && $decision['reason'] === null
+                        || $decision['column'] >= 0 && $decision['owner'] !== null
                         || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
-                        || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $a) === 1;
+                        || $this->opensDescriptionBelowBody($a, $at, $definitionColumn, $continuationColumn);
                 },
             );
             $bodyMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $bodyRawMap);
+            // A description a `+` filled stays open: the next `: ` below its body column is a sibling (carve#4408).
+            if (isset($lines[$i]) && $this->opensDescriptionBelowBody($lines[$i], $i, $definitionColumn, $continuationColumn)) {
+                $lines[$i] = ltrim($lines[$i], " \t");
+            }
         } else {
             $body = [trim($m[2], StringUtil::WHITESPACE_CHARS)];
             $bodyMap = [$this->sourceLineFor($definitionStart)];
@@ -725,11 +731,26 @@ final class DefinitionListBuilder
      */
     private function admitDescriptionLine(DescriptionBodyCollection $b, DescriptionBodyLine $l): bool
     {
+        // A `: ` below the body column opens the next description at any column (carve#4180, carve#4408).
+        if ($l->contColumn > 0 && $this->opensDescriptionBelowBody($l->contLine, $b->i, $b->definitionColumn, $b->continuationColumn)) {
+            $b->lines[$b->i] = ltrim($b->lines[$b->i], " \t");
+
+            return false;
+        }
         if ($b->nestedAttributeClosed && !IndentationHelper::isBlankLine($l->contLine)) {
             if ($l->contColumn < $b->continuationColumn && !$this->descriptionMarkerAttaches($b->i)) {
                 return false;
             }
             $b->nestedAttributeClosed = false;
+        }
+        // The block a `+` of a container in this body attaches is no continuation of the `+`'s line.
+        $priorPlus = $this->state->source->plusHosts[$this->sourceLineFor($b->i) - 1] ?? null;
+        if ($priorPlus !== null && !$priorPlus['first'] && $priorPlus['kind'] !== 'description' && $l->contColumn >= $b->continuationColumn) {
+            $b->body[] = IndentationHelper::stripLeadingColumns($l->contLine, $b->continuationColumn);
+            $b->bodyMap[] = $this->sourceLineFor($b->i);
+            $b->i++;
+
+            return true;
         }
         $admitted = $this->descriptionLineReleased($b, $l) ?? $this->foldDescriptionLazyLine($b, $l);
         if ($admitted !== null) {
@@ -795,17 +816,10 @@ final class DefinitionListBuilder
         } elseif ($l->noteReleased) {
             $b->noteBodyColumn = null;
         }
-        $priorSourceLine = $this->sourceLineFor($b->i) - 1;
-        if ($priorSourceLine >= 0) {
-            $priorMarker = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $priorSourceLine);
-            if ($priorMarker['column'] >= 0 && $priorMarker['reason'] === null && $priorMarker['stale'] && ($priorMarker['owner']['kind'] ?? null) === 'list') {
-                return false;
-            }
-        }
         $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($b->i));
         if ($decision['column'] >= 0) {
             if (
-                $decision['reason'] === null && $decision['owner'] !== null
+                $decision['owner'] !== null
                 && $decision['owner']['kind'] !== 'description' && $b->definitionColumn !== null
                 && $decision['owner']['column'] < $b->definitionColumn + $b->continuationColumn
             ) {
@@ -1028,7 +1042,6 @@ final class DefinitionListBuilder
      */
     private function attachFlushLeftDescriptionBlock(DescriptionBodyCollection $b): bool
     {
-        $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($b->i), 'definition description');
         $markerColumn = IndentationHelper::getLeadingColumns($b->lines[$b->i]);
         $b->i++;
         if (!$this->continuationFollowerIsEligible($b->i)) {
@@ -2550,6 +2563,24 @@ final class DefinitionListBuilder
         $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($index));
 
         return (new IndentedContainerColumn(0))->ownsContinuation($decision, 'description');
+    }
+
+    /**
+     * The column is the authored one: a collected body can hold lines its host has not moved.
+     */
+    private function opensDescriptionBelowBody(string $line, int $index, ?int $marker, int $width): bool
+    {
+        if (preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, ltrim($line, " \t")) !== 1) {
+            return false;
+        }
+        $source = $this->state->source->sourceLines[$this->sourceLineFor($index)] ?? null;
+        if ($source === null || $marker === null) {
+            return IndentationHelper::getLeadingColumns($line) < $width;
+        }
+
+        $quoted = strlen($source) - strlen(ContainerPrefix::stripQuoteMarkers($source));
+
+        return IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers($source)) + $quoted < $marker + $width;
     }
 
     /**

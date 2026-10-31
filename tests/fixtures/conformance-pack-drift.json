@@ -5,38 +5,17 @@
       "ticket": "markup-carve/carve#3972",
       "cause": "all three engines agree against the spec model",
       "cases": [
-        "combined-ad5cfc8e81bf",
         "ownership-bd5caf2c0c4d",
         "ownership-ca02e84b0d06"
       ]
     },
     {
       "ticket": "markup-carve/carve-php#4254",
-      "cause": "untriaged day-one drift in the fences family",
-      "cases": [
-        "fences-088d930244e3",
-        "fences-6bb4b2c08642",
-        "fences-8e1753b3b5d2",
-        "fences-e0910c8dd446"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the lazy family",
       "cases": [
-        "lazy-238a6c458797",
-        "lazy-353dc1c74791",
-        "lazy-408e39e5714b",
-        "lazy-478d76f7299c",
         "lazy-6a3639026983",
-        "lazy-7753aedc9422",
         "lazy-7816b7379b87",
         "lazy-7eae4bb5a252",
-        "lazy-7f31fa259b62",
-        "lazy-7f8806c2a9ca",
-        "lazy-a25e7b8f38cf",
-        "lazy-aeb7bbd2d31f",
-        "lazy-ea480eb4d58d",
         "lazy-f7cdb17f9cb9",
         "lazy-fef11cbd6ca1"
       ]
@@ -53,7 +32,6 @@
         "notes-a6dae860b308",
         "notes-aa4cc37942d1",
         "notes-d2500c45a956",
-        "notes-d9f24ac422f4",
         "notes-dd130b0b59c1",
         "notes-ffd53f488294"
       ]
@@ -62,24 +40,9 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the ownership family",
       "cases": [
-        "ownership-12346bae899f",
         "ownership-2c66125f9d1c",
-        "ownership-4b546e287bf8",
-        "ownership-8ee51def382e",
         "ownership-ae57ff05e447",
-        "ownership-bab956633134",
-        "ownership-e7b3820fbdf8",
         "ownership-edfbea8daa50"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve-php#4254",
-      "cause": "untriaged day-one drift in the plus family",
-      "cases": [
-        "plus-6727c3040dbf",
-        "plus-6b44e5d8fa33",
-        "plus-c0cf1c4d2743",
-        "plus-e283ab0023a1"
       ]
     },
     {
@@ -87,11 +50,8 @@
       "cause": "untriaged day-one drift in the roundtrip family",
       "cases": [
         "roundtrip-2f0bd736a7de",
-        "roundtrip-39cdccb01232",
-        "roundtrip-684e0d745137",
         "roundtrip-702a692a40ae",
         "roundtrip-73c51797f6b8",
-        "roundtrip-840844dcac3f",
         "roundtrip-d1f9fa04915c"
       ]
     },
@@ -116,31 +76,27 @@
         "notes-8a58290254d3",
         "notes-9429cd878645",
         "notes-ac7d6a615617",
-        "notes-e344b261ace5",
-        "ownership-20db0db56577",
         "ownership-35dce7b7ed21",
-        "ownership-aa029b4ae556",
-        "roundtrip-e041e681d368"
+        "ownership-aa029b4ae556"
       ]
     },
     {
-      "ticket": "markup-carve/carve-php#4254",
-      "cause": "rulings between carve 174ac3a and c614705 this engine has not ported yet",
+      "ticket": "markup-carve/carve-php#4328",
+      "cause": "remaining differences of the + port; listed in the PR body",
       "cases": [
-        "lazy-e5f10323832e",
-        "roundtrip-1a6a5531cfa5"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve#4470",
-      "cause": "the pinned pack predates the continuation-cell ruling; this engine renders as the spec model on carve main",
-      "cases": [
-        "inline-cb88dff1b472",
-        "plus-50d07ed355d0",
-        "plus-69d271a411f9",
-        "plus-baf998c9d969",
-        "plus-d438ebc082a8",
-        "plus-f56c0c6d25a9"
+        "attributes-4db504145296",
+        "fences-47b46eff67d0",
+        "fences-53415847bc3e",
+        "fences-c9b7d1a267bf",
+        "lazy-593582276fea",
+        "lazy-68fe7c68d81d",
+        "ownership-19a15d4c0b00",
+        "ownership-5c23f3ce4ed2",
+        "plus-f3825032510f",
+        "roundtrip-0c1279f7ce48",
+        "roundtrip-29bf84d5501e",
+        "roundtrip-615415506b26",
+        "roundtrip-c5d30c150732"
       ]
     }
   ]

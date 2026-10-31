@@ -9,8 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * An indented list reads as if written at column 0 (PART 0 S3), so a lone `+`
- * at column 0 stands at its moved marker column and attaches the next block.
+ * A lone `+` at column 0 below an indented list is refused and reads like a letter (carve#4409).
  */
 final class APlusAtAnIndentedItemsMovedColumnAttachesTest extends TestCase
 {
@@ -27,8 +26,9 @@ final class APlusAtAnIndentedItemsMovedColumnAttachesTest extends TestCase
     {
         foreach (["- a\n+\n> q\n", "- a\n  - b\n+\n|= a |\n- after\n", "1. a\n+\n```\nc\n```\nafter\n"] as $source) {
             $indented = (string)preg_replace('/^(?= *(?:-|1\.) )/m', $indent, $source);
+            $letter = (string)preg_replace('/^\+$/m', 'z', $indented);
             self::assertSame(
-                CarveConverter::create()->convert($source),
+                str_replace('z', '+', CarveConverter::create()->convert($letter)),
                 CarveConverter::create()->convert($indented),
                 $indented,
             );

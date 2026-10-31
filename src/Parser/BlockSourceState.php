@@ -53,13 +53,6 @@ final class BlockSourceState
     public array $fenceOpenerLines = [];
 
     /**
-     * The walked lines with each refused `+` the walk framed lazy read unframed, for the marker classifier.
-     *
-     * @var array<int, string>
-     */
-    public array $markerLines = [];
-
-    /**
      * Whether the ownership walk read lines 0.. as frontmatter on their raw, unindented spelling.
      */
     public bool $frontmatter = false;
@@ -72,11 +65,18 @@ final class BlockSourceState
     public array $closingLines = [];
 
     /**
-     * Top-level quote first-block `+` lines the walk refused by their follower's raw column.
+     * The host of every lone `+` the ownership walk accepted, by line index.
      *
-     * @var array<int, true>
+     * @var array<int, array{kind: string, column: int, depth: int, content: int, first: bool, list: int|null, note: int|null}>
      */
-    public array $refusedQuotePlus = [];
+    public array $plusHosts = [];
+
+    /**
+     * The lint finding of every lone `+` the ownership walk refused, by line index.
+     *
+     * @var array<int, array{line: int, column: int, host: string, reason: string}|null>
+     */
+    public array $refusedPlus = [];
 
     /**
      * Normalized input used to verify computed spans.

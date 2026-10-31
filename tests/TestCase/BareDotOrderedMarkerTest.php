@@ -91,9 +91,9 @@ class BareDotOrderedMarkerTest extends TestCase
     public static function markerProvider(): array
     {
         return [
-            'a bare dot' => [". x\n*[A]: d\n\nA here\n", "<ol>\n  <li>x\n*[A]: d</li>\n</ol>\n<p>A here</p>\n"],
-            'a numbered marker' => ["1. x\n*[A]: d\n\nA here\n", "<ol>\n  <li>x\n*[A]: d</li>\n</ol>\n<p>A here</p>\n"],
-            'a bullet' => ["- x\n*[A]: d\n\nA here\n", "<ul>\n  <li>x\n*[A]: d</li>\n</ul>\n<p>A here</p>\n"],
+            'a bare dot' => [". x\n*[A]: d\n\nA here\n", "<ol>\n  <li>x</li>\n</ol>\n<p><abbr title=\"d\">A</abbr> here</p>\n"],
+            'a numbered marker' => ["1. x\n*[A]: d\n\nA here\n", "<ol>\n  <li>x</li>\n</ol>\n<p><abbr title=\"d\">A</abbr> here</p>\n"],
+            'a bullet' => ["- x\n*[A]: d\n\nA here\n", "<ul>\n  <li>x</li>\n</ul>\n<p><abbr title=\"d\">A</abbr> here</p>\n"],
         ];
     }
 

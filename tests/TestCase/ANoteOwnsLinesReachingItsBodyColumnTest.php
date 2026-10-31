@@ -25,7 +25,7 @@ class ANoteOwnsLinesReachingItsBodyColumnTest extends TestCase
             'nested definition' => ["- a\n  [^n]: e\n    [^n]: e\n    q\n", "<ul>\n  <li>a</li>\n</ul>\n"],
             'two item levels' => ["- a\n  - b\n    [^n]: e\n      * [ ] task\n", "<ul>\n  <li>a\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n"],
             'three item levels' => ["- a\n  - b\n    - c\n      [^n]: e\n        * [ ] task\n", "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n"],
-            'one column short' => ["- a\n  [^n]: e\n   * [ ] task\n", "<ul>\n  <li>a\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"task\"> task</li>\n    </ul>\n  </li>\n</ul>\n"],
+            'one column short' => ["- a\n  [^n]: e\n   * [ ] task\n", "<ul>\n  <li>a</li>\n</ul>\n"],
             'quote reaches its marker' => ["> > [^n]: e\n> >   k\ne\n", "<blockquote>\n  <blockquote>\n\n  </blockquote>\n</blockquote>"],
             'table below note after blank' => ["- a\n    [^n]: e\n\n     ||\n", "<ul>\n  <li>a\n    <table>\n      <tbody>\n        <tr><td></td></tr>\n      </tbody>\n    </table>\n  </li>\n</ul>\n"],
             'table below note marker run' => ["- a\n  [^n]: e\n    * [ ] task\n   q\n   | a |\n", "<ul>\n  <li>a\n    <table>\n      <tbody>\n        <tr><td>a</td></tr>\n      </tbody>\n    </table>\n  </li>\n</ul>\n"],

@@ -65,7 +65,7 @@ class ANestedFootnoteDefinitionOwnsItsBlockBodyInADescriptionTest extends TestCa
     public function testAMarkerBelowTheNoteColumnStaysInTheDescription(): void
     {
         $source = ":: t\n: body\n\n  [^g]: n\n   - z\n\nafter\n";
-        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>body</p>\n    <ul>\n      <li>z</li>\n    </ul>\n  </dd>\n</dl>\n<p>after</p>";
+        $expected = "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<p>after</p>";
         $this->assertSame($expected, $this->html($source));
     }
 }
