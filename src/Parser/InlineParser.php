@@ -107,11 +107,6 @@ class InlineParser
     protected array $commentCuts = [];
 
     /**
-     * The unsliced inline source for delimiter-sensitive typography.
-     */
-    private string $blockInlineSource = '';
-
-    /**
      * The source line and 1-based column of `$pos` in the text being parsed.
      *
      * `$currentLine` is the line the BLOCK starts on, and a block can be many
@@ -696,7 +691,6 @@ class InlineParser
         $this->currentLine = $sourceLine;
         $this->textOrigin = 0;
         $this->commentCuts = [];
-        $this->blockInlineSource = $text;
         // Only when a diagnostic can actually be kept: this is one pass over
         // the block, and the default parse has no use for it.
         $this->lineBreakOffsets = [];
@@ -4685,10 +4679,8 @@ class InlineParser
 
     protected function parseSmartQuote(string $prevConverted, string $text, int $pos, string $quote): string
     {
+        // A span's closer is not the next character (CARVE-P3-023 R1, carve#4318).
         $nextChar = $this->quoteCharacterAt($text, $pos + 1);
-        if ($nextChar === '' && $this->inlineDepth > 1) {
-            $nextChar = $this->quoteCharacterAt($this->blockInlineSource, $this->textOrigin + $pos + 1);
-        }
         if ($nextChar === '\\' && $this->backslashRendersSpace($text, $pos + 1)) {
             $nextChar = ' ';
         }
