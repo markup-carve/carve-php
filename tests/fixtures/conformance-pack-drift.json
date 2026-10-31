@@ -73,7 +73,6 @@
       "ticket": "markup-carve/carve#4615",
       "cause": "a lazy line in a line block does not stop its closer",
       "cases": [
-        "lazy-70acba91ccbd",
         "roundtrip-702a692a40ae"
       ]
     },

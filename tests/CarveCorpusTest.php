@@ -1563,6 +1563,16 @@ class CarveCorpusTest extends TestCase
         'brackets-nested-past-the-cap-stay-literal',
         'every-list-item-measures-its-content-against-its-own-content-column',
         'the-third-confirmation-round-s-model-findings',
+        'a-delimited-body-s-overlapping-header-and-footer-make-no-header-cells',
+        'a-plus-after-an-attached-block-reaches-its-host-through-quote-prefixes',
+        'an-invisible-item-lead-and-a-caption-line-after-an-accepted-plus',
+        'an-item-on-a-note-marker-line-takes-its-plus-at-its-own-marker-column',
+        'a-lazy-line-in-a-note-does-not-keep-the-note-host-open',
+        'a-fence-opened-at-a-block-start-in-a-note-keeps-no-paragraph-open',
+        'an-accepted-plus-follower-keeps-its-column-through-an-indented-quote-prefix',
+        'an-unclosed-fence-under-a-description-paragraph-in-a-note-holds-no-paragraph',
+        'a-lazy-line-keeps-a-description-in-a-div-in-an-item',
+        'a-folded-marker-keeps-a-note-item-measured-from-its-source-column',
     ];
 
     /**
@@ -1643,9 +1653,14 @@ class CarveCorpusTest extends TestCase
         '872-the-third-confirmation-round-s-model-findings-10' => 'carve#4618: a task item with a wide gap keeps its content column',
         '872-the-third-confirmation-round-s-model-findings-11' => 'carve#4618: a task item with a wide gap keeps its content column',
         '872-the-third-confirmation-round-s-model-findings-12' => 'carve#4619: a lone refused directive folds no line in an item',
-        '872-the-third-confirmation-round-s-model-findings-3' => 'carve#4615: a lazy line in a line block does not stop its closer',
-        '872-the-third-confirmation-round-s-model-findings-4' => 'carve#4615: a lazy line in a line block does not stop its closer',
         '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',
+        '873-a-delimited-body-s-overlapping-header-and-footer-make-no-header-cells' => 'carve#4659: overlapping delimited table ranges make no header cells',
+        '873-a-plus-after-an-attached-block-reaches-its-host-through-quote-prefixes-2' => 'carve#4649: a plus reaches its host through quote prefixes',
+        '873-an-invisible-item-lead-and-a-caption-line-after-an-accepted-plus-2' => 'carve#4655: a blank after an invisible item lead does not loosen the list',
+        '873-an-invisible-item-lead-and-a-caption-line-after-an-accepted-plus-3' => 'carve#4655: a blank after an invisible item lead does not loosen the list',
+        '873-an-item-on-a-note-marker-line-takes-its-plus-at-its-own-marker-column' => 'carve#4650: a note marker-line item reads its own column',
+        '878-a-folded-marker-keeps-a-note-item-measured-from-its-source-column' => 'carve#4656: a folded marker keeps its host column',
+        '878-a-folded-marker-keeps-a-note-item-measured-from-its-source-column-2' => 'carve#4656: a folded marker keeps its host column',
     ];
 
     /**
