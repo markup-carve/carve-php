@@ -1803,6 +1803,8 @@ final class DefinitionListBuilder
             str_starts_with($b->lead(), ':::')
             && $b->bodyNestedState->hasOpenDiv()
             && $b->bodyNestedState->nestedColumn === 0
+            && ($b->nestedDescriptionBodyColumn === null
+                || IndentationHelper::getLeadingColumns($entry) < $b->nestedDescriptionBodyColumn)
             && $this->startsInterruptingBlock(ltrim($entry, " \t"), $b->lines, $b->i)
         ) {
             $entry = ltrim($entry, " \t");
