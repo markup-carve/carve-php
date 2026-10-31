@@ -24,6 +24,7 @@ final class OwnershipFrame
      * @param int|null $markerCol
      * @param int $markerCanon
      * @param string|null $axes
+     * @param array<string, mixed>|null $marker The item's parsed marker, for the list axes.
      * @param int $termCut
      * @param (\Closure(string, int): bool)|null $closes
      * @param string|null $span
@@ -50,6 +51,7 @@ final class OwnershipFrame
         public ?int $markerCol = null,
         public int $markerCanon = 0,
         public ?string $axes = null,
+        public ?array $marker = null,
         public int $termCut = 0,
         public ?Closure $closes = null,
         public ?int $run = null,
