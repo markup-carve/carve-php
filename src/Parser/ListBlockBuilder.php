@@ -987,6 +987,15 @@ final class ListBlockBuilder
                 if ($fallsThrough) {
                     $itemContent = '';
                     $itemLines = [''];
+                } elseif (
+                    $attached !== [] && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])
+                    && IndentationHelper::getLeadingColumns($lines[$i]) >= $lastItemContentIndent
+                ) {
+                    // The attached block has ended, but the item can still
+                    // own a later block at its ordinary content column.
+                    $itemContent = '';
+                    $itemLines = $attached;
+                    $itemLineMap = $attachedLineMap;
                 } else {
                 // PART 12 §4: the item begins at its MARKER (carve#913). This
                 // item's body is flush left, so leaving the span to be derived
