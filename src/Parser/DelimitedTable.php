@@ -114,6 +114,8 @@ final class DelimitedTable
     }
 
     /**
+     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $code
+     * @param \MarkupCarve\Carve\Parser\SourceMap|null $sourceMap
      * @param \Closure(string): bool|null $skipRecord Drops a record by its raw source text.
      */
     public static function fromCode(CodeBlock $code, ?SourceMap $sourceMap = null, ?Closure $skipRecord = null): ?Table
