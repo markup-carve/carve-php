@@ -1616,7 +1616,6 @@ class CarveCorpusTest extends TestCase
         '853-an-abbreviation-definition-below-a-content-column-stands-in-the-document-3' => 'carve#4507: an abbreviation definition below a content column defines',
         '853-an-abbreviation-definition-below-a-content-column-stands-in-the-document-4' => 'carve#4507: an abbreviation definition below a content column defines',
         '853-an-abbreviation-definition-below-a-content-column-stands-in-the-document-5' => 'carve#4507: an abbreviation definition below a content column defines',
-        '853-a-whitespace-run-after-a-tab-sets-the-content-column-where-the-content-starts' => 'carve#4446: block ownership the spec model pins and this engine owes',
         '855-a-line-below-an-unclosed-fence-in-a-described-item-keeps-its-lazy-line' => 'carve#4484: a line below an unclosed fence in a described item keeps its lazy line',
         '855-a-line-below-an-unclosed-fence-in-a-described-item-keeps-its-lazy-line-2' => 'carve#4484: a line below an unclosed fence in a described item keeps its lazy line',
         '855-a-line-below-an-unclosed-fence-in-a-described-item-keeps-its-lazy-line-3' => 'carve#4484: a line below an unclosed fence in a described item keeps its lazy line',
