@@ -1654,7 +1654,6 @@ class CarveCorpusTest extends TestCase
         '872-the-third-confirmation-round-s-model-findings-13' => 'carve#4620: an arrow in an attached attribute run keeps its substitution',
         '872-the-third-confirmation-round-s-model-findings-14' => 'carve#4620: an arrow in an attached attribute run keeps its substitution',
         '872-the-third-confirmation-round-s-model-findings-16' => 'carve#4621: a host with a comment beside it still takes its caption',
-        '872-the-third-confirmation-round-s-model-findings-19' => 'carve#4622: a task list and a math span keep the class slot spelling',
         '872-the-third-confirmation-round-s-model-findings-3' => 'carve#4615: a lazy line in a line block does not stop its closer',
         '872-the-third-confirmation-round-s-model-findings-4' => 'carve#4615: a lazy line in a line block does not stop its closer',
         '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',

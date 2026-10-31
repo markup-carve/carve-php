@@ -29,7 +29,7 @@ class AnHtmlAttributeIsWrittenOnceTest extends TestCase
             'line block class' => ["{CLASS=z}\n::: |\nverse\n:::\n", "<div CLASS=\"z line-block\">\n  <p>verse</p>\n</div>"],
             'admonition class' => ["{CLASS=v}\n::: note\nx\n:::\n", "<aside class=\"admonition note v\" aria-label=\"Note\">\n  <p>x</p>\n</aside>"],
             'typed div class' => ["{CLASS=v}\n::: calculation\nx\n:::\n", "<div class=\"calculation v\">\n  <p>x</p>\n</div>"],
-            'math class' => ["\$`m`{CLASS=v}\n", '<p><span class="math inline v" role="math">\\(m\\)</span></p>'],
+            'math class' => ["\$`m`{CLASS=v}\n", '<p><span CLASS="math inline v" role="math">\\(m\\)</span></p>'],
             'abbr title' => ["[x]{abbr=\"a\" data-k=1 TITLE=v}\n", '<p><abbr title="v" data-k="1">x</abbr></p>'],
             'abbr key in another case' => ["[x]{abbr=v ABBR=w}\n", '<p><abbr title="v" ABBR="w">x</abbr></p>'],
             'fence header title' => ["{TITLE=z}\n```js \"t\"\nc\n```\n", "<pre TITLE=\"z\"><code class=\"language-js\">c\n</code></pre>"],
