@@ -530,7 +530,7 @@ class IncludeExpander implements TransformerInterface
                     if ($directive['code'] !== null && isset($replacement[0]) && $replacement[0] instanceof CodeBlock) {
                         $replacement[0]->setAttributesWithOrder($paragraph->getAttributeEntries(), $paragraph->getAttributeOrder());
                         // `{table}` converts a csv/tsv code include as it does an authored fence (I1c).
-                        $table = $replacement[0]->getRenderHint('includePartialDelimitedRecord') === '1'
+                        $table = $replacement[0]->getRenderHint('includeDelimitedTableFallback') === '1'
                             ? null : DelimitedTable::fromCode($replacement[0], skipRecord: self::isRegionMarkerRecord(...));
                         if ($table !== null) {
                             BlockParser::applyTableColumns($table);
@@ -1133,7 +1133,12 @@ class IncludeExpander implements TransformerInterface
         }
         $table = DelimitedTable::fromCode($fullCode, $map, self::isRegionMarkerRecord(...));
         if ($table === null) {
-            return $directive['rows'] !== null || $directive['cols'] !== null ? $fullCode : $selectedCode;
+            if ($directive['rows'] !== null || $directive['cols'] !== null) {
+                return $fullCode;
+            }
+            $selectedCode->setRenderHint('includeDelimitedTableFallback', '1');
+
+            return $selectedCode;
         }
         $allRows = array_values($table->getChildren());
         $headCount = count(array_filter($allRows, static fn ($row): bool => $row instanceof TableRow && $row->isHeader()));
@@ -1155,7 +1160,7 @@ class IncludeExpander implements TransformerInterface
             $lastLine = $directive['lines']['end'];
             foreach ($recordSpans as [$recordFirst, $recordLast]) {
                 if ($recordFirst <= $lastLine && $recordLast >= $firstLine && ($recordFirst < $firstLine || $recordLast > $lastLine)) {
-                    $selectedCode->setRenderHint('includePartialDelimitedRecord', '1');
+                    $selectedCode->setRenderHint('includeDelimitedTableFallback', '1');
 
                     return $selectedCode;
                 }
