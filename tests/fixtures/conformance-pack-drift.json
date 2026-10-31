@@ -56,8 +56,6 @@
       "ticket": "markup-carve/carve-php#4328",
       "cause": "remaining differences of the + port; listed in the PR body",
       "cases": [
-        "attributes-4db504145296",
-        "fences-53415847bc3e",
         "lazy-68fe7c68d81d",
         "roundtrip-29bf84d5501e",
         "roundtrip-615415506b26"
