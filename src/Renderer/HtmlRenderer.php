@@ -3643,8 +3643,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $class = $authored === '' ? $base : $base . ' ' . $authored;
 
         if ($key !== null) {
-            // Keep the author's ordering, swapping the merged value in place.
-            return self::replaceKey($attrs, $key, 'class', $class);
+            // Keep the author's spelling and ordering, swapping only the
+            // merged value in place (PART 10 section 1, carve#4622).
+            $attrs[$key] = $class;
+
+            return $attrs;
         }
 
         // No authored class means no slot to keep, so the base class leads.
