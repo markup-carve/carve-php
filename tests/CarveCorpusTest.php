@@ -1595,8 +1595,6 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
-        '118-cyclic-cross-reference-resolves-to-one-level' => 'carve#4664: cloned heading text keeps inner cross-reference text',
-        '118-cyclic-cross-reference-resolves-to-one-level-2' => 'carve#4664: cloned heading text keeps inner cross-reference text',
         '879-a-shifted-line-block-keeps-a-lazy-follower-at-its-reader-column' => 'carve#4695: a shifted line block keeps its lazy follower',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame-2' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
@@ -1672,16 +1670,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '118-cyclic-cross-reference-resolves-to-one-level' => [
-            'reason' => 'carve#4642 ruling: a reference in a cloned heading contributes its target text',
-            'html' => "<section id=\"A\">\n  <h1>A <a href=\"#A\">A A </a></h1>\n</section>",
-        ],
-        '118-cyclic-cross-reference-resolves-to-one-level-2' => [
-            'reason' => 'carve#4642 ruling: reciprocal references contribute one level of target text',
-            'html' => "<section id=\"A\">\n  <h1>A <a href=\"#B\">B A </a></h1>\n</section>\n<section id=\"B\">\n  <h1>B <a href=\"#A\">A B </a></h1>\n</section>",
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 
