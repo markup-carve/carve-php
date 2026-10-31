@@ -1597,7 +1597,6 @@ class CarveCorpusTest extends TestCase
         '855-a-line-below-an-unclosed-fence-in-a-described-item-keeps-its-lazy-line-3' => 'carve#4484: a line below an unclosed fence in a described item keeps its lazy line',
         '855-a-marker-that-misses-a-description-folds-into-its-item' => 'carve#4493: a marker that misses a description folds into its item',
         '855-a-marker-that-misses-a-description-folds-into-its-item-2' => 'carve#4493: a marker that misses a description folds into its item',
-        '855-invisible-lines-after-a-plus-are-skipped-and-the-first-visible-line-decides-6' => 'carve#4483: a + skips invisible lines and tests the first visible one',
         '856-a-child-on-a-note-s-marker-line-is-measured-from-its-source-column-3' => 'carve#4522: a child on a note marker line is measured from its source column',
         '863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s' => 'carve#4540: a closer or caption at a note marker-line item content column',
         '863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-2' => 'carve#4540: a closer or caption at a note marker-line item content column',
