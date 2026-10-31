@@ -44,11 +44,11 @@ class S4ConformanceTest extends TestCase
     public function testEmptyAttributeBlockAfterNodeStaysLiteral(): void
     {
         // An empty `{}` abutting a word or inline node is literal, not consumed
-        // (`hi{}`, `*x*{}`, the second `{}` in `[x]{}{}`). The `[x]{}` span form
-        // (one empty block right after the bracket) still makes a span.
+        // (`hi{}`, `*x*{}`). In a bracketed span's run it is a member that adds
+        // nothing, so `[x]{}{}` is one span (carve#4077).
         $this->assertSame(preg_replace('/\n\z/', '', "<p>hi{}</p>\n"), $this->c->convert('hi{}'));
         $this->assertSame(preg_replace('/\n\z/', '', "<p><strong>x</strong>{}</p>\n"), $this->c->convert('*x*{}'));
-        $this->assertSame(preg_replace('/\n\z/', '', "<p><span>x</span>{}</p>\n"), $this->c->convert('[x]{}{}'));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p><span>x</span></p>\n"), $this->c->convert('[x]{}{}'));
         $this->assertSame(preg_replace('/\n\z/', '', "<p><span>x</span></p>\n"), $this->c->convert('[x]{}'));
         // A braced comment is an inline construct, not an attribute block.
         $this->assertSame(preg_replace('/\n\z/', '', "<p>a</p>\n"), $this->c->convert('a{% note %}'));

@@ -3184,7 +3184,7 @@ class InlineParser
                     // (those stop at the first block that yields no attribute,
                     // leaving it literal -- e.g. `[x]{.a}{???}`).
                     $this->applyAttributesToNode($span, $attrStr);
-                    $endPos = $this->applyConsecutiveAttributes($span, $text, $attrEnd + 1);
+                    $endPos = $this->applyConsecutiveAttributes($span, $text, $attrEnd + 1, emptyIsMember: true);
                     $this->parseBracketRunAt($span, $linkText, $pos + 1, separateQuoteScope: isset($this->imageReferenceAt[$pos]));
 
                     return [
@@ -6480,7 +6480,7 @@ class InlineParser
      *
      * @return int The final position after all attribute blocks
      */
-    protected function applyConsecutiveAttributes(Node $node, string $text, int $startPos): int
+    protected function applyConsecutiveAttributes(Node $node, string $text, int $startPos, bool $emptyIsMember = false): int
     {
         $length = strlen($text);
         $pos = $startPos;
@@ -6501,8 +6501,18 @@ class InlineParser
             // `word{.c % n %}` (and carve-js / carve-rs). The inline-span branch
             // in parseLink() handles a leading empty/whitespace block explicitly
             // before delegating here.
-            if (AttributeParser::parse($attrStr) === [] || !$this->isValidInlineAttrPayload($attrStr)) {
+            if (!$this->isValidInlineAttrPayload($attrStr)) {
                 break;
+            }
+            // In a bracketed span's run the empty block is a member that adds
+            // nothing (CARVE-P9-021, carve#4077); after other nodes it ends the run.
+            if (AttributeParser::parse($attrStr) === []) {
+                if (!$emptyIsMember || trim($attrStr, ' ') !== '') {
+                    break;
+                }
+                $pos = $attrEnd + 1;
+
+                continue;
             }
             $this->applyAttributesToNode($node, $attrStr);
             $pos = $attrEnd + 1;
