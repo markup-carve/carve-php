@@ -667,8 +667,9 @@ class HeadingIdTracker
      * @param bool $insideLink
      * @param list<\MarkupCarve\Carve\Node\Node> $nodes
      * @param int $depth
+     * @param bool $expandReferences
      */
-    protected function collectDisplayNodes(array $children, bool $insideLink, array &$nodes, int $depth): void
+    protected function collectDisplayNodes(array $children, bool $insideLink, array &$nodes, int $depth, bool $expandReferences = true): void
     {
         if ($depth >= self::MAX_DISPLAY_DEPTH) {
             return;
@@ -684,16 +685,26 @@ class HeadingIdTracker
                 continue;
             }
 
-            // Resolution is ONE LEVEL (R4): a cloned label is never re-expanded,
-            // so a `</#id>` inside the heading contributes nothing rather than
-            // resolving again. Corpus
-            // `118-cyclic-cross-reference-resolves-to-one-level` pins
-            // `<a href="#B">B </a>` for a heading that itself holds one.
+            // A reference contributes its target's inline text without a nested
+            // link. References in that target do not expand again (PART 9R R4).
             if ($child instanceof HeadingRef) {
+                if ($expandReferences) {
+                    $target = $child->getTargetId();
+                    $id = $this->findId($target);
+                    if ($id !== null && isset($this->nodesById[$id])) {
+                        $this->collectDisplayNodes($this->nodesById[$id], $insideLink, $nodes, $depth + 1, false);
+                    } else {
+                        // A caption has a composed label but no heading nodes;
+                        // an unresolved reference displays its literal source.
+                        $label = $id === null ? null : $this->getTextForId($id);
+                        $nodes[] = new Text($label ?? '</#' . $target . '>');
+                    }
+                }
+
                 continue;
             }
             if ($child instanceof Ruby) {
-                $this->collectDisplayNodes($child->flattenedInlines(), $insideLink, $nodes, $depth + 1);
+                $this->collectDisplayNodes($child->flattenedInlines(), $insideLink, $nodes, $depth + 1, $expandReferences);
 
                 continue;
             }
@@ -714,6 +725,7 @@ class HeadingIdTracker
                     $insideLink,
                     $nodes,
                     $depth + 1,
+                    $expandReferences,
                 );
 
                 continue;
@@ -738,6 +750,7 @@ class HeadingIdTracker
                     true,
                     $nodes,
                     $depth + 1,
+                    $expandReferences,
                 );
 
                 continue;
@@ -753,6 +766,7 @@ class HeadingIdTracker
                     $insideLink || $clone instanceof Link,
                     $inner,
                     $depth + 1,
+                    $expandReferences,
                 );
                 $clone->setChildren($inner);
             }

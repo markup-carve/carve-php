@@ -1595,8 +1595,6 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
-        '118-cyclic-cross-reference-resolves-to-one-level' => 'carve#4664: cloned heading text keeps inner cross-reference text',
-        '118-cyclic-cross-reference-resolves-to-one-level-2' => 'carve#4664: cloned heading text keeps inner cross-reference text',
         '879-a-shifted-line-block-keeps-a-lazy-follower-at-its-reader-column' => 'carve#4695: a shifted line block keeps its lazy follower',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame-2' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',

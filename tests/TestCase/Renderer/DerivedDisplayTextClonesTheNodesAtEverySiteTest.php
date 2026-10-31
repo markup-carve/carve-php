@@ -12,6 +12,8 @@ use MarkupCarve\Carve\Extension\IndexExtension;
 use MarkupCarve\Carve\Extension\MentionsExtension;
 use MarkupCarve\Carve\Extension\TableOfContentsExtension;
 use MarkupCarve\Carve\Extension\TocPlacementExtension;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Strong;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -166,6 +168,27 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         $this->assertSame('/u', $outside[0]->getDestination());
     }
 
+    public function testAnExpandedHeadingReferenceKeepsTheCallersLinkContext(): void
+    {
+        $tracker = new HeadingIdTracker();
+        $heading = new Heading();
+        $heading->setAttribute('id', 'target');
+        $link = new Link('/u');
+        $link->appendChild(new Text('a'));
+        $heading->appendChild($link);
+        $this->assertSame('target', $tracker->getIdForHeading($heading));
+
+        $reference = new HeadingRef('target');
+        $inside = $tracker->deriveDisplayNodes([$reference], true);
+        $this->assertCount(1, $inside);
+        $this->assertInstanceOf(Text::class, $inside[0]);
+
+        $outside = $tracker->deriveDisplayNodes([$reference], false);
+        $this->assertCount(1, $outside);
+        $this->assertInstanceOf(Link::class, $outside[0]);
+        $this->assertSame('/u', $outside[0]->getDestination());
+    }
+
     public function testAGlossaryTermReferenceIsUNCHANGED(): void
     {
         // CONTROL, and the reason this file measures each site instead of
@@ -315,13 +338,54 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
 
     public function testResolutionStaysOneLevel(): void
     {
-        // A `</#id>` inside the target heading contributes NOTHING to the label,
-        // so a cycle is structurally impossible to follow. Corpus
-        // `118-cyclic-cross-reference-resolves-to-one-level` pins these bytes.
+        // The inner reference contributes its target's inline text, but the
+        // target's references do not expand again (carve#4642 ruling).
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<section id=\"A\">\n  <h1>A <a href=\"#B\">B </a></h1>\n</section>\n"
-            . "<section id=\"B\">\n  <h1>B <a href=\"#A\">A </a></h1>\n</section>\n"),
+            preg_replace('/\n\z/', '', "<section id=\"A\">\n  <h1>A <a href=\"#B\">B A </a></h1>\n</section>\n"
+            . "<section id=\"B\">\n  <h1>B <a href=\"#A\">A B </a></h1>\n</section>\n"),
             $this->html("# A </#B>\n\n# B </#A>\n"),
+        );
+    }
+
+    public function testAReferenceInAClonedHeadingContributesItsTargetText(): void
+    {
+        $this->assertSame(
+            "<section id=\"a\">\n"
+            . "  <h1>a <a href=\"#b\">b</a></h1>\n"
+            . "  <section id=\"b\">\n"
+            . "    <h2>b</h2>\n"
+            . "    <p><a href=\"#a\">a b</a></p>\n"
+            . "  </section>\n"
+            . '</section>',
+            $this->html("# a </#b>\n\n## b\n\n</#a>\n"),
+        );
+    }
+
+    public function testAClonedHeadingKeepsAnUnresolvedReferenceAsVisibleSource(): void
+    {
+        $this->assertSame(
+            "<section id=\"a\">\n"
+            . "  <h1>a &lt;/#missing&gt;</h1>\n"
+            . "  <p><a href=\"#a\">a &lt;/#missing&gt;</a></p>\n"
+            . '</section>',
+            $this->html("{#a}\n# a </#missing>\n\n</#a>\n"),
+        );
+    }
+
+    public function testAClonedHeadingKeepsAComposedCaptionReferenceLabel(): void
+    {
+        $this->assertSame(
+            "<table id=\"t\">\n"
+            . "  <caption>Caption 1: test</caption>\n"
+            . "  <tbody>\n"
+            . "    <tr><td>a</td></tr>\n"
+            . "  </tbody>\n"
+            . "</table>\n"
+            . "<section id=\"h\">\n"
+            . "  <h1>Head <a href=\"#t\">Caption 1</a></h1>\n"
+            . "  <p><a href=\"#h\">Head Caption 1</a></p>\n"
+            . '</section>',
+            $this->html("{#t}\n| a |\n^ Caption #: test\n\n{#h}\n# Head </#t>\n\n</#h>\n"),
         );
     }
 
