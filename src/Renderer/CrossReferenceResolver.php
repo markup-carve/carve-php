@@ -623,15 +623,17 @@ class CrossReferenceResolver
         $number = $counters[$label];
         $numberNode->setNumber($number);
 
+        // PART 9R R4: an empty label leaves the number alone, with no separator.
+        $separator = $label === '' ? '' : ' ';
         $id = $group->getAttribute('id') ?? '';
         if ($id !== '') {
-            $tracker->setCaptionLabel($id, $label . ' ' . $number, $this->captionLabelNodes($caption, ' ' . $number));
+            $tracker->setCaptionLabel($id, $label . $separator . $number, $this->captionLabelNodes($caption, $separator . $number));
         }
 
         foreach ($group->getPanels() as $index => $panel) {
             $panelId = $panel->getAttribute('id') ?? '';
             if ($panelId !== '') {
-                $suffix = ' ' . $number . self::panelLetter($index);
+                $suffix = $separator . $number . self::panelLetter($index);
                 $tracker->setCaptionLabel($panelId, $label . $suffix, $this->captionLabelNodes($caption, $suffix));
             }
         }
@@ -682,9 +684,10 @@ class CrossReferenceResolver
         $number = $counters[$label];
         $numberNode->setNumber($number);
 
+        $separator = $label === '' ? '' : ' ';
         $id = $target->getAttribute('id') ?? '';
         if ($id !== '') {
-            $tracker->setCaptionLabel($id, $label . ' ' . $number, $this->captionLabelNodes($caption, ' ' . $number));
+            $tracker->setCaptionLabel($id, $label . $separator . $number, $this->captionLabelNodes($caption, $separator . $number));
         }
     }
 

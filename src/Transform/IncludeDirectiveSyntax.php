@@ -564,7 +564,8 @@ class IncludeDirectiveSyntax
 
     /**
      * A directive that stays literal text in core inline content: an invalid
-     * `@lines` range, or a bare `@code` on a bare path.
+     * `@lines` range, a `@code` language that is no `language_info` token (PART 10 I1c),
+     * or a bare `@code` on a bare path.
      *
      * @param array{end: int, quoted: bool, options: list<array{0: string, 1: string|null}>} $shape
      */
@@ -575,6 +576,9 @@ class IncludeDirectiveSyntax
                 return true;
             }
             if ($key === 'code' && $value === null && !$shape['quoted']) {
+                return true;
+            }
+            if ($key === 'code' && $value !== null && preg_match('~^[A-Za-z0-9_+#./-]+$~D', $value) !== 1) {
                 return true;
             }
         }
