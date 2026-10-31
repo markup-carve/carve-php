@@ -2,13 +2,6 @@
   "comment": "Conformance pack cases this engine renders differently from the spec model, one entry per cause with its open ticket. See tests/ConformancePackTest.php.",
   "entries": [
     {
-      "ticket": "markup-carve/carve#3972",
-      "cause": "all three engines agree against the spec model",
-      "cases": [
-        "ownership-bd5caf2c0c4d"
-      ]
-    },
-    {
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the lazy family",
       "cases": [
@@ -35,8 +28,7 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the ownership family",
       "cases": [
-        "ownership-2c66125f9d1c",
-        "ownership-edfbea8daa50"
+        "ownership-2c66125f9d1c"
       ]
     },
     {

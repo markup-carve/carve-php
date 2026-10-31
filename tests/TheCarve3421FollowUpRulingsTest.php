@@ -58,7 +58,7 @@ class TheCarve3421FollowUpRulingsTest extends TestCase
         yield 'hosted list follower folds' => ["> - - > +\n- s\n", '<blockquote><ul><li><ul><li><blockquote><p>+- s</p></blockquote></li></ul></li></ul></blockquote>'];
 
         yield 'wrapped attribute in a nested item' => ["- a\n  - b\n    {.c\n}\npara\n", '<ul><li>a<ul><li>b</li></ul></li></ul><p>para</p>'];
-        yield 'wrapped attribute below the column folds' => ["- a\n {.c\n}\npara\n", '<ul><li>a{.c}para</li></ul>'];
+        yield 'wrapped attribute below the column opens a block' => ["- a\n {.c\n}\npara\n", '<ul><li>a</li></ul><p class="c">para</p>'];
         yield 'dangling wrapped attribute loosens' => ["- a\n\n  {.c\n}\n- s\n", '<ul><li><p>a</p></li><li><p>s</p></li></ul>'];
         yield 'attribute follower of a quote plus' => ["> +\n{.c}\npara\n", '<blockquote><p class="c">para</p></blockquote>'];
         yield 'unclosed fence follower of a quote plus' => ["> +\n```\nx\n\ny\n", '<blockquote><pre><code>x</code></pre></blockquote><p>y</p>'];

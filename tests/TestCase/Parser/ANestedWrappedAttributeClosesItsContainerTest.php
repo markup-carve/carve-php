@@ -21,7 +21,7 @@ final class ANestedWrappedAttributeClosesItsContainerTest extends TestCase
             'quoted closer' => ["> - a\n>   {.c\n> }\npara\n", "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<p>para</p>\n"],
             'closer outside quote' => ["> - a\n>   {.c\n}\npara\n", "<blockquote>\n  <ul>\n    <li>a\n{.c\n}\npara</li>\n  </ul>\n</blockquote>\n"],
             'braces after a blank' => ["> - a\n>\n>   {x\n>   y\n", "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <p>{x\ny</p>\n    </li>\n  </ul>\n</blockquote>\n"],
-            'braces past the item column' => ["> - a\n>    {.c\n>   }\npara\n", "<blockquote>\n  <ul>\n    <li>a\n{.c\n}</li>\n  </ul>\n</blockquote>\n<p>para</p>\n"],
+            'braces past the item column' => ["> - a\n>    {.c\n>   }\npara\n", "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<p>para</p>\n"],
             'closer outside a plain quote' => ["> a\n> {.c\n}\nb\n", "<blockquote><p>a\n{.c\n}\nb</p></blockquote>\n"],
             'unquoted continuation cannot close a quote attribute' => ["> {.c\nx\n> }\npara\n", "<blockquote><p>{.c\nx\n}\npara</p></blockquote>\n"],
             'explicit continuation after the closer' => [":: t\n: - a\n    {.c\n}\n+\npara\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n    <p>para</p>\n  </dd>\n</dl>\n"],
