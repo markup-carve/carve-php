@@ -70,4 +70,12 @@ HTML
     {
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
+
+    public function testARefusedMarkerDoesNotAttachABlock(): void
+    {
+        $source = ":: t\n: ```\n+\n";
+        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n<p>+</p>";
+
+        self::assertSame($expected, trim((new CarveConverter())->convert($source)));
+    }
 }

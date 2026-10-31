@@ -1063,14 +1063,6 @@ final class DefinitionListBuilder
      */
     private function attachFlushLeftDescriptionBlock(DescriptionBodyCollection $b): bool
     {
-        // The marker sits outside the body's open fence. Give the body reader
-        // the same boundary the ownership walk already gave it (CARVE-P9-067).
-        $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
-        $closer = $b->bodyNestedState->attachmentCloser();
-        if ($closer !== null) {
-            $b->body[] = $closer;
-            $b->bodyMap[] = -1;
-        }
         $markerColumn = IndentationHelper::getLeadingColumns($b->lines[$b->i]);
         $b->i++;
         if (!$this->continuationFollowerIsEligible($b->i)) {
@@ -1097,6 +1089,7 @@ final class DefinitionListBuilder
                 }
             }
             if ($fencedRaw !== []) {
+                $this->closeDescriptionFenceBeforeAttachment($b);
                 $b->attachedDefinitionListOpen = false;
                 $b->body[] = '';
                 $b->bodyMap[] = -1;
@@ -1153,6 +1146,7 @@ final class DefinitionListBuilder
         $b->attachedDefinitionListOpen = $attachedReferenceSeen;
         $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
         if ($attached) {
+            $this->closeDescriptionFenceBeforeAttachment($b);
             $b->body[] = '';
             $b->bodyMap[] = -1;
             foreach ($attached as $attachedIndex => $a) {
@@ -1163,6 +1157,20 @@ final class DefinitionListBuilder
         }
 
         return true;
+    }
+
+    /**
+     * A taken marker sits outside the body's fence, even though the body
+     * reader never receives that marker line (CARVE-P9-067).
+     */
+    private function closeDescriptionFenceBeforeAttachment(DescriptionBodyCollection $b): void
+    {
+        $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+        $closer = $b->bodyNestedState->attachmentCloser();
+        if ($closer !== null) {
+            $b->body[] = $closer;
+            $b->bodyMap[] = -1;
+        }
     }
 
     /**
