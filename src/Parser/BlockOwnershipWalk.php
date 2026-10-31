@@ -410,7 +410,7 @@ final class BlockOwnershipWalk
                 $this->softLeaf = true;
             }
             $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts && !$captionsQuote && !$termRefuses && $form->kind !== 'dd'
-                && !($form->kind === 'item' && $next->kind === 'item' && $next->axes === $form->axes);
+                && !($form->kind === 'item' && $next->kind === 'item' && $next->marker !== null && $form->marker !== null && $this->listParser->itemMatchesList($next->marker, $form->marker));
             // Past a missed note a marker opens only beside a missed list (carve#4160).
             if ($lazy && $missedNote && $form->kind === 'item' && $missedItem) {
                 // The readers still see the note's lazy line.
@@ -691,6 +691,7 @@ final class BlockOwnershipWalk
                 markerCol: $col,
                 markerCanon: $canon,
                 axes: $form->axes,
+                marker: $form->marker,
                 task: $form->task,
                 reader: $reader + $form->width,
                 docMarker: self::docColumn($this->lines[$this->at], $this->src),
@@ -925,6 +926,7 @@ final class BlockOwnershipWalk
                     head: $head['content'],
                     interrupts: false,
                     task: isset($marker['taskMarker']),
+                    marker: $marker,
                     axes: $marker['type'] === 'ordered'
                         ? substr((string)$marker['marker'], -1)
                     : substr((string)$marker['marker'], 0, 1),
