@@ -2,6 +2,242 @@
     "about": "Tests the rule A port (#4216) still fails, each with its ticket. tests/RuleATodo.php runs them as expected failures.",
     "entries": [
         {
+            "test": "MarkupCarve\\Carve\\Test\\ACommentAfterARefusedPlusDoesNotFoldIntoTheItemTest::testTheCommentStaysOutOfTheItem with data set \"shifted nested item (#4280)\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\ACommentAfterARefusedPlusDoesNotFoldIntoTheItemTest::testTheCommentStaysOutOfTheItem with data set \"quoted host\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\FootnoteMarkerBeforeDefinitionTest::testDuplicateDefinitionIsConsumedByFirstBlockMarker",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\FootnoteMarkerBeforeDefinitionTest::testDistinctDefinitionStillEntersTheSymbolTable",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\ANoteOnANotesMarkerLineHostsItsBodyTest::testBodyOwnership with data set \"nested table\"",
+            "ticket": "carve#4522"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AClosedFenceUnderAMarkerLineNoteOpensInTheNoteTest::testTheNoteOwnsTheFence with data set \"at the content column of a list on the marker line\"",
+            "ticket": "carve#4522"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\BoundaryLineInsideAnOpenFenceTest::testTheListItemPlusCollectorKeepsACommentFenceWhole",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\BoundaryLineInsideAnOpenFenceTest::testTheBlockQuoteCollectorKeepsACommentFenceWhole",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\ContainerBoundariesTest::testSharedContainerBoundaries",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 166\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 174\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 182\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 475\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 483\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 491\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 784\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 792\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 800\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 1093\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 1101\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 1109\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 1402\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 1410\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 1418\"",
+            "ticket": "carve#4483"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"853-a-lazy-line-folds-into-the-paragraph-a-line-after-an-ended-descendant-started\"",
+            "ticket": "carve#4446"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"856-a-child-on-a-note-s-marker-line-is-measured-from-its-source-column-3\"",
+            "ticket": "carve#4522"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"856-every-folded-caret-line-loses-its-leading-whitespace-in-a-deep-term\"",
+            "ticket": "carve#4522"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-2\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-3\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-4\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"864-a-paragraph-after-a-closed-third-level-item-takes-a-lazy-line\"",
+            "ticket": "carve#4541"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"856-a-child-on-a-note-s-marker-line-is-measured-from-its-source-column-3\"",
+            "ticket": "carve#4522"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-2\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-3\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-4\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"864-a-fence-a-note-s-marker-line-item-opens-ends-at-a-column-zero-line\"",
+            "ticket": "carve#4541"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"853-a-lazy-line-folds-into-the-paragraph-a-line-after-an-ended-descendant-started\"",
+            "ticket": "carve#4446"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"854-an-indented-dash-line-neither-opens-nor-closes-frontmatter-2\"",
+            "ticket": "carve#4521"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"854-an-indented-dash-line-neither-opens-nor-closes-frontmatter\"",
+            "ticket": "carve#4521"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"856-a-child-on-a-note-s-marker-line-is-measured-from-its-source-column-3\"",
+            "ticket": "carve#4522"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"856-every-folded-caret-line-loses-its-leading-whitespace-in-a-deep-term\"",
+            "ticket": "carve#4522"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"858-a-typed-div-s-directive-classes-lead-its-attributes-4\"",
+            "ticket": "carve#4531"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-2\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-3\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-4\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"864-a-fence-a-note-s-marker-line-item-opens-ends-at-a-column-zero-line\"",
+            "ticket": "carve#4541"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"864-a-paragraph-after-a-closed-third-level-item-takes-a-lazy-line\"",
+            "ticket": "carve#4541"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"853-a-lazy-line-folds-into-the-paragraph-a-line-after-an-ended-descendant-started\"",
+            "ticket": "carve#4446"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"856-a-child-on-a-note-s-marker-line-is-measured-from-its-source-column-3\"",
+            "ticket": "carve#4522"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"856-every-folded-caret-line-loses-its-leading-whitespace-in-a-deep-term\"",
+            "ticket": "carve#4522"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-2\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-3\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-4\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s\"",
+            "ticket": "carve#4540"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"864-a-fence-a-note-s-marker-line-item-opens-ends-at-a-column-zero-line\"",
+            "ticket": "carve#4541"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"864-a-paragraph-after-a-closed-third-level-item-takes-a-lazy-line\"",
+            "ticket": "carve#4541"
+        },
+        {
             "test": "MarkupCarve\\Carve\\Test\\ABelowColumnMarkerKeepsItsParagraphOwnerTest::testBelowColumnPlusStaysLiteralInQuotedItem",
             "ticket": "carve-php#4244"
         },
@@ -1738,31 +1974,23 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 103-heading-marker-column-zero\"",
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 103-a-heading-marker-opens-at-an-indented-top-level-column\"",
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 103-heading-marker-column-zero-2\"",
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 103-a-heading-marker-opens-at-an-indented-top-level-column-2\"",
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 159-indented-reference-and-footnote-definitions-stay-literal-2\"",
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 159-indented-reference-and-footnote-definitions-register-2\"",
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 184-a-definition-below-every-content-column-folds-as-text\"",
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 184-a-definition-below-every-content-column-ends-the-item-and-registers\"",
             "ticket": "carve-php#4244"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 422-a-recognized-opener-in-a-body-needs-no-blank-line-above-it-6\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderLedgerTest::testTheLedgerRecordsTheOutputEveryRendererStillProduces",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderLedgerTest::testTheLedgerStillDescribesTheCorpus",
             "ticket": "carve-php#4244"
         },
         {

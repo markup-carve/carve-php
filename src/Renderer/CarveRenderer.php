@@ -626,8 +626,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         $refused = ($this->rebaseProbe ??= new BlockParser())->refusedPlusLinesOf($lines);
         foreach ($bare as $at => $line) {
-            // The canonical form keeps a description's escape (corpus 436).
-            if (!array_key_exists($at, $refused) || preg_match('/^[ \t>]*:[ \t]/', $line) === 1) {
+            if (!array_key_exists($at, $refused)) {
                 $lines[$at] = $line;
             }
         }

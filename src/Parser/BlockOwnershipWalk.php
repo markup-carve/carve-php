@@ -208,7 +208,7 @@ final class BlockOwnershipWalk
             // frames the walk closed when it read that block where it stands.
             if ($this->attachedTo !== null && str_contains($this->src, '+')) {
                 $stands = $this->levelOf($this->src, $this->attachedTo['depth']);
-                if ($stands !== null && self::isPlus($stands['rest'])) {
+                if ($stands !== null && self::isPlus($stands['rest']) && $stands['col'] === $this->attachedTo['column']) {
                     if (
                         $this->attachedBlockEndsAt($at)
                         && $this->attachesAt($this->attachedTo['kind'], $at, self::docColumn($lines[$at], $stands['rest']), count($this->attachedTo['frames']) - 1, $this->attachedTo['frames'])
@@ -349,8 +349,18 @@ final class BlockOwnershipWalk
             $termRefuses = $this->frames[$topIndex]->last === 'term' && ($this->listParser->parseListItemMarker($this->m['rest']) !== null
                 ? $missedQuote || $missedNote
                 : $missedQuote && preg_match(self::DESCRIPTION_LEAD, $this->m['rest']) === 1);
+            // That separator ends the quote; a container around it that the line also missed keeps it as lazy text (carve#4432).
+            if ($termRefuses && $this->listParser->parseListItemMarker($this->m['rest']) === null && $next?->kind !== 'quote' && !$missedNote) {
+                for ($k = $topIndex; $this->frames[$k]->kind !== 'quote'; $k--) {
+                }
+                array_splice($this->frames, $k);
+                $topIndex = count($this->frames) - 1;
+                $this->frames[$topIndex]->para = true;
+                $this->frames[$topIndex]->last = 'para';
+                $termRefuses = false;
+            }
             // A caption at its owner's block column attaches to a quote it follows and is never its lazy line (carve#4312).
-            $captionsQuote = $form->caption && $this->m['col'] === $this->frames[$reached]->col && $missedQuote && !$missedNote;
+            $captionsQuote = $form->caption && $this->m['col'] === $this->frames[$reached]->col && $next?->kind === 'quote' && !$missedNote;
             if ($captionsQuote) {
                 $this->softLeaf = true;
             }
@@ -646,13 +656,7 @@ final class BlockOwnershipWalk
             $leadTab = str_contains(substr($this->src, 0, $form->head), "\t");
             $this->take($form->head);
             $this->m = self::indentCols($this->src);
-            $top = count($this->frames) - 1;
-            // The readers set a note's marker-line content at its body column.
-            if ($form->kind === 'note') {
-                $this->content($top, $this->frames[$top]->col - $this->m['col'], $this->frames[$top]->canon - $this->m['col']);
-            } else {
-                $this->content($top, $col + $form->head, $canon + $form->head, $leadTab);
-            }
+            $this->content(count($this->frames) - 1, $col + $form->head, $canon + $form->head, $leadTab);
         }
     }
 
@@ -1004,7 +1008,7 @@ final class BlockOwnershipWalk
      */
     private function attachesAt(string $kind, int $at, int $column, int $hostIndex, ?array $frames = null): bool
     {
-        $line = $this->lines[$at + 1] ?? null;
+        $line = $this->lines[$this->firstVisibleLine($at + 1, $hostIndex, $column, $frames ?? $this->frames)] ?? null;
         if ($line === null) {
             return false;
         }
@@ -1030,6 +1034,72 @@ final class BlockOwnershipWalk
             'dd' => preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $rest) !== 1 && preg_match('/^:( +)(?=[ \t]*[^ \t])/', $rest) !== 1,
             default => true,
         };
+    }
+
+    /**
+     * The first line past the invisible lines from `$from` (CARVE-P9-013, carve#4449). Off the
+     * marker column an invisible line is that next line, and a note definition's body is its own.
+     *
+     * @param int $from
+     * @param int $hostIndex
+     * @param int $column
+     * @param array<int, \MarkupCarve\Carve\Parser\OwnershipFrame> $frames
+     */
+    private function firstVisibleLine(int $from, int $hostIndex, int $column, array $frames): int
+    {
+        $n = count($this->lines);
+        $view = fn (int $k): string => $this->throughQuotes($this->lines[$k], $hostIndex, $frames)['rest'] ?? "\u{E000}";
+        $k = $from;
+        while ($k < $n) {
+            $rest = rtrim($view($k), " \t");
+            if (self::docColumn($this->lines[$k], $view($k)) !== $column) {
+                return $k;
+            }
+            if (preg_match('/^(%{3,})/', $rest, $c) === 1 && ($this->closerRuns()['lastComment'][strlen($c[1])] ?? -1) > $k) {
+                $closer = '/^%{' . strlen($c[1]) . '}(?!%)/';
+                $k++;
+                while ($k < $n && preg_match($closer, $view($k)) !== 1) {
+                    $k++;
+                }
+                $k++;
+            } elseif (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $rest) === 1) {
+                $k++;
+                while ($k < $n && $this->foldsAsPlainText(rtrim($view($k), " \t"))) {
+                    $k++;
+                }
+            } elseif (preg_match('/^%%/', $rest) === 1 || ($this->isDefinition)($rest)) {
+                $k++;
+            } elseif ($rest !== '' && $rest[0] === '{' && ($this->isAttributeLine)($rest)) {
+                $k++;
+            } elseif ($rest !== '' && $rest[0] === '{') {
+                $run = [];
+                for ($j = $k; $j < $n && $j < $k + 64 && trim($view($j)) !== ''; $j++) {
+                    $run[] = rtrim($view($j), " \t");
+                }
+                $length = count($run) > 1 ? ($this->wrappedAttributeLength)($run) : null;
+                if ($length === null || $length < 2) {
+                    return $k;
+                }
+                $k += $length;
+            } else {
+                return $k;
+            }
+        }
+
+        return $n;
+    }
+
+    /**
+     * A line a note's body folds at its own column: text that opens no block.
+     */
+    private function foldsAsPlainText(string $rest): bool
+    {
+        if ($rest === '' || preg_match('/^(%%|\^ |::? (?=[ \t]*[^ \t]))/', $rest) === 1 || ($this->isDefinition)($rest)) {
+            return false;
+        }
+
+        return $this->classify($rest, new OwnershipFrame('doc', 0, 0, 0, para: true), 0)->kind === 'text'
+            && $this->classify($rest, new OwnershipFrame('doc', 0, 0, 0), 0)->kind === 'text';
     }
 
     /**

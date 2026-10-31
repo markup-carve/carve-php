@@ -50,9 +50,6 @@
       "cause": "untriaged day-one drift in the roundtrip family",
       "cases": [
         "roundtrip-2f0bd736a7de",
-        "roundtrip-39cdccb01232",
-        "roundtrip-684e0d745137",
-        "roundtrip-356e68ae4d90",
         "roundtrip-702a692a40ae",
         "roundtrip-73c51797f6b8",
         "roundtrip-d1f9fa04915c"
@@ -79,7 +76,6 @@
         "notes-8a58290254d3",
         "notes-9429cd878645",
         "notes-ac7d6a615617",
-        "notes-e344b261ace5",
         "ownership-35dce7b7ed21",
         "ownership-aa029b4ae556"
       ]
@@ -91,26 +87,16 @@
         "attributes-4db504145296",
         "fences-47b46eff67d0",
         "fences-53415847bc3e",
+        "fences-c9b7d1a267bf",
         "lazy-593582276fea",
         "lazy-68fe7c68d81d",
-        "lazy-e5f10323832e",
+        "ownership-19a15d4c0b00",
         "ownership-5c23f3ce4ed2",
+        "plus-f3825032510f",
         "roundtrip-0c1279f7ce48",
-        "roundtrip-1a6a5531cfa5",
         "roundtrip-29bf84d5501e",
-        "roundtrip-615415506b26"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve#4470",
-      "cause": "the pinned pack predates the continuation-cell ruling; this engine renders as the spec model on carve main",
-      "cases": [
-        "inline-cb88dff1b472",
-        "plus-50d07ed355d0",
-        "plus-69d271a411f9",
-        "plus-baf998c9d969",
-        "plus-d438ebc082a8",
-        "plus-f56c0c6d25a9"
+        "roundtrip-615415506b26",
+        "roundtrip-c5d30c150732"
       ]
     }
   ]
