@@ -15,9 +15,9 @@ final class TabAfterListMarkerStaysContentTest extends TestCase
      */
     public static function cases(): iterable
     {
-        yield 'bullet and quote' => ["- \t> a", "<ul>\n  <li>&gt; a</li>\n</ul>\n"];
-        yield 'ordered and quote' => ["1. \t> a", "<ol>\n  <li>&gt; a</li>\n</ol>\n"];
-        yield 'bullet and heading' => ["- \t# h", "<ul>\n  <li># h</li>\n</ul>\n"];
+        yield 'bullet and quote' => ["- \t> a", "<ul>\n  <li>\t&gt; a</li>\n</ul>\n"];
+        yield 'ordered and quote' => ["1. \t> a", "<ol>\n  <li>\t&gt; a</li>\n</ol>\n"];
+        yield 'bullet and heading' => ["- \t# h", "<ul>\n  <li>\t# h</li>\n</ul>\n"];
         yield 'space before quote' => ['- > a', "<ul>\n  <li>\n    <blockquote><p>a</p></blockquote>\n  </li>\n</ul>\n"];
     }
 

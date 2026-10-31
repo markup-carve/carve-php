@@ -719,7 +719,8 @@ final class BlockOwnershipWalk
                 written: self::columnOf($this->out),
             );
             // Content behind a lead tab is paragraph text, whatever it spells (corpus 684, 736, 840).
-            $leadTab = str_contains(substr($this->src, 0, $form->head), "\t");
+            $leadTab = str_contains(substr($this->src, 0, $form->head), "\t")
+                || ($this->src[$form->head] ?? '') === "\t";
             $this->take($form->head);
             $this->m = self::indentCols($this->src);
             $this->content(count($this->frames) - 1, $col + $form->head, $canon + $form->head, $leadTab);

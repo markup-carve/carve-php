@@ -46,7 +46,7 @@ class DifferentialAuditRegressionTest extends TestCase
 
     public function testMarkerSpaceMayBeFollowedByTabPadding(): void
     {
-        $this->assertStringContainsString('<li>b</li>', (new CarveConverter())->convert(". \tb\n"));
+        $this->assertStringContainsString("<li>\tb</li>", (new CarveConverter())->convert(". \tb\n"));
     }
 
     public function testResidualQuoteIndentKeepsAThematicRunInTheParagraph(): void

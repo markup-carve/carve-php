@@ -74,14 +74,6 @@
       ]
     },
     {
-      "ticket": "markup-carve/carve#4610",
-      "cause": "a tab after a marker separator keeps the content column and stays content",
-      "cases": [
-        "fences-beb7a2645809",
-        "notes-d0f399e3e8f0"
-      ]
-    },
-    {
       "ticket": "markup-carve/carve#4615",
       "cause": "a lazy line in a line block does not stop its closer",
       "cases": [
