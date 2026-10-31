@@ -1596,6 +1596,11 @@ final class DefinitionListBuilder
                 || !$this->lineOpensBlockForLooseness($l->trimmedCont, true, invisibleArms: false))
         ) {
             $b->body[$l->lastBodyKey] .= "\n" . $l->trimmedCont;
+            // A folded invalid opener still arms absorption for the bare run after it (CARVE-P9-016).
+            if (str_starts_with($l->trimmedCont, ':::') && ($this->getFencedBlockParser)()->parseDivFenceOpener($l->trimmedCont) === null) {
+                $b->bodyState->absorbingFence = !$b->bodyState->hasOpenDiv();
+                $b->bodyNestedState->absorbingFence = !$b->bodyNestedState->hasOpenDiv();
+            }
             $b->i++;
 
             return true;

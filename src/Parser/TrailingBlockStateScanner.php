@@ -168,6 +168,10 @@ final class TrailingBlockStateScanner
         // the later fence opens a real div (carve#891).
         $wasAbsorbing = $state->absorbingFence;
         $state->absorbingFence = false;
+        $wasDivAbsorbing = $state->divAbsorbing;
+        $wasDivAbsorbedRun = $state->divAbsorbedRun;
+        $state->divAbsorbing = false;
+        $state->divAbsorbedRun = false;
         // `isLead` is retained in the state shape for callers that seed it, but
         // headings now answer from their block kind rather than their position.
         $state->isLead = false;
@@ -310,6 +314,16 @@ final class TrailingBlockStateScanner
 
                 return $state;
             }
+            if ($wasDivAbsorbing && preg_match('/^:{3,}[ \t]*$/', ltrim(BlockGrammar::subjectFrom($line, $at, $end), " \t")) === 1) {
+                $closes = ($this->getFencedBlockParser)()->isDivFenceCloser(BlockGrammar::subjectFrom($line, $at, $end), $state->divFenceLength);
+                if ($wasDivAbsorbedRun || !$closes) {
+                    $state->divAbsorbing = true;
+                    $state->divAbsorbedRun = true;
+                    $state->openParagraph = true;
+
+                    return $state;
+                }
+            }
             if (($this->getFencedBlockParser)()->isDivFenceCloser(BlockGrammar::subjectFrom($line, $at, $end), $state->divFenceLength)) {
                 $state->inDiv = false;
                 $state->literalDiv = false;
@@ -418,6 +432,8 @@ final class TrailingBlockStateScanner
             // Deliberately as narrow as the rest of this tracker: any other
             // non-blank line inside the div counts as paragraph-bearing.
             $state->openParagraph = !IndentationHelper::isBlankFrom($line, $at);
+            $state->divAbsorbing = $state->openParagraph && ($wasDivAbsorbing || str_starts_with($trimmedInDiv, ':::'));
+            $state->divAbsorbedRun = $state->divAbsorbing && $wasDivAbsorbedRun;
 
             return $state;
         }
