@@ -3401,6 +3401,8 @@ class BlockParser
         $count = count($lines);
 
         $bodyLines = [$content];
+        // A block a `+` attached ends at a blank, even with its fence open (PART 9 section 17 L3).
+        $endsAtBlank = false;
         $termScan = null;
         $commentSpan = new CollectedCommentSpan();
         $bodyLineMap = [$this->sourceLineFor($start)];
@@ -3420,6 +3422,7 @@ class BlockParser
                 $bodyLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedLineMap);
                 $i = $end;
                 $firstBlockAttached = true;
+                $endsAtBlank = true;
             }
         }
         // Tracked for the same reason the list-item collectors track it: inside
@@ -3432,6 +3435,7 @@ class BlockParser
         }
         // A first-block `+` body takes lazy lines like a standalone one's attached block (PART 0 S4).
         $plusContinuationOpen = $firstBlockAttached || trim($content, " \t") === '+';
+        $childFence = new PlainContinuationState();
         $retainedBelowComment = false;
         $footnoteColumn = new IndentedContainerColumn(self::FOOTNOTE_BODY_COLUMN);
         foreach (
@@ -3459,6 +3463,14 @@ class BlockParser
                     true,
                 );
                 if ($resumes === null) {
+                    // A blank reaches every frame, so an open fence keeps the run before the line that ends the body.
+                    $keepsRun = !$endsAtBlank
+                        && ($trailingState->fence !== null || $this->continuationsMapper()->childMarkerLineFenceOpen($childFence, $bodyLines));
+                    for (; $keepsRun && $i < $count && IndentationHelper::isBlankLine($lines[$i]); $i++) {
+                        $bodyLines[] = $this->blankLineResidue($lines[$i], self::FOOTNOTE_BODY_COLUMN, $trailingState);
+                        $bodyLineMap[] = $this->sourceLineFor($i);
+                    }
+
                     break;
                 }
                 // INTACT, one blank per source line, so a §11 N1a boundary
@@ -3513,6 +3525,7 @@ class BlockParser
                         $bodyLineMap[] = $this->sourceLineFor($attachedLineMap[$attachedIndex]);
                         $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $attachedLine);
                     }
+                    $endsAtBlank = true;
                 }
 
                 continue;
@@ -3634,7 +3647,7 @@ class BlockParser
             }
         }
 
-        while ($bodyLines !== [] && end($bodyLines) === '') {
+        while (($endsAtBlank || ($trailingState->fence === null && $childFence->markerLineFence === null)) && $bodyLines !== [] && end($bodyLines) === '') {
             array_pop($bodyLines);
             array_pop($bodyLineMap);
         }

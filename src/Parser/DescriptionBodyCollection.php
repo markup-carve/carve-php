@@ -70,6 +70,8 @@ final class DescriptionBodyCollection
 
     public int $bodyNestedCursor = 0;
 
+    public ?PlainContinuationState $childFence = null;
+
     public int $bodyAttributeThrough = -1;
 
     public bool $bodyEndsWithAttribute = false;

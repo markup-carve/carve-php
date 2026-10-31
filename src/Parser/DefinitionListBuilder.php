@@ -1982,6 +1982,17 @@ final class DefinitionListBuilder
 
                 return true;
             }
+            // A blank reaches every frame, so an open fence keeps the run before the line that ends the body.
+            $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+            $b->childFence ??= new PlainContinuationState();
+            if ($b->bodyNestedState->fence !== null || $this->continuations->childMarkerLineFenceOpen($b->childFence, $b->body)) {
+                for (; $b->i < $look; $b->i++) {
+                    $b->body[] = $this->blankLineResidue($b->lines[$b->i], $b->continuationColumn, $b->bodyNestedState);
+                    $b->bodyMap[] = $this->sourceLineFor($b->i);
+                }
+
+                return false;
+            }
         }
 
         // A new term/definition marker ends this definition (the
