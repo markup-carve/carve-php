@@ -1637,7 +1637,6 @@ class CarveCorpusTest extends TestCase
         '867-an-indented-comment-block-in-a-line-block-leaves-nothing-2' => 'carve#4469: an indented comment block in a line block leaves nothing',
         '867-an-indented-comment-block-in-a-line-block-leaves-nothing' => 'carve#4469: an indented comment block in a line block leaves nothing',
         '868-a-line-at-a-body-s-column-after-a-plus-attached-quote-holding-an-empty-div-stays-in-the-body' => 'carve#4385: a line at a body\'s column after a +-attached quote holding an empty div stays in the body',
-        '868-a-paragraph-a-lone-plus-attaches-stays-the-item-s-open-paragraph-2' => 'carve#4208: a paragraph a lone + attaches stays the item\'s open paragraph',
         '868-a-plus-at-the-column-of-a-container-opened-on-another-marker-line-attaches-the-next-block-2' => 'carve#4359: a + at the column of a container opened on another marker line attaches the next block',
         '871-a-div-closes-only-on-a-run-of-its-own-width-2' => 'carve#4550: a div closes only on a run of its own width',
         '871-a-div-closes-only-on-a-run-of-its-own-width-3' => 'carve#4550: a div closes only on a run of its own width',
