@@ -107,7 +107,7 @@ final class BlockOwnershipWalk
     private ?array $attachedTo = null;
 
     /**
-     * @var array{widest: array<string, array<int, int>>, lastComment: array<int, int>}|null
+     * @var array{widest: array<string, array<int, int>>, lastComment: array<int, int>, commentPositions: array<int, list<int>>, nextBlank: array<int, int>}|null
      */
     private ?array $runs = null;
 
@@ -507,7 +507,10 @@ final class BlockOwnershipWalk
             }
             if (
                 $missed && !$plusFollower && $this->m['rest'] !== '' && !$afterSoftLeaf
-                && !($inner->kind === 'fence' && $inner->family !== 'code')
+                && ($inner->kind !== 'fence' || $inner->family === 'code'
+                    || ($inner->family === 'comment' && $reached === 0 && $innerIndex === 2
+                        && in_array($this->frames[1]->kind, ['quote', 'dd', 'note'], true)
+                        && $this->commentCloserBeforeBlank($at, $inner)))
                 && (!$this->frames[$topIndex]->para || ($termRefuses && $next?->kind !== 'item') || ($form->kind === 'leaf' && $form->interrupts
                     && (($this->isDefinition)($this->m['rest']) || $this->abbreviationAtColumnZero($reached, $form))))
             ) {
@@ -989,7 +992,32 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * @return array{widest: array<string, array<int, int>>, lastComment: array<int, int>}
+     * A missed comment owner closes the reader's run only while a closer is still in it.
+     */
+    private function commentCloserBeforeBlank(int $from, OwnershipFrame $fence): bool
+    {
+        if ($fence->opened === null || preg_match('/(%{3,})/', $this->lines[$fence->opened], $opener) !== 1) {
+            return false;
+        }
+        $length = strlen($opener[1]);
+        $runs = $this->closerRuns();
+        $positions = $runs['commentPositions'][$length] ?? [];
+        $lo = 0;
+        $hi = count($positions);
+        while ($lo < $hi) {
+            $mid = intdiv($lo + $hi, 2);
+            if ($positions[$mid] <= $from) {
+                $lo = $mid + 1;
+            } else {
+                $hi = $mid;
+            }
+        }
+
+        return isset($positions[$lo]) && $positions[$lo] < ($runs['nextBlank'][$from + 1] ?? count($this->lines));
+    }
+
+    /**
+     * @return array{widest: array<string, array<int, int>>, lastComment: array<int, int>, commentPositions: array<int, list<int>>, nextBlank: array<int, int>}
      */
     private function closerRuns(): array
     {
@@ -999,22 +1027,36 @@ final class BlockOwnershipWalk
         $n = count($this->lines);
         $widest = ['`' => array_fill(0, $n + 1, 0), '~' => array_fill(0, $n + 1, 0)];
         $lastComment = [];
+        $commentPositions = [];
+        $nextBlank = [$n => $n];
         for ($j = $n - 1; $j >= 0; $j--) {
             $rest = self::indentCols($this->lines[$j])['rest'];
             while (preg_match(self::QUOTE, $rest, $q) === 1) {
                 $rest = self::indentCols($q[1] ?? '')['rest'];
             }
+            $nextBlank[$j] = $rest === '' ? $j : $nextBlank[$j + 1];
             $widest['`'][$j] = $widest['`'][$j + 1];
             $widest['~'][$j] = $widest['~'][$j + 1];
             if (preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $rest, $c) === 1) {
                 $widest[$c[1][0]][$j] = max($widest[$c[1][0]][$j], strlen($c[1]));
             }
-            if (preg_match('/^(%{3,})/', $rest, $c) === 1 && !isset($lastComment[strlen($c[1])])) {
-                $lastComment[strlen($c[1])] = $j;
+            if (preg_match('/^(%{3,})/', $rest, $c) === 1) {
+                $width = strlen($c[1]);
+                $lastComment[$width] ??= $j;
+                $commentPositions[$width][] = $j;
             }
         }
+        foreach ($commentPositions as &$positions) {
+            $positions = array_reverse($positions);
+        }
+        unset($positions);
 
-        return $this->runs = ['widest' => $widest, 'lastComment' => $lastComment];
+        return $this->runs = [
+            'widest' => $widest,
+            'lastComment' => $lastComment,
+            'commentPositions' => $commentPositions,
+            'nextBlank' => $nextBlank,
+        ];
     }
 
     /**
