@@ -140,7 +140,9 @@ class CarveFmtCorpusTest extends TestCase
      *
      * @var array<string, array{0: int, 1: string}>
      */
-    private const IDLE_ESCAPE_RATCHET = [];
+    private const IDLE_ESCAPE_RATCHET = [
+        '872-the-third-confirmation-round-s-model-findings-15' => [1, 'minimal class: a quoted value in a substitution\'s arrow part keeps the enclosed-span escape (carve#4620)'],
+    ];
 
     /**
      * @throws \RuntimeException when the spec submodule is not initialized
@@ -956,7 +958,7 @@ class CarveFmtCorpusTest extends TestCase
     public function testEveryRatchetEntryCarriesACountAndAReason(): void
     {
         $corpus = self::corpusProvider();
-        $this->assertSame([], self::IDLE_ESCAPE_RATCHET);
+        $this->assertSame(['872-the-third-confirmation-round-s-model-findings-15'], array_keys(self::IDLE_ESCAPE_RATCHET));
 
         foreach (self::IDLE_ESCAPE_RATCHET as $slug => [$count, $reason]) {
             $this->assertArrayHasKey($slug, $corpus, 'the ratchet names a document the corpus does not have: ' . $slug);

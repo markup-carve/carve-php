@@ -2,16 +2,6 @@
   "comment": "Conformance pack cases this engine renders differently from the spec model, one entry per cause with its open ticket. See tests/ConformancePackTest.php.",
   "entries": [
     {
-      "ticket": "markup-carve/carve#4545",
-      "cause": "the pinned pack predates the ruling: a marker between an item's columns that differs on any axis folds",
-      "cases": [
-        "ownership-53d830f1834e",
-        "ownership-80748f26d9ed",
-        "ownership-baace234ff19",
-        "ownership-dc80fafb5ce9"
-      ]
-    },
-    {
       "ticket": "markup-carve/carve#3972",
       "cause": "all three engines agree against the spec model",
       "cases": [
@@ -22,8 +12,6 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the lazy family",
       "cases": [
-        "lazy-6a3639026983",
-        "lazy-7816b7379b87",
         "lazy-7eae4bb5a252",
         "lazy-f7cdb17f9cb9",
         "lazy-fef11cbd6ca1"
@@ -33,7 +21,6 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the notes family",
       "cases": [
-        "notes-12cef8a29280",
         "notes-2ce0a0643b77",
         "notes-4dc51b5608ab",
         "notes-4f3571464f16",
@@ -59,7 +46,6 @@
       "cause": "untriaged day-one drift in the roundtrip family",
       "cases": [
         "roundtrip-2f0bd736a7de",
-        "roundtrip-702a692a40ae",
         "roundtrip-73c51797f6b8",
         "roundtrip-d1f9fa04915c"
       ]
@@ -79,16 +65,36 @@
       "cause": "remaining differences of the + port; listed in the PR body",
       "cases": [
         "attributes-4db504145296",
-        "fences-47b46eff67d0",
         "fences-53415847bc3e",
         "lazy-68fe7c68d81d",
         "ownership-19a15d4c0b00",
-        "ownership-5c23f3ce4ed2",
         "plus-f3825032510f",
-        "roundtrip-0c1279f7ce48",
         "roundtrip-29bf84d5501e",
         "roundtrip-615415506b26",
         "roundtrip-c5d30c150732"
+      ]
+    },
+    {
+      "ticket": "markup-carve/carve#4610",
+      "cause": "a tab after a marker separator keeps the content column and stays content",
+      "cases": [
+        "fences-beb7a2645809",
+        "notes-d0f399e3e8f0"
+      ]
+    },
+    {
+      "ticket": "markup-carve/carve#4615",
+      "cause": "a lazy line in a line block does not stop its closer",
+      "cases": [
+        "lazy-70acba91ccbd",
+        "roundtrip-702a692a40ae"
+      ]
+    },
+    {
+      "ticket": "markup-carve/carve#4618",
+      "cause": "a task item with a wide gap keeps its content column",
+      "cases": [
+        "ownership-08cd1743ebaf"
       ]
     }
   ]
