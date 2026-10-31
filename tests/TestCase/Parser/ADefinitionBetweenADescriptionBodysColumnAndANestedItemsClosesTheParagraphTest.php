@@ -518,22 +518,9 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
     }
 
     /**
-     * THE WRAPPED ATTRIBUTE FORM FOLDS, and the container body has to answer it
-     * the way the BARE body already does. A code review read the single-line
-     * attribute guard as incomplete - it is asked with the trimmed line while
-     * `wrappedBlockAttributeLength()` is asked with the raw one, so an INDENTED
-     * `{.k` / `.b}` pair reaches the fold - and proposed refusing it there too.
-     *
-     * Measured instead: the bare body has folded an indented wrapped pair below
-     * its column all along, before and after this change and in agreement with
-     * carve-js `997e156`, so refusing it in the container body would make the
-     * two hosts disagree - the exact split this ticket exists to close. Adding
-     * the guard moves 0 documents across the 5400-document below-column sweep,
-     * the 8370-document container-body sweep and the 4788-document
-     * description-host sweep, and on these four rows it takes the two container
-     * rows off carve-js's answer. Both hosts differ from the executable spec at
-     * `0b0edf50` here, before and after alike; that is the wrapped-attribute
-     * band's own question and not this one.
+     * The carve#4089 ruling reads the wrapped attribute as a block line below
+     * either body. It ends the old paragraph and attaches to the next document
+     * paragraph.
      *
      * @return array<string, array{0: string, 1: int}>
      */
@@ -556,8 +543,8 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
         $html = $this->converter->convert(":: t\n:  " . $body . "\n" . $pad . "{.k\n" . $pad . ".b}\ntail");
 
         $expected = $body === 'a'
-            ? "<dl>\n  <dt>t</dt>\n  <dd>a\n{.k\n.b}\ntail</dd>\n</dl>"
-            : "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n{.k\n.b}\ntail</li>\n    </ul>\n  </dd>\n</dl>";
+            ? "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p class=\"k b\">tail</p>"
+            : "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p class=\"k b\">tail</p>";
         $this->assertSame($expected, trim($html));
     }
 }

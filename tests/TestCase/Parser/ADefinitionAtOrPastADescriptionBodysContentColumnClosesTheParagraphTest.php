@@ -598,33 +598,21 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
     }
 
     /**
-     * THE WRAPPED ATTRIBUTE SPELLING DOES NOT ANSWER LIKE THE SINGLE-LINE ONE,
-     * and that asymmetry is the ruled answer rather than an oversight. A code
-     * review read the guard above as incomplete - it asks
-     * `isBlockAttributeLine()`, which sees `{.k}` and not a `{.a` / `.b}` pair -
-     * and proposed extending it to the wrapped form. Measured instead: at
-     * columns 4 and 5 the executable spec at `35148309` and carve-js `3ca6d8c`
-     * BOTH fold the wrapped run as text and keep `tail` inside, which is what
-     * this engine already does, so extending the guard would have moved two
-     * columns away from every other reading.
-     *
-     * Columns 0 to 2 diverge from the spec, before and after this change and in
-     * the same direction: the wrapped form is its own pre-existing band and is
-     * pinned here as one, not as agreement.
+     * The carve#4089 ruling reads a wrapped attribute at every column. Below
+     * the description body it attaches to the following document paragraph;
+     * at or past the body column it ends the body's paragraph and is dropped.
      *
      * @return array<string, array{0: int, 1: string}>
      */
     public static function wrappedAttributeProvider(): array
     {
-        $folded = "<dl>\n  <dt>t</dt>\n  <dd>body\n{.a\n.b}\ntail</dd>\n</dl>";
-
         return [
             'column 0' => [0, "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<p class=\"a b\">tail</p>"],
-            'below the column, 1' => [1, $folded],
-            'below the column, 2' => [2, $folded],
+            'below the column, 1' => [1, "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<p class=\"a b\">tail</p>"],
+            'below the column, 2' => [2, "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<p class=\"a b\">tail</p>"],
             'at the column' => [3, "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<p>tail</p>"],
-            'one past the column' => [4, $folded],
-            'two past the column' => [5, $folded],
+            'one past the column' => [4, "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<p>tail</p>"],
+            'two past the column' => [5, "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<p>tail</p>"],
         ];
     }
 

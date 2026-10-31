@@ -1594,13 +1594,6 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
-        '787-a-wrapped-attribute-opener-indented-in-a-body-is-an-attribute-line' => 'carve#4096: an over-indented wrapped attribute opener is paragraph text',
-        '787-a-wrapped-attribute-opener-indented-in-a-body-is-an-attribute-line-2' => 'carve#4096: an over-indented wrapped attribute opener is paragraph text',
-        '787-a-wrapped-attribute-opener-indented-in-a-body-is-an-attribute-line-3' => 'carve#4096: an over-indented wrapped attribute opener is paragraph text',
-        '787-a-wrapped-attribute-opener-indented-in-a-body-is-an-attribute-line-4' => 'carve#4096: an over-indented wrapped attribute opener is paragraph text',
-        '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-5' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
-        '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-6' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
-        '793-an-indented-attribute-block-that-wraps-across-lines-is-an-attribute-line-7' => 'carve#4144: an indented attribute block that wraps across lines is an attribute line',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame-2' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
         '815-a-line-below-an-empty-div-after-a-first-block-plus-is-not-lazy-2' => 'carve#4409: a nested item\'s attached empty div takes the line below it',

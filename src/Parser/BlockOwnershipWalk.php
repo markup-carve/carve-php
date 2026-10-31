@@ -816,13 +816,6 @@ final class BlockOwnershipWalk
      */
     private function opensWrappedAttribute(string $rest, OwnershipFrame $owner): bool
     {
-        // A line below its deepest open frame stays with the existing lazy reading.
-        if (!$this->onMarkerLine && $this->reach < count($this->frames) - 1) {
-            return false;
-        }
-        if (($owner->kind === 'item' || $owner->kind === 'dd') && $this->m['col'] !== $owner->col) {
-            return false;
-        }
         $depth = 0;
         foreach ($this->frames as $frame) {
             if ($this->onMarkerLine && $frame->kind !== 'quote' && $frame->kind !== 'doc') {
