@@ -1297,6 +1297,7 @@ final class ListBlockBuilder
         // block construct, so the shared trailing tracker cannot
         // carry it - see advanceItemCommentFence().
         $subOpenCommentLength = null;
+        $subLowSpanCloser = false;
         // Whether the collected stream already holds list content;
         // sibling markers inside it are the nested list's own
         // business and must not get a loosening blank injected.
@@ -1340,6 +1341,10 @@ final class ListBlockBuilder
             }
             $sourceLine = $this->sourceLineFor($i);
             $priorSource = $this->state->source->sourceLines[$sourceLine - 1] ?? '';
+            // A span closed below the column changes no ownership, and it closed the paragraph (CARVE-P0-005, I5).
+            if ($subLowSpanCloser && !IndentationHelper::isBlankLine($subLine) && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent) {
+                break;
+            }
             if (
                 self::belowMarkerLineFence($subLine, $priorSource, $subIndent)
                 || $this->isLowLineComment($lines, $i, $subLine, $subIndent, [$subOpenCommentLength, $subTrailingState->fence])
@@ -1478,6 +1483,7 @@ final class ListBlockBuilder
                 ? null
                 : $this->advanceItemCommentFence($subOpenCommentLength, $subMarkerComment ?? $subLine, $lines, $i);
             $subSpanClosedHere = $inSubCommentSpan && $subOpenCommentLength === null;
+            $subLowSpanCloser = $subSpanClosedHere && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent;
             $subWasOpenParagraph = $subTrailingState->openParagraph;
             $subWasAfterComment = $subTrailingState->afterComment;
 
