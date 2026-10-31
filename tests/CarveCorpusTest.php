@@ -1648,8 +1648,6 @@ class CarveCorpusTest extends TestCase
         '872-the-third-confirmation-round-s-model-findings-10' => 'carve#4618: a task item with a wide gap keeps its content column',
         '872-the-third-confirmation-round-s-model-findings-11' => 'carve#4618: a task item with a wide gap keeps its content column',
         '872-the-third-confirmation-round-s-model-findings-12' => 'carve#4619: a lone refused directive folds no line in an item',
-        '872-the-third-confirmation-round-s-model-findings-13' => 'carve#4620: an arrow in an attached attribute run keeps its substitution',
-        '872-the-third-confirmation-round-s-model-findings-14' => 'carve#4620: an arrow in an attached attribute run keeps its substitution',
         '872-the-third-confirmation-round-s-model-findings-3' => 'carve#4615: a lazy line in a line block does not stop its closer',
         '872-the-third-confirmation-round-s-model-findings-4' => 'carve#4615: a lazy line in a line block does not stop its closer',
         '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',
