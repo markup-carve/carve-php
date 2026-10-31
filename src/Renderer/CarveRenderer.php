@@ -1842,15 +1842,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         $children = $block->getChildren();
-        if (count($children) !== 1) {
-            return false;
+        // A comment leaves an image the paragraph's whole content (carve#4568).
+        $visible = array_values(array_filter($children, static fn (Node $child): bool => !$child instanceof Comment));
+        if (count($visible) === 1 && $visible[0] instanceof Image) {
+            return UnresolvedReference::sourceOf($visible[0]) === null;
         }
 
-        if ($children[0] instanceof Image) {
-            return UnresolvedReference::sourceOf($children[0]) === null;
-        }
-
-        return $children[0] instanceof Math && $children[0]->isDisplay();
+        return count($children) === 1 && $children[0] instanceof Math && $children[0]->isDisplay();
     }
 
     /**

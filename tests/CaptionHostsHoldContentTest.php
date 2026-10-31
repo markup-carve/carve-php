@@ -37,6 +37,15 @@ final class CaptionHostsHoldContentTest extends TestCase
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
 
+    public function testTheFormatterKeepsADetachedCaretLineDetached(): void
+    {
+        $source = "![a](/i) %% c\n\n\n^ cap\n";
+        $formatted = CarveConverter::toCarve($source);
+
+        self::assertSame((new CarveConverter())->convert($source), (new CarveConverter())->convert($formatted));
+        self::assertSame($formatted, CarveConverter::toCarve($formatted));
+    }
+
     public function testTheFormatterKeepsTheComment(): void
     {
         self::assertSame("![a](/i) %% c\n^ cap\n", CarveConverter::toCarve("![a](/i) %% c\n^ cap\n"));
