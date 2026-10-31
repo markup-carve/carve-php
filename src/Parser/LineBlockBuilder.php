@@ -155,24 +155,157 @@ final class LineBlockBuilder
             AttributeParser::applyToNode($lineBlock, substr($divInfo['attrs'], 1, -1));
         }
 
+        $contentLines = array_map(BlockGrammar::stripLazyFrame(...), $contentLines);
+        // A closed `%%%` pair leaves no verse line and splits no stanza (CARVE-P9-047).
+        // Only an opener whose first character is `%` qualifies; the closer may be indented.
+        $lastCloser = [];
+        foreach ($contentLines as $index => $contentLine) {
+            $run = self::commentRun($contentLine);
+            if ($run !== null) {
+                $lastCloser[$run] = $index;
+            }
+        }
+
         $stanza = [];
-        $lineNumber = $start + 1;
-        foreach ($contentLines as $contentLine) {
-            $contentLine = BlockGrammar::stripLazyFrame($contentLine);
+        /** @var list<\MarkupCarve\Carve\Node\Block\Comment> $leading */
+        $leading = [];
+        /** @var list<\MarkupCarve\Carve\Node\Block\Comment> $before */
+        $before = [];
+        /** @var array<int, list<\MarkupCarve\Carve\Node\Block\Comment>> $after */
+        $after = [];
+        $count = count($contentLines);
+        for ($index = 0; $index < $count; $index++) {
+            $contentLine = $contentLines[$index];
+            $lineNumber = $start + 1 + $index;
+            if (preg_match('/^(%{3,})(.*)$/', $contentLine, $opener) === 1 && ($lastCloser[strlen($opener[1])] ?? -1) > $index) {
+                $run = strlen($opener[1]);
+                $closer = $index + 1;
+                while (self::commentRun($contentLines[$closer]) !== $run) {
+                    $closer++;
+                }
+                $tail = trim($opener[2], " \t");
+                $commentLines = array_slice($contentLines, $index + 1, $closer - $index - 1);
+                $comment = new Comment(implode("\n", $tail === '' ? $commentLines : [$tail, ...$commentLines]), $run);
+                $this->stampBlockSpan($comment, $this->sourceLineFor($lineNumber), $this->sourceLineFor($start + 1 + $closer));
+                if ($stanza !== []) {
+                    $after[count($stanza) - 1][] = $comment;
+                } else {
+                    $leading[] = $comment;
+                }
+                $index = $closer;
+
+                continue;
+            }
             if (IndentationHelper::isBlankLine($contentLine)) {
-                $this->callAppendLineBlockStanza($lineBlock, $stanza);
+                $this->appendStanzaWithBlockComments($lineBlock, $stanza, $before, $after);
                 $stanza = [];
+                $before = [];
+                $after = [];
             } else {
+                if ($stanza === []) {
+                    $before = $leading;
+                    $leading = [];
+                }
                 $stanza[] = [$contentLine, $lineNumber];
             }
-
-            $lineNumber++;
         }
-        $this->callAppendLineBlockStanza($lineBlock, $stanza);
+        if ($stanza !== [] && $leading !== []) {
+            array_push($after[count($stanza) - 1], ...$leading);
+            $leading = [];
+        }
+        $this->appendStanzaWithBlockComments($lineBlock, $stanza, $before, $after);
+        if ($leading !== []) {
+            $host = $lineBlock->getChildren() === [] ? $lineBlock : $lineBlock->getChildren()[count($lineBlock->getChildren()) - 1];
+            foreach ($leading as $comment) {
+                $host->appendChild($comment);
+            }
+        }
 
         $parent->appendChild($lineBlock);
 
         return $body['consumed'];
+    }
+
+    /**
+     * The length of the `%` run a line opens with after its indentation, if it is a fence run.
+     */
+    private static function commentRun(string $line): ?int
+    {
+        return preg_match('/^[ \t]*(%{3,})/', $line, $run) === 1 ? strlen($run[1]) : null;
+    }
+
+    /**
+     * Append a stanza, then put its `%%%` pairs back: `$before` opens it, and
+     * each `$after[k]` follows line k, before the break that ends that line.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\LineBlock $lineBlock
+     * @param list<array{0: string, 1: int}> $lines
+     * @param list<\MarkupCarve\Carve\Node\Block\Comment> $before
+     * @param array<int, list<\MarkupCarve\Carve\Node\Block\Comment>> $after
+     */
+    private function appendStanzaWithBlockComments(LineBlock $lineBlock, array $lines, array $before, array $after): void
+    {
+        $this->callAppendLineBlockStanza($lineBlock, $lines);
+        if ($lines === [] || ($before === [] && $after === [])) {
+            return;
+        }
+        $children = $lineBlock->getChildren();
+        $paragraph = $children[count($children) - 1];
+        $breaks = 0;
+        $walk = function (Node $node) use (&$walk, &$breaks, &$after, $lines): void {
+            $placed = [];
+            $changed = false;
+            foreach ($node->getChildren() as $child) {
+                // A stanza's last line has no boundary break; an authored one there stays last.
+                if ($child instanceof HardBreak && $breaks < count($lines) - 1) {
+                    $hostedComments = $after[$breaks] ?? [];
+                    foreach ($hostedComments as $comment) {
+                        $placed[] = $comment;
+                        $changed = true;
+                    }
+                    // The break runs from the last pair its line hosts to the next verse line.
+                    $hosted = $hostedComments === [] ? null : $hostedComments[count($hostedComments) - 1]->getPos();
+                    $nextLine = $lines[$breaks + 1][1] ?? null;
+                    if ($hosted !== null && $nextLine !== null) {
+                        $next = new Paragraph();
+                        $this->stampBlockSpan($next, $this->sourceLineFor($nextLine), $this->sourceLineFor($nextLine));
+                        $nextPos = $next->getPos();
+                        $child->setPos($nextPos === null ? null : new SourceSpan(
+                            startLine: $hosted->endLine,
+                            endLine: $nextPos->startLine,
+                            startColumn: $hosted->endColumn,
+                            endColumn: $nextPos->startColumn,
+                            startOffset: $hosted->endOffset,
+                            endOffset: $nextPos->startOffset,
+                        ));
+                    }
+                    unset($after[$breaks]);
+                    $breaks++;
+                } elseif ($child->hasChildren()) {
+                    $walk($child);
+                } elseif ($child instanceof ContentNodeInterface) {
+                    // A verbatim run that swallowed a boundary leaves no place for that line's pairs.
+                    for ($k = substr_count($child->getContent(), "\n"); $k > 0; $k--) {
+                        unset($after[$breaks]);
+                        $breaks++;
+                    }
+                }
+                $placed[] = $child;
+            }
+            if ($changed) {
+                $node->setChildren($placed);
+            }
+        };
+        $walk($paragraph);
+        foreach (array_reverse($before) as $comment) {
+            $paragraph->prependChild($comment);
+        }
+        ksort($after);
+        foreach ($after as $comments) {
+            foreach ($comments as $comment) {
+                $paragraph->appendChild($comment);
+            }
+        }
     }
 
     /**

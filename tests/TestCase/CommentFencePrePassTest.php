@@ -192,10 +192,11 @@ final class CommentFencePrePassTest extends TestCase
         $reference = $this->html("- item\n  ::: |\n  %%%\n  text\n  :::\n  [r]: /url\n  %%%\n\n[r][]\n");
         $footnote = $this->html("- item\n  ::: |\n  %%%\n  text\n  :::\n  [^f]: note\n  %%%\n\ntext[^f]\n");
 
+        // CARVE-P9-047 as ruled in carve#4469: the pair hides its body in verse too.
         $this->assertStringNotContainsString('href="/url"', $reference);
-        $this->assertStringContainsString('[r]: /url', $reference);
+        $this->assertStringNotContainsString('[r]: /url', $reference);
         $this->assertDoesNotMatchRegularExpression('/fnref|doc-noteref/', $footnote);
-        $this->assertStringContainsString('[^f]: note', $footnote);
+        $this->assertStringNotContainsString('[^f]: note', $footnote);
     }
 
     /**

@@ -1825,6 +1825,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected int $inLineBlock = 0;
 
     /**
+     * The shortest `%%%` fence a block comment may use in the line block being written.
+     */
+    protected int $verseCommentFence = 3;
+
+    /**
      * Whether the block just written can host a caption, so a following `^ `
      * line would be read back as one (see hostsACaption()).
      */
@@ -3143,16 +3148,41 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $parts === [] ? '' : '{' . implode(' ', $parts) . '}';
     }
 
+    /**
+     * A verse line written `%%%...` stayed a line comment because no closer of
+     * its run followed it, so a `%%%` pair in the same block takes a longer fence.
+     */
+    private static function verseCommentFence(Node $block): int
+    {
+        $fence = 3;
+        $pending = [$block];
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            if ($node instanceof Comment && $node->getFenceLength() === null && !$node->isDelimited()) {
+                $run = 2 + strspn($node->getContent(), '%');
+                if ($run >= 3) {
+                    $fence = max($fence, $run + 1);
+                }
+            }
+            array_push($pending, ...$node->getChildren());
+        }
+
+        return $fence;
+    }
+
     protected function renderLineBlock(LineBlock $node): string
     {
         // Inside a line block every newline IS a hard break (grammar PART 3,
         // line_block_body), so the explicit backslash the inline writer emits
         // for a HardBreak would double it on re-parse.
         $this->inLineBlock++;
+        $outerVerseFence = $this->verseCommentFence;
+        $this->verseCommentFence = self::verseCommentFence($node);
 
         try {
             $body = $this->renderColonFenceBody($node);
         } finally {
+            $this->verseCommentFence = $outerVerseFence;
             $this->inLineBlock--;
         }
 
@@ -3640,7 +3670,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $continuationLine = $sourceLine >= 1 && $sourceLine <= $row->getContinuationLines() ? $sourceLine : 1;
                     $rendered .= "\x020," . $continuationLine . ",0\x03" . $text;
                 }
-                $cells[] = $this->placeCellWraps(
+                // A leading cell_wrap marks a cell a `+` line appended: it has no
+                // slot on the row line, and only trailing cells can be appended (T6).
+                $appended = $cell->getSpanMarker() === null && ($cell->getChildren()[0] ?? null) instanceof CellWrap;
+                if ($appended ? $column === 0 : count($cells) < $column) {
+                    throw new SourceUnspellableException('table_row', 'an appended cell must follow every cell of the row line');
+                }
+                $head = $this->placeCellWraps(
                     $rendered,
                     $continuations,
                     $rowIndex,
@@ -3648,6 +3684,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $cell,
                     $cell->getSpanMarker() !== null,
                 );
+                if (!$appended) {
+                    $cells[] = $head;
+                }
                 $column++;
             }
             // PART 11 CARVE-P11-014: a row of empty cells is written as a row.
@@ -3660,6 +3699,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             } else {
                 $rows[] = $this->renderTableRow($cells, $this->renderAttrs($row));
             }
+            $rowWidth = max(count($cells), 1);
+            foreach ($continuations[$rowIndex] as &$line) {
+                // An empty slot past the row line's cells appends nothing, so it is not written.
+                $slots = count($line);
+                while ($slots > $rowWidth && $line[$slots - 1] === ' ') {
+                    array_pop($line);
+                    $slots--;
+                }
+            }
+            unset($line);
             foreach ($this->dropPaddingInsideOpenRuns($continuations[$rowIndex]) as $line) {
                 if ($this->alignTables) {
                     $rowSlots[] = ['prefix' => '+', 'cells' => $line, 'attrs' => ''];
@@ -4250,7 +4299,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         foreach ($matches[0] as $match) {
             $longest = max($longest, strlen($match));
         }
-        $fence = str_repeat('%', max(3, $longest + 1));
+        $fence = str_repeat('%', max($this->inLineBlock > 0 ? $this->verseCommentFence : 3, $longest + 1));
 
         return $fence . "\n" . $this->protectVerbatim($content) . "\n" . $fence;
     }
@@ -4429,6 +4478,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $lineEndsInComment = false;
             $previousRendered = '';
             $verbatimTail = false;
+            // `%%%` pairs after a stanza's last line leave its last break the last one.
+            $stanzaEnd = $count;
+            while ($this->inLineBlock > 0 && $stanzaEnd > 0 && $nodes[$stanzaEnd - 1] instanceof Comment && $nodes[$stanzaEnd - 1]->getFenceLength() !== null) {
+                $stanzaEnd--;
+            }
             for ($i = 0; $i < $count; $i++) {
                 foreach ($diagnosticsBefore[$i] ?? [] as $diagnostic) {
                     $this->recordUnspellableField($diagnostic->origin, $diagnostic->field, $diagnostic->message);
@@ -4456,7 +4510,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     // reaches direct children only - but an imported AST can.
                     $out .= $this->verseLineBreak(
                         $out,
-                        $i === $count - 1 && $this->inlineDepth === 1,
+                        $i === $stanzaEnd - 1 && $this->inlineDepth === 1,
                         $lineEndsInComment,
                     );
                     $verbatimTail = false;
@@ -4612,6 +4666,22 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     // here, `$out` ends with the boundary's newline, and no
                     // separator is what writes the marker at column 0.
                     $separator = ($out === '' || str_ends_with($out, "\n")) ? '' : ' ';
+                    if ($node->getFenceLength() !== null && $this->inLineBlock > 0) {
+                        // A closed `%%%` pair in verse stands on lines of its own (CARVE-P9-047).
+                        $atLineStart = $separator === '';
+                        $next = $nodes[$i + 1] ?? null;
+                        $lineStart = strrpos($out, "\n");
+                        $lineTail = $lineStart === false ? $out : substr($out, $lineStart + 1);
+                        $out .= ($atLineStart ? '' : ($this->verseLineNeedsBackslash($lineTail) ? "\\\n" : "\n")) . $this->renderComment($node)
+                            . ($next !== null && ($atLineStart || !$next instanceof HardBreak) ? "\n" : '');
+                        // After a pair that opened its line, the break is that line's own.
+                        $lineEndsInComment = !$atLineStart;
+                        $lineNodeCount++;
+                        $lineHostsCaption = false;
+                        $captionCanOpen = false;
+
+                        continue;
+                    }
                     if ($node->getFenceLength() !== null) {
                         // Only the delimiters need padding to stay inside the term.
                         $commentLines = explode("\n", $this->renderComment($node));

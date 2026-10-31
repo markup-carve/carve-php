@@ -1048,6 +1048,34 @@ final class BlockSourceMapper
     }
 
     /**
+     * The pipe that opens each slot of a `+` line, by cell index.
+     *
+     * @param int $index
+     * @param string $line
+     * @param array<int, int> $openDelimiters
+     *
+     * @return array<int, \MarkupCarve\Carve\Ast\SourceSpan>
+     */
+    public function continuationSlotPipeSpans(int $index, string $line, array $openDelimiters = []): array
+    {
+        if (!$this->state->source->trackPositions) {
+            return [];
+        }
+        $trimmed = ltrim($line, " \t");
+        $prefix = strlen($line) - strlen($trimmed) + $this->rowPrefixDelta($index, $line);
+        $sourceLine = $this->sourceLineFor($index);
+        $spans = [];
+        foreach (($this->getTableParser)()->splitCells('|' . substr($trimmed, 1), $openDelimiters) as $idx => $cell) {
+            $span = $this->cellWrapSpan($sourceLine, $prefix + $cell['offset'], true);
+            if ($span !== null) {
+                $spans[$idx] = $span;
+            }
+        }
+
+        return $spans;
+    }
+
+    /**
      * A map for a table cell rebuilt from a base row plus `+` continuation rows.
      *
      * The spaces between chunks are parser-consumed joins, not source bytes, so

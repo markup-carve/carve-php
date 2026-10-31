@@ -219,14 +219,30 @@ final class TableBlockBuilder
             $continuationLines = 0;
             $baseChunkCounts = array_map(count(...), $cellSourceChunks);
             $baseCells = $mergedCells;
+            $rowWidth = count($baseCells);
+            /** @var array<int, array{int, \MarkupCarve\Carve\Ast\SourceSpan|null}> $appendedCells continuation line, pipe */
+            $appendedCells = [];
             // Check for continuation rows (lines starting with +)
             while ($i < $count && str_starts_with($lines[$i], '+') && ($this->getTableParser)()->isContinuationRow($lines[$i])) {
                 $cellAccumulator ??= new TableCellAccumulator(($this->getTableParser)(), $mergedCells);
                 $openRuns = $cellAccumulator->openDelimiters();
                 $continuationCells = ($this->getTableParser)()->parseContinuationCells($lines[$i], $openRuns);
-                // A continuation joins the row above by column. A cell past
-                // that row's width has no column to join and cannot add one.
-                $continuationCells = array_slice($continuationCells, 0, count($baseCells));
+                // Text past the row's last column is a new cell of the row, and a
+                // skipped slot before it an empty one; a trailing empty slot adds nothing (T6).
+                $lastSlot = $rowWidth - 1;
+                foreach ($continuationCells as $idx => $continuationCell) {
+                    if ($idx > $lastSlot && trim($continuationCell, ' ') !== '') {
+                        $lastSlot = $idx;
+                    }
+                }
+                $continuationCells = array_slice($continuationCells, 0, $lastSlot + 1);
+                if ($lastSlot >= $rowWidth) {
+                    $pipes = $this->source->continuationSlotPipeSpans($i, $lines[$i], $openRuns);
+                    for ($idx = $rowWidth; $idx <= $lastSlot; $idx++) {
+                        $appendedCells[$idx] = [$continuationLines + 1, $pipes[$idx] ?? null];
+                    }
+                    $rowWidth = $lastSlot + 1;
+                }
                 foreach ($this->continuationCellSourceChunks($i, $lines[$i], $openRuns) as $idx => $chunks) {
                     if ($chunks === []) {
                         continue;
@@ -305,8 +321,19 @@ final class TableBlockBuilder
             // recorded here so it stays invisible to the header-row check and
             // to column-origin tracking below, exactly as it was before it had
             // a cell of its own.
-            $resolved = $this->callResolveRowSpans($mergedCellsWithAttrs, $columnOrigin);
+            $resolved = $this->callResolveRowSpans(array_diff_key($mergedCellsWithAttrs, $appendedCells), $columnOrigin);
             $processedCells = $resolved['cells'];
+            // An appended cell is text, never a span or alignment marker.
+            foreach (array_intersect_key($mergedCellsWithAttrs, $appendedCells) as $col => $appendedData) {
+                $processedCells[] = [
+                    ...$appendedData,
+                    'colspan' => 1,
+                    'gridColumn' => $col,
+                    'isEmpty' => false,
+                    'spanMarker' => null,
+                    'verbatim' => false,
+                ];
+            }
             $consumedRowspanColumns = $resolved['consumedRowspanColumns'];
             $consumedColspanColumns = $resolved['consumedColspanColumns'];
             $consumedColumnSet = array_flip(array_merge($consumedRowspanColumns, $consumedColspanColumns));
@@ -326,7 +353,7 @@ final class TableBlockBuilder
             // that: no examined cell means this is never a Carve header row.
             $examinedAny = false;
             foreach ($processedCells as $cellData) {
-                if (isset($consumedColumnSet[$cellData['gridColumn']])) {
+                if (isset($consumedColumnSet[$cellData['gridColumn']]) || isset($appendedCells[$cellData['gridColumn']])) {
                     // A placeholder consumed by another cell's span was never
                     // its own entry before it got a cell of its own; it still
                     // is not examined here (carve-js parity).
@@ -419,6 +446,23 @@ final class TableBlockBuilder
                         $blockedData['sourceChunks'] = [];
                         $cellBuilds[spl_object_id($cell)] = ['cell' => $cell, 'cellData' => $blockedData, 'line' => $baseLineForRow, 'content' => '', 'wraps' => [], 'rowIndex' => $rowIndex];
                     }
+
+                    continue;
+                }
+
+                if (isset($appendedCells[$col])) {
+                    [$appendLine, $pipe] = $appendedCells[$col];
+                    $cell = new TableCell($isHeaderRow, $columnAligns[$col] ?? $alignments[$col] ?? TableCell::ALIGN_DEFAULT, 1, 1, null, false);
+                    $trimmedContent = trim($cellData['content'], ' ');
+                    $wraps = $this->contentWraps($cellData['content'], $trimmedContent, $cellWraps[$col] ?? []);
+                    $this->fillCellContent($cell, $cellData, $baseLineForRow, $trimmedContent, $wraps);
+                    $wrap = new CellWrap($appendLine);
+                    $wrap->setPos($pipe);
+                    $cell->prependChild($wrap);
+                    $cell->setPos(null);
+                    $this->state->session->unplaceableNodeIds[spl_object_id($cell)] = true;
+                    $row->appendChild($cell);
+                    $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
 
                     continue;
                 }
