@@ -87,26 +87,7 @@ class TableParser
      */
     public function stripRowAttributes(string $line): string
     {
-        // Row attributes require a literal `}`; skip the greedy backtracking
-        // regex on the common row that has none.
-        if (!str_contains($line, '}')) {
-            return $line;
-        }
-
-        // Row attributes appear after final pipe: |...|{.class}. The payload
-        // must be a valid attribute block (§14): an unrecognized name -- a
-        // colon-bearing, digit-first or otherwise non-`identifier` one -- makes
-        // the whole `{...}` literal content, so the line no longer ends with
-        // `|` and is not a table row at all. carve-js and carve-rs leave such a
-        // line a paragraph; without this gate the block was stripped whatever
-        // it held and the row was built anyway.
-        if (preg_match('/^(.*\|)\{((?:[^}"\']|"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')+)\}[ \t]*$/', $line, $matches)) {
-            if (AttributeParser::isValidInlinePayload($matches[2])) {
-                return $matches[1];
-            }
-        }
-
-        return $line;
+        return $this->matchRowAttributes($line)[0] ?? $line;
     }
 
     /**
@@ -118,27 +99,29 @@ class TableParser
      */
     public function extractRowAttributes(string $line): array
     {
+        $match = $this->matchRowAttributes($line);
+
+        return $match === null ? [] : AttributeParser::parse($match[1]);
+    }
+
+    /**
+     * Split a row into its part through the final pipe and the payload of its
+     * row attribute block. The greedy prefix takes the LAST `|{`, so a cell
+     * starting with `{` (`| a |{~|{.c}`) stays a cell. An invalid payload (§14)
+     * is literal content, so the line no longer ends with `|` and is no row.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    private function matchRowAttributes(string $line): ?array
+    {
         if (!str_contains($line, '}')) {
-            return [];
+            return null;
+        }
+        if (!preg_match('/^(.*\|)\{((?:[^}"\']|"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')+)\}[ \t]*$/', $line, $matches)) {
+            return null;
         }
 
-        if (preg_match('/\|\{((?:[^}"\']|"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')+)\}[ \t]*$/', $line, $matches)) {
-            // Same §14 gate as stripRowAttributes: an invalid payload is not a
-            // row-attribute block, so it contributes no attributes either.
-            //
-            // THE PAIR IS WHAT DECIDES. `stripRowAttributes` runs first, and a
-            // payload it refuses leaves the line not ending in `|` - so the
-            // line is not a row at all and this never runs. Mutating either
-            // gate alone therefore survives; mutating both fails. The pairing
-            // is the rule, and it is stated here so the survivor is explained.
-            if (!AttributeParser::isValidInlinePayload($matches[1])) {
-                return [];
-            }
-
-            return AttributeParser::parse($matches[1]);
-        }
-
-        return [];
+        return AttributeParser::isValidInlinePayload($matches[2]) ? [$matches[1], $matches[2]] : null;
     }
 
     /**

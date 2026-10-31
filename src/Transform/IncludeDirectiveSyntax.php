@@ -55,8 +55,11 @@ class IncludeDirectiveSyntax
      * character, which leaves exactly one position where both fail. That
      * position is the closer, so it is matched rather than looked for.
      *
+     * Only the path slot (`"`) and an `@key:` value slot (`"` or `'`) open a
+     * run; a quote anywhere else is a character of its token.
+     *
      * Every quantifier is possessive, so no character can be handed back and
-     * the walk cannot re-enter. The one alternation - a `"` either opens a run
+     * the walk cannot re-enter. The one alternation - a quote either opens a run
      * or is ordinary text - is decided in place: the quoted form is tried
      * first, and with no closing quote on the line it fails and the `"` is
      * taken as ordinary text. That IS the spec's "an unterminated quote does
@@ -70,7 +73,7 @@ class IncludeDirectiveSyntax
      *
      * @var string
      */
-    public const SCAN = '/\{\{ ++(?:"(?:\\\\.|[^"\\\\\n])*+"|[^{}])*+(?<= )\}\}/s';
+    public const SCAN = '/\{\{ ++(?:"(?:\\\\.|[^"\\\\\n])*+")?+(?:@[A-Za-z_][A-Za-z0-9_-]*+:(?:"(?:\\\\.|[^"\\\\\n])*+"|\'(?:\\\\.|[^\'\\\\\n])*+\')|[^{}])*+(?<= )\}\}/s';
 
     /**
      * Loose directive shape: one whole token, valid options or not. Same body
@@ -659,6 +662,35 @@ class IncludeDirectiveSyntax
         return self::$pairAt !== PHP_INT_MAX && self::$pairNewline < $from;
     }
 
+    /**
+     * Only the two quoted slots open a run (PART 6): the path right after the
+     * padding, in double quotes, and an option value right after `@key:`. A
+     * quote anywhere else is a character of its token.
+     */
+    private static function opensQuotedSlot(string $text, int $from, int $pathAt, int $at): bool
+    {
+        if ($at === $pathAt) {
+            return $pathAt > $from && $text[$at] === '"';
+        }
+        if ($at - 2 < $from || $text[$at - 1] !== ':') {
+            return false;
+        }
+        // Only the key right before the `:` is read, so the walk stays linear.
+        $j = $at - 2;
+        while ($j >= $from && self::isKeyChar($text[$j])) {
+            $j--;
+        }
+        $first = $text[$j + 1];
+
+        return $j >= $from && $text[$j] === '@' && $j + 1 < $at - 1
+            && ($first === '_' || ctype_alpha($first));
+    }
+
+    private static function isKeyChar(string $char): bool
+    {
+        return $char === '_' || $char === '-' || ctype_alnum($char);
+    }
+
     private static function closerIndex(string $text, int $from): int
     {
         // Openers are scanned left to right, so a scan that met no quote also
@@ -673,6 +705,7 @@ class IncludeDirectiveSyntax
             return -1;
         }
         $length = strlen($text);
+        $pathAt = $from + strspn($text, ' ', $from);
         $quoted = false;
         $found = -1;
         for ($i = $from; $i < $length; $i++) {
@@ -681,10 +714,14 @@ class IncludeDirectiveSyntax
                 break;
             }
             if ($char === '"' || $char === "'") {
+                // Any quote keeps the scan out of the cache: a later opener may
+                // read this one at its own path slot.
                 $quoted = true;
-                $end = self::quotedRunEnd($text, $i);
-                if ($end !== -1) {
-                    $i = $end;
+                if (self::opensQuotedSlot($text, $from, $pathAt, $i)) {
+                    $end = self::quotedRunEnd($text, $i);
+                    if ($end !== -1) {
+                        $i = $end;
+                    }
                 }
             } elseif ($char === '}' && ($text[$i + 1] ?? '') === '}') {
                 $found = $i;
