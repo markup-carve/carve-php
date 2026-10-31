@@ -2250,6 +2250,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             if ($start !== 1) {
                 $olAttrs .= ' start="' . $start . '"';
             }
+            $attrs = self::withoutNames($attrs, array_merge($style !== null ? ['type'] : [], $start !== 1 ? ['start'] : []));
             // PART 10 section 12: the authored delimiter, which HTML has no
             // attribute of its own for, trailing type and start.
             if ($marker === ')') {
@@ -2306,7 +2307,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $hasClass = false;
         foreach ($attrs as $name => $value) {
             if (strtolower($name) === 'class') {
-                $classes = preg_split('/\s+/', trim($value)) ?: [];
+                $classes = preg_split('/\s+/', trim($value), -1, PREG_SPLIT_NO_EMPTY) ?: [];
                 $result[$name] = implode(' ', array_unique(['task-list', ...$classes]));
                 $hasClass = true;
             } else {
@@ -2622,7 +2623,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     private function divLayoutFrame(Div $node): array
     {
         $classes = array_values(array_filter(
-            $node->getClassEntries(),
+            $this->classSlotEntries($node)[1],
             static fn (string $class): bool => self::sanitizeAttributeValue('class', $class) !== '',
         ));
         // The canonical admonition kinds live on Div::ADMONITION_TYPES (grammar
@@ -2670,7 +2671,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 static fn (string $c): bool => $c !== 'admonition'
                     && !in_array($c, Div::ADMONITION_TYPES, true),
             ));
-            $attrs = $this->getRenderableAttributes($node);
+            $attrs = self::withoutNames($this->getRenderableAttributes($node), ['class']);
+            $attrs = ['class' => ''] + $attrs;
             $attrs['class'] = trim('admonition ' . implode(' ', array_merge($types, $others)));
             if (in_array($classes[0], Div::ADMONITION_TYPES, true)) {
                 $attrs['class'] = implode(' ', ['admonition', $classes[0], ...array_unique(array_slice($classes, 1))]);
@@ -2712,9 +2714,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // Tier 2: a custom type renders as a generic <div class="{type}">,
         // the fenced-div primitive the block-extension mechanism builds on.
         $attributes = $this->getRenderableAttributes($node);
-        if ($node->isTyped() && isset($attributes['class']) && $classes !== []) {
+        $classKey = self::classKey($attributes);
+        if ($node->isTyped() && $classKey !== null && $classes !== []) {
             $baseClass = array_shift($classes);
-            $attributes['class'] = implode(' ', [$baseClass, ...array_unique($classes)]);
+            $attributes = self::replaceKey($attributes, $classKey, 'class', implode(' ', [$baseClass, ...array_unique($classes)]));
         }
         $attrs = $this->renderAttributeArray($attributes, 'div');
         // PART 10 §13a: a `<div>` with no attribute is any foreign div, so a bare one is marked.
@@ -2736,8 +2739,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderLineBlock(LineBlock $node): string
     {
         $attrs = $this->getRenderableAttributes($node);
-        $entries = isset($attrs['class']) ? $node->getClassEntries() : [];
-        $attrs['class'] = $this->sanitizeAttributes(['class' => [...$entries, 'line-block']])['class'];
+        [$key, $entries] = $this->classSlotEntries($node);
+        $attrs[$key ?? 'class'] = $this->sanitizeAttributes(['class' => [...$entries, 'line-block']])['class'];
 
         // Indent only the FIRST line of each child block; lines produced by an
         // internal hard break stay at column 0 inside the <p> (matching the
@@ -3219,7 +3222,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($colspan > 1) {
             $structuralAttrs['colspan'] = (string)$colspan;
         }
-        $attrs = $structuralAttrs + $attrs;
+        $attrs = $structuralAttrs + self::withoutNames($attrs, array_keys($structuralAttrs));
 
         $alignment = $node->getAlignment();
         if ($alignment === TableCell::ALIGN_DEFAULT && isset($column['align'])) {
@@ -3388,7 +3391,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $attrs = $this->renderAttributeArray($this->attributesBesideCarriers(
             $node,
             $carriesRef ? ['data-carve-ref'] : [],
-            $title === null ? ['src'] : ['src', 'title'],
+            $title === null ? ['src', 'alt'] : ['src', 'alt', 'title'],
         ));
 
         // Always-on baseline; safe mode may add stricter URL policy.
@@ -3544,10 +3547,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // name RENAMES the span rather than wrapping it, so the author's id,
         // classes and remaining key/values land on the element they were
         // written on.
-        $riding = $this->getRenderableAttributes($node);
-        foreach (array_keys($semantic) as $name) {
-            unset($riding[$name]);
-        }
+        $riding = $this->getRenderableAttributes($node, [], array_keys($semantic));
         // Keyed rather than a list of names: the value travels with the name, so
         // there is no second lookup for a static analyzer to doubt.
         $ordered = [];
@@ -3566,12 +3566,18 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             } elseif ($value !== '' && $name === 'time') {
                 $mapsTo = 'datetime';
             }
-            // A DERIVED ATTRIBUTE YIELDS TO AN AUTHORED ONE of the same name:
-            // `title` and `datetime` are names an author may also write, and
-            // one element never carries the same attribute twice.
-            $mapped = $mapsTo !== null && !array_key_exists($mapsTo, $own)
-                ? ' ' . $mapsTo . '="' . $this->escapeAttribute($value) . '"'
-                : '';
+            // A DERIVED ATTRIBUTE YIELDS ITS VALUE TO AN AUTHORED ONE of the same
+            // name, keeping its own position and spelling (PART 10 §1).
+            $mapped = '';
+            if ($mapsTo !== null) {
+                foreach ($own as $key => $authoredValue) {
+                    if (strtolower($key) === $mapsTo) {
+                        $value = $authoredValue;
+                        unset($own[$key]);
+                    }
+                }
+                $mapped = ' ' . $mapsTo . '="' . $this->escapeAttribute($value) . '"';
+            }
             $html = '<' . $name . $mapped . $this->renderAttributeArray($own) . '>' . $html . '</' . $name . '>';
         }
 
@@ -3625,14 +3631,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     public function attributesWithBaseClass(Node $node, string $base): array
     {
         $attrs = $this->getRenderableAttributes($node);
-        $authored = $attrs['class'] ?? '';
+        $key = self::classKey($attrs);
+        $authored = $key === null ? '' : $attrs[$key];
         $class = $authored === '' ? $base : $base . ' ' . $authored;
 
-        if (array_key_exists('class', $attrs)) {
+        if ($key !== null) {
             // Keep the author's ordering, swapping the merged value in place.
-            $attrs['class'] = $class;
-
-            return $attrs;
+            return self::replaceKey($attrs, $key, 'class', $class);
         }
 
         // No authored class means no slot to keep, so the base class leads.
@@ -3964,15 +3969,17 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     /**
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string> $exclude
+     * @param array<string> $consumed Exact names the element already consumed, dropped before names fold
      *
      * @return array<string, string>
      */
-    protected function getRenderableAttributes(Node $node, array $exclude = []): array
+    protected function getRenderableAttributes(Node $node, array $exclude = [], array $consumed = []): array
     {
-        $attrs = $node->getAttributeEntries();
+        $attrs = array_diff_key($node->getAttributeEntries(), array_flip($consumed));
         if (!$attrs) {
             return [];
         }
+        $attrs = self::foldAttributeNames($attrs);
 
         if ($this->roundTripMode) {
             foreach (array_keys($attrs) as $key) {
@@ -4470,6 +4477,111 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
+     * PART 10 §1: HTML names compare ASCII case-insensitively, so one name is
+     * written once, at its first position and spelling, with the last value;
+     * class entries join.
+     *
+     * @param array<string, string|list<string>> $attrs
+     *
+     * @return array<string, string|list<string>>
+     */
+    private static function foldAttributeNames(array $attrs): array
+    {
+        $first = [];
+        $out = [];
+        foreach ($attrs as $key => $value) {
+            $key = (string)$key;
+            $name = strtolower($key);
+            if (!isset($first[$name])) {
+                $first[$name] = $key;
+                $out[$key] = $value;
+
+                continue;
+            }
+            $slot = $first[$name];
+            if ($name === 'class') {
+                $out[$slot] = array_merge((array)$out[$slot], (array)$value);
+            } else {
+                $out[$slot] = $value;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<string, mixed> $attrs
+     */
+    private static function classKey(array $attrs): ?string
+    {
+        foreach (array_keys($attrs) as $key) {
+            if (strtolower((string)$key) === 'class') {
+                return (string)$key;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The class slot's key as written first and its entries in slot order.
+     *
+     * @return array{0: string|null, 1: list<string>}
+     */
+    private function classSlotEntries(Node $node): array
+    {
+        $attrs = self::foldAttributeNames($node->getAttributeEntries());
+        $key = self::classKey($attrs);
+
+        if ($key === null) {
+            return [null, []];
+        }
+        $value = $attrs[$key];
+
+        return [$key, is_array($value) ? $value : [$value]];
+    }
+
+    /**
+     * @param array<string, string> $attrs
+     * @param string $value
+     * @param string $new
+     * @param string $old
+     *
+     * @return array<string, string>
+     */
+    private static function replaceKey(array $attrs, string $old, string $new, string $value): array
+    {
+        $out = [];
+        foreach ($attrs as $key => $stored) {
+            $key === $old ? $out[$new] = $value : $out[$key] = $stored;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Drop the authored attributes an element derives itself (PART 10 §1 R1).
+     *
+     * @param array<string, string> $attrs
+     * @param list<string> $names lowercase
+     *
+     * @return array<string, string>
+     */
+    private static function withoutNames(array $attrs, array $names): array
+    {
+        if ($names === []) {
+            return $attrs;
+        }
+        foreach (array_keys($attrs) as $key) {
+            if (in_array(strtolower((string)$key), $names, true)) {
+                unset($attrs[$key]);
+            }
+        }
+
+        return $attrs;
+    }
+
+    /**
      * @param array<string, string> $attrs
      * @param string|null $tag The element being written, so a text-alignment
      *   `align` renders its CSS declaration (markup-carve/carve#1755).
@@ -4506,6 +4618,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($value === '') {
             return $attrs;
         }
+        foreach (array_keys($attrs) as $name) {
+            if (strcasecmp((string)$name, $key) === 0) {
+                $key = (string)$name;
+
+                break;
+            }
+        }
 
         if (!isset($attrs[$key]) || $attrs[$key] === '') {
             $attrs[$key] = $value;
@@ -4513,13 +4632,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return $attrs;
         }
 
-        if ($key === 'class') {
+        if (strtolower($key) === 'class') {
             $attrs[$key] .= ' ' . $value;
 
             return $attrs;
         }
 
-        if ($key === 'style') {
+        if (strtolower($key) === 'style') {
             $existing = rtrim($attrs[$key]);
             if ($existing !== '' && !str_ends_with($existing, ';')) {
                 $existing .= ';';
@@ -5044,7 +5163,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $refCount = $context->footnoteRefCounts[$label];
 
         // An authored id replaces fnref1 / fnref1-2, and the backlink follows it (PART 9 §16).
-        $refId = $node->getAttribute('id') ?? 'fnref' . $number . ($refCount > 1 ? '-' . $refCount : '');
+        $refId = $node->getFoldedAttribute('id') ?? 'fnref' . $number . ($refCount > 1 ? '-' . $refCount : '');
         $context->footnoteRefIds[$label][$refCount] = $refId;
 
         $parent = $node->getParent();
@@ -5076,7 +5195,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderInlineFootnote(InlineFootnote $node): string
     {
         $number = $this->registerInlineFootnote(fn (): string => '<p>' . $this->renderChildren($node) . "</p>\n");
-        $refId = $node->getAttribute('id') ?? 'fnref' . $number;
+        $refId = $node->getFoldedAttribute('id') ?? 'fnref' . $number;
         $this->getRenderContext()->footnoteRefIds['_inline_]' . $number][1] = $refId;
 
         $parent = $node->getParent();
