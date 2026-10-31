@@ -87,6 +87,11 @@ final class BlockOwnershipWalk
     public array $closingLines = [];
 
     /**
+     * Whether the document opens with frontmatter (PART 1 admits no indent on either delimiter).
+     */
+    public bool $frontmatter = false;
+
+    /**
      * Whether the line just read was an abbreviation under a paragraph or a
      * caption with no block before it: the readers fold the next line there.
      */
@@ -136,6 +141,7 @@ final class BlockOwnershipWalk
         $this->runs = null;
         $this->textFences = [];
         $this->closingLines = [];
+        $this->frontmatter = false;
         $this->softLeaf = false;
         $this->reach = 0;
         $this->wrappedAttributeEnd = -1;
@@ -159,6 +165,7 @@ final class BlockOwnershipWalk
                         }
                     }
                     $start = $k + 1;
+                    $this->frontmatter = true;
 
                     break;
                 }

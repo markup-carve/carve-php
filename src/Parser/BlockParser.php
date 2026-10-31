@@ -1041,6 +1041,7 @@ class BlockParser
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
         $this->state->source->markerLines = $walk->refusedPlusLines === [] ? [] : array_replace($this->state->source->sourceLines, $walk->refusedPlusLines);
         $this->state->source->closingLines = $walk->closingLines;
+        $this->state->source->frontmatter = $walk->frontmatter;
         $this->state->source->refusedQuotePlus = $walk->refusedPlus;
 
         // Each physical byte may be inspected a small constant number of times
@@ -3046,6 +3047,15 @@ class BlockParser
     }
 
     /**
+     * Whether the document's raw first lines are a frontmatter block. The walk strips a
+     * top-level line's indent, so a matcher cannot tell ` ---` from `---` itself.
+     */
+    public function opensWithFrontmatter(): bool
+    {
+        return $this->state->source->frontmatter;
+    }
+
+    /**
      * Consume and return pending block attributes
      *
      * This allows custom block pattern callbacks to retrieve any block attributes
@@ -4386,8 +4396,8 @@ class BlockParser
 
             return $i - $start;
         }
-        // Unexpanded, a document-level code include line is literal text (PART 10 I2).
-        $this->inlineParser->literalIncludeLine = $codeIncludeLine !== null && $topLevel && !$codeIncludeLine['quoted'];
+        // Unexpanded, a code include line is literal text in every host (PART 10 I2).
+        $this->inlineParser->literalIncludeLine = $codeIncludeLine !== null && !$codeIncludeLine['quoted'];
         try {
             $this->inlineParser->parse(
                 $paragraph,

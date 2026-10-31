@@ -60,6 +60,11 @@ final class BlockSourceState
     public array $markerLines = [];
 
     /**
+     * Whether the ownership walk read lines 0.. as frontmatter on their raw, unindented spelling.
+     */
+    public bool $frontmatter = false;
+
+    /**
      * Top-level lines the ownership walk read as closing open containers.
      *
      * @var array<int, true>

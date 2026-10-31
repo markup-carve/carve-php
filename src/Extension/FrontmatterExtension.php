@@ -138,7 +138,7 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
                 // enough on its own, because neither of those yields a child
                 // node, so a `---` pair behind one was still claimed and
                 // swallowed the document.
-                if (!($parent instanceof Document) || $parent->hasChildren() || $start !== 0) {
+                if (!($parent instanceof Document) || $parent->hasChildren() || $start !== 0 || !$blockParser->opensWithFrontmatter()) {
                     return null;
                 }
 

@@ -623,15 +623,16 @@ class CrossReferenceResolver
         $number = $counters[$label];
         $numberNode->setNumber($number);
 
+        $separator = $this->labelSeparator($caption);
         $id = $group->getAttribute('id') ?? '';
         if ($id !== '') {
-            $tracker->setCaptionLabel($id, $label . ' ' . $number, $this->captionLabelNodes($caption, ' ' . $number));
+            $tracker->setCaptionLabel($id, $label . $separator . $number, $this->captionLabelNodes($caption, $separator . $number));
         }
 
         foreach ($group->getPanels() as $index => $panel) {
             $panelId = $panel->getAttribute('id') ?? '';
             if ($panelId !== '') {
-                $suffix = ' ' . $number . self::panelLetter($index);
+                $suffix = $separator . $number . self::panelLetter($index);
                 $tracker->setCaptionLabel($panelId, $label . $suffix, $this->captionLabelNodes($caption, $suffix));
             }
         }
@@ -682,10 +683,34 @@ class CrossReferenceResolver
         $number = $counters[$label];
         $numberNode->setNumber($number);
 
+        $separator = $this->labelSeparator($caption);
         $id = $target->getAttribute('id') ?? '';
         if ($id !== '') {
-            $tracker->setCaptionLabel($id, $label . ' ' . $number, $this->captionLabelNodes($caption, ' ' . $number));
+            $tracker->setCaptionLabel($id, $label . $separator . $number, $this->captionLabelNodes($caption, $separator . $number));
         }
+    }
+
+    /**
+     * PART 9R R4: a label that renders nothing leaves the number alone, with no separator.
+     * An image label has no text but still shows, so this reads nodes, not plain text.
+     */
+    private function labelSeparator(Node $caption): string
+    {
+        foreach ($caption->getChildren() as $child) {
+            if ($child instanceof CaptionNumber) {
+                return '';
+            }
+            if ($child instanceof Text && trim($child->getContent(), " \t\n\r") === '') {
+                continue;
+            }
+            if ($child instanceof SoftBreak || $child instanceof HardBreak || $child instanceof CellWrap) {
+                continue;
+            }
+
+            return ' ';
+        }
+
+        return ' ';
     }
 
     /**
