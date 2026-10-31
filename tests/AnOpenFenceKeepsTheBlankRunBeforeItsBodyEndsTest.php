@@ -35,6 +35,11 @@ class AnOpenFenceKeepsTheBlankRunBeforeItsBodyEndsTest extends TestCase
             'a note block a plus attached ends at the blank' => ["[^a]: +\n```\nx\n\nsee[^a]\n", "x\n"],
             'a quote block a plus attached adds no blank' => ["> t\n+\n:: t\n: ```\n\n", ''],
             'sublist item keeps its run' => ["- - ```\n    code\n\nafter\n", "code\n\n"],
+            'a note fence after a plus attached paragraph keeps its run' => ["[^a]: +\nhello\n\n  ```\n  code\n\nout\n\nx[^a]\n", "code\n\n"],
+            'a description fence after a plus attached paragraph keeps its run' => [":: t\n: +\nhello\n\n  ```\n  code\n\nout\n", "code\n\n"],
+            'a note fence a plus attached keeps no run past later lines' => ["[^a]: +\n```\nhi\n\n  ~~~\n  code\n\nout\n\nx[^a]\n", "hi\n\n~~~\ncode\n"],
+            'a description fence a plus attached keeps no run past later lines' => [":: t\n: +\n```\nhi\n\n  ~~~\n  c\n\nout\n", "hi\n\n~~~\nc\n"],
+            'a note fence opened after the attached one closed keeps its run' => ["[^a]: +\n```\nhi\n\n  ```\n  code\n  ```\n\nout\n\nx[^a]\n", "\n"],
         ];
     }
 

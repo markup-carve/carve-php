@@ -631,6 +631,7 @@ final class DefinitionListBuilder
         // sole content is a lone `+`, the body is the FOLLOWING
         // flush-left block, with no indentation. `: \+` is a literal `+`.
         $bodyMap = [];
+        $firstBlockAttached = false;
         $firstBlockOwner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $definitionSource);
         if (($firstBlockOwner['kind'] ?? null) === 'description' && $firstBlockOwner['column'] === $definitionColumn) {
             [$i, $body, $bodyRawMap] = $this->collectAttachedBlock(
@@ -647,6 +648,7 @@ final class DefinitionListBuilder
                 },
             );
             $bodyMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $bodyRawMap);
+            $firstBlockAttached = true;
             // A description a `+` filled stays open: the next `: ` below its body column is a sibling (carve#4408).
             if (isset($lines[$i]) && $this->opensDescriptionBelowBody($lines[$i], $i, $definitionColumn, $continuationColumn)) {
                 $lines[$i] = ltrim($lines[$i], " \t");
@@ -662,7 +664,7 @@ final class DefinitionListBuilder
                 '>',
             );
 
-        return new DescriptionBodyCollection(
+        $b = new DescriptionBodyCollection(
             lines: $lines,
             i: $i,
             count: $count,
@@ -677,6 +679,23 @@ final class DefinitionListBuilder
             termColumn: $termColumn,
             termHasOwnColumn: $termHasOwnColumn,
         );
+        if ($firstBlockAttached) {
+            $this->markDescriptionAttachment($b);
+        }
+
+        return $b;
+    }
+
+    /**
+     * Records the fence open at the end of a block a `+` attached.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     */
+    private function markDescriptionAttachment(DescriptionBodyCollection $b): void
+    {
+        $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+        $b->attachedBlockOpen = true;
+        $b->attachedFence = $b->bodyNestedState->fence;
     }
 
     /**
@@ -1130,6 +1149,7 @@ final class DefinitionListBuilder
                 $b->body[] = $a;
                 $b->bodyMap[] = $attachedLineMap[$attachedIndex];
             }
+            $this->markDescriptionAttachment($b);
         }
 
         return true;
@@ -1980,6 +2000,9 @@ final class DefinitionListBuilder
                     $look,
                 );
                 $b->formABlockOpen = $b->bodyNestedState->fence !== null;
+                // An attached block with no fence open ends at this run; what follows is a block of its own.
+                $b->attachedBlockOpen = $b->attachedBlockOpen && $b->bodyNestedState->fence !== null
+                    && $b->bodyNestedState->fence === $b->attachedFence;
                 for (; $b->i < $look; $b->i++) {
                     $b->body[] = $this->blankLineResidue($b->lines[$b->i], $b->continuationColumn, $b->bodyNestedState);
                     $b->bodyMap[] = $this->sourceLineFor($b->i);
@@ -1990,7 +2013,11 @@ final class DefinitionListBuilder
             // A blank reaches every frame, so an open fence keeps the run before the line that ends the body.
             $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
             $b->childFence ??= new PlainContinuationState();
-            if ($b->bodyNestedState->fence !== null || $this->continuations->childMarkerLineFenceOpen($b->childFence, $b->body)) {
+            $inAttachedBlock = $b->attachedBlockOpen && $b->bodyNestedState->fence === $b->attachedFence;
+            if (
+                !$inAttachedBlock
+                && ($b->bodyNestedState->fence !== null || $this->continuations->childMarkerLineFenceOpen($b->childFence, $b->body))
+            ) {
                 for (; $b->i < $look; $b->i++) {
                     $b->body[] = $this->blankLineResidue($b->lines[$b->i], $b->continuationColumn, $b->bodyNestedState);
                     $b->bodyMap[] = $this->sourceLineFor($b->i);
