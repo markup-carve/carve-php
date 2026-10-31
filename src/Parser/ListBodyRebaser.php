@@ -232,8 +232,29 @@ final class ListBodyRebaser
     {
         $end = $start;
         $noteBodyColumn = IndentationHelper::getLeadingColumns($lines[$start]) + BlockGrammar::FOOTNOTE_BODY_COLUMN;
+        // A definition-shaped line inside the note's code fence is payload.
+        $fence = null;
         for ($j = $start + 1; $j < $count; $j++) {
             $candidate = $lines[$j];
+            $column = IndentationHelper::getLeadingColumns($candidate);
+            if ($fence !== null) {
+                if (!IndentationHelper::isBlankLine($candidate) && $column < $noteBodyColumn) {
+                    break;
+                }
+                $end = $j;
+                if (
+                    $column === $fence['column']
+                    && ($this->getFencedBlockParser)()->isCodeFenceCloser(
+                        IndentationHelper::stripLeadingColumns($candidate, $column),
+                        $fence['char'],
+                        $fence['length'],
+                    )
+                ) {
+                    $fence = null;
+                }
+
+                continue;
+            }
             // A comment at the note's body column is an ordinary note line (CARVE-P0-005).
             $commentEndsNote = str_starts_with(ltrim($candidate, " \t"), '%%')
                 && IndentationHelper::getLeadingColumns($candidate, $noteBodyColumn) < $noteBodyColumn;
@@ -260,6 +281,15 @@ final class ListBodyRebaser
             }
             if (IndentationHelper::getLeadingColumns($candidate, $noteBodyColumn) < $noteBodyColumn) {
                 break;
+            }
+            $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($candidate, " \t"))
+                ?? ($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($candidate, " \t"));
+            if ($opener !== null) {
+                $fence = [
+                    'char' => $opener['fence'][0],
+                    'length' => strlen($opener['fence']),
+                    'column' => $column,
+                ];
             }
             $end = $j;
         }
