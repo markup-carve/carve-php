@@ -623,8 +623,7 @@ class CrossReferenceResolver
         $number = $counters[$label];
         $numberNode->setNumber($number);
 
-        // PART 9R R4: an empty label leaves the number alone, with no separator.
-        $separator = $label === '' ? '' : ' ';
+        $separator = $this->labelSeparator($caption);
         $id = $group->getAttribute('id') ?? '';
         if ($id !== '') {
             $tracker->setCaptionLabel($id, $label . $separator . $number, $this->captionLabelNodes($caption, $separator . $number));
@@ -684,11 +683,34 @@ class CrossReferenceResolver
         $number = $counters[$label];
         $numberNode->setNumber($number);
 
-        $separator = $label === '' ? '' : ' ';
+        $separator = $this->labelSeparator($caption);
         $id = $target->getAttribute('id') ?? '';
         if ($id !== '') {
             $tracker->setCaptionLabel($id, $label . $separator . $number, $this->captionLabelNodes($caption, $separator . $number));
         }
+    }
+
+    /**
+     * PART 9R R4: a label that renders nothing leaves the number alone, with no separator.
+     * An image label has no text but still shows, so this reads nodes, not plain text.
+     */
+    private function labelSeparator(Node $caption): string
+    {
+        foreach ($caption->getChildren() as $child) {
+            if ($child instanceof CaptionNumber) {
+                return '';
+            }
+            if ($child instanceof Text && trim($child->getContent(), " \t\n\r") === '') {
+                continue;
+            }
+            if ($child instanceof SoftBreak || $child instanceof HardBreak || $child instanceof CellWrap) {
+                continue;
+            }
+
+            return ' ';
+        }
+
+        return ' ';
     }
 
     /**

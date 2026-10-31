@@ -48,6 +48,13 @@ class TrackOneCauseRepairsTest extends TestCase
         $this->assertStringContainsString('<p><a href="#t">Table 1</a></p>', $html);
     }
 
+    public function testAnImageLabelKeepsTheSeparator(): void
+    {
+        $html = CarveConverter::create()->convert("{#t}\n| a |\n^ ![x](a.png) # x\n\n</#t>\n");
+
+        $this->assertStringContainsString('<a href="#t"><img src="a.png" alt="x"> 1</a>', $html);
+    }
+
     public function testADuplicateExplicitIdResolvesToTheFirstHeading(): void
     {
         $html = CarveConverter::create()->convert("{#x}\n# A\n\n{#x}\n# B\n\n</#x>\n");
