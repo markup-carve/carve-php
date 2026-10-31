@@ -213,11 +213,9 @@ final class ListBlockBuilder
         $brokeForParentContent = $continuation->brokeForParentContent;
         $lastItemHadBlankAfter = $continuation->lastItemHadBlankAfter;
         $unclosedFenceBase = $continuation->unclosedFenceBase;
-        $blankBeforeNestedContinuation = $continuation->blankBeforeNestedContinuation;
-        if ($blankBeforeNestedContinuation) {
+        if ($continuation->blankBeforeDirectChildContinuation) {
             $list->setTight(false);
         }
-
         // Compact-list rule (carve#322): an internal blank line in
         // the item's collected content loosens THIS list only when
         // the content after the blank is the item's OWN block (a
@@ -332,10 +330,18 @@ final class ListBlockBuilder
      * @param array<string> $lines
      * @param int $nextIndex
      * @param int $baseIndent
+     * @param int $contentIndent
      * @param array<string, array<string, list<string>|string>|bool|int|string> $listInfo
      */
-    private function markerLeadHasLooseningBlank(array $itemLines, array $itemLineMap, array $lines, int $nextIndex, int $baseIndent, array $listInfo): bool
-    {
+    private function markerLeadHasLooseningBlank(
+        array $itemLines,
+        array $itemLineMap,
+        array $lines,
+        int $nextIndex,
+        int $baseIndent,
+        int $contentIndent,
+        array $listInfo,
+    ): bool {
         $lastVisible = count($itemLines) - 1;
         while (
             $lastVisible >= 0
@@ -369,13 +375,14 @@ final class ListBlockBuilder
             }
             $loose = $blankRun < 3;
         }
-        // A blank before a nested continuation marker also loosens the parent.
+        // A direct child's continuation can separate blocks at this list's
+        // level. A deeper owner keeps its blank within the descendant list.
         foreach ($itemLines as $k => $collectedLine) {
             if ($k === 0 || trim($collectedLine) !== '+' || !IndentationHelper::isBlankLine($itemLines[$k - 1])) {
                 continue;
             }
             $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $itemLineMap[$k] ?? -1);
-            if (($decision['owner']['kind'] ?? null) === 'list' && $decision['owner']['column'] > $baseIndent) {
+            if (($decision['owner']['kind'] ?? null) === 'list' && $decision['owner']['column'] === $contentIndent) {
                 $loose = true;
 
                 break;
@@ -1058,7 +1065,7 @@ final class ListBlockBuilder
                 // `- x` / blank / `  b` went loose (carve-php#681). Content at or
                 // past the sub-list's own content column still belongs to the
                 // sub-list and does not propagate its looseness outwards.
-                if ($this->markerLeadHasLooseningBlank($itemLines, $itemLineMap, $lines, $i, $baseIndent, $listInfo)) {
+                if ($this->markerLeadHasLooseningBlank($itemLines, $itemLineMap, $lines, $i, $baseIndent, $contentIndent, $listInfo)) {
                     $list->setTight(false);
                 }
                 $listItem->setPos($itemOpeningColumn === null ? null : $this->spanForLineMap($itemLineMap, $itemOpeningColumn));
@@ -1274,7 +1281,7 @@ final class ListBlockBuilder
         // Track the maximum content indent we've seen (for detecting drop-back to marker level)
         $maxContentIndent = $currentIndent;
         $sawBlankLine = false;
-        $blankBeforeNestedContinuation = false;
+        $blankBeforeDirectChildContinuation = false;
         $brokeForParentContent = false;
         // Trailing-block state over the collected nested lines, so a
         // base-level lazy line folds only when the nested content
@@ -1497,8 +1504,8 @@ final class ListBlockBuilder
                 $stripped = $subColumn->strip($subLine);
                 if ($sawBlankLine && trim($stripped) === '+') {
                     $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($i));
-                    $blankBeforeNestedContinuation = $blankBeforeNestedContinuation
-                        || (($decision['owner']['kind'] ?? null) === 'list');
+                    $blankBeforeDirectChildContinuation = $blankBeforeDirectChildContinuation
+                        || (($decision['owner']['kind'] ?? null) === 'list' && $decision['owner']['column'] === $subIndent);
                 }
                 // Fence lines keep their source column when a tab remains
                 // after stripping the host prefix. Code payload stays verbatim.
@@ -1949,7 +1956,7 @@ final class ListBlockBuilder
             $brokeForParentContent,
             $lastItemHadBlankAfter,
             $unclosedFenceBase,
-            $blankBeforeNestedContinuation,
+            $blankBeforeDirectChildContinuation,
         );
     }
 

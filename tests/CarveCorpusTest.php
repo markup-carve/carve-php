@@ -1638,7 +1638,6 @@ class CarveCorpusTest extends TestCase
         '866-an-abbreviation-definition-after-a-plus-is-skipped-like-a-link-definition' => 'carve#4449: an abbreviation definition after a + is skipped like a link definition',
         '867-an-indented-comment-block-in-a-line-block-leaves-nothing-2' => 'carve#4469: an indented comment block in a line block leaves nothing',
         '867-an-indented-comment-block-in-a-line-block-leaves-nothing' => 'carve#4469: an indented comment block in a line block leaves nothing',
-        '868-a-blank-before-a-plus-in-a-stacked-sublist-does-not-loosen-the-outer-item' => 'carve#4398: a blank before a + in a stacked sublist does not loosen the outer item',
         '868-a-line-at-a-body-s-column-after-a-plus-attached-quote-holding-an-empty-div-stays-in-the-body' => 'carve#4385: a line at a body\'s column after a +-attached quote holding an empty div stays in the body',
         '868-a-paragraph-a-lone-plus-attaches-stays-the-item-s-open-paragraph-2' => 'carve#4208: a paragraph a lone + attaches stays the item\'s open paragraph',
         '868-a-plus-at-the-column-of-a-container-opened-on-another-marker-line-attaches-the-next-block-2' => 'carve#4359: a + at the column of a container opened on another marker line attaches the next block',
