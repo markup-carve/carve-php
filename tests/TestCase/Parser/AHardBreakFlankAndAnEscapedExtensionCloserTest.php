@@ -27,6 +27,8 @@ final class AHardBreakFlankAndAnEscapedExtensionCloserTest extends TestCase
             'dash run before a hard break' => ["x --\\\nb\n", "<p>x –<br>\nb</p>"],
             'dash run before an escaped space' => ["x --\\ y\n", '<p>x –&nbsp;y</p>'],
             'dash run before an escaped punctuation stays a flag' => ["x --\\.\n", '<p>x --.</p>'],
+            'an escaped backslash before a space is no flank' => ["x --\\\\ b\n", '<p>x --\\ b</p>'],
+            'an escaped backslash before a line end is no flank' => ["\"a-\"\\\\\nb\n", "<p>“a-“\\\nb</p>"],
             'escaped closer is content' => [":foo[a\\]b]\n", '<p><span class="ext-foo">a]b</span></p>'],
             'escaped backslash leaves the closer' => [":foo[a\\\\]b]\n", '<p><span class="ext-foo">a\\</span>b]</p>'],
             'odd backslash run escapes the closer' => [":foo[a\\\\\\]b]\n", '<p><span class="ext-foo">a\\]b</span></p>'],
