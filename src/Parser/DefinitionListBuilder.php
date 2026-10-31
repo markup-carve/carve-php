@@ -939,7 +939,9 @@ final class DefinitionListBuilder
             isset($this->state->source->lazyLines[$sourceLine])
             && $b->body !== []
             && $l->contColumn < $b->continuationColumn
-            && $this->bodyHoldsFootnote($b->body)
+            // A marker at the host's column the walk folded stays out of the body's list (carve#4479).
+            && ($this->bodyHoldsFootnote($b->body)
+                || ($l->contColumn === 0 && ($this->getListParser)()->parseListItemMarker(BlockGrammar::stripLazyFrame($l->contLine)) !== null))
         ) {
             $b->body[] = BlockGrammar::LAZY_FRAME . ltrim(BlockGrammar::stripLazyFrame($l->contLine), " \t");
             $b->bodyMap[] = $sourceLine;
