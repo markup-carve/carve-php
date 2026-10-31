@@ -846,7 +846,7 @@ final class TableBlockBuilder
             $text->setPos($cellMap?->spanFor(0, $trimmedContent) ?? $cellTextSpan);
             $cell->appendChild($text);
         } else {
-            ($this->getInlineParser)()->parse($cell, $trimmedContent, $baseLineForRow, sourceMap: $cellMap);
+            ($this->getInlineParser)()->parseTableCell($cell, $trimmedContent, $baseLineForRow, $cellMap);
         }
         // Prefer the measured extent: it covers the cell even when its
         // text was rewritten (an escaped pipe), where a text lookup
