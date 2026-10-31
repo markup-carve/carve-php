@@ -1672,7 +1672,16 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '118-cyclic-cross-reference-resolves-to-one-level' => [
+            'reason' => 'carve#4642 ruling: a reference in a cloned heading contributes its target text',
+            'html' => "<section id=\"A\">\n  <h1>A <a href=\"#A\">A A </a></h1>\n</section>",
+        ],
+        '118-cyclic-cross-reference-resolves-to-one-level-2' => [
+            'reason' => 'carve#4642 ruling: reciprocal references contribute one level of target text',
+            'html' => "<section id=\"A\">\n  <h1>A <a href=\"#B\">B A </a></h1>\n</section>\n<section id=\"B\">\n  <h1>B <a href=\"#A\">A B </a></h1>\n</section>",
+        ],
+    ];
 
     protected CarveConverter $converter;
 

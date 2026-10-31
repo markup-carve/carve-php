@@ -315,13 +315,26 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
 
     public function testResolutionStaysOneLevel(): void
     {
-        // A `</#id>` inside the target heading contributes NOTHING to the label,
-        // so a cycle is structurally impossible to follow. Corpus
-        // `118-cyclic-cross-reference-resolves-to-one-level` pins these bytes.
+        // The inner reference contributes its target's inline text, but the
+        // target's references do not expand again (carve#4642 ruling).
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<section id=\"A\">\n  <h1>A <a href=\"#B\">B </a></h1>\n</section>\n"
-            . "<section id=\"B\">\n  <h1>B <a href=\"#A\">A </a></h1>\n</section>\n"),
+            preg_replace('/\n\z/', '', "<section id=\"A\">\n  <h1>A <a href=\"#B\">B A </a></h1>\n</section>\n"
+            . "<section id=\"B\">\n  <h1>B <a href=\"#A\">A B </a></h1>\n</section>\n"),
             $this->html("# A </#B>\n\n# B </#A>\n"),
+        );
+    }
+
+    public function testAReferenceInAClonedHeadingContributesItsTargetText(): void
+    {
+        $this->assertSame(
+            "<section id=\"a\">\n"
+            . "  <h1>a <a href=\"#b\">b</a></h1>\n"
+            . "  <section id=\"b\">\n"
+            . "    <h2>b</h2>\n"
+            . "    <p><a href=\"#a\">a b</a></p>\n"
+            . "  </section>\n"
+            . '</section>',
+            $this->html("# a </#b>\n\n## b\n\n</#a>\n"),
         );
     }
 
