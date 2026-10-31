@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A marker after a paragraph that closed a task item's marker-line sublist opens a new list, not a sibling of the closed one (carve-php#4327).
+ * A task item's marker-line child keeps a sibling and its body at the child's column, and a marker after a paragraph that closed the child opens a new list (carve-php#4327, #4322).
  */
 class ATaskSublistSiblingAfterAParagraphOpensAListTest extends TestCase
 {
@@ -42,6 +42,18 @@ class ATaskSublistSiblingAfterAParagraphOpensAListTest extends TestCase
             'quoted' => [
                 "> - [ ] - x\n>\n>   p\n>   - y\n",
                 "<blockquote>\n  <ul class=\"task-list\">\n    <li><input type=\"checkbox\" disabled> \n      <ul>\n        <li>x</li>\n      </ul>\n      <p>p</p>\n      <ul>\n        <li>y</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n",
+            ],
+            'table in a nested task sibling' => [
+                "- [ ] - [ ] a\n      - [ ] y\n            ||\nz\n",
+                "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"a\"> a</li>\n      <li><input type=\"checkbox\" disabled aria-label=\"y\"> y\n        <table>\n          <tbody>\n            <tr><td></td></tr>\n          </tbody>\n        </table>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>z</p>\n",
+            ],
+            'quote in a sibling' => [
+                "- [ ] - a\n      - y\n        > q\nz\n",
+                "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>a</li>\n      <li>y\n        <blockquote><p>q\nz</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
+            ],
+            'fence in a sibling' => [
+                "- [ ] - a\n      - y\n        ```\n        c\n        ```\n",
+                "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>a</li>\n      <li>y\n        <pre><code>c\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
             ],
         ];
     }
