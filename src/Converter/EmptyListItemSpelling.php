@@ -20,7 +20,7 @@ final class EmptyListItemSpelling
     /**
      * @var string
      */
-    private const MARKER_LINE = '/^((?:[ \t]*>)*[ \t]*(?:(?:[-*]|\d+[.)]|[A-Za-z][.)]|\[\^[^\]]+\]:|:)[ \t]+)*(?:[-*]|\d+[.)]|[A-Za-z][.)])[ \t]+(?:\[[ xX]\][ \t]+)?)\+\x{E0FE}[ \t]*$/Du';
+    private const MARKER_LINE = '/^((?:[ \t]*>)*[ \t]*(?:(?:[-*]|\d+[.)]|(?:[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\[\^[^\]]+\]:|:)[ \t]+)*(?:[-*]|\d+[.)]|(?:[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]+(?:\[[ xX]\][ \t]+)?)\+\x{E0FE}[ \t]*$/Du';
 
     public static function spell(string $carve): string
     {
@@ -31,7 +31,7 @@ final class EmptyListItemSpelling
         $fence = null;
         for ($i = 0; isset($lines[$i]); $i++) {
             $line = $lines[$i];
-            $body = (string)preg_replace('/^(?:[ \t]*>)*[ \t]*(?:(?:[-*]|\d+[.)]|[A-Za-z][.)]|\[\^[^\]]+\]:|:)[ \t]+)*/', '', $line);
+            $body = (string)preg_replace('/^(?:[ \t]*>)*[ \t]*(?:(?:[-*]|\d+[.)]|(?:[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\[\^[^\]]+\]:|:)[ \t]+)*/', '', $line);
             if ($fence !== null) {
                 if (preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $body, $close) === 1 && $close[1][0] === $fence[0] && strlen($close[1]) >= strlen($fence)) {
                     $fence = null;
