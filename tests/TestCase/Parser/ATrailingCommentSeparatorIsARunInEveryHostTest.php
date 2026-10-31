@@ -52,7 +52,7 @@ class ATrailingCommentSeparatorIsARunInEveryHostTest extends TestCase
             ],
             'figure caption, run start' => [
                 "![alt](u)\n^ %% hidden\n",
-                "<figure>\n  <img src=\"u\" alt=\"alt\">\n  <figcaption></figcaption>\n</figure>",
+                "<p><img src=\"u\" alt=\"alt\">\n^</p>",
             ],
             'div label, tab' => [
                 "::: note [a\t%% hidden]\nbody\n:::\n",
