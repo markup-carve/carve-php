@@ -3817,7 +3817,6 @@ final class BlockContinuationScanner
             )
             || (
                 $run->markerNoteItem && !$run->sawNestedNote
-                && $run->blankRun->noteAfterCodeFence()
                 && $this->noteKeepsItsBody($itemLines, $run->markerRunCursor, $run->markerRunBroken)
                 && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $run->noteSourceCursor, $run->noteSourceBroken)
                 && $this->footnoteBodyResumesAfter($lines, $i, $count, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, false) !== null
