@@ -1,0 +1,162 @@
+[
+    {
+        "ticket": "carve#4094",
+        "source": "- [ ] :: t\n      : a\n      : b\n",
+        "html": "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <dl>\n      <dt>t</dt>\n      <dd>a</dd>\n      <dd>b</dd>\n    </dl>\n  </li>\n</ul>"
+    },
+    {
+        "ticket": "carve#4094",
+        "source": "- [ ] :: t\n      : a\n      : ```\n        code\n        ```\n",
+        "html": "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <dl>\n      <dt>t</dt>\n      <dd>a</dd>\n      <dd>\n        <pre><code>code\n</code></pre>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+    },
+    {
+        "ticket": "carve#4161",
+        "source": "  | h |\n  | v |\n  + text |\n",
+        "html": "<table>\n  <tbody>\n    <tr><td>h</td></tr>\n    <tr><td>v text</td></tr>\n  </tbody>\n</table>"
+    },
+    {
+        "ticket": "carve#4165",
+        "source": "- - - ```\n    x\n    y\nl\n",
+        "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code></code></pre>\n          </li>\n        </ul>\n        x\ny\nl\n      </li>\n    </ul>\n  </li>\n</ul>"
+    },
+    {
+        "ticket": "carve#4176",
+        "source": " :: t\n : a\n : b\n",
+        "html": "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n  <dd>b</dd>\n</dl>"
+    },
+    {
+        "ticket": "carve#4179",
+        "source": ":: t\n: +\nafter\n: b\n",
+        "html": "<dl>\n  <dt>t</dt>\n  <dd>after</dd>\n  <dd>b</dd>\n</dl>"
+    },
+    {
+        "ticket": "carve#4179",
+        "source": "- x\n\n  :: t\n  : +\n  after\n  : b\n",
+        "html": "<ul>\n  <li>x\n    <dl>\n      <dt>t</dt>\n      <dd>after</dd>\n      <dd>b</dd>\n    </dl>\n  </li>\n</ul>"
+    },
+    {
+        "ticket": "carve#4212",
+        "source": "[^b]: +\n # H\n\nr[^b]\n",
+        "html": "<section id=\"H\">\n  <h1>H</h1>\n  <p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n</section>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>+<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    },
+    {
+        "ticket": "carve#4212",
+        "source": "- x\n  [^b]: +\n   # H\n\nr[^b]\n",
+        "html": "<ul>\n  <li>x\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>\n<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>+<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    },
+    {
+        "ticket": "carve#4217",
+        "source": "> ^ x\n ^ cap\n",
+        "html": "<blockquote><p>^ x\n^ cap</p></blockquote>"
+    },
+    {
+        "ticket": "carve#4217",
+        "source": "> a\n ^ cap\n",
+        "html": "<blockquote><p>a\n^ cap</p></blockquote>"
+    },
+    {
+        "ticket": "carve#4283",
+        "source": "^ p\n- x\n  > q\n",
+        "html": "<p>^ p\n- x</p>\n<blockquote><p>q</p></blockquote>"
+    },
+    {
+        "ticket": "carve#4312",
+        "source": "> - t\n^ p\n>   # h\nl\n",
+        "html": "<figure>\n  <blockquote>\n    <ul>\n      <li>t</li>\n    </ul>\n  </blockquote>\n  <figcaption>p</figcaption>\n</figure>\n<blockquote>\n  <h1 id=\"h\">h</h1>\n</blockquote>\n<p>l</p>"
+    },
+    {
+        "ticket": "carve#4312",
+        "source": "> - t\n^ p\n>   [^f]: n\nl\n",
+        "html": "<figure>\n  <blockquote>\n    <ul>\n      <li>t</li>\n    </ul>\n  </blockquote>\n  <figcaption>p</figcaption>\n</figure>\n<blockquote>\n\n</blockquote>"
+    },
+    {
+        "ticket": "carve#4404",
+        "source": "- - \t+\n  x\n",
+        "html": "<ul>\n  <li>\n    <ul>\n      <li>+\nx</li>\n    </ul>\n  </li>\n</ul>"
+    },
+    {
+        "ticket": "carve#4404",
+        "source": "- \t+\nx\n",
+        "html": "<ul>\n  <li>+\nx</li>\n</ul>"
+    },
+    {
+        "ticket": "carve#4404",
+        "source": " - \t+\n>\n",
+        "html": "<ul>\n  <li>+</li>\n</ul>\n<blockquote>\n\n</blockquote>"
+    },
+    {
+        "ticket": "carve#4404",
+        "source": "> - \t- +\nx\n",
+        "html": "<blockquote>\n  <ul>\n    <li>- +\nx</li>\n  </ul>\n</blockquote>"
+    },
+    {
+        "ticket": "carve#4412",
+        "source": "> n\n*[A]: b\n\nA\n",
+        "html": "<blockquote><p>n</p></blockquote>\n<p><abbr title=\"b\">A</abbr></p>"
+    },
+    {
+        "ticket": "carve#4412",
+        "source": "- n\n*[A]: b\n\nA\n",
+        "html": "<ul>\n  <li>n</li>\n</ul>\n<p><abbr title=\"b\">A</abbr></p>"
+    },
+    {
+        "ticket": "carve#4447",
+        "source": "- a\n+\n{x}\n  - c\n",
+        "html": "<ul>\n  <li>a\n+</li>\n</ul>\n<ul x=\"\">\n  <li>c</li>\n</ul>"
+    },
+    {
+        "ticket": "carve#4447",
+        "source": "- a\n+\n{x}\n- c\n",
+        "html": "<ul>\n  <li>a\n+</li>\n</ul>\n<ul x=\"\">\n  <li>c</li>\n</ul>"
+    },
+    {
+        "ticket": "carve#4447",
+        "source": ":: t\n: a\n+\n{x}\n: b\n",
+        "html": "<dl>\n  <dt>t</dt>\n  <dd>a\n+</dd>\n</dl>\n<p x=\"\">: b</p>"
+    },
+    {
+        "ticket": "carve#4496",
+        "source": "[^f]\n\n[^f]: - a\n    # H\n",
+        "html": "<p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <ul>\n        <li>a</li>\n      </ul>\n      <h1 id=\"H\">H</h1>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    },
+    {
+        "ticket": "carve-php#4158",
+        "source": "* [ ] - :: t\n       : a\n        :: sibling\n        tail\n",
+        "html": "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>\n        <dl>\n          <dt>t\n: a</dt>\n          <dt>sibling\ntail</dt>\n        </dl>\n      </li>\n    </ul>\n  </li>\n</ul>"
+    },
+    {
+        "ticket": "carve-php#4282",
+        "source": "- x\n+\n```\na\n\nb\n",
+        "html": "<ul>\n  <li>x\n    <pre><code>a\n</code></pre>\n  </li>\n</ul>\n<p>b</p>"
+    },
+    {
+        "ticket": "carve-php#4282",
+        "source": "- ```\n  a\n\nb\n",
+        "html": "<ul>\n  <li>\n    <pre><code>a\n\n</code></pre>\n  </li>\n</ul>\n<p>b</p>"
+    },
+    {
+        "ticket": "carve-php#4286",
+        "source": "- [ ] - > para\n        > more\n",
+        "html": "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>\n        <blockquote><p>para\nmore</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>"
+    },
+    {
+        "ticket": "carve-php#4286",
+        "source": "- [x] 1. > para\n         > ---\n",
+        "html": "<ul class=\"task-list\">\n  <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled> \n    <ol>\n      <li>\n        <blockquote>\n          <p>para</p>\n          <hr>\n        </blockquote>\n      </li>\n    </ol>\n  </li>\n</ul>"
+    },
+    {
+        "ticket": "carve-php#4286",
+        "source": "- [ ] - para\n        # H\n",
+        "html": "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>para\n        <h1 id=\"H\">H</h1>\n      </li>\n    </ul>\n  </li>\n</ul>"
+    },
+    {
+        "ticket": "carve-php#4286",
+        "source": "- [ ] - > para\n        > ---\ntail\n",
+        "html": "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>\n        <blockquote>\n          <p>para</p>\n          <hr>\n        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>"
+    },
+    {
+        "ticket": "carve-php#4301",
+        "source": "- > ```\n  > x\n=\n",
+        "html": "<ul>\n  <li>\n    <blockquote>\n      <pre><code>x\n</code></pre>\n    </blockquote>\n  </li>\n</ul>\n<p>=</p>"
+    }
+]
