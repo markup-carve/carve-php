@@ -689,9 +689,15 @@ class HeadingIdTracker
             // link. References in that target do not expand again (PART 9R R4).
             if ($child instanceof HeadingRef) {
                 if ($expandReferences) {
-                    $id = $this->findId($child->getTargetId());
+                    $target = $child->getTargetId();
+                    $id = $this->findId($target);
                     if ($id !== null && isset($this->nodesById[$id])) {
                         $this->collectDisplayNodes($this->nodesById[$id], $insideLink, $nodes, $depth + 1, false);
+                    } else {
+                        // A caption has a composed label but no heading nodes;
+                        // an unresolved reference displays its literal source.
+                        $label = $id === null ? null : $this->getTextForId($id);
+                        $nodes[] = new Text($label ?? '</#' . $target . '>');
                     }
                 }
 

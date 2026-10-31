@@ -361,6 +361,34 @@ class DerivedDisplayTextClonesTheNodesAtEverySiteTest extends TestCase
         );
     }
 
+    public function testAClonedHeadingKeepsAnUnresolvedReferenceAsVisibleSource(): void
+    {
+        $this->assertSame(
+            "<section id=\"a\">\n"
+            . "  <h1>a &lt;/#missing&gt;</h1>\n"
+            . "  <p><a href=\"#a\">a &lt;/#missing&gt;</a></p>\n"
+            . '</section>',
+            $this->html("{#a}\n# a </#missing>\n\n</#a>\n"),
+        );
+    }
+
+    public function testAClonedHeadingKeepsAComposedCaptionReferenceLabel(): void
+    {
+        $this->assertSame(
+            "<table id=\"t\">\n"
+            . "  <caption>Caption 1: test</caption>\n"
+            . "  <tbody>\n"
+            . "    <tr><td>a</td></tr>\n"
+            . "  </tbody>\n"
+            . "</table>\n"
+            . "<section id=\"h\">\n"
+            . "  <h1>Head <a href=\"#t\">Caption 1</a></h1>\n"
+            . "  <p><a href=\"#h\">Head Caption 1</a></p>\n"
+            . '</section>',
+            $this->html("{#t}\n| a |\n^ Caption #: test\n\n{#h}\n# Head </#t>\n\n</#h>\n"),
+        );
+    }
+
     public function testTheLabelAndTheHeadingAreTwoTrees(): void
     {
         // The in-link producer REWRITES the label in place (a nested link is
