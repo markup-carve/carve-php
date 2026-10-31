@@ -373,6 +373,7 @@ trait BlockColonMethods
         $stack = [$fenceLength];
         $columns = [IndentationHelper::getLeadingColumns($lines[$start])];
         $openingAuthoredColumn = $this->state->frame->listHostedColonFences
+            && $this->state->frame->noteHostedColonFences
             ? $this->authoredColumnOf($start, $lines[$start]) : null;
         $literal = [!$nestingAware];
         $i = $start + 1;
