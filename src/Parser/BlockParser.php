@@ -3433,6 +3433,8 @@ class BlockParser
         foreach ($bodyLines as $bodyLine) {
             $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
         }
+        // The attached block lasts while its own fence, if any, is still the open one.
+        $attachedFence = $trailingState->fence;
         // A first-block `+` body takes lazy lines like a standalone one's attached block (PART 0 S4).
         $plusContinuationOpen = $firstBlockAttached || trim($content, " \t") === '+';
         $childFence = new PlainContinuationState();
@@ -3464,7 +3466,7 @@ class BlockParser
                 );
                 if ($resumes === null) {
                     // A blank reaches every frame, so an open fence keeps the run before the line that ends the body.
-                    $keepsRun = !$endsAtBlank
+                    $keepsRun = !($endsAtBlank && $trailingState->fence === $attachedFence)
                         && ($trailingState->fence !== null || $this->continuationsMapper()->childMarkerLineFenceOpen($childFence, $bodyLines));
                     for (; $keepsRun && $i < $count && IndentationHelper::isBlankLine($lines[$i]); $i++) {
                         $bodyLines[] = $this->blankLineResidue($lines[$i], self::FOOTNOTE_BODY_COLUMN, $trailingState);
@@ -3473,6 +3475,8 @@ class BlockParser
 
                     break;
                 }
+                // An attached block with no fence open ends at this run; what follows is a block of its own.
+                $endsAtBlank = $endsAtBlank && $trailingState->fence !== null && $trailingState->fence === $attachedFence;
                 // INTACT, one blank per source line, so a §11 N1a boundary
                 // inside the body survives to the parser.
                 for (; $i < $resumes; $i++) {
@@ -3526,6 +3530,7 @@ class BlockParser
                         $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $attachedLine);
                     }
                     $endsAtBlank = true;
+                    $attachedFence = $trailingState->fence;
                 }
 
                 continue;
@@ -3647,7 +3652,7 @@ class BlockParser
             }
         }
 
-        while (($endsAtBlank || ($trailingState->fence === null && $childFence->markerLineFence === null)) && $bodyLines !== [] && end($bodyLines) === '') {
+        while ((($endsAtBlank && $trailingState->fence === $attachedFence) || ($trailingState->fence === null && $childFence->markerLineFence === null)) && $bodyLines !== [] && end($bodyLines) === '') {
             array_pop($bodyLines);
             array_pop($bodyLineMap);
         }

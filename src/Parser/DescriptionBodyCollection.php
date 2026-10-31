@@ -72,6 +72,13 @@ final class DescriptionBodyCollection
 
     public ?PlainContinuationState $childFence = null;
 
+    /**
+     * A block a `+` attached ends at a blank, so its own open fence keeps no blank run.
+     */
+    public bool $attachedBlockOpen = false;
+
+    public ?TrailingCodeFence $attachedFence = null;
+
     public int $bodyAttributeThrough = -1;
 
     public bool $bodyEndsWithAttribute = false;
