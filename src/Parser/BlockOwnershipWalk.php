@@ -78,6 +78,18 @@ final class BlockOwnershipWalk
     public array $plusHosts = [];
 
     /**
+     * The owner of a description whose first-block `+` took a block other than a paragraph: a `: ` after that block is its sibling.
+     */
+    private ?OwnershipFrame $ddSiblingOwner = null;
+
+    /**
+     * The invisible lines between a taken `+` and its block, read where that block stands (CARVE-P9-013).
+     *
+     * @var array{host: \MarkupCarve\Carve\Parser\OwnershipFrame, at: int, end: int, hostIndex: int, fenced: array<int, true>, lead: string}|null
+     */
+    private ?array $skipped = null;
+
+    /**
      * The private byte a refused `+` is written as until the tree is built.
      */
     private string $letter = "\x01";
@@ -174,6 +186,8 @@ final class BlockOwnershipWalk
         $this->fenceOpenerLines = [];
         $this->refusedPlus = [];
         $this->plusHosts = [];
+        $this->ddSiblingOwner = null;
+        $this->skipped = null;
         $this->attachedTo = null;
         $this->frames = [new OwnershipFrame('doc', 0, 0, 0)];
         $result = [];
@@ -198,6 +212,23 @@ final class BlockOwnershipWalk
             }
         }
         for ($at = $start; $at < $count; $at++) {
+            if ($this->skipped !== null) {
+                $skipped = $this->skipped;
+                $result[] = $skipped['lead'] . (isset($skipped['fenced'][$at])
+                    ? '%%'
+                    : ($this->throughQuotes($lines[$at], $skipped['hostIndex'], $this->frames)['rest'] ?? ''));
+                if ($this->trace !== null) {
+                    $this->emit($at, 'S5', $this->ownerPath(), 'CARVE-P0-024', 'leaf', ['plus' => $at]);
+                }
+                if ($at + 1 === $skipped['end']) {
+                    if ($skipped['host']->plus === $skipped['at']) {
+                        $skipped['host']->plus = $at;
+                    }
+                    $this->skipped = null;
+                }
+
+                continue;
+            }
             $afterSoftLeaf = $this->softLeaf;
             $this->softLeaf = false;
             $this->at = $at;
@@ -269,7 +300,8 @@ final class BlockOwnershipWalk
             if ($plus !== null) {
                 $this->frames = array_slice($this->frames, 0, $plus + 1);
                 $this->frames[$plus]->para = false;
-                $this->holdAttachedTo($plus, $at + 1);
+                $this->skipInvisible($plus, $at, self::docColumn($lines[$at], $this->m['rest']));
+                $this->holdAttachedTo($plus, $this->skipped['end'] ?? $at + 1);
                 $this->lead($this->frames[$plus]->markerCanon);
                 $this->plusHosts[$at] = $this->hostRecord($plus, self::columnOf($this->out), false);
                 $result[] = $this->out . $this->src;
@@ -281,7 +313,8 @@ final class BlockOwnershipWalk
 
                 continue;
             }
-            $plusFollower = $afterPlus;
+            // The line right after a marker-line `+` follows it as a standalone one's does.
+            $plusFollower = $afterPlus || $this->frames[count($this->frames) - 1]->plus === $at - 1;
             $afterPlus = false;
             $missed = $reached < count($this->frames) - 1;
             $this->reach = $reached;
@@ -333,6 +366,18 @@ final class BlockOwnershipWalk
             // S3: the line's form, the record's `form` field.
             $form = $this->classify($this->m['rest'], $this->frames[$reached], $this->m['col']);
             $topIndex = count($this->frames) - 1;
+            if ($this->m['rest'] !== '' && ($form->kind === 'dd' || ($reached === $topIndex && $this->frames[$reached] === $this->ddSiblingOwner))) {
+                $this->ddSiblingOwner = null;
+            }
+            // The one block a first-block `: +` takes ends the description, which stays open for a sibling (PART 9 §17 L3, carve#4408).
+            $firstBlockDd = $this->frames[$topIndex];
+            if (
+                $plusFollower && $reached < $topIndex && $firstBlockDd->kind === 'dd' && $firstBlockDd->plus === $at - 1
+                && $this->m['rest'] !== '' && $this->m['col'] < $firstBlockDd->col
+                && !in_array($form->kind, ['text', 'dd', 'term', 'colon-close'], true)
+            ) {
+                $this->ddSiblingOwner = $this->frames[$reached];
+            }
             $next = $this->frames[$reached + 1] ?? null;
             $missedNote = false;
             $missedItem = false;
@@ -679,7 +724,8 @@ final class BlockOwnershipWalk
                     && $this->attachesAt($f->kind, $this->at, (int)$f->docMarker, $frame);
                 if ($plus) {
                     $f->plus = $this->at;
-                    $this->holdAttachedTo($frame, $this->at + 1);
+                    $this->skipInvisible($frame, $this->at, (int)$f->docMarker);
+                    $this->holdAttachedTo($frame, $this->skipped['end'] ?? $this->at + 1);
                 } else {
                     $this->refusePlus($this->at, $f->kind === 'quote' && $this->m['col'] > 0
                         ? null
@@ -888,7 +934,7 @@ final class BlockOwnershipWalk
         if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $rest) === 1) {
             return new OwnershipForm(kind: 'term', interrupts: true);
         }
-        if (preg_match('/^:( +)(?=[ \t]*[^ \t])/', $rest, $dd) === 1 && ($owner->last === 'term' || $owner->last === 'dd')) {
+        if (preg_match('/^:( +)(?=[ \t]*[^ \t])/', $rest, $dd) === 1 && ($owner->last === 'term' || $owner->last === 'dd' || $owner === $this->ddSiblingOwner)) {
             $w = 1 + strlen($dd[1]);
 
             return new OwnershipForm(kind: 'dd', width: $w, head: $w, interrupts: false);
@@ -1044,8 +1090,9 @@ final class BlockOwnershipWalk
      * @param int $hostIndex
      * @param int $column
      * @param array<int, \MarkupCarve\Carve\Parser\OwnershipFrame> $frames
+     * @param array<int, true> $fenced Collects the lines of a skipped comment fence.
      */
-    private function firstVisibleLine(int $from, int $hostIndex, int $column, array $frames): int
+    private function firstVisibleLine(int $from, int $hostIndex, int $column, array $frames, array &$fenced = []): int
     {
         $n = count($this->lines);
         $view = fn (int $k): string => $this->throughQuotes($this->lines[$k], $hostIndex, $frames)['rest'] ?? "\u{E000}";
@@ -1057,11 +1104,14 @@ final class BlockOwnershipWalk
             }
             if (preg_match('/^(%{3,})/', $rest, $c) === 1 && ($this->closerRuns()['lastComment'][strlen($c[1])] ?? -1) > $k) {
                 $closer = '/^%{' . strlen($c[1]) . '}(?!%)/';
-                $k++;
+                $opener = $k++;
                 while ($k < $n && preg_match($closer, $view($k)) !== 1) {
                     $k++;
                 }
                 $k++;
+                for ($j = $opener; $j < min($k, $n); $j++) {
+                    $fenced[$j] = true;
+                }
             } elseif (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $rest) === 1) {
                 $k++;
                 while ($k < $n && $this->foldsAsPlainText(rtrim($view($k), " \t"))) {
@@ -1109,12 +1159,14 @@ final class BlockOwnershipWalk
      * @param string $line
      * @param int $hostIndex
      * @param array<int, \MarkupCarve\Carve\Parser\OwnershipFrame> $frames
+     * @param bool $raw The rest as written, its indentation kept.
      *
-     * @return array{col: int, rest: string}|null
+     * @return array{col?: int, rest: string}|null
      */
-    private function throughQuotes(string $line, int $hostIndex, array $frames): ?array
+    private function throughQuotes(string $line, int $hostIndex, array $frames, bool $raw = false): ?array
     {
         $m = self::indentCols($line);
+        $rest = $line;
         $floor = 0;
         for ($k = 1; $k < $hostIndex; $k++) {
             if ($frames[$k]->kind !== 'quote') {
@@ -1125,11 +1177,33 @@ final class BlockOwnershipWalk
             if ($m['col'] < $floor || preg_match(self::QUOTE, $m['rest'], $q) !== 1) {
                 return null;
             }
-            $m = self::indentCols($q[1] ?? '');
+            $rest = $q[1] ?? '';
+            $m = self::indentCols($rest);
             $floor = 0;
         }
 
-        return $m;
+        return $raw ? ['rest' => $rest] : $m;
+    }
+
+    /**
+     * The readers meet the skipped lines where the block stands, one line for a line, as a host reads a comment before its block.
+     */
+    private function skipInvisible(int $hostIndex, int $at, int $column): void
+    {
+        $fenced = [];
+        $end = $this->firstVisibleLine($at + 1, $hostIndex, $column, $this->frames, $fenced);
+        if ($end === $at + 1 || !isset($this->lines[$end])) {
+            return;
+        }
+        $raw = $this->throughQuotes($this->lines[$end], $hostIndex, $this->frames, true)['rest'] ?? '';
+        $this->skipped = [
+            'host' => $this->frames[$hostIndex],
+            'at' => $at,
+            'end' => $end,
+            'hostIndex' => $hostIndex,
+            'fenced' => $fenced,
+            'lead' => substr($this->lines[$end], 0, strlen($this->lines[$end]) - strlen($raw)) . str_repeat(' ', $this->frames[$hostIndex]->markerCanon),
+        ];
     }
 
     private function holdAttachedTo(int $host, int $from): void

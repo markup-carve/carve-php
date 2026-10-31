@@ -3404,6 +3404,7 @@ class BlockParser
         $termScan = null;
         $commentSpan = new CollectedCommentSpan();
         $bodyLineMap = [$this->sourceLineFor($start)];
+        $firstBlockAttached = false;
         if (
             trim($content, " \t") === '+' && isset($lines[$i])
             && !IndentationHelper::isBlankLine($lines[$i])
@@ -3418,6 +3419,7 @@ class BlockParser
                 $bodyLines = $attached;
                 $bodyLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedLineMap);
                 $i = $end;
+                $firstBlockAttached = true;
             }
         }
         // Tracked for the same reason the list-item collectors track it: inside
@@ -3428,7 +3430,8 @@ class BlockParser
         foreach ($bodyLines as $bodyLine) {
             $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
         }
-        $plusContinuationOpen = trim(end($bodyLines) ?: '', " \t") === '+';
+        // A first-block `+` body takes lazy lines like a standalone one's attached block (PART 0 S4).
+        $plusContinuationOpen = $firstBlockAttached || trim($content, " \t") === '+';
         $retainedBelowComment = false;
         $footnoteColumn = new IndentedContainerColumn(self::FOOTNOTE_BODY_COLUMN);
         foreach (
