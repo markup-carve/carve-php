@@ -551,8 +551,11 @@ final class BlockQuoteBuilder
                 $frameLazyLine = $unquotedAttributeTail
                     || ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
                     || preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1;
+                $literalLineBlock = ($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
+                    || $this->quotedNestedLineBlockOpen($innerLines, $nestedLineBlock);
                 $innerLines[] = $frameLazyLine
-                    ? BlockGrammar::LAZY_FRAME . ltrim($currentLine, " \t") : $currentLine;
+                    ? BlockGrammar::LAZY_FRAME . ltrim($currentLine, " \t")
+                    : ($literalLineBlock ? ltrim($currentLine, " \t") : $currentLine);
                 $lazySourceLine = $this->sourceLineFor($i);
                 $innerLineMap[] = $lazySourceLine;
                 $this->state->session->blockQuoteLazySourceLines[$lazySourceLine] = true;
