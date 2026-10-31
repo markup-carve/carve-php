@@ -1647,8 +1647,6 @@ class CarveCorpusTest extends TestCase
         '872-the-third-confirmation-round-s-model-findings-3' => 'carve#4615: a lazy line in a line block does not stop its closer',
         '872-the-third-confirmation-round-s-model-findings-4' => 'carve#4615: a lazy line in a line block does not stop its closer',
         '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',
-        '872-the-third-confirmation-round-s-model-findings-7' => 'carve#4617: a comment body line that misses its owner is hidden',
-        '872-the-third-confirmation-round-s-model-findings-8' => 'carve#4617: a comment body line that misses its owner is hidden',
     ];
 
     /**
