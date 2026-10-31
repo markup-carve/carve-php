@@ -420,7 +420,9 @@ final class BlockOwnershipWalk
                     ($next->marker !== null && $form->marker !== null && $this->listParser->itemMatchesList($next->marker, $form->marker))
                     || $this->m['col'] === min($next->listCol ?? (int)$next->markerCol, (int)$next->markerCol)
                     || $this->m['col'] <= $this->frames[$reached]->col
-                ));
+                ))
+                // A marker that misses a description but reaches the item holding it opens there (S3, carve#4479).
+                && !($form->kind === 'item' && $next->kind === 'dd' && $this->frames[$reached]->kind === 'item' && $this->frames[$topIndex]->kind === 'item');
             // Past a missed note a marker opens only beside a missed list (carve#4160).
             // A marker between a missed item's columns that differs on an axis still folds into the note.
             if ($lazy && $missedNote && $form->kind === 'item' && $missedItem && !$this->foldsBetweenMissedItemColumns($reached, $form)) {
