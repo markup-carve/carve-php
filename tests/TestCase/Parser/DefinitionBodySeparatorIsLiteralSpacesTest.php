@@ -26,9 +26,8 @@ use PHPUnit\Framework\TestCase;
  * or more spaces rather than two, so only the FIRST slot is still the
  * separator's own - `:\tdef` and `:\v\vdef` open nothing, which is the half of
  * carve-php#935 that is settled and is what this file pins. What follows that
- * one space is CONTENT, and a tab there is leading content whitespace stripped
- * exactly as carve-php#884 strips it after the `::` term separator; the
- * executable oracle reads `: \tdef` the same way.
+ * one space is CONTENT. The later ruling in carve#4610 keeps a tab there as
+ * leading content instead of stripping it.
  *
  * A vertical tab or a form feed is NOT whitespace under this engine's one
  * whitespace definition (`StringUtil::WHITESPACE_CHARS`, carve-php#1071), so it
@@ -99,13 +98,9 @@ class DefinitionBodySeparatorIsLiteralSpacesTest extends TestCase
         $this->assertStringContainsString('<dd>def</dd>', $this->html(":: t\n:    def\n"));
     }
 
-    public function testATabAfterTheSeparatorIsStrippedContentNotASeparator(): void
+    public function testATabAfterTheSeparatorIsContent(): void
     {
-        // The separator is the one space; the tab is the body's leading content
-        // whitespace and comes off exactly as carve-php#884 takes it off after
-        // the `::` term separator. So the line opens a body, and it says the
-        // same thing the two-space spelling says - which is the one case in the
-        // provider above that carve#1757 moved.
-        $this->assertSame($this->html(":: t\n:  def\n"), $this->html(":: t\n: \tdef\n"));
+        // carve#4610: the separator is the one space and the tab starts content.
+        $this->assertStringContainsString("<dd>\tdef</dd>", $this->html(":: t\n: \tdef\n"));
     }
 }

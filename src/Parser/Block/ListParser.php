@@ -231,7 +231,9 @@ class ListParser
             return $this->markerTokens;
         }
 
-        $gap = ' +[ \t]*';
+        // The marker separator is spaces only. A following tab starts content,
+        // provided some nonblank content follows it on this line.
+        $gap = ' +(?=[ \t]*' . StringUtil::NON_WHITESPACE_CLASS . ')';
         $bullet = '[' . ($bulletClass ?? $this->bulletMarkerClass) . ']';
 
         $tokens = [
@@ -343,7 +345,7 @@ class ListParser
 
         $patterns = [];
         foreach ($this->markerHeads() as $name => $head) {
-            $patterns[$name] = '/^' . $head . '(' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/';
+            $patterns[$name] = '/^' . $head . '([^ ].*)$/';
         }
 
         return $this->capturePatterns = $patterns;
@@ -391,7 +393,7 @@ class ListParser
         $patterns = [];
         foreach ($this->markerTokens() as $name => [$token, $rest]) {
             $patterns[$name] = '/' . $token . $block . $strippable . $rest
-                . '(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/A';
+                . '(?=[^ ])/A';
         }
 
         return $this->attributedOffsetPatterns = $patterns;
@@ -410,7 +412,7 @@ class ListParser
 
         $patterns = [];
         foreach ($this->markerHeads() as $name => $head) {
-            $patterns[$name] = '/' . $head . '(?=' . StringUtil::NON_WHITESPACE_CLASS . ')/A';
+            $patterns[$name] = '/' . $head . '(?=[^ ])/A';
         }
 
         return $this->offsetPatterns = $patterns;
