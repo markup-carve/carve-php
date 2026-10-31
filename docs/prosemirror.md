@@ -61,8 +61,9 @@ without loss. Refresh the fixtures the way the map is refreshed: copy them, and
 bump the commit in `_provenance`.
 
 The class slot carries a list of authored entries: `attrs.class` is
-`["a  b", "c"]` for `{class="a  b" .c}`. Entries retain whitespace and empty
-strings through both bridge directions (#2585). Older string-valued `class`
+`["a", "b", "c"]` for `{class="a  b" .c}`, because a `class=V` value splits
+into class tokens (markup-carve/carve#4205). Entries, including an empty
+string, survive both bridge directions (#2585). Older string-valued `class`
 attributes remain readable as one entry. Editor schemas must accept the list;
 the pinned schema map's "space separated" description predates this change.
 

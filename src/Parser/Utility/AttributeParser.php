@@ -149,7 +149,9 @@ class AttributeParser
     private static function assignKeyValue(array &$attributes, array &$order, string $key, string $value): void
     {
         if ($key === 'class') {
-            self::appendClassValue($attributes, $order, $value);
+            foreach (self::classTokens($value) as $token) {
+                self::appendClassValue($attributes, $order, $token);
+            }
 
             return;
         }
@@ -159,9 +161,22 @@ class AttributeParser
     }
 
     /**
+     * A `class=V` value is a list of class tokens split on ASCII whitespace;
+     * a value with no token stays one entry (CARVE-P4-007, carve#4205).
+     *
+     * @return array<string>
+     */
+    private static function classTokens(string $value): array
+    {
+        $tokens = preg_split('/[\t\n\f\r ]+/', $value, -1, PREG_SPLIT_NO_EMPTY);
+
+        return $tokens === false || $tokens === [] ? [$value] : $tokens;
+    }
+
+    /**
      * Append to the class slot without de-duplicating (grammar PART 15).
      *
-     * Each value stays one entry, including its whitespace and an empty value.
+     * Each value stays one entry, including an empty value.
      *
      * @param array<string, string|list<string>> $attributes
      * @param list<string> $order
@@ -274,7 +289,9 @@ class AttributeParser
             return;
         }
 
-        $node->appendClass($value);
+        foreach (self::classTokens($value) as $token) {
+            $node->appendClass($token);
+        }
     }
 
     /**

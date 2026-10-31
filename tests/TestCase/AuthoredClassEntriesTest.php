@@ -28,12 +28,12 @@ class AuthoredClassEntriesTest extends TestCase
             ['class="" .b', ['', 'b'], 'b'],
             ['class="javascript:alert(1)" .b', ['javascript:alert(1)', 'b'], 'b'],
             ['.b class="javascript:alert(1)"', ['b', 'javascript:alert(1)'], 'b'],
-            ['class="java script:alert(1)" .b', ['java script:alert(1)', 'b'], 'b'],
-            ['class="java script:alert(1)"', ['java script:alert(1)'], ''],
-            ['class="a  b" .c', ['a  b', 'c'], 'a  b c'],
-            ['class=" a " .b', [' a ', 'b'], ' a  b'],
-            ['class="a -col" .a', ['a -col', 'a'], 'a -col a'],
-            ['.a .a class="a  b"', ['a', 'a', 'a  b'], 'a a  b'],
+            ['class="java script:alert(1)" .b', ['java', 'script:alert(1)', 'b'], 'java script:alert(1) b'],
+            ['class="java script:alert(1)"', ['java', 'script:alert(1)'], 'java script:alert(1)'],
+            ['class="a  b" .c', ['a', 'b', 'c'], 'a b c'],
+            ['class=" a " .b', ['a', 'b'], 'a b'],
+            ['class="a -col" .a', ['a', '-col', 'a'], 'a -col'],
+            ['.a .a class="a  b"', ['a', 'a', 'a', 'b'], 'a b'],
         ];
     }
 
@@ -85,7 +85,7 @@ class AuthoredClassEntriesTest extends TestCase
             $converter = new CarveConverter();
             $document = $converter->parse($source);
             $html = $converter->render($document);
-            self::assertStringContainsString('a  b c', $html, $source);
+            self::assertStringContainsString('a b c', $html, $source);
             self::assertStringNotContainsString('javascript:', $html, $source);
             $written = CarveConverter::carve()->render($document);
             self::assertSame(preg_replace('/\n\z/', '', $html), $converter->convert($written), $source);
@@ -108,8 +108,9 @@ class AuthoredClassEntriesTest extends TestCase
             $kind = $extension instanceof DetailsExtension ? 'details' : 'tabs';
             $source = '{class="java script:alert(1)" class="a  b" .c}' . "\n::: " . $kind . "\nx\n:::\n";
             $html = $converter->convert($source);
-            self::assertStringContainsString('a  b c', $html);
-            self::assertStringNotContainsString('script:', $html);
+            // Each class token is checked on its own (carve#4205).
+            self::assertStringContainsString('java script:alert(1) a b c', $html);
+            self::assertStringNotContainsString('javascript:', $html);
         }
     }
 
@@ -141,7 +142,7 @@ class AuthoredClassEntriesTest extends TestCase
             $converter->addExtension(new TabsExtension());
             $converter->addExtension(new CodeGroupExtension());
             $html = $converter->convert($source);
-            self::assertStringContainsString('a  b c', $html);
+            self::assertStringContainsString('a b c', $html);
             self::assertStringNotContainsString('data-carve-src', $html);
         }
     }

@@ -5094,23 +5094,14 @@ class BlockParser
     /**
      * Is this the display-math span PART 9 §4 makes a captionable host?
      *
-     * ON ONE LINE, which is the half this engine was missing. §4's second
-     * prose-spelled host is a paragraph whose whole content is a display-math
-     * span, and carve-js, carve-rs and the executable spec all read that test
-     * on a SINGLE line - the spec's own test requires it deliberately. Spanning
-     * a line boundary, carve-php alone built a figure where the other three
-     * leave a paragraph and the caption line literal
-     * (markup-carve/carve-php#1422).
-     *
-     * markup-carve/carve#1352 did not move this. That ruling made a BRACKETED
-     * construct admit a soft break like any other inline content; the
-     * captionable host is a different question and its answer is unchanged.
+     * §4 and §10 I7 do not count lines: a span over a line boundary is a host
+     * too (markup-carve/carve#4115).
      *
      * @param \MarkupCarve\Carve\Node\Inline\Math $node
      */
     private static function isCaptionableDisplayMath(Math $node): bool
     {
-        return $node->isDisplay() && !str_contains($node->getContent(), "\n");
+        return $node->isDisplay();
     }
 
     /**

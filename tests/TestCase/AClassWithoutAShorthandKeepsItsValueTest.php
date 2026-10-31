@@ -25,10 +25,10 @@ class AClassWithoutAShorthandKeepsItsValueTest extends TestCase
     {
         $written = CarveConverter::carve()->convert("{class=\"a -col\"}\n::: div\nx\n:::\n");
 
-        $this->assertStringContainsString('{class="a -col"}', $written);
+        $this->assertStringContainsString('{.a class="-col"}', $written);
         $div = (new CarveConverter())->parse($written)->getChildren()[0];
         $this->assertInstanceOf(Div::class, $div);
-        $this->assertSame(['div', 'a -col'], $div->getClassEntries());
+        $this->assertSame(['div', 'a', '-col'], $div->getClassEntries());
     }
 
     public function testSpellableClassesKeepTheirShorthand(): void

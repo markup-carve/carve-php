@@ -22,13 +22,13 @@ class ClassListSplitsAuthoredEntriesTest extends TestCase
             'single shorthand' => ['.a', ['a'], ['a']],
             'several shorthands' => ['.a .b', ['a', 'b'], ['a', 'b']],
             'single value' => ['class=a', ['a'], ['a']],
-            'several names in one value' => ['class="a b"', ['a b'], ['a', 'b']],
-            'shorthand then value' => ['.a class="b c"', ['a', 'b c'], ['a', 'b', 'c']],
-            'value then shorthand' => ['class="b c" .a', ['b c', 'a'], ['b', 'c', 'a']],
-            'duplicates survive' => ['.a class="a b"', ['a', 'a b'], ['a', 'a', 'b']],
-            'extra inner whitespace' => ['class="a   b"', ['a   b'], ['a', 'b']],
-            'leading and trailing whitespace' => ['class="  a b  "', ['  a b  '], ['a', 'b']],
-            'tab' => ["class=\"a\tb\"", ["a\tb"], ['a', 'b']],
+            'several names in one value' => ['class="a b"', ['a', 'b'], ['a', 'b']],
+            'shorthand then value' => ['.a class="b c"', ['a', 'b', 'c'], ['a', 'b', 'c']],
+            'value then shorthand' => ['class="b c" .a', ['b', 'c', 'a'], ['b', 'c', 'a']],
+            'duplicates survive' => ['.a class="a b"', ['a', 'a', 'b'], ['a', 'a', 'b']],
+            'extra inner whitespace' => ['class="a   b"', ['a', 'b'], ['a', 'b']],
+            'leading and trailing whitespace' => ['class="  a b  "', ['a', 'b'], ['a', 'b']],
+            'tab' => ["class=\"a\tb\"", ['a', 'b'], ['a', 'b']],
             'empty value' => ['class=""', [''], []],
             'bare class key' => ['class', [''], []],
             'empty value beside shorthand' => ['class="" .b', ['', 'b'], ['b']],
@@ -79,8 +79,8 @@ class ClassListSplitsAuthoredEntriesTest extends TestCase
         self::assertTrue($node->hasClass('b'));
         self::assertTrue($node->hasClass('c'));
         self::assertFalse($node->hasClass('b c'));
-        self::assertFalse($node->hasClassEntry('b'));
-        self::assertTrue($node->hasClassEntry('b c'));
+        self::assertTrue($node->hasClassEntry('b'));
+        self::assertFalse($node->hasClassEntry('b c'));
     }
 
     public function testHeadingNumbersStillMatchWholeEntries(): void
@@ -89,7 +89,7 @@ class ClassListSplitsAuthoredEntriesTest extends TestCase
         $converter->addExtension(new HeadingNumbersExtension());
         $html = $converter->convert("{class=\"x unnumbered\"}\n# A\n\n{.unnumbered}\n# B\n");
 
-        self::assertStringContainsString('<h1 class="x unnumbered"><span class="section-number">1</span> A</h1>', $html);
+        self::assertStringContainsString('<h1 class="x unnumbered">A</h1>', $html);
         self::assertStringContainsString('<h1 class="unnumbered">B</h1>', $html);
     }
 

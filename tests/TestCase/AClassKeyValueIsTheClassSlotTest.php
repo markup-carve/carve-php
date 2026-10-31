@@ -60,8 +60,8 @@ class AClassKeyValueIsTheClassSlotTest extends TestCase
             // A second key-value appends rather than overwriting.
             '{class=a class=b}' => ['a', 'b'],
             '{class="w-1/2" .grid}' => ['w-1/2', 'grid'],
-            // Each authored value retains its internal whitespace.
-            '{class="a  b" .c}' => ['a  b', 'c'],
+            // A value splits into class tokens (carve#4205).
+            '{class="a  b" .c}' => ['a', 'b', 'c'],
         ];
         foreach ($cases as $attrLine => $classes) {
             $node = (new CarveConverter())->parse($attrLine . "\nHello\n")->getChildren()[0];
