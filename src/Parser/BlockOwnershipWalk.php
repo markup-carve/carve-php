@@ -254,6 +254,24 @@ final class BlockOwnershipWalk
                     $this->attachedTo = null;
                 }
             }
+            // A first-block `+` reads its quote where it stands, outside the
+            // host's ordinary content column. Once that quote ends, a line at
+            // the host's content column resumes the host rather than the
+            // quote's parent. The quote's contents do not decide this boundary.
+            if ($this->attachedTo !== null && $at > $this->attachedTo['from'] && $this->attachedTo['item']) {
+                $held = $this->attachedTo;
+                $host = $held['frames'][count($held['frames']) - 1];
+                $level = $this->levelOf($this->src, $held['depth']);
+                if (
+                    $level !== null && $level['rest'] !== '' && $level['col'] >= $host->col
+                    && $this->levelOf($this->src, $held['depth'] + 1) === null
+                    && $this->quoteDepth(count($this->frames) - 1) > $held['depth']
+                    && $this->attachedBlockEndsAt($at)
+                ) {
+                    $this->frames = $held['frames'];
+                    $this->attachedTo = null;
+                }
+            }
             $reached = 0;
             $plus = null;
             $refusedHost = null;
