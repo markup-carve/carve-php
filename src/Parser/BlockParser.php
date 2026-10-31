@@ -4234,7 +4234,7 @@ class BlockParser
             return true;
         }
 
-        if (preg_match('/^\^ +.*' . StringUtil::NON_WHITESPACE_CLASS . '/', $line)) {
+        if ($this->isCaptionLine($line)) {
             return $this->isCaptionableParagraphContent(implode("\n", $contentLines), $sourceLine);
         }
 
@@ -4639,7 +4639,7 @@ class BlockParser
             $paragraph->getChildren(),
             static fn (Node $child): bool => !$child instanceof Comment,
         ));
-        if (count($children) !== 1 || ($children[0] instanceof Math && count($paragraph->getChildren()) !== 1)) {
+        if (count($children) !== 1) {
             return false;
         }
 
@@ -4782,7 +4782,7 @@ class BlockParser
         // heading - but `whitespace` is a space or a tab and NOTHING else
         // (PART 1), so a lone NBSP, VERTICAL TAB or FORM FEED is content and
         // does make a caption (markup-carve/carve-php#1038).
-        if (!preg_match('/^\^ +(.*' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches)) {
+        if (!$this->isCaptionLine($line) || !preg_match('/^\^ +(.*)$/', $line, $matches)) {
             return null;
         }
 
@@ -5110,9 +5110,9 @@ class BlockParser
             // figure. Inline math, or display math with trailing prose, does not
             // qualify (more than one child, or not display).
             if (
-                count($paragraphChildren) === 1
-                && $paragraphChildren[0] instanceof Math
-                && self::isCaptionableDisplayMath($paragraphChildren[0])
+                count($visibleChildren) === 1
+                && $visibleChildren[0] instanceof Math
+                && self::isCaptionableDisplayMath($visibleChildren[0])
             ) {
                 $figure = new Figure();
 
@@ -5257,7 +5257,33 @@ class BlockParser
      */
     protected function isCaptionLine(string $line): bool
     {
-        return preg_match('/^\^ +.*' . StringUtil::NON_WHITESPACE_CLASS . '/', $line) === 1;
+        if (preg_match('/^\^ +(.*' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches) !== 1) {
+            return false;
+        }
+        if (!str_contains($matches[1], '%')) {
+            return true;
+        }
+
+        // A comment-only caret is paragraph text, including when it follows
+        // an open host paragraph without a blank. Use the inline parser here
+        // so every caller sees the same caption eligibility (carve#4559).
+        $candidate = new Caption();
+        // The probe must not record warnings or unresolved references in the
+        // document parser; the accepted caption is parsed there once below.
+        $probe = new self();
+        $probe->inlineParser->parse($candidate, $matches[1], 0);
+        foreach ($candidate->getChildren() as $inline) {
+            if ($inline instanceof Comment || $inline instanceof SoftBreak) {
+                continue;
+            }
+            if ($inline instanceof Text && str_replace([' ', "\t", "\n", "\r"], '', $inline->getContent()) === '') {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     /**

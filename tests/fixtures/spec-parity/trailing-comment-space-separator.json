@@ -92,7 +92,7 @@
   {
     "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator-8",
     "source": "![alt](u)\n^ %% hidden\n",
-    "html": "<figure>\n  <img src=\"u\" alt=\"alt\">\n  <figcaption></figcaption>\n</figure>\n"
+    "html": "<p><img src=\"u\" alt=\"alt\">\n^</p>\n"
   },
   {
     "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator-9",
