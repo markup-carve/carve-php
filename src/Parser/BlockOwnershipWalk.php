@@ -1090,7 +1090,7 @@ final class BlockOwnershipWalk
      * @param int $hostIndex
      * @param int $column
      * @param array<int, \MarkupCarve\Carve\Parser\OwnershipFrame> $frames
-     * @param array<int, true> $fenced Collects the lines of a skipped comment fence.
+     * @param array<int, bool> $fenced Collects the lines of a skipped comment fence (true) and each skipped note definition (false).
      */
     private function firstVisibleLine(int $from, int $hostIndex, int $column, array $frames, array &$fenced = []): int
     {
@@ -1113,6 +1113,7 @@ final class BlockOwnershipWalk
                     $fenced[$j] = true;
                 }
             } elseif (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $rest) === 1) {
+                $fenced[$k] = false;
                 $k++;
                 while ($k < $n && $this->foldsAsPlainText(rtrim($view($k), " \t"))) {
                     $k++;
@@ -1192,7 +1193,8 @@ final class BlockOwnershipWalk
     {
         $fenced = [];
         $end = $this->firstVisibleLine($at + 1, $hostIndex, $column, $this->frames, $fenced);
-        if ($end === $at + 1 || !isset($this->lines[$end])) {
+        // The readers do not yet fold a note body moved here, so a skipped note keeps the unmoved reading.
+        if ($end === $at + 1 || !isset($this->lines[$end]) || in_array(false, $fenced, true)) {
             return;
         }
         $raw = $this->throughQuotes($this->lines[$end], $hostIndex, $this->frames, true)['rest'] ?? '';
