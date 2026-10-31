@@ -36,6 +36,7 @@ final class Fx22ParserOwnershipTest extends TestCase
     {
         $html = (new CarveConverter())->convert("*/\"*\n");
 
-        self::assertSame('<p><strong>/“</strong></p>', $html);
+        // A span's closer is not the next character, so the quote closes (carve#4318).
+        self::assertSame('<p><strong>/”</strong></p>', $html);
     }
 }

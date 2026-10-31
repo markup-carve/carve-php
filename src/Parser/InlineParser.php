@@ -107,11 +107,6 @@ class InlineParser
     protected array $commentCuts = [];
 
     /**
-     * The unsliced inline source for delimiter-sensitive typography.
-     */
-    private string $blockInlineSource = '';
-
-    /**
      * The source line and 1-based column of `$pos` in the text being parsed.
      *
      * `$currentLine` is the line the BLOCK starts on, and a block can be many
@@ -696,7 +691,6 @@ class InlineParser
         $this->currentLine = $sourceLine;
         $this->textOrigin = 0;
         $this->commentCuts = [];
-        $this->blockInlineSource = $text;
         // Only when a diagnostic can actually be kept: this is one pass over
         // the block, and the default parse has no use for it.
         $this->lineBreakOffsets = [];
@@ -3184,7 +3178,7 @@ class InlineParser
                     // (those stop at the first block that yields no attribute,
                     // leaving it literal -- e.g. `[x]{.a}{???}`).
                     $this->applyAttributesToNode($span, $attrStr);
-                    $endPos = $this->applyConsecutiveAttributes($span, $text, $attrEnd + 1);
+                    $endPos = $this->applyConsecutiveAttributes($span, $text, $attrEnd + 1, emptyIsMember: true);
                     $this->parseBracketRunAt($span, $linkText, $pos + 1, separateQuoteScope: isset($this->imageReferenceAt[$pos]));
 
                     return [
@@ -4685,10 +4679,8 @@ class InlineParser
 
     protected function parseSmartQuote(string $prevConverted, string $text, int $pos, string $quote): string
     {
+        // A span's closer is not the next character (CARVE-P3-023 R1, carve#4318).
         $nextChar = $this->quoteCharacterAt($text, $pos + 1);
-        if ($nextChar === '' && $this->inlineDepth > 1) {
-            $nextChar = $this->quoteCharacterAt($this->blockInlineSource, $this->textOrigin + $pos + 1);
-        }
         if ($nextChar === '\\' && $this->backslashRendersSpace($text, $pos + 1)) {
             $nextChar = ' ';
         }
@@ -6480,7 +6472,7 @@ class InlineParser
      *
      * @return int The final position after all attribute blocks
      */
-    protected function applyConsecutiveAttributes(Node $node, string $text, int $startPos): int
+    protected function applyConsecutiveAttributes(Node $node, string $text, int $startPos, bool $emptyIsMember = false): int
     {
         $length = strlen($text);
         $pos = $startPos;
@@ -6501,8 +6493,18 @@ class InlineParser
             // `word{.c % n %}` (and carve-js / carve-rs). The inline-span branch
             // in parseLink() handles a leading empty/whitespace block explicitly
             // before delegating here.
-            if (AttributeParser::parse($attrStr) === [] || !$this->isValidInlineAttrPayload($attrStr)) {
+            if (!$this->isValidInlineAttrPayload($attrStr)) {
                 break;
+            }
+            // In a bracketed span's run the empty block is a member that adds
+            // nothing (CARVE-P9-021, carve#4077); after other nodes it ends the run.
+            if (AttributeParser::parse($attrStr) === []) {
+                if (!$emptyIsMember || trim($attrStr, ' ') !== '') {
+                    break;
+                }
+                $pos = $attrEnd + 1;
+
+                continue;
             }
             $this->applyAttributesToNode($node, $attrStr);
             $pos = $attrEnd + 1;
