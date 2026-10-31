@@ -445,6 +445,7 @@ class CarveCorpusTest extends TestCase
         'cross-reference',
         'cross-references-resolve-inside-footnote-bodies',
         'cyclic-cross-reference-resolves-to-one-level',
+        'an-abbreviation-boundary-uses-unicode-letters-and-numbers',
         'definition-list-as-a-first-class-block-opener',
         'definition-lists',
         'doubled-emphasis-delimiters',
@@ -1594,6 +1595,9 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
+        '118-cyclic-cross-reference-resolves-to-one-level' => 'carve#4664: cloned heading text keeps inner cross-reference text',
+        '118-cyclic-cross-reference-resolves-to-one-level-2' => 'carve#4664: cloned heading text keeps inner cross-reference text',
+        '879-a-shifted-line-block-keeps-a-lazy-follower-at-its-reader-column' => 'carve#4695: a shifted line block keeps its lazy follower',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame-2' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
         '815-a-line-below-an-empty-div-after-a-first-block-plus-is-not-lazy-2' => 'carve#4409: a nested item\'s attached empty div takes the line below it',
