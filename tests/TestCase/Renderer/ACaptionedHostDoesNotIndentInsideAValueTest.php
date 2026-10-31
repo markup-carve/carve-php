@@ -86,15 +86,13 @@ class ACaptionedHostDoesNotIndentInsideAValueTest extends TestCase
     }
 
     /**
-     * PART 9 section 4's second captionable host is a paragraph whose whole
-     * content is a display-math span, READ ON ONE LINE. Spanning a line
-     * boundary, carve-php alone built a figure where carve-js, carve-rs and the
-     * executable spec leave a paragraph and the caption line literal.
+     * PART 9 section 4 and section 10 I7 do not count lines: a display-math
+     * span over a line boundary is a captionable host (markup-carve/carve#4115).
      */
-    public function testDisplayMathSpanningALineBoundaryIsNotCaptionable(): void
+    public function testDisplayMathSpanningALineBoundaryIsCaptionable(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<p><span class=\"math display\" role=\"math\">\\[a\nb\\]</span>\n^ cap</p>\n"),
+            preg_replace('/\n\z/', '', "<figure>\n  <p><span class=\"math display\" role=\"math\">\\[a\nb\\]</span></p>\n  <figcaption>cap</figcaption>\n</figure>\n"),
             $this->html("$$`a\nb`\n^ cap\n"),
         );
     }
