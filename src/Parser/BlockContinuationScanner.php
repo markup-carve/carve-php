@@ -1415,6 +1415,12 @@ final class BlockContinuationScanner
         if ($run->lowComment && !str_starts_with($nextTrimmed, '%%') && $run->openCommentLength === null) {
             return false;
         }
+        // A span closed below the column changes no ownership, and it closed the paragraph (CARVE-P0-005, I5).
+        if ($run->lowSpanCloser && $nextIndent < $contentIndent && !str_starts_with($nextTrimmed, '%%')) {
+            return false;
+        }
+        $run->lowSpanCloser = $run->openCommentLength !== null && $nextIndent < $contentIndent
+            && ($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($nextTrimmed, $run->openCommentLength);
         $run->lowComment = str_starts_with($nextTrimmed, '%%') ? $nextIndent < $contentIndent && $trailingState->fence === null && $run->openCommentLength === null : $run->lowComment;
         $step = $this->plainLineLeadStep(
             $run,

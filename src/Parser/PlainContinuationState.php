@@ -145,6 +145,8 @@ final class PlainContinuationState
 
     public ?int $markerLineFenceTerm = null;
 
+    public bool $lowSpanCloser = false;
+
     public ?int $openDefinitionBody = null;
 
     /**

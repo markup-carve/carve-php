@@ -5,8 +5,7 @@
       "ticket": "markup-carve/carve#3972",
       "cause": "all three engines agree against the spec model",
       "cases": [
-        "ownership-bd5caf2c0c4d",
-        "ownership-ca02e84b0d06"
+        "ownership-bd5caf2c0c4d"
       ]
     },
     {
