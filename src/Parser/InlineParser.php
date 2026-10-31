@@ -362,6 +362,15 @@ class InlineParser
 
     protected ?string $closerLastText = null;
 
+    private ?string $extensionCloseText = null;
+
+    /**
+     * Offsets of the `]` that no odd backslash run escapes, ascending.
+     *
+     * @var array<int, int>
+     */
+    private array $extensionCloses = [];
+
     private ?string $crossrefScanText = null;
 
     /**
@@ -4666,6 +4675,9 @@ class InlineParser
         if ($nextChar === '' && $this->inlineDepth > 1) {
             $nextChar = $this->quoteCharacterAt($this->blockInlineSource, $this->textOrigin + $pos + 1);
         }
+        if ($nextChar === '\\' && $this->backslashRendersSpace($text, $pos + 1)) {
+            $nextChar = ' ';
+        }
         $openContext = $this->isQuoteOpenContext($prevConverted);
         if (
             in_array($prevConverted, ['-', '–', '—', '/'], true)
@@ -4844,6 +4856,17 @@ class InlineParser
     }
 
     /**
+     * Whether the backslash at $pos writes a hard break or an escaped space, which
+     * a typography flank reads as whitespace (CARVE-P3-021, CARVE-P3-023 R1).
+     */
+    protected function backslashRendersSpace(string $text, int $pos): bool
+    {
+        $after = $text[$pos + 1] ?? '';
+
+        return $after === '' || $after === "\n" || $after === "\r" || $after === ' ';
+    }
+
+    /**
      * The whole UTF-8 character ending at $pos, or '' at the start of the text.
      *
      * Byte-wise would be enough for the ASCII spaces, but the flanking test
@@ -4942,6 +4965,7 @@ class InlineParser
             ($before === '' || $this->isSpaceCharacter($before))
             && $after !== ''
             && !$this->isSpaceCharacter($after)
+            && !($after === '\\' && $this->backslashRendersSpace($text, $pos + $dashCount))
         ) {
             return [
                 'text' => str_repeat('-', $dashCount),
@@ -6766,9 +6790,11 @@ class InlineParser
         ) {
             return null;
         }
-        if (!preg_match('/\G:([a-zA-Z_][a-zA-Z0-9_-]*)\[([^\]]*)\]/', $text, $matches, 0, $pos)) {
+        $close = $this->extensionCloseFrom($text, $nameEnd + 1);
+        if ($close === null) {
             return null;
         }
+        $matches = [substr($text, $pos, $close + 1 - $pos), substr($text, $pos + 1, $nameEnd - $pos - 1), substr($text, $nameEnd + 1, $close - $nameEnd - 1)];
 
         $node = new InlineExtension($matches[1]);
         // An extension body is an independent inline scope. Delimiters open in
@@ -6809,9 +6835,45 @@ class InlineParser
             return null;
         }
 
-        $close = strpos($text, ']', $nameEnd + 1);
+        $close = $this->extensionCloseFrom($text, $nameEnd + 1);
 
-        return $close === false ? null : $close + 1;
+        return $close === null ? null : $close + 1;
+    }
+
+    /**
+     * The first `]` at or after $from that is not an escaped character (CARVE-P3-026).
+     *
+     * A run of backslashes before a `]` pairs into escaped backslashes, so an odd run escapes it.
+     */
+    private function extensionCloseFrom(string $text, int $from): ?int
+    {
+        if ($text !== $this->extensionCloseText) {
+            $this->extensionCloseText = $text;
+            $this->extensionCloses = [];
+            $offset = 0;
+            while (($at = strpos($text, ']', $offset)) !== false) {
+                $run = 0;
+                while ($at - $run > 0 && $text[$at - $run - 1] === '\\') {
+                    $run++;
+                }
+                if ($run % 2 === 0) {
+                    $this->extensionCloses[] = $at;
+                }
+                $offset = $at + 1;
+            }
+        }
+        $low = 0;
+        $high = count($this->extensionCloses);
+        while ($low < $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($this->extensionCloses[$mid] < $from) {
+                $low = $mid + 1;
+            } else {
+                $high = $mid;
+            }
+        }
+
+        return $this->extensionCloses[$low] ?? null;
     }
 
     /**
