@@ -1795,6 +1795,7 @@ class BlockParser
             || $itemBody
             || in_array($parent->getType(), ['list_item', 'definition_description', 'footnote_definition', 'block_quote'], true);
         $frame->listHostedColonFences = $previousFrame->listHostedColonFences || $parent->getType() === 'list_item';
+        $frame->noteHostedColonFences = $previousFrame->noteHostedColonFences || $parent->getType() === 'footnote';
         $unchangedColonBody = $this->pendingColonView !== null;
         if ($unchangedColonBody) {
             $frame->colonFenceIndex = $this->pendingColonView['index'];

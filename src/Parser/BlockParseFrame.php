@@ -31,6 +31,8 @@ final class BlockParseFrame
 
     public bool $listHostedColonFences = false;
 
+    public bool $noteHostedColonFences = false;
+
     /**
      * Where THIS level's content begins on each source line, in bytes.
      *

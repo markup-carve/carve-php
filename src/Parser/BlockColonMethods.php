@@ -372,6 +372,9 @@ trait BlockColonMethods
         $innerLineMap = [];
         $stack = [$fenceLength];
         $columns = [IndentationHelper::getLeadingColumns($lines[$start])];
+        $openingAuthoredColumn = $this->state->frame->listHostedColonFences
+            && $this->state->frame->noteHostedColonFences
+            ? $this->authoredColumnOf($start, $lines[$start]) : null;
         $literal = [!$nestingAware];
         $i = $start + 1;
         $count = count($lines);
@@ -424,7 +427,12 @@ trait BlockColonMethods
             $bare = $this->isBareColonFence($currentLine, $colonLength);
             $column = $bare ? IndentationHelper::getLeadingColumns($currentLine, (int)end($columns) + 1) : 0;
             $atBase = !$this->state->frame->hostedColonFences || $column === 0 || $column === end($columns);
-            if ($bare && $colonLength === end($stack) && $atBase) {
+            $authoredLength = null;
+            $authoredCloser = $openingAuthoredColumn !== null
+                && $this->isBareColonFence(ltrim($currentLine, " \t"), $authoredLength)
+                && $authoredLength === end($stack)
+                && ($this->authoredColumnOf($i, $currentLine) ?? -1) >= $openingAuthoredColumn;
+            if (($bare && $colonLength === end($stack) && $atBase) || $authoredCloser) {
                 array_pop($stack);
                 array_pop($columns);
                 array_pop($literal);

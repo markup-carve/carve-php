@@ -1619,7 +1619,6 @@ class CarveCorpusTest extends TestCase
         '855-a-line-below-an-unclosed-fence-in-a-described-item-keeps-its-lazy-line-2' => 'carve#4484: a line below an unclosed fence in a described item keeps its lazy line',
         '855-a-line-below-an-unclosed-fence-in-a-described-item-keeps-its-lazy-line-3' => 'carve#4484: a line below an unclosed fence in a described item keeps its lazy line',
         '856-a-child-on-a-note-s-marker-line-is-measured-from-its-source-column-3' => 'carve#4522: a child on a note marker line is measured from its source column',
-        '863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s' => 'carve#4540: a closer or caption at a note marker-line item content column',
         '863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-2' => 'carve#4540: a closer or caption at a note marker-line item content column',
         '863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-3' => 'carve#4540: a closer or caption at a note marker-line item content column',
         '864-a-comment-fence-on-a-nested-marker-line-closes-at-the-first-exact-width-closer' => 'carve#4541: block ownership the spec model pins and this engine owes',
