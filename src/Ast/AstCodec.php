@@ -68,7 +68,7 @@ class AstCodec
         $type = $node['type'] ?? null;
         $class = is_string($type) ? (self::classMap()[ReferenceShape::classTypeFor($type)] ?? null) : null;
         $blockChildren = $class === Document::class || $class !== null && is_subclass_of($class, BlockNode::class)
-            && !in_array($type, ['paragraph', 'heading', 'figure', 'definition_term', 'line_block', 'caption'], true);
+            && !in_array($type, ['paragraph', 'heading', 'figure', 'definition_term', 'line_block', 'caption', 'table_cell'], true);
         foreach ($node as $key => $value) {
             if (!is_array($value) || !array_is_list($value)) {
                 continue;
@@ -2020,7 +2020,7 @@ class AstCodec
         if (
             !$this->verifyingDecodedShape && $node instanceof Image
             && ($parent instanceof Document || $parent instanceof BlockNode
-                && !in_array($parent->getType(), ['paragraph', 'heading', 'figure', 'definition_term', 'line_block', 'caption'], true))
+                && !in_array($parent->getType(), ['paragraph', 'heading', 'figure', 'definition_term', 'line_block', 'caption', 'table_cell'], true))
         ) {
             $paragraph = ['type' => 'paragraph', 'blockImage' => true];
             if (isset($encoded['pos'])) {

@@ -1816,8 +1816,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     private static function hostsACaption(Node $block): bool
     {
+        // A quote of only empty quotes and bare fence pairs holds nothing a caption could be about.
         if ($block instanceof BlockQuote) {
-            return $block->getChildren() !== [];
+            return !self::holdsNothing($block);
         }
 
         if ($block instanceof Table || $block instanceof CodeBlock) {
@@ -1849,6 +1850,24 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return count($children) === 1 && $children[0] instanceof Math && $children[0]->isDisplay();
+    }
+
+    private static function holdsNothing(Node $block): bool
+    {
+        if ($block instanceof Div) {
+            if ($block->isTyped() || $block->getLabel() !== null || $block->getHeader() !== null) {
+                return false;
+            }
+        } elseif (!$block instanceof BlockQuote) {
+            return false;
+        }
+        foreach ($block->getChildren() as $child) {
+            if (!self::holdsNothing($child)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

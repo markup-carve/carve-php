@@ -26,10 +26,7 @@ final class IncludeLintConformanceTest extends TestCase
                     return $this->files[$path] ?? null;
                 }
             };
-            $warnings = array_filter(
-                (new IncludeLinter())->lint($vector['entry'], [], $resolver, $data['sourcePath']),
-                static fn ($warning): bool => $warning->rule !== 'include-lines-table-rows-hint',
-            );
+            $warnings = (new IncludeLinter())->lint($vector['entry'], [], $resolver, $data['sourcePath']);
             $actual = array_map(static function ($warning) use ($data): array {
                 $row = ['rule' => $warning->rule, 'file' => $warning->file ?? $data['sourcePath'], 'line' => $warning->line, 'column' => $warning->column];
                 if ($warning->includedBy !== null) {
