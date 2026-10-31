@@ -531,7 +531,7 @@ class IncludeExpander implements TransformerInterface
                         $replacement[0]->setAttributesWithOrder($paragraph->getAttributeEntries(), $paragraph->getAttributeOrder());
                         // `{table}` converts a csv/tsv code include as it does an authored fence (I1c).
                         $table = $replacement[0]->getRenderHint('includePartialDelimitedRecord') === '1'
-                            ? null : DelimitedTable::fromCode($replacement[0]);
+                            ? null : DelimitedTable::fromCode($replacement[0], skipRecord: self::isRegionMarkerRecord(...));
                         if ($table !== null) {
                             BlockParser::applyTableColumns($table);
                             if ($hostOffset !== null) {
@@ -1131,7 +1131,7 @@ class IncludeExpander implements TransformerInterface
             }
             $map->withSource($source);
         }
-        $table = DelimitedTable::fromCode($fullCode, $map);
+        $table = DelimitedTable::fromCode($fullCode, $map, self::isRegionMarkerRecord(...));
         if ($table === null) {
             return $directive['rows'] !== null || $directive['cols'] !== null ? $fullCode : $selectedCode;
         }
@@ -1144,6 +1144,9 @@ class IncludeExpander implements TransformerInterface
         DelimitedTable::rows($normalized, $directive['code']['lang'] === 'csv' ? ',' : "\t", null, static function (int $start, int $end) use (&$recordStarts, &$recordSpans, &$previous, &$lineNumber, $normalized): void {
             $lineNumber += substr_count($normalized, "\n", $previous, $start - $previous);
             $previous = $start;
+            if (self::isRegionMarkerRecord(substr($normalized, $start, $end - $start))) {
+                return;
+            }
             $recordStarts[] = $lineNumber;
             $recordSpans[] = [$lineNumber, $lineNumber + substr_count($normalized, "\n", $start, $end - $start)];
         });
@@ -1580,28 +1583,11 @@ class IncludeExpander implements TransformerInterface
         $seen = [];
         $range = null;
         foreach ($lines as $index => $line) {
-            $line = ltrim($line, " \t");
-            $closer = '';
-            if (str_starts_with($line, '%%') && !str_starts_with($line, '%%%')) {
-                $body = substr($line, 2);
-            } elseif (!$code) {
-                continue;
-            } elseif (str_starts_with($line, '//') || str_starts_with($line, '--')) {
-                $body = substr($line, 2);
-            } elseif (str_starts_with($line, '/*')) {
-                $body = substr($line, 2);
-                $closer = '\*\/';
-            } elseif (str_starts_with($line, '<!--')) {
-                $body = substr($line, 4);
-                $closer = '-->';
-            } else {
-                $body = $line;
-            }
-            $body = ltrim($body, " \t");
-            if (preg_match('/^#(?:end)?region(?![A-Za-z0-9_])/', $body) !== 1) {
+            $marker = self::regionMarker($line, $code);
+            if ($marker === null) {
                 continue;
             }
-            if (preg_match('/^#(end)?region(?:[ \t]+([A-Za-z_][A-Za-z0-9_-]*))?[ \t]*' . $closer . '[ \t]*$/', $body, $marker) !== 1) {
+            if ($marker === false) {
                 return null;
             }
             $name = $marker[2] ?? null;
@@ -1623,6 +1609,54 @@ class IncludeExpander implements TransformerInterface
         }
 
         return $stack === [] ? $range : null;
+    }
+
+    /**
+     * A region marker line's match, false for a malformed marker, null for any other line (I1b).
+     *
+     * @return array<int, string>|false|null
+     */
+    protected static function regionMarker(string $line, bool $code): array|false|null
+    {
+        $line = ltrim($line, " \t");
+        $closer = '';
+        if (str_starts_with($line, '%%') && !str_starts_with($line, '%%%')) {
+            $body = substr($line, 2);
+        } elseif (!$code) {
+            return null;
+        } elseif (str_starts_with($line, '//') || str_starts_with($line, '--')) {
+            $body = substr($line, 2);
+        } elseif (str_starts_with($line, '/*')) {
+            $body = substr($line, 2);
+            $closer = '\*\/';
+        } elseif (str_starts_with($line, '<!--')) {
+            $body = substr($line, 4);
+            $closer = '-->';
+        } else {
+            $body = $line;
+        }
+        $body = ltrim($body, " \t");
+        if (preg_match('/^#(?:end)?region(?![A-Za-z0-9_])/', $body) !== 1) {
+            return null;
+        }
+        if (preg_match('/^#(end)?region(?:[ \t]+([A-Za-z_][A-Za-z0-9_-]*))?[ \t]*' . $closer . '[ \t]*$/', $body, $marker) !== 1) {
+            return false;
+        }
+
+        return $marker;
+    }
+
+    /**
+     * A one-line record that is a well-formed region marker is no record of a table include (I1d).
+     */
+    protected static function isRegionMarkerRecord(string $record): bool
+    {
+        if (str_contains($record, "\n")) {
+            return false;
+        }
+        $marker = self::regionMarker($record, true);
+
+        return is_array($marker) && (($marker[1] ?? '') !== '' || ($marker[2] ?? '') !== '');
     }
 
     /**

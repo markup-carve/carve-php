@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser;
 
+use Closure;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
@@ -112,7 +113,12 @@ final class DelimitedTable
         return $rows;
     }
 
-    public static function fromCode(CodeBlock $code, ?SourceMap $sourceMap = null): ?Table
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $code
+     * @param \MarkupCarve\Carve\Parser\SourceMap|null $sourceMap
+     * @param \Closure(string): bool|null $skipRecord Drops a record by its raw source text.
+     */
+    public static function fromCode(CodeBlock $code, ?SourceMap $sourceMap = null, ?Closure $skipRecord = null): ?Table
     {
         $format = $code->getLanguage();
         if (($format !== 'csv' && $format !== 'tsv') || $code->getAttribute('table') !== '') {
@@ -137,6 +143,16 @@ final class DelimitedTable
         );
         if ($data === null) {
             return null;
+        }
+        if ($skipRecord !== null) {
+            foreach ($rowRanges as $index => [$start, $end]) {
+                if ($skipRecord(substr($code->getContent(), $start, $end - $start))) {
+                    unset($data[$index], $fieldRanges[$index], $rowRanges[$index]);
+                }
+            }
+            $data = array_values($data);
+            $fieldRanges = array_values($fieldRanges);
+            $rowRanges = array_values($rowRanges);
         }
         $table = new Table();
         $table->setAttributesWithOrder($code->getAttributeEntries(), $code->getAttributeOrder());
