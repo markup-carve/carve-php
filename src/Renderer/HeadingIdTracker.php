@@ -105,6 +105,13 @@ class HeadingIdTracker
     protected array $idsByFoldedId = [];
 
     /**
+     * First registered id per NFC key (PART 9R R4 matches keys NFC-normalized).
+     *
+     * @var array<string, string>
+     */
+    protected array $idsByNfc = [];
+
+    /**
      * Optional transform applied to the base slug (e.g. ASCII
      * transliteration). Set by AsciiHeadingIdsExtension; null leaves
      * non-ASCII characters in the id verbatim (the default).
@@ -341,7 +348,7 @@ class HeadingIdTracker
      */
     public function findId(string $target): ?string
     {
-        return isset($this->textById[$target]) ? $target : null;
+        return $this->idsByNfc[StringUtil::normalizeNfc($target)] ?? null;
     }
 
     /**
@@ -360,6 +367,7 @@ class HeadingIdTracker
     protected function registerFoldedId(string $id): void
     {
         $this->idsByFoldedId[$this->foldCase($id)][] = $id;
+        $this->idsByNfc[StringUtil::normalizeNfc($id)] ??= $id;
     }
 
     /**
@@ -736,6 +744,8 @@ class HeadingIdTracker
             }
 
             $clone = clone $child;
+            // A clone drops every id, so none appears twice (carve#4554).
+            $clone->removeAttribute('id');
             if ($clone->hasChildren()) {
                 $inner = [];
                 $this->collectDisplayNodes(
@@ -804,6 +814,7 @@ class HeadingIdTracker
         $this->textById = [];
         $this->nodesById = [];
         $this->idsByFoldedId = [];
+        $this->idsByNfc = [];
     }
 
     /**

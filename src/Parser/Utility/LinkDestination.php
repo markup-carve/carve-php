@@ -18,10 +18,15 @@ class LinkDestination
      * Resolve the three escapes `destination_escape` admits.
      *
      * Balanced parentheses are already part of the run and need no unescaping.
+     *
+     * @param string $run
+     * @param bool $inTableCell A cell's `\|` is a pipe (carve#4549).
      */
-    public static function unescape(string $run): string
+    public static function unescape(string $run, bool $inTableCell = false): string
     {
-        return strtr($run, ['\\(' => '(', '\\)' => ')', '\\\\' => '\\']);
+        $escapes = ['\\(' => '(', '\\)' => ')', '\\\\' => '\\'];
+
+        return strtr($run, $inTableCell ? $escapes + ['\\|' => '|'] : $escapes);
     }
 
     /**

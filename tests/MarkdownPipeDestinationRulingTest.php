@@ -20,7 +20,14 @@ final class MarkdownPipeDestinationRulingTest extends TestCase
     public function testTableDestinationEncodesItsLiteralBackslashAndPipe(): void
     {
         $converter = new CarveConverter(renderer: new MarkdownRenderer());
-        $markdown = $converter->convert("|= [a](/x\\|y) |= b |\n");
+        $markdown = $converter->convert("|= [a](/x\\\\\\|y) |= b |\n");
         self::assertStringContainsString('[a](/x%5C%7Cy)', $markdown);
+    }
+
+    public function testTableDestinationReadsAnEscapedPipeAsAPipe(): void
+    {
+        $converter = new CarveConverter(renderer: new MarkdownRenderer());
+        $markdown = $converter->convert("|= [a](/x\\|y) |= b |\n");
+        self::assertStringContainsString('[a](/x%7Cy)', $markdown);
     }
 }

@@ -27,6 +27,7 @@ use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
@@ -346,6 +347,8 @@ class InlineParser
 
     protected ?string $destinationSkipText = null;
 
+    private bool $inTableCell = false;
+
     /**
      * Memo for the fixed-closer tail scanners (attribute `}`, critic `+}` /
      * `-}` / `~}`, editorial `#}`, bold-italic star-slash). Each walks forward
@@ -658,13 +661,17 @@ class InlineParser
      *
      * @return void
      */
-    public function parseTableCell(Node $parent, string $text, int $sourceLine, ?SourceMap $sourceMap, array $cellWraps): void
+    public function parseTableCell(Node $parent, string $text, int $sourceLine, ?SourceMap $sourceMap, array $cellWraps = []): void
     {
         $this->pendingCellWraps = $cellWraps;
+        $this->inTableCell = true;
+        $this->destinationSkipText = null;
         try {
             $this->parse($parent, $text, $sourceLine, sourceMap: $sourceMap);
         } finally {
             $this->pendingCellWraps = [];
+            $this->inTableCell = false;
+            $this->destinationSkipText = null;
         }
     }
 
@@ -2041,6 +2048,13 @@ class InlineParser
             return;
         }
         foreach ($node->getChildren() as $child) {
+            // PART 9R R3: the text of a mention is not scanned. A tag's still is.
+            if ($child instanceof Mention) {
+                $label = $child->getChildren()[0] ?? null;
+                if ($label instanceof Text && str_starts_with($label->getContent(), '@')) {
+                    continue;
+                }
+            }
             if ($child instanceof Text) {
                 $holder = new Span();
                 $this->flushTextWithAbbreviations($holder, $child->getContent(), $abbreviations);
@@ -4715,7 +4729,7 @@ class InlineParser
         if (!$this->singleQuoteSpanOpen) {
             $this->singleQuoteSpanOpen = true;
             $this->singleQuoteOpener = null;
-            $this->singleQuoteDemote = $alnum && !($pos === 0 && $this->inlineDepth === $this->quoteScopeDepth) && $prevConverted !== '“';
+            $this->singleQuoteDemote = $alnum && !(($pos === 0 || $prevConverted === '') && $this->inlineDepth === $this->quoteScopeDepth) && $prevConverted !== '“';
         }
 
         return $this->openSingleQuote;
@@ -6047,7 +6061,7 @@ class InlineParser
         // anything else is an ordinary URL character (grammar
         // url_char) kept verbatim, matching carve-js / carve-rs, so
         // `[t](a\b)` still links to `a\b`.
-        $url = LinkDestination::unescape($url);
+        $url = LinkDestination::unescape($url, $this->inTableCell);
 
         return $this->destinationScans[$urlStart] = ['end' => $urlEnd, 'url' => $url, 'title' => $title];
     }
