@@ -5369,8 +5369,10 @@ class InlineParser
                         continue;
                     }
                     $skip = null;
+                    $attachable = false;
                     if ($char === '`') {
                         $skip = $this->findCodeSpanEnd($text, $at);
+                        $attachable = true;
                         if ($skip === null) {
                             break;
                         }
@@ -5379,13 +5381,16 @@ class InlineParser
                         if ($skip !== null) {
                             $destination = $this->linkDestinationSkip($text, $at);
                             $skip = $destination[1] ?? $skip;
+                            $attachable = true;
                         }
                     } elseif ($char === '<') {
                         $skip = $this->findCrossrefEnd($text, $at) ?? $this->findAutolinkEnd($text, $at);
+                        $attachable = $skip !== null;
                     } elseif ($char === '{') {
                         $marker = $text[$at + 1] ?? "\0";
                         if (str_contains('/*_^,~=+-', $marker)) {
                             $skip = $this->bracedInlineEnd($text, $at);
+                            $attachable = $skip !== null;
                         } elseif (str_contains('%#', $marker) && !$this->hasDecoratedBracedOpener($text, $at)) {
                             $close = $this->nextRawCloser($text, $marker . '}', $at + 2);
                             if ($close !== null && ($marker === '%' || $close > $at + 2)) {
@@ -5394,6 +5399,9 @@ class InlineParser
                         }
                     }
                     if ($skip !== null && $skip <= $end - 2) {
+                        if ($attachable) {
+                            $skip = $this->substitutionAttachedRunEnd($text, $skip);
+                        }
                         $at = $skip - 1;
 
                         continue;
@@ -5454,7 +5462,7 @@ class InlineParser
                 $runEnd = $this->bracketRunSkip($text, $at);
                 if ($runEnd !== null) {
                     $destination = $this->linkDestinationSkip($text, $at);
-                    $at = ($destination === null ? $runEnd : $destination[1]) - 1;
+                    $at = $this->substitutionAttachedRunEnd($text, $destination === null ? $runEnd : $destination[1]) - 1;
 
                     continue;
                 }
@@ -5463,7 +5471,7 @@ class InlineParser
             if ($char === '<') {
                 $atomicEnd = $this->findCrossrefEnd($text, $at) ?? $this->findAutolinkEnd($text, $at);
                 if ($atomicEnd !== null) {
-                    $at = $atomicEnd - 1;
+                    $at = $this->substitutionAttachedRunEnd($text, $atomicEnd) - 1;
 
                     continue;
                 }
@@ -5476,7 +5484,7 @@ class InlineParser
 
                     break;
                 }
-                $at = $end - 1;
+                $at = $this->substitutionAttachedRunEnd($text, $end) - 1;
 
                 continue;
             }
@@ -5513,6 +5521,31 @@ class InlineParser
         }
 
         return $result;
+    }
+
+    /**
+     * An atom's glued attribute run is consumed with it (PART 9 section 22 R3),
+     * so no arrow inside that run can split a substitution.
+     */
+    private function substitutionAttachedRunEnd(string $text, int $end): int
+    {
+        if ($this::class === self::class && $this->bracedPairIndex !== null) {
+            return $this->bracedPairIndex->afterAttributes($end);
+        }
+
+        while (($text[$end] ?? '') === '{') {
+            $close = $this->findAttributeEnd($text, $end);
+            if ($close === null) {
+                break;
+            }
+            $payload = substr($text, $end + 1, $close - $end - 1);
+            if (AttributeParser::parse($payload) === [] || !$this->isValidInlineAttrPayload($payload)) {
+                break;
+            }
+            $end = $close + 1;
+        }
+
+        return $end;
     }
 
     /**
