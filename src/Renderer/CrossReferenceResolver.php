@@ -186,8 +186,9 @@ class CrossReferenceResolver
         if ($this->rendersNoId($node)) {
             return;
         }
-        if ($node->hasAttribute('id')) {
-            $tracker->trackId($node->getAttribute('id') ?? '');
+        $idSlot = $node->getFoldedAttribute('id');
+        if ($idSlot !== null) {
+            $tracker->trackId($idSlot);
         }
         if ($node instanceof Heading && !$insideHeading) {
             $headings[] = $node;
@@ -499,10 +500,9 @@ class CrossReferenceResolver
             return;
         }
 
-        if ($node->hasAttribute('id')) {
-            $idAttr = $node->getAttribute('id');
-            $id = $idAttr ?? '';
-            $tracker->trackId($id);
+        $idSlot = $node->getFoldedAttribute('id');
+        if ($idSlot !== null) {
+            $tracker->trackId($idSlot);
         }
 
         foreach ($this->visibleChildren($node) as $child) {

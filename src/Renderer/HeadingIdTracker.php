@@ -812,9 +812,9 @@ class HeadingIdTracker
     protected function generateId(Heading $node): string
     {
         // If heading has explicit id attribute, use it
-        if ($node->hasAttribute('id')) {
-            $idAttr = $node->getAttribute('id');
-            $id = $idAttr ?? '';
+        $idAttr = $node->getFoldedAttribute('id');
+        if ($idAttr !== null) {
+            $id = $idAttr;
             // Track explicit IDs so auto-generated IDs don't conflict
             if (!isset($this->usedIds[$id])) {
                 $this->usedIds[$id] = 1;

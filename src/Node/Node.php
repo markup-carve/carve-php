@@ -591,6 +591,23 @@ abstract class Node
         $this->attributeSlots = $seen;
     }
 
+    /**
+     * The value an element renders for `$name` (lowercase): HTML names fold
+     * ASCII case, so `ID=v` is the id slot too, and the last spelling written
+     * wins (PART 10 §1).
+     */
+    public function getFoldedAttribute(string $name): ?string
+    {
+        $found = null;
+        foreach ($this->attributes as $key => $value) {
+            if (strtolower((string)$key) === $name) {
+                $found = $value;
+            }
+        }
+
+        return $found;
+    }
+
     public function hasAttribute(string $key): bool
     {
         return isset($this->attributes[$key]);
