@@ -18,6 +18,7 @@ final class IndentedListContinuation
      * @param bool $brokeForParentContent
      * @param bool $lastItemHadBlankAfter
      * @param int|null $unclosedFenceBase
+     * @param bool $blankBeforeDirectChildContinuation
      */
     public function __construct(
         public readonly int $nextIndex,
@@ -28,6 +29,7 @@ final class IndentedListContinuation
         public readonly bool $brokeForParentContent,
         public readonly bool $lastItemHadBlankAfter,
         public readonly ?int $unclosedFenceBase,
+        public readonly bool $blankBeforeDirectChildContinuation,
     ) {
     }
 }
