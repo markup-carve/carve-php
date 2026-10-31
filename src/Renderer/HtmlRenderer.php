@@ -4131,6 +4131,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     private static function sanitizeAttributeValue(string $name, string $value): string
     {
+        // CARVE-P9-054: `id` is no URL sink; blanking it would break anchors and cross-references.
+        if ($name === 'id') {
+            return $value;
+        }
         if (self::hasLeadingDangerousScheme($value)) {
             return '';
         }
@@ -4152,6 +4156,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     public static function attributeValueHasDeniedScheme(string $name, string $value): bool
     {
+        if (strtolower($name) === 'id') {
+            return false;
+        }
         if (trim($value) !== '' && self::blankDangerousScheme($value) === '') {
             return true;
         }
