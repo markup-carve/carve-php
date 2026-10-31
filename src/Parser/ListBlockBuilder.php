@@ -607,6 +607,7 @@ final class ListBlockBuilder
         $unclosedFenceBase = null;
         $attachedParagraphOpen = false;
         $attachedParagraphAfterNoteSeparator = false;
+        $attachedBlockFollowedByItemContent = false;
         $leadDiv = ($this->getFencedBlockParser)()->parseDivFenceOpener($this->markerFreeContent(ltrim($line, " \t"))) !== null;
 
         while ($i < $count) {
@@ -617,6 +618,7 @@ final class ListBlockBuilder
                 $lastItemHadBlankAfter = true;
                 $attachedParagraphOpen = false;
                 $attachedParagraphAfterNoteSeparator = false;
+                $attachedBlockFollowedByItemContent = false;
                 $i++;
 
                 continue;
@@ -792,6 +794,7 @@ final class ListBlockBuilder
                 if ($next !== null) {
                     $i = $next;
                     $lastItemHadBlankAfter = false;
+                    $attachedBlockFollowedByItemContent = true;
                     $lastItem = ($this->getListParser)()->getLastListItem($list);
                     $children = $lastItem?->getChildren() ?? [];
                     $marker = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);
@@ -815,8 +818,10 @@ final class ListBlockBuilder
             // below-column marker folds as lazy item text (handled by the item
             // collector). The old rule attached at any indent past the base
             // column, which nested a block one space under the marker.
+            // The attached block also leaves the item open for a following
+            // block at its content column without an intervening blank.
             if (
-                ($lastItemHadBlankAfter || $indentedListMarker)
+                ($lastItemHadBlankAfter || $indentedListMarker || $attachedBlockFollowedByItemContent)
                 && $lastItemColumn->classify($currentLine) === 'content'
             ) {
                 // Content after blank line with indentation belongs to previous item
@@ -835,6 +840,7 @@ final class ListBlockBuilder
                         $listInfo,
                         $unclosedFenceBase,
                     );
+                    $attachedBlockFollowedByItemContent = false;
 
                     continue;
                 }
@@ -903,6 +909,7 @@ final class ListBlockBuilder
             $listItem = new ListItem($taskMarker);
             $attachedParagraphOpen = false;
             $attachedParagraphAfterNoteSeparator = false;
+            $attachedBlockFollowedByItemContent = false;
             $listItemSourceLine = $this->sourceLineFor($i);
             [$itemOpeningColumn, $itemMarkerColumn, $itemSource] = $this->listItemSourcePosition(
                 $listItem,
