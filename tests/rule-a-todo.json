@@ -1678,10 +1678,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Ast\\SourcePositionTest::testNoCorpusDocumentGetsAWrongTextSpan",
-            "ticket": "carve-php#4243"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Ast\\SourcePositionTest::testNoSpanEscapesItsParent",
             "ticket": "carve-php#4243"
         },

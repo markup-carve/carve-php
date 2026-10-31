@@ -2413,7 +2413,7 @@ final class ListBlockBuilder
     private function repairParagraphSuffix(Paragraph $paragraph, Text $text, int $sourceLine): bool
     {
         $value = $text->getContent();
-        $source = rtrim($this->state->source->sourceLines[$sourceLine] ?? '', " \t");
+        $source = rtrim($this->state->source->authoredLines[$sourceLine] ?? '', " \t");
         if ($value === '' || !str_ends_with($source, $value)) {
             return false;
         }
