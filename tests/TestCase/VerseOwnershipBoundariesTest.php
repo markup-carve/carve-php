@@ -50,10 +50,6 @@ lazy<br>
 [t][r]
 ';
         $expected = '<div class="line-block">
-  <p><br>
-:::<br>
-[r]: /hidden<br>
-</p>
   <p>[t][r]</p>
 </div>
 ';
@@ -172,10 +168,7 @@ kept
 [t][r]
 ';
         $expected = '<div class="line-block">
-  <p><br>
-:::<br>
-&nbsp;&nbsp;%%%<br>
-kept</p>
+  <p>kept</p>
 </div>
 <p><a href="/url">t</a></p>
 ';

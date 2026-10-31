@@ -219,14 +219,15 @@ final class TableBlockBuilder
             $continuationLines = 0;
             $baseChunkCounts = array_map(count(...), $cellSourceChunks);
             $baseCells = $mergedCells;
+            $rowWidth = count($baseCells);
+            /** @var array<int, array{int, \MarkupCarve\Carve\Ast\SourceSpan|null}> $appendedCells continuation line, pipe */
+            $appendedCells = [];
             // Check for continuation rows (lines starting with +)
             while ($i < $count && str_starts_with($lines[$i], '+') && ($this->getTableParser)()->isContinuationRow($lines[$i])) {
                 $cellAccumulator ??= new TableCellAccumulator(($this->getTableParser)(), $mergedCells);
                 $openRuns = $cellAccumulator->openDelimiters();
                 $continuationCells = ($this->getTableParser)()->parseContinuationCells($lines[$i], $openRuns);
-                // A continuation joins the row above by column. A cell past
-                // that row's width has no column to join and cannot add one.
-                $continuationCells = array_slice($continuationCells, 0, count($baseCells));
+                $continuationCells = $this->appendContinuationSlots($continuationCells, $rowWidth, $appendedCells, $i, $lines[$i], $openRuns, $continuationLines + 1);
                 foreach ($this->continuationCellSourceChunks($i, $lines[$i], $openRuns) as $idx => $chunks) {
                     if ($chunks === []) {
                         continue;
@@ -305,8 +306,8 @@ final class TableBlockBuilder
             // recorded here so it stays invisible to the header-row check and
             // to column-origin tracking below, exactly as it was before it had
             // a cell of its own.
-            $resolved = $this->callResolveRowSpans($mergedCellsWithAttrs, $columnOrigin);
-            $processedCells = $resolved['cells'];
+            $resolved = $this->callResolveRowSpans(array_diff_key($mergedCellsWithAttrs, $appendedCells), $columnOrigin);
+            $processedCells = [...$resolved['cells'], ...self::appendedCellData(array_intersect_key($mergedCellsWithAttrs, $appendedCells))];
             $consumedRowspanColumns = $resolved['consumedRowspanColumns'];
             $consumedColspanColumns = $resolved['consumedColspanColumns'];
             $consumedColumnSet = array_flip(array_merge($consumedRowspanColumns, $consumedColspanColumns));
@@ -326,7 +327,7 @@ final class TableBlockBuilder
             // that: no examined cell means this is never a Carve header row.
             $examinedAny = false;
             foreach ($processedCells as $cellData) {
-                if (isset($consumedColumnSet[$cellData['gridColumn']])) {
+                if (isset($consumedColumnSet[$cellData['gridColumn']]) || isset($appendedCells[$cellData['gridColumn']])) {
                     // A placeholder consumed by another cell's span was never
                     // its own entry before it got a cell of its own; it still
                     // is not examined here (carve-js parity).
@@ -419,6 +420,14 @@ final class TableBlockBuilder
                         $blockedData['sourceChunks'] = [];
                         $cellBuilds[spl_object_id($cell)] = ['cell' => $cell, 'cellData' => $blockedData, 'line' => $baseLineForRow, 'content' => '', 'wraps' => [], 'rowIndex' => $rowIndex];
                     }
+
+                    continue;
+                }
+
+                if (isset($appendedCells[$col])) {
+                    $cell = $this->appendedCell($cellData, $appendedCells[$col], $isHeaderRow, $columnAligns[$col] ?? $alignments[$col] ?? TableCell::ALIGN_DEFAULT, $baseLineForRow, $cellWraps[$col] ?? []);
+                    $row->appendChild($cell);
+                    $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
 
                     continue;
                 }
@@ -678,6 +687,87 @@ final class TableBlockBuilder
                 }
             }
         }
+    }
+
+    /**
+     * Text past the row's last column is a new cell of the row, and a skipped
+     * slot before it an empty one; a trailing empty slot adds nothing (T6).
+     *
+     * @param array<string> $continuationCells
+     * @param int $rowWidth Grows to cover the appended cells.
+     * @param array<int, array{int, \MarkupCarve\Carve\Ast\SourceSpan|null}> $appendedCells Continuation line and pipe, by column.
+     * @param int $index
+     * @param string $line
+     * @param array<int, int> $openRuns
+     * @param int $continuationLine
+     *
+     * @return array<string>
+     */
+    private function appendContinuationSlots(
+        array $continuationCells,
+        int &$rowWidth,
+        array &$appendedCells,
+        int $index,
+        string $line,
+        array $openRuns,
+        int $continuationLine,
+    ): array {
+        $lastSlot = $rowWidth - 1;
+        foreach ($continuationCells as $idx => $continuationCell) {
+            if ($idx > $lastSlot && trim($continuationCell, ' ') !== '') {
+                $lastSlot = $idx;
+            }
+        }
+        if ($lastSlot >= $rowWidth) {
+            $pipes = $this->source->continuationSlotPipeSpans($index, $line, $openRuns);
+            for ($idx = $rowWidth; $idx <= $lastSlot; $idx++) {
+                $appendedCells[$idx] = [$continuationLine, $pipes[$idx] ?? null];
+            }
+            $rowWidth = $lastSlot + 1;
+        }
+
+        return array_slice($continuationCells, 0, $lastSlot + 1);
+    }
+
+    /**
+     * An appended cell is text, never a span or alignment marker.
+     *
+     * @param array<int, array{content: string, attributes: string, marker: string, offset: int|null, cellOffset: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}> $cells
+     *
+     * @return list<array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}>
+     */
+    private static function appendedCellData(array $cells): array
+    {
+        $data = [];
+        foreach ($cells as $col => $cell) {
+            $data[] = [...$cell, 'colspan' => 1, 'gridColumn' => $col, 'isEmpty' => false, 'spanMarker' => null, 'verbatim' => false];
+        }
+
+        return $data;
+    }
+
+    /**
+     * A cell a `+` line appended: literal text that opens with the cell_wrap of its line.
+     *
+     * @param array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>} $cellData
+     * @param array{int, \MarkupCarve\Carve\Ast\SourceSpan|null} $appended
+     * @param bool $header
+     * @param string $alignment
+     * @param int $baseLineForRow
+     * @param array<int, int> $wraps
+     */
+    private function appendedCell(array $cellData, array $appended, bool $header, string $alignment, int $baseLineForRow, array $wraps): TableCell
+    {
+        $cell = new TableCell($header, $alignment, 1, 1, null, false);
+        $trimmedContent = trim($cellData['content'], ' ');
+        $this->fillCellContent($cell, $cellData, $baseLineForRow, $trimmedContent, $this->contentWraps($cellData['content'], $trimmedContent, $wraps));
+        $wrap = new CellWrap($appended[0]);
+        $wrap->setPos($appended[1]);
+        $cell->prependChild($wrap);
+        $cell->setPos(null);
+        $this->state->session->unplaceableNodeIds[spl_object_id($cell)] = true;
+
+        return $cell;
     }
 
     /**

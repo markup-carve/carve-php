@@ -9,7 +9,9 @@ use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Image;
@@ -111,7 +113,12 @@ final class AuthoringLinter
                 }
                 $tableRows[$at] = true;
                 $cells = count($row->getChildren());
-                if ($index > 0 && $cells !== $width) {
+                $appendedBy = self::appendingContinuationLine($row);
+                if ($appendedBy !== null) {
+                    $plusLine = $at + $appendedBy;
+                    $column = strpos($rows[$plusLine - 1][0] ?? '', '+');
+                    $emit($plusLine, $column === false ? 1 : $column + 1, 1, 'table-row-cell-count', 'This continuation line appends a cell past the last column of its table row. Add the cell to the row line or remove it.');
+                } elseif ($index > 0 && $cells !== $width) {
                     $column = strpos($rows[$at - 1][0] ?? '', '|');
                     $emit($at, $column === false ? 1 : $column + 1, 1, 'table-row-cell-count', "This table row has {$cells} cells; the header has {$width}. Add or remove a cell to match the table.");
                 }
@@ -232,6 +239,21 @@ final class AuthoringLinter
         }
 
         return $warnings;
+    }
+
+    /**
+     * A cell a `+` line appended opens with that line's cell_wrap (T6).
+     */
+    private static function appendingContinuationLine(TableRow $row): ?int
+    {
+        foreach ($row->getChildren() as $cell) {
+            $first = $cell->getChildren()[0] ?? null;
+            if ($cell instanceof TableCell && $cell->getSpanMarker() === null && $first instanceof CellWrap) {
+                return $first->getLine();
+            }
+        }
+
+        return null;
     }
 
     private static function stripPrefixes(string $line): string

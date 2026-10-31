@@ -2745,6 +2745,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $inner = '';
         foreach ($node->getChildren() as $child) {
             $rendered = rtrim($this->renderNode($child), "\n");
+            if ($rendered === '') {
+                continue;
+            }
             $newline = strpos($rendered, "\n");
             $inner .= $newline === false
                 ? '  ' . $rendered . "\n"

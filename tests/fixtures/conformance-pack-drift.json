@@ -130,6 +130,18 @@
         "lazy-e5f10323832e",
         "roundtrip-1a6a5531cfa5"
       ]
+    },
+    {
+      "ticket": "markup-carve/carve#4470",
+      "cause": "the pinned pack predates the continuation-cell ruling; this engine renders as the spec model on carve main",
+      "cases": [
+        "inline-cb88dff1b472",
+        "plus-50d07ed355d0",
+        "plus-69d271a411f9",
+        "plus-baf998c9d969",
+        "plus-d438ebc082a8",
+        "plus-f56c0c6d25a9"
+      ]
     }
   ]
 }
