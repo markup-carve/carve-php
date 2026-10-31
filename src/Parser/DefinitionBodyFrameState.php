@@ -58,6 +58,11 @@ final class DefinitionBodyFrameState
         return in_array($column, $this->listContentColumns, true);
     }
 
+    public function outermostListContentColumn(): ?int
+    {
+        return $this->listContentColumns[0] ?? null;
+    }
+
     public function addDescriptionContentColumn(int $column): void
     {
         $this->descriptionContentColumns[] = $column;

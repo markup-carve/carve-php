@@ -1719,7 +1719,11 @@ final class DefinitionListBuilder
             ];
         }
         if ($b->bodyFrames->releasedListLine === $b->i) {
-            $b->bodyFrames->releasedBlockBase = $l->contColumn - $b->continuationColumn;
+            // The invisible line consumes no block position. Keep the released
+            // list's own column for it and for the visible line behind it.
+            $b->bodyFrames->releasedBlockBase = $this->isInvisibleOrAttributeLine($l->trimmedCont)
+                ? null
+                : $l->contColumn - $b->continuationColumn;
             $b->bodyFrames->releasedListLine = null;
         }
         if (
@@ -1747,6 +1751,15 @@ final class DefinitionListBuilder
             $stripColumns += $b->bodyFrames->releasedBlockBase;
         }
         $entry = (new IndentedContainerColumn($stripColumns))->strip($l->contLine);
+        if (
+            $this->isCommentLineOrFence($l->trimmedCont)
+            && IndentationHelper::isBlankLine($b->body[count($b->body) - 1] ?? '')
+        ) {
+            $listColumn = $b->bodyFrames->outermostListContentColumn();
+            if ($listColumn !== null && IndentationHelper::getLeadingColumns($entry) < $listColumn) {
+                $entry = str_repeat(' ', $listColumn) . ltrim($entry, " \t");
+            }
+        }
         if (
             preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) === 1
             && $l->contColumn < $b->continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
@@ -1937,7 +1950,7 @@ final class DefinitionListBuilder
                 $reachesOuterBody = true;
             }
         }
-        if ($reachesOuterBody && $opensBlock) {
+        if ($reachesOuterBody && $opensBlock && !$this->isInvisibleOrAttributeLine($l->trimmedCont)) {
             $entry = ltrim($entry, " \t");
         }
         if ($entryMarker !== null) {
@@ -1994,13 +2007,17 @@ final class DefinitionListBuilder
             if ($after !== null && !IndentationHelper::isBlankLine($after) && $afterIndent >= $b->continuationColumn) {
                 $afterColumn = IndentationHelper::getLeadingColumns($after);
                 $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
-                $b->bodyFrames->releaseAfterBlank(
-                    $afterColumn,
-                    $b->continuationColumn,
-                    $b->noteBodyColumn,
-                    $b->bodyNestedState->fence !== null,
-                    $look,
-                );
+                // A comment is column-exempt, so its column cannot release
+                // the list frames that own the blank before it.
+                if (!$this->isCommentLineOrFence(ltrim($after, " \t"))) {
+                    $b->bodyFrames->releaseAfterBlank(
+                        $afterColumn,
+                        $b->continuationColumn,
+                        $b->noteBodyColumn,
+                        $b->bodyNestedState->fence !== null,
+                        $look,
+                    );
+                }
                 $b->formABlockOpen = $b->bodyNestedState->fence !== null;
                 // An attached block with no fence open ends at this run; what follows is a block of its own.
                 $b->attachedBlockOpen = $b->attachedBlockOpen && $b->bodyNestedState->fence !== null
