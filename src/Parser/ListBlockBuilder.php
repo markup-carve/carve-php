@@ -3022,19 +3022,35 @@ final class ListBlockBuilder
         $boxWidth = strlen($markerHead) - $markerWidth;
         $contentColumn = $this->sourceContentColumn($itemLineMap[0] ?? -1) + $markerWidth;
         $itemLines[0] = str_repeat(' ', $boxWidth) . $lead;
+        $childOpen = true;
+        $afterBlank = false;
         foreach ($itemLines as $at => $line) {
-            if ($at === 0 || $line === '' || str_contains($line, "\n") || str_starts_with($line, BlockGrammar::LAZY_FRAME)) {
+            if (IndentationHelper::isBlankLine($line)) {
+                $afterBlank = true;
+
+                continue;
+            }
+            $wasAfterBlank = $afterBlank;
+            if (!$this->isCommentLineOrFence(ltrim($line, " \t")) && !ReferenceDefinitionExtractor::isDefinitionHead(ltrim($line, " \t"))) {
+                $afterBlank = false;
+            }
+            if ($at === 0 || str_contains($line, "\n") || str_starts_with($line, BlockGrammar::LAZY_FRAME)) {
                 continue;
             }
             $marker = $lists->parseListItemMarker(ltrim($line, " \t"));
             if ($marker === null) {
+                // A paragraph after a blank at the item's content column closes the child, so a later marker there is no sibling of it.
+                if ($line[0] !== ' ' && $wasAfterBlank && !$afterBlank) {
+                    $childOpen = false;
+                }
+
                 continue;
             }
             $column = $this->sourceContentColumn($itemLineMap[$at] ?? -1);
             $sibling = $lists->itemMatchesList($leadMarker, $marker);
             if ($column < $contentColumn || !$sibling && $column > $contentColumn && $column < $contentColumn + $boxWidth) {
                 $itemLines[$at] = BlockGrammar::LAZY_FRAME . ltrim($line, " \t");
-            } elseif ($sibling && $line[0] !== ' ') {
+            } elseif ($sibling && $childOpen && $line[0] !== ' ') {
                 // The collector reads a sibling of the child at column 0; it stands at the child's column.
                 $itemLines[$at] = str_repeat(' ', $boxWidth) . $line;
             }
