@@ -857,7 +857,7 @@ final class BlockContinuationScanner
                 if (
                     IndentationHelper::isBlankLine($line)
                     || $this->isContinuationMarker($line)
-                    || ($endsAtSibling !== null && $endsAtSibling($line))
+                    || ($attachedState->fence === null && $endsAtSibling !== null && $endsAtSibling($line))
                 ) {
                     return true;
                 }

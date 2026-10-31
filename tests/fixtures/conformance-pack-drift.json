@@ -3,6 +3,13 @@
   "entries": [
     {
       "ticket": "markup-carve/carve-php#4254",
+      "cause": "line block payload at the latest spec pin",
+      "cases": [
+        "fences-1c15b73bc154"
+      ]
+    },
+    {
+      "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the lazy family",
       "cases": [
         "lazy-f7cdb17f9cb9"
@@ -17,9 +24,7 @@
         "notes-4f3571464f16",
         "notes-a6dae860b308",
         "notes-aa4cc37942d1",
-        "notes-d2500c45a956",
-        "notes-dd130b0b59c1",
-        "notes-ffd53f488294"
+        "notes-d2500c45a956"
       ]
     },
     {
