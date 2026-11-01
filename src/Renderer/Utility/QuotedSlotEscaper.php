@@ -58,7 +58,7 @@ final class QuotedSlotEscaper
      */
     public static function escapeImageAlt(string $text, bool $inTable = false): string
     {
-        if (BracketScanner::rawRunCloses($text) && AttributeParser::processEscapes($text) === $text && preg_match('/\n[ \t]*(?:\[[^\]\n]+\]:|`{3,})/', $text) !== 1) {
+        if (BracketScanner::rawRunCloses($text, false) && AttributeParser::processEscapes($text) === $text && preg_match('/\n[ \t]*(?:\[[^\]\n]+\]:|`{3,})/', $text) !== 1) {
             $escaped = $inTable ? str_replace('|', '\\|', $text) : $text;
         } else {
             $escaped = str_replace(['\\', '[', ']', '`'], ['\\\\', '\\[', '\\]', '\\`'], $text);

@@ -348,6 +348,13 @@ class InlineParser
 
     private ?string $balancedBracketText = null;
 
+    /**
+     * @var array<int, int|null>
+     */
+    private array $imageBalancedBracketEnds = [];
+
+    private ?string $imageBalancedBracketText = null;
+
     protected ?string $destinationSkipText = null;
 
     private bool $inTableCell = false;
@@ -864,6 +871,8 @@ class InlineParser
         $outerBracketRuns = $this->bracketRunEnds;
         $outerBalancedEnds = $this->balancedBracketEnds;
         $outerBalancedText = $this->balancedBracketText;
+        $outerImageBalancedEnds = $this->imageBalancedBracketEnds;
+        $outerImageBalancedText = $this->imageBalancedBracketText;
         $outerCloserText = $this->closerLastText;
         $outerCloserPositions = $this->closerLastPos;
         $outerCrossrefText = $this->crossrefScanText;
@@ -914,6 +923,8 @@ class InlineParser
             $this->bracketRunEnds = $outerBracketRuns;
             $this->balancedBracketEnds = $outerBalancedEnds;
             $this->balancedBracketText = $outerBalancedText;
+            $this->imageBalancedBracketEnds = $outerImageBalancedEnds;
+            $this->imageBalancedBracketText = $outerImageBalancedText;
             $this->closerLastText = $outerCloserText;
             $this->closerLastPos = $outerCloserPositions;
             $this->crossrefScanText = $outerCrossrefText;
@@ -2946,6 +2957,14 @@ class InlineParser
     private array $imageReferenceAt = [];
 
     /**
+     * Image alt closes read brackets inside `{% %}`, unlike link text. Keyed by
+     * the bracket offset so nested link reads cannot consume another image's close.
+     *
+     * @var array<int, int>
+     */
+    private array $imageAltEndAt = [];
+
+    /**
      * The `link_text` slot carries the run between the brackets exactly as
      * `findBalancedBracketEnd` closed it. `parseImage` reads its alt text from
      * that slot rather than rescanning, so an image's alt closes where a link's
@@ -2981,7 +3000,7 @@ class InlineParser
             return null;
         }
 
-        $textEnd = $this->findBalancedBracketEnd($text, $pos);
+        $textEnd = $this->imageAltEndAt[$pos] ?? $this->findBalancedBracketEnd($text, $pos);
         if ($textEnd === null) {
             return null;
         }
@@ -3275,16 +3294,35 @@ class InlineParser
      */
     protected function parseImage(string $text, int $pos): ?array
     {
+        if (!$this->closerExistsFrom($text, ']', $pos + 2)) {
+            return null;
+        }
+        if ($text !== $this->imageBalancedBracketText) {
+            $this->imageBalancedBracketText = $text;
+            $this->imageBalancedBracketEnds = [];
+        }
+        if (!array_key_exists($pos + 1, $this->imageBalancedBracketEnds)) {
+            foreach (BracketScanner::balancedBracketEnds($text, $pos + 1, false) as $start => $end) {
+                $this->imageBalancedBracketEnds[$start] = $end;
+            }
+        }
+        $altEnd = $this->imageBalancedBracketEnds[$pos + 1];
+        if ($altEnd === null) {
+            return null;
+        }
+
         // THE BRACKET OFFSET CARRIES IT, not a parameter. `parseLink()` is
         // protected extension surface - a test and any subclass override it -
         // so widening its signature breaks those declarations. Keyed on this
         // link's own start offset so a reference nested in the alt text, which
         // is parsed before the lookup runs, cannot consume the mark.
         $this->imageReferenceAt[$pos + 1] = true;
+        $this->imageAltEndAt[$pos + 1] = $altEnd;
         try {
             $result = $this->parseLink($text, $pos + 1);
         } finally {
             unset($this->imageReferenceAt[$pos + 1]);
+            unset($this->imageAltEndAt[$pos + 1]);
         }
         if ($result === null) {
             return null;

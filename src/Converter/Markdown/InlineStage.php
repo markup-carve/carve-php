@@ -297,7 +297,7 @@ final class InlineStage
         $imageLabel = function (string $label) use (&$protected, &$protectedSources): string {
             $alt = $this->plainAltText(substr($label, 2, -1), $protected, $protectedSources);
 
-            return '![' . (BracketScanner::rawRunCloses($alt) && AttributeParser::processEscapes($alt) === $alt
+            return '![' . (BracketScanner::rawRunCloses($alt, false) && AttributeParser::processEscapes($alt) === $alt
                 ? $alt : str_replace(['\\', '[', ']', '`'], ['\\\\', '\\[', '\\]', '\\`'], $alt)) . ']';
         };
 
