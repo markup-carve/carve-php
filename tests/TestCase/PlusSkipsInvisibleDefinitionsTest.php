@@ -1,0 +1,54 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\TestCase;
+
+use MarkupCarve\Carve\CarveConverter;
+use PHPUnit\Framework\TestCase;
+
+final class PlusSkipsInvisibleDefinitionsTest extends TestCase
+{
+    public function testAnAbbreviationBetweenTheMarkerAndTextIsCollected(): void
+    {
+        $source = "- +\n*[A]: b\ntext\n\nA\n";
+        $expected = <<<'HTML'
+<ul>
+  <li>text</li>
+</ul>
+<p><abbr title="b">A</abbr></p>
+HTML;
+
+        self::assertSame($expected, trim((new CarveConverter())->convert($source)));
+    }
+
+    public function testARefusedMarkerKeepsTheSiblingListTogetherAcrossDefinitions(): void
+    {
+        foreach (['[r]: /u', '*[A]: b'] as $definition) {
+            $source = "- +\n$definition\n- b\n";
+            $expected = <<<'HTML'
+<ul>
+  <li>+</li>
+  <li>b</li>
+</ul>
+HTML;
+
+            self::assertSame($expected, trim((new CarveConverter())->convert($source)), $definition);
+        }
+    }
+
+    public function testAnAttributeBeforeTheSiblingStillStartsANewList(): void
+    {
+        $source = "- +\n{.x}\n- b\n";
+        $expected = <<<'HTML'
+<ul>
+  <li>+</li>
+</ul>
+<ul class="x">
+  <li>b</li>
+</ul>
+HTML;
+
+        self::assertSame($expected, trim((new CarveConverter())->convert($source)));
+    }
+}
