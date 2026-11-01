@@ -2458,7 +2458,7 @@ class ProseMirrorToCarve
         foreach ($value as $wireInline) {
             $data = $this->stringKeyedObject($wireInline, 'A substitution half must contain inline nodes');
             foreach ($this->buildInlines($data) as $built) {
-                if (!$built instanceof InlineNode) {
+                if (!$built instanceof InlineNode && !$built instanceof Comment) {
                     throw new RuntimeException('A substitution half must contain inline nodes');
                 }
                 $inlines[] = $built;
@@ -2467,8 +2467,20 @@ class ProseMirrorToCarve
         foreach ($half->getChildren() as $child) {
             $half->removeChild($child);
         }
-        foreach ($this->mergeInlineMarks($inlines) as $inline) {
-            $half->appendChild($inline);
+        $run = [];
+        foreach ($inlines as $inline) {
+            if ($inline instanceof Comment) {
+                foreach ($this->mergeInlineMarks($run) as $merged) {
+                    $half->appendChild($merged);
+                }
+                $run = [];
+                $half->appendChild($inline);
+            } else {
+                $run[] = $inline;
+            }
+        }
+        foreach ($this->mergeInlineMarks($run) as $merged) {
+            $half->appendChild($merged);
         }
 
         return true;

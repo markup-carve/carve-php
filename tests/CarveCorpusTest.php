@@ -1574,6 +1574,10 @@ class CarveCorpusTest extends TestCase
         'an-unclosed-fence-under-a-description-paragraph-in-a-note-holds-no-paragraph',
         'a-lazy-line-keeps-a-description-in-a-div-in-an-item',
         'a-folded-marker-keeps-a-note-item-measured-from-its-source-column',
+        'a-line-comment-hides-a-substitution-arrow',
+        'an-own-line-plus-reaches-a-marker-line-quote-at-its-authored-column',
+        'an-indented-quote-prefix-keeps-an-invisible-plus-follower-in-its-host',
+        'attributed-bracket-spans-share-the-inline-cap',
     ];
 
     /**
@@ -1596,6 +1600,10 @@ class CarveCorpusTest extends TestCase
      */
     protected const KNOWN_GAPS = [
         '879-a-shifted-line-block-keeps-a-lazy-follower-at-its-reader-column' => 'carve#4695: a shifted line block keeps its lazy follower',
+        '880-an-own-line-plus-reaches-a-marker-line-quote-at-its-authored-column-3' => 'carve#4702: own-line plus reaches a marker-line quote',
+        '881-an-indented-quote-prefix-keeps-an-invisible-plus-follower-in-its-host-2' => 'carve#4698: indented quote prefix keeps an invisible plus follower in its host',
+        '881-an-indented-quote-prefix-keeps-an-invisible-plus-follower-in-its-host-3' => 'carve#4698: indented quote prefix keeps an invisible plus follower in its host',
+        '882-attributed-bracket-spans-share-the-inline-cap' => 'carve#4681: attributed bracket spans share the inline cap',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame-2' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
         '815-a-line-below-an-empty-div-after-a-first-block-plus-is-not-lazy-2' => 'carve#4409: a nested item\'s attached empty div takes the line below it',
