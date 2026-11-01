@@ -10,9 +10,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Below a definition description's content column an invisible line is lazy
- * paragraph text OF THAT CONTAINER (markup-carve/carve#1809, §10 I5 DEFINITION
- * OWNERSHIP IS COLUMN-SCOPED; markup-carve/carve-php#1799, corpus 430 and 431).
+ * Below a definition description's content column, reference and note lines
+ * fold as paragraph text. The carve#4412 ruling makes an abbreviation line
+ * that misses every frame a document-level definition instead.
  *
  * This build ejected it to DOCUMENT level - or, for the attribute kind, dropped
  * it entirely - while folding the identical line one host over in a list item.
@@ -63,8 +63,11 @@ class AnInvisibleLineBelowADescriptionColumnFoldsAsTextTest extends TestCase
         // The band is two columns wide under a `:  ` body and the answer does
         // not move inside it.
         foreach ([' ', '  '] as $indent) {
+            $expected = $line === '*[A]: a'
+                ? "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>"
+                : $this->folds($line);
             $this->assertSame(
-                $this->folds($line),
+                $expected,
                 $this->html(":: t\n:  d\n" . $indent . $line . "\ntail\n"),
                 'indent ' . strlen($indent),
             );

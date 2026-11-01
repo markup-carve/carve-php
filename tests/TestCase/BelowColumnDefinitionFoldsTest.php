@@ -60,11 +60,11 @@ class BelowColumnDefinitionFoldsTest extends TestCase
         $this->assertStringContainsString("<li>a\n[a]: /u</li>", $html);
     }
 
-    public function testAnAbbreviationDefinitionOneColumnInFolds(): void
+    public function testAnAbbreviationDefinitionOneColumnInDefines(): void
     {
         $html = $this->converter->convert("- - a\n *[A]: x");
 
-        $this->assertStringContainsString("<li>a\n*[A]: x</li>", $html);
+        $this->assertSame("<ul>\n  <li>\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n</ul>", $html);
     }
 
     public function testTheSameHoldsUnderAPlainLead(): void

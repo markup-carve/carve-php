@@ -3871,9 +3871,9 @@ class BlockParser
             return null;
         }
 
-        $line = $lines[$start];
+        $line = ltrim($lines[$start], " \t");
 
-        // Match abbreviation definition: *[abbr]: definition
+        // A line below every frame's content column defines at document level.
         if (!$this->isAbbreviationDefinitionLine($line)) {
             return null;
         }
