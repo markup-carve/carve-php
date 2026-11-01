@@ -298,6 +298,31 @@ final class ListBodyRebaser
     }
 
     /**
+     * A nested note with no indented body leaves a later plain line at its
+     * marker column to the enclosing note after a blank.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $count
+     * @param int $column
+     */
+    private function leadNotePlainTextResumesAfter(array $lines, int $start, int $count, int $column): bool
+    {
+        $next = $start + 1;
+        if ($next >= $count || !IndentationHelper::isBlankLine($lines[$next])) {
+            return false;
+        }
+        while ($next < $count && IndentationHelper::isBlankLine($lines[$next])) {
+            $next++;
+        }
+        if ($next >= $count || IndentationHelper::getLeadingColumns($lines[$next]) !== $column) {
+            return false;
+        }
+
+        return !($this->lineOpensBlockForLoosenessCallback)(ltrim($lines[$next], " \t"), true);
+    }
+
+    /**
      * Does a line BELOW the innermost open nested column still reach a column
      * the authored-base pass owns?
      *
@@ -1587,6 +1612,17 @@ final class ListBodyRebaser
                 continue;
             }
             $opener = IndentationHelper::stripLeadingColumns($line, $base);
+            if (
+                $absorbLeadNoteBody && $leadNoteExtentEnd >= $i
+                && $base >= BlockGrammar::FOOTNOTE_BODY_COLUMN
+                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $opener) === 1
+                && $this->footnoteDefinitionBodyExtent($lines, $i, $count) === $i
+                && $this->leadNotePlainTextResumesAfter($lines, $i, $count, $base)
+            ) {
+                $afterBlank = false;
+
+                continue;
+            }
             if ($skipBareColonOpeners && preg_match('/^:{3,}[ \t]*$/', $opener) === 1) {
                 $afterBlank = false;
 
