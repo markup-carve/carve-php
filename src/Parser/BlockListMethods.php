@@ -1123,6 +1123,9 @@ trait BlockListMethods
                     || ($lineIndent === $baseIndent
                         && $trailingState->fence === null
                         && ($this->listParser->parseListItemMarker($trimmed) !== null || $continuationBoundary))
+                    || ($trailingState->fence === null
+                        && $this->listParser->parseListItemMarker($trimmed) !== null
+                        && isset($this->state->source->closingLines[$this->sourceLineFor($index)]))
                 ) {
                     return true;
                 }
