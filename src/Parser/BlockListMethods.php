@@ -1060,7 +1060,8 @@ trait BlockListMethods
             function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, &$leadFenceOpen, &$fenceTakesRest, &$blockColumn, &$fenceCloses, $lines, $count, $baseIndent, $contentIndent): bool {
                 // An unclosed attached fence takes the rest of its container when no blank line or closer follows.
                 if ($fenceTakesRest) {
-                    return false;
+                    return $blockColumn !== null && !IndentationHelper::isBlankLine($line)
+                        && IndentationHelper::getLeadingColumns($line) < $blockColumn;
                 }
                 if ($attachedKind === self::ATTACHED_PENDING) {
                     $fence = $this->fencedBlockParser->parseCodeFenceOpener(ltrim($line, " \t"))
@@ -1069,7 +1070,14 @@ trait BlockListMethods
                     if ($fence !== null) {
                         $fenceTakesRest = true;
                         $fenceColumn = IndentationHelper::getLeadingColumns($line);
+                        $blockColumn = $fenceColumn;
                         for ($at = $index + 1; $at < $count; $at++) {
+                            if (
+                                !IndentationHelper::isBlankLine($lines[$at])
+                                && IndentationHelper::getLeadingColumns($lines[$at]) < $fenceColumn
+                            ) {
+                                break;
+                            }
                             if (
                                 IndentationHelper::isBlankLine($lines[$at])
                                 // Only a run at the opener's column closes it; an indented one is payload.
