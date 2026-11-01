@@ -1034,10 +1034,12 @@ final class BlockOwnershipWalk
             preg_match('/^(#{1,6}) +(?=.*[^ \t\n\r])(.*)$/D', $rest) === 1
             || preg_match('/^(-{3,}|\*{3,}|_{3,})[ \t]*$/D', $rest) === 1
             || ($this->isDefinition)($rest)
-            || preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1
+            // An abbreviation-shaped line is visible paragraph text in every container (CARVE-P12-026).
+            || ($owner->kind === 'doc' && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1)
             || ($rest[0] === '{' && (($this->isAttributeLine)($rest) || $this->opensWrappedAttribute($rest, $owner)))
         ) {
-            $this->softLeaf = $owner->para && str_starts_with($rest, '*[') && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1;
+            $this->softLeaf = $owner->kind === 'doc' && $owner->para && str_starts_with($rest, '*[')
+                && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1;
 
             return new OwnershipForm(kind: 'leaf', interrupts: true);
         }
