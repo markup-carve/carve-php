@@ -66,7 +66,13 @@ class NestedContinuationParagraphClaimTest extends TestCase
         try {
             foreach ($queries as $index) {
                 $this->assertTrue($parser->closes($lines, $index));
-                $this->assertFalse($parser->closes($lines, $index + 1));
+                // The first shallower run below closes a span that misses its marker (PART 0 S1, carve#4752).
+                $depth = substr_count($lines[$index + 1], '>');
+                $shallower = array_filter(
+                    array_slice($lines, $index + 2),
+                    static fn (string $line): bool => substr_count($line, '>') < $depth,
+                );
+                $this->assertSame($shallower !== [], $parser->closes($lines, $index + 1));
             }
         } finally {
             LayoutWork::$on = false;

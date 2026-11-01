@@ -5678,8 +5678,12 @@ class BlockParser
                 $content = $this->blockQuoteLineContent($line);
                 if ($content === null) {
                     // A non-quoted line ends the quoted region. A later fence
-                    // cannot close an opener before this boundary.
+                    // cannot close an opener before this boundary, but the line itself can (PART 0 S1).
                     $nextByLength = [];
+                    $run = strspn(ltrim($lines[$i], " \t"), '%');
+                    if ($run >= 3) {
+                        $nextByLength[$run] = $i;
+                    }
 
                     continue;
                 }
@@ -5707,10 +5711,17 @@ class BlockParser
         $indexes = [];
         $nextByDepth = [];
         $activeIndent = null;
+        // The nearest line short of a span's depth still closes it when it is its run (PART 0 S1).
+        $shortLines = [];
         for ($i = count($lines) - 1; $i >= 0; $i--) {
             $sourceIndent = IndentationHelper::getLeadingColumns($lines[$i]);
             if ($activeIndent !== $sourceIndent || IndentationHelper::isBlankLine($lines[$i])) {
                 $nextByDepth = [];
+            }
+            if (IndentationHelper::isBlankLine($lines[$i])) {
+                $shortLines = [];
+
+                continue;
             }
             $activeIndent = $sourceIndent;
             $line = IndentationHelper::stripLeadingColumns($lines[$i], $sourceIndent);
@@ -5722,16 +5733,26 @@ class BlockParser
             }
             if ($depth === 0) {
                 $nextByDepth = [];
+                $shortLines = [['depth' => 0, 'run' => strspn($line, '%'), 'at' => $i]];
 
                 continue;
             }
             self::discardDeeperQuoteCommentClosers($nextByDepth, $depth);
             $info = $this->fencedBlockParser->parseFencedCommentOpener(substr($line, $at));
+            while ($shortLines !== [] && $shortLines[array_key_last($shortLines)]['depth'] >= $depth) {
+                array_pop($shortLines);
+            }
+            $shortest = $shortLines === [] ? null : $shortLines[array_key_last($shortLines)];
+            $shortLines[] = ['depth' => $depth, 'run' => $info['length'] ?? 0, 'at' => $i];
             if ($info === null) {
                 continue;
             }
             $length = $info['length'];
-            $indexes[$sourceIndent . ':' . $depth][$i] = $nextByDepth[$depth][$length] ?? -1;
+            $closer = $nextByDepth[$depth][$length] ?? -1;
+            if ($closer === -1 && $shortest !== null && $shortest['run'] === $length) {
+                $closer = $shortest['at'];
+            }
+            $indexes[$sourceIndent . ':' . $depth][$i] = $closer;
             $nextByDepth[$depth][$length] = $i;
         }
 

@@ -507,6 +507,16 @@ final class BlockQuoteBuilder
                 $innerLineMap[] = $lazySourceLine;
                 $this->state->session->blockQuoteLazySourceLines[$lazySourceLine] = true;
                 $i++;
+            } elseif (
+                $lazyState['mode'] === BlockQuoteLazyMode::CommentFence
+                && strspn(ltrim($currentLine, " \t"), '%') === $lazyState['commentLength']
+            ) {
+                // An open span tests its closer before ownership, so an unmarked closer stays in the quote (PART 0 S1).
+                $innerLines[] = ltrim($currentLine, " \t");
+                $innerLineMap[] = $this->sourceLineFor($i);
+                $lazyState['mode'] = BlockQuoteLazyMode::Content;
+                $lazyState['paragraphOpen'] = false;
+                $i++;
             } elseif (isset($this->state->source->lineBlockLazyLines[$this->sourceLineFor($i)])) {
                 // The walk folded it into an open line block, whatever the payload looked like (carve#4748).
                 $innerLines[] = ltrim($currentLine, " \t");
