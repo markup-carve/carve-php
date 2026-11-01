@@ -58,7 +58,7 @@ class HostedColonCloserGeometryTest extends TestCase
     {
         $doc = (new BlockParser())->parse($source);
         $children = $doc->getChildren();
-        self::assertCount($kind === 'verse' ? 2 : 1, $children, $source);
+        self::assertCount(1, $children, $source);
         $host = $children[0];
         for ($i = 0; $i < $depth; $i++) {
             self::assertSame('block_quote', $host->getType(), $source);
@@ -82,7 +82,8 @@ class HostedColonCloserGeometryTest extends TestCase
         } else {
             self::assertCount(1, $blocks, $source);
             self::assertSame('line_block', $blocks[0]->getType(), $source);
-            self::assertSame('list', $children[1]->getType(), $source);
+            // An open stanza takes the root `- tail` as a lazy line (carve#4748).
+            self::assertStringContainsString('- tail', self::text($blocks[0]), $source);
             self::assertStringContainsString('&nbsp;&nbsp;' . $run, (new CarveConverter())->render($doc), $source);
         }
     }

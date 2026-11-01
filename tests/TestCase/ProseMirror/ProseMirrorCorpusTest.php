@@ -147,11 +147,12 @@ class ProseMirrorCorpusTest extends TestCase
      * count until the bridge preserves that spelling too. The pin to carve
      * b7876589 adds two more: a comment block in a line block (855) and a
      * quote after a refused description separator (856). The pin to carve
-     * 6bb54c35 adds a cloned heading that drops its ids (870).
+     * 6bb54c35 adds a cloned heading that drops its ids (870). The pin to
+     * carve b8c898ac adds a line block in a nested description (910).
      *
      * @var int
      */
-    private const MAXIMUM_COVERED_BUT_DIFFERING = 4;
+    private const MAXIMUM_COVERED_BUT_DIFFERING = 5;
 
     public function testTheCorpusSurvivesTheBridge(): void
     {
