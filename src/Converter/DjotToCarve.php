@@ -681,7 +681,7 @@ class DjotToCarve
         $carve = Emphasis::convert($source, $mask, fn (string $plain, array $slashLayout = []): string => $this->rewriteDjotInline($plain, $slashLayout), $wire ?? [], cellBoundaries: $this->djotTableCellBoundaries($source), omitQuoteDelimiters: $this->omitQuoteDelimiters);
 
         $carve = str_replace($emptyTerm, '%%', $carve);
-        $carve = str_replace($emptyNote, '%%%%', $carve);
+        $carve = $this->keepInvisibleLeadListsLoose(str_replace($emptyNote, '%%%%', $carve));
         $heldOrphans = $orphanSpans;
         foreach ($reservedOrphanIds as $token => $_) {
             $heldOrphans[$token] = $token;
@@ -6757,6 +6757,57 @@ class DjotToCarve
         }
 
         return $malformedEnds;
+    }
+
+    /**
+     * Djot reads a blank after an item as loose; Carve does not when the lead
+     * renders nothing (PART 9 §17 L1b), so such a list is marked `{loose}`.
+     */
+    private function keepInvisibleLeadListsLoose(string $carve): string
+    {
+        if (!str_contains($carve, '%%%%')) {
+            return $carve;
+        }
+        $lines = explode("\n", $carve);
+        $known = null;
+        for ($at = count($lines) - 1; $at >= 0; $at--) {
+            if (preg_match('/^( *)([-*+]|\d+[.)]) (?:\[[ xX]\] )?%%%%$/D', $lines[$at], $lead) !== 1) {
+                continue;
+            }
+            $indent = strlen($lead[1]);
+            $next = $at + 1;
+            while (isset($lines[$next]) && trim($lines[$next]) === '') {
+                $next++;
+            }
+            if ($next === $at + 1 || !isset($lines[$next]) || strspn($lines[$next], ' ') <= $indent) {
+                continue;
+            }
+            // Items of one list share its start, so the scan up runs once per list.
+            if ($known !== null && $known[0] < $at && $known[1] === $indent) {
+                continue;
+            }
+            $start = $at;
+            while ($start > 0) {
+                $previous = $lines[$start - 1];
+                $column = strspn($previous, ' ');
+                if (trim($previous) !== '' && $column < $indent) {
+                    break;
+                }
+                if ($column === $indent && preg_match('/^ *(?:[-*+]|\d+[.)])(?: |$)/', $previous) !== 1) {
+                    break;
+                }
+                $start--;
+            }
+            while (trim($lines[$start]) === '') {
+                $start++;
+            }
+            $known = [$start, $indent];
+            if (($lines[$start - 1] ?? '') !== $lead[1] . '{loose}') {
+                array_splice($lines, $start, 0, [$lead[1] . '{loose}']);
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
