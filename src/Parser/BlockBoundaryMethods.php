@@ -77,6 +77,7 @@ trait BlockBoundaryMethods
             $info['type'],
             strlen($stripped) - strlen($info['content']),
             $info['attributesWidth'] ?? 0,
+            $stripped,
         );
     }
 
@@ -97,10 +98,16 @@ trait BlockBoundaryMethods
      * @param string $type The marker head that matched.
      * @param int $span Bytes from the marker's first byte to its content.
      * @param int $attrsWidth Bytes of the abutting `{...}` block, 0 if none.
+     * @param string $head The text starting at the marker's first byte.
      */
-    protected function listMarkerWidthFor(string $type, int $span, int $attrsWidth = 0): int
+    protected function listMarkerWidthFor(string $type, int $span, int $attrsWidth = 0, string $head = ''): int
     {
-        return $type === ListBlock::TYPE_TASK ? 2 : $span - $attrsWidth;
+        if ($type !== ListBlock::TYPE_TASK) {
+            return $span - $attrsWidth;
+        }
+
+        // The checkbox contributes zero; the authored gap after the bullet counts (CARVE-P9-083).
+        return 1 + max(1, strspn($head, " \t", 1 + $attrsWidth));
     }
 
     /**

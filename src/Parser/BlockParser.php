@@ -1705,6 +1705,7 @@ class BlockParser
                 $head['name'],
                 $head['content'] - $strippedAt,
                 $head['attrs'],
+                substr($content, $strippedAt),
             );
             $baseColumn += $leadingColumns + $markerWidth;
             $listContentColumns[] = $baseColumn;
