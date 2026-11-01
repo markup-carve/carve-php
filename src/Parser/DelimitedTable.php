@@ -203,8 +203,14 @@ final class DelimitedTable
         }
         if ($hasGroups) {
             $metadata = clone $table;
-            if ($metadata->getAttribute('header-rows') === null) {
+            // A value that states no count is absent for delimited layout. Keep
+            // the authored attribute on the table, but give row grouping the
+            // effective counts used to classify its rows (CARVE-P12-034).
+            if (self::rowCount($metadata->getAttribute('header-rows')) === null) {
                 $metadata->setAttribute('header-rows', (string)$headers);
+            }
+            if (self::rowCount($metadata->getAttribute('footer-rows')) === null) {
+                $metadata->setAttribute('footer-rows', (string)$footer);
             }
             $table->setRowGroups($metadata->statedRowGroups());
         }
@@ -217,10 +223,20 @@ final class DelimitedTable
         if ($raw === null) {
             return null;
         }
-        if ($raw === '') {
+        $value = trim($raw);
+        if ($value === '') {
             return 1;
         }
 
-        return ctype_digit($raw) ? min((int)$raw, PHP_INT_MAX) : null;
+        if (preg_match('/^\d+$/D', $value) !== 1) {
+            return null;
+        }
+        $digits = ltrim($value, '0');
+        $maximum = '9007199254740991';
+        if (strlen($digits) > strlen($maximum) || (strlen($digits) === strlen($maximum) && strcmp($digits, $maximum) > 0)) {
+            return null;
+        }
+
+        return (int)$value;
     }
 }
