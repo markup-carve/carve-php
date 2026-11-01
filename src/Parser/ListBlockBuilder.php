@@ -270,7 +270,7 @@ final class ListBlockBuilder
             $list->setTight(false);
         }
 
-        $hardDefinitionBoundary = $this->hasHardListBoundary($lines, 0, $i);
+        $hardDefinitionBoundary = $this->hasHardListBoundary($lines, 0, $i, $lastItemContentIndent);
         $continuation = $this->collectIndentedListContinuation(
             $lines,
             $i,
@@ -458,11 +458,7 @@ final class ListBlockBuilder
             && $nextItem !== null
             && ($this->getListParser)()->itemMatchesList($listInfo, $nextItem)
         ) {
-            $blankRun = 0;
-            for ($j = $nextIndex - 1; $j >= 0 && $blankRun < 3 && IndentationHelper::isBlankLine($lines[$j]); $j--) {
-                $blankRun++;
-            }
-            $loose = $blankRun < 3;
+            $loose = $this->blankRunBefore($lines, 0, $nextIndex, $contentIndent) < 3;
         }
         // A direct child's continuation can separate blocks at this list's
         // level. A deeper owner keeps its blank within the descendant list.
@@ -593,15 +589,39 @@ final class ListBlockBuilder
      * @param array<string> $lines
      * @param int $start
      * @param int $index
+     * @param int $contentIndent
      */
-    private function hasHardListBoundary(array $lines, int $start, int $index): bool
+    private function hasHardListBoundary(array $lines, int $start, int $index, int $contentIndent): bool
+    {
+        return $this->blankRunBefore($lines, $start, $index, $contentIndent) >= 3;
+    }
+
+    /**
+     * Count layout blanks across line comments, which PART 0 S1 erases.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $index
+     * @param int $contentIndent
+     */
+    private function blankRunBefore(array $lines, int $start, int $index, int $contentIndent): int
     {
         $blankRun = 0;
-        for ($back = $index - 1; $blankRun < 3 && $back >= $start && IndentationHelper::isBlankLine($lines[$back]); $back--) {
-            $blankRun++;
+        for ($back = $index - 1; $blankRun < 3 && $back >= $start; $back--) {
+            if (IndentationHelper::isBlankLine($lines[$back])) {
+                $blankRun++;
+
+                continue;
+            }
+            if (
+                IndentationHelper::getLeadingColumns($lines[$back]) >= $contentIndent
+                || preg_match('/^[ \t]*%%(?!%)/', $lines[$back]) !== 1
+            ) {
+                break;
+            }
         }
 
-        return $blankRun >= 3;
+        return $blankRun;
     }
 
     /**
@@ -980,7 +1000,7 @@ final class ListBlockBuilder
             //
             // Breaking leaves `$i` on the marker line, so the caller resumes
             // there and parses it as the first item of the next list.
-            if ($i > $start && $list->hasChildren() && $this->hasHardListBoundary($lines, $start, $i)) {
+            if ($i > $start && $list->hasChildren() && $this->hasHardListBoundary($lines, $start, $i, $lastItemContentIndent)) {
                 break;
             }
 
