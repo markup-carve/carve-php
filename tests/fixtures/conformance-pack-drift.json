@@ -39,9 +39,7 @@
       "ticket": "markup-carve/carve-php#4308",
       "cause": "an unclosed fence in a nested container after the fence ruling port (carve#4018)",
       "cases": [
-        "fences-9caa332a8a41",
-        "notes-47da77f91f9b",
-        "ownership-aa029b4ae556"
+        "notes-47da77f91f9b"
       ]
     },
     {

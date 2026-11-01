@@ -3904,8 +3904,11 @@ final class BlockContinuationScanner
                 $column += $this->listMarkerWidth($text, $marker);
                 $text = $marker['content'];
             }
+            // A child may open its next fence on a separate line after its
+            // marker-line fence closes. Track that opener at the same child
+            // column so a following blank remains payload.
             if (
-                $column > IndentationHelper::getLeadingColumns($line)
+                $column > 0
                 && preg_match('/^`{3,}|^~{3,}/', $text, $fence) === 1
                 && ($this->getFencedBlockParser)()->parseCodeFenceOpener($text) !== null
             ) {

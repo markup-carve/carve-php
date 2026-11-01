@@ -1485,9 +1485,11 @@ final class ListBodyRebaser
                                 );
                             }
                         }
-                        if ($closer !== null || !$skipOnlyClosedOpaqueAtMinimum || !$blockState->openParagraph) {
-                            $i = $closer ?? ($count - 1);
-                        }
+                        // A valid fence opener interrupts an open paragraph
+                        // without waiting for a closer (PART 9 §10 I4). Keep
+                        // its entire opaque extent out of the authored-base
+                        // walk, including an indented closer-shaped payload.
+                        $i = $closer ?? ($count - 1);
                     } else {
                         $closer = $this->minimumCommentFenceCloser($lines, $i, $count, strlen($comment['fence']));
                         if ($closer !== null) {
