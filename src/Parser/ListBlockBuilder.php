@@ -281,6 +281,7 @@ final class ListBlockBuilder
         // does not propagate, corpus 142). Only the outer item, which
         // owns the blank before its own attached block, goes loose.
         // A blank before a newly retained paragraph makes the list loose.
+        $invisibleContinuation = false;
         if ($subLines !== []) {
             $before = count($lastItem->getChildren());
             $this->callParseItemBlocks($lastItem, $subLines, $subLineMap, $subEligible, null, $unclosedFenceBase);
@@ -299,11 +300,12 @@ final class ListBlockBuilder
                 array_slice($lastItem->getChildren(), $before),
                 static fn (Node $child): bool => !$child instanceof Comment,
             );
+            $firstSubLine = current(array_filter($subLines, static fn (string $l): bool => !IndentationHelper::isBlankLine($l)));
             if ($visibleContinuation === []) {
+                $invisibleContinuation = $firstSubLine !== false && $this->isFoldableInvisibleLine(ltrim($firstSubLine, " \t"));
                 $list->setTight($wasListTight);
             }
             // A collected definition after the blank leaves the blank a separator (PART 9 §17 L1b).
-            $firstSubLine = current(array_filter($subLines, static fn (string $l): bool => !IndentationHelper::isBlankLine($l)));
             if ($lastItemHadBlankAfter && ($subRetainedMarker || ($firstSubLine !== false && $this->isFoldableInvisibleLine(ltrim($firstSubLine, " \t"))))) {
                 foreach (array_slice($lastItem->getChildren(), $before) as $child) {
                     if ($child instanceof Comment) {
@@ -332,7 +334,8 @@ final class ListBlockBuilder
             // ends the list stays tight - which is the pair the
             // corpus pins as 87-compact-list-blocks-4/5 against -6
             // (carve-php#744).
-            $lastItemHadBlankAfter = $this->contentRendersNothing($subLines);
+            $lastItemHadBlankAfter = ($lastItemHadBlankAfter && $invisibleContinuation)
+                || $this->contentRendersNothing($subLines);
             // Only the run after the last blank decides: a sub-list before it does not fill the gap.
             if (!$lastItemHadBlankAfter) {
                 $collected = array_values($subLines);
@@ -1450,10 +1453,10 @@ final class ListBlockBuilder
                 $firstBlockOwner !== null && $subTrailingState->fence === null && !$this->continuationMarkerHasIndentedFollower($i, $count, $lines)
                 && ($firstBlockOwner['kind'] !== 'quote' || !str_starts_with(ltrim($lines[$i - 1] ?? '', " \t"), '>'))
             ) {
-                [$end, $attached, $rawMap] = $this->collectListContinuationBlock($lines, $i, $count, $baseIndent);
+                [$end, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i, $count, $baseIndent);
                 foreach ($attached as $at => $attachedLine) {
                     $subLines[] = $attachedLine;
-                    $subLineMap[] = $this->sourceLineFor($rawMap[$at]);
+                    $subLineMap[] = $attachedLineMap[$at];
                     $subTrailingState = $this->advanceTrailingState($subTrailingState, $attachedLine);
                 }
                 if ($attached !== []) {
