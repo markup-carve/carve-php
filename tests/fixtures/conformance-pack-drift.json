@@ -40,7 +40,6 @@
       "cause": "an unclosed fence in a nested container after the fence ruling port (carve#4018)",
       "cases": [
         "fences-9caa332a8a41",
-        "fences-dccc1ff8cf70",
         "notes-47da77f91f9b",
         "ownership-aa029b4ae556"
       ]
