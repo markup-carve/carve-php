@@ -146,6 +146,7 @@ final class LineBlockBuilder
             return null;
         }
 
+        $lines = $this->restorePayloadColumns($lines, $start);
         $body = ($this->collectColonFenceBodyCallback)($lines, $start, $divInfo['length'], false);
         $contentLines = $body['lines'];
 
@@ -224,6 +225,44 @@ final class LineBlockBuilder
         $parent->appendChild($lineBlock);
 
         return $body['consumed'];
+    }
+
+    /**
+     * A container reader can strip a payload's leading spaces before closer pairing.
+     * Restore the source column relative to the line block opener.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     *
+     * @return array<string>
+     */
+    private function restorePayloadColumns(array $lines, int $start): array
+    {
+        $opener = ltrim($lines[$start], " \t");
+        $authored = $this->state->source->authoredLines[$this->sourceLineFor($start)] ?? '';
+        $openerColumn = strrpos($authored, $opener);
+        if ($openerColumn === false || $openerColumn === 0) {
+            return $lines;
+        }
+        for ($i = $start + 1, $count = count($lines); $i < $count; $i++) {
+            $line = $lines[$i];
+            if ($line === '' || str_starts_with($line, BlockGrammar::LAZY_FRAME)) {
+                continue;
+            }
+            $subject = ltrim($line, " \t");
+            if ($subject === '') {
+                continue;
+            }
+            $source = $this->state->source->authoredLines[$this->sourceLineFor($i)] ?? '';
+            $sourceColumn = strrpos($source, $subject);
+            if ($sourceColumn === false || str_contains(substr($source, 0, $sourceColumn), "\t")) {
+                continue;
+            }
+            $column = max(strlen($line) - strlen($subject), $sourceColumn - $openerColumn);
+            $lines[$i] = str_repeat(' ', $column) . $subject;
+        }
+
+        return $lines;
     }
 
     /**
