@@ -5119,7 +5119,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         : $this->renderCode($node->getContent()))))),
             $node instanceof Mention => $this->renderMention($node),
             $node instanceof Link && $node->isAutolink() => $withAttrs('<' . $this->escapeAutolinkHref($this->plainInlineText($node)) . '>'),
-            $rawReference !== null => $rawReference,
+            $rawReference !== null => $this->writtenRawReference($rawReference),
             $node instanceof Link => $this->renderLink($node),
             $node instanceof Image => $this->renderImage($node),
             $node instanceof CriticComment => '{#' . $this->escapeCriticText($this->guardGraphemeContent('critic_comment', $node->getContent())) . '#}',
@@ -5156,6 +5156,39 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof SmallCaps => $this->renderSmallCaps($node),
             default => $this->renderInlines($node->getChildren()),
         };
+    }
+
+    private function escapeReferencePipesInTable(string $source): string
+    {
+        $out = '';
+        $codeRun = 0;
+        $length = strlen($source);
+        for ($i = 0; $i < $length;) {
+            $char = $source[$i];
+            if ($char === '\\' && $i + 1 < $length && ($source[$i + 1] !== '`' || $codeRun === 0)) {
+                $out .= substr($source, $i, 2);
+                $i += 2;
+
+                continue;
+            }
+            if ($char === '`') {
+                $run = strspn($source, '`', $i);
+                $codeRun = $codeRun === 0 ? $run : ($codeRun === $run ? 0 : $codeRun);
+                $out .= substr($source, $i, $run);
+                $i += $run;
+
+                continue;
+            }
+            $out .= $char === '|' && $codeRun === 0 ? '\\|' : $char;
+            $i++;
+        }
+
+        return $out;
+    }
+
+    private function writtenRawReference(string $source): string
+    {
+        return $this->tableCellDepth > 0 ? $this->escapeReferencePipesInTable($source) : $source;
     }
 
     /**
@@ -5496,7 +5529,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // renderAttrs() here wrote `{.own}` twice.
             $raw = $node->getRawReferenceLabel();
             if ($raw !== null) {
-                return $raw;
+                return $this->writtenRawReference($raw);
             }
 
             return '[' . $text . '][' . $referenceLabel . ']'
@@ -5510,7 +5543,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // wrote `[text][]`. `rawRef` is that source verbatim.
             $raw = $node->getRawReferenceLabel();
             if ($raw !== null) {
-                return $raw . $this->renderAttrs($node);
+                return $this->writtenRawReference($raw) . $this->renderAttrs($node);
             }
 
             return '[' . $text . '][' . $node->getReferenceLabel() . ']' . $this->renderAttrs($node);
@@ -5622,7 +5655,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // carve-js keeps it.
         $raw = UnresolvedReference::sourceOf($node);
         if ($raw !== null) {
-            return $raw;
+            return $this->writtenRawReference($raw);
         }
 
         $title = $node->getTitle() === null ? '' : ' "' . $this->escapeQuoted($node->getTitle()) . '"';
@@ -5639,7 +5672,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($referenceLabel !== null && $referenceLabel !== '') {
             $rawRef = $node->getRawReferenceLabel();
             if ($rawRef !== null) {
-                return $rawRef;
+                return $this->writtenRawReference($rawRef);
             }
 
             if ($this->imageReferenceCanBeWritten($node, $referenceLabel)) {

@@ -685,6 +685,49 @@ class InlineParser
         }
     }
 
+    private function unescapeTableReferencePipes(string $source): string
+    {
+        // A backslash-pipe inside a code run is literal. Keep the same phase
+        // boundary for rawRef and label lookup so an unresolved reference
+        // prints what the cell splitter gave it (carve#4718).
+        $out = '';
+        $codeRun = 0;
+        $length = strlen($source);
+        for ($i = 0; $i < $length;) {
+            $char = $source[$i];
+            if ($char === '\\' && $i + 1 < $length && $source[$i + 1] === '\\') {
+                $out .= '\\\\';
+                $i += 2;
+
+                continue;
+            }
+            if ($char === '\\' && $i + 1 < $length && $source[$i + 1] === '`' && $codeRun === 0) {
+                $out .= substr($source, $i, 2);
+                $i += 2;
+
+                continue;
+            }
+            if ($char === '`') {
+                $run = strspn($source, '`', $i);
+                $codeRun = $codeRun === 0 ? $run : ($codeRun === $run ? 0 : $codeRun);
+                $out .= substr($source, $i, $run);
+                $i += $run;
+
+                continue;
+            }
+            if ($char === '\\' && $i + 1 < $length && $source[$i + 1] === '|' && $codeRun === 0) {
+                $out .= '|';
+                $i += 2;
+
+                continue;
+            }
+            $out .= $char;
+            $i++;
+        }
+
+        return $out;
+    }
+
     public function parse(
         Node $parent,
         string $text,
@@ -3079,6 +3122,10 @@ class InlineParser
                 // Store original bracket content before normalization
                 $originalRefBracket = str_replace("\0", "\u{00A0}", substr($text, $afterBracket + 1, $refEnd - $afterBracket - 1));
                 $ref = str_replace("\0", "\u{00A0}", $ref);
+                if ($this->inTableCell) {
+                    $originalRefBracket = $this->unescapeTableReferencePipes($originalRefBracket);
+                    $ref = $this->unescapeTableReferencePipes($ref);
+                }
 
                 // THE LABEL IS PARSED ONCE, HERE. Both branches below need the
                 // bracket text as inline nodes, and the heading-index retry
@@ -3180,7 +3227,8 @@ class InlineParser
                     // The authored source, as on the unresolved branch: §3a asks
                     // for `ref` AND `rawRef` beside the destination, and without
                     // this a resolved reference published half the pair.
-                    $link->setRawReferenceLabel(str_replace("\0", "\u{00A0}", substr($text, $pos, $endPos - $pos)));
+                    $rawReference = str_replace("\0", "\u{00A0}", substr($text, $pos, $endPos - $pos));
+                    $link->setRawReferenceLabel($this->inTableCell ? $this->unescapeTableReferencePipes($rawReference) : $rawReference);
 
                     return [
                         'node' => $link,
@@ -3214,7 +3262,8 @@ class InlineParser
                 if ($endPos < $length && $text[$endPos] === '{') {
                     $endPos = $this->applyConsecutiveAttributes($link, $text, $endPos);
                 }
-                $link->setRawReferenceLabel(str_replace("\0", "\u{00A0}", substr($text, $pos, $endPos - $pos)));
+                $rawReference = str_replace("\0", "\u{00A0}", substr($text, $pos, $endPos - $pos));
+                $link->setRawReferenceLabel($this->inTableCell ? $this->unescapeTableReferencePipes($rawReference) : $rawReference);
 
                 return [
                     'node' => $link,
