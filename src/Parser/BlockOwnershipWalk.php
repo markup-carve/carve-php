@@ -267,15 +267,7 @@ final class BlockOwnershipWalk
                 $level = $this->levelOf($this->src, $held['depth']);
                 // A marker at the attached item's authored marker column is
                 // its sibling, even when the one attached block was a quote.
-                if (
-                    $level !== null && $level['col'] === $held['column']
-                    && $this->listParser->parseListItemMarker($level['rest']) !== null
-                    && $this->attachedBlockEndsAt($at)
-                ) {
-                    $this->frames = array_slice($held['frames'], 0, -1);
-                    $this->attachedTo = null;
-                    $this->closingLines[$at] = true;
-                }
+                $this->releaseAttachedItemAtSibling($at, $held, $level);
                 if (
                     $this->attachedTo !== null && $level !== null && $level['rest'] !== '' && $level['col'] >= $host->col
                     && $this->levelOf($this->src, $held['depth'] + 1) === null
@@ -1365,6 +1357,25 @@ final class BlockOwnershipWalk
             'item' => $this->frames[$host]->kind === 'item',
             'kind' => $this->frames[$host]->kind,
         ];
+    }
+
+    /**
+     * @param int $at
+     * @param array{frames: array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>, column: int, depth: int, from: int, item: bool, kind: string} $held
+     * @param array{col: int, rest: string}|null $level
+     */
+    private function releaseAttachedItemAtSibling(int $at, array $held, ?array $level): void
+    {
+        if (
+            $level === null || $level['col'] !== $held['column']
+            || $this->listParser->parseListItemMarker($level['rest']) === null
+            || !$this->attachedBlockEndsAt($at)
+        ) {
+            return;
+        }
+        $this->frames = array_slice($held['frames'], 0, -1);
+        $this->attachedTo = null;
+        $this->closingLines[$at] = true;
     }
 
     /**
