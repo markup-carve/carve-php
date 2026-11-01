@@ -475,6 +475,11 @@ final class BlockOwnershipWalk
             }
             // S4: a line that missed a frame folds into the deepest open paragraph.
             if ($lazy) {
+                // A malformed colon opener is paragraph text even when it arrived lazily.
+                // Its next bare colon line is absorbed only at this paragraph's depth.
+                if ($this->absorbsColon($this->m['rest'])) {
+                    $this->frames[$topIndex]->absorbs = true;
+                }
                 // A separator line the quote still marks is text, so the term is over for a later line.
                 if ($this->frames[$topIndex]->last === 'term' && preg_match(self::DESCRIPTION_LEAD, $this->m['rest']) === 1) {
                     $this->frames[$topIndex]->last = 'para';

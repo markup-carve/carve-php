@@ -1674,6 +1674,9 @@ final class BlockQuoteBuilder
                     $interrupts = $opener !== null || $this->endsBlockQuote($leaf, true, $sourceLines, $sourceIndex);
                     if (!IndentationHelper::isBlankLine($leaf) && !$interrupts) {
                         $state['colonClaims'] = array_values(array_filter($state['colonClaims'], static fn (array $claim): bool => $claim['body']));
+                        if (preg_match('/^:{3,}/', ltrim($leaf, " \t")) === 1) {
+                            $state['absorbingFence'] = true;
+                        }
 
                         // A missing inner marker can continue the same paragraph.
                         // Keep its depth for the next explicitly marked line.
@@ -1698,6 +1701,10 @@ final class BlockQuoteBuilder
                 $state['paragraphOpen']
                 && isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($sourceIndex)])
             ) {
+                if (preg_match('/^:{3,}/', ltrim($content, " \t")) === 1) {
+                    $state['absorbingFence'] = true;
+                }
+
                 return;
             }
 
