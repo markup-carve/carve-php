@@ -691,7 +691,7 @@ final class BlockOwnershipWalk
     private function apply(int $owner, int $col, OwnershipForm $form, int $canon, ?int $reader = null): void
     {
         $reader ??= $this->frames[$owner]->reader ?? $this->frames[$owner]->canon;
-        $this->frames[$owner]->para = $form->kind === 'term';
+        $this->frames[$owner]->para = $form->kind === 'term' || $form->caption;
         $this->frames[$owner]->last = $form->kind;
         $this->frames[$owner]->tableLine = $form->table ? $this->at : null;
         if ($form->kind === 'term') {

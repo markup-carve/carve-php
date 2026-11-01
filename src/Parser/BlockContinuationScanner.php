@@ -1330,6 +1330,14 @@ final class BlockContinuationScanner
                 continue;
             }
 
+            if ($run->captionOpen && isset($this->state->source->lazyLines[$this->sourceLineFor($i)])) {
+                $itemLines[] = BlockGrammar::LAZY_FRAME . ltrim($nextLine, " \t");
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $i++;
+
+                continue;
+            }
+
             if (
                 !$this->collectPlainLine(
                     $run,
@@ -1348,6 +1356,7 @@ final class BlockContinuationScanner
             ) {
                 break;
             }
+            $run->captionOpen = $this->isCaptionLine(ltrim($nextLine, " \t"));
         }
 
         return [$i, $trailingState];

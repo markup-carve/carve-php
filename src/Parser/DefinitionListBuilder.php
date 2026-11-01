@@ -2365,6 +2365,7 @@ final class DefinitionListBuilder
                     isset($b->bodyLazy[$bodyIndex])
                     && $foldedBody !== []
                     && ($this->getListParser)()->parseListItemMarker(ltrim($foldedBody[array_key_last($foldedBody)], " \t")) === null
+                    && preg_match('/^\^ +\S/', ltrim($foldedBody[array_key_last($foldedBody)], " \t")) !== 1
                 ) {
                     $last = count($foldedBody) - 1;
                     $foldedBody[$last] .= "\n" . ltrim(BlockGrammar::stripLazyFrame(ltrim($entry, " \t")), " \t");
