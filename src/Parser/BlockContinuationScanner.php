@@ -207,7 +207,7 @@ final class BlockContinuationScanner
             $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
             $bottom,
         );
-        $openCommentLength = null;
+        $openCommentLength = $this->advanceItemCommentFence(null, $bottom, $lines, $i - 1);
         $openCommentColumn = 0;
         $lowComment = false;
         while ($i < $count) {

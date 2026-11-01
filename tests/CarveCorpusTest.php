@@ -1644,7 +1644,6 @@ class CarveCorpusTest extends TestCase
         '853-an-abbreviation-definition-below-a-content-column-stands-in-the-document-3' => 'carve#4507: an abbreviation definition below a content column defines',
         '853-an-abbreviation-definition-below-a-content-column-stands-in-the-document-4' => 'carve#4507: an abbreviation definition below a content column defines',
         '853-an-abbreviation-definition-below-a-content-column-stands-in-the-document-5' => 'carve#4507: an abbreviation definition below a content column defines',
-        '864-a-comment-fence-on-a-nested-marker-line-closes-at-the-first-exact-width-closer' => 'carve#4541: block ownership the spec model pins and this engine owes',
         '864-a-task-marker-at-a-nested-task-item-s-content-column-nests-in-that-item' => 'carve#4541: block ownership the spec model pins and this engine owes',
         '864-a-task-marker-at-a-nested-task-item-s-content-column-nests-in-that-item-2' => 'carve#4541: block ownership the spec model pins and this engine owes',
         '430-below-a-definition-body-s-column-an-invisible-line-folds-as-text-4' => 'carve#4507: an abbreviation definition below a content column defines',
