@@ -157,6 +157,34 @@ final class ListBlockBuilder
     }
 
     /**
+     * @param array<string> $lines
+     * @param int $baseIndent
+     * @param int $i
+     */
+    private function blankFollowsLead(array $lines, int $i, int $baseIndent): bool
+    {
+        $j = $i - 1;
+        while ($j >= 0 && IndentationHelper::isBlankLine($lines[$j])) {
+            $j--;
+        }
+
+        return $j >= 0 && $j < $i - 1
+            && IndentationHelper::getLeadingColumns($lines[$j]) === $baseIndent
+            && ($this->getListParser)()->parseListItemMarker(ltrim($lines[$j], " \t")) !== null;
+    }
+
+    private function rendersSomething(ListItem $item): bool
+    {
+        foreach ($item->getChildren() as $child) {
+            if (!$child instanceof Comment) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @param \MarkupCarve\Carve\Node\Block\ListBlock $list
      * @param \MarkupCarve\Carve\Node\Block\ListItem $lastItem
      * @param array<string> $lines
@@ -190,6 +218,8 @@ final class ListBlockBuilder
             !$this->indentedContinuationOpensBlock($lines, $i, $baseIndent, $lastItemContentIndent)
             && preg_match('/^\^[ ]+\S/', ltrim($currentLine, " \t")) !== 1
             && !$this->continuationReachesNestedListContent($lastItem, $currentIndent)
+            // A blank after a lead that renders nothing keeps the list tight (PART 9 §17 L1b, carve#4639).
+            && ($this->rendersSomething($lastItem) || !$this->blankFollowsLead($lines, $i, $baseIndent))
         ) {
             $list->setTight(false);
         }
