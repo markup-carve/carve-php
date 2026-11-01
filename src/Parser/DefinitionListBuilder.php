@@ -1623,6 +1623,8 @@ final class DefinitionListBuilder
             && ($l->indent !== $b->continuationColumn || $l->paragraphFenceIsText)
             && !$l->definitionPastTheColumn
             && !$l->attributePastTheColumn
+            && (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $l->trimmedCont) !== 1
+                || isset($this->state->source->lazyLines[$this->sourceLineFor($b->i)]))
             && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) !== 1
             && !$b->formABlockOpen
             && $l->lastBodyKey !== null
@@ -2701,7 +2703,12 @@ final class DefinitionListBuilder
 
                 break;
             }
-            if ($content !== ltrim($head, " \t") && $this->isInvisibleOrAttributeLine($content, false)) {
+            if (
+                $content !== ltrim($head, " \t")
+                && ($this->isInvisibleOrAttributeLine($content, false)
+                    || $this->startsNewBlock($content)
+                    || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $content) === 1)
+            ) {
                 return false;
             }
         }
