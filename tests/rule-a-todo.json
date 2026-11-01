@@ -142,10 +142,6 @@
             "ticket": "carve#4522"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"864-a-fence-a-note-s-marker-line-item-opens-ends-at-a-column-zero-line\"",
-            "ticket": "carve#4541"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"864-a-paragraph-after-a-closed-third-level-item-takes-a-lazy-line\"",
             "ticket": "carve#4541"
         },
