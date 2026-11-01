@@ -93,14 +93,14 @@ class TheCarve3421FollowUpRulingsTest extends TestCase
      */
     public static function lintCases(): iterable
     {
-        // Ruling 5: a document-level `+` no container claims is reported when a block follows.
-        yield 'before a fence' => ["q\n+\n```\nx\n```\n", ['2:1']];
-        yield 'before a quote' => ["q\n+\n> x\n", ['2:1']];
-        yield 'before a thematic break' => ["q\n+\n---\n", ['2:1']];
-        yield 'first line before a heading' => ["+\n# h\n", ['1:1']];
+        // The #4648 ruling makes a document-level plus with no host a quiet letter.
+        yield 'before a fence' => ["q\n+\n```\nx\n```\n", []];
+        yield 'before a quote' => ["q\n+\n> x\n", []];
+        yield 'before a thematic break' => ["q\n+\n---\n", []];
+        yield 'first line before a heading' => ["+\n# h\n", []];
         yield 'between text lines' => ["+\npara\n", []];
         yield 'before a comment' => ["q\n+\n%% c\n", []];
-        yield 'before an attribute' => ["q\n+\n{.c}\npara\n", ['2:1']];
+        yield 'before an attribute' => ["q\n+\n{.c}\npara\n", []];
         yield 'inside a div' => ["::: d\nq\n+\n# h\n:::\n", []];
         yield 'quoted plus before a sibling item' => ["> q\n> +\n> - s\n", ['2:3']];
         yield 'hosted plus at an intervening column' => ["> - > > +\n>   b\n", ['1:9']];

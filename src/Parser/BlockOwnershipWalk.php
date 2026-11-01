@@ -1499,7 +1499,7 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * The finding for a `+` that reached no marker column's attachment, on a line of its own.
+     * A plus sign with no frame at its marker column is a letter under PART 0 S2.
      *
      * @return array{line: int, column: int, host: string, reason: string}|null
      */
@@ -1509,26 +1509,15 @@ final class BlockOwnershipWalk
             return $this->plusFinding($at, $this->frames[$host]->kind, self::docColumn($this->lines[$at], $this->m['rest']), $host);
         }
         $owner = $this->frames[$reached];
-        $column = $this->m['col'];
-        if ($owner->kind === 'doc') {
-            return $this->blockFollowsAtZero($at) ? $this->finding($at, 'document', 'unclaimed') : null;
-        }
-        if ($owner->kind === 'quote' && $column === 0) {
+        if ($owner->kind === 'quote' && $this->m['col'] === 0) {
             $next = $this->levelOf($this->lines[$at + 1] ?? '', $this->quoteDepth($reached + 1));
 
             return $next !== null && $next['col'] === 0 && $this->listParser->parseListItemMarker($next['rest']) !== null
                 ? $this->finding($at, 'quote', 'sibling')
                 : null;
         }
-        // A task box is content (CARVE-P0-008), so a `+` at its column is still off every marker.
-        if ($column === $owner->col && $owner->axes !== null && !$owner->task) {
-            return null;
-        }
-        if ($column === $owner->col && $owner->kind !== 'item') {
-            return null;
-        }
 
-        return $this->finding($at, $owner->kind, 'wrong-column');
+        return null;
     }
 
     /**
@@ -1593,25 +1582,6 @@ final class BlockOwnershipWalk
         }
 
         return $m;
-    }
-
-    private function blockFollowsAtZero(int $at): bool
-    {
-        $reach = $this->reach;
-        $this->reach = 0;
-        $next = $this->lines[$at + 1] ?? '';
-        if ($next === '' || $next[0] === ' ' || $next[0] === "\t" || $next[0] === '%') {
-            return false;
-        }
-        if ($this->listParser->parseListItemMarker($next) !== null) {
-            return true;
-        }
-        $softLeaf = $this->softLeaf;
-        $form = $this->classify($next, $this->frames[0], 0);
-        $this->softLeaf = $softLeaf;
-        $this->reach = $reach;
-
-        return $form->interrupts;
     }
 
     /**
