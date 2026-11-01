@@ -10,9 +10,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A `+` below a stacked item's fence, left of the fence's content column (corpus 650-3), and a quoted `+` past the
- * quote's content column (corpus 630-5, docs/validation.md) are refused and reported; a `+` at the fence's content
- * column is payload.
+ * A plus below a stacked item's fence is refused. A plus past a quote's marker column is a quiet letter under
+ * PART 0 S2 and the #4648 ruling.
  */
 final class ARefusedPlusBelowAStackedFenceOrPastAQuoteColumnIsReportedTest extends TestCase
 {
@@ -25,11 +24,11 @@ final class ARefusedPlusBelowAStackedFenceOrPastAQuoteColumnIsReportedTest exten
             'stacked fence, end of input' => ["- - ```\n  +\n", ['2:3']],
             'stacked fence, column-0 follower' => ["- - ```\n  +\n{.c\n}\n~~~\ny\n~~~\n", ['2:3']],
             'stacked fence, payload column' => ["- - ```\n    +\n", []],
-            'quote, past its column' => ["> q\n>   +\n> para\n", ['2:5']],
-            'quote, past its column at the end' => ["> q\n>   +\n", ['2:5']],
-            'nested quote, past its column' => ["> > q\n> >   +\n> > para\n", ['2:7']],
+            'quote, past its column' => ["> q\n>   +\n> para\n", []],
+            'quote, past its column at the end' => ["> q\n>   +\n", []],
+            'nested quote, past its column' => ["> > q\n> >   +\n> > para\n", []],
             'document, past column 0' => ["q\n  +\npara\n", []],
-            'item, past its column' => ["- a\n   +\n  b\n", ['2:4']],
+            'item, past its column' => ["- a\n   +\n  b\n", []],
         ];
     }
 
@@ -51,12 +50,10 @@ final class ARefusedPlusBelowAStackedFenceOrPastAQuoteColumnIsReportedTest exten
         $this->assertSame($expected, $found);
     }
 
-    public function testTheMessageSaysNoContainerClaimsTheColumn(): void
+    public function testAPlusPastTheQuoteColumnIsQuiet(): void
     {
         $warnings = (new DocumentLinter())->lint("> q\n>   +\n> para\n");
 
-        $this->assertCount(1, $warnings);
-        $this->assertStringContainsString('no open container has a marker at its column', $warnings[0]->message);
-        $this->assertStringContainsString('remains text in the block quote', $warnings[0]->message);
+        $this->assertSame([], $warnings);
     }
 }

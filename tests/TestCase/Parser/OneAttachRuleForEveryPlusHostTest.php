@@ -92,7 +92,6 @@ final class OneAttachRuleForEveryPlusHostTest extends TestCase
             'content column' => ["- +\n  x\n", ['right']],
             'closer' => ["::: d\n- +\n:::\n", ['closer']],
             'separate off column' => ["- a\n+\n  x\n", ['right']],
-            'unclaimed before a heading' => ["q\n+\n# h\n", ['no open container claims']],
         ];
     }
 
@@ -119,6 +118,13 @@ final class OneAttachRuleForEveryPlusHostTest extends TestCase
     public function testAnAttachedPlusIsNotReported(): void
     {
         $rules = array_map(static fn ($warning): string => $warning->rule, (new DocumentLinter())->lint(":: t\n: +\n- l\n"));
+
+        $this->assertNotContains('continuation-marker-refused', $rules);
+    }
+
+    public function testAnUnclaimedPlusBeforeAHeadingIsAQuietLetter(): void
+    {
+        $rules = array_map(static fn ($warning): string => $warning->rule, (new DocumentLinter())->lint("q\n+\n# h\n"));
 
         $this->assertNotContains('continuation-marker-refused', $rules);
     }

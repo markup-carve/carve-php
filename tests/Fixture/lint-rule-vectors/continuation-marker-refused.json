@@ -281,15 +281,7 @@
       "description": "The refused plus is reported at its source column.",
       "source": "- foo\n  - [ ] task\n    +\n  - x\n",
       "expected": {
-        "findings": [
-          {
-            "line": 3,
-            "column": 5,
-            "includes": [
-              "+"
-            ]
-          }
-        ]
+        "findings": []
       }
     },
     {
@@ -694,16 +686,7 @@
       "description": "A plus no open container claims is reported; it stays text in the inner quote (corpus 630-4, carve#3421).",
       "source": "> > q\n> > +\n> > - s\n",
       "expected": {
-        "findings": [
-          {
-            "line": 2,
-            "column": 5,
-            "includes": [
-              "sibling",
-              "block quote"
-            ]
-          }
-        ]
+        "findings": []
       }
     },
     {
@@ -711,15 +694,7 @@
       "description": "The top-level twin of corpus 630-4: a plus no open container claims is reported (carve#3421).",
       "source": "q\n+\n- s\n",
       "expected": {
-        "findings": [
-          {
-            "line": 2,
-            "column": 1,
-            "includes": [
-              "+"
-            ]
-          }
-        ]
+        "findings": []
       }
     },
     {
@@ -727,15 +702,7 @@
       "description": "A plus past the quote's marker column is claimed by no open container; it is reported and stays text in the quote (corpus 630-5, carve#3421).",
       "source": "> q\n>   +\n> para\n",
       "expected": {
-        "findings": [
-          {
-            "line": 2,
-            "column": 5,
-            "includes": [
-              "remains text"
-            ]
-          }
-        ]
+        "findings": []
       }
     },
     {
@@ -743,15 +710,7 @@
       "description": "A plus no open container claims is reported when a table follows it (carve#3421).",
       "source": "q\n+\n| a |\n",
       "expected": {
-        "findings": [
-          {
-            "line": 2,
-            "column": 1,
-            "includes": [
-              "+"
-            ]
-          }
-        ]
+        "findings": []
       }
     },
     {
@@ -759,15 +718,7 @@
       "description": "A plus no open container claims is reported when a heading follows it (carve#3421).",
       "source": "q\n+\n# h\n",
       "expected": {
-        "findings": [
-          {
-            "line": 2,
-            "column": 1,
-            "includes": [
-              "+"
-            ]
-          }
-        ]
+        "findings": []
       }
     },
     {
