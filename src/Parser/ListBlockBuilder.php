@@ -186,16 +186,13 @@ final class ListBlockBuilder
             ? $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN : null;
         $itemLines = [];
         foreach ($below as $line) {
-            // The note owns its indented body and the collector's lazy lines.
-            if (
-                $noteBodyFloor !== null && (
-                    str_contains($line, BlockGrammar::LAZY_FRAME)
-                    || IndentationHelper::getLeadingColumns($line) >= $noteBodyFloor
-                )
-            ) {
+            // A lazy line folded into the note is not visible item content.
+            if ($noteBodyFloor !== null && str_contains($line, BlockGrammar::LAZY_FRAME)) {
                 continue;
             }
-            $noteBodyFloor = null;
+            if ($noteBodyFloor !== null && IndentationHelper::getLeadingColumns($line) < $noteBodyFloor) {
+                $noteBodyFloor = null;
+            }
             $rebased = IndentationHelper::stripLeadingColumns($line, $contentIndent);
             if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($rebased, " \t")) === 1) {
                 $noteBodyFloor = IndentationHelper::getLeadingColumns($line) + BlockGrammar::FOOTNOTE_BODY_COLUMN;
