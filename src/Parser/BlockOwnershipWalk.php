@@ -56,6 +56,13 @@ final class BlockOwnershipWalk
     public array $lazyLines = [];
 
     /**
+     * Lazy lines folded into an open line block's stanza, keyed by line index.
+     *
+     * @var array<int, true>
+     */
+    public array $lineBlockLazyLines = [];
+
+    /**
      * Lines the walk opened a code fence on, keyed by line index.
      *
      * @var array<int, true>
@@ -188,6 +195,7 @@ final class BlockOwnershipWalk
         $this->reach = 0;
         $this->wrappedAttributeEnd = -1;
         $this->lazyLines = [];
+        $this->lineBlockLazyLines = [];
         $this->fenceOpenerLines = [];
         $this->refusedPlus = [];
         $this->plusHosts = [];
@@ -474,6 +482,9 @@ final class BlockOwnershipWalk
                     $leaf = $this->frames[$topIndex];
                     $result[] = $this->out . str_repeat(' ', $leaf->kind === 'quote' ? 0 : (int)$leaf->reader) . BlockGrammar::LAZY_FRAME . $this->src;
                     $this->lazyLines[$at] = true;
+                    if ($leaf->kind === 'fence' && $leaf->lineBlock) {
+                        $this->lineBlockLazyLines[$at] = true;
+                    }
                     $this->emitLazy($at, $reached);
 
                     continue;
@@ -486,6 +497,9 @@ final class BlockOwnershipWalk
                 }
                 $result[] = $this->out . $this->src;
                 $this->lazyLines[$at] = true;
+                if ($this->frames[$topIndex]->kind === 'fence' && $this->frames[$topIndex]->lineBlock) {
+                    $this->lineBlockLazyLines[$at] = true;
+                }
                 $this->emitLazy($at, $reached);
 
                 continue;

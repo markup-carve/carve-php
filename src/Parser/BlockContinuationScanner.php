@@ -1365,7 +1365,8 @@ final class BlockContinuationScanner
             return false;
         }
 
-        return BlockGrammar::lastRunHoldsFootnote($itemLines);
+        return isset($this->state->source->lineBlockLazyLines[$this->sourceLineFor($i)])
+            || BlockGrammar::lastRunHoldsFootnote($itemLines);
     }
 
     /**
@@ -3876,6 +3877,15 @@ final class BlockContinuationScanner
                 $column += $this->listMarkerWidth($text, $marker);
                 $text = $marker['content'];
             }
+            if (
+                $column > IndentationHelper::getLeadingColumns($line)
+                && preg_match('/^`{3,}|^~{3,}/', $text, $fence) === 1
+                && ($this->getFencedBlockParser)()->parseCodeFenceOpener($text) !== null
+            ) {
+                $run->markerLineFence = ['char' => $fence[0][0], 'length' => strlen($fence[0]), 'column' => $column, 'base' => $column];
+
+                continue;
+            }
             if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $text) === 1) {
                 $run->markerLineFenceTerm = $column;
 
@@ -3891,12 +3901,19 @@ final class BlockContinuationScanner
                 continue;
             }
             $body = substr($text, $lead);
+            $bodyColumn = $column + $lead;
+            for ($marker = ($this->getListParser)()->parseListItemMarker($body); $body !== '' && $marker !== null; $marker = ($this->getListParser)()->parseListItemMarker($body)) {
+                $bodyColumn += $this->listMarkerWidth($body, $marker);
+                $body = $marker['content'];
+            }
             if (preg_match('/^`{3,}|^~{3,}/', $body, $fence) === 1 && ($this->getFencedBlockParser)()->parseCodeFenceOpener($body) !== null) {
                 $run->markerLineFence = [
                     'char' => $fence[0][0],
                     'length' => strlen($fence[0]),
-                    'column' => $column + $lead,
-                    'base' => $column + ($text[0] === ':' ? $lead : BlockGrammar::FOOTNOTE_BODY_COLUMN),
+                    'column' => $bodyColumn,
+                    'base' => $bodyColumn === $column + $lead
+                        ? $column + ($text[0] === ':' ? $lead : BlockGrammar::FOOTNOTE_BODY_COLUMN)
+                        : $bodyColumn,
                 ];
             }
         }

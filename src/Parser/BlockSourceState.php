@@ -46,6 +46,13 @@ final class BlockSourceState
     public array $lazyLines = [];
 
     /**
+     * Lazy lines the walk folded into an open line block's stanza (carve#4748).
+     *
+     * @var array<int, true>
+     */
+    public array $lineBlockLazyLines = [];
+
+    /**
      * Top-level lines the ownership walk opened a code fence on.
      *
      * @var array<int, true>

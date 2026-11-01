@@ -941,6 +941,7 @@ final class DefinitionListBuilder
             && $l->contColumn < $b->continuationColumn
             // A marker at the host's column the walk folded stays out of the body's list (carve#4479).
             && ($this->bodyHoldsFootnote($b->body)
+                || isset($this->state->source->lineBlockLazyLines[$sourceLine])
                 || ($l->contColumn === 0 && ($this->getListParser)()->parseListItemMarker(BlockGrammar::stripLazyFrame($l->contLine)) !== null))
         ) {
             $b->body[] = BlockGrammar::LAZY_FRAME . ltrim(BlockGrammar::stripLazyFrame($l->contLine), " \t");

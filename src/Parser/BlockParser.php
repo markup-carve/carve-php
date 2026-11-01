@@ -755,6 +755,7 @@ class BlockParser
         }
         $this->state->source->sourceLines = array_replace($this->state->source->sourceLines, $lines);
         $this->state->source->lazyLines = $walk->lazyLines;
+        $this->state->source->lineBlockLazyLines = $walk->lineBlockLazyLines;
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
         $this->state->source->closingLines = $walk->closingLines;
         $this->state->source->frontmatter = $walk->frontmatter;
