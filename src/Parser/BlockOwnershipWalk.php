@@ -56,6 +56,14 @@ final class BlockOwnershipWalk
     public array $lazyLines = [];
 
     /**
+     * Lines before the block a taken `+` attaches, keyed by source line.
+     * The note's own lazy continuation can follow the invisible run.
+     *
+     * @var array<int, true>
+     */
+    public array $attachedPreludeLines = [];
+
+    /**
      * Lazy lines folded into an open line block's stanza, keyed by line index.
      *
      * @var array<int, true>
@@ -97,7 +105,7 @@ final class BlockOwnershipWalk
     /**
      * The invisible lines between a taken `+` and its block, read where that block stands (CARVE-P9-013).
      *
-     * @var array{host: \MarkupCarve\Carve\Parser\OwnershipFrame, at: int, end: int, hostIndex: int, fenced: array<int, true>, lead: string}|null
+     * @var array{host: \MarkupCarve\Carve\Parser\OwnershipFrame, at: int, end: int, hostIndex: int, fenced: array<int, bool>, noteBodies: array<int, true>, lead: string}|null
      */
     private ?array $skipped = null;
 
@@ -195,6 +203,7 @@ final class BlockOwnershipWalk
         $this->reach = 0;
         $this->wrappedAttributeEnd = -1;
         $this->lazyLines = [];
+        $this->attachedPreludeLines = [];
         $this->lineBlockLazyLines = [];
         $this->fenceOpenerLines = [];
         $this->refusedPlus = [];
@@ -227,7 +236,11 @@ final class BlockOwnershipWalk
         for ($at = $start; $at < $count; $at++) {
             if ($this->skipped !== null) {
                 $skipped = $this->skipped;
-                $result[] = $skipped['lead'] . (isset($skipped['fenced'][$at])
+                $this->attachedPreludeLines[$at] = true;
+                if (isset($skipped['noteBodies'][$at])) {
+                    $this->lazyLines[$at] = true;
+                }
+                $result[] = $skipped['lead'] . (($skipped['fenced'][$at] ?? false)
                     ? '%%'
                     : ($this->throughQuotes($lines[$at], $skipped['hostIndex'], $this->frames)['rest'] ?? ''));
                 if ($this->trace !== null) {
@@ -1188,8 +1201,9 @@ final class BlockOwnershipWalk
      * @param int $column
      * @param array<int, \MarkupCarve\Carve\Parser\OwnershipFrame> $frames
      * @param array<int, bool> $fenced Collects the lines of a skipped comment fence (true) and each skipped note definition (false).
+     * @param array<int, true> $noteBodies Folded plain-text lines of skipped note definitions.
      */
-    private function firstVisibleLine(int $from, int $hostIndex, int $column, array $frames, array &$fenced = []): int
+    private function firstVisibleLine(int $from, int $hostIndex, int $column, array $frames, array &$fenced = [], array &$noteBodies = []): int
     {
         $n = count($this->lines);
         $view = fn (int $k): string => $this->throughQuotes($this->lines[$k], $hostIndex, $frames)['rest'] ?? "\u{E000}";
@@ -1213,6 +1227,7 @@ final class BlockOwnershipWalk
                 $fenced[$k] = false;
                 $k++;
                 while ($k < $n && $this->foldsAsPlainText(rtrim($view($k), " \t"))) {
+                    $noteBodies[$k] = true;
                     $k++;
                 }
             } elseif (preg_match('/^%%/', $rest) === 1 || ($this->isDefinition)($rest)) {
@@ -1289,10 +1304,16 @@ final class BlockOwnershipWalk
     private function skipInvisible(int $hostIndex, int $at, int $column): void
     {
         $fenced = [];
-        $end = $this->firstVisibleLine($at + 1, $hostIndex, $column, $this->frames, $fenced);
-        // The readers do not yet fold a note body moved here, so a skipped note keeps the unmoved reading.
-        if ($end === $at + 1 || !isset($this->lines[$end]) || in_array(false, $fenced, true)) {
+        $noteBodies = [];
+        $end = $this->firstVisibleLine($at + 1, $hostIndex, $column, $this->frames, $fenced, $noteBodies);
+        if ($end === $at + 1 || !isset($this->lines[$end])) {
             return;
+        }
+        if (in_array(false, $fenced, true)) {
+            for ($j = $end; isset($this->lines[$j]) && preg_match('/^: +(?=[^ \t])/', ltrim($this->lines[$j], " \t")) === 1; $j++) {
+                $this->lazyLines[$j] = true;
+                $this->attachedPreludeLines[$j] = true;
+            }
         }
         $raw = $this->throughQuotes($this->lines[$end], $hostIndex, $this->frames, true)['rest'] ?? '';
         $this->skipped = [
@@ -1301,6 +1322,7 @@ final class BlockOwnershipWalk
             'end' => $end,
             'hostIndex' => $hostIndex,
             'fenced' => $fenced,
+            'noteBodies' => $noteBodies,
             'lead' => substr($this->lines[$end], 0, strlen($this->lines[$end]) - strlen($raw)) . str_repeat(' ', $this->frames[$hostIndex]->markerCanon),
         ];
     }
