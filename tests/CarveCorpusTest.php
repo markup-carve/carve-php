@@ -1618,10 +1618,6 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
-        '887-a-reference-label-across-a-line-stays-verbatim-in-every-form-2' => 'carve#4680: a failed cross-line reference label stays verbatim in every form',
-        '887-a-reference-label-across-a-line-stays-verbatim-in-every-form-3' => 'carve#4680: a failed cross-line reference label stays verbatim in every form',
-        '887-a-reference-label-across-a-line-stays-verbatim-in-every-form-5' => 'carve#4680: a failed cross-line reference label stays verbatim in every form',
-        '887-a-reference-label-across-a-line-stays-verbatim-in-every-form-6' => 'carve#4680: a failed cross-line reference label stays verbatim in every form',
         '888-a-comment-span-in-a-quote-closes-at-an-unmarked-closer' => 'carve#4752: a quoted comment span closes at an unprefixed closer',
         '888-a-comment-span-in-a-quote-closes-at-an-unmarked-closer-2' => 'carve#4752: a quoted comment span closes at an unprefixed closer',
         '888-a-comment-span-in-a-quote-closes-at-an-unmarked-closer-3' => 'carve#4752: a quoted comment span closes at an unprefixed closer',

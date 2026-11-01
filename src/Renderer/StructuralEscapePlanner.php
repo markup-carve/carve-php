@@ -8,6 +8,7 @@ use Closure;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\Delete;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Highlight;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
@@ -16,6 +17,7 @@ use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Mention;
+use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Strike;
 use MarkupCarve\Carve\Node\Inline\Strong;
@@ -117,6 +119,7 @@ final class StructuralEscapePlanner
                 if (
                     !isset($closers[$at - 1])
                     || isset($this->state->structuralEscapes[$marks[$closers[$at - 1]][1]][$marks[$closers[$at - 1]][2]])
+                    || self::closesALabelAcrossALine($flat, $closers, $marks[$closers[$at - 1]][0], $at - 1)
                 ) {
                     continue;
                 }
@@ -131,6 +134,24 @@ final class StructuralEscapePlanner
                 $this->state->structuralEscapes[$id][$offset] = true;
             }
         }
+    }
+
+    /**
+     * A reference label slot that crosses a line keeps the whole form text, so
+     * nothing after its `]` opens (CARVE-P3-004, markup-carve/carve#4680).
+     *
+     * @param string $flat
+     * @param array<int, int> $closers
+     * @param int $open
+     * @param int $close
+     *
+     * @return bool
+     */
+    private static function closesALabelAcrossALine(string $flat, array $closers, int $open, int $close): bool
+    {
+        return $open > 0
+            && isset($closers[$open - 1])
+            && strcspn($flat, "\x04", $open, $close - $open) < $close - $open;
     }
 
     /**
@@ -294,6 +315,8 @@ final class StructuralEscapePlanner
                 $flat .= "\x01";
                 $complete = $this->collectBracketMarksWithScope($node->getChildren(), $flat, $marks, $literalOpeners, $literalHosts) && $complete;
                 $flat .= "\x01";
+            } elseif ($node instanceof SoftBreak || $node instanceof HardBreak) {
+                $flat .= "\x04";
             } else {
                 $flat .= "\x02";
             }
@@ -357,7 +380,7 @@ final class StructuralEscapePlanner
             return false;
         }
         $inside = substr($flat, $at + 1, $end - $at - 1);
-        if (str_contains($inside, "\x02")) {
+        if (strpbrk($inside, "\x02\x04") !== false) {
             return false;
         }
         if (
