@@ -324,7 +324,7 @@ final class BlockOwnershipWalk
                 $plus === null && self::isPlus($this->m['rest'])
                 && !($this->frames[$frameCount - 1]->kind === 'fence' && $reached === $frameCount - 1)
             ) {
-                $this->refusePlus($at, $this->separatePlusFinding($at, $refusedHost));
+                $this->refusePlus($at, $this->separatePlusFinding($at, $refusedHost, $reached));
             }
             if ($plus !== null) {
                 $this->frames = array_slice($this->frames, 0, $plus + 1);
@@ -1503,10 +1503,18 @@ final class BlockOwnershipWalk
      *
      * @return array{line: int, column: int, host: string, reason: string}|null
      */
-    private function separatePlusFinding(int $at, ?int $host): ?array
+    private function separatePlusFinding(int $at, ?int $host, int $reached): ?array
     {
         if ($host !== null) {
             return $this->plusFinding($at, $this->frames[$host]->kind, self::docColumn($this->lines[$at], $this->m['rest']), $host);
+        }
+        $owner = $this->frames[$reached];
+        if ($owner->kind === 'quote' && $this->m['col'] === 0) {
+            $next = $this->levelOf($this->lines[$at + 1] ?? '', $this->quoteDepth($reached + 1));
+
+            return $next !== null && $next['col'] === 0 && $this->listParser->parseListItemMarker($next['rest']) !== null
+                ? $this->finding($at, 'quote', 'sibling')
+                : null;
         }
 
         return null;

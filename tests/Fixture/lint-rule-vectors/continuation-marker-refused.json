@@ -686,7 +686,16 @@
       "description": "A plus no open container claims is reported; it stays text in the inner quote (corpus 630-4, carve#3421).",
       "source": "> > q\n> > +\n> > - s\n",
       "expected": {
-        "findings": []
+        "findings": [
+          {
+            "line": 2,
+            "column": 5,
+            "includes": [
+              "sibling",
+              "block quote"
+            ]
+          }
+        ]
       }
     },
     {
