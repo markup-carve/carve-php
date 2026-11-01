@@ -3167,6 +3167,7 @@ final class ListBlockBuilder
         $childOpen = true;
         $siblingBody = false;
         $afterBlank = false;
+        $nestedMarkerColumns = [];
         foreach ($itemLines as $at => $line) {
             if (IndentationHelper::isBlankLine($line)) {
                 $afterBlank = true;
@@ -3198,12 +3199,18 @@ final class ListBlockBuilder
             }
             $column = $this->sourceContentColumn($itemLineMap[$at] ?? -1);
             $sibling = $lists->itemMatchesList($leadMarker, $marker);
-            if ($column < $contentColumn || !$sibling && $column > $contentColumn && $column < $contentColumn + $boxWidth) {
+            while ($nestedMarkerColumns !== [] && $column < end($nestedMarkerColumns)) {
+                array_pop($nestedMarkerColumns);
+            }
+            $reachesNestedItem = $nestedMarkerColumns !== [] && $column >= end($nestedMarkerColumns);
+            if ($column < $contentColumn || !$sibling && !$reachesNestedItem && $column > $contentColumn && $column < $contentColumn + $boxWidth) {
                 $itemLines[$at] = BlockGrammar::LAZY_FRAME . ltrim($line, " \t");
             } elseif ($sibling && $childOpen && $line[0] !== ' ') {
                 // The collector reads a sibling of the child at column 0; it stands at the child's column.
                 $itemLines[$at] = str_repeat(' ', $boxWidth) . $line;
                 $siblingBody = true;
+            } else {
+                $nestedMarkerColumns[] = $column + $this->listMarkerWidth(ltrim($line, " \t"), $marker);
             }
         }
 
