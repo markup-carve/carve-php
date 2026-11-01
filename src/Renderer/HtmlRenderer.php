@@ -3338,7 +3338,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $html .= ' href="' . $this->escapeAttribute($href) . '"';
         }
         if ($title !== null) {
-            $html .= ' title="' . $this->escapeAttribute($title) . '"';
+            $html .= ' title="' . $this->escapeRenderedTextAttribute($title) . '"';
         }
 
         // In round-trip mode, store reference label for reconstruction
@@ -3391,7 +3391,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return $this->guardVerbatimNewlines($this->escape($rawRef));
         }
 
-        $alt = $this->escapeAttribute($node->getAlt());
+        $alt = $this->escapeRenderedTextAttribute($node->getAlt());
         $src = $node->getSource();
         $title = $node->getTitle();
         $carriesRef = $this->roundTripMode && $node->getReferenceLabel() !== null;
@@ -3409,7 +3409,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         $html = '<img src="' . $this->escapeAttribute($src) . '" alt="' . $alt . '"';
         if ($title !== null) {
-            $html .= ' title="' . $this->escapeAttribute($title) . '"';
+            $html .= ' title="' . $this->escapeRenderedTextAttribute($title) . '"';
         }
 
         // In round-trip mode, store reference label for reconstruction
@@ -4709,6 +4709,16 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     public function escapeAttribute(string $text): string
     {
         return StringUtil::escapeHtmlAttribute($text);
+    }
+
+    /**
+     * Escape a rendered text value placed in an HTML attribute.
+     *
+     * Link and image titles and image alt text are rendered text under CARVE-P9-058.
+     */
+    protected function escapeRenderedTextAttribute(string $text): string
+    {
+        return $this->escapeAttribute(StringUtil::stripBidiControls($text));
     }
 
     /**
