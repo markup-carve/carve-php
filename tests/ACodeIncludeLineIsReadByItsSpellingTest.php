@@ -39,7 +39,8 @@ final class ACodeIncludeLineIsReadByItsSpellingTest extends TestCase
     public function testALazyLineInAnItemIsTheNextParagraph(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>{{ a.csv @code @foo }}\n    ^ cap\n  </li>\n</ul>",
+            // The two paragraphs loosen the list (§17 L2, carve#4619).
+            "<ul>\n  <li><p>{{ a.csv @code @foo }}</p>\n    <p>^ cap</p>\n  </li>\n</ul>",
             (new CarveConverter())->convert("- {{ a.csv @code @foo }}\n^ cap\n"),
         );
     }

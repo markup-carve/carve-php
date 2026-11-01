@@ -19,6 +19,7 @@ use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 
 /**
  * Builds list blocks and rebases item bodies.
@@ -182,6 +183,19 @@ final class ListBlockBuilder
         $commentLead = str_starts_with($lead['content'], '%%') ? [$lead['content']] : [];
 
         return $this->tailRendersNothing([...$commentLead, ...$below]);
+    }
+
+    private function holdsAdjacentParagraphs(ListItem $item): bool
+    {
+        $previous = null;
+        foreach ($item->getChildren() as $child) {
+            if ($child instanceof Paragraph && $previous instanceof Paragraph) {
+                return true;
+            }
+            $previous = $child;
+        }
+
+        return false;
     }
 
     private function rendersSomething(ListItem $item): bool
@@ -1244,6 +1258,10 @@ final class ListBlockBuilder
                 $list->setTight(false);
             }
             if ($list->isTight() && $this->foldedBlankLoosensList($itemLines, $itemLineMap, $listItem)) {
+                $list->setTight(false);
+            }
+            // A refused directive ends at its own line, so what follows is a second paragraph (§17 L2, carve#4619).
+            if (IncludeDirectiveSyntax::codeIncludeLine($itemInfo['content']) !== null && $this->holdsAdjacentParagraphs($listItem)) {
                 $list->setTight(false);
             }
 
