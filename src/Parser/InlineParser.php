@@ -4384,7 +4384,10 @@ class InlineParser
                 return ['node' => $node, 'pos' => $close + 2];
             }
             $closer = $this->nextRawCloser($text, '~}', $pos + 2);
-            if ($closer !== null && isset($this->commentCuts[$this->textOrigin + $closer])) {
+            if (
+                $closer !== null && isset($this->commentCuts[$this->textOrigin + $closer])
+                && str_contains(substr($text, $pos + 2, $closer - $pos - 2), '~>')
+            ) {
                 return ['node' => new Text('{~'), 'pos' => $pos + 2];
             }
         }
@@ -4479,15 +4482,9 @@ class InlineParser
                     $visited[] = $searchPos;
                 }
             }
-            // A `%%` comment ends at the frame's first raw closer (CARVE-P9-042).
-            $commentAt = $text[$searchPos] === ' '
-                ? $searchPos + strspn($text, ' ', $searchPos)
-                : ($text[$searchPos] === '\\' && $text[$searchPos + 1] === ' ' ? $searchPos + 2 : null);
-            if ($commentAt !== null && substr($text, $commentAt, 2) === '%%') {
-                $searchPos = $commentAt + 2;
-                while ($searchPos < $length - 1 && $text[$searchPos] !== "\n" && !($text[$searchPos] === $marker && $text[$searchPos + 1] === '}')) {
-                    $searchPos++;
-                }
+            $commentEnd = $this->frameCommentEnd($text, $searchPos, $marker);
+            if ($commentEnd !== null) {
+                $searchPos = $commentEnd;
 
                 continue;
             }
@@ -5488,7 +5485,8 @@ class InlineParser
                 $commentEnd = $this->lineCommentEnd($text, $at);
                 $closer = strpos($text, '~}', $at + 2);
                 if ($closer !== false && $closer < $commentEnd) {
-                    if ($arrow === null) {
+                    // Unclosed only when the comment held the only arrow; with none it is `{~a~}` (CARVE-P9-042).
+                    if ($arrow === null && str_contains(substr($text, $at + 2, $closer - $at - 2), '~>')) {
                         $this->commentCuts[$this->textOrigin + $closer] = true;
                     }
                     $result = $arrow === null ? null : [$arrow, $closer];
@@ -5844,6 +5842,14 @@ class InlineParser
                     $visited[] = $searchPos;
                 }
             }
+            if (str_contains('+-', $marker)) {
+                $commentEnd = $this->frameCommentEnd($text, $searchPos, $marker);
+                if ($commentEnd !== null) {
+                    $searchPos = $commentEnd;
+
+                    continue;
+                }
+            }
             if ($text[$searchPos] === '\\') {
                 $searchPos += 2;
 
@@ -6194,6 +6200,27 @@ class InlineParser
         }
 
         return $chain;
+    }
+
+    /**
+     * Where a `%%` comment starting at $at ends inside a `{+` / `{-` frame: at the
+     * frame's first raw closer or the line end (CARVE-P9-042). Null when none starts here.
+     */
+    private function frameCommentEnd(string $text, int $at, string $marker): ?int
+    {
+        $commentAt = $text[$at] === ' '
+            ? $at + strspn($text, ' ', $at)
+            : ($text[$at] === '\\' && ($text[$at + 1] ?? '') === ' ' ? $at + 2 : null);
+        if ($commentAt === null || substr($text, $commentAt, 2) !== '%%') {
+            return null;
+        }
+        $length = strlen($text);
+        $end = $commentAt + 2;
+        while ($end < $length - 1 && $text[$end] !== "\n" && !($text[$end] === $marker && $text[$end + 1] === '}')) {
+            $end++;
+        }
+
+        return $end;
     }
 
     /**
