@@ -2864,14 +2864,29 @@ final class ListBlockBuilder
             return null;
         }
         $j = $i;
+        $hasDefinition = false;
         while (
             $j < $count && (isset($roles[$j]) || $this->isListTransparentDefinition(ltrim($lines[$j], " \t")))
         ) {
+            $hasDefinition = $hasDefinition || $this->isListTransparentDefinition(ltrim($lines[$j], " \t"));
             $j++;
         }
         $k = $j;
         while ($k < $count && IndentationHelper::isBlankLine($lines[$k])) {
             $k++;
+        }
+        if ($hasDefinition) {
+            $prior = $this->sourceLineFor($i) - 1;
+            $priorBody = $prior >= 0
+                ? ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$prior] ?? '')
+                : '';
+            $priorBody = str_replace($this->state->session->plusLetter, '+', $priorBody);
+            if (
+                !$this->leadBottomIsContinuationMarker(ltrim($priorBody, " \t"))
+                || ($i > 0 && IndentationHelper::isBlankLine($lines[$i - 1]))
+            ) {
+                return null;
+            }
         }
         if ($k >= $count || IndentationHelper::getLeadingColumns($lines[$k]) !== $baseIndent) {
             return null;

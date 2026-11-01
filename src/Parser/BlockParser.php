@@ -93,6 +93,11 @@ class BlockParser
      */
     private array $skippedAbbreviations = [];
 
+    /**
+     * @var array<int, true>
+     */
+    private array $syntheticAbbreviationLines = [];
+
     private ?NestedLeadFenceScanner $nestedLeadFenceService = null;
 
     /**
@@ -756,8 +761,10 @@ class BlockParser
         $walk->trace = $this->traceNext ? [] : null;
         $this->traceNext = false;
         $plusLetter = PlusLetter::for($input);
+        $this->state->session->plusLetter = $plusLetter;
         $lines = $walk->own($lines, $plusLetter);
         $this->skippedAbbreviations = $walk->skippedAbbreviations;
+        $this->syntheticAbbreviationLines = array_fill_keys(array_keys($walk->skippedAbbreviations), true);
         if ($walk->trace !== null) {
             $this->decisionTrace = $walk->trace;
         }
@@ -2841,6 +2848,14 @@ class BlockParser
         // Carve line comment: a `%%` line (the `%%%` fenced form is handled
         // earlier by tryParseFencedComment) runs to end of line, not rendered.
         if (str_starts_with(ltrim($line, " \t"), '%%')) {
+            $sourceLine = $this->sourceLineFor($start);
+            if (
+                isset($this->syntheticAbbreviationLines[$sourceLine])
+                || isset($this->state->session->discoveredAbbreviationLines[$sourceLine])
+                    && preg_match(self::ABBREVIATION_DEFINITION_PATTERN, trim($this->state->source->authoredLines[$sourceLine] ?? '')) === 1
+            ) {
+                return 1;
+            }
             $content = substr(ltrim($line, " \t"), 2);
             if ($content !== '' && $content[0] === ' ') {
                 $content = substr($content, 1);

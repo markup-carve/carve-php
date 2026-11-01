@@ -222,20 +222,20 @@ class Document extends Node
      */
     public function getAbbreviationDefinitionsNotInTree(): array
     {
-        if ($this->abbreviationDefinitions !== []) {
-            return [];
-        }
-
         $inTree = [];
         foreach ($this->children as $child) {
             if ($child instanceof AbbreviationDefinition) {
-                $inTree[$child->getAbbr()] = true;
+                $key = $child->getAbbr() . "\0" . $child->getExpansion();
+                $inTree[$key] = ($inTree[$key] ?? 0) + 1;
             }
         }
 
         $residual = [];
         foreach ($this->getAbbreviationDefinitions() as $definition) {
-            if (isset($inTree[$definition['abbr']])) {
+            $key = $definition['abbr'] . "\0" . $definition['expansion'];
+            if (($inTree[$key] ?? 0) > 0) {
+                $inTree[$key]--;
+
                 continue;
             }
             $residual[] = $definition;

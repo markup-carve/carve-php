@@ -51,4 +51,42 @@ HTML;
 
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
+
+    public function testFormattingKeepsTheSkippedDefinitionAndItsMeaning(): void
+    {
+        $source = "- +\n*[A]: b\ntext\n\nA\n";
+        $formatted = CarveConverter::toCarve($source);
+
+        self::assertStringContainsString('*[A]: b', $formatted);
+        self::assertStringNotContainsString('%%', $formatted);
+        self::assertSame((new CarveConverter())->convert($source), (new CarveConverter())->convert($formatted));
+    }
+
+    public function testAReferenceDefinitionWithoutAPlusKeepsTheListBoundary(): void
+    {
+        $source = "- a\n\n[r]: /u\n\n- b\n";
+        $expected = <<<'HTML'
+<ul>
+  <li>a</li>
+</ul>
+<ul>
+  <li>b</li>
+</ul>
+HTML;
+
+        self::assertSame($expected, trim((new CarveConverter())->convert($source)));
+    }
+
+    public function testBlankAfterTheSkippedDefinitionLoosensTheSiblingList(): void
+    {
+        $source = "- +\n*[A]: b\n\n- c\n";
+        $expected = <<<'HTML'
+<ul>
+  <li><p>+</p></li>
+  <li><p>c</p></li>
+</ul>
+HTML;
+
+        self::assertSame($expected, trim((new CarveConverter())->convert($source)));
+    }
 }
