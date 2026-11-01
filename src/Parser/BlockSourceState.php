@@ -46,6 +46,13 @@ final class BlockSourceState
     public array $lazyLines = [];
 
     /**
+     * Lines before the block a taken `+` attaches, including a note's lazy continuation.
+     *
+     * @var array<int, true>
+     */
+    public array $attachedPreludeLines = [];
+
+    /**
      * Lazy lines the walk folded into an open line block's stanza (carve#4748).
      *
      * @var array<int, true>

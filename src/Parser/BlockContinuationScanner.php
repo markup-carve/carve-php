@@ -928,7 +928,19 @@ final class BlockContinuationScanner
                 $take = $fenced - $i + 1;
             } else {
                 $take = 0;
-                while ($i + $take < $count && !$isBoundary($lines[$i + $take], $i + $take)) {
+                while ($i + $take < $count) {
+                    // The walk has already identified the prelude before the
+                    // attached block. Keep it for semantic readers, but do not
+                    // let it become the single block the `+` takes.
+                    $line = $lines[$i + $take];
+                    if (isset($this->state->source->attachedPreludeLines[$this->sourceLineFor($i + $take)])) {
+                        $take++;
+
+                        continue;
+                    }
+                    if ($isBoundary($line, $i + $take)) {
+                        break;
+                    }
                     $take++;
                 }
             }
