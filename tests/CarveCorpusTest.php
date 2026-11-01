@@ -1625,8 +1625,6 @@ class CarveCorpusTest extends TestCase
         '882-attributed-bracket-spans-share-the-inline-cap' => 'carve#4681: attributed bracket spans share the inline cap',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame-2' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
-        '815-a-line-below-an-empty-div-after-a-first-block-plus-is-not-lazy-2' => 'carve#4409: a nested item\'s attached empty div takes the line below it',
-        '815-a-line-below-an-empty-div-after-a-first-block-plus-is-not-lazy-3' => 'carve#4409: a nested item\'s attached empty div takes the line below it',
         '823-a-fence-in-a-list-a-quote-attaches-takes-no-separator-line-2' => 'carve#4319: a fence in a quote-attached list takes no separator line',
         '823-a-fence-in-a-list-a-quote-attaches-takes-no-separator-line-3' => 'carve#4319: a fence in a quote-attached list takes no separator line',
         '823-a-fence-in-a-list-a-quote-attaches-takes-no-separator-line-5' => 'carve#4319: a fence in a quote-attached list takes no separator line',
