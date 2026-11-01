@@ -3679,6 +3679,8 @@ class BlockParser
             array_pop($bodyLineMap);
         }
 
+        $bodyLines = $this->alignMarkerLineFootnoteItem($bodyLines, $bodyLineMap, $content, $label, $start);
+
         if ($this->state->session->discoveringDefinitions && !isset($this->state->session->footnotes[$key])) {
             $footnote = new Footnote($label);
             if ($this->state->source->trackSourceLines) {
@@ -3732,6 +3734,64 @@ class BlockParser
         }
 
         return $i - $start;
+    }
+
+    /**
+     * A list opened on a note's marker line keeps its authored marker column.
+     * The note collector has removed only the note body's two columns, so
+     * lines reaching the item still carry the gap between those columns.
+     * Remove that gap before the deferred list parse (CARVE-P9-083).
+     *
+     * @param array<string> $bodyLines
+     * @param array<int, int> $lineMap
+     * @param string $content
+     * @param string $label
+     * @param int $start
+     *
+     * @return array<string>
+     */
+    private function alignMarkerLineFootnoteItem(array $bodyLines, array $lineMap, string $content, string $label, int $start): array
+    {
+        if ($this->listParser->parseListItemMarker($content) === null) {
+            return $bodyLines;
+        }
+        $sourceLine = $this->sourceLineFor($start);
+        $source = $this->state->source->authoredLines[$sourceLine] ?? '';
+        $marker = strpos($source, '[^' . $label . ']:');
+        $item = strrpos($source, $content);
+        if ($marker === false || $item === false || $item <= $marker) {
+            return $bodyLines;
+        }
+        $noteColumn = ContinuationMarkerClassifier::columnAt($source, $marker);
+        $itemColumn = ContinuationMarkerClassifier::columnAt($source, $item);
+        $gap = $itemColumn - $noteColumn - self::FOOTNOTE_BODY_COLUMN;
+        if ($gap <= 0) {
+            return $bodyLines;
+        }
+        foreach ($bodyLines as $index => $line) {
+            if ($index === 0 || IndentationHelper::isBlankLine($line)) {
+                continue;
+            }
+            $physical = $lineMap[$index] ?? -1;
+            $authored = $this->state->source->authoredLines[$physical] ?? null;
+            if ($authored === null) {
+                continue;
+            }
+            $subject = ContainerPrefix::stripQuoteMarkers($authored);
+            $column = ContinuationMarkerClassifier::columnAt(
+                $authored,
+                strlen($authored) - strlen($subject) + strspn($subject, " \t"),
+            );
+            if ($column < $itemColumn) {
+                continue;
+            }
+            // Rebuild from the authored visual column. Stripping the note's
+            // prefix and this gap in two passes resets tab stops between
+            // passes, so two tabs can leave a false tab in the fence payload.
+            $bodyLines[$index] = str_repeat(' ', $column - $itemColumn) . ltrim($line, " \t");
+        }
+
+        return $bodyLines;
     }
 
     /**
