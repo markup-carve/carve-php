@@ -549,12 +549,12 @@ final class BlockOwnershipWalk
                         && in_array($this->frames[1]->kind, ['quote', 'dd', 'note'], true)
                         && $this->commentCloserBeforeBlank($at, $inner)))
                 && (!$this->frames[$topIndex]->para || ($termRefuses && $next?->kind !== 'item') || ($form->kind === 'leaf' && $form->interrupts
-                    && (($this->isDefinition)($this->m['rest']) || $this->abbreviationAtColumnZero($reached, $form))))
+                    && (($this->isDefinition)($this->m['rest']) || $this->abbreviationMissesFrames($reached, $form))))
             ) {
                 $this->closingLines[$at] = true;
             }
-            // A column-0 abbreviation definition ends a document-level term too (carve#4412).
-            if (!$missed && $this->frames[$reached]->last === 'term' && $this->abbreviationAtColumnZero($reached, $form)) {
+            // A document-owned abbreviation definition ends a term too (carve#4412).
+            if (!$missed && $this->frames[$reached]->last === 'term' && $this->abbreviationMissesFrames($reached, $form)) {
                 $this->closingLines[$at] = true;
             }
             // S5: apply the line, the boundary table T of CARVE-P0-003.
@@ -639,9 +639,10 @@ final class BlockOwnershipWalk
         return true;
     }
 
-    private function abbreviationAtColumnZero(int $reached, OwnershipForm $form): bool
+    private function abbreviationMissesFrames(int $reached, OwnershipForm $form): bool
     {
-        return $reached === 0 && $form->kind === 'leaf' && $this->m['col'] === 0 && str_starts_with($this->m['rest'], '*[');
+        return $reached === 0 && $form->kind === 'leaf' && str_starts_with($this->m['rest'], '*[')
+            && ($this->m['col'] === 0 || (isset($this->frames[1]) && $this->m['col'] < $this->frames[1]->col));
     }
 
     private function emitLazy(int $at, int $reached): void
