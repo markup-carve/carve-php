@@ -1621,11 +1621,6 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
-        '888-a-comment-span-in-a-quote-closes-at-an-unmarked-closer' => 'carve#4752: a quoted comment span closes at an unprefixed closer',
-        '888-a-comment-span-in-a-quote-closes-at-an-unmarked-closer-2' => 'carve#4752: a quoted comment span closes at an unprefixed closer',
-        '888-a-comment-span-in-a-quote-closes-at-an-unmarked-closer-3' => 'carve#4752: a quoted comment span closes at an unprefixed closer',
-        '888-a-comment-span-in-a-quote-closes-at-an-unmarked-closer-4' => 'carve#4752: a quoted comment span closes at an unprefixed closer',
-        '888-a-comment-span-in-a-quote-closes-at-an-unmarked-closer-5' => 'carve#4752: a quoted comment span closes at an unprefixed closer',
         '880-an-own-line-plus-reaches-a-marker-line-quote-at-its-authored-column-3' => 'carve#4702: own-line plus reaches a marker-line quote',
         '881-an-indented-quote-prefix-keeps-an-invisible-plus-follower-in-its-host-2' => 'carve#4698: indented quote prefix keeps an invisible plus follower in its host',
         '881-an-indented-quote-prefix-keeps-an-invisible-plus-follower-in-its-host-3' => 'carve#4698: indented quote prefix keeps an invisible plus follower in its host',
