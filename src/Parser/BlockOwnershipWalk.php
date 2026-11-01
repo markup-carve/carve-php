@@ -234,25 +234,7 @@ final class BlockOwnershipWalk
             }
         }
         for ($at = $start; $at < $count; $at++) {
-            if ($this->skipped !== null) {
-                $skipped = $this->skipped;
-                $this->attachedPreludeLines[$at] = true;
-                if (isset($skipped['noteBodies'][$at])) {
-                    $this->lazyLines[$at] = true;
-                }
-                $result[] = $skipped['lead'] . (($skipped['fenced'][$at] ?? false)
-                    ? '%%'
-                    : ($this->throughQuotes($lines[$at], $skipped['hostIndex'], $this->frames)['rest'] ?? ''));
-                if ($this->trace !== null) {
-                    $this->emit($at, 'S5', $this->ownerPath(), 'CARVE-P0-024', 'leaf', ['plus' => $at]);
-                }
-                if ($at + 1 === $skipped['end']) {
-                    if ($skipped['host']->plus === $skipped['at']) {
-                        $skipped['host']->plus = $at;
-                    }
-                    $this->skipped = null;
-                }
-
+            if ($this->carrySkippedPrelude($at, $result)) {
                 continue;
             }
             $afterSoftLeaf = $this->softLeaf;
@@ -633,6 +615,36 @@ final class BlockOwnershipWalk
         }
 
         return $this->frameTextFences($result);
+    }
+
+    /**
+     * @param int $at
+     * @param array<int, string> $result
+     */
+    private function carrySkippedPrelude(int $at, array &$result): bool
+    {
+        $skipped = $this->skipped;
+        if ($skipped === null) {
+            return false;
+        }
+        $this->attachedPreludeLines[$at] = true;
+        if (isset($skipped['noteBodies'][$at])) {
+            $this->lazyLines[$at] = true;
+        }
+        $result[] = $skipped['lead'] . (($skipped['fenced'][$at] ?? false)
+            ? '%%'
+            : ($this->throughQuotes($this->lines[$at], $skipped['hostIndex'], $this->frames)['rest'] ?? ''));
+        if ($this->trace !== null) {
+            $this->emit($at, 'S5', $this->ownerPath(), 'CARVE-P0-024', 'leaf', ['plus' => $at]);
+        }
+        if ($at + 1 === $skipped['end']) {
+            if ($skipped['host']->plus === $skipped['at']) {
+                $skipped['host']->plus = $at;
+            }
+            $this->skipped = null;
+        }
+
+        return true;
     }
 
     private function abbreviationAtColumnZero(int $reached, OwnershipForm $form): bool
