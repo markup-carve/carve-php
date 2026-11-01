@@ -1106,6 +1106,14 @@ trait BlockListMethods
                 $trimmed = ltrim($line, " \t");
                 $continuationBoundary = $this->isContinuationMarker($trimmed);
                 if (
+                    $blockColumn !== null
+                    && IndentationHelper::getLeadingColumns($line, $blockColumn) < $blockColumn
+                    && !$trailingState->openParagraph
+                    && $attachedKind !== self::ATTACHED_PENDING
+                ) {
+                    return true;
+                }
+                if (
                     $attachedKind === self::ATTACHED_SPANNING . ':table'
                     && $this->tableParser->isContinuationRow($trimmed)
                     && $index > 0
