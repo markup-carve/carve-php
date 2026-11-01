@@ -160,6 +160,8 @@ final class DescriptionBodyCollection
         $this->bodyFenceView = new IndexedFenceView();
         $this->bodyState = new TrailingBlockState();
         $this->nestedLeadFence = new NestedLeadFenceState();
+        // A line left of the lead item's column ends the item and its open fence (carve#4727).
+        $this->nestedLeadFence->releaseAtListAncestor = true;
         $this->bodyNestedState = new TrailingBlockState();
         $this->bodyFrames = new DefinitionBodyFrameState();
     }

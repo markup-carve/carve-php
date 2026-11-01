@@ -198,6 +198,10 @@ final class BlockContinuationScanner
         $nestedFence = new NestedLeadFenceState();
         $sourceLead = $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '';
         $sourceLead = ltrim(ContainerPrefix::stripQuoteMarkers(ltrim($sourceLead, " \t")), " \t");
+        // A description marker hosts the item like a quote prefix does (carve#4727).
+        while (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $sourceLead, $description) === 1) {
+            $sourceLead = $description[2];
+        }
         $nestedFence->releaseAtListAncestor = ($this->getListParser)()->parseListItemMarker($sourceLead) !== null;
         [$nestedMarkerColumn, $nestedContentColumn] = $this->authoredItemColumns(
             $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
