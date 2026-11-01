@@ -5110,13 +5110,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof Superscript => $withAttrs($this->spellSameKind($node, '^', $this->renderForcedEmphasis('^', $this->renderMarked('superscript', $node)))),
             $node instanceof Subscript => $withAttrs($this->spellSameKind($node, ',', $this->renderForcedEmphasis(',', $this->renderMarked('subscript', $node)))),
             $node instanceof Highlight => $withAttrs($this->spellSameKind($node, '=', $this->renderEmphasis('=', $this->renderMarked('highlight', $node), $prevChar, $nextChar, self::holdsLineComment($node)))),
-            $node instanceof Code => $node->getContent() === '' && !$this->emptyCodeSpanIsSpellable($node)
+            $node instanceof Code => $this->codeHasContainerColonBoundary($node)
+                ? throw new SourceUnspellableException('code', 'a lone colon fence line cannot stay inline in a container paragraph')
+                : ($node->getContent() === '' && !$this->emptyCodeSpanIsSpellable($node)
                 ? throw new SourceUnspellableException('code', 'an empty code span has no Carve source spelling where its open run does not end')
                 : $withAttrs($this->guardCodeLines(($this->codeMayRunToEnd && $this->emptyCodeSpanIsSpellable($node) && preg_match('/^[\r\n]/', $node->getContent()) === 1
                     ? $this->renderCodeWithUnclosed($node->getContent(), true, $node->getAttributeEntries() === [])
                     : ($this->inLineBlock > 0
                         ? $this->renderCodeWithUnclosed($node->getContent(), false, $node->getAttributeEntries() === [])
-                        : $this->renderCode($node->getContent()))))),
+                        : $this->renderCode($node->getContent())))))),
             $node instanceof Mention => $this->renderMention($node),
             $node instanceof Link && $node->isAutolink() => $withAttrs('<' . $this->escapeAutolinkHref($this->plainInlineText($node)) . '>'),
             $rawReference !== null => $this->writtenRawReference($rawReference),
@@ -6088,6 +6090,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             5 => 'literal_inline',
             default => 'code',
         };
+    }
+
+    private function codeHasContainerColonBoundary(Code $node): bool
+    {
+        return $node->getParent() instanceof Paragraph
+            && $this->inLineBlock === 0
+            && ($this->listDepth > 0 || $this->quoteHostDepth > 0 || $this->indentedHostDepth > 0)
+            && preg_match('/(?:^|\n):{3,}\n/', $node->getContent()) === 1;
     }
 
     private function renderCodeWithUnclosed(string $content, bool $allowUnclosed, bool $canPairFence = false): string
