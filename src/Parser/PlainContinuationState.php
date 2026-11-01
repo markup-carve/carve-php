@@ -11,6 +11,8 @@ namespace MarkupCarve\Carve\Parser;
  */
 final class PlainContinuationState
 {
+    public bool $captionOpen = false;
+
     public ?int $rejectedColonFenceLength = null;
 
     public bool $interruptedParagraphFence = false;
