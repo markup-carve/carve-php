@@ -1841,6 +1841,10 @@ class InlineParser
         $lineEnd = $lineBreak === false ? strlen($text) : $lineBreak;
         // A span's content lost the `/` of the closer its comment was cut at.
         if ($this->commentCuts !== []) {
+            $tilde = strpos($text, '~}', $at + 2);
+            if ($tilde !== false && $tilde < $lineEnd && isset($this->commentCuts[$this->textOrigin + $tilde])) {
+                return $tilde + 2;
+            }
             $star = $at + 2;
             while (($star = strpos($text, '*', $star)) !== false && $star < $lineEnd) {
                 if (isset($this->commentCuts[$this->textOrigin + $star])) {
@@ -4382,6 +4386,10 @@ class InlineParser
 
                 return ['node' => $node, 'pos' => $close + 2];
             }
+            $closer = $this->nextRawCloser($text, '~}', $pos + 2);
+            if ($closer !== null && isset($this->commentCuts[$this->textOrigin + $closer])) {
+                return ['node' => new Text('{~'), 'pos' => $pos + 2];
+            }
         }
 
         $nodeClass = match ($marker) {
@@ -5368,6 +5376,15 @@ class InlineParser
 
                         continue;
                     }
+                    if ($char === '%' && $this->isLineCommentOpener($text, $at)) {
+                        $commentEnd = $this->lineCommentEnd($text, $at);
+                        if ($commentEnd > $end - 2) {
+                            $this->commentCuts[$this->textOrigin + $end - 2] = true;
+                        }
+                        $at = $commentEnd - 1;
+
+                        continue;
+                    }
                     $skip = null;
                     $attachable = false;
                     if ($char === '`') {
@@ -5455,6 +5472,21 @@ class InlineParser
             $char = $text[$at];
             if ($char === '\\') {
                 $at++;
+
+                continue;
+            }
+            if ($char === '%' && $this->isLineCommentOpener($text, $at)) {
+                $commentEnd = $this->lineCommentEnd($text, $at);
+                $closer = strpos($text, '~}', $at + 2);
+                if ($closer !== false && $closer < $commentEnd) {
+                    if ($arrow === null) {
+                        $this->commentCuts[$this->textOrigin + $closer] = true;
+                    }
+                    $result = $arrow === null ? null : [$arrow, $closer];
+
+                    break;
+                }
+                $at = $commentEnd - 1;
 
                 continue;
             }
