@@ -1574,8 +1574,6 @@ class CarveCorpusTest extends TestCase
         'an-unclosed-fence-under-a-description-paragraph-in-a-note-holds-no-paragraph',
         'a-lazy-line-keeps-a-description-in-a-div-in-an-item',
         'a-folded-marker-keeps-a-note-item-measured-from-its-source-column',
-        'a-line-comment-hides-a-substitution-arrow',
-        'an-own-line-plus-reaches-a-marker-line-quote-at-its-authored-column',
     ];
 
     /**
@@ -1598,10 +1596,6 @@ class CarveCorpusTest extends TestCase
      */
     protected const KNOWN_GAPS = [
         '879-a-shifted-line-block-keeps-a-lazy-follower-at-its-reader-column' => 'carve#4695: a shifted line block keeps its lazy follower',
-        '879-a-line-comment-hides-a-substitution-arrow' => 'carve#4662: a line comment hides a substitution arrow',
-        '879-a-line-comment-hides-a-substitution-arrow-2' => 'carve#4662: a line comment hides a substitution arrow',
-        '879-a-line-comment-hides-a-substitution-arrow-9' => 'carve#4662: a line comment hides a substitution arrow',
-        '880-an-own-line-plus-reaches-a-marker-line-quote-at-its-authored-column-3' => 'carve#4702: own-line plus reaches a marker-line quote',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame-2' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
         '815-a-line-below-an-empty-div-after-a-first-block-plus-is-not-lazy-2' => 'carve#4409: a nested item\'s attached empty div takes the line below it',
