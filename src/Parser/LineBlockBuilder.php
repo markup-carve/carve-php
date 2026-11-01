@@ -244,6 +244,7 @@ final class LineBlockBuilder
         if ($openerColumn === false || $openerColumn === 0) {
             return $lines;
         }
+        $codeRun = 0;
         for ($i = $start + 1, $count = count($lines); $i < $count; $i++) {
             $line = $lines[$i];
             if ($line === '' || str_starts_with($line, BlockGrammar::LAZY_FRAME)) {
@@ -251,6 +252,17 @@ final class LineBlockBuilder
             }
             $subject = ltrim($line, " \t");
             if ($subject === '') {
+                continue;
+            }
+            if (preg_match('/^(`{3,})[ \t]*$/', $subject, $codeMatch) === 1) {
+                $run = strlen($codeMatch[1]);
+                if ($codeRun === 0 || $codeRun === $run) {
+                    $codeRun = $codeRun === 0 ? $run : 0;
+                }
+
+                continue;
+            }
+            if ($codeRun !== 0) {
                 continue;
             }
             $source = $this->state->source->authoredLines[$this->sourceLineFor($i)] ?? '';
