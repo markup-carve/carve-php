@@ -903,7 +903,8 @@ final class BlockOwnershipWalk
                         interrupts: $interrupts,
                         lineBlock: true,
                         family: 'div',
-                        closes: static fn (string $r, int $closerCol): bool => preg_match('/^(:{3,})[ \t]*$/D', $r, $c) === 1 && strlen($c[1]) === $run,
+                        closes: static fn (string $r, int $closerCol): bool => $closerCol === $col
+                            && preg_match('/^(:{3,})[ \t]*$/D', $r, $c) === 1 && strlen($c[1]) === $run,
                     );
                 }
 
