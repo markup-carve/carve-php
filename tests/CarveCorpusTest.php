@@ -1636,8 +1636,6 @@ class CarveCorpusTest extends TestCase
         '853-a-block-after-a-nested-note-at-the-outer-note-s-body-column-stays-in-that-note-3' => 'carve#4446: block ownership the spec model pins and this engine owes',
         '853-a-block-after-a-nested-note-at-the-outer-note-s-body-column-stays-in-that-note-4' => 'carve#4446: block ownership the spec model pins and this engine owes',
         '853-a-block-after-a-nested-note-at-the-outer-note-s-body-column-stays-in-that-note-5' => 'carve#4446: block ownership the spec model pins and this engine owes',
-        '864-a-task-marker-at-a-nested-task-item-s-content-column-nests-in-that-item' => 'carve#4541: block ownership the spec model pins and this engine owes',
-        '864-a-task-marker-at-a-nested-task-item-s-content-column-nests-in-that-item-2' => 'carve#4541: block ownership the spec model pins and this engine owes',
         '866-an-abbreviation-definition-after-a-plus-is-skipped-like-a-link-definition-2' => 'carve#4449: an abbreviation definition after a + is skipped like a link definition',
         '866-an-abbreviation-definition-after-a-plus-is-skipped-like-a-link-definition-3' => 'carve#4449: an abbreviation definition after a + is skipped like a link definition',
         '866-an-abbreviation-definition-after-a-plus-is-skipped-like-a-link-definition' => 'carve#4449: an abbreviation definition after a + is skipped like a link definition',
