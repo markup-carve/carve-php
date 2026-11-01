@@ -3245,8 +3245,8 @@ final class ListBlockBuilder
     }
 
     /**
-     * A refused fence below a nested item's content column leaves its
-     * paragraph open for the next plain lazy line.
+     * A line folded into a nested item's paragraph leaves it open for the
+     * next plain lazy line, including when that line resembles a fence.
      *
      * @param \MarkupCarve\Carve\Node\Block\ListBlock $list
      * @param array<string> $lines
@@ -3269,10 +3269,13 @@ final class ListBlockBuilder
         $line = $lines[$index];
         $indent = IndentationHelper::getLeadingColumns($line);
         $trimmed = ltrim($line, " \t");
+        $sourceLine = $this->sourceLineFor($index);
+        $walkKeepsLazyParagraph = isset($this->state->source->lazyLines[$sourceLine - 1])
+            && isset($this->state->source->lazyLines[$sourceLine]);
         if (
             $nestedColumn === null || $tail === null
             || IndentationHelper::getLeadingColumns($priorBody) >= $nestedColumn
-            || ($this->getFencedBlockParser)()->parseCodeFenceOpener($priorText) === null
+            || (!$walkKeepsLazyParagraph && ($this->getFencedBlockParser)()->parseCodeFenceOpener($priorText) === null)
             || $indent < $baseIndent || $indent >= $nestedColumn
             || ($this->getListParser)()->parseListItemMarker($trimmed) !== null
             || $this->isBlockElementStart($trimmed, $lines, $index)
