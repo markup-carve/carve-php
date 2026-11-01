@@ -381,9 +381,8 @@ final class BlockOwnershipWalk
                     } elseif (preg_match('/^(%{3,})/', $rest, $c) === 1 && ($this->closerRuns()['lastComment'][strlen($c[1])] ?? -1) > $at) {
                         $this->frames[$innerIndex]->span = $c[1];
                     }
-                    if ($rest !== '') {
-                        $this->frames[$innerIndex]->para = true;
-                    }
+                    // A blank payload line ends the stanza, so no lazy line folds past it (PART 0 S4).
+                    $this->frames[$innerIndex]->para = $rest !== '';
                 }
                 $result[] = $this->out . $this->src;
                 if ($this->trace !== null) {
@@ -917,7 +916,7 @@ final class BlockOwnershipWalk
                         interrupts: $interrupts,
                         lineBlock: true,
                         family: 'div',
-                        closes: static fn (string $r, int $closerCol): bool => $closerCol === $col
+                        closes: static fn (string $r, int $closerCol): bool => $closerCol <= $col
                             && preg_match('/^(:{3,})[ \t]*$/D', $r, $c) === 1 && strlen($c[1]) === $run,
                     );
                 }

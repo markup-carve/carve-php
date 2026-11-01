@@ -331,8 +331,10 @@ final class BlockContinuationScanner
                 $nestedLeadParagraphOpen = $nextIndent === 0
                     && $nestedFence->closed && $nestedFence->trailing->openParagraph;
                 $literalQuoteLazy = $isBlockQuoteLazyLine && $trailingState->hasLiteralDiv();
+                // The walk folded it into an open line block, whatever the payload looked like (carve#4748).
+                $lineBlockLazy = isset($this->state->source->lineBlockLazyLines[$this->sourceLineFor($i)]);
                 if (
-                    (!$literalQuoteLazy && (!$trailingState->openParagraph || $closedNestedFence || ($nestedFence->length > 0 && !$nestedFence->closed))
+                    !$lineBlockLazy && (!$literalQuoteLazy && (!$trailingState->openParagraph || $closedNestedFence || ($nestedFence->length > 0 && !$nestedFence->closed))
                         && !$nestedLeadParagraphOpen
                         && !($trailingState->afterComment && ($trailingState->nestedColumn > 0 || $trailingState->hasOpenDiv()) && $nextIndent > $baseIndent))
                     || (!$isBlockQuoteLazyLine && $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))

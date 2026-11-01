@@ -54,13 +54,6 @@
       ]
     },
     {
-      "ticket": "markup-carve/carve#4615",
-      "cause": "a lazy line in a line block does not stop its closer",
-      "cases": [
-        "roundtrip-702a692a40ae"
-      ]
-    },
-    {
       "ticket": "markup-carve/carve#4618",
       "cause": "a task item with a wide gap keeps its content column",
       "cases": [

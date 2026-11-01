@@ -507,6 +507,13 @@ final class BlockQuoteBuilder
                 $innerLineMap[] = $lazySourceLine;
                 $this->state->session->blockQuoteLazySourceLines[$lazySourceLine] = true;
                 $i++;
+            } elseif (isset($this->state->source->lineBlockLazyLines[$this->sourceLineFor($i)])) {
+                // The walk folded it into an open line block, whatever the payload looked like (carve#4748).
+                $innerLines[] = ltrim($currentLine, " \t");
+                $lazySourceLine = $this->sourceLineFor($i);
+                $innerLineMap[] = $lazySourceLine;
+                $this->state->session->blockQuoteLazySourceLines[$lazySourceLine] = true;
+                $i++;
             } elseif (
                 ($lazyState['paragraphOpen'] || $this->quotedNestedLineBlockOpen($innerLines, $nestedLineBlock))
                 && !$this->walkOwnsElsewhere($i, $currentLine)
