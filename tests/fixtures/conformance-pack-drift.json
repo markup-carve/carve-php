@@ -13,6 +13,7 @@
       "cause": "untriaged day-one drift in the notes family",
       "cases": [
         "notes-2ce0a0643b77",
+        "notes-47da77f91f9b",
         "notes-4dc51b5608ab",
         "notes-4f3571464f16",
         "notes-aa4cc37942d1",
@@ -33,15 +34,6 @@
         "roundtrip-2f0bd736a7de",
         "roundtrip-73c51797f6b8",
         "roundtrip-d1f9fa04915c"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve-php#4308",
-      "cause": "an unclosed fence in a nested container after the fence ruling port (carve#4018)",
-      "cases": [
-        "fences-9caa332a8a41",
-        "notes-47da77f91f9b",
-        "ownership-aa029b4ae556"
       ]
     },
     {

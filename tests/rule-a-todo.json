@@ -4510,10 +4510,6 @@
             "ticket": "carve-php#4308"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\AVisibleDescriptionOpenerAfterAnUnclosedRunKeepsItsOwnerTest::testTheRunOpensAFenceInsideTheDescription",
-            "ticket": "carve-php#4308"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-47\"",
             "ticket": "carve-php#4308"
         },
@@ -4634,27 +4630,11 @@
             "ticket": "carve-php#4308"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-4316\"",
-            "ticket": "carve-php#4308"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-10111\"",
             "ticket": "carve-php#4308"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-13600\"",
-            "ticket": "carve-php#4308"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-13840\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-16118\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-17180\"",
             "ticket": "carve-php#4308"
         },
         {
