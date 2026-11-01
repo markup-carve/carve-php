@@ -158,19 +158,30 @@ final class ListBlockBuilder
 
     /**
      * @param array<string> $lines
-     * @param int $baseIndent
      * @param int $i
+     * @param int $baseIndent
      */
     private function blankFollowsLead(array $lines, int $i, int $baseIndent): bool
     {
+        if (!IndentationHelper::isBlankLine($lines[$i - 1] ?? '')) {
+            return false;
+        }
         $j = $i - 1;
-        while ($j >= 0 && IndentationHelper::isBlankLine($lines[$j])) {
+        while ($j >= 0 && (IndentationHelper::isBlankLine($lines[$j]) || IndentationHelper::getLeadingColumns($lines[$j]) > $baseIndent)) {
             $j--;
         }
+        $lead = $j >= 0 ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$j], " \t")) : null;
+        if ($lead === null) {
+            return false;
+        }
+        // Only the marker line's definition or note counts: a note body below it renders (PART 9 §17 L1b).
+        $below = array_filter(
+            array_slice($lines, $j + 1, $i - $j - 1),
+            static fn (string $line): bool => !IndentationHelper::isBlankLine($line),
+        );
+        $commentLead = str_starts_with($lead['content'], '%%') ? [$lead['content']] : [];
 
-        return $j >= 0 && $j < $i - 1
-            && IndentationHelper::getLeadingColumns($lines[$j]) === $baseIndent
-            && ($this->getListParser)()->parseListItemMarker(ltrim($lines[$j], " \t")) !== null;
+        return $this->tailRendersNothing([...$commentLead, ...$below]);
     }
 
     private function rendersSomething(ListItem $item): bool
@@ -218,7 +229,7 @@ final class ListBlockBuilder
             !$this->indentedContinuationOpensBlock($lines, $i, $baseIndent, $lastItemContentIndent)
             && preg_match('/^\^[ ]+\S/', ltrim($currentLine, " \t")) !== 1
             && !$this->continuationReachesNestedListContent($lastItem, $currentIndent)
-            // A blank after a lead that renders nothing keeps the list tight (PART 9 §17 L1b, carve#4639).
+            // A blank below a lead that renders nothing keeps the list tight (PART 9 §17 L1b, carve#4639).
             && ($this->rendersSomething($lastItem) || !$this->blankFollowsLead($lines, $i, $baseIndent))
         ) {
             $list->setTight(false);
@@ -334,17 +345,26 @@ final class ListBlockBuilder
     {
         $visible = [];
         $span = null;
-        foreach ($lines as $line) {
+        $lines = array_values($lines);
+        foreach ($lines as $at => $line) {
             $trimmed = trim($line, " \t");
+            $run = strspn($trimmed, '%');
             if ($span !== null) {
-                if (preg_match('/^(%{3,})$/D', $trimmed, $c) === 1 && strlen($c[1]) === $span) {
+                if ($run === $span) {
                     $span = null;
                 }
 
                 continue;
             }
-            if (preg_match('/^(%{3,})$/D', $trimmed, $c) === 1) {
-                $span = strlen($c[1]);
+            if ($run >= 3) {
+                // A run with no closer is a line comment.
+                foreach (array_slice($lines, $at + 1) as $later) {
+                    if (strspn(ltrim($later, " \t"), '%') === $run) {
+                        $span = $run;
+
+                        break;
+                    }
+                }
 
                 continue;
             }
