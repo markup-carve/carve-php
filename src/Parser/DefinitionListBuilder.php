@@ -2683,6 +2683,27 @@ final class DefinitionListBuilder
     private function bodyEntryStartsParagraph(string $entry): bool
     {
         $head = self::firstBodyLine($entry);
+        if ($head !== false) {
+            $content = ltrim($head, " \t");
+            for ($depth = 0; $depth < 64; $depth++) {
+                $list = ($this->getListParser)()->parseListItemMarker($content);
+                if ($list !== null) {
+                    $content = ltrim($list['content'], " \t");
+
+                    continue;
+                }
+                if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $content, $description) === 1) {
+                    $content = ltrim($description[2], " \t");
+
+                    continue;
+                }
+
+                break;
+            }
+            if ($content !== ltrim($head, " \t") && $this->isInvisibleOrAttributeLine($content, false)) {
+                return false;
+            }
+        }
 
         return $head !== false
             && !$this->startsNewBlock($head)
