@@ -906,6 +906,11 @@ class BlockParser
             $document->setAbbreviationsBeforeBody($this->state->session->abbreviationsBeforeBody);
             $document->setAbbreviationSpans($this->state->session->abbreviationSpans);
         }
+        $invisibleDefinitions = [];
+        foreach ($walk->skippedAbbreviations as [$term, $expansion]) {
+            $invisibleDefinitions[] = ['abbr' => $term, 'expansion' => $expansion];
+        }
+        $document->setInvisibleAbbreviationDefinitions($invisibleDefinitions);
 
         // Record the source byte length so renderers can size the
         // abbreviation-expansion budget (output-amplification DoS guard).

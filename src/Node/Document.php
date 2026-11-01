@@ -37,6 +37,14 @@ class Document extends Node
     protected array $abbreviationDefinitions = [];
 
     /**
+     * Parser-owned definitions whose source lines were consumed by a plus.
+     * Null means this document was built through another path.
+     *
+     * @var array<int, array<string, string>>|null
+     */
+    protected ?array $invisibleAbbreviationDefinitions = null;
+
+    /**
      * Where each `*[ABBR]: …` line sat, keyed by abbreviation.
      *
      * Definitions are collected out of the body into a map, which loses the one
@@ -215,6 +223,14 @@ class Document extends Node
     }
 
     /**
+     * @param array<int, array<string, string>> $definitions
+     */
+    public function setInvisibleAbbreviationDefinitions(array $definitions): void
+    {
+        $this->invisibleAbbreviationDefinitions = $definitions;
+    }
+
+    /**
      * The definitions this document holds ONLY as map entries, with no
      * `AbbreviationDefinition` child carrying them.
      *
@@ -222,6 +238,10 @@ class Document extends Node
      */
     public function getAbbreviationDefinitionsNotInTree(): array
     {
+        if ($this->invisibleAbbreviationDefinitions !== null) {
+            return $this->invisibleAbbreviationDefinitions;
+        }
+
         $inTree = [];
         foreach ($this->children as $child) {
             if ($child instanceof AbbreviationDefinition) {
