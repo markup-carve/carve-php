@@ -669,11 +669,6 @@ class CarveFmtCorpusTest extends TestCase
 
     private function assertSameOrTrackedGap(string $slug, string $expected, string $actual, string $message): void
     {
-        if ($slug === '878-a-folded-marker-keeps-a-note-item-measured-from-its-source-column-2') {
-            $this->assertNotSame($expected, $actual, $slug . ' now passes; remove the carve-php#4254 gap');
-            $this->markTestIncomplete('carve-php#4254: the note item writer loses a folded heading');
-        }
-
         if ($slug === '744-a-task-item-uses-the-ordered-item-column-rule') {
             $this->assertNotSame($expected, $actual, $slug . ' now passes; remove the carve-php#4166 gap');
             $this->markTestIncomplete('carve-php#4166');

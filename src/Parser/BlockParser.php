@@ -4892,6 +4892,7 @@ class BlockParser
         // the authored run too, stripping quote markers at the caption's depth.
         $sourceLine = $this->sourceLineFor($start);
         $sourceBeforeSlot = null;
+        $sourceRun = 0;
         if ($sourceLine >= 0 && $sourceLine < count($this->state->source->sourceLines)) {
             $sourceLines = $this->state->source->sourceLines;
             $captionSource = ltrim($sourceLines[$sourceLine], " \t");
@@ -4900,7 +4901,6 @@ class BlockParser
                 $quoteDepth++;
                 $captionSource = ltrim($inside, " \t");
             }
-            $sourceRun = 0;
             for ($at = $sourceLine - 1; $at >= 0; $at--) {
                 $candidate = ltrim($sourceLines[$at], " \t");
                 for ($depth = 0; $depth < $quoteDepth; $depth++) {
@@ -4929,7 +4929,13 @@ class BlockParser
         // caption cannot attach across it (carve#1028).
         $lineBeforeSlot = $start - $localBlankLines - 1;
         $localInterrupter = $lineBeforeSlot >= 0 && $this->isInvisibleOrAttributeLine($lines[$lineBeforeSlot]);
-        $sourceInterrupter = $sourceBeforeSlot !== null && $this->isInvisibleOrAttributeLine($sourceBeforeSlot);
+        // A note definition may carry the captionable block on its marker
+        // line. Its raw source looks like an invisible definition, but the
+        // local line immediately before this caption is that block itself.
+        $sourceBeforeLine = $sourceLine - $sourceRun - 1;
+        $sourceInterrupter = $sourceBeforeSlot !== null
+            && $this->isInvisibleOrAttributeLine($sourceBeforeSlot)
+            && ($lineBeforeSlot < 0 || $this->sourceLineFor($lineBeforeSlot) !== $sourceBeforeLine);
         if ($localInterrupter || $sourceInterrupter) {
             return null;
         }

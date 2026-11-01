@@ -72,14 +72,6 @@ class CarveFormatterTest extends TestCase
             $this->assertNotSame($formatted, $reformatted, $slug . ' is now idempotent; remove the carve-php#4166 gap');
             $this->markTestIncomplete('carve-php#4166');
         }
-        if ($slug === '878-a-folded-marker-keeps-a-note-item-measured-from-its-source-column-2') {
-            $this->assertNotSame(
-                $this->normalizeHtml($converter->convert($crv)),
-                $this->normalizeHtml($converter->convert($formatted)),
-                $slug . ' now preserves HTML; remove the carve-php#4254 gap',
-            );
-            $this->markTestIncomplete('carve-php#4254: the note item writer loses a folded heading');
-        }
         $this->assertSame(
             $this->normalizeHtml($converter->convert($crv)),
             $this->normalizeHtml($converter->convert($formatted)),
