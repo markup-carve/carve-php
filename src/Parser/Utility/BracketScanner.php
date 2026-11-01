@@ -13,13 +13,9 @@ use function strpos;
 /**
  * Where a bracketed inline run closes.
  *
- * ONE spelling, because the reader and the writer have to agree on it. The
- * reader finds an image's alt text with it (an image has the same three forms
- * as a link, and only the leading `!` and the `<img src>` output differ, so the
- * bracketed run is the run a link uses - markup-carve/carve#1206). The writer
- * asks the same scan whether the run it is about to put between brackets comes
- * back out unchanged, and writes it verbatim when it does
- * (markup-carve/carve#1197).
+ * One bracket walk serves links and images, with the image alt exception for
+ * `{% %}` (CARVE-P3-001). The writer asks the same scan whether the run it is
+ * about to put between brackets comes back out unchanged.
  *
  * The alternative is a second spelling in the renderer, and a second spelling
  * of this rule is how the defect both clauses describe reached four artifacts
@@ -62,10 +58,11 @@ final class BracketScanner
      *
      * @param string $text The text to scan.
      * @param int $openPos Offset of the opening `[`.
+     * @param bool $skipBracedComment Link text skips `{% %}`; image alt text reads brackets inside it.
      *
      * @return int|null Offset of the closing `]`, or null if the run is unclosed.
      */
-    public static function balancedBracketEnd(string $text, int $openPos): ?int
+    public static function balancedBracketEnd(string $text, int $openPos, bool $skipBracedComment = true): ?int
     {
         $length = strlen($text);
         if ($openPos >= $length || $text[$openPos] !== '[') {
@@ -76,7 +73,7 @@ final class BracketScanner
         $pos = $openPos + 1;
         while ($pos < $length) {
             if ($text[$pos] === '`' || $text[$pos] === '{' || $text[$pos] === '\\' || $text[$pos] === '<') {
-                $opaqueEnd = self::opaqueEnd($text, $pos);
+                $opaqueEnd = self::opaqueEnd($text, $pos, $skipBracedComment);
                 if ($opaqueEnd === null) {
                     return null;
                 }
@@ -120,7 +117,7 @@ final class BracketScanner
      *
      * @return array<int, int|null>
      */
-    public static function balancedBracketEnds(string $text, int $openPos): array
+    public static function balancedBracketEnds(string $text, int $openPos, bool $skipBracedComment = true): array
     {
         $length = strlen($text);
         if ($openPos < 0 || $openPos >= $length || $text[$openPos] !== '[') {
@@ -142,7 +139,7 @@ final class BracketScanner
                 continue;
             }
             if ($char === '`' || $char === '{' || $char === '\\' || $char === '<') {
-                $opaqueEnd = self::opaqueEnd($text, $pos);
+                $opaqueEnd = self::opaqueEnd($text, $pos, $skipBracedComment);
                 if ($opaqueEnd === null) {
                     break;
                 }
@@ -313,7 +310,7 @@ final class BracketScanner
      * Skip the same opaque runs in both bracket scanners. Null marks an
      * unclosed code span; false means this byte is not an opaque opener.
      */
-    private static function opaqueEnd(string $text, int $pos): int|false|null
+    private static function opaqueEnd(string $text, int $pos, bool $skipBracedComment = true): int|false|null
     {
         $char = $text[$pos];
         if ($char === '`') {
@@ -329,6 +326,9 @@ final class BracketScanner
         }
         if ($char === '{') {
             $next = $text[$pos + 1] ?? '';
+            if ($next === '%' && !$skipBracedComment) {
+                return false;
+            }
             if ($next === '#' || $next === '%') {
                 $close = strpos($text, $next . '}', $pos + 2);
                 if ($close !== false) {
@@ -405,10 +405,10 @@ final class BracketScanner
      * This checks the reader's syntax boundary. Callers separately check
      * whether escape decoding preserves the value they intend to write.
      */
-    public static function rawRunCloses(string $run): bool
+    public static function rawRunCloses(string $run, bool $skipBracedComment = true): bool
     {
         $wrapped = '[' . $run . ']';
 
-        return self::balancedBracketEnd($wrapped, 0) === strlen($wrapped) - 1;
+        return self::balancedBracketEnd($wrapped, 0, $skipBracedComment) === strlen($wrapped) - 1;
     }
 }

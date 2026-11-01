@@ -476,7 +476,7 @@ class ReferenceLinter
         if (!str_starts_with($span, '![')) {
             return null;
         }
-        $at = BracketScanner::balancedBracketEnd($span, 1);
+        $at = BracketScanner::balancedBracketEnd($span, 1, false);
         if ($at === null) {
             return null;
         }

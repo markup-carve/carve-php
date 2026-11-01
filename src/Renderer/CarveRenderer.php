@@ -5572,7 +5572,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if (!str_ends_with($text, '}')) {
             return [];
         }
-        $labelEnd = BracketScanner::balancedBracketEnd($text, str_starts_with($text, '![') ? 1 : 0);
+        $image = str_starts_with($text, '![');
+        $labelEnd = BracketScanner::balancedBracketEnd($text, $image ? 1 : 0, !$image);
         if ($labelEnd === null) {
             return [];
         }
@@ -7369,7 +7370,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if (!$next instanceof Link || !str_starts_with($rendered, '[')) {
             return false;
         }
-        $close = BracketScanner::balancedBracketEnd($rendered, 0);
+        $close = BracketScanner::balancedBracketEnd($rendered, 0, false);
         if ($close === null) {
             return false;
         }
