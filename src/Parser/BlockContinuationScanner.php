@@ -210,10 +210,12 @@ final class BlockContinuationScanner
         $openCommentLength = $this->advanceItemCommentFence(null, $bottom, $lines, $i - 1);
         $openCommentColumn = 0;
         $lowComment = false;
+        $openDivTerm = false;
         while ($i < $count) {
             $nextLine = $lines[$i];
             $priorSourceLine = $this->sourceLineFor($i) - 1;
             if (IndentationHelper::isBlankLine($nextLine)) {
+                $openDivTerm = false;
                 if ($lowComment && $openCommentLength === null) {
                     break;
                 }
@@ -304,6 +306,12 @@ final class BlockContinuationScanner
             // every other engine folds it.
             if ($nextIndent < $contentIndent || $isBlockQuoteLazyLine) {
                 $nextTrimmed = ltrim($nextLine, " \t");
+                if (
+                    $openDivTerm && $nextIndent <= $baseIndent
+                    && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed) === 1
+                ) {
+                    break;
+                }
                 // A comment span's closing run is free of the column; a payload
                 // line that misses the item's prefix ends the item before the
                 // span is classified (`CARVE-P0-005`).
@@ -335,14 +343,20 @@ final class BlockContinuationScanner
                 $nestedLeadParagraphOpen = $nextIndent === 0
                     && $nestedFence->closed && $nestedFence->trailing->openParagraph;
                 $literalQuoteLazy = $isBlockQuoteLazyLine && $trailingState->hasLiteralDiv();
+                // A term under the open div keeps the walk's lazy plain line.
+                $walkKeepsDivTerm = $openDivTerm && $trailingState->hasOpenDiv()
+                    && isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
+                    && !$this->isBlockElementStart($nextTrimmed)
+                    && !$this->startsNewBlock($nextTrimmed)
+                    && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed) !== 1;
                 // The walk folded it into an open line block, whatever the payload looked like (carve#4748).
                 $lineBlockLazy = isset($this->state->source->lineBlockLazyLines[$this->sourceLineFor($i)]);
                 if (
-                    !$lineBlockLazy && (!$literalQuoteLazy && (!$trailingState->openParagraph || $closedNestedFence || ($nestedFence->length > 0 && !$nestedFence->closed))
+                    !$lineBlockLazy && !$walkKeepsDivTerm && (!$literalQuoteLazy && (!$trailingState->openParagraph || $closedNestedFence || ($nestedFence->length > 0 && !$nestedFence->closed))
                         && !$nestedLeadParagraphOpen
                         && !($trailingState->afterComment && ($trailingState->nestedColumn > 0 || $trailingState->hasOpenDiv()) && $nextIndent > $baseIndent))
-                    || (!$isBlockQuoteLazyLine && $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
-                    || (!$isBlockQuoteLazyLine && $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
+                    || (!$walkKeepsDivTerm && !$isBlockQuoteLazyLine && $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
+                    || (!$walkKeepsDivTerm && !$isBlockQuoteLazyLine && $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
                 ) {
                     break;
                 }
@@ -402,7 +416,7 @@ final class BlockContinuationScanner
                 // paragraph rather than the fence body.
                 $folded = str_starts_with($nextTrimmed, BlockGrammar::LAZY_FRAME)
                     ? $nextTrimmed
-                    : (($this->leadBottomOpensFenceCallback)((string)($itemLines[0] ?? '')) && !$nestedLeadParagraphOpen
+                    : ($walkKeepsDivTerm || (($this->leadBottomOpensFenceCallback)((string)($itemLines[0] ?? '')) && !$nestedLeadParagraphOpen)
                         ? BlockGrammar::LAZY_FRAME . $nextTrimmed
                         : ' ' . $nextTrimmed);
                 $itemLines[] = $folded;
@@ -444,6 +458,8 @@ final class BlockContinuationScanner
             // column. Recorded so the authored-base pass can tell them apart
             // (markup-carve/carve#1896).
             $stripped = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+            $openDivTerm = $trailingState->hasOpenDiv()
+                && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($stripped, " \t")) === 1;
             if (
                 $nestedMarkerColumn !== null && $nestedMarkerColumn > $baseIndent && $nestedContentColumn !== null
                 && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($nextLine, " \t")) === 1
@@ -1889,6 +1905,22 @@ final class BlockContinuationScanner
             && !$trailingState->hasLiteralDiv()
         ) {
             return false;
+        }
+        // A div does not close the term that the ownership walk kept open.
+        if (
+            $run->openTermColumn !== null && $trailingState->hasOpenDiv()
+            && $nextIndent < $contentIndent
+            && isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
+            && !$this->isBlockElementStart($nextTrimmed)
+            && !$this->startsNewBlock($nextTrimmed)
+            && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed) !== 1
+        ) {
+            $itemLines[] = BlockGrammar::LAZY_FRAME . $nextTrimmed;
+            $itemLineMap[] = $this->sourceLineFor($i);
+            $trailingState->openParagraph = true;
+            $i++;
+
+            return true;
         }
         if (
             ($run->openTermColumn !== null || $run->recentDefinitionBodyColumn !== null)

@@ -2180,7 +2180,10 @@ final class DefinitionListBuilder
         // closes it. The single-line form is already answered there;
         // this is the same rule for the form that spans lines.
         ($this->advanceNestedLeadFenceStateCallback)($b->nestedLeadFence, $b->body);
-        $bodyTermOpen = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $b->lead()) === 1
+        // A nested div can hold the active term even when the body lead is a fence.
+        $bodyTermOpen = (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $b->lead()) === 1
+                || ($b->bodyState->hasOpenDiv()
+                    && isset($this->state->source->lazyLines[$this->sourceLineFor($b->i)])))
             && $this->bodyTermIsOpen($b->body, $b->termScan, $b->lines, $b->i);
         $leadItem = ($this->getListParser)()->parseListItemMarker($b->lead());
         if (
