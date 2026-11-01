@@ -102,55 +102,11 @@
             "ticket": "carve#4446"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"856-a-child-on-a-note-s-marker-line-is-measured-from-its-source-column-3\"",
-            "ticket": "carve#4522"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"856-every-folded-caret-line-loses-its-leading-whitespace-in-a-deep-term\"",
             "ticket": "carve#4522"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-2\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-3\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-4\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s\"",
-            "ticket": "carve#4540"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"864-a-paragraph-after-a-closed-third-level-item-takes-a-lazy-line\"",
-            "ticket": "carve#4541"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"856-a-child-on-a-note-s-marker-line-is-measured-from-its-source-column-3\"",
-            "ticket": "carve#4522"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-2\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-3\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-4\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"864-a-fence-a-note-s-marker-line-item-opens-ends-at-a-column-zero-line\"",
             "ticket": "carve#4541"
         },
         {
@@ -166,36 +122,12 @@
             "ticket": "carve#4521"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"856-a-child-on-a-note-s-marker-line-is-measured-from-its-source-column-3\"",
-            "ticket": "carve#4522"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"856-every-folded-caret-line-loses-its-leading-whitespace-in-a-deep-term\"",
             "ticket": "carve#4522"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"858-a-typed-div-s-directive-classes-lead-its-attributes-4\"",
             "ticket": "carve#4531"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-2\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-3\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-4\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"864-a-fence-a-note-s-marker-line-item-opens-ends-at-a-column-zero-line\"",
-            "ticket": "carve#4541"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"864-a-paragraph-after-a-closed-third-level-item-takes-a-lazy-line\"",
@@ -206,32 +138,8 @@
             "ticket": "carve#4446"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"856-a-child-on-a-note-s-marker-line-is-measured-from-its-source-column-3\"",
-            "ticket": "carve#4522"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"856-every-folded-caret-line-loses-its-leading-whitespace-in-a-deep-term\"",
             "ticket": "carve#4522"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-2\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-3\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-4\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s\"",
-            "ticket": "carve#4540"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"864-a-fence-a-note-s-marker-line-item-opens-ends-at-a-column-zero-line\"",
-            "ticket": "carve#4541"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"864-a-paragraph-after-a-closed-third-level-item-takes-a-lazy-line\"",

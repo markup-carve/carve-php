@@ -1649,9 +1649,6 @@ class CarveCorpusTest extends TestCase
         '853-an-abbreviation-definition-below-a-content-column-stands-in-the-document-3' => 'carve#4507: an abbreviation definition below a content column defines',
         '853-an-abbreviation-definition-below-a-content-column-stands-in-the-document-4' => 'carve#4507: an abbreviation definition below a content column defines',
         '853-an-abbreviation-definition-below-a-content-column-stands-in-the-document-5' => 'carve#4507: an abbreviation definition below a content column defines',
-        '856-a-child-on-a-note-s-marker-line-is-measured-from-its-source-column-3' => 'carve#4522: a child on a note marker line is measured from its source column',
-        '863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-2' => 'carve#4540: a closer or caption at a note marker-line item content column',
-        '863-a-closer-or-caption-at-a-note-marker-line-item-s-content-column-is-the-item-s-3' => 'carve#4540: a closer or caption at a note marker-line item content column',
         '864-a-comment-fence-on-a-nested-marker-line-closes-at-the-first-exact-width-closer' => 'carve#4541: block ownership the spec model pins and this engine owes',
         '864-a-task-marker-at-a-nested-task-item-s-content-column-nests-in-that-item' => 'carve#4541: block ownership the spec model pins and this engine owes',
         '864-a-task-marker-at-a-nested-task-item-s-content-column-nests-in-that-item-2' => 'carve#4541: block ownership the spec model pins and this engine owes',
@@ -1662,7 +1659,6 @@ class CarveCorpusTest extends TestCase
         '866-an-abbreviation-definition-after-a-plus-is-skipped-like-a-link-definition' => 'carve#4449: an abbreviation definition after a + is skipped like a link definition',
         '867-an-indented-comment-block-in-a-line-block-leaves-nothing-2' => 'carve#4469: an indented comment block in a line block leaves nothing',
         '867-an-indented-comment-block-in-a-line-block-leaves-nothing' => 'carve#4469: an indented comment block in a line block leaves nothing',
-        '868-a-plus-at-the-column-of-a-container-opened-on-another-marker-line-attaches-the-next-block-2' => 'carve#4359: a + at the column of a container opened on another marker line attaches the next block',
         '871-a-div-closes-only-on-a-run-of-its-own-width-2' => 'carve#4550: a div closes only on a run of its own width',
         '871-a-div-closes-only-on-a-run-of-its-own-width-3' => 'carve#4550: a div closes only on a run of its own width',
         '871-a-div-closes-only-on-a-run-of-its-own-width' => 'carve#4550: a div closes only on a run of its own width',
@@ -1671,9 +1667,7 @@ class CarveCorpusTest extends TestCase
         '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',
         '873-a-delimited-body-s-overlapping-header-and-footer-make-no-header-cells' => 'carve#4659: overlapping delimited table ranges make no header cells',
         '873-a-plus-after-an-attached-block-reaches-its-host-through-quote-prefixes-2' => 'carve#4649: a plus reaches its host through quote prefixes',
-        '873-an-item-on-a-note-marker-line-takes-its-plus-at-its-own-marker-column' => 'carve#4650: a note marker-line item reads its own column',
         '878-a-folded-marker-keeps-a-note-item-measured-from-its-source-column' => 'carve#4656: a folded marker keeps its host column',
-        '878-a-folded-marker-keeps-a-note-item-measured-from-its-source-column-2' => 'carve#4656: a folded marker keeps its host column',
     ];
 
     /**

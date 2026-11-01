@@ -1566,11 +1566,17 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * @param bool $compactFootnoteBlocks Keep block openers in a note on a definition line.
      * @param \MarkupCarve\Carve\Node\Block\ListItem|null $item
      * @param bool $descriptionBody
+     * @param int|null $firstBlockLength
      *
      * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
-    protected function renderBlocks(array $blocks, bool $compactFootnoteBlocks = false, ?ListItem $item = null, bool $descriptionBody = false): string
-    {
+    protected function renderBlocks(
+        array $blocks,
+        bool $compactFootnoteBlocks = false,
+        ?ListItem $item = null,
+        bool $descriptionBody = false,
+        ?int &$firstBlockLength = null,
+    ): string {
         if ($this->blockDepth >= self::MAX_RENDER_DEPTH) {
             throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Carve');
         }
@@ -1641,6 +1647,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // the blank line a part of its own would open. As far as the
                 // page is concerned it is the empty paragraph (PART 11 §10j).
                 if (self::spellsSomething($rendered)) {
+                    if ($index === 0) {
+                        $firstBlockLength = strlen($rendered);
+                    }
                     if (
                         $parts !== []
                         && $previousEmitted !== null
@@ -4415,8 +4424,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $this->footnoteCodeGuard ??= str_repeat($this->verbatimSentinels[7], 6);
         $this->indentedHostDepth++;
+        $firstBlockLength = null;
         try {
-            $rawBody = $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren(), $inDefinitionDescription));
+            $rawBody = $this->atAnAuthoredBodyColumn(function () use ($node, $inDefinitionDescription, &$firstBlockLength): string {
+                return $this->renderBlocks($node->getChildren(), $inDefinitionDescription, firstBlockLength: $firstBlockLength);
+            });
         } finally {
             $this->indentedHostDepth--;
         }
@@ -4443,15 +4455,22 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         $lines = explode("\n", $body);
-        $out = '[^' . $this->writeFlatBracketRun($node->getLabel()) . ']: ' . array_shift($lines);
+        $marker = '[^' . $this->writeFlatBracketRun($node->getLabel()) . ']: ';
+        $first = array_shift($lines);
+        $out = $marker . $first;
+        $offset = strlen($first) + 1;
+        $markerLineList = ($node->getChildren()[0] ?? null) instanceof ListBlock;
         foreach ($lines as $line) {
             // TWO spaces, the body's own column (PART 9 §16). A wider indent is
             // legal continuation but puts the body's blocks at a relative column
             // above zero, and an indented block opener does not open a block - so
             // a table or list written at three came back as a paragraph.
+            $indent = $markerLineList && $firstBlockLength !== null && $offset < $firstBlockLength
+                ? str_repeat(' ', strlen($marker)) : '  ';
             $out .= "\n" . ($line === '' && $node->getRenderHint("\0carve-indent-blank-lines") === '1'
                 ? str_repeat($this->verbatimSentinels[0], 2)
-                : $this->indentContinuationLine($line, '  '));
+                : $this->indentContinuationLine($line, $indent));
+            $offset += strlen($line) + 1;
         }
 
         return $out;
