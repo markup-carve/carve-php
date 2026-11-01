@@ -1661,7 +1661,6 @@ class CarveCorpusTest extends TestCase
         '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',
         '873-a-delimited-body-s-overlapping-header-and-footer-make-no-header-cells' => 'carve#4659: overlapping delimited table ranges make no header cells',
         '873-a-plus-after-an-attached-block-reaches-its-host-through-quote-prefixes-2' => 'carve#4649: a plus reaches its host through quote prefixes',
-        '878-a-folded-marker-keeps-a-note-item-measured-from-its-source-column' => 'carve#4656: a folded marker keeps its host column',
     ];
 
     /**

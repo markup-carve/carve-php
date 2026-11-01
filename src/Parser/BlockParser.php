@@ -3583,6 +3583,12 @@ class BlockParser
             if ($reaches) {
                 $retainedBelowComment = false;
                 $bodyLine = $containerColumn->strip($nextLine);
+                if (
+                    isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
+                    && $this->listParser->parseListItemMarker(ltrim($bodyLine, " \t")) !== null
+                ) {
+                    $bodyLine = BlockGrammar::LAZY_FRAME . ltrim($bodyLine, " \t");
+                }
                 // A marker at the column folds into the body's open paragraph
                 // (§10 I2) and opens no item, so it joins that line and leaves
                 // the next line measured against the body.
