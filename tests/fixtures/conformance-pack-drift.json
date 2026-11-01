@@ -32,7 +32,6 @@
       "cause": "untriaged day-one drift in the roundtrip family",
       "cases": [
         "roundtrip-2f0bd736a7de",
-        "roundtrip-73c51797f6b8",
         "roundtrip-d1f9fa04915c"
       ]
     },
