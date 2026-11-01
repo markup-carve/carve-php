@@ -30,7 +30,8 @@ class AdjacentDefinitionListsImportAsOneTest extends TestCase
     public function testAnAttributedListOrAParagraphKeepsThemApart(): void
     {
         $attributed = (new HtmlToCarve())->convertWithReport('<dl><dt>a</dt><dd>x</dd></dl><dl class="k"><dt>b</dt><dd>y</dd></dl>');
-        $this->assertSame(":: a\n: x\n\n{.k}\n:: b\n: y\n", $attributed->value);
+        // carve#4759: an attributed adjacent description list uses N1a's hard boundary.
+        $this->assertSame(":: a\n: x\n\n\n\n{.k}\n:: b\n: y\n", $attributed->value);
         $this->assertSame([], $attributed->report()['diagnostics']);
 
         $separated = (new HtmlToCarve())->convertWithReport('<dl><dt>a</dt><dd>x</dd></dl><p>p</p><dl><dt>b</dt><dd>y</dd></dl>');

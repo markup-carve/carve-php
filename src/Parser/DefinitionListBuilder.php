@@ -568,13 +568,14 @@ final class DefinitionListBuilder
             if ($i < $count && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $lines[$i])) {
                 continue;
             }
-            // Allow a single blank line before the next entry's `:: term`.
+            // Three blanks are a hard boundary before the next term (N1a).
+            // One or two blanks remain separators within this list.
             if ($i < $count && IndentationHelper::isBlankLine($lines[$i])) {
                 $look = $i;
                 while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
                     $look++;
                 }
-                if ($look < $count && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $lines[$look])) {
+                if ($look - $i < 3 && $look < $count && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $lines[$look])) {
                     $i = $look;
 
                     continue;

@@ -1638,6 +1638,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $descriptionListOffset = 0;
                     }
                     $previousList = $block;
+                } elseif ($block instanceof DefinitionList) {
+                    $listSeparated = $previousEmitted instanceof DefinitionList;
+                    $previousList = null;
                 } elseif (self::spellsSomething($rendered)) {
                     $previousList = null;
                     $listSeparated = false;
@@ -2829,6 +2832,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($out !== '') {
                     $out .= "\n";
                 }
+                if (!$separated && $previousEmitted instanceof DefinitionList && $child instanceof DefinitionList) {
+                    $out .= $this->listBoundary() . $rendered;
+                    $previous = $child;
+                    $previousEmitted = $child;
+                    $atMarkerColumn = false;
+
+                    continue;
+                }
                 if (
                     $this->listDepth > 1
                     && $previousEmitted instanceof Paragraph
@@ -2905,7 +2916,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     // item's FIRST child the `+` becomes the item's whole
                     // content and both halves of the pair are written at column
                     // 0, escaping the item (carve-php#1950).
-                    || ($out !== '' && $next !== null && $this->adjacentBlocksMerge($child, $next))
+                    || ($out !== '' && $next !== null && $this->adjacentBlocksMerge($child, $next)
+                        && !($child instanceof DefinitionList && $next instanceof DefinitionList))
                     // The pair still has to be parted when it opens the item,
                     // so that half of the question asks about the PRECEDING
                     // sibling - which by then IS on the marker line. Below any

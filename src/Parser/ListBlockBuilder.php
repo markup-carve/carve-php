@@ -123,25 +123,26 @@ final class ListBlockBuilder
      * @param \MarkupCarve\Carve\Node\Block\ListItem $item
      * @param array<\MarkupCarve\Carve\Node\Node> $children
      * @param int $before
+     * @param bool $hardBoundary
      */
-    private function mergeAdjacentDefinitionLists(ListItem $item, array $children, int $before): int
+    private function mergeAdjacentDefinitionLists(ListItem $item, array $children, int $before, bool $hardBoundary): int
     {
         $previous = $before > 0 ? $children[$before - 1] : null;
         $next = $children[$before] ?? null;
         if (
             !$previous instanceof DefinitionList || !$next instanceof DefinitionList
             || $previous->getAttributeEntries() !== [] || $next->getAttributeEntries() !== []
-            || $previous->isLoose() !== $next->isLoose()
+            || $previous->isLoose() !== $next->isLoose() || $hardBoundary
         ) {
             return $before;
         }
+        $startPos = $previous->getPos();
+        $endPos = $next->getPos();
         $terms = $next->getChildren();
         $next->setChildren([]);
         foreach ($terms as $term) {
             $previous->appendChild($term);
         }
-        $startPos = $previous->getPos();
-        $endPos = $next->getPos();
         if ($startPos !== null && $endPos !== null) {
             $previous->setPos(new SourceSpan(
                 $startPos->startLine,
@@ -269,6 +270,7 @@ final class ListBlockBuilder
             $list->setTight(false);
         }
 
+        $hardDefinitionBoundary = $this->hasHardListBoundary($lines, 0, $i);
         $continuation = $this->collectIndentedListContinuation(
             $lines,
             $i,
@@ -315,7 +317,7 @@ final class ListBlockBuilder
                     $list->setTight(false);
                 }
             }
-            $before = $this->mergeAdjacentDefinitionLists($lastItem, $children, $before);
+            $before = $this->mergeAdjacentDefinitionLists($lastItem, $children, $before, $hardDefinitionBoundary);
             $visibleContinuation = array_filter(
                 array_slice($lastItem->getChildren(), $before),
                 static fn (Node $child): bool => !$child instanceof Comment,
