@@ -4780,8 +4780,9 @@ class InlineParser
     protected function parseSmartQuote(string $prevConverted, string $text, int $pos, string $quote): string
     {
         // A span's closer is not the next character (CARVE-P3-023 R1, carve#4318).
-        $nextChar = $this->quoteCharacterAt($text, $pos + 1);
-        if ($nextChar === '\\' && $this->backslashRendersSpace($text, $pos + 1)) {
+        $nextPos = $this->quotePositionAfterComments($text, $pos + 1);
+        $nextChar = $this->quoteCharacterAt($text, $nextPos);
+        if ($nextChar === '\\' && $this->backslashRendersSpace($text, $nextPos)) {
             $nextChar = ' ';
         }
         $openContext = $this->isQuoteOpenContext($prevConverted);
@@ -4807,12 +4808,14 @@ class InlineParser
             return $this->closeSingleQuote;
         }
         if ($alnum) {
-            $end = $pos + 1;
+            $end = $nextPos;
             while (($letter = $this->quoteCharacterAt($text, $end)) !== '' && preg_match('/^\p{L}$/u', $letter) === 1) {
                 $end += strlen($letter);
             }
-            $word = substr($text, $pos + 1, $end - $pos - 1);
-            $quoted = ($text[$end] ?? '') === "'" && !$this->isQuoteAlnum($this->quoteCharacterAt($text, $end + 1));
+            $word = substr($text, $nextPos, $end - $nextPos);
+            $afterWord = $this->quotePositionAfterComments($text, $end);
+            $quoted = ($text[$afterWord] ?? '') === "'"
+                && !$this->isQuoteAlnum($this->quoteCharacterAt($text, $this->quotePositionAfterComments($text, $afterWord + 1)));
             $elision = in_array(strtolower($word), ['tis', 'tisn', 'twas', 'twasn', 'twere', 'twill', 'twould', 'em', 'cause', 'til', 'n', 'bout'], true);
             if (($elision && !$quoted) || $this->singleQuoteSpanOpen) {
                 return $this->apostrophe;
@@ -4836,6 +4839,19 @@ class InlineParser
         $length = $byte < 0x80 ? 1 : ($byte < 0xE0 ? 2 : ($byte < 0xF0 ? 3 : 4));
 
         return substr($text, $pos, $length);
+    }
+
+    protected function quotePositionAfterComments(string $text, int $pos): int
+    {
+        while (
+            substr($text, $pos, 2) === '{%'
+            && !$this->hasDecoratedBracedOpener($text, $pos)
+            && ($close = strpos($text, '%}', $pos + 2)) !== false
+        ) {
+            $pos = $close + 2;
+        }
+
+        return $pos;
     }
 
     protected function isQuoteAlnum(string $char): bool
