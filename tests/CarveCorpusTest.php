@@ -1578,6 +1578,25 @@ class CarveCorpusTest extends TestCase
         'an-own-line-plus-reaches-a-marker-line-quote-at-its-authored-column',
         'an-indented-quote-prefix-keeps-an-invisible-plus-follower-in-its-host',
         'attributed-bracket-spans-share-the-inline-cap',
+        'abbreviations-skip-generated-and-link-derived-text',
+        'a-column-0-line-after-a-nested-note-and-an-unclosed-div-leaves-the-description',
+        'a-column-0-line-after-an-unclosed-fence-in-a-description-in-an-item-leaves-the-list',
+        'a-comment-in-editorial-markup-ends-at-the-first-raw-closer',
+        'a-comment-on-the-new-side-of-a-substitution-ends-at-the-first-raw-closer',
+        'a-comment-span-in-a-quote-closes-at-an-unmarked-closer',
+        'a-cross-reference-to-a-numbered-caption-drops-the-label-s-ids',
+        'a-failed-cross-line-reference-label-stays-verbatim',
+        'a-fence-in-an-item-in-a-description-keeps-its-trailing-blank',
+        'a-leading-comment-keeps-a-frame-start-for-a-quote',
+        'a-line-block-in-a-note-or-description-takes-a-lazy-line-whatever-its-last-payload-line',
+        'a-line-block-opener-in-a-quote-leaves-no-paragraph-for-a-lazy-line',
+        'a-marker-below-a-description-body-continues-its-open-paragraph',
+        'an-arrow-takes-its-hyphens-from-a-longer-run',
+        'an-own-line-plus-is-measured-through-quote-prefixes',
+        'a-reference-label-across-a-line-stays-verbatim-in-every-form',
+        'a-term-continuation-in-a-description-keeps-spaces-past-the-body-column',
+        'folded-separator-lines-keep-a-description-in-a-div-in-an-item',
+        'paragraphs-after-a-closed-marker-line-child-loosen-the-item',
     ];
 
     /**
@@ -1599,6 +1618,16 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
+        '887-a-reference-label-across-a-line-stays-verbatim-in-every-form-2' => 'carve#4680: a failed cross-line reference label stays verbatim in every form',
+        '887-a-reference-label-across-a-line-stays-verbatim-in-every-form-3' => 'carve#4680: a failed cross-line reference label stays verbatim in every form',
+        '887-a-reference-label-across-a-line-stays-verbatim-in-every-form-5' => 'carve#4680: a failed cross-line reference label stays verbatim in every form',
+        '887-a-reference-label-across-a-line-stays-verbatim-in-every-form-6' => 'carve#4680: a failed cross-line reference label stays verbatim in every form',
+        '888-a-comment-span-in-a-quote-closes-at-an-unmarked-closer' => 'carve#4752: a quoted comment span closes at an unprefixed closer',
+        '888-a-comment-span-in-a-quote-closes-at-an-unmarked-closer-2' => 'carve#4752: a quoted comment span closes at an unprefixed closer',
+        '888-a-comment-span-in-a-quote-closes-at-an-unmarked-closer-3' => 'carve#4752: a quoted comment span closes at an unprefixed closer',
+        '888-a-comment-span-in-a-quote-closes-at-an-unmarked-closer-4' => 'carve#4752: a quoted comment span closes at an unprefixed closer',
+        '888-a-comment-span-in-a-quote-closes-at-an-unmarked-closer-5' => 'carve#4752: a quoted comment span closes at an unprefixed closer',
+        '908-a-line-block-in-a-note-or-description-takes-a-lazy-line-whatever-its-last-payload-line-4' => 'carve#4748: a line block in a list item takes a lazy line after a block-shaped payload',
         '879-a-shifted-line-block-keeps-a-lazy-follower-at-its-reader-column' => 'carve#4695: a shifted line block keeps its lazy follower',
         '880-an-own-line-plus-reaches-a-marker-line-quote-at-its-authored-column-3' => 'carve#4702: own-line plus reaches a marker-line quote',
         '881-an-indented-quote-prefix-keeps-an-invisible-plus-follower-in-its-host-2' => 'carve#4698: indented quote prefix keeps an invisible plus follower in its host',

@@ -1249,7 +1249,7 @@ final class ListBlockBuilder
         if (
             isset($this->state->source->lazyLines[$sourceLine])
             && IndentationHelper::getLeadingColumns($line, $column) < $column
-            && BlockGrammar::lastRunHoldsFootnote($subLines)
+            && (isset($this->state->source->lineBlockLazyLines[$sourceLine]) || BlockGrammar::lastRunHoldsFootnote($subLines))
         ) {
             $subLines[] = BlockGrammar::LAZY_FRAME . ltrim(BlockGrammar::stripLazyFrame($line), " \t");
             $subLineMap[] = $sourceLine;

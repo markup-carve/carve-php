@@ -2046,12 +2046,9 @@ class InlineParser
             return;
         }
         foreach ($node->getChildren() as $child) {
-            // PART 9R R3: the text of a mention is not scanned. A tag's still is.
-            if ($child instanceof Mention) {
-                $label = $child->getChildren()[0] ?? null;
-                if ($label instanceof Text && str_starts_with($label->getContent(), '@')) {
-                    continue;
-                }
+            // PART 9R R3: neither a mention's, a tag's nor an autolink's text is scanned.
+            if ($child instanceof Mention || ($child instanceof Link && $child->isAutolink())) {
+                continue;
             }
             if ($child instanceof Text) {
                 $holder = new Span();
@@ -4481,6 +4478,18 @@ class InlineParser
                 ) {
                     $visited[] = $searchPos;
                 }
+            }
+            // A `%%` comment ends at the frame's first raw closer (CARVE-P9-042).
+            $commentAt = $text[$searchPos] === ' '
+                ? $searchPos + strspn($text, ' ', $searchPos)
+                : ($text[$searchPos] === '\\' && $text[$searchPos + 1] === ' ' ? $searchPos + 2 : null);
+            if ($commentAt !== null && substr($text, $commentAt, 2) === '%%') {
+                $searchPos = $commentAt + 2;
+                while ($searchPos < $length - 1 && $text[$searchPos] !== "\n" && !($text[$searchPos] === $marker && $text[$searchPos + 1] === '}')) {
+                    $searchPos++;
+                }
+
+                continue;
             }
             if ($text[$searchPos] === '\\') {
                 $searchPos += 2;

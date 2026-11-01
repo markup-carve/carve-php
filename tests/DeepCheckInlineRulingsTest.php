@@ -29,7 +29,7 @@ final class DeepCheckInlineRulingsTest extends TestCase
         yield 'a cloned heading drops its ids (carve#4554)' => ["# *A*{#z}\n\n</#A>", "<section id=\"A\">\n  <h1><strong id=\"z\">A</strong></h1>\n  <p><a href=\"#A\"><strong>A</strong></a></p>\n</section>"];
         yield 'a decomposed reference finds its heading (carve#4574)' => ["# Cafe\u{301}\n\n</#Cafe\u{301}>", "<section id=\"Caf\u{E9}\">\n  <h1>Cafe\u{301}</h1>\n  <p><a href=\"#Caf\u{E9}\">Cafe\u{301}</a></p>\n</section>"];
         yield 'an abbreviation stays out of a mention (#4362)' => ["*[A]: x\n\n@A and !`A` and `A`", '<p><span class="mention"><strong>@A</strong></span> and A and <code>A</code></p>'];
-        yield 'a tag is still scanned (#4362)' => ["*[A]: x\n\n#A", '<p><span class="tag"><strong>#<abbr title="x">A</abbr></strong></span></p>'];
+        yield 'a tag is not scanned (carve#4686)' => ["*[A]: x\n\n#A", '<p><span class="tag"><strong>#A</strong></span></p>'];
         yield 'a continuation cell takes a header a span marker extends (carve#4566)' => ["|= a | < |\n+ | | c |", "<table>\n  <thead>\n    <tr><th scope=\"col\" colspan=\"2\">a</th><th scope=\"col\">c</th></tr>\n  </thead>\n</table>"];
     }
 

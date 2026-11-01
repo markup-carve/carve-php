@@ -271,6 +271,10 @@ class IncludeDirectiveSyntax
         };
         if ($rest !== '') {
             foreach (static::slots($rest) as $part) {
+                // Outside `@cols`, quotes only delimit an option value (PART 10).
+                if (preg_match('/^(@(?:lines|rows|shift|region|code):)"((?:\\\\.|[^"\\\\])*)"$/s', $part, $quotedOption) === 1) {
+                    $part = $quotedOption[1] . AttributeParser::processEscapes($quotedOption[2]);
+                }
                 if ($part === '@code') {
                     if (!$repeats('code', $part)) {
                         $code = ['lang' => null];
