@@ -48,6 +48,7 @@ use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Parser\Utility\LinkDestination;
 use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use MarkupCarve\Carve\Util\StringUtil;
+use WeakMap;
 
 /**
  * Inline parser for Carve
@@ -223,6 +224,13 @@ class InlineParser
     protected ?string $linkTriggerText = null;
 
     protected bool $linkTriggerPresent = false;
+
+    /**
+     * Text a verbatim run placed: abbreviation expansion does not scan it.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Inline\Text, true>|null
+     */
+    protected ?WeakMap $verbatimText = null;
 
     /**
      * Memo for the closing-paren guard: the text last scanned and the position
@@ -1368,6 +1376,12 @@ class InlineParser
 
                         continue;
                     }
+                    if (isset($result['verbatim_end'])) {
+                        $this->appendVerbatimRun($parent, $text, $pos, $result['verbatim_end']);
+                        $pos = $result['verbatim_end'];
+
+                        continue;
+                    }
                     // At this point, result has node/pos (not unclosed_link)
                     $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
@@ -1671,6 +1685,36 @@ class InlineParser
         }
 
         return false;
+    }
+
+    /**
+     * Source text with no inline reading: each line is placed text, joined by soft breaks.
+     */
+    protected function appendVerbatimRun(Node $parent, string $text, int $start, int $end): void
+    {
+        $at = $start;
+        while ($at < $end) {
+            $newline = strpos($text, "\n", $at);
+            $lineEnd = $newline === false || $newline >= $end ? $end : $newline;
+            $content = substr($text, $at, $lineEnd - $at);
+            if ($lineEnd !== $end) {
+                $content = rtrim($content, " \t");
+            }
+            if ($content !== '') {
+                $piece = new Text(str_replace("\0", "\u{00A0}", $content));
+                $this->placeAt($piece, $at, $at + strlen($content));
+                $this->verbatimText ??= new WeakMap();
+                $this->verbatimText[$piece] = true;
+                $parent->appendChild($piece);
+            }
+            if ($lineEnd === $end) {
+                break;
+            }
+            $softBreak = new SoftBreak();
+            $this->placeAt($softBreak, $lineEnd, $lineEnd + 1);
+            $parent->appendChild($softBreak);
+            $at = $lineEnd + 1 + strspn($text, " \t", $lineEnd + 1, $end - $lineEnd - 1);
+        }
     }
 
     protected function appendHardBreak(Node $parent, string &$textBuffer, int $start, int $end): void
@@ -2048,6 +2092,9 @@ class InlineParser
         foreach ($node->getChildren() as $child) {
             // PART 9R R3: neither a mention's, a tag's nor an autolink's text is scanned.
             if ($child instanceof Mention || ($child instanceof Link && $child->isAutolink())) {
+                continue;
+            }
+            if ($child instanceof Text && isset($this->verbatimText[$child])) {
                 continue;
             }
             if ($child instanceof Text) {
@@ -2904,7 +2951,7 @@ class InlineParser
      * that slot rather than rescanning, so an image's alt closes where a link's
      * text closes by construction (markup-carve/carve#1206).
      *
-     * @return array{node: \MarkupCarve\Carve\Node\Inline\Link|\MarkupCarve\Carve\Node\Inline\Span|\MarkupCarve\Carve\Node\Inline\Text, pos: int, link_text: string}|array{unclosed_link: true, link_text: string, continue_pos: int}|null
+     * @return array{node: \MarkupCarve\Carve\Node\Inline\Link|\MarkupCarve\Carve\Node\Inline\Span|\MarkupCarve\Carve\Node\Inline\Text, pos: int, link_text: string}|array{unclosed_link: true, link_text: string, continue_pos: int}|array{verbatim_end: int, link_text: string}|null
      */
     protected function parseLink(string $text, int $pos): ?array
     {
@@ -2993,8 +3040,9 @@ class InlineParser
             if ($refEnd !== false) {
                 $ref = substr($text, $afterBracket + 1, $refEnd - $afterBracket - 1);
 
+                // A label across a line fails and the whole form stays verbatim (CARVE-P3-004).
                 if (strpbrk($ref, "\r\n") !== false) {
-                    return null;
+                    return ['verbatim_end' => $refEnd + 1, 'link_text' => $linkText];
                 }
 
                 if (str_starts_with($ref, '@')) {
@@ -3242,8 +3290,8 @@ class InlineParser
             return null;
         }
 
-        // Unclosed links can't be images
-        if (isset($result['unclosed_link'])) {
+        // Unclosed links can't be images, and a verbatim run is read from its `[`.
+        if (isset($result['unclosed_link']) || isset($result['verbatim_end'])) {
             return null;
         }
 
