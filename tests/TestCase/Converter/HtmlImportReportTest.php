@@ -45,7 +45,12 @@ class HtmlImportReportTest extends TestCase
      *
      * @var array<string, array{reason: string, carve?: string, diagnostics?: list<string>, ast?: string}>
      */
-    private const AHEAD_OF_PIN = [];
+    private const AHEAD_OF_PIN = [
+        'adjacent-definition-lists' => [
+            'reason' => 'carve#4759 rules that adjacent description lists use the three-blank N1a boundary',
+            'carve' => ":: a\n: x\n:: b\n: y\n\np\n\n:: c\n: z\n\n\n\n{.k}\n:: d\n: w\n",
+        ],
+    ];
 
     /**
      * The other side of the same window: a fixture the pin states and this
