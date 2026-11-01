@@ -247,6 +247,9 @@ final class BlockQuoteBuilder
 
             $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($i));
             if ($decision['column'] >= 0 && $openingDepth > 1) {
+                $indentedQuotedPlus = IndentationHelper::getLeadingColumns(
+                    $this->state->source->authoredLines[$this->sourceLineFor($i)] ?? $currentLine,
+                ) > 0;
                 $nextPhysical = ltrim($this->state->source->sourceLines[$this->sourceLineFor($i + 1)] ?? '', " \t");
                 $nextDepth = 0;
                 while (($rest = ContainerPrefix::quoteContent($nextPhysical)) !== null) {
@@ -268,8 +271,13 @@ final class BlockQuoteBuilder
                         $innerLineMap[] = $this->sourceLineFor($i + 1);
                         $this->trackBlockQuoteLazyState($continued, $lazyState, $lines, $i + 1, $codeCloserMemo);
                         $i += 2;
-                        // A block attribute attaches forward, so the block it reaches attaches with it.
-                        while ($this->isBlockAttributeLine(trim($nextPhysical)) && $i < $count) {
+                        // Carry the marked invisible prelude through to the attached visible block.
+                        while (
+                            $i < $count
+                            && ($this->isBlockAttributeLine(trim($nextPhysical))
+                                || ($indentedQuotedPlus
+                                    && isset($this->state->source->attachedPreludeLines[$this->sourceLineFor($i - 1)])))
+                        ) {
                             $nextPhysical = ltrim($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '', " \t");
                             $stages = ContainerPrefix::quoteStages($nextPhysical);
                             if (count($stages) - 1 < $nextDepth || trim($stages[$nextDepth]) === '') {
