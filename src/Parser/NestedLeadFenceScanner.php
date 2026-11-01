@@ -17,7 +17,7 @@ final class NestedLeadFenceScanner
     /**
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\ListParser $getListParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\FencedBlockParser $getFencedBlockParser
-     * @param \Closure(string, int, int): int $listMarkerWidthFor
+     * @param \Closure(string, int, int, string): int $listMarkerWidthFor
      * @param \Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, bool=): \MarkupCarve\Carve\Parser\TrailingBlockState $advanceTrailingState
      */
     public function __construct(
@@ -92,8 +92,8 @@ final class NestedLeadFenceScanner
             $state->initialized = true;
             $rest = (string)($itemLines[0] ?? '');
             while (($head = $this->listParser()->markerHeadAt($rest)) !== null) {
+                $state->column += ($this->listMarkerWidthFor)($head['name'], $head['content'], $head['attrs'], $rest);
                 $rest = substr($rest, $head['content']);
-                $state->column += ($this->listMarkerWidthFor)($head['name'], $head['content'], $head['attrs']);
             }
             if ($state->column > 0 && $rest === ltrim($rest, " \t")) {
                 $opener = $this->fencedBlockParser()->parseRawBlockOpener($rest)

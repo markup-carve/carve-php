@@ -52,13 +52,6 @@
         "roundtrip-29bf84d5501e",
         "roundtrip-615415506b26"
       ]
-    },
-    {
-      "ticket": "markup-carve/carve#4618",
-      "cause": "a task item with a wide gap keeps its content column",
-      "cases": [
-        "ownership-08cd1743ebaf"
-      ]
     }
   ]
 }

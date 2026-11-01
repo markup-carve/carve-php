@@ -970,8 +970,10 @@ final class BlockOwnershipWalk
             $head = $this->listParser->markerHeadAt($rest);
             if ($head !== null) {
                 $width = $head['content'] - $head['attrs'];
+                // The checkbox contributes zero; the authored gap after the bullet counts (CARVE-P9-083).
                 if (isset($marker['taskMarker'])) {
-                    $width = strlen((string)$marker['marker']) + 1;
+                    $bullet = strlen((string)$marker['marker']);
+                    $width = $bullet + max(1, strspn($rest, " \t", $bullet + $head['attrs']));
                 }
 
                 return new OwnershipForm(
