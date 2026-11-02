@@ -98,10 +98,91 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
             $this->converter->convert("> <div>\n> x\n<footer>y</footer>\n"),
         );
         $this->assertSame(
-            '- ' . self::rawInline('<div>') . "\n" . self::COLUMN_2 . "x\n\n"
+            '- ' . ltrim(self::rawBlock("<div>\nx", self::COLUMN_2)) . "\n"
                 . self::rawBlock('<footer>y</footer>'),
             $this->converter->convert("- <div>\n" . self::COLUMN_2 . "x\n<footer>y</footer>\n"),
         );
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function markerLineProvider(): array
+    {
+        return [
+            'bullet, raw text kept' => [
+                "- <div>\n" . self::COLUMN_2 . "*a*\n",
+                '- ' . ltrim(self::rawBlock("<div>\n*a*", self::COLUMN_2)),
+            ],
+            'bullet, block ends at the blank line' => [
+                "- <div>\n\n" . self::COLUMN_2 . "x\n",
+                '- ' . ltrim(self::rawBlock('<div>', self::COLUMN_2)) . "\n" . self::COLUMN_2 . "x\n",
+            ],
+            'condition 7 opens one too' => [
+                "- <span>\n" . self::COLUMN_2 . "x\n",
+                '- ' . ltrim(self::rawBlock("<span>\nx", self::COLUMN_2)),
+            ],
+            'ordered item' => [
+                "1. <div>\n   x\n",
+                '1. ' . ltrim(self::rawBlock("<div>\nx", '   ')),
+            ],
+            'condition 1 ends at its terminator' => [
+                "- <script>\n- some text\n",
+                '- ' . ltrim(self::rawBlock('<script>', self::COLUMN_2)) . "- some text\n",
+            ],
+            'one comment is a Carve comment' => [
+                "- <!-- c -->\n- b\n",
+                "- %% c\n- b\n",
+            ],
+            'quoted item' => [
+                "> - <div>\n>   *a*\n",
+                "> - ```=html\n>   <div>\n>   *a*\n>   ```\n",
+            ],
+            'quoted item, a dedented line leaves it' => [
+                "> - <div>\n>   </div>\n> after\n",
+                "> - ```=html\n>   <div>\n>   </div>\n>   ```\n>\n> after\n",
+            ],
+            'quoted item keeps a tab in its content' => [
+                "> - <div>\n>   " . self::TAB . "foo\n",
+                "> - ```=html\n>   <div>\n>   " . self::TAB . "foo\n>   ```\n",
+            ],
+            'quoted sibling items each hold their block' => [
+                "> - <div>\n>   x\n> - <div>\n>   y\n",
+                "> - ```=html\n>   <div>\n>   x\n>   ```\n> - ```=html\n>   <div>\n>   y\n>   ```\n",
+            ],
+            'quoted comment' => [
+                "> - <!-- c -->\n>   x\n",
+                "> - %% c\n>   x\n",
+            ],
+            'not a tag stays text' => [
+                "- <x foo=>\n",
+                "- <x foo=>\n",
+            ],
+            'quoted ordered marker under a paragraph stays text' => [
+                "> p\n> 2) <div>\n",
+                "> p\n> 2) " . self::rawInline('<div>') . "\n",
+            ],
+        ];
+    }
+
+    #[DataProvider('markerLineProvider')]
+    public function testAnHtmlBlockOpensOnAnItemsMarkerLine(string $markdown, string $expected): void
+    {
+        $this->assertSame($expected, $this->converter->convert($markdown));
+    }
+
+    public function testAQuotedItemsCommentIsReportedAtItsOwnLine(): void
+    {
+        $paths = static fn (string $markdown): array => array_values(array_map(
+            static fn ($loss): ?string => $loss->path,
+            array_filter(
+                (new MarkdownToCarve())->convertWithFidelityReport($markdown)->diagnostics,
+                static fn ($loss): bool => $loss->code === 'markdown-html-comment',
+            ),
+        ));
+
+        $this->assertSame(['line:3'], $paths("intro\n\n> - <!-- c -->\n"));
+        $this->assertSame([], $paths("> p\n> 2) <!-- c -->\n"));
     }
 
     public function testAConditionOneToFiveBlockRunsPastABlankLine(): void

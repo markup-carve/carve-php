@@ -1637,6 +1637,21 @@ class MarkdownToCarve
 
                     return [$i, 'blockquote', $body, true];
                 }
+                $quotedItemHtml = $this->quotedMarkerContinuesParagraph($quotedText, $quoted[1], $prevLineType, $quoteState)
+                    ? null
+                    : $this->collectQuotedItemHtml($lines, $i, $quoted[1], $quotedText);
+                if ($quotedItemHtml !== null) {
+                    $opener = $this->respellQuotedLine($lines, $i, $quoted[1], $quotedItemHtml['opener'], $prevLineType === 'blockquote', $quoteState, $result);
+                    $result[] = $opener;
+                    $pad = str_repeat(' ', strlen($opener) - strlen($quotedItemHtml['tail']) - strlen($quoted[1]));
+                    foreach ($quotedItemHtml['lines'] as $content) {
+                        $result[] = $content === '' ? rtrim($quoted[1]) : $quoted[1] . $pad . $content;
+                    }
+                    $i = $quotedItemHtml['end'];
+                    $quoteState->clearPrevious();
+
+                    return [$i, 'blockquote', $body, true];
+                }
                 $itemTable = $this->tableStage->collectQuotedItemBlock($lines, $i, $quoted[1], $quotedText, $contentCol, $prevLineType === 'blockquote', $quoteState, $result);
                 if ($itemTable !== null) {
                     array_push($result, ...$itemTable['lines']);
@@ -3506,6 +3521,7 @@ class MarkdownToCarve
      * @param int $contentCol
      * @param bool $paragraphOpen
      * @param array<string, \MarkupCarve\Carve\Converter\Markdown\ListMarkers> $quoteMarkers
+     * @param string|null $opening The first line to read in place of `$lines[$start]`.
      *
      * @return array{lines: array<int, string>, end: int}|null
      */
@@ -3515,8 +3531,9 @@ class MarkdownToCarve
         int $contentCol,
         bool $paragraphOpen,
         array $quoteMarkers = [],
+        ?string $opening = null,
     ): ?array {
-        $opening = $this->expandHtmlQuoteTabs($lines[$start]);
+        $opening = $this->expandHtmlQuoteTabs($opening ?? $lines[$start]);
         $first = $this->stripContainerPrefix($opening, $contentCol);
         if ($first === null) {
             return null;
@@ -4555,6 +4572,18 @@ class MarkdownToCarve
             return ['lines' => $code['lines'], 'end' => $code['end'] - 1, 'table' => 0, 'closes' => true];
         }
 
+        // An HTML block may open on the marker line: no paragraph is open yet,
+        // so condition 7 counts too (CommonMark 4.6).
+        if (!$this->inlineContext->convertRawHtml && str_starts_with($text, '<')) {
+            $opening = str_repeat(' ', $this->columnWidth(substr($line, 0, $end))) . $text;
+            $html = $this->collectVerbatimHtmlBlock($lines, $index, $contentCol, false, opening: $opening);
+            if ($html !== null) {
+                $html['lines'][0] = rtrim($lead) . ' ' . ltrim($html['lines'][0]);
+
+                return ['lines' => $html['lines'], 'end' => $html['end'], 'table' => 0, 'closes' => true];
+            }
+        }
+
         if (preg_match(self::THEMATIC_BREAK, preg_replace('/^ {0,3}/', '', $text) ?? $text) === 1) {
             return ['lines' => [$lead . '---'], 'end' => $index, 'table' => 0, 'closes' => true];
         }
@@ -5101,6 +5130,78 @@ class MarkdownToCarve
         }
 
         return null;
+    }
+
+    /**
+     * Whether a quoted marker line is text of the open quote paragraph rather
+     * than a new item: only a bullet or `1.` interrupts one, and never from
+     * four columns past it (CommonMark 5.2).
+     */
+    private function quotedMarkerContinuesParagraph(string $text, string $prefix, string $prevLineType, QuoteRunState $state): bool
+    {
+        if (
+            $prevLineType !== 'blockquote' || $state->previous === null || $state->previous['prefix'] !== $prefix
+            || !$this->quoteParagraphIsOpen($state->previous['text'])
+        ) {
+            return false;
+        }
+        $column = ($state->markers[$prefix] ?? null)?->openItemContentColumn() ?? 0;
+
+        return $this->indentWidth($text) - $column >= 4 || preg_match('/^[ \t]*(?:[-*+]|0*1[.)])[ \t]/', $text) !== 1;
+    }
+
+    /**
+     * An HTML block opened on a quoted list item's marker line: the opener
+     * with its marker, and the block's lines relative to the item's content
+     * column.
+     *
+     * @param array<int, string> $lines
+     * @param int $start
+     * @param string $prefix
+     * @param string $text
+     *
+     * @return array{opener: string, tail: string, lines: array<int, string>, end: int}|null
+     */
+    private function collectQuotedItemHtml(array $lines, int $start, string $prefix, string $text): ?array
+    {
+        if (
+            $this->inlineContext->convertRawHtml
+            || preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)]) {1,4})(?=<)/', $text, $marker) !== 1
+        ) {
+            return null;
+        }
+        $contentColumn = strlen($marker[1]);
+        $first = substr($text, $contentColumn);
+        $toBlank = $this->htmlBlockCloser($first) === null;
+        $block = [str_repeat(' ', $contentColumn) . $first];
+        for ($at = $start + 1, $count = count($lines); $at < $count; $at++) {
+            // Tabs past the item's content column are the block's own bytes.
+            $markers = preg_match('/^(?:[ \t]*>)+/', $lines[$at], $quote) === 1 ? $this->columnWidth($quote[0]) + 1 : 0;
+            $content = $this->quotedText($this->expandLeadingTabs($lines[$at], $markers + $contentColumn), $prefix);
+            if ($content === null || (trim($content) !== '' && $this->indentWidth($content) < $contentColumn)) {
+                $block[] = (string)$content;
+
+                break;
+            }
+            $block[] = $content;
+            if ($toBlank && trim($content) === '') {
+                break;
+            }
+        }
+        $comments = count($this->htmlCommentLines);
+        $html = $this->collectVerbatimHtmlBlock($block, 0, $contentColumn, false);
+        if ($html === null) {
+            return null;
+        }
+        // The block was read from a slice, so its comment names the slice's line.
+        if (count($this->htmlCommentLines) > $comments) {
+            $this->htmlCommentLines[$comments] = $this->sourceLine($start);
+        }
+        $body = array_map(fn (string $line): string => $this->stripColumns($line, $contentColumn), array_slice($html['lines'], 1));
+
+        $tail = ltrim($html['lines'][0]);
+
+        return ['opener' => $marker[1] . $tail, 'tail' => $tail, 'lines' => $body, 'end' => $start + $html['end']];
     }
 
     /**
