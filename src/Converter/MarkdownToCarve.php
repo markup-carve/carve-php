@@ -1798,7 +1798,8 @@ class MarkdownToCarve
         $virtual = $lines;
         $virtual[$i] = str_repeat(' ', $contentCol) . $m[4];
         $end = $this->setextParagraphEnd($virtual, $i, $contentCol, true);
-        if ($end === null) {
+        // A delimiter row under the item's first line makes it a table header.
+        if ($end === null || $this->tableStage->startsTableHeader($virtual, $i)) {
             return null;
         }
         $texts = [];
