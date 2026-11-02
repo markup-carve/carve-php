@@ -7,8 +7,11 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
+use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -64,6 +67,8 @@ class AnUnspellableEmptyCodeSpanIsRefusedTest extends TestCase
             'the end of a paragraph' => ["x `Q`\n"],
             'the end of the last table cell' => ["| a | x `Q` |\n"],
             'the end of a heading' => ["# x `Q`\n"],
+            'a closed comment span after it in a line block' => ["::: |\nx `Q`\n%%%\nc\n%%%\n:::\n"],
+            'an unclosed comment span after it in a line block' => ["::: |\nx `Q`\n%%%\n:::\n"],
         ];
     }
 
@@ -95,7 +100,21 @@ class AnUnspellableEmptyCodeSpanIsRefusedTest extends TestCase
             'a braced strike' => ["{~x ``~}y\n"],
             'the end of a paragraph' => ["x ``\n"],
             'the end of the last table cell' => ["| a | x `` |\n"],
+            'a verse before an unclosed comment span' => ["::: |\na `b\n`a`\n%%%\n:::\n"],
         ];
+    }
+
+    public function testAFencedCommentAfterItInAParagraphIsRefused(): void
+    {
+        $paragraph = new Paragraph();
+        $paragraph->appendChild(new Text('x '));
+        $paragraph->appendChild(new Code(''));
+        $paragraph->appendChild(new Comment('c', 3));
+        $document = new Document();
+        $document->appendChild($paragraph);
+
+        $this->expectException(SourceUnspellableException::class);
+        (new CarveRenderer())->render($document);
     }
 
     #[DataProvider('sourceProvider')]
