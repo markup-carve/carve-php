@@ -1970,9 +1970,16 @@ class BlockParser
         $blankFollowerColumn = null;
         $blankFollowerLine = null;
         $blankRun = 0;
+        $atDocument = $topLevel && $parent instanceof Document;
+        $startedChildren = 0;
+        $startedLine = -1;
 
         while ($i < $count) {
             $sourceLine = $this->sourceLineFor($i);
+            if ($atDocument) {
+                $startedChildren = $this->recordDocumentChildStarts($parent, $startedChildren, $startedLine);
+                $startedLine = $sourceLine;
+            }
             if ($sourceLine >= 0) {
                 $this->defineSkippedAbbreviationsBefore($sourceLine);
             }
@@ -2187,9 +2194,27 @@ class BlockParser
         if ($childrenBeforeBlank !== null) {
             $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn, $blankFollowerLine);
         }
+        if ($atDocument) {
+            $this->recordDocumentChildStarts($parent, $startedChildren, $startedLine);
+        }
         if ($topLevel) {
             $this->endContainerAttributeScope();
         }
+    }
+
+    /**
+     * Note the source line each new document child started on, so a hoisted definition can be placed without positions.
+     */
+    private function recordDocumentChildStarts(Node $document, int $known, int $line): int
+    {
+        $children = $document->getChildren();
+        $total = count($children);
+        $this->state->session->documentChildStartLines ??= new WeakMap();
+        for ($k = $known; $k < $total && $line >= 0; $k++) {
+            $this->state->session->documentChildStartLines[$children[$k]] = $line;
+        }
+
+        return $total;
     }
 
     /**
@@ -3931,18 +3956,24 @@ class BlockParser
         int $start,
         bool $topLevel = false,
     ): ?int {
-        // PART 12 §7: recognized ONLY at document level. Inside a block quote,
-        // list item or div the line falls through to the paragraph branch and
-        // is preserved as the text the author typed.
-        if (!$topLevel) {
-            return null;
-        }
-
         $line = ltrim($lines[$start], " \t");
-
-        // A line below every frame's content column defines at document level.
         if (!$this->isAbbreviationDefinitionLine($line)) {
             return null;
+        }
+        // A definition in a container registers with document scope and hoists to the document (carve#4865).
+        if (!$topLevel) {
+            if (isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($start)])) {
+                return null;
+            }
+            if ($this->state->session->discoveringDefinitions && preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line, $m) === 1) {
+                $definition = rtrim($m[2], " \t");
+                $this->state->session->abbreviations[$m[1]] = $definition;
+                $this->state->session->abbreviationDefinitions[] = ['abbr' => $m[1], 'expansion' => $definition];
+                $this->state->session->discoveredAbbreviationLines[$this->sourceLineFor($start)] = true;
+                $this->state->session->siblingSkippedAbbreviations[$this->sourceLineFor($start)] = [$m[1], $definition];
+            }
+
+            return 1;
         }
 
         // The line is KEPT as a node rather than merely skipped. It renders
@@ -3993,9 +4024,14 @@ class BlockParser
         $merged = [];
         $next = 0;
         $count = count($pending);
+        $lines = array_keys($skipped);
+        $starts = $this->state->session->documentChildStartLines;
         foreach ($document->getChildren() as $child) {
             $start = $child->getPos()?->startLine;
-            while ($next < $count && $start !== null && ($pending[$next]->getPos()->startLine ?? PHP_INT_MAX) < $start) {
+            if ($start === null && $starts !== null && isset($starts[$child])) {
+                $start = $starts[$child] + 1;
+            }
+            while ($next < $count && $start !== null && $lines[$next] + 1 < $start) {
                 $merged[] = $pending[$next++];
             }
             $merged[] = $child;
@@ -4434,10 +4470,7 @@ class BlockParser
         // A standalone block-attribute line floats forward to the next block
         // (or is dropped when none follows), so it interrupts the paragraph
         // rather than folding in as literal text (grammar PART 9 §15).
-        // PART 12 §7: an abbreviation definition is invisible, and so
-        // interrupts, only at document level. Inside a container the same shape
-        // is paragraph text and folds in as a lazy continuation.
-        return $this->isInvisibleOrAttributeLine($line, $topLevel);
+        return $this->isInvisibleOrAttributeLine($line);
     }
 
     /**
@@ -4748,7 +4781,7 @@ class BlockParser
             return true;
         }
 
-        return $this->isInvisibleOrAttributeLine($line, false);
+        return $this->isInvisibleOrAttributeLine($line);
     }
 
     /**
@@ -4796,14 +4829,14 @@ class BlockParser
         return preg_match(self::COMMENT_ONLY_PARAGRAPH_PATTERN, implode("\n", array_slice($lines, $k, $end - $k))) === 1 ? $end : -1;
     }
 
-    protected function isInvisibleOrAttributeLine(string $line, bool $abbreviationCounts = true): bool
+    protected function isInvisibleOrAttributeLine(string $line): bool
     {
         if ($this->isBlockAttributeLine($line)) {
             return true;
         }
 
         return $this->isReferenceDefinitionLine($line)
-            || ($abbreviationCounts && $this->isAbbreviationDefinitionLine($line))
+            || $this->isAbbreviationDefinitionLine($line)
             || preg_match('/^[ \t]*%%/', $line) === 1;
     }
 
@@ -4825,7 +4858,8 @@ class BlockParser
     protected function isReferenceDefinitionLine(string $line): bool
     {
         return $this->referenceDefinitionExtractor->matchDefinitionLine($line) !== null
-            || preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $line) === 1;
+            || preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $line) === 1
+            || preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line) === 1;
     }
 
     protected function isCaptionableParagraphContent(string $content, int $sourceLine): bool
@@ -5522,8 +5556,7 @@ class BlockParser
             return true;
         }
 
-        $authoredLine = $index === null ? '' : ($this->state->source->sourceLines[$this->sourceLineFor($index)] ?? '');
-        if ($this->isInvisibleOrAttributeLine($line, !str_starts_with(ltrim($authoredLine, " \t"), '>'))) {
+        if ($this->isInvisibleOrAttributeLine($line)) {
             return true;
         }
         if ($lines !== null && $index !== null && $this->startsWrappedBlockAttributes(ltrim($line, " \t"), $lines, $index)) {

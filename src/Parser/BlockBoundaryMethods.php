@@ -234,7 +234,7 @@ trait BlockBoundaryMethods
             // is invisible, the abbreviation line was skipped like one more of
             // them, and the item was reported as holding nothing behind the
             // blank (markup-carve/carve#1269).
-            if ($this->isInvisibleOrAttributeLine($stripped, false)) {
+            if ($this->isInvisibleOrAttributeLine($stripped)) {
                 continue;
             }
             $commentParagraphEnd = $this->commentOnlyParagraphEnd($lines, $j, true);
@@ -269,7 +269,7 @@ trait BlockBoundaryMethods
         }
 
         if ($invisibleArms) {
-            if ($this->isInvisibleOrAttributeLine($line, false)) {
+            if ($this->isInvisibleOrAttributeLine($line)) {
                 return true;
             }
         } elseif (preg_match('/^[ \t]*%%/', $line) === 1) {

@@ -25,10 +25,10 @@ class BelowColumnAbbreviationDefinitionTest extends TestCase
         self::assertSame($expected, CarveConverter::create()->convert($source));
     }
 
-    public function testDefinitionAtItemContentColumnStaysText(): void
+    public function testDefinitionAtItemContentColumnDefinesToo(): void
     {
         $source = "- n\n  *[A]: b\n\nA\n";
 
-        self::assertSame("<ul>\n  <li>n\n*[A]: b</li>\n</ul>\n<p>A</p>", CarveConverter::create()->convert($source));
+        self::assertSame("<ul>\n  <li>n</li>\n</ul>\n<p><abbr title=\"b\">A</abbr></p>", CarveConverter::create()->convert($source));
     }
 }

@@ -8,8 +8,11 @@ use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
- * An abbreviation-shaped line inside a list item is the paragraph it renders
- * (markup-carve/carve#1267).
+ * An abbreviation definition inside a list item is a definition and leaves the
+ * item tight, like the other definition kinds (markup-carve/carve#4865, which
+ * replaced the document-level-only reading of markup-carve/carve#1267).
+ *
+ * Before carve#4865:
  *
  * PART 12 §7: `*[TERM]: expansion` is an `abbreviation_definition` only as a
  * direct child of the document -- "written inside a block quote, a list item or
@@ -34,12 +37,12 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
     /**
      * @return void
      */
-    public function testAbbreviationLineAfterABlankLoosensTheItem(): void
+    public function testAbbreviationLineAfterABlankKeepsTheItemTight(): void
     {
         $html = (new CarveConverter())->convert("- a\n\n  *[A]: a\n");
 
         $this->assertSame(
-            "<ul>\n  <li><p>a</p>\n    <p>*[A]: a</p>\n  </li>\n</ul>",
+            "<ul>\n  <li>a</li>\n</ul>",
             $html,
         );
     }
@@ -51,12 +54,12 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
      *
      * @return void
      */
-    public function testASublistAfterTheLineDoesNotRestoreTightness(): void
+    public function testASublistAfterTheLineStaysTight(): void
     {
         $html = (new CarveConverter())->convert("- a\n\n  *[A]: a\n  - b\n");
 
-        $this->assertStringContainsString('<li><p>a</p>', $html);
-        $this->assertStringContainsString('<p>*[A]: a</p>', $html);
+        $this->assertStringContainsString("<li>a\n", $html);
+        $this->assertStringNotContainsString('*[A]', $html);
     }
 
     /**
@@ -64,11 +67,11 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
      *
      * @return void
      */
-    public function testTheSiblingItemIsWrappedAsWell(): void
+    public function testTheSiblingItemStaysTightAsWell(): void
     {
         $html = (new CarveConverter())->convert("- a\n\n  *[A]: a\n  - b\n- c\n");
 
-        $this->assertStringContainsString('<li><p>c</p></li>', $html);
+        $this->assertStringContainsString('<li>c</li>', $html);
     }
 
     /**
@@ -134,8 +137,8 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
     {
         $html = (new CarveConverter())->convert("- a\n  *[HTML]: Hyper Text\n\nThe HTML spec.\n");
 
-        $this->assertStringContainsString("<li>a\n*[HTML]: Hyper Text</li>", $html);
-        $this->assertStringNotContainsString('<abbr', $html);
+        $this->assertStringContainsString('<li>a</li>', $html);
+        $this->assertStringContainsString('<abbr title="Hyper Text">HTML</abbr>', $html);
     }
 
     /**
@@ -152,10 +155,10 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
      *
      * @return void
      */
-    public function testAnInvisibleLineAheadOfItDoesNotHideTheParagraph(): void
+    public function testAnInvisibleLineAheadOfItStillLeavesTheItemTight(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li><p>a</p>\n    <p>*[A]: a</p>\n  </li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n</ul>\n"),
             (new CarveConverter())->convert("- a\n\n  %% c\n  *[A]: a\n"),
         );
     }
@@ -166,10 +169,10 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
      *
      * @return void
      */
-    public function testAReferenceDefinitionAheadOfItDoesNotHideTheParagraph(): void
+    public function testAReferenceDefinitionAheadOfItStillLeavesTheItemTight(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li><p>a</p>\n    <p>*[A]: a</p>\n  </li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n</ul>\n"),
             (new CarveConverter())->convert("- a\n\n  [r]: /u\n  *[A]: a\n"),
         );
     }
@@ -181,10 +184,10 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
      *
      * @return void
      */
-    public function testAnAttributeLineAheadOfItAttachesToThatParagraph(): void
+    public function testAnAttributeLineAheadOfItLeavesTheItemTight(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li><p>a</p>\n    <p class=\"x\">*[A]: a</p>\n  </li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n</ul>\n"),
             (new CarveConverter())->convert("- a\n\n  {.x}\n  *[A]: a\n"),
         );
     }

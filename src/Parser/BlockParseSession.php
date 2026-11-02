@@ -267,6 +267,13 @@ final class BlockParseSession
     public array $siblingSkippedAbbreviations = [];
 
     /**
+     * The 0-based source line each document child started on.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Node, int>|null
+     */
+    public ?WeakMap $documentChildStartLines = null;
+
+    /**
      * The authoritative structural walk is currently collecting mixed
      * definitions. Inline nodes are built normally; forward-only resolution is
      * completed after the walk exposes every definition.

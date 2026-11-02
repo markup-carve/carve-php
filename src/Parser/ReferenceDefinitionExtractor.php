@@ -259,6 +259,9 @@ class ReferenceDefinitionExtractor
      */
     public static function isDefinitionHead(string $line, int $at = 0): bool
     {
-        return ($line[$at] ?? '') === '[';
+        $head = $line[$at] ?? '';
+
+        // An abbreviation definition is a definition in every container (carve#4865).
+        return $head === '[' || ($head === '*' && ($line[$at + 1] ?? '') === '[');
     }
 }
