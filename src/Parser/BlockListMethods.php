@@ -850,11 +850,15 @@ trait BlockListMethods
      */
     protected function advanceItemCommentFence(?int $openLength, string $line, array $lines, int $index): ?int
     {
+        $info = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line);
         if ($openLength !== null) {
+            // The walk opened a span here: a line that missed the open span's owner ended it (PART 0 S1).
+            if ($info !== null && isset($this->state->source->fenceOpenerLines[$this->sourceLineFor($index)])) {
+                return $info['length'];
+            }
+
             return $this->fencedBlockParser->isFencedCommentCloserAnyColumn($line, $openLength) ? null : $openLength;
         }
-
-        $info = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line);
 
         return $info === null ? null : $info['length'];
     }

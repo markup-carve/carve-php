@@ -22,13 +22,6 @@
         "lazy-68fe7c68d81d",
         "roundtrip-615415506b26"
       ]
-    },
-    {
-      "ticket": "markup-carve/carve-php#4511",
-      "cause": "a same-width run after PART 0 S1 ended a comment span is read as its closer (carve#4907 F1 residue)",
-      "cases": [
-        "fences-dd3d9d6c9819"
-      ]
     }
   ]
 }
