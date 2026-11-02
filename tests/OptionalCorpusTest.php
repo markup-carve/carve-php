@@ -73,14 +73,14 @@ class OptionalCorpusTest extends TestCase
      * Same contract as CarveCorpusTest::KNOWN_GAPS: a deferral names the rule
      * it waits on, so the list reads as work rather than as noise.
      *
-     * EMPTY. The one entry that stood here, deferring `44-list-table-columns-
-     * and-foot` on carve#1344, passed when it was re-measured against the pin
-     * this change carries - a deferral that outlived its rule, which is the
-     * failure mode a gap list has.
-     *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [];
+    protected const KNOWN_GAPS = [
+        '66-smart-typography-quotes-off-html' => 'carve#4808: (c) and (r) are text, not typography',
+        '66-smart-typography-quotes-off-markdown' => 'carve#4808: (c) and (r) are text, not typography',
+        '66-smart-typography-quotes-off-plain' => 'carve#4808: (c) and (r) are text, not typography',
+        '66-smart-typography-quotes-off-ansi' => 'carve#4808: (c) and (r) are text, not typography',
+    ];
 
     /**
      * Features this engine genuinely does not implement, each with the reason.

@@ -789,15 +789,12 @@ final class HtmlAstBuilder
     /**
      * @param list<\DOMNode> $nodes
      *
-     * @throws \LogicException
-     *
      * @return list<ImportedNode>
      */
     private function blocks(array $nodes): array
     {
         $blocks = [];
         $pending = [];
-        $validatedDefinitionList = null;
         $flush = function () use (&$blocks, &$pending): void {
             $children = $this->hoistedRun($pending);
             $this->normalizeInlineBoundaries($children);
@@ -861,34 +858,7 @@ final class HtmlAstBuilder
             }
             if ($this->isBlock($node)) {
                 $flush();
-                $produced = $this->block($node);
-                $last = array_key_last($blocks);
-                // Carve source has no boundary between two definition lists, so
-                // an attribute-less one following another joins it (carve#2369).
-                if (
-                    $last !== null
-                    && $node instanceof DOMElement
-                    && ($blocks[$last]['type'] ?? null) === 'definition_list'
-                    && ($produced[0]['type'] ?? null) === 'definition_list'
-                    && self::attrsValue($produced[0]['attrs'] ?? null) === []
-                ) {
-                    $next = array_shift($produced);
-                    if ($validatedDefinitionList !== $last) {
-                        $blocks[$last]['items'] = self::nodeList($blocks[$last]['items'] ?? null);
-                        $validatedDefinitionList = $last;
-                    }
-                    if (!is_array($blocks[$last]['items'])) {
-                        throw new LogicException('Definition list items must be a node list.');
-                    }
-                    foreach (self::nodeList($next['items'] ?? null) as $item) {
-                        $blocks[$last]['items'][] = $item;
-                    }
-                    if (($next['loose'] ?? false) === true) {
-                        $blocks[$last]['loose'] = true;
-                    }
-                    $this->session->mergedDefinitionLists[$node] = null;
-                }
-                foreach ($produced as $block) {
+                foreach ($this->block($node) as $block) {
                     $blocks[] = $block;
                 }
 
@@ -2580,15 +2550,6 @@ final class HtmlAstBuilder
         }
         $list = ['type' => 'definition_list', 'items' => $items];
         $this->attachAttrs($list, $node);
-        // A leading <dd> can end in a definition list, which this one would
-        // join on re-read; merge it the way a sibling <dl> is (carve#2369).
-        $last = array_key_last($before);
-        if ($last !== null && $before[$last]['type'] === 'definition_list' && $this->attrs($node, []) === []) {
-            $before[$last]['items'] = array_merge(self::nodeList($before[$last]['items'] ?? null), $items);
-            $this->session->mergedDefinitionLists[$node] = null;
-
-            return $before;
-        }
         $before[] = $list;
 
         return $before;

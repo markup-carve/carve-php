@@ -472,13 +472,13 @@ final class DefinitionListBuilder
                 $lines[$i] = ltrim($lines[$i], " \t");
             }
         }
-        // A blank line can separate a term from its next description body.
+        // A blank line can separate a term from its next description body; three are a hard boundary (N1a).
         if (IndentationHelper::isBlankLine($lines[$i])) {
             $look = $i;
             while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
                 $look++;
             }
-            if ($look < $count && preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $lines[$look])) {
+            if ($look - $i < 3 && $look < $count && preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $lines[$look])) {
                 $i = $look;
             } else {
                 return null;
