@@ -2921,7 +2921,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     continue;
                 }
                 if (
-                    $atMarkerColumn
+                    // A comment is an invisible line: a `+` before it is refused
+                    // and publishes as text, so it is written at the content column.
+                    ($atMarkerColumn && !($child instanceof Comment && $previousEmitted !== null))
                     // `+` CONTINUES the marker line; it is not a block of its
                     // own. Looking ahead at a mergeable next sibling is right
                     // only once something stands there to continue - as the
