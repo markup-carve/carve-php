@@ -1617,9 +1617,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     && $previousEmitted instanceof ListBlock
                 ) {
                     $taskFence = $this->nestedFenceTailIsTask($previousEmitted);
-                    if ($taskFence === true && ($rendered === '\\+' || str_starts_with($rendered, "\\+\n"))) {
-                        $rendered = ' +' . substr($rendered, 2);
-                    } elseif ($rendered === '\\+') {
+                    if ($taskFence !== true && $rendered === '\\+') {
                         $rendered = '+';
                     }
                 }
@@ -2826,7 +2824,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($child instanceof Paragraph && ($barePlus || $escapedPlus)) {
                     $taskFence = $this->nestedFenceTailIsTask($previousEmitted);
                     if ($taskFence === true) {
-                        $rendered = ' +' . substr($rendered, $escapedPlus ? 2 : 1);
+                        $rendered = '\\+' . substr($rendered, $escapedPlus ? 2 : 1);
                     } elseif ($taskFence === null && $rendered === '+' && ($this->listDepth > 1 || $this->indentedHostDepth > 0)) {
                         $rendered = '\\+';
                     }
@@ -4481,8 +4479,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // legal continuation but puts the body's blocks at a relative column
             // above zero, and an indented block opener does not open a block - so
             // a table or list written at three came back as a paragraph.
-            $indent = $markerLineList && $firstBlockLength !== null && $offset < $firstBlockLength
-                ? str_repeat(' ', strlen($marker)) : '  ';
+            $indent = $markerLineList ? str_repeat(' ', strlen($marker)) : '  ';
             $out .= "\n" . ($line === '' && $node->getRenderHint("\0carve-indent-blank-lines") === '1'
                 ? str_repeat($this->verbatimSentinels[0], 2)
                 : $this->indentContinuationLine($line, $indent));
