@@ -5981,6 +5981,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($sibling instanceof CarveFieldDiagnostic) {
                     continue;
                 }
+                // A verse's `%%%` span leaves nothing, so the run still ends at its block's end.
+                if ($after && $sibling instanceof Comment && $sibling->getFenceLength() !== null && $parent instanceof Paragraph && $parent->getParent() instanceof LineBlock) {
+                    continue;
+                }
                 if ($after && (!$sibling instanceof Text || $sibling->getContent() !== '')) {
                     return false;
                 }
