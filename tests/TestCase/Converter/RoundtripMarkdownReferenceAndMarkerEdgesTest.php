@@ -90,7 +90,7 @@ wraps onto the next line
 
 CARVE;
 
-        $this->assertStringContainsString("<!-- carve: :: A term that -->", $this->export($source));
+        $this->assertStringContainsString('<!-- carve: :: A term that -->', $this->export($source));
         $this->assertSame($source, $this->back($source));
     }
 
