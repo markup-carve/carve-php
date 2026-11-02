@@ -195,6 +195,7 @@ final class BlockOwnershipWalk
         private readonly Closure $isDefinition,
         private readonly Closure $isAttributeLine,
         private readonly Closure $wrappedAttributeLength,
+        private readonly Closure $commentOnlyParagraphEnd,
     ) {
     }
 
@@ -1370,6 +1371,13 @@ final class BlockOwnershipWalk
             } elseif ($rest !== '' && $rest[0] === '{' && ($this->isAttributeLine)($rest)) {
                 $k++;
             } elseif ($rest !== '' && $rest[0] === '{') {
+                // A paragraph of only comments is skipped as a `%%` line is (carve#4799).
+                $paragraph = str_starts_with($rest, '{%') ? $this->commentOnlyParagraphAt($k, $hostIndex, $frames) : -1;
+                if ($paragraph !== -1) {
+                    $k = $paragraph;
+
+                    continue;
+                }
                 $run = [];
                 for ($j = $k; $j < $n && $j < $k + 64 && trim($view($j)) !== ''; $j++) {
                     $run[] = rtrim($view($j), " \t");
@@ -1385,6 +1393,28 @@ final class BlockOwnershipWalk
         }
 
         return $n;
+    }
+
+    /**
+     * End of a paragraph of only comments at `$k` in the host's view, or -1. A line that misses the host is blank there.
+     *
+     * @param int $k
+     * @param int $hostIndex
+     * @param array<int, \MarkupCarve\Carve\Parser\OwnershipFrame> $frames
+     */
+    private function commentOnlyParagraphAt(int $k, int $hostIndex, array $frames): int
+    {
+        $run = [];
+        for ($j = $k, $n = count($this->lines); $j < $n; $j++) {
+            $rest = $this->throughQuotes($this->lines[$j], $hostIndex, $frames)['rest'] ?? '';
+            if (trim($rest, " \t") === '') {
+                break;
+            }
+            $run[] = $rest;
+        }
+        $end = ($this->commentOnlyParagraphEnd)($run, 0, $frames[$hostIndex]->kind === 'item');
+
+        return $end === -1 ? -1 : $k + $end;
     }
 
     /**

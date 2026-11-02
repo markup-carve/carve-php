@@ -50,6 +50,7 @@ final class DefinitionListBuilder
      * @param \Closure(\MarkupCarve\Carve\Node\Block\ListBlock|\MarkupCarve\Carve\Node\Block\DefinitionList): (void) $consumeLooseKeyCallback
      * @param \Closure(int): (bool) $continuationFollowerIsEligibleCallback
      * @param \Closure(): (void) $endContainerAttributeScopeCallback
+     * @param \Closure(array<string>, int, bool): (int) $commentOnlyParagraphEndCallback
      * @param \Closure(string): (bool) $isBlockAttributeLineCallback
      * @param \Closure(string, int): (bool) $isCommentLineOrFenceCallback
      * @param \Closure(string, bool): (bool) $isInvisibleOrAttributeLineCallback
@@ -78,6 +79,7 @@ final class DefinitionListBuilder
         private Closure $consumeLooseKeyCallback,
         private Closure $continuationFollowerIsEligibleCallback,
         private Closure $endContainerAttributeScopeCallback,
+        private Closure $commentOnlyParagraphEndCallback,
         private Closure $isBlockAttributeLineCallback,
         private Closure $isCommentLineOrFenceCallback,
         private Closure $isInvisibleOrAttributeLineCallback,
@@ -504,6 +506,7 @@ final class DefinitionListBuilder
         $blanks = 0;
         $end = $i;
         $at = $i;
+        $paragraphSkipped = false;
         while ($at < $count) {
             $line = $lines[$at];
             if (IndentationHelper::isBlankLine($line)) {
@@ -516,6 +519,12 @@ final class DefinitionListBuilder
             $consumed = str_starts_with($trimmed, '%%')
                 ? $this->tryParseFencedComment($holder, $lines, $at) ?? $this->tryParseComment($holder, [$trimmed], 0)
                 : null;
+            // A paragraph of only comments is skipped as a `%%` line is (carve#4799).
+            $paragraphEnd = $consumed === null ? ($this->commentOnlyParagraphEndCallback)($lines, $at, $parent instanceof ListItem) : -1;
+            if ($paragraphEnd !== -1) {
+                $consumed = $paragraphEnd - $at;
+                $paragraphSkipped = true;
+            }
             if (
                 $consumed === null && !$this->isDocumentAbbreviation($parent, $trimmed)
                 && (!$this->isReferenceDefinitionLine($trimmed) || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) === 1)
@@ -525,7 +534,11 @@ final class DefinitionListBuilder
             $at += $consumed ?? 1;
             $end = $at;
         }
-        if ($end === $i || $blanks >= 3 || $at >= $count || preg_match($pattern, ltrim($lines[$at], " \t")) !== 1) {
+        if (
+            $end === $i || $blanks >= 3 || $at >= $count || preg_match($pattern, ltrim($lines[$at], " \t")) !== 1
+            // A paragraph is not read into the description above, so the entry must stand at the list's column.
+            || ($paragraphSkipped && preg_match($pattern, $lines[$at]) !== 1)
+        ) {
             return $i;
         }
 

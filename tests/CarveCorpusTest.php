@@ -1659,10 +1659,6 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
-        '933-a-list-marker-in-an-item-ends-a-comment-only-paragraph' => 'carve#4890: a list marker in an item ends a comment only paragraph',
-        '933-a-list-marker-in-an-item-ends-a-comment-only-paragraph-2' => 'carve#4890: a list marker in an item ends a comment only paragraph',
-        '933-a-list-marker-in-an-item-ends-a-comment-only-paragraph-3' => 'carve#4890: a list marker in an item ends a comment only paragraph',
-        '933-a-list-marker-in-an-item-ends-a-comment-only-paragraph-4' => 'carve#4890: a list marker in an item ends a comment only paragraph',
         '880-an-own-line-plus-reaches-a-marker-line-quote-at-its-authored-column-3' => 'carve#4702: own-line plus reaches a marker-line quote',
         '882-attributed-bracket-spans-share-the-inline-cap' => 'carve#4681: attributed bracket spans share the inline cap',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',
@@ -1679,13 +1675,8 @@ class CarveCorpusTest extends TestCase
         '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',
         '873-a-plus-after-an-attached-block-reaches-its-host-through-quote-prefixes-2' => 'carve#4649: a plus reaches its host through quote prefixes',
         '806-a-marker-folds-into-the-paragraph-a-first-block-plus-took-3' => 'carve#4545: a marker folds into the paragraph a first block plus took',
-        '869-a-braced-comment-line-after-a-plus-is-the-attached-paragraph' => 'carve#4799: a braced comment line after a plus is the attached paragraph',
         '922-a-wrapped-attribute-lead-is-invisible-to-list-looseness' => 'carve#4758: a wrapped attribute lead is invisible to list looseness',
         '922-a-wrapped-attribute-lead-is-invisible-to-list-looseness-2' => 'carve#4758: a wrapped attribute lead is invisible to list looseness',
-        '926-a-quote-holding-only-braced-comments-is-not-a-caption-host' => 'carve#4799: a quote holding only braced comments is not a caption host',
-        '928-a-multi-line-paragraph-of-only-braced-comments-is-an-invisible-line' => 'carve#4799: a multi line paragraph of only braced comments is an invisible line',
-        '928-a-multi-line-paragraph-of-only-braced-comments-is-an-invisible-line-2' => 'carve#4799: a multi line paragraph of only braced comments is an invisible line',
-        '928-a-multi-line-paragraph-of-only-braced-comments-is-an-invisible-line-3' => 'carve#4799: a multi line paragraph of only braced comments is an invisible line',
         '179-an-abbreviation-definition-is-recognized-only-at-document-level' => 'carve#4865: an abbreviation definition is recognized only at document level',
         '180-a-list-item-does-not-define-an-abbreviation-either' => 'carve#4865: a list item does not define an abbreviation either',
         '181-a-div-does-not-define-an-abbreviation-either' => 'carve#4865: a div does not define an abbreviation either',

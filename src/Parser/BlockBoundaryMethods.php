@@ -237,6 +237,12 @@ trait BlockBoundaryMethods
             if ($this->isInvisibleOrAttributeLine($stripped, false)) {
                 continue;
             }
+            $commentParagraphEnd = $this->commentOnlyParagraphEnd($lines, $j, true);
+            if ($commentParagraphEnd !== -1) {
+                $j = $commentParagraphEnd - 1;
+
+                continue;
+            }
 
             $authored = ltrim($stripped, " \t");
             if (

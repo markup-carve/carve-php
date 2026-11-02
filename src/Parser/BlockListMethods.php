@@ -73,6 +73,13 @@ trait BlockListMethods
             $line = $trimmed;
         }
 
+        // A paragraph of only comments is invisible as a `%%` line is (carve#4799).
+        $commentParagraphEnd = $this->commentOnlyParagraphEnd($lines, $i, true);
+        if ($commentParagraphEnd !== -1) {
+            $next = $this->firstVisibleLineAfterInvisible($lines, $commentParagraphEnd - 1, $baseIndent, $contentIndent);
+
+            return $next === null || $this->lineOpensBlockForLooseness($next);
+        }
         if (!$this->lineOpensBlockForLooseness($line)) {
             return false;
         }

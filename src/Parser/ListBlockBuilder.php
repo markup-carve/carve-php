@@ -65,6 +65,7 @@ final class ListBlockBuilder
      * @param \Closure(array<string>, int, int, int, int, array<string>, array<int, int>, array<int, true>): (int) $collectMarkerLeadItemCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Block\ListBlock|\MarkupCarve\Carve\Node\Block\DefinitionList): (void) $consumeLooseKeyCallback
      * @param \Closure(array<string>, int, int): (int) $containerExtentBeforeADefinitionCallback
+     * @param \Closure(array<string>, int, bool): (int) $commentOnlyParagraphEndCallback
      * @param \Closure(array<string>): (bool) $contentRendersNothingCallback
      * @param \Closure(int, int, array<string>): (bool) $continuationMarkerHasIndentedFollowerCallback
      * @param \Closure(array<string>, int, int, int, bool): (?int) $footnoteBodyResumesAfterCallback
@@ -103,6 +104,7 @@ final class ListBlockBuilder
         private Closure $collectMarkerLeadItemCallback,
         private Closure $consumeLooseKeyCallback,
         private Closure $containerExtentBeforeADefinitionCallback,
+        private Closure $commentOnlyParagraphEndCallback,
         private Closure $contentRendersNothingCallback,
         private Closure $continuationMarkerHasIndentedFollowerCallback,
         private Closure $footnoteBodyResumesAfterCallback,
@@ -192,6 +194,12 @@ final class ListBlockBuilder
             static fn (string $line): bool => !IndentationHelper::isBlankLine($line),
         );
         $commentLead = str_starts_with($lead['content'], '%%') ? [$lead['content']] : [];
+        // A lead paragraph of only comments is invisible as a `%%` lead is (carve#4799).
+        $leadParagraphEnd = $this->commentOnlyParagraphEnd([$lead['content'], ...array_slice($lines, $j + 1, $i - $j - 1)], 0, true);
+        if ($leadParagraphEnd !== -1) {
+            $commentLead = ['%%'];
+            $below = array_filter($below, static fn (int $offset): bool => $offset >= $leadParagraphEnd - 1, ARRAY_FILTER_USE_KEY);
+        }
         $contentIndent = $baseIndent + $this->listMarkerWidth(ltrim($lines[$j], " \t"), $lead);
         $noteBodyFloor = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $lead['content']) === 1
             ? $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN : null;
@@ -265,10 +273,15 @@ final class ListBlockBuilder
         return false;
     }
 
+    private static function rendersNothing(Node $node): bool
+    {
+        return $node instanceof Comment || ($node instanceof Paragraph && $node->rendersNothing());
+    }
+
     private function rendersSomething(ListItem $item): bool
     {
         foreach ($item->getChildren() as $child) {
-            if (!$child instanceof Comment) {
+            if (!self::rendersNothing($child)) {
                 return true;
             }
         }
@@ -369,7 +382,7 @@ final class ListBlockBuilder
             $before = $this->mergeAdjacentDefinitionLists($lastItem, $children, $before, $hardDefinitionBoundary);
             $visibleContinuation = array_filter(
                 array_slice($lastItem->getChildren(), $before),
-                static fn (Node $child): bool => !$child instanceof Comment,
+                static fn (Node $child): bool => !self::rendersNothing($child),
             );
             $firstSubLine = current(array_filter($subLines, static fn (string $l): bool => !IndentationHelper::isBlankLine($l)));
             if ($visibleContinuation === []) {
@@ -382,7 +395,7 @@ final class ListBlockBuilder
                 && ($this->isFoldableInvisibleLine(ltrim($firstSubLine, " \t")) || str_starts_with(ltrim($firstSubLine, " \t"), '%%'));
             if ($lastItemHadBlankAfter && ($subRetainedMarker || $firstSubInvisible)) {
                 foreach (array_slice($lastItem->getChildren(), $before) as $child) {
-                    if ($child instanceof Comment) {
+                    if (self::rendersNothing($child)) {
                         continue;
                     }
                     if ($child instanceof Paragraph) {
@@ -453,7 +466,7 @@ final class ListBlockBuilder
     private function firstVisible(array $nodes): ?Node
     {
         foreach ($nodes as $node) {
-            if (!$node instanceof Comment) {
+            if (!self::rendersNothing($node)) {
                 return $node;
             }
         }
@@ -875,7 +888,7 @@ final class ListBlockBuilder
             // Get indentation of current line
             $currentIndent = IndentationHelper::getLeadingColumns($currentLine);
             $sourceLine = $this->sourceLineFor($i);
-            $afterComments = $this->carryCommentRunToLastItem($list, $lines, $i, $count, $baseIndent, $lastItemContentIndent, $listInfo, $firstItem, $parent instanceof Document);
+            $afterComments = $this->carryCommentRunToLastItem($list, $lines, $i, $count, $baseIndent, $lastItemContentIndent, $listInfo, $firstItem, $parent instanceof Document, $parent instanceof ListItem);
             if ($afterComments !== null) {
                 $i = $afterComments;
 
@@ -1728,7 +1741,8 @@ final class ListBlockBuilder
                     || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $subContent) === 1);
             // A term or description below a collected term continues that description list too.
             $continuesCollectedList = ($subSawListMarker
-                && ($this->getListParser)()->parseListItemMarker($subContent) !== null)
+                && (($this->getListParser)()->parseListItemMarker($subContent) !== null
+                    || ($lineIndent === $subIndent && $this->commentParagraphBeforeMarker($lines, $i, $count, $subIndent))))
                 || ($subSawTerm && ($opensTermOrDescription
                     || ($lineIndent === $subIndent && $this->invisibleRunReachesADescription($lines, $i, $count, $subIndent))));
             $subSawTerm = $subSawTerm
@@ -2944,6 +2958,16 @@ final class ListBlockBuilder
     }
 
     /**
+     * @param array<string> $lines
+     * @param int $k
+     * @param bool $inItem
+     */
+    private function commentOnlyParagraphEnd(array $lines, int $k, bool $inItem): int
+    {
+        return ($this->commentOnlyParagraphEndCallback)($lines, $k, $inItem);
+    }
+
+    /**
      * @param int $index
      * @param int $count
      * @param array<string> $lines
@@ -3005,13 +3029,15 @@ final class ListBlockBuilder
      * @param int $baseIndent
      * @param array<string, mixed> $listInfo
      * @param bool $atDocument Only the document owns an abbreviation definition.
+     * @param bool $inItem
      */
-    private function commentRunBeforeSibling(array $lines, int $i, int $count, int $baseIndent, array $listInfo, bool $atDocument): ?int
+    private function commentRunBeforeSibling(array $lines, int $i, int $count, int $baseIndent, array $listInfo, bool $atDocument, bool $inItem): ?int
     {
         $roles = $this->commentRoles($lines);
         if (
             ($roles[$i] ?? null) !== 'line' && ($roles[$i] ?? null) !== 'open'
             && !$this->isListTransparentDefinition(ltrim($lines[$i], " \t"), $atDocument)
+            && $this->commentOnlyParagraphEnd($lines, $i, $inItem) === -1
         ) {
             return null;
         }
@@ -3029,7 +3055,11 @@ final class ListBlockBuilder
             } elseif (isset($roles[$k]) || $this->isListTransparentDefinition(ltrim($lines[$k], " \t"), $atDocument)) {
                 $j = ++$k;
             } else {
-                break;
+                $paragraphEnd = $this->commentOnlyParagraphEnd($lines, $k, $inItem);
+                if ($paragraphEnd === -1) {
+                    break;
+                }
+                $j = $k = $paragraphEnd;
             }
         }
         if ($blanks >= 3) {
@@ -3041,6 +3071,31 @@ final class ListBlockBuilder
         $info = ($this->getListParser)()->parseListItemMarker(ltrim($lines[$k], " \t"));
 
         return $info !== null && ($this->getListParser)()->itemMatchesList($listInfo, $info) ? $j : null;
+    }
+
+    /**
+     * Whether a paragraph of only comments at `$i` stands before a list marker at or past `$column`.
+     * The marker continues the collected list, as it does past a `%%` line (carve#4799).
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     * @param int $column
+     */
+    private function commentParagraphBeforeMarker(array $lines, int $i, int $count, int $column): bool
+    {
+        $k = $this->commentOnlyParagraphEnd($lines, $i, true);
+        if ($k === -1) {
+            return false;
+        }
+        $blanks = 0;
+        while ($k < $count && IndentationHelper::isBlankLine($lines[$k])) {
+            $blanks++;
+            $k++;
+        }
+
+        return $blanks < 3 && $k < $count && IndentationHelper::getLeadingColumns($lines[$k]) >= $column
+            && ($this->getListParser)()->parseListItemMarker(ltrim($lines[$k], " \t")) !== null;
     }
 
     /**
@@ -3223,6 +3278,7 @@ final class ListBlockBuilder
      * @param array<string, mixed> $listInfo
      * @param bool $firstItem
      * @param bool $atDocument
+     * @param bool $inItem
      *
      * @return int|null The index after the run, or null when no run was carried.
      */
@@ -3236,8 +3292,9 @@ final class ListBlockBuilder
         array $listInfo,
         bool $firstItem,
         bool $atDocument,
+        bool $inItem,
     ): ?int {
-        $end = $firstItem ? null : $this->commentRunBeforeSibling($lines, $i, $count, $baseIndent, $listInfo, $atDocument);
+        $end = $firstItem ? null : $this->commentRunBeforeSibling($lines, $i, $count, $baseIndent, $listInfo, $atDocument, $inItem);
         $lastItem = $end === null ? null : ($this->getListParser)()->getLastListItem($list);
         if ($end === null || $lastItem === null) {
             return null;

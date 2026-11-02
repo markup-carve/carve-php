@@ -150,6 +150,13 @@ class BlockParser
     protected const LAZY_FRAME = BlockGrammar::LAZY_FRAME;
 
     /**
+     * Braced comments, whitespace and `%%` tails after a space, and nothing else (carve#4799).
+     *
+     * @var string
+     */
+    private const COMMENT_ONLY_PARAGRAPH_PATTERN = '/^(?:\{%(?![\p{Mn}\p{Mc}\p{Me}\x{FE00}-\x{FE0F}\x{200D}])(?>(?:(?!%\}).)*)%\}|[ \t\n\r]|(?<= )%%[^\n\r]*+)*+$/su';
+
+    /**
      * Abbreviation separators are maximal runs of ASCII spaces. A tab or
      * no-break space after the run belongs to the expansion. A tab cannot
      * replace the required space after `]:`. Whitespace-only
@@ -342,6 +349,7 @@ class BlockParser
             fn (string $line): bool => $this->isReferenceDefinitionLine($line),
             fn (string $line): bool => $this->isBlockAttributeLine($line),
             fn (array $run): ?int => WrappedBlockAttributeScanner::scan($run, 0, $this->inlineParser)['length'] ?? null,
+            $this->commentOnlyParagraphEnd(...),
         );
         $walk->own($lines, PlusLetter::for(implode("\n", $lines)));
 
@@ -756,6 +764,7 @@ class BlockParser
             fn (string $line): bool => $this->isReferenceDefinitionLine($line),
             fn (string $line): bool => $this->isBlockAttributeLine($line),
             fn (array $run): ?int => WrappedBlockAttributeScanner::scan($run, 0, $this->inlineParser)['length'] ?? null,
+            $this->commentOnlyParagraphEnd(...),
         );
         // Only the root document is traced; a parse re-entered from it is not.
         $walk->trace = $this->traceNext ? [] : null;
@@ -2188,6 +2197,11 @@ class BlockParser
      * after a blank does not answer the looseness question (PART 9 §17 L1b).
      * `$from` moves past the comments it read, so a comment run is read once.
      */
+    private static function rendersNothing(Node $node): bool
+    {
+        return $node instanceof Comment || ($node instanceof Paragraph && $node->rendersNothing());
+    }
+
     private static function hasVisibleChildFrom(Node $parent, int &$from): bool
     {
         $children = $parent->getChildren();
@@ -2195,7 +2209,7 @@ class BlockParser
             if (LayoutWork::$on) {
                 LayoutWork::$itemBlankChildReads++;
             }
-            if (!$children[$from] instanceof Comment) {
+            if (!self::rendersNothing($children[$from])) {
                 return true;
             }
         }
@@ -2268,7 +2282,7 @@ class BlockParser
             }
         }
         for ($index = $childrenBeforeBlank, $count = count($children); $index < $count; $index++) {
-            if ($children[$index] instanceof Paragraph) {
+            if ($children[$index] instanceof Paragraph && !$children[$index]->rendersNothing()) {
                 $this->state->session->recordParsedBlankBeforeParagraph($parent);
 
                 return;
@@ -2626,6 +2640,10 @@ class BlockParser
      */
     protected function applyPendingAttributes(Node $node): void
     {
+        // Pending attributes float past a paragraph of only comments, as past a `%%` line (carve#4799).
+        if ($node instanceof Paragraph && $node->holdsOnlyComments()) {
+            return;
+        }
         if ($this->state->session->pendingAttributes !== []) {
             $node->setAttributesWithOrder($this->state->session->pendingAttributes, $this->state->session->pendingAttributeOrder);
             $this->state->session->pendingAttributes = [];
@@ -4733,6 +4751,51 @@ class BlockParser
         return $this->isInvisibleOrAttributeLine($line, false);
     }
 
+    /**
+     * End of a paragraph of only braced comments that starts at `$k`, or -1.
+     *
+     * Such a paragraph renders nothing, so layout reads it as it reads a `%%` line (carve#4799).
+     * A block opener, `%%` line or attribute line ends it, and so does a list marker in an
+     * item body (PART 9 §24 C3); elsewhere the marker joins the paragraph and keeps it visible.
+     *
+     * @param array<string> $lines
+     * @param int $k
+     * @param bool $inItem
+     */
+    protected function commentOnlyParagraphEnd(array $lines, int $k, bool $inItem): int
+    {
+        if (!str_starts_with(ltrim($lines[$k] ?? '', " \t"), '{%')) {
+            return -1;
+        }
+        $count = count($lines);
+        $end = $k + 1;
+        for (; $end < $count && !IndentationHelper::isBlankLine($lines[$end]); $end++) {
+            $rest = ltrim($lines[$end], " \t");
+            if (
+                preg_match('/^(?:#{1,6} +(?=.*[^ \t\n\r])|>(?: |[ \t]*$)|::(?!:) +(?=[ \t]*[^ \t\n\r])|%%)/', $rest) === 1
+                || preg_match('/^(?:-{3,}|\*{3,}|_{3,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/', $rest) === 1
+                || $this->tableParser->isTableRowHead($rest)
+                || $this->isReferenceDefinitionLine($rest)
+                || $this->isAbbreviationDefinitionLine($rest)
+                || $this->isBlockAttributeLine($rest)
+            ) {
+                break;
+            }
+            if ($this->listParser->parseListItemMarker($rest) !== null) {
+                if ($inItem) {
+                    break;
+                }
+
+                return -1;
+            }
+            if ($this->isBlockElementStart($rest)) {
+                break;
+            }
+        }
+
+        return preg_match(self::COMMENT_ONLY_PARAGRAPH_PATTERN, implode("\n", array_slice($lines, $k, $end - $k))) === 1 ? $end : -1;
+    }
+
     protected function isInvisibleOrAttributeLine(string $line, bool $abbreviationCounts = true): bool
     {
         if ($this->isBlockAttributeLine($line)) {
@@ -4811,7 +4874,7 @@ class BlockParser
     private static function holdsNothingCaptionable(Node $node): bool
     {
         foreach ($node->getChildren() as $child) {
-            if ($child instanceof Comment) {
+            if (self::rendersNothing($child)) {
                 continue;
             }
             $container = $child instanceof BlockQuote
@@ -5946,6 +6009,7 @@ class BlockParser
             collectMarkerLeadItemCallback: $this->collectMarkerLeadItem(...),
             consumeLooseKeyCallback: $this->consumeLooseKey(...),
             containerExtentBeforeADefinitionCallback: $this->containerExtentBeforeADefinition(...),
+            commentOnlyParagraphEndCallback: $this->commentOnlyParagraphEnd(...),
             contentRendersNothingCallback: $this->contentRendersNothing(...),
             continuationMarkerHasIndentedFollowerCallback: $this->continuationMarkerHasIndentedFollower(...),
             footnoteBodyResumesAfterCallback: $this->footnoteBodyResumesAfter(...),
@@ -5985,6 +6049,7 @@ class BlockParser
             consumeLooseKeyCallback: $this->consumeLooseKey(...),
             continuationFollowerIsEligibleCallback: $this->continuationFollowerIsEligible(...),
             endContainerAttributeScopeCallback: $this->endContainerAttributeScope(...),
+            commentOnlyParagraphEndCallback: $this->commentOnlyParagraphEnd(...),
             isBlockAttributeLineCallback: $this->isBlockAttributeLine(...),
             isCommentLineOrFenceCallback: $this->isCommentLineOrFence(...),
             isInvisibleOrAttributeLineCallback: $this->isInvisibleOrAttributeLine(...),

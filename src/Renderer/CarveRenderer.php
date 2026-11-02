@@ -1651,8 +1651,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $listSeparated = $previousEmitted instanceof DefinitionList || $previousDescriptionList;
                     $previousList = null;
                     $previousDescriptionList = true;
-                } elseif ($block instanceof Comment) {
-                    // A comment parts no siblings (carve#4716): the boundary still goes behind it.
+                } elseif (self::partsNoSiblings($block)) {
+                    // A comment parts no siblings (carve#4716, carve#4799): the boundary still goes behind it.
                     $listSeparated = false;
                 } elseif (self::spellsSomething($rendered)) {
                     $previousList = null;
@@ -1886,6 +1886,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     private static function holdsNothing(Node $block): bool
     {
+        if (self::partsNoSiblings($block)) {
+            return true;
+        }
         if ($block instanceof Div) {
             if ($block->isTyped() || $block->getLabel() !== null || $block->getHeader() !== null) {
                 return false;
@@ -2733,6 +2736,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $current instanceof Paragraph;
     }
 
+    /**
+     * A comment, or a paragraph of only comments, parts no siblings (carve#4716, carve#4799).
+     */
+    private static function partsNoSiblings(?Node $block): bool
+    {
+        return $block instanceof Comment || ($block instanceof Paragraph && $block->rendersNothing());
+    }
+
     private function openParagraphReachesDown(?Node $block): bool
     {
         while ($block !== null) {
@@ -2892,14 +2903,23 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
                     continue;
                 }
-                if (!$previousEmitted instanceof Comment) {
+                if (!self::partsNoSiblings($previousEmitted)) {
                     $previousBeforeComments = $previousEmitted;
                 }
                 if ($out !== '') {
                     $out .= "\n";
                 }
+                // A paragraph of only comments is no block start, so a blank keeps an open paragraph above from taking it (carve#4799).
+                if ($child instanceof Paragraph && $child->rendersNothing() && $previousEmitted !== null && $this->openParagraphReachesDown($previousEmitted)) {
+                    $out .= "\n" . $rendered;
+                    $previous = $child;
+                    $previousEmitted = $child;
+                    $atMarkerColumn = false;
+
+                    continue;
+                }
                 // A comment parts no siblings (carve#4716): the boundary is read past it.
-                $boundaryPeer = $previousEmitted instanceof Comment ? $previousBeforeComments : $previousEmitted;
+                $boundaryPeer = self::partsNoSiblings($previousEmitted) ? $previousBeforeComments : $previousEmitted;
                 if (!$separated && $boundaryPeer instanceof DefinitionList && $child instanceof DefinitionList) {
                     $out .= $this->listBoundary() . $rendered;
                     $previous = $child;
