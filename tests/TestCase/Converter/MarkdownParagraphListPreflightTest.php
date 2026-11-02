@@ -33,7 +33,7 @@ final class MarkdownParagraphListPreflightTest extends TestCase
     public static function listHosts(): array
     {
         $rows = [];
-        foreach ([['-', '-'], ['*', '*'], ['1.', '2.'], ['1)', '2)'], ['a.', 'b.'], ['A)', 'B)'], ['iv.', 'v.'], ['IX)', 'X)']] as [$first, $second]) {
+        foreach ([['-', '-'], ['*', '*'], ['1.', '2.'], ['1)', '2)'], ['a. ', 'b. '], ['A)', 'B)'], ['iv. ', 'v. '], ['IX)', 'X)']] as [$first, $second]) {
             foreach (['', '> ', '> > '] as $prefix) {
                 foreach (['', "Intro text\n\n"] as $intro) {
                     $rows[$prefix . $first . $intro] = [$first, $second, $prefix, $intro];

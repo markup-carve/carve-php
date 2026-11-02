@@ -795,24 +795,20 @@ class InlineParserTest extends TestCase
     /**
      * Test: an inner italic delimiter between alphanumerics is not a closer
      *
-     * In Carve the intraword rule applies to the italic delimiter: a '/'
-     * immediately followed by an alphanumeric cannot close emphasis, so
-     * the span runs to the final '/' and the inner slash stays literal.
+     * A '/' between two alphanumerics closes nothing, and the bare span
+     * holding it declines at its closer, so every slash stays literal
+     * (carve#4810).
      */
     public function testEmphasisInnerSlashBetweenAlnumIsLiteral(): void
     {
         $para = $this->parseInline('/foo (a/b) bar/');
 
-        $children = $para->getChildren();
-        $this->assertCount(1, $children);
-        $this->assertInstanceOf(Emphasis::class, $children[0]);
-
         $text = '';
-        foreach ($children[0]->getChildren() as $child) {
+        foreach ($para->getChildren() as $child) {
             $this->assertInstanceOf(Text::class, $child);
             $text .= $child->getContent();
         }
-        $this->assertSame('foo (a/b) bar', $text);
+        $this->assertSame('/foo (a/b) bar/', $text);
     }
 
     /**

@@ -24,8 +24,8 @@ class CaptionNumberPlaceholderTest extends TestCase
     public static function captions(): iterable
     {
         yield 'word-glued bare hash' => ['Figure#* q', 'Figure1* q'];
-        yield 'numeric tag' => ['Figure #1 q', 'Figure <span class="tag"><strong>#1</strong></span> q'];
-        yield 'underscore tag' => ['Figure #_ q', 'Figure <span class="tag"><strong>#_</strong></span> q'];
+        yield 'numeric tag' => ['Figure #1 q', 'Figure #1 q'];
+        yield 'underscore tag' => ['Figure #_ q', 'Figure #_ q'];
         yield 'hyphenated tag' => ['Figure #-a q', 'Figure <span class="tag"><strong>#-a</strong></span> q'];
     }
 }

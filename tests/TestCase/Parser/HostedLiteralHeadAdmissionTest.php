@@ -15,7 +15,7 @@ class HostedLiteralHeadAdmissionTest extends TestCase
     public function testMarkerKindsAndPipePaddingKeepTheDescendantScope(): void
     {
         $converter = new CarveConverter();
-        foreach (['- ' => 2, '10. ' => 4, 'a. ' => 3, 'iv) ' => 4, '- [ ] ' => 2] as $marker => $width) {
+        foreach (['- ' => 2, '10. ' => 4, 'a.  ' => 4, 'iv) ' => 4, '- [ ] ' => 2] as $marker => $width) {
             $body = str_repeat(' ', 2 + $width);
             $source = "> - ::: box\n>   " . $marker . "::: |\n> " . $body . "```\n> " . $body
                 . ":::\n>    ```\n>    :::bad\n>    :::\n- tail\n";
@@ -57,7 +57,7 @@ class HostedLiteralHeadAdmissionTest extends TestCase
     public function testAHostedQuoteReleasesDescriptionsAfterEveryTermMarker(): void
     {
         $converter = new CarveConverter();
-        foreach (['', '- ', 'a. ', 'iv) ', '- [ ] ', '-{.c} '] as $marker) {
+        foreach (['', '- ', 'a.  ', 'iv) ', '- [ ] ', '-{.c} '] as $marker) {
             $source = '- > ' . $marker . ":: t\n  : body\n";
             $html = $converter->convert($source);
             self::assertStringNotContainsString('<dd>', $html, $marker);

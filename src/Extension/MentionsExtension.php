@@ -78,8 +78,11 @@ class MentionsExtension implements BeforeRenderExtensionInterface
             // punctuation. Same shape as the tag pattern below (grammar
             // PART 9 §7; corpus 89-mention-and-tag-name-boundaries).
             '/(?<![A-Za-z0-9_])@([a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*)/',
-            function (string $match, array $groups) use ($mentionUrl, $mentionClass): Mention {
+            function (string $match, array $groups) use ($mentionUrl, $mentionClass): ?Mention {
                 $name = $groups[1];
+                if (!self::holdsNameLetter($name)) {
+                    return null;
+                }
 
                 $node = new Mention(
                     $mentionClass,
@@ -100,8 +103,11 @@ class MentionsExtension implements BeforeRenderExtensionInterface
         $tagClass = $this->tagClass;
         $inlineParser->addInlinePattern(
             '/(?<![A-Za-z0-9_])#([a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*)/',
-            function (string $match, array $groups) use ($tagUrl, $tagClass): Mention {
+            function (string $match, array $groups) use ($tagUrl, $tagClass): ?Mention {
                 $name = $groups[1];
+                if (!self::holdsNameLetter($name)) {
+                    return null;
+                }
 
                 $node = new Mention(
                     $tagClass,
@@ -117,6 +123,14 @@ class MentionsExtension implements BeforeRenderExtensionInterface
                 return $node;
             },
         );
+    }
+
+    /**
+     * A name holds an ASCII letter (carve#4809): `#123` and `@5` stay text.
+     */
+    public static function holdsNameLetter(string $name): bool
+    {
+        return preg_match('/[A-Za-z]/', $name) === 1;
     }
 
     public function beforeRender(Document $document, BeforeRenderContext $context): Document

@@ -73,11 +73,11 @@ class AnOrderedTaskItemImportsAtItsContentColumnTest extends TestCase
             // fix covers them - asserted rather than assumed.
             'alphabetic markers' => [
                 '<ol type="a"><li><input type="checkbox"> a<p>body</p></li></ol>',
-                "a. [ ] a\n\n   body\n",
+                "a.  [ ] a\n\n    body\n",
             ],
             'roman markers' => [
                 '<ol type="i"><li><input type="checkbox"> a<p>body</p></li></ol>',
-                "i. [ ] a\n\n   body\n",
+                "i.  [ ] a\n\n    body\n",
             ],
             // A WIDER MARKER MOVES THE COLUMN WITH IT: `10. ` is four wide.
             // This is the case that would still pass under a fix that hard-coded

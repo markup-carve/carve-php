@@ -266,6 +266,8 @@ final class EmphasisRenderer
                 || ($pair->start >= 2 && substr($this->source, $pair->start - 2, 2) === '{}' && !$this->escapedAt($pair->start - 2))
                 || preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content) === 1
                 || str_starts_with($content, $delimiter) || str_ends_with($content, $delimiter)
+                // A bare span holding its delimiter between two word characters declines (carve#4810).
+                || preg_match('/[\p{L}\p{N}]' . preg_quote($delimiter, '/') . '[\p{L}\p{N}]/u', $content) === 1
                 || ($delimiter === '/' && (($this->source[$pair->start - 1] ?? '') === '/' || ($this->source[$pair->end] ?? '') === '/'))
                 || ($delimiter === '/' && preg_match('/\/[[:punct:]’“”]/u', $content) === 1)
                 || ($delimiter === '/' && str_starts_with($content, '*') && str_ends_with($content, '*'));

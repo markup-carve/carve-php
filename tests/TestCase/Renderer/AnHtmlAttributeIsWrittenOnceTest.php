@@ -20,7 +20,7 @@ class AnHtmlAttributeIsWrittenOnceTest extends TestCase
     public static function provideShapes(): array
     {
         return [
-            'ordered type' => ["{type=x}\na. alpha\n", "<ol type=\"a\">\n  <li>alpha</li>\n</ol>"],
+            'ordered type' => ["{type=x}\na.  alpha\n", "<ol type=\"a\">\n  <li>alpha</li>\n</ol>"],
             'ordered start' => ["{start=9}\n3. x\n", "<ol start=\"3\">\n  <li>x</li>\n</ol>"],
             'start without a structural one' => ["{start=9}\n1. x\n", "<ol start=\"9\">\n  <li>x</li>\n</ol>"],
             'image alt' => ["![a](/u.png){ALT=z}\n", '<img src="/u.png" alt="a">'],

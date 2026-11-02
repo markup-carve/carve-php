@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Converter\Markdown\DestinationEncoding;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Extension\Frontmatter;
+use MarkupCarve\Carve\Extension\MentionsExtension;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockExtension;
 use MarkupCarve\Carve\Node\Block\BlockNode;
@@ -2270,6 +2271,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 && $node->getStart() === 1
                 && $node->getStyle() === null
                 && $delim === '.';
+            // A letter `.` marker needs two spaces (carve#4811).
+            $orderedSeparator = $delim === '.' && in_array($node->getStyle(), ['a', 'A', 'i', 'I'], true) ? '  ' : ' ';
             $children = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof ListItem));
             foreach ($children as $index => $item) {
                 // NO absolute depth term here. The parent item's continuation
@@ -2283,7 +2286,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($node->getListType() === ListBlock::TYPE_ORDERED) {
                     $prefix = $bareDot
                         ? '. '
-                        : $this->orderedMarker($counter, $node->getStyle()) . $delim . ' ';
+                        : $this->orderedMarker($counter, $node->getStyle()) . $delim . $orderedSeparator;
                     $counter++;
                 } elseif ($item->isTask()) {
                     $prefix = $bullet . ' ' . self::taskMarker($item) . ' ';
@@ -2295,7 +2298,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $itemAttrs = $this->renderAttrs($item);
                 if ($itemAttrs !== '') {
                     $prefix = $node->getListType() === ListBlock::TYPE_ORDERED
-                        ? rtrim($prefix) . $itemAttrs . ' '
+                        ? rtrim($prefix) . $itemAttrs . ($bareDot ? ' ' : $orderedSeparator)
                         : $bullet . $itemAttrs . ($item->isTask() ? ' ' . self::taskMarker($item) . ' ' : ' ');
                 }
 
@@ -5812,7 +5815,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function isMentionName(string $name): bool
     {
-        return preg_match('/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$/', $name) === 1;
+        return preg_match('/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$/', $name) === 1
+            && MentionsExtension::holdsNameLetter($name);
     }
 
     /**
@@ -5974,6 +5978,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             || preg_match('/\A[\p{Mn}\p{Mc}\p{Me}\x{FE00}-\x{FE0F}\x{200D}]/u', $nextChar) === 1
             || str_starts_with($content, $delimiter)
             || str_ends_with($content, $delimiter)
+            // A bare span holding its delimiter between two word characters declines (carve#4810).
+            || preg_match('/[\p{L}\p{N}]' . preg_quote($delimiter, '/') . '[\p{L}\p{N}]/u', $content) === 1
             // Whitespace against a bare delimiter stops it opening or closing,
             // and a trailing line break puts the closer at the start of the next
             // line, where only the braced closer closes.

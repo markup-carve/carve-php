@@ -86,7 +86,8 @@ class TheMarkerByteScreenRejectsOnlyNonMarkersTest extends TestCase
         }
 
         // Without accepted lines the comparison would prove nothing.
-        $this->assertGreaterThan(500, $accepted);
+        // 450 since a one-space letter `.` head stopped being a marker (carve#4811).
+        $this->assertGreaterThan(400, $accepted);
     }
 
     public function testTheCommentOpenerScreenAgreesWithTheTrimmedRead(): void

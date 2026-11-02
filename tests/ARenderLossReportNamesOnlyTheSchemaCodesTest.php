@@ -146,11 +146,11 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
             $seen[$loss['code']] = true;
         }
 
-        $styleReport = (new CarveConverter(renderer: new MarkdownRenderer()))->convertWithReport("a. one\n");
+        $styleReport = (new CarveConverter(renderer: new MarkdownRenderer()))->convertWithReport("a.  one\n");
         foreach ($styleReport->losses as $loss) {
             $seen[$loss['code']] = true;
         }
-        $delimiterReport = (new CarveConverter(renderer: new MarkdownRenderer(), roundTripMode: true))->convertWithReport("a. one\n\n1. two\n");
+        $delimiterReport = (new CarveConverter(renderer: new MarkdownRenderer(), roundTripMode: true))->convertWithReport("a.  one\n\n1. two\n");
         foreach ($delimiterReport->losses as $loss) {
             self::assertContains($loss['code'], self::schemaCodes());
             $seen[$loss['code']] = true;

@@ -77,7 +77,7 @@ class SourceLinterTest extends TestCase
 
     public function testFenceWarningsRespectTheOwnerAndCloserColumn(): void
     {
-        foreach (["::: note\n::: tip\nx\n:::\n", "::: note\nx\n\n    :::\n", "a. ::: note\n   x\n"] as $source) {
+        foreach (["::: note\n::: tip\nx\n:::\n", "::: note\nx\n\n    :::\n", "a.  ::: note\n   x\n"] as $source) {
             $this->assertContains('unclosed-container-fence', array_column((new SourceLinter())->lint($source), 'rule'), $source);
         }
         $this->assertSame([], (new SourceLinter())->lint(":::: note\n:::\ninner\n:::\n::::\n"));

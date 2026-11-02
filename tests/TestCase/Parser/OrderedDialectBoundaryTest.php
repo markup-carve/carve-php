@@ -25,6 +25,6 @@ class OrderedDialectBoundaryTest extends TestCase
 
     public function testTwoBlankLinesStillPermitTheSiblingTieBreak(): void
     {
-        $this->assertStringContainsString('<ol type="i" start="5">', (new CarveConverter())->convert("v. x\n\n\nvi. y\n"));
+        $this->assertStringContainsString('<ol type="i" start="5">', (new CarveConverter())->convert("v.  x\n\n\nvi.  y\n"));
     }
 }

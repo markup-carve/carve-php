@@ -1442,7 +1442,7 @@ class CliTest extends TestCase
 
     public function testListStyleLossCanBeAllowed(): void
     {
-        $source = "a. one\n";
+        $source = "a.  one\n";
         $denied = $this->runCliInput(['--markdown', '--strict-losses'], $source);
         $allowed = $this->runCliInput(['--markdown', '--strict-losses', '--allow-loss', 'list-style-dropped'], $source);
 

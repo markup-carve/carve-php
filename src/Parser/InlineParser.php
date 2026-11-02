@@ -261,6 +261,20 @@ class InlineParser
 
     protected ?string $emphNoCloseText = null;
 
+    private ?BareDeclines $bareDeclines = null;
+
+    /**
+     * Declines the span content about to be parsed inherits (carve#4810).
+     */
+    private ?BareDeclines $heldDeclines = null;
+
+    /**
+     * Scan starts known to decline, by memo key: start to closer.
+     *
+     * @var array<string, array<int, int>>
+     */
+    private array $declineFrom = [];
+
     /**
      * @var array<string, \MarkupCarve\Carve\Parser\BracedEndMemo>
      */
@@ -894,6 +908,10 @@ class InlineParser
         // A nested parse must not wipe the enclosing text's scan memos.
         $outerNoCloseText = $this->emphNoCloseText;
         $outerNoCloseFrom = $this->emphNoCloseFrom;
+        $outerDeclineFrom = $this->declineFrom;
+        $outerDeclines = $this->bareDeclines;
+        $this->bareDeclines = $this->heldDeclines?->text === $text ? $this->heldDeclines : null;
+        $this->heldDeclines = null;
         $outerPairIndex = $this->bracedPairIndex;
         $inheritedPairIndex = $this->nextBracedPairIndex;
         $this->nextBracedPairIndex = null;
@@ -948,6 +966,8 @@ class InlineParser
             $this->inlineDepth--;
             $this->emphNoCloseText = $outerNoCloseText;
             $this->emphNoCloseFrom = $outerNoCloseFrom;
+            $this->declineFrom = $outerDeclineFrom;
+            $this->bareDeclines = $outerDeclines;
             $this->bracedPairIndex = $outerPairIndex;
             $this->nestedSubstitutions = $outerNestedSubs;
             $this->bracedEndFrom = $outerBracedEnds;
@@ -3800,6 +3820,11 @@ class InlineParser
             return null;
         }
 
+        // An entry of this kind that declines past here is still open (carve#4810).
+        if (!$openerIsBraced && $this->declinesPast($text, $pos, $delimiter)) {
+            return null;
+        }
+
         $actualClose = $this->delimitedClose($text, $pos, $delimiter, $openerIsBraced);
         if ($actualClose === null) {
             return null;
@@ -3808,7 +3833,13 @@ class InlineParser
             return ['node' => new Text(substr($text, $pos, $actualClose + 1 - $pos)), 'pos' => $actualClose + 1];
         }
         $node = new $nodeClass();
-        $this->parseSpanContent($node, substr($text, $pos + 1, $actualClose - $pos - 1), $pos + 1, $delimiter);
+        $content = substr($text, $pos + 1, $actualClose - $pos - 1);
+        $this->heldDeclines = $this->bareDeclines?->text === $text ? $this->bareDeclines->into($pos, $content) : null;
+        try {
+            $this->parseSpanContent($node, $content, $pos + 1, $delimiter);
+        } finally {
+            $this->heldDeclines = null;
+        }
 
         $endPos = $actualClose + 1;
 
@@ -3834,9 +3865,13 @@ class InlineParser
 
         $memoKey = $delimiter . ($openerIsBraced ? '}' : '');
         if (isset($this->emphNoCloseFrom[$memoKey][$searchStart])) {
+            $this->recordDecline($text, $searchStart, $this->declineFrom[$memoKey][$searchStart] ?? null, $delimiter);
+
             return null;
         }
         $failedStarts = [$searchStart];
+        // The first delimiter between two word characters: the span declines at its closer (carve#4810).
+        $innerDelimiter = null;
 
         // Only the constructs E2a names are opaque (markup-carve/carve#2027).
         // Link destinations met so far, by `(` index.
@@ -3859,6 +3894,14 @@ class InlineParser
                 continue;
             }
             if (isset($this->emphNoCloseFrom[$memoKey][$searchPos])) {
+                $declinesAt = $this->declineFrom[$memoKey][$searchPos] ?? null;
+                if ($declinesAt !== null) {
+                    $this->recordDecline($text, $searchStart, $declinesAt, $delimiter);
+                    $this->memoNoClose($memoKey, $failedStarts, $searchPos, $declinesAt);
+
+                    return null;
+                }
+
                 break;
             }
             $char = $text[$searchPos];
@@ -4074,6 +4117,9 @@ class InlineParser
                     // opener's left boundary, `_` does NOT block a closer.
                     $afterCloseAt = CommentFlank::after($text, $actualClose + 1);
                     if ($this->wordAfter($text, $afterCloseAt) || $this->hasGraphemeExtender($text, $afterCloseAt)) {
+                        if (!$openerIsBraced && $innerDelimiter === null && $this->wordAfter($text, $afterCloseAt) && $this->wordBefore($text, $beforeCloseAt)) {
+                            $innerDelimiter = $actualClose;
+                        }
                         $failedStarts[] = $actualClose + 1;
                         $searchPos = $actualClose + 1;
 
@@ -4086,6 +4132,13 @@ class InlineParser
                         $searchPos = $actualClose + 1;
 
                         continue;
+                    }
+
+                    if ($innerDelimiter !== null) {
+                        $this->recordDecline($text, $searchStart, $actualClose, $delimiter);
+                        $this->memoNoClose($memoKey, $failedStarts, $innerDelimiter, $actualClose);
+
+                        return null;
                     }
 
                     return $actualClose;
@@ -4103,6 +4156,43 @@ class InlineParser
         }
 
         return null;
+    }
+
+    /**
+     * Memoize the starts up to $last as declining at $closer: a later start can still close.
+     *
+     * @param string $memoKey
+     * @param array<int> $starts
+     * @param int $last
+     * @param int $closer
+     */
+    private function memoNoClose(string $memoKey, array $starts, int $last, int $closer): void
+    {
+        foreach ($starts as $start) {
+            if ($start <= $last) {
+                $this->emphNoCloseFrom[$memoKey][$start] = true;
+                $this->declineFrom[$memoKey][$start] = $closer;
+            }
+        }
+    }
+
+    private function recordDecline(string $text, int $from, ?int $closer, string $kind): void
+    {
+        if ($closer === null) {
+            return;
+        }
+        if ($this->bareDeclines?->text !== $text) {
+            $this->bareDeclines = new BareDeclines($text);
+        }
+        $this->bareDeclines->add($from, $closer, $kind);
+    }
+
+    /**
+     * Whether an entry of a kind in $kinds declines past $at, so it is still open there.
+     */
+    private function declinesPast(string $text, int $at, string $kinds): bool
+    {
+        return $this->bareDeclines?->text === $text && $this->bareDeclines->covers($at, $kinds);
     }
 
     /**
@@ -4238,6 +4328,9 @@ class InlineParser
     {
         $length = strlen($text);
         $start = $pos + 2; // skip '/*'
+        if ($this->declinesPast($text, $pos, '/*')) {
+            return null;
+        }
 
         // A `_` or `/` guard that is an open entry does not block it (carve#3973 X1).
         $beforeAt = CommentFlank::before($text, $pos);
@@ -5813,6 +5906,7 @@ class InlineParser
         }
         $this->emphNoCloseText = $text;
         $this->emphNoCloseFrom = [];
+        $this->declineFrom = [];
         $this->bracedPairIndex = null;
         $this->nestedSubstitutions = [];
         $this->bracedEndFrom = [];
