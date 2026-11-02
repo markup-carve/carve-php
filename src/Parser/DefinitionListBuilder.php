@@ -27,6 +27,11 @@ use WeakMap;
  */
 final class DefinitionListBuilder
 {
+    /**
+     * @var string
+     */
+    private const NOTE_MARKER_LINE_TERM = '/^[ \t]*(?:(?:[-*]|\.|\(?[0-9A-Za-z]+[.)]) +(?:\[.\] +)?|> ?)*\[\^[^\]]+\]:[ \t]+::[ \t]/';
+
     private WrappedAttributeRunScanner $wrappedAttributeScanner;
 
     /**
@@ -191,6 +196,10 @@ final class DefinitionListBuilder
                     $authored = ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '');
                     $separatorColumn = self::authoredSubjectColumn($authored, BlockGrammar::stripLazyFrame($nextLine));
                     $lazySeparator = $termColumn !== null && $separatorColumn !== null && $separatorColumn < $termColumn;
+                }
+                // A term on a note's marker line: the note owns the comment, so the term ends.
+                if (preg_match('/^[ \t]*%%/', $nextLine) === 1 && preg_match(self::NOTE_MARKER_LINE_TERM, $termSourceLine) === 1) {
+                    break;
                 }
                 $belowTermComment = $termColumn !== null
                     && preg_match('/^[ \t]*%%/', $nextLine) === 1
