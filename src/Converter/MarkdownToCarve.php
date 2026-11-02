@@ -495,7 +495,18 @@ class MarkdownToCarve
         $syntheticEmptyItems = [];
         $emptyMarkerColumn = null;
         $lineCount = count($lines);
+        // The last line a setext heading on an item's marker line folded in.
+        $foldedThrough = -1;
         for ($i = 0; $i < $lineCount; $i++) {
+            if ($i <= $foldedThrough) {
+                continue;
+            }
+            if (!$fence->active) {
+                $folded = $this->itemSetextHeading($lines, $i, $listCols->all(), $prevLineType);
+                if ($folded !== null) {
+                    [$lines[$i], $foldedThrough] = $folded;
+                }
+            }
             $this->applyShift($result, $shiftFrom, $shiftCol, $shiftBy);
             $this->inlineContext->inlineRunSourceLine = $this->sourceLine($i);
             $this->inlineContext->inlineRunContinuesPrevious = $i > 0
@@ -1735,6 +1746,58 @@ class MarkdownToCarve
      * @param int $i
      * @param array<int, true> $emptyMarkerLines
      */
+    /**
+     * An item's marker line whose paragraph a setext underline in the item
+     * ends, respelled as the ATX heading, and the underline's index.
+     *
+     * @param array<int, string> $lines
+     * @param array<int, int> $columns
+     *
+     * @return array{0: string, 1: int}|null
+     */
+    private function itemSetextHeading(array $lines, int $i, array $columns, string $prevLineType): ?array
+    {
+        // Every marker on the line opens an item; the paragraph is the innermost one's.
+        if (preg_match('/^([ \t]*)((?:[-*+]|(\d{1,9})[.)]))([ \t]+(?:(?:[-*+]|\d{1,9}[.)])[ \t]{1,4})*)(\S.*)$/', $lines[$i], $m) !== 1) {
+            return null;
+        }
+        $column = $this->indentWidth($m[1]);
+        $holder = 0;
+        foreach ($columns as $col) {
+            if ($col <= $column) {
+                $holder = $col;
+            }
+        }
+        $contentCol = $this->columnWidth($m[1] . $m[2] . $m[4]);
+        if (
+            $column - $holder >= 4
+            || $this->columnWidth($m[1] . $m[2] . substr($m[4], 0, strspn($m[4], " \t"))) - $this->columnWidth($m[1] . $m[2]) > 4
+            || ($prevLineType === 'text' && $m[3] !== '' && (int)$m[3] !== 1)
+            || preg_match(self::THEMATIC_BREAK, trim($lines[$i])) === 1
+        ) {
+            return null;
+        }
+        $virtual = $lines;
+        $virtual[$i] = str_repeat(' ', $contentCol) . $m[5];
+        $end = $this->setextParagraphEnd($virtual, $i, $contentCol, true);
+        if ($end === null) {
+            return null;
+        }
+        $texts = [];
+        for ($at = $i; $at < $end; $at++) {
+            $texts[] = $this->setextLineText($virtual[$at], $at + 1 === $end);
+        }
+        // A trailing `#` run would close the ATX heading, and a trailing
+        // backslash is literal in a heading, not a hard break.
+        $text = (string)preg_replace('/(^|[ \t])(#+[ \t]*)$/', '$1\\\\$2', implode(' ', $texts));
+        if ((strlen($text) - strlen(rtrim($text, '\\'))) % 2 === 1) {
+            $text .= '\\';
+        }
+        $marker = ltrim($lines[$end], " \t")[0] === '=' ? '#' : '##';
+
+        return [$m[1] . $m[2] . $m[4] . $marker . ' ' . $text, $end];
+    }
+
     private function prepareImportedBareMarker(
         array &$lines,
         int $i,
@@ -4000,7 +4063,7 @@ class MarkdownToCarve
      * @param int $contentCol
      * @param int $start
      */
-    protected function setextParagraphEnd(array $lines, int $start, int $contentCol): ?int
+    protected function setextParagraphEnd(array $lines, int $start, int $contentCol, bool $lazy = false): ?int
     {
         for ($at = $start, $count = count($lines); $at < $count; $at++) {
             if (ImportWork::$on) {
@@ -4008,10 +4071,18 @@ class MarkdownToCarve
             }
             $line = $lines[$at];
             $indent = $this->indentWidth($line);
-            if (trim($line) === '' || $indent < $contentCol) {
+            $held = trim($line, " \t");
+            if ($held === '') {
                 return null;
             }
-            $held = trim($line, " \t");
+            if ($indent < $contentCol) {
+                // A lazy line continues the paragraph; it cannot underline it.
+                if (!$lazy || $at === $start || !$this->continuesParagraph($held) || !$this->foldsIntoSetext($lines, $at, $held, 0)) {
+                    return null;
+                }
+
+                continue;
+            }
             if ($at === $start) {
                 if ($indent - $contentCol >= 4 || !$this->continuesParagraph($held)) {
                     return null;
