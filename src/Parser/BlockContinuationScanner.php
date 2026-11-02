@@ -104,7 +104,6 @@ final class BlockContinuationScanner
      * @param \Closure(int, string, int, array<string>|null, int|null): bool $listContinuationEndsAtDedentedBlockCallback
      * @param \Closure(string, array{type: string, content: string, attributesWidth?: int}): int $listMarkerWidthCallback
      * @param \Closure(string): string $markerFreeContentCallback
-     * @param \Closure(string): bool $paragraphHasUnclaimedColonFenceLineCallback
      * @param \MarkupCarve\Carve\Parser\BlockSourceMapper $source
      * @param \Closure(string): string $spanningConstructCallback
      * @param \Closure(string, array<string>|null, int|null): bool $startsNewBlockCallback
@@ -144,7 +143,6 @@ final class BlockContinuationScanner
         private Closure $listContinuationEndsAtDedentedBlockCallback,
         private Closure $listMarkerWidthCallback,
         private Closure $markerFreeContentCallback,
-        private Closure $paragraphHasUnclaimedColonFenceLineCallback,
         private BlockSourceMapper $source,
         private Closure $spanningConstructCallback,
         private Closure $startsNewBlockCallback,
@@ -2902,9 +2900,6 @@ final class BlockContinuationScanner
         if (!$inCommentSpan && $run->openCommentLength !== null) {
             $run->spanFromMarkerLine = false;
         }
-        if ($this->paragraphHasUnclaimedColonFenceLine($contentLine)) {
-            $sawIndentedUnclaimedColonFence = true;
-        }
         $authoredBaseEligible[count($itemLines)] = true;
         $previousItemLine = $itemLines[count($itemLines) - 1] ?? '';
         $attributeFenceOpener = $this->isBlockAttributeLine(ltrim($previousItemLine, " \t"))
@@ -3221,7 +3216,6 @@ final class BlockContinuationScanner
             && !$trailingState->openParagraph
             && $trailingState->fence === null
             && !$trailingState->hasOpenDiv()
-            && !$trailingState->absorbingFence
             && !$trailingState->afterInvisible
             && !$trailingState->afterComment
             && !$trailingState->inFootnoteBody
@@ -4226,11 +4220,10 @@ final class BlockContinuationScanner
             // is hoisted, leaving the div empty (markup-carve/carve-php#1914,
             // ruled in markup-carve/carve#1948). Only a VERBATIM fence keeps it,
             // where it is payload and not a definition at all - `inFence` still
-            // refuses that, and `absorbingFence` the raw-block form.
+            // refuses that.
             if (
                 $base > 0
                 && $state->fence === null
-                && !$state->absorbingFence
                 && ($noteColumns === [] || $base < end($noteColumns))
                 && !$termOpen
             ) {
@@ -5375,11 +5368,6 @@ final class BlockContinuationScanner
     private function markerFreeContent(string $line): string
     {
         return ($this->markerFreeContentCallback)($line);
-    }
-
-    private function paragraphHasUnclaimedColonFenceLine(string $content): bool
-    {
-        return ($this->paragraphHasUnclaimedColonFenceLineCallback)($content);
     }
 
     private function sourceLineFor(int $index): int

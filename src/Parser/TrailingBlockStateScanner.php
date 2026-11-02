@@ -160,26 +160,13 @@ final class TrailingBlockStateScanner
                 return $state;
             }
         }
-        // PART 9 §12's absorption belongs to ONE open paragraph, so it ends
-        // wherever that paragraph does. Clearing it here and re-arming it only
-        // in the two branches that continue the same paragraph is what keeps a
-        // heading, a table or a code fence between a malformed fence and a
-        // later bare `:::` from leaving it set: those end the paragraph, and
-        // the later fence opens a real div (carve#891).
-        $wasAbsorbing = $state->absorbingFence;
-        $state->absorbingFence = false;
-        $wasDivAbsorbing = $state->divAbsorbing;
-        $wasDivAbsorbedRun = $state->divAbsorbedRun;
-        $state->divAbsorbing = false;
-        $state->divAbsorbedRun = false;
         // `isLead` is retained in the state shape for callers that seed it, but
         // headings now answer from their block kind rather than their position.
         $state->isLead = false;
         // A CONTINUATION ROW IS MORE TABLE, and only where a table is above it
         // (markup-carve/carve#1349). Cleared here and re-armed only by the two
-        // row branches, for the same reason `absorbingFence` is: every other
-        // block ENDS the table, so a `+ b |` under a blank line, a heading or a
-        // fence is the ordinary prose it looks like.
+        // row branches: every other block ENDS the table, so a `+ b |` under a
+        // blank line, a heading or a fence is the ordinary prose it looks like.
         $wasInTable = $state->inTable;
         $state->inTable = false;
         // The nested quote's own table run, carried across ITS lines and never
@@ -314,16 +301,6 @@ final class TrailingBlockStateScanner
 
                 return $state;
             }
-            if ($wasDivAbsorbing && preg_match('/^:{3,}[ \t]*$/', ltrim(BlockGrammar::subjectFrom($line, $at, $end), " \t")) === 1) {
-                $closes = ($this->getFencedBlockParser)()->isDivFenceCloser(BlockGrammar::subjectFrom($line, $at, $end), $state->divFenceLength);
-                if ($wasDivAbsorbedRun || !$closes) {
-                    $state->divAbsorbing = true;
-                    $state->divAbsorbedRun = true;
-                    $state->openParagraph = true;
-
-                    return $state;
-                }
-            }
             if (($this->getFencedBlockParser)()->isDivFenceCloser(BlockGrammar::subjectFrom($line, $at, $end), $state->divFenceLength)) {
                 $state->inDiv = false;
                 $state->literalDiv = false;
@@ -432,8 +409,6 @@ final class TrailingBlockStateScanner
             // Deliberately as narrow as the rest of this tracker: any other
             // non-blank line inside the div counts as paragraph-bearing.
             $state->openParagraph = !IndentationHelper::isBlankFrom($line, $at);
-            $state->divAbsorbing = $state->openParagraph && ($wasDivAbsorbing || str_starts_with($trimmedInDiv, ':::'));
-            $state->divAbsorbedRun = $state->divAbsorbing && $wasDivAbsorbedRun;
 
             return $state;
         }
@@ -477,8 +452,7 @@ final class TrailingBlockStateScanner
         }
 
         $bareFence = preg_match('/:{3,}[ \t]*$/A', $line, $ignored, 0, $at) === 1;
-        // A bare run with a container open is that container's CLOSER, so it is
-        // neither an opener nor absorbable text.
+        // A bare run with a container open is that container's CLOSER, not an opener.
         if ($bareFence && $state->divDepth > 0) {
             $state->divDepth--;
             $state->openParagraph = false;
@@ -490,19 +464,6 @@ final class TrailingBlockStateScanner
             ? ($this->getFencedBlockParser)()->parseDivFenceOpener(BlockGrammar::subjectFrom($line, $at, $end))
             : null;
         if ($divOpener !== null) {
-            // ...unless the paragraph above already absorbed a malformed fence
-            // and this is a BARE run, in which case §12 takes it as text too and
-            // the paragraph stays open. Not width-tagged: after a malformed
-            // `:::note` a following `::::` is absorbed as readily as a `:::`. A
-            // line that opens something of its own - `::: note`, `::: |`,
-            // `::: [label]` - still interrupts, exactly as it does at the top
-            // level, where this engine already implements §12.
-            if ($wasAbsorbing && $bareFence) {
-                $state->absorbingFence = true;
-                $state->openParagraph = true;
-
-                return $state;
-            }
             /** @var int $divFenceLength */
             $divFenceLength = $divOpener['length'];
             $state->inDiv = true;
@@ -532,14 +493,9 @@ final class TrailingBlockStateScanner
         }
 
         // A fence-shaped line that is NOT a valid opener is ordinary paragraph
-        // text, and from here the paragraph absorbs the next fence-shaped line
-        // as well. `:::note` fails §12's opener test because a type word must be
-        // separated from the fence by a space. Inside an open container it is
-        // body text and arms nothing: the bare run below it is still that
-        // container's closer.
+        // text and leaves no state (carve#4863).
         $colonAt = $atContentColumn ? IndentationHelper::pastLeadingWhitespace($line, $at) : $at;
         if (preg_match('/:{3,}/A', $line, $ignored, 0, $colonAt) === 1) {
-            $state->absorbingFence = $state->divDepth === 0;
             $state->openParagraph = true;
 
             return $state;
@@ -658,11 +614,6 @@ final class TrailingBlockStateScanner
         //  - a FLOATING ATTRIBUTE attaches FORWARD, so it is not a paragraph a
         //    line behind it could join. Left as prose here it did worse than
         //    fold the line in: the attribute then landed ON the folded line.
-        //
-        // The two facts stay separate below: `absorbingFence` already tracked a
-        // heading and a thematic break as paragraph-ENDING while this reported
-        // an open paragraph anyway. That disagreement inside one function is
-        // what this resolves.
         // A COMMENT IS TRANSPARENT, WHICH IS NEITHER OF THE TWO ANSWERS. §24 C3
         // keeps it invisible at any column and closing nothing, so it must
         // leave `openParagraph` exactly as it found it: `- a` / `%% c` / `b`
@@ -880,7 +831,7 @@ final class TrailingBlockStateScanner
 
                 return $state;
             }
-            if ($inner->fence === null && !$inner->absorbingFence) {
+            if ($inner->fence === null) {
                 $state->openParagraph = $inner->openParagraph
                     && !$this->isContinuationMarker(substr($line, $contentOffset));
                 // THE FIRST MARKER'S COLUMN, not the walk's innermost. `- - a`
@@ -899,22 +850,6 @@ final class TrailingBlockStateScanner
         // paragraph, blockquote, heading text). Treat the trailing block
         // as having an open paragraph and let the existing lazy-continuation
         // behavior fold the dedented line in.
-        //
-        // An absorption already under way survives PROSE, because that is the
-        // same paragraph - but not a heading or a thematic break, which end it.
-        // This tracker keeps `openParagraph` true for those (its own older
-        // choice, and the gate above is the only consumer), so the two facts are
-        // tracked separately: after `:::note` + `# h`, the bare `:::` below is a
-        // real div opener, exactly as it is at the top level.
-        $endsTheParagraph = preg_match(
-            '/[ \t]*#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/A',
-            $line,
-            $ignored,
-            0,
-            $at,
-        ) === 1
-            || preg_match('/[ \t]*(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/A', $line, $ignored, 0, $at) === 1;
-        $state->absorbingFence = $wasAbsorbing && !$endsTheParagraph;
         // A nested item that is only a heading leaves no paragraph open, so an
         // unclosed fence at this column opens a block (CARVE-P0-014).
         $nestedItem = ($this->getListParser)()->parseListItemMarker(ltrim(substr($line, $at), " \t"));
