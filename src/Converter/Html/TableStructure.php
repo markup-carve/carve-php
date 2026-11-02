@@ -54,23 +54,11 @@ final class TableStructure
      */
     public static function importedTableNeedsDelimiter(array $rows): bool
     {
-        $cells = $rows[0]['cells'] ?? [];
-        $firstSpan = null;
-        foreach ($cells as $index => $cell) {
-            if (isset($cell['span'])) {
-                $firstSpan = $index;
-
-                break;
-            }
-        }
-        if ($firstSpan === null) {
-            return false;
-        }
-        if ($firstSpan === 0) {
-            return true;
-        }
-        foreach (array_slice($cells, $firstSpan) as $cell) {
-            if (($cell['span'] ?? null) !== 'colspan') {
+        // carve#4974 ruling A: only an orphan placeholder or a placeholder
+        // carrying an alignment lacks a native spelling that keeps the tree.
+        foreach ($rows[0]['cells'] ?? [] as $index => $cell) {
+            $span = $cell['span'] ?? null;
+            if ($span === 'rowspan' || ($span === 'colspan' && ($index === 0 || isset($cell['align'])))) {
                 return true;
             }
         }

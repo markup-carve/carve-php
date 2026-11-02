@@ -2695,7 +2695,7 @@ HTML;
         $result = $this->converter->convert($html);
 
         // colspan=2 produces the cell followed by a `<` continuation marker
-        $this->assertStringContainsString('| Header | < | Other |', $result);
+        $this->assertStringContainsString('|= Header | < |= Other |', $result);
         $this->assertStringNotContainsString('colspan', $result);
         $this->assertStringContainsString('| A | B | C |', $result);
     }
