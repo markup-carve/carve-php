@@ -741,7 +741,7 @@ final class ListBlockBuilder
             // Get indentation of current line
             $currentIndent = IndentationHelper::getLeadingColumns($currentLine);
             $sourceLine = $this->sourceLineFor($i);
-            $afterComments = $this->carryCommentRunToLastItem($list, $lines, $i, $count, $baseIndent, $listInfo, $firstItem, $parent instanceof Document);
+            $afterComments = $this->carryCommentRunToLastItem($list, $lines, $i, $count, $baseIndent, $lastItemContentIndent, $listInfo, $firstItem, $parent instanceof Document);
             if ($afterComments !== null) {
                 $i = $afterComments;
 
@@ -3087,6 +3087,7 @@ final class ListBlockBuilder
      * @param int $i
      * @param int $count
      * @param int $baseIndent
+     * @param int $contentIndent
      * @param array<string, mixed> $listInfo
      * @param bool $firstItem
      * @param bool $atDocument
@@ -3099,6 +3100,7 @@ final class ListBlockBuilder
         int $i,
         int $count,
         int $baseIndent,
+        int $contentIndent,
         array $listInfo,
         bool $firstItem,
         bool $atDocument,
@@ -3108,9 +3110,21 @@ final class ListBlockBuilder
         if ($end === null || $lastItem === null) {
             return null;
         }
+        $roles = $this->commentRoles($lines);
+        $spanColumn = 0;
         $run = [];
         $map = [];
         for ($j = $i; $j < $end; $j++) {
+            $map[] = $this->sourceLineFor($j);
+            // A span's payload is opaque (CARVE-P9-053): it keeps its bytes past its opener's column.
+            if (($roles[$j] ?? null) === 'open') {
+                $spanColumn = min($contentIndent, IndentationHelper::getLeadingColumns($lines[$j]));
+            }
+            if (($roles[$j] ?? null) === 'payload') {
+                $run[] = IndentationHelper::stripLeadingColumns($lines[$j], $spanColumn);
+
+                continue;
+            }
             $line = ltrim($lines[$j], " \t");
             if (preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $line, $abbr) === 1) {
                 if ($this->state->session->discoveringDefinitions) {
@@ -3122,7 +3136,6 @@ final class ListBlockBuilder
                 $line = '%%';
             }
             $run[] = str_starts_with($line, '%%') ? $line : $lines[$j];
-            $map[] = $this->sourceLineFor($j);
         }
         $this->callParseItemBlocks($lastItem, $run, $map);
 
