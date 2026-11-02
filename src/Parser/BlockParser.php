@@ -3888,14 +3888,19 @@ class BlockParser
 
         if ($this->state->session->discoveringDefinitions) {
             $sourceLine = $this->sourceLineFor($start);
-            $this->state->session->references[LabelKey::normalize($definition['label'])] = new ReferenceDefinition(
-                $definition['url'],
-                $definition['attrs'],
-                $sourceLine,
-                $definition['title'],
-                false,
-                $definition['label'],
-            );
+            $key = LabelKey::normalize($definition['label']);
+            // A note body parses after the document, so "last wins" reads source lines (R1).
+            $known = $this->state->session->references[$key] ?? null;
+            if ($known === null || $known->line <= $sourceLine) {
+                $this->state->session->references[$key] = new ReferenceDefinition(
+                    $definition['url'],
+                    $definition['attrs'],
+                    $sourceLine,
+                    $definition['title'],
+                    false,
+                    $definition['label'],
+                );
+            }
         }
 
         // The line is CONSUMED here and the node is appended at DOCUMENT level
