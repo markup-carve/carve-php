@@ -551,7 +551,7 @@ class MarkdownToCarve
                 $lazyAllowed,
                 $lazyQuote,
                 $prevLineType,
-                $wasPrevBlank,
+                $wasPrevBlank || isset($emptyMarkerLines[$i - 1]),
             );
             if (
                 $afterClosedItem && $trimmed !== '' && ($listCols->isEmpty() || $listCols->outermost() > $this->indentWidth($line)) && end($result) !== ''
@@ -1762,15 +1762,9 @@ class MarkdownToCarve
             return null;
         }
         $column = $this->indentWidth($m[1]);
-        $holder = 0;
-        foreach ($columns as $col) {
-            if ($col <= $column) {
-                $holder = $col;
-            }
-        }
         $contentCol = $this->columnWidth($m[1] . $m[2] . $m[4]);
         if (
-            $column - $holder >= 4
+            $column - $this->holderColumn($columns, $column) >= 4
             || $this->columnWidth($m[1] . $m[2] . substr($m[4], 0, strspn($m[4], " \t"))) - $this->columnWidth($m[1] . $m[2]) > 4
             || ($prevLineType === 'text' && $m[3] !== '' && (int)$m[3] !== 1)
             || preg_match(self::THEMATIC_BREAK, trim($lines[$i])) === 1
@@ -1798,6 +1792,40 @@ class MarkdownToCarve
         return [$m[1] . $m[2] . $m[4] . $marker . ' ' . $text, $end];
     }
 
+    /**
+     * Is the line, or what follows any of its container markers, a thematic break?
+     */
+    private function markerChainHoldsBreak(string $line): bool
+    {
+        $rest = trim($line);
+        while (true) {
+            if (preg_match(self::THEMATIC_BREAK, $rest) === 1) {
+                return true;
+            }
+            if (preg_match('/^(?:[-*+]|\d{1,9}[.)]|>)[ \t]*/', $rest, $marker) !== 1 || $marker[0] === '') {
+                return false;
+            }
+            $rest = substr($rest, strlen($marker[0]));
+        }
+    }
+
+    /**
+     * The content column of the innermost open item at or left of `$column`.
+     *
+     * @param array<int, int> $columns
+     */
+    private function holderColumn(array $columns, int $column): int
+    {
+        $holder = 0;
+        foreach ($columns as $col) {
+            if ($col <= $column) {
+                $holder = $col;
+            }
+        }
+
+        return $holder;
+    }
+
     private function prepareImportedBareMarker(
         array &$lines,
         int $i,
@@ -1821,6 +1849,18 @@ class MarkdownToCarve
             $lines[$i] = $this->normalizeListMarkerPadding($lines[$i], $listCols->all());
         }
         $bareMarker = !$fence->active && preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $lines[$i]) === 1;
+        // A bare marker after another item's or a quote's marker opens an
+        // empty item: no paragraph is open in the container the line opens.
+        if (
+            !$fence->active
+            && preg_match('/^([ \t]*)(?:[-*+]|(\d{1,9})[.)])[ \t]+(?:(?:[-*+]|\d{1,9}[.)])[ \t]+|>[ \t]?)*(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $lines[$i], $chain) === 1
+            && !$this->markerChainHoldsBreak($lines[$i])
+            && $this->indentWidth($chain[1]) - $this->holderColumn($listCols->all(), $this->indentWidth($chain[1])) < 4
+            && !($prevLineType === 'text' && ($chain[2] ?? '') !== '' && (int)$chain[2] !== 1)
+        ) {
+            $lines[$i] = rtrim($lines[$i], " \t") . ' ' . EmptyListItemSpelling::PLACEHOLDER;
+            $emptyMarkerLines[$i] = true;
+        }
         $bareParagraphMarker = $bareMarker
             && !$listCols->isEmpty()
             && $this->indentWidth($lines[$i]) >= $listCols->innermost()
@@ -2684,6 +2724,9 @@ class MarkdownToCarve
                 LayoutWork::$on = true;
             }
             $converter = CarveConverter::carve();
+            // The placeholder is paragraph text to the parser, so a line after
+            // an empty item would read as its lazy continuation.
+            $carve = EmptyListItemSpelling::spellBodiless($carve);
             $document = $converter->parse($carve);
             $pending = [$document];
             $hasContainer = false;
@@ -3807,8 +3850,17 @@ class MarkdownToCarve
         ) {
             $text = rtrim($text, " \t") . ' ' . EmptyListItemSpelling::PLACEHOLDER;
             $written = $text;
+        } elseif (
+            preg_match('/^[ \t]*(?:[-*+]|(\d{1,9})[.)])[ \t]+(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)*(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $text, $chain) === 1
+            && !$this->markerChainHoldsBreak($text)
+            && ($openBefore === null || $this->indentWidth($text) - $openBefore < 4)
+            && !(($chain[1] ?? '') !== '' && (int)$chain[1] !== 1 && $state->previous !== null && $this->quoteParagraphIsOpen($state->previous['text']))
+        ) {
+            // A bare marker after another item's marker opens an empty item.
+            $text = rtrim($text, " \t") . ' ' . EmptyListItemSpelling::PLACEHOLDER;
+            $written = $text;
         }
-        $opensItem = preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]/', $text) === 1;
+        $opensItem =preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]/', $text) === 1;
         if ($opensItem) {
             $itemQuote = null;
         }
@@ -4077,7 +4129,10 @@ class MarkdownToCarve
             }
             if ($indent < $contentCol) {
                 // A lazy line continues the paragraph; it cannot underline it.
-                if (!$lazy || $at === $start || !$this->continuesParagraph($held) || !$this->foldsIntoSetext($lines, $at, $held, 0)) {
+                if (
+                    !$lazy || $at === $start || !$this->continuesParagraph($held)
+                    || preg_match('/^(?:[-*+]|\d{1,9}[.)])$/', $held) === 1 || !$this->foldsIntoSetext($lines, $at, $held, 0)
+                ) {
                     return null;
                 }
 
@@ -4361,7 +4416,8 @@ class MarkdownToCarve
 
             return;
         }
-        $itemParagraph = $this->quoteParagraphIsOpen($text) && preg_match('/^(?:[-*+]|\d+[.)])(?:[ \t]|$)/', $text) !== 1;
+        $itemParagraph = $this->quoteParagraphIsOpen($text) && preg_match('/^(?:[-*+]|\d+[.)])(?:[ \t]|$)/', $text) !== 1
+            && !str_starts_with($text, EmptyListItemSpelling::PLACEHOLDER);
     }
 
     /**

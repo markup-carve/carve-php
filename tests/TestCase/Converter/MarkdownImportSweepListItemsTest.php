@@ -46,6 +46,26 @@ class MarkdownImportSweepListItemsTest extends TestCase
                 "- a\n\n2) # foo\n",
                 "<ul>\n  <li>a</li>\n</ul>\n<ol start=\"2\" data-delim=\")\">\n  <li>\n    <h1 id=\"foo\">foo</h1>\n  </li>\n</ol>",
             ],
+            'a bare marker in a quote an item opens is an empty item' => [
+                " - >*\n\n   -\n",
+                "{loose}\n- > * {empty}\n\n  - {empty}\n",
+                "<ul>\n  <li>\n    <blockquote>\n      <ul>\n        <li></li>\n      </ul>\n    </blockquote>\n    <ul>\n      <li></li>\n    </ul>\n  </li>\n</ul>",
+            ],
+            'a bare marker after an item marker is an empty item' => [
+                "- *a\n  - - \n  b*\n",
+                "- *a\n  - - {empty}\n  b*\n",
+                "<ul>\n  <li>*a\n    <ul>\n      <li>\n        <ul>\n          <li></li>\n        </ul>\n      </li>\n    </ul>\n    b*\n  </li>\n</ul>",
+            ],
+            'a bare marker after a quoted item marker is an empty item' => [
+                "> - -\n",
+                "> - - {empty}\n",
+                "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li></li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>",
+            ],
+            'a bare marker below an item opens an item, not a lazy line' => [
+                "- a\n-\n  ---\n",
+                "- a\n- ---\n",
+                "<ul>\n  <li>a</li>\n  <li>\n    <hr>\n  </li>\n</ul>",
+            ],
         ];
     }
 
