@@ -3128,14 +3128,19 @@ class DjotToCarve
                 $close = $opener !== null && preg_match('/^:{3,}[ \t]*$/', $content) === 1
                     && $top !== null && $top['width'] === $opener['length'];
                 $depth = substr_count(substr($line, 0, $containerOffset), '>');
-                // A colon line Djot opens no div on is paragraph text, and so is a bare run continuing it (carve#4863).
-                $djotDiv = preg_match('/^:{3,}(?:[ \t]+[A-Za-z0-9_-]+)?[ \t]*$/', $content) === 1;
-                if (!$close && !$djotDiv) {
-                    $colonParagraph = $depth;
-                } elseif (!$close && $colonParagraph === $depth && preg_match('/^:{3,}[ \t]*$/', $content) === 1) {
-                    $lines[$i] = substr($line, 0, $containerOffset) . '\\' . substr($line, $containerOffset);
+                // A colon line Djot opens no div on is paragraph text, and so is any colon line continuing it (carve#4863).
+                $djotDiv = $this->opensDjotDiv($content);
+                if (!$close && $colonParagraph === $depth) {
+                    if ($opener !== null) {
+                        // Djot drops the spaces before a hard break's backslash.
+                        $text = preg_replace('/(?<!\\\\)[ \t]+((?:\\\\\\\\)*\\\\)$/', '$1', $content) ?? $content;
+                        $lines[$i] = substr($line, 0, $containerOffset) . '\\' . $text;
+                    }
 
                     continue;
+                }
+                if (!$close && !$djotDiv) {
+                    $colonParagraph = $depth;
                 }
                 $invalid = $close ? array_pop($containers)['invalid'] : ($opener['invalidMetadata'] ?? false);
                 if (!$close && $opener !== null && $djotDiv) {
@@ -3217,6 +3222,19 @@ class DjotToCarve
             }
             $at += strlen($other[0]);
         }
+    }
+
+    /**
+     * Whether Djot opens a div on this colon line; with djot-php extensions a quoted admonition title counts too.
+     */
+    private function opensDjotDiv(string $content): bool
+    {
+        if (preg_match('/^:{3,}(?:[ \t]+[A-Za-z0-9_-]+)?[ \t]*$/', $content) === 1) {
+            return true;
+        }
+
+        return $this->djotPhpExtensions
+            && preg_match('/^:{3,}[ \t]+(?:note|tip|warning|danger|info|success|example|quote)[ \t]+"[^"\r\n]*"[ \t]*$/', $content) === 1;
     }
 
     private function definitionTermBlockBoundaries(string $source): string

@@ -61,13 +61,6 @@
       ]
     },
     {
-      "ticket": "markup-carve/carve#4861",
-      "cause": "a definition term is one line (carve#4894 at the carve 1c3a839d pin); not ported yet",
-      "cases": [
-        "fences-928c6a41873e"
-      ]
-    },
-    {
       "ticket": "markup-carve/carve#4862",
       "cause": "comments and one-line definitions close no indentation container (carve#4884 at the carve 1c3a839d pin); not ported yet",
       "cases": [
