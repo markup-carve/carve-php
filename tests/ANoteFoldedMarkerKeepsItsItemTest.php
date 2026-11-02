@@ -14,8 +14,8 @@ final class ANoteFoldedMarkerKeepsItsItemTest extends TestCase
         $source = "[^3]: - a\n   * z\n    ~~~\nq\n\n[^3]\n";
         $html = trim((new CarveConverter())->convert($source));
 
-        self::assertStringContainsString("<li>a\n* z</li>", $html);
-        self::assertStringNotContainsString('<li>z</li>', $html);
+        // A marker of another kind between the item's columns opens its own list (superseding ruling on carve#4545).
+        self::assertStringContainsString("<li>a</li>\n      </ul>\n      <ul>\n        <li>z</li>\n      </ul>", $html);
         self::assertStringContainsString("</ul>\n      <pre><code></code></pre>", $html);
         self::assertStringStartsWith("<p>q</p>\n", $html);
     }

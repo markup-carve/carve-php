@@ -66,6 +66,27 @@
         "roundtrip-e3b6651f99d3",
         "roundtrip-ef2690538ca4"
       ]
+    },
+    {
+      "ticket": "markup-carve/carve#4545",
+      "cause": "the pinned pack predates the superseding carve#4545 ruling; the engine follows the current model, where a marker between an item's columns that differs on an axis opens a new list",
+      "cases": [
+        "fences-6bb4b2c08642",
+        "fences-c65df4f21388",
+        "fences-d34ea35bff3e",
+        "lazy-d205a4262cf3",
+        "ownership-21a349103b78",
+        "ownership-53d830f1834e",
+        "ownership-5642f8c31656",
+        "ownership-80748f26d9ed",
+        "ownership-af75e477c466",
+        "ownership-d3053d93606e",
+        "ownership-dc80fafb5ce9",
+        "plus-340779570d5c",
+        "roundtrip-0e0d9f782e4e",
+        "roundtrip-74b1f50f3b92",
+        "roundtrip-b2d7632ec367"
+      ]
     }
   ]
 }

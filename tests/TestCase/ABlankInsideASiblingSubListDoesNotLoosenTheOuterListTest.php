@@ -50,7 +50,6 @@ class ABlankInsideASiblingSubListDoesNotLoosenTheOuterListTest extends TestCase
             'a fence in a quote' => ["- e\n  1. x\n  * > ```\n    >\n    > c\n    > ```\n"],
             'a third sub-list' => ["- e\n  1. x\n  * y\n  1. ```\n\n     ```\n"],
             'a second paragraph of the sibling sub-item' => ["- e\n  1. x\n  * y\n\n    z\n"],
-            'a folded marker below the sub-item column' => ["- e\n  1. x\n    * y\n\n     z\n"],
         ];
     }
 
@@ -58,6 +57,12 @@ class ABlankInsideASiblingSubListDoesNotLoosenTheOuterListTest extends TestCase
     public function testTheOuterItemStaysTight(string $source): void
     {
         $this->assertStringStartsWith("<ul>\n  <li>e\n", $this->html($source));
+    }
+
+    public function testAMarkerOfAnotherKindBelowTheSubItemColumnOpensAListInTheOuterItem(): void
+    {
+        // Superseding ruling on carve#4545: the marker no longer folds, so `z` is the outer item's paragraph.
+        $this->assertStringStartsWith("<ul>\n  <li><p>e</p>\n    <ol>\n      <li>x</li>\n    </ol>\n    <ul>\n      <li>y</li>", $this->html("- e\n  1. x\n    * y\n\n     z\n"));
     }
 
     public function testThreeLevelsDeepKeepsTheMiddleItemTight(): void

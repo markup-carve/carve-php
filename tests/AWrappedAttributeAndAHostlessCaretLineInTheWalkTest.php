@@ -42,7 +42,7 @@ final class AWrappedAttributeAndAHostlessCaretLineInTheWalkTest extends TestCase
         return [
             'an indented quote interrupts' => ["^ p\n- x\n  > q\n", "<p>^ p\n- x</p>\n<blockquote><p>q</p></blockquote>"],
             'an indented heading interrupts' => ["^ p\n- x\n  # h\n", "<p>^ p\n- x</p>\n<section id=\"h\">\n  <h1>h</h1>\n</section>"],
-            'in an item a marker below the column folds' => ["- ^ c\n 1. x\n", "<ul>\n  <li>^ c\n1. x</li>\n</ul>"],
+            'in an item a marker of another kind below the column opens a list' => ["- ^ c\n 1. x\n", "<ul>\n  <li>^ c</li>\n</ul>\n<ol>\n  <li>x</li>\n</ol>"],
         ];
     }
 
