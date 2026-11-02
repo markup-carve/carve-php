@@ -3159,6 +3159,14 @@ class MarkdownToCarve
             // Inside a quote the item column belongs to the outer container, so
             // the remainder is measured from the quote's own content column.
             $contentCol = 0;
+            // A tab after the markers advances from the column they end at.
+            $column = strlen($this->expandLeadingTabs($matches[0]));
+            $spaces = strspn($rest, " \t");
+            $indent = 0;
+            for ($k = 0; $k < $spaces; $k++) {
+                $indent += $rest[$k] === "\t" ? 4 - ($column + $indent) % 4 : 1;
+            }
+            $rest = str_repeat(' ', $indent) . substr($rest, $spaces);
         }
 
         $relative = $this->indentWidth($rest) - $contentCol;
@@ -3169,9 +3177,10 @@ class MarkdownToCarve
         return ltrim($rest, " \t");
     }
 
-    protected function expandHtmlQuoteTabs(string $line): string
+    protected function expandHtmlQuoteTabs(string $line, ?int $depth = null): string
     {
-        if (preg_match('/^[ \t]*(?:>[ \t]?)+/', $line, $match) !== 1) {
+        $markers = $depth === null ? '+' : '{' . $depth . '}';
+        if ($depth === 0 || preg_match('/^[ \t]*(?:>[ \t]?)' . $markers . '/', $line, $match) !== 1) {
             return $line;
         }
 
@@ -3184,10 +3193,11 @@ class MarkdownToCarve
      * the rest kept as it is, indentation and whitespace-only lines included:
      * it is literal content. Null for a line dedented out of the item.
      */
-    protected function htmlContinuationLine(string $line, int $contentCol): ?string
+    protected function htmlContinuationLine(string $line, int $contentCol, ?int $depth = null): ?string
     {
         $rest = $line;
-        if (preg_match('/^[ \t]*(?:>[ \t]?)+/', $line, $matches) === 1) {
+        $markers = $depth === null ? '+' : '{' . $depth . '}';
+        if ($depth !== 0 && preg_match('/^[ \t]*(?:>[ \t]?)' . $markers . '/', $line, $matches) === 1) {
             $rest = substr($line, strlen($matches[0]));
             $contentCol = 0;
         }
@@ -3350,13 +3360,15 @@ class MarkdownToCarve
 
         $parts = [$first];
         $end = $start;
-        $container = $this->containerKey($lines[$start], $contentCol);
+        // Quote markers past the block's own depth are its content: CommonMark
+        // matches the open containers first and hands the rest to the block.
+        $depth = $this->quoteDepth($lines[$start]);
         if ($closer === null || preg_match($closer, $first) !== 1) {
             for ($i = $start + 1, $count = count($lines); $i < $count; $i++) {
-                if ($this->containerKey($lines[$i], $contentCol) !== $container) {
+                if ($this->quoteDepth($lines[$i]) < $depth) {
                     break;
                 }
-                $rest = $this->htmlContinuationLine($this->expandHtmlQuoteTabs($lines[$i]), $contentCol);
+                $rest = $this->htmlContinuationLine($this->expandHtmlQuoteTabs($lines[$i], $depth), $contentCol, $depth);
                 if ($rest === null || ($closer === null && trim($rest, " \t") === '')) {
                     break;
                 }
