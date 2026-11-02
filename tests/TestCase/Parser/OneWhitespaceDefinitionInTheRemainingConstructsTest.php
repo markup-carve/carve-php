@@ -158,9 +158,18 @@ class OneWhitespaceDefinitionInTheRemainingConstructsTest extends TestCase
             'code span content' => ["`x@`\n"],
             'definition term content' => [":: @\n:  d\n"],
             'comment line separator' => ["%%@c\np\n"],
-            'fence info token' => ["```js@x\ncode\n```\n"],
             'paragraph trailing' => ["abc@\n"],
         ];
+    }
+
+    public function testBothControlsEndAFenceLanguageToken(): void
+    {
+        foreach ([self::VT, self::FF] as $control) {
+            $this->assertSame(
+                "<pre><code class=\"language-js\">code\n</code></pre>",
+                (new CarveConverter())->convert("```js{$control}x\ncode\n```\n"),
+            );
+        }
     }
 
     /**
