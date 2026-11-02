@@ -647,6 +647,9 @@ final class DefinitionListBuilder
                         || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
                         || $this->opensDescriptionBelowBody($a, $at, $definitionColumn, $continuationColumn);
                 },
+                null,
+                fn (string $a, int $at): bool => preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
+                    || $this->opensDescriptionBelowBody($a, $at, $definitionColumn, $continuationColumn),
             );
             $bodyMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $bodyRawMap);
             $firstBlockAttached = true;
@@ -1144,6 +1147,8 @@ final class DefinitionListBuilder
 
                 return false;
             },
+            static fn (string $a): bool => preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
+                || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $a) === 1,
         );
         $b->attachedDefinitionListOpen = $attachedReferenceSeen;
         $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
@@ -2604,12 +2609,13 @@ final class DefinitionListBuilder
      * @param int $i Index of the first line after the `+` marker.
      * @param int $count Total line count.
      * @param (callable(string): bool)|null $endsAtSibling Names a sibling of this container, or null.
+     * @param callable|null $colonHostBoundary
      *
      * @return array{0: int, 1: array<string>, 2: array<int>}
      */
-    private function attachedFlushLeftBlock(array $lines, int $i, int $count, ?callable $endsAtSibling = null): array
+    private function attachedFlushLeftBlock(array $lines, int $i, int $count, ?callable $endsAtSibling = null, ?callable $colonHostBoundary = null): array
     {
-        return $this->continuations->attachedFlushLeftBlock($lines, $i, $count, $endsAtSibling);
+        return $this->continuations->attachedFlushLeftBlock($lines, $i, $count, $endsAtSibling, $colonHostBoundary);
     }
 
     /**
@@ -2625,15 +2631,22 @@ final class DefinitionListBuilder
     /**
      * @param array<string> $lines
      * @param callable|null $transform
+     * @param callable|null $colonHostBoundary
      * @param callable $isBoundary
      * @param int $count
      * @param int $i
      *
      * @return array{0: int, 1: array<string>, 2: array<int, int>}
      */
-    private function collectAttachedBlock(array $lines, int $i, int $count, callable $isBoundary, ?callable $transform = null): array
-    {
-        return $this->continuations->collectAttachedBlock($lines, $i, $count, $isBoundary, $transform);
+    private function collectAttachedBlock(
+        array $lines,
+        int $i,
+        int $count,
+        callable $isBoundary,
+        ?callable $transform = null,
+        ?callable $colonHostBoundary = null,
+    ): array {
+        return $this->continuations->collectAttachedBlock($lines, $i, $count, $isBoundary, $transform, $colonHostBoundary);
     }
 
     private function consumeLooseKey(ListBlock|DefinitionList $node): void

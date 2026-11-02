@@ -834,8 +834,9 @@ final class BlockContinuationScanner
      * @param callable|null $transform
      * @param int $count
      * @param int $i
+     * @param (callable(string, int): bool)|null $colonHostBoundary A sibling of the host that ends a colon block (carve#4717).
      */
-    public function attachedFencedBlockEnd(array $lines, int $i, int $count, ?callable $transform): int
+    public function attachedFencedBlockEnd(array $lines, int $i, int $count, ?callable $transform, ?callable $colonHostBoundary = null): int
     {
         $opaque = $this->opaqueSpanEnd($lines, $i, $count, $transform);
         if ($opaque !== -1) {
@@ -850,9 +851,30 @@ final class BlockContinuationScanner
         $view = $transform === null ? $view : $transform($view);
         $opener = ($this->getFencedBlockParser)()->parseDivFenceOpener($view);
 
-        return $opener === null
-            ? -1
-            : $this->colonFenceEnd($lines, $i, $opener['length'], $count, $transform);
+        if ($opener === null) {
+            return -1;
+        }
+        $boundary = null;
+        if ($colonHostBoundary !== null) {
+            for ($at = $i + 1; $at < $count && $boundary === null; $at++) {
+                $inner = $this->opaqueSpanEnd($lines, $at, $count, $transform);
+                if ($inner !== -1) {
+                    $at = $inner;
+                } elseif ($colonHostBoundary($lines[$at], $at)) {
+                    $boundary = $at;
+                }
+            }
+        }
+        $end = $this->colonFenceEnd($lines, $i, $opener['length'], $count, $transform);
+
+        // A sibling of the host ends the block before a closer further down (carve#4717).
+        if ($boundary !== null && $end >= $boundary) {
+            $inside = $this->colonFenceEnd($lines, $i, $opener['length'], $boundary, $transform);
+
+            return $inside === -1 ? $boundary - 1 : $inside;
+        }
+
+        return $end;
     }
 
     /**
@@ -863,10 +885,11 @@ final class BlockContinuationScanner
      * @param int $i Index of the first line after the `+` marker.
      * @param int $count Total line count.
      * @param (callable(string): bool)|null $endsAtSibling Names a sibling of this container, or null.
+     * @param (callable(string, int): bool)|null $colonHostBoundary
      *
      * @return array{0: int, 1: array<string>, 2: array<int>}
      */
-    public function attachedFlushLeftBlock(array $lines, int $i, int $count, ?callable $endsAtSibling = null): array
+    public function attachedFlushLeftBlock(array $lines, int $i, int $count, ?callable $endsAtSibling = null, ?callable $colonHostBoundary = null): array
     {
         $attachedKind = BlockGrammar::ATTACHED_PENDING;
         $pendingThrough = -1;
@@ -891,6 +914,8 @@ final class BlockContinuationScanner
 
                 return false;
             },
+            null,
+            $colonHostBoundary,
         );
 
         return [$i, $attached, $attachedRawLineMap];
@@ -909,11 +934,18 @@ final class BlockContinuationScanner
      * @param callable $isBoundary
      * @param int $count
      * @param int $i
+     * @param (callable(string, int): bool)|null $colonHostBoundary
      *
      * @return array{0: int, 1: array<string>, 2: array<int, int>}
      */
-    public function collectAttachedBlock(array $lines, int $i, int $count, callable $isBoundary, ?callable $transform = null): array
-    {
+    public function collectAttachedBlock(
+        array $lines,
+        int $i,
+        int $count,
+        callable $isBoundary,
+        ?callable $transform = null,
+        ?callable $colonHostBoundary = null,
+    ): array {
         if (!$this->continuationFollowerIsEligible($i)) {
             return [$i, [], []];
         }
@@ -939,7 +971,7 @@ final class BlockContinuationScanner
             // The attribute lines belong to the block below them (carve#1238), so
             // a fence after them is still the attached block's first line.
             $opener = $this->skipLeadingAttributeLines($lines, $i, $count, $transform);
-            $fenced = $this->attachedFencedBlockEnd($lines, $opener, $count, $transform);
+            $fenced = $this->attachedFencedBlockEnd($lines, $opener, $count, $transform, $colonHostBoundary);
             if ($fenced !== -1) {
                 $take = $fenced - $i + 1;
             } else {
