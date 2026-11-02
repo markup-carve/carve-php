@@ -17,6 +17,11 @@ final class ReferenceStage
     /**
      * @var string
      */
+    private const ESCAPED_LABEL_CLOSER = '/^ {0,3}\[(?:[^\]\\\\\n]|\\\\[^\]\n])*\\\\\]:/';
+
+    /**
+     * @var string
+     */
     private const EMPTY_DEFINITION_ITEM_SENTINEL = "\x00CARVE_EMPTY_DEFINITION_ITEM\x00";
 
     public function __construct(
@@ -271,6 +276,7 @@ final class ReferenceStage
 
                 continue;
             }
+            $line = $this->escapeEscapedLabelCloser($line, $content, $opensItem, $lineDepth + $listIndent);
             if ($canStart && !$opensItem && $lineDepth === 0 && $listIndent === 0 && preg_match('/^ {0,3}\[(?!\^)/', $content) === 1) {
                 if ($referenceChunk === null || $i > $referenceChunk['through']) {
                     $chunk = [$content];
@@ -372,8 +378,7 @@ final class ReferenceStage
                 }
                 if (
                     $parsed === null
-                    && (preg_match('/^ {0,3}\[(?:[^[\]\\\\\n]|\\\\.)+\]:[ \t]*</', $content) === 1
-                    || preg_match('/^ {0,3}\[(?:[^\]\\\\\n]|\\\\.)*\[(?:[^\]\\\\\n]|\\\\.)*\]:/', $content) === 1)
+                    && $this->opensNoMarkdownLabel($content)
                 ) {
                     preg_match('/^ {0,3}\[((?:[^\[\]\\\\]|\\\\.)+)\]:/', $content, $invalidLabel);
                     $invalidDefinitionPrefixes[count($kept)] = isset($invalidLabel[1]) ? $this->inlineStage->normalizeReferenceLabel($invalidLabel[1]) : null;
@@ -641,6 +646,31 @@ final class ReferenceStage
         $this->inlineContext->authoredReferenceLabelKeys = $authoredDefinitions;
 
         return $kept;
+    }
+
+    /**
+     * A definition-shaped line Markdown reads as text but Carve would read as a
+     * definition.
+     */
+    private function opensNoMarkdownLabel(string $content): bool
+    {
+        return preg_match('/^ {0,3}\[(?:[^[\]\\\\\n]|\\\\.)+\]:[ \t]*</', $content) === 1
+            || preg_match('/^ {0,3}\[(?:[^\]\\\\\n]|\\\\.)*\[(?:[^\]\\\\\n]|\\\\.)*\]:/', $content) === 1
+            // An escaped `]` closes no Markdown label, but Carve reads one there.
+            || preg_match(self::ESCAPED_LABEL_CLOSER, $content) === 1;
+    }
+
+    /**
+     * Escape a contained line whose only label closer is escaped, so Carve
+     * does not read a definition Markdown has not.
+     */
+    private function escapeEscapedLabelCloser(string $line, string $content, bool $opensItem, int $nesting): string
+    {
+        if ((!$opensItem && $nesting === 0) || preg_match(self::ESCAPED_LABEL_CLOSER, $content) !== 1) {
+            return $line;
+        }
+
+        return preg_replace('/^([ \t]*(?:>[ \t]?)*[ \t]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?)\[/', '$1\\\\[', $line) ?? $line;
     }
 
     /**
