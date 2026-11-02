@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Node;
 
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
+use WeakMap;
 
 /**
  * Root document node
@@ -37,12 +38,11 @@ class Document extends Node
     protected array $abbreviationDefinitions = [];
 
     /**
-     * Parser-owned definitions whose source lines were consumed by a plus.
-     * Null means this document was built through another path.
+     * Parser-only definitions omitted from the authored tree.
      *
-     * @var array<int, array<string, string>>|null
+     * @var \WeakMap<self, array<int, array<string, string>>>|null
      */
-    protected ?array $invisibleAbbreviationDefinitions = null;
+    private static ?WeakMap $invisibleAbbreviationDefinitions = null;
 
     /**
      * Where each `*[ABBR]: …` line sat, keyed by abbreviation.
@@ -165,6 +165,9 @@ class Document extends Node
     public function setAbbreviations(array $abbreviations): void
     {
         $this->abbreviations = $abbreviations;
+        if (self::$invisibleAbbreviationDefinitions !== null) {
+            unset(self::$invisibleAbbreviationDefinitions[$this]);
+        }
     }
 
     public function hasAbbreviationsBeforeBody(): bool
@@ -220,6 +223,9 @@ class Document extends Node
     public function setAbbreviationDefinitions(array $definitions): void
     {
         $this->abbreviationDefinitions = $definitions;
+        if (self::$invisibleAbbreviationDefinitions !== null) {
+            unset(self::$invisibleAbbreviationDefinitions[$this]);
+        }
     }
 
     /**
@@ -227,7 +233,8 @@ class Document extends Node
      */
     public function setInvisibleAbbreviationDefinitions(array $definitions): void
     {
-        $this->invisibleAbbreviationDefinitions = $definitions;
+        self::$invisibleAbbreviationDefinitions ??= new WeakMap();
+        self::$invisibleAbbreviationDefinitions[$this] = $definitions;
     }
 
     /**
@@ -238,8 +245,8 @@ class Document extends Node
      */
     public function getAbbreviationDefinitionsNotInTree(): array
     {
-        if ($this->invisibleAbbreviationDefinitions !== null) {
-            return $this->invisibleAbbreviationDefinitions;
+        if (self::$invisibleAbbreviationDefinitions !== null && isset(self::$invisibleAbbreviationDefinitions[$this])) {
+            return self::$invisibleAbbreviationDefinitions[$this];
         }
 
         $inTree = [];
