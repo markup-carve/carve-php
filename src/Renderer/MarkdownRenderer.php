@@ -83,6 +83,7 @@ use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 use MarkupCarve\Carve\Renderer\Utility\ReferencedLinkDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
+use MarkupCarve\Carve\Transform\VisibleFootnotes;
 use MarkupCarve\Carve\Util\CarrierMarkers;
 use MarkupCarve\Carve\Util\StringUtil;
 use Normalizer;
@@ -394,6 +395,20 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected array $headingIds = [];
 
     /**
+     * Labels of the footnotes the document renders.
+     *
+     * @var array<string, true>
+     */
+    protected array $visibleFootnoteLabels = [];
+
+    /**
+     * The id each `</#id>` resolved to before any heading of an unrendered footnote was registered.
+     *
+     * @var array<int, string|null>
+     */
+    protected array $headingRefTargets = [];
+
+    /**
      * Nonzero while rendering a table cell's content.
      */
     protected int $tableCellDepth = 0;
@@ -687,6 +702,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // points at, so a heading that IS a crossref target can emit `{#id}` and
         // its reference can render a working `[label](#id)` link.
         $this->headingIds = [];
+        $this->visibleFootnoteLabels = VisibleFootnotes::labels($document, VisibleFootnotes::definitions($document));
+        $this->headingRefTargets = [];
         $referencedIds = [];
         $this->collectHeadingAndRefIds($document, $referencedIds);
         $this->referencedHeadingIds = array_intersect_key($this->headingIds, $referencedIds);
@@ -1922,7 +1939,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderHeadingRef(HeadingRef $node): string
     {
         $target = $node->getTargetId();
-        $id = $this->headingIdTracker->findId($target);
+        $id = array_key_exists(spl_object_id($node), $this->headingRefTargets)
+            ? $this->headingRefTargets[spl_object_id($node)]
+            : $this->headingIdTracker->findId($target);
         $linkLabel = $id !== null && isset($this->gfmSlugs[$id]);
         if ($linkLabel) {
             $this->linkTextDepth++;
@@ -2896,12 +2915,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Markdown');
         }
 
+        if ($this->isUnrenderedFootnote($node)) {
+            return;
+        }
         if ($node instanceof Heading) {
             $this->headingIds[$this->headingIdTracker->getIdForHeading($node)] = true;
         } elseif ($node instanceof HeadingRef) {
             // Record the heading id a `</#id>` resolves to, so a heading that is
             // a crossref target still emits its `{#id}` anchor.
             $resolvedId = $this->headingIdTracker->findId($node->getTargetId());
+            $this->headingRefTargets[spl_object_id($node)] = $resolvedId;
             if ($resolvedId !== null) {
                 $referencedIds[$resolvedId] = true;
             }
@@ -2920,6 +2943,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
     }
 
+    private function isUnrenderedFootnote(Node $node): bool
+    {
+        return $node instanceof Footnote && !isset($this->visibleFootnoteLabels[LabelKey::normalize($node->getLabel())]);
+    }
+
     /**
      * Give every heading this target writes its GFM slug, in written order
      * (PART 11 §11 G1-G5). A heading inside a table cell is flattened, not
@@ -2936,7 +2964,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         if ($depth >= self::MAX_RENDER_DEPTH) {
             throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Markdown');
         }
-        if ($node instanceof Table || ($node instanceof Div && $this->listTableAsTable($node) !== null)) {
+        if ($node instanceof Table || ($node instanceof Div && $this->listTableAsTable($node) !== null) || $this->isUnrenderedFootnote($node)) {
             return;
         }
         if ($node instanceof Heading) {
@@ -3403,7 +3431,15 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         if (str_starts_with($first, '>') && str_starts_with($this->lastNonBlankLine($aboveRendered), '>')) {
             return false;
         }
-        if ($above instanceof CodeBlock) {
+        // Nothing continues a fence or a break, so any block can follow either directly.
+        if ($above instanceof CodeBlock || $above instanceof ThematicBreak) {
+            return true;
+        }
+        // A `---` reads as a setext underline only under a paragraph line of its own container, never a lazy one.
+        if (
+            preg_match('/^-{3,}$/', $first) === 1
+            && ($above instanceof BlockQuote || $above instanceof ListBlock || $above instanceof Heading)
+        ) {
             return true;
         }
 

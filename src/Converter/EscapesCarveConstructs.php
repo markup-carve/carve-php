@@ -279,7 +279,8 @@ trait EscapesCarveConstructs
         }
 
         if (!str_contains($bareHandled, '@')) {
-            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9_])@(?=[A-Za-z0-9_-])/', $line);
+            // `_` may be a closing emphasis delimiter that becomes `/`, which opens a mention.
+            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9])@(?=[A-Za-z0-9_-])/', $line);
         }
 
         // THE SYMBOL SIGIL, the third member of that family and the one that

@@ -17,6 +17,7 @@ final class Emphasis
      * @param array<string> $protectedSpans
      * @param bool $plainText
      * @param bool $strikethrough
+     * @param array<string> $spanSources
      */
     public static function convert(
         string $source,
@@ -25,8 +26,9 @@ final class Emphasis
         array $protectedSpans = [],
         bool $plainText = false,
         bool $strikethrough = false,
+        array $spanSources = [],
     ): string {
-        $neighbor = static function (int $offset, bool $left) use ($source, $protectedSpans): string {
+        $neighbor = static function (int $offset, bool $left) use ($source, $protectedSpans, $spanSources): string {
             $index = $left ? $offset - 1 : $offset;
             if (($source[$index] ?? '') === "\x00" && $index >= 0) {
                 $other = $left ? $index - 1 : $index + 1;
@@ -36,6 +38,10 @@ final class Emphasis
                 }
                 if ($other >= 0 && $other < $length && preg_match('/^\x00P(\d+)\x00$/', substr($source, min($index, $other), abs($index - $other) + 1), $match)) {
                     $value = $protectedSpans[(int)$match[1]] ?? '';
+                    // A character reference flanks as its `&` and `;`, not as the character it decodes to.
+                    if (preg_match('/^&[#A-Za-z][0-9A-Za-z]*;$/', $spanSources[(int)$match[1]] ?? '') === 1) {
+                        $value = $spanSources[(int)$match[1]];
+                    }
 
                     return $left ? self::before($value, strlen($value)) : self::after($value, 0);
                 }

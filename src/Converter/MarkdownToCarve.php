@@ -1251,10 +1251,14 @@ class MarkdownToCarve
             // It sits at the SHALLOWER of the two containers, the only
             // prefix both lines are inside: `> ---` over `foo` takes a
             // bare blank, `> > ---` over `> foo` takes `>`.
-            $result[] = $this->containerSeparator(
+            $separator = $this->containerSeparator(
                 $this->quoteDepth($next) < $this->quoteDepth($line) ? $next : $line,
                 $contentCol,
             );
+            // Not an empty one inside a list item, for the reason given above.
+            if ($separator !== '' || $contentCol === 0) {
+                $result[] = $separator;
+            }
         }
     }
 
@@ -1490,7 +1494,12 @@ class MarkdownToCarve
                 $separated = false;
                 if ($i + 1 < count($lines) && str_starts_with(ltrim($lines[$i + 1]), '>') && trim(ltrim(ltrim($lines[$i + 1]), '> ')) !== '') {
                     $result[] = $quotePrefix;
-                } elseif ($leavesQuote && $i + 1 < count($lines) && trim($lines[$i + 1]) !== '' && preg_match('/^[ \t]*(?:[-*+]|\d+[.)])(?=[ \t]|$)/', $lines[$i + 1]) !== 1) {
+                } elseif (
+                    $leavesQuote && $i + 1 < count($lines) && trim($lines[$i + 1]) !== ''
+                    // A bare `>` line keeps the outer quotes open; it is their blank, not the end of them.
+                    && !str_starts_with(ltrim($lines[$i + 1]), '>')
+                    && preg_match('/^[ \t]*(?:[-*+]|\d+[.)])(?=[ \t]|$)/', $lines[$i + 1]) !== 1
+                ) {
                     $result[] = '';
                     $separated = true;
                 }
