@@ -252,9 +252,7 @@ with two lines.</li>
 
 - foo
 
-```=html
-<!-- -->
-```
+%%
 
 ```
 code
@@ -265,7 +263,6 @@ code
   </li>
   <li><p>foo</p></li>
 </ul>
-<!-- -->
 <pre><code>code
 </code></pre>
 ',

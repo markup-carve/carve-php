@@ -4452,14 +4452,6 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\QuoteAndFootnoteFirstBlockTest::testItemQuoteFirstBlockForm with data set \"marker-line quote takes table at its column\"",
             "ticket": "carve-php#4328"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\ConverterCorpusTest::testConvertedSourceRendersTheExpectedHtml with data set \"101-markdown-an-html-comment-block-imports-as-a-line-comment\"",
-            "ticket": "carve#4812"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\ConverterCorpusTest::testConvertedSourceRendersTheExpectedHtml with data set \"102-markdown-a-multi-line-html-comment-imports-as-a-comment-fence\"",
-            "ticket": "carve#4812"
         }
     ]
 }

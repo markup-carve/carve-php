@@ -38,6 +38,7 @@ final class AuthoringLinter
         $listItems = [];
         $verbatim = [];
         $protectedRanges = [];
+        $commentStarts = [];
         $emptyLinks = [];
         $pending = [$document];
         while ($pending !== []) {
@@ -74,6 +75,9 @@ final class AuthoringLinter
                     && preg_match('/^(?:`{3,}|~{3,})/', substr($source, $startByte, $endByte - $startByte)) === 1
                 ) {
                     $protectedRanges[] = [$startByte, $endByte];
+                }
+                if ($node->getType() === 'comment') {
+                    $commentStarts[$pos->startLine] = min($commentStarts[$pos->startLine] ?? $startByte, $startByte);
                 }
                 if (in_array($node->getType(), ['code_block', 'raw_block', 'comment', 'frontmatter'], true)) {
                     for ($line = $pos->startLine; $line <= $pos->endLine; ++$line) {
@@ -142,17 +146,22 @@ final class AuthoringLinter
             $previous = $level;
         }
 
+        $maskedVisible = [];
+        $htmlCommentOpeners = [];
         foreach ($rows as $index => [$raw, $rowStart]) {
             $at = $index + 1;
-            if (isset($verbatim[$at])) {
+            // A paragraph line ending in a `%%` comment is verbatim, yet its text before the comment is visible.
+            $commentCut = isset($verbatim[$at], $paragraphs[$at], $commentStarts[$at]) && $commentStarts[$at] > $rowStart;
+            if (isset($verbatim[$at]) && !$commentCut) {
                 continue;
             }
-            $stripped = self::stripPrefixes($raw);
-            $prefix = strlen($raw) - strlen($stripped);
+            $source = $commentCut ? substr($raw, 0, $commentStarts[$at] - $rowStart) : $raw;
+            $stripped = self::stripPrefixes($source);
+            $prefix = strlen($source) - strlen($stripped);
             $column = $prefix + strspn($stripped, " \t") + 1;
             $visible = self::visible($stripped);
             $visibleStart = $rowStart + $prefix;
-            $visibleEnd = $rowStart + strlen($raw);
+            $visibleEnd = $rowStart + strlen($source);
             while (isset($protectedRanges[$firstProtected]) && $protectedRanges[$firstProtected][1] <= $visibleStart) {
                 $firstProtected++;
             }
@@ -163,6 +172,15 @@ final class AuthoringLinter
                 if ($to > $from) {
                     $visible = substr_replace($visible, str_repeat(' ', $to - $from), $from, $to - $from);
                 }
+            }
+            $maskedVisible[$at] = $visible;
+            if (isset($paragraphs[$at]) && preg_match_all('/<!--/', $visible, $matches, PREG_OFFSET_CAPTURE)) {
+                foreach ($matches[0] as [, $offset]) {
+                    $htmlCommentOpeners[] = [$at, $offset, $prefix];
+                }
+            }
+            if ($commentCut) {
+                continue;
             }
             $paragraph = isset($paragraphs[$at]);
             $row = isset($tableRows[$at]);
@@ -235,6 +253,28 @@ final class AuthoringLinter
                 if (($dashed && !$validSeparator) || ($row && count(array_filter($cells, static fn (string $cell): bool => (bool)preg_match('/^-{3,}$/', $cell))) > 0)) {
                     $emit($at, $column, 1, 'table-separator-near-miss', 'This table separator spelling renders as table content; correct the dash cells.');
                 }
+            }
+        }
+
+        // One backward pass per paragraph answers "is there a `-->` below this line".
+        $closerAtOrBelow = [];
+        foreach ($htmlCommentOpeners as [$at, $offset, $prefix]) {
+            $end = $paragraphEnds[$at] ?? $at;
+            $closed = str_contains(substr($maskedVisible[$at], $offset + 4), '-->');
+            if (!$closed && $at < $end) {
+                $next = $at + 1;
+                while ($next <= $end && !isset($closerAtOrBelow[$next])) {
+                    $next++;
+                }
+                $found = $next <= $end && $closerAtOrBelow[$next];
+                for ($line = $next - 1; $line > $at; $line--) {
+                    $found = $found || str_contains($maskedVisible[$line] ?? '', '-->');
+                    $closerAtOrBelow[$line] = $found;
+                }
+                $closed = $closerAtOrBelow[$at + 1];
+            }
+            if ($closed) {
+                $emit($at, $prefix + mb_strlen(substr($maskedVisible[$at], 0, $offset), 'UTF-8') + 1, 4, 'html-comment-renders-as-text', 'This HTML comment renders as visible text. Use %% for one line or %%% for a comment block.');
             }
         }
 

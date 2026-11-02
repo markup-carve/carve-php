@@ -281,7 +281,8 @@ class NewRoundtripCarriersTest extends TestCase
         $this->assertCount(1, $diagnostics);
         $this->assertSame('degraded', $diagnostics[0]->fidelity);
         $this->assertSame('fallback', $diagnostics[0]->confidence);
-        $control = (new MarkdownToCarve())->convert(str_replace('<!-- carve:', '<!-- ordinary:', $markdown));
-        $this->assertSame(str_replace('<!-- ordinary:', '<!-- carve:', $control), $result->value);
+        // An ordinary comment now imports as a Carve comment (carve#4812), so the raw control is a processing instruction.
+        $control = (new MarkdownToCarve())->convert(str_replace(['<!-- carve:', ' -->'], ['<?ordinary:', ' ?>'], $markdown));
+        $this->assertSame(str_replace(['<?ordinary:', ' ?>'], ['<!-- carve:', ' -->'], $control), $result->value);
     }
 }
