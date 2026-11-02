@@ -57,7 +57,7 @@
   },
   {
     "source": "- - +\n    :: term\n x\n",
-    "html": "<ul>\n  <li>\n    <ul>\n      <li>+\n        <dl>\n          <dt>term\nx</dt>\n        </dl>\n      </li>\n    </ul>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>+\n        <dl>\n          <dt>term</dt>\n        </dl>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
   },
   {
     "source": "- - +\n    ^ cap\n x\n",

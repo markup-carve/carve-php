@@ -78,10 +78,6 @@
             "ticket": "carve#4446"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"856-every-folded-caret-line-loses-its-leading-whitespace-in-a-deep-term\"",
-            "ticket": "carve#4522"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"864-a-paragraph-after-a-closed-third-level-item-takes-a-lazy-line\"",
             "ticket": "carve#4541"
         },
@@ -143,10 +139,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\ADescriptionParagraphAfterNestedListKeepsLazyTextTest::testParagraphAfterNestedFootnoteListKeepsItsLazyLine",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\ADescriptionSeparatorLeftOfItsItemColumnFoldsIntoTheBodyTest::testRendersLikeTheModel with data set \"term line folds into a tight body\"",
             "ticket": "carve-php#4244"
         },
         {
@@ -751,10 +743,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\ADescriptionBodysOpenFenceEndsAtABelowColumnLineTest::testRequiredOutput with data set \"tilde-overindented\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\ADescriptionSeparatorMustReachItsTermColumnTest::testTheSeparatorFollowsItsAuthoredColumn with data set \"open task term one column in\"",
             "ticket": "carve-php#4244"
         },
         {
@@ -3682,10 +3670,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-10414\"",
-            "ticket": "carve-php#4243"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-2723\"",
             "ticket": "carve-php#4244"
         },
@@ -4130,10 +4114,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\ADescriptionSeparatorLeftOfItsItemColumnFoldsIntoTheBodyTest::testRendersLikeTheModel with data set \"separator after an unclosed fence line in a loose item\"",
-            "ticket": "carve-php#4308"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceExtentColumnsTest::testFenceOwnershipFollowsTheCurrentBlock with data set \"nested paragraph after blank ```\"",
             "ticket": "carve-php#4308"
         },
@@ -4219,62 +4199,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-2-4-110\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-47\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-53\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-59\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-65\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-71\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-137\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-429\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-623\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-629\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-635\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-641\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-647\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-713\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-generic-1005\"",
             "ticket": "carve-php#4308"
         },
         {
@@ -4463,6 +4387,110 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\AuthoringConformanceTest::testAuthoringAcceptanceSuite",
+            "ticket": "carve#4863"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 74\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 75\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 358\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 359\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 700\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 701\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 702\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 703\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 1243\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 1244\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 1245\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 1246\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 1501\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 1502\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 1503\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 1780\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 1781\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 2076\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 2077\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 2078\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 2079\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 2080\"",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\RoundtripMarkdownReferenceAndMarkerEdgesTest::testAPayloadSpanningLinesIsReadBehindABlockQuote",
+            "ticket": "carve-php#4254"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\DefinitionTermFloorTextTest::testFloorTextKeepsTheTermOpen with data set \"term-wrapped-attribute-item-True-div\"",
+            "ticket": "carve#4863"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\DefinitionTermFloorTextTest::testFloorTextKeepsTheTermOpen with data set \"term-wrapped-attribute-quoted-item-True-div\"",
+            "ticket": "carve#4863"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\DefinitionTermFloorTextTest::testFloorTextKeepsTheTermOpen with data set \"term-wrapped-attribute-nested-item-True-div\"",
             "ticket": "carve#4863"
         }
     ]

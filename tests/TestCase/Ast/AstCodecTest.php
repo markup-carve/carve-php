@@ -426,15 +426,6 @@ class AstCodecTest extends TestCase
      * @var array<string>
      */
     private const AUTHORED_FORM_NOT_ON_THE_WIRE = [
-        // carve-php#4168
-        '743-a-later-term-after-a-shifted-separator-opens-in-the-outer-item-2.crv',
-        '743-a-later-term-after-a-shifted-separator-opens-in-the-outer-item-3.crv',
-        '743-a-later-term-after-a-shifted-separator-opens-in-the-outer-item.crv',
-        // carve-php#4166
-        '744-a-task-item-uses-the-ordered-item-column-rule-2.crv',
-        '744-a-task-item-uses-the-ordered-item-column-rule.crv',
-        // carve#4432, at the pin to carve b7876589
-        '856-a-quote-at-the-content-column-stays-in-the-item-after-a-refused-separator.crv',
         // carve#4762, at the pin to carve c3c2f80f
         '914-a-line-block-in-an-item-child-keeps-its-stanza-after-a-comment-or-marker-shaped-payload-3.crv',
     ];

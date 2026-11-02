@@ -289,11 +289,11 @@
   },
   {
     "source": "- a\n+\n:: term\n[r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ul>\n  <li>a\n    <dl>\n      <dt>term\n[r]]: /url</dt>\n    </dl>\n  </li>\n</ul>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ul>\n  <li>a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ul>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "- a\n+\n:: term\n [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ul>\n  <li>a\n    <dl>\n      <dt>term\n [r]]: /url</dt>\n    </dl>\n  </li>\n</ul>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ul>\n  <li>a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ul>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "- a\n+\n:: term\n  [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
@@ -829,19 +829,19 @@
   },
   {
     "source": "- +\n:: term\n[r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ul>\n  <li>\n    <dl>\n      <dt>term\n[r]]: /url</dt>\n    </dl>\n  </li>\n</ul>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ul>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "- +\n:: term\n [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ul>\n  <li>\n    <dl>\n      <dt>term\n [r]]: /url</dt>\n    </dl>\n  </li>\n</ul>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ul>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "- +\n:: term\n  [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ul>\n  <li>\n    <dl>\n      <dt>term\n  [r]]: /url</dt>\n    </dl>\n  </li>\n</ul>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>term</dt>\n    </dl>\n    [r]]: /url\n  </li>\n</ul>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "- +\n:: term\n   [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ul>\n  <li>\n    <dl>\n      <dt>term\n   [r]]: /url</dt>\n    </dl>\n  </li>\n</ul>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>term</dt>\n    </dl>\n    [r]]: /url\n  </li>\n</ul>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "- +\n:: term\n[r]: /url\n [r]: /again\n\nSee [r][], [r\\]][], and [^n].\n",
@@ -1425,11 +1425,11 @@
   },
   {
     "source": "- +\nfirst\n+\n:: term\n[r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ul>\n  <li>first\n    <dl>\n      <dt>term\n[r]]: /url</dt>\n    </dl>\n  </li>\n</ul>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ul>\n  <li>first\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ul>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "- +\nfirst\n+\n:: term\n [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ul>\n  <li>first\n    <dl>\n      <dt>term\n [r]]: /url</dt>\n    </dl>\n  </li>\n</ul>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ul>\n  <li>first\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ul>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "- +\nfirst\n+\n:: term\n  [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
@@ -2037,19 +2037,19 @@
   },
   {
     "source": "+\n:: term\n[r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<p>+</p>\n<dl>\n  <dt>term\n[r]]: /url</dt>\n</dl>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<p>+</p>\n<dl>\n  <dt>term</dt>\n</dl>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "+\n:: term\n [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<p>+</p>\n<dl>\n  <dt>term\n [r]]: /url</dt>\n</dl>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<p>+</p>\n<dl>\n  <dt>term</dt>\n</dl>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "+\n:: term\n  [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<p>+</p>\n<dl>\n  <dt>term\n  [r]]: /url</dt>\n</dl>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<p>+</p>\n<dl>\n  <dt>term</dt>\n</dl>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "+\n:: term\n   [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<p>+</p>\n<dl>\n  <dt>term\n   [r]]: /url</dt>\n</dl>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<p>+</p>\n<dl>\n  <dt>term</dt>\n</dl>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "+\n:: term\n[r]: /url\n [r]: /again\n\nSee [r][], [r\\]][], and [^n].\n",
@@ -3225,11 +3225,11 @@
   },
   {
     "source": "[^f]: a\n+\n:: term\n[r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "[^f]: a\n+\n:: term\n [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "[^f]: a\n+\n:: term\n  [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
@@ -3913,19 +3913,19 @@
   },
   {
     "source": ":: term\n: body\n+\n:: term\n[r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>body\n+</dd>\n  <dt>term\n[r]]: /url</dt>\n</dl>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>body\n+</dd>\n  <dt>term</dt>\n</dl>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": ":: term\n: body\n+\n:: term\n [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>body\n+</dd>\n  <dt>term\n [r]]: /url</dt>\n</dl>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>body\n+</dd>\n  <dt>term</dt>\n</dl>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": ":: term\n: body\n+\n:: term\n  [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>body\n+</dd>\n  <dt>term\n  [r]]: /url</dt>\n</dl>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>body\n+</dd>\n  <dt>term</dt>\n</dl>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": ":: term\n: body\n+\n:: term\n   [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>body\n+</dd>\n  <dt>term\n   [r]]: /url</dt>\n</dl>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>body\n+</dd>\n  <dt>term</dt>\n</dl>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": ":: term\n: body\n+\n:: term\n[r]: /url\n [r]: /again\n\nSee [r][], [r\\]][], and [^n].\n",
@@ -4961,15 +4961,15 @@
   },
   {
     "source": "1. a\n+\n:: term\n[r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ol>\n  <li>a\n    <dl>\n      <dt>term\n[r]]: /url</dt>\n    </dl>\n  </li>\n</ol>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ol>\n  <li>a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ol>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "1. a\n+\n:: term\n [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ol>\n  <li>a\n    <dl>\n      <dt>term\n [r]]: /url</dt>\n    </dl>\n  </li>\n</ol>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ol>\n  <li>a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ol>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "1. a\n+\n:: term\n  [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ol>\n  <li>a\n    <dl>\n      <dt>term\n  [r]]: /url</dt>\n    </dl>\n  </li>\n</ol>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ol>\n  <li>a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ol>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "1. a\n+\n:: term\n   [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
@@ -5989,19 +5989,19 @@
   },
   {
     "source": "12. a\n+\n:: term\n[r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ol start=\"12\">\n  <li>a\n    <dl>\n      <dt>term\n[r]]: /url</dt>\n    </dl>\n  </li>\n</ol>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ol start=\"12\">\n  <li>a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ol>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "12. a\n+\n:: term\n [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ol start=\"12\">\n  <li>a\n    <dl>\n      <dt>term\n [r]]: /url</dt>\n    </dl>\n  </li>\n</ol>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ol start=\"12\">\n  <li>a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ol>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "12. a\n+\n:: term\n  [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ol start=\"12\">\n  <li>a\n    <dl>\n      <dt>term\n  [r]]: /url</dt>\n    </dl>\n  </li>\n</ol>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ol start=\"12\">\n  <li>a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ol>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "12. a\n+\n:: term\n   [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ol start=\"12\">\n  <li>a\n    <dl>\n      <dt>term\n   [r]]: /url</dt>\n    </dl>\n  </li>\n</ol>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ol start=\"12\">\n  <li>a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ol>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "12. a\n+\n:: term\n    [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
@@ -7101,23 +7101,23 @@
   },
   {
     "source": "123. a\n+\n:: term\n[r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ol start=\"123\">\n  <li>a\n    <dl>\n      <dt>term\n[r]]: /url</dt>\n    </dl>\n  </li>\n</ol>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ol start=\"123\">\n  <li>a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ol>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "123. a\n+\n:: term\n [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ol start=\"123\">\n  <li>a\n    <dl>\n      <dt>term\n [r]]: /url</dt>\n    </dl>\n  </li>\n</ol>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ol start=\"123\">\n  <li>a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ol>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "123. a\n+\n:: term\n  [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ol start=\"123\">\n  <li>a\n    <dl>\n      <dt>term\n  [r]]: /url</dt>\n    </dl>\n  </li>\n</ol>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ol start=\"123\">\n  <li>a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ol>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "123. a\n+\n:: term\n   [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ol start=\"123\">\n  <li>a\n    <dl>\n      <dt>term\n   [r]]: /url</dt>\n    </dl>\n  </li>\n</ol>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ol start=\"123\">\n  <li>a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ol>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "123. a\n+\n:: term\n    [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ol start=\"123\">\n  <li>a\n    <dl>\n      <dt>term\n    [r]]: /url</dt>\n    </dl>\n  </li>\n</ol>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ol start=\"123\">\n  <li>a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ol>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "123. a\n+\n:: term\n     [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
@@ -8297,11 +8297,11 @@
   },
   {
     "source": "-{.x} a\n+\n:: term\n[r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ul>\n  <li class=\"x\">a\n    <dl>\n      <dt>term\n[r]]: /url</dt>\n    </dl>\n  </li>\n</ul>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ul>\n  <li class=\"x\">a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ul>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "-{.x} a\n+\n:: term\n [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<ul>\n  <li class=\"x\">a\n    <dl>\n      <dt>term\n [r]]: /url</dt>\n    </dl>\n  </li>\n</ul>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<ul>\n  <li class=\"x\">a\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ul>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "-{.x} a\n+\n:: term\n  [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",

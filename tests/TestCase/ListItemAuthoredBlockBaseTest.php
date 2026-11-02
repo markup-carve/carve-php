@@ -78,11 +78,11 @@ final class ListItemAuthoredBlockBaseTest extends TestCase
         }
     }
 
-    public function testWrappedDefinitionTermKeepsItsDescription(): void
+    public function testAWrappedTermLineIsItemText(): void
     {
         $html = (new CarveConverter())->convert("- x\n\n   :: term\n   more\n   :  def\n");
-        self::assertStringContainsString('<dd>def</dd>', $html);
-        self::assertStringNotContainsString(':  def</dt>', $html);
+        // A term is one line (carve#4861): the wrapped line and the separator are item text.
+        self::assertStringContainsString("<dt>term</dt>\n    </dl>\n    more\n:  def", $html);
     }
 
     public function testExactAndOverIndentedImageHaveTheSameLooseReading(): void

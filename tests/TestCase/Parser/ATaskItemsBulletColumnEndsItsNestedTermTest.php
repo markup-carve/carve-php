@@ -25,7 +25,7 @@ final class ATaskItemsBulletColumnEndsItsNestedTermTest extends TestCase
 
         yield 'one column past stays lazy in the term' => [
             "- [ ] - :: t\n   : a\n",
-            "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>\n        <dl>\n          <dt>t\n: a</dt>\n        </dl>\n      </li>\n    </ul>\n  </li>\n</ul>",
+            "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>\n        <dl>\n          <dt>t</dt>\n        </dl>\n      </li>\n    </ul>\n    : a\n  </li>\n</ul>",
         ];
     }
 
@@ -48,7 +48,7 @@ final class ATaskItemsBulletColumnEndsItsNestedTermTest extends TestCase
     {
         $html = (new CarveConverter())->convert("- [ ] [^n]: :: t\n  : a\n\n[^n]\n");
 
-        self::assertStringContainsString("<dt>t\n: a</dt>", $html);
+        self::assertStringContainsString('aria-label=": a"> : a</li>', $html);
         self::assertStringNotContainsString('&nbsp;L', $html);
     }
 }

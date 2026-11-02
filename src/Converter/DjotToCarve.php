@@ -3526,21 +3526,11 @@ class DjotToCarve
                         continue;
                     }
                 } else {
-                    $stack[array_key_last($stack)]['termEnd'] = $i;
-                    if ($visible && $marker && $indent > $stack[array_key_last($stack)]['source'] && preg_match('/^(?:[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t])/', $continuation) === 1) {
-                        $lines[$i] = preg_replace_callback('/^([0-9A-Za-z]+)([.)])(?=[ \t])/', static fn (array $m): string => $m[1] . '\\' . $m[2], $continuation) ?? $continuation;
-                        if (preg_match('/^[-*+(]/', $lines[$i]) === 1) {
-                            $lines[$i] = '\\' . $lines[$i];
-                        }
-
-                        continue;
-                    }
-                    if (preg_match('/^(?:[#>|{]|:{3,}|[`~]{3,}|[-*+] |(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] )/', $continuation) !== 1) {
-                        $lines[$i] = $visible && !$marker ? (preg_replace_callback('/^([ivxlcdmIVXLCDM]+)([.)])(?=[ \t])/', static fn (array $match): string => $match[1] . '\\' . $match[2], $continuation) ?? $continuation) : $continuation;
-                        if ($visible && preg_match('/^:(?=[ \t]|$)/', $lines[$i]) === 1) {
-                            $lines[$i] = '\\' . $lines[$i];
-                        }
-                    }
+                    // A Carve term is one line (carve#4861), so a wrapped Djot term joins its line; a hard break's backslash goes.
+                    $termEnd = $stack[array_key_last($stack)]['termEnd'];
+                    $joined = preg_replace_callback('/(\\\\*)[ \t]*$/D', static fn (array $m): string => strlen($m[1]) % 2 === 1 ? substr($m[1], 1) : $m[1], $lines[$termEnd], 1);
+                    $lines[$termEnd] = ($joined ?? $lines[$termEnd]) . ' ' . $continuation;
+                    $removedBlanks[$i] = true;
 
                     continue;
                 }

@@ -862,12 +862,12 @@
   {
     "id": "continued-marker-note-211",
     "source": "- [^n]: :: term\n    plain\n    ```\n    code\n    ```\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term plain</dt></dl><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><p>plain</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-212",
     "source": "> - [^n]: :: term\n>     plain\n>     ```\n>     code\n>     ```\n> after [^n]\n",
-    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term plain</dt></dl><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><p>plain</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-213",
@@ -882,12 +882,12 @@
   {
     "id": "continued-marker-note-215",
     "source": "- [^n]: :: term\n    plain\n      ```\n      code\n      ```\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term plain</dt></dl><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><p>plain</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-216",
     "source": "> - [^n]: :: term\n>     plain\n>       ```\n>       code\n>       ```\n> after [^n]\n",
-    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term plain</dt></dl><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><p>plain</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-217",
@@ -902,12 +902,12 @@
   {
     "id": "continued-marker-note-219",
     "source": "- [^n]: :: term\n    plain\n        ```\n        code\n        ```\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term plain</dt></dl><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><p>plain</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-220",
     "source": "> - [^n]: :: term\n>     plain\n>         ```\n>         code\n>         ```\n> after [^n]\n",
-    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term plain</dt></dl><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><p>plain</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-marker-note-221",
@@ -2397,7 +2397,7 @@
   {
     "id": "closer-generic-38",
     "source": "- a\n    - child\n    :: b\n      more\n    ~~~\n    code\n    ~~~\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-39",
@@ -2412,12 +2412,12 @@
   {
     "id": "closer-generic-41",
     "source": "- a\n    - child\n    :: b\n      more\n    ~~~\n    code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-44",
     "source": "- a\n    - child\n    :: b\n\n      more\n    ~~~\n    code\n    ~~~\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><ul><li>child</li></ul><dl><dt>b</dt></dl><p>more</p><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-47",
@@ -2442,7 +2442,7 @@
   {
     "id": "closer-generic-53",
     "source": "- a\n    - child\n    :: b\n      more\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-55",
@@ -2472,7 +2472,7 @@
   {
     "id": "closer-generic-65",
     "source": "- a\n    - child\n    :: b\n      more\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-67",
@@ -2557,7 +2557,7 @@
   {
     "id": "closer-generic-113",
     "source": "- a\n    - child\n    :: b\n      :: t\n    ~~~\n    code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt><dt>t</dt></dl><pre><code>code after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt><dt>t</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-121",
@@ -2577,7 +2577,7 @@
   {
     "id": "closer-generic-125",
     "source": "- a\n    - child\n    :: b\n      :: t\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt><dt>t</dt></dl><pre><code>code after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt><dt>t</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-127",
@@ -2717,7 +2717,7 @@
   {
     "id": "closer-generic-326",
     "source": "- a\n    more\n    :: b\n      more\n    ~~~\n    code\n    ~~~\nafter\n",
-    "html": "<ul><li>a more<dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a more<dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-327",
@@ -2767,7 +2767,7 @@
   {
     "id": "closer-generic-341",
     "source": "- a\n    more\n    :: b\n      more\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li>a more<dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a more<dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-343",
@@ -2802,7 +2802,7 @@
   {
     "id": "closer-generic-353",
     "source": "- a\n    more\n    :: b\n      more\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a more<dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a more<dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-355",
@@ -2947,7 +2947,7 @@
   {
     "id": "closer-generic-417",
     "source": "- a\n    more\n    b\n\n      :: t\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li>a more b<dl><dt>t</dt></dl><pre><code>code after</code></pre></li></ul>"
+    "html": "<ul><li>a more b<dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "closer-generic-421",
@@ -3062,7 +3062,7 @@
   {
     "id": "closer-generic-614",
     "source": "> - a\n>     - child\n>     :: b\n>       more\n>     ~~~\n>     code\n>     ~~~\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-615",
@@ -3077,12 +3077,12 @@
   {
     "id": "closer-generic-617",
     "source": "> - a\n>     - child\n>     :: b\n>       more\n>     ~~~\n>     code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code after</code></pre></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-620",
     "source": "> - a\n>     - child\n>     :: b\n> \n>       more\n>     ~~~\n>     code\n>     ~~~\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><ul><li>child</li></ul><dl><dt>b</dt></dl><p>more</p><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-623",
@@ -3107,7 +3107,7 @@
   {
     "id": "closer-generic-629",
     "source": "> - a\n>     - child\n>     :: b\n>       more\n>       ~~~\n>       code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-631",
@@ -3137,7 +3137,7 @@
   {
     "id": "closer-generic-641",
     "source": "> - a\n>     - child\n>     :: b\n>       more\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-643",
@@ -3222,7 +3222,7 @@
   {
     "id": "closer-generic-689",
     "source": "> - a\n>     - child\n>     :: b\n>       :: t\n>     ~~~\n>     code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt><dt>t</dt></dl><pre><code>code after</code></pre></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt><dt>t</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-697",
@@ -3242,7 +3242,7 @@
   {
     "id": "closer-generic-701",
     "source": "> - a\n>     - child\n>     :: b\n>       :: t\n>       ~~~\n>       code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt><dt>t</dt></dl><pre><code>code after</code></pre></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt><dt>t</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-703",
@@ -3382,7 +3382,7 @@
   {
     "id": "closer-generic-902",
     "source": "> - a\n>     more\n>     :: b\n>       more\n>     ~~~\n>     code\n>     ~~~\n> after\n> ",
-    "html": "<blockquote><ul><li>a more<dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a more<dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-903",
@@ -3432,7 +3432,7 @@
   {
     "id": "closer-generic-917",
     "source": "> - a\n>     more\n>     :: b\n>       more\n>       ~~~\n>       code\n> after\n> ",
-    "html": "<blockquote><ul><li>a more<dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a more<dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-919",
@@ -3467,7 +3467,7 @@
   {
     "id": "closer-generic-929",
     "source": "> - a\n>     more\n>     :: b\n>       more\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a more<dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a more<dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-931",
@@ -3612,7 +3612,7 @@
   {
     "id": "closer-generic-993",
     "source": "> - a\n>     more\n>     b\n> \n>       :: t\n>       ~~~\n>       code\n> after\n> ",
-    "html": "<blockquote><ul><li>a more b<dl><dt>t</dt></dl><pre><code>code after</code></pre></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a more b<dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "closer-generic-997",
@@ -3697,7 +3697,7 @@
   {
     "id": "closer-after-closer-12",
     "source": "- [^a]: text\n    - child\n    [^b]: inner\n      - c2\n    ~~~\n    code\n    ~~~\n  :: d\nbelow\n\n[^a] [^b]\n",
-    "html": "<ul><li><dl><dt>d below</dt></dl></li></ul><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text - child</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner - c2<a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li><dl><dt>d</dt></dl></li></ul><p>below</p><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text - child</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner - c2<a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "closer-after-closer-13",
@@ -3767,7 +3767,7 @@
   {
     "id": "closer-after-closer-28",
     "source": "- [^a]: text\n    - child\n    [^b]: inner\n      - c2\n      ~~~\n      code\n      ~~~\n  :: d\nbelow\n\n[^a] [^b]\n",
-    "html": "<ul><li><dl><dt>d below</dt></dl></li></ul><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text - child<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner - c2</p><pre><code>code</code></pre><p><a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li><dl><dt>d</dt></dl></li></ul><p>below</p><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text - child<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner - c2</p><pre><code>code</code></pre><p><a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "closer-after-closer-29",
@@ -3842,7 +3842,7 @@
   {
     "id": "closer-after-closer-44",
     "source": "- [^a]: text\n    - child\n    [^b]: inner\n      more\n    ~~~\n    code\n    ~~~\n  :: d\nbelow\n\n[^a] [^b]\n",
-    "html": "<ul><li><dl><dt>d below</dt></dl></li></ul><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text - child</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner more<a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li><dl><dt>d</dt></dl></li></ul><p>below</p><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text - child</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner more<a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "closer-after-closer-45",
@@ -3907,7 +3907,7 @@
   {
     "id": "closer-after-closer-60",
     "source": "- [^a]: text\n    - child\n    [^b]: inner\n      more\n      ~~~\n      code\n      ~~~\n  :: d\nbelow\n\n[^a] [^b]\n",
-    "html": "<ul><li><dl><dt>d below</dt></dl></li></ul><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text - child<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner more</p><pre><code>code</code></pre><p><a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li><dl><dt>d</dt></dl></li></ul><p>below</p><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text - child<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner more</p><pre><code>code</code></pre><p><a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "closer-after-closer-61",
@@ -3972,7 +3972,7 @@
   {
     "id": "closer-after-closer-76",
     "source": "- [^a]: text\n    more\n    [^b]: inner\n      - c2\n    ~~~\n    code\n    ~~~\n  :: d\nbelow\n\n[^a] [^b]\n",
-    "html": "<ul><li><dl><dt>d below</dt></dl></li></ul><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner - c2<a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li><dl><dt>d</dt></dl></li></ul><p>below</p><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner - c2<a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "closer-after-closer-77",
@@ -4042,7 +4042,7 @@
   {
     "id": "closer-after-closer-92",
     "source": "- [^a]: text\n    more\n    [^b]: inner\n      - c2\n      ~~~\n      code\n      ~~~\n  :: d\nbelow\n\n[^a] [^b]\n",
-    "html": "<ul><li><dl><dt>d below</dt></dl></li></ul><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner - c2</p><pre><code>code</code></pre><p><a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li><dl><dt>d</dt></dl></li></ul><p>below</p><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner - c2</p><pre><code>code</code></pre><p><a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "closer-after-closer-93",
@@ -4122,7 +4122,7 @@
   {
     "id": "closer-after-closer-108",
     "source": "- [^a]: text\n    more\n    [^b]: inner\n      more\n    ~~~\n    code\n    ~~~\n  :: d\nbelow\n\n[^a] [^b]\n",
-    "html": "<ul><li><dl><dt>d below</dt></dl></li></ul><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner more<a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li><dl><dt>d</dt></dl></li></ul><p>below</p><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner more<a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "closer-after-closer-109",
@@ -4187,7 +4187,7 @@
   {
     "id": "closer-after-closer-124",
     "source": "- [^a]: text\n    more\n    [^b]: inner\n      more\n      ~~~\n      code\n      ~~~\n  :: d\nbelow\n\n[^a] [^b]\n",
-    "html": "<ul><li><dl><dt>d below</dt></dl></li></ul><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner more</p><pre><code>code</code></pre><p><a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li><dl><dt>d</dt></dl></li></ul><p>below</p><p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>inner more</p><pre><code>code</code></pre><p><a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "closer-after-closer-125",

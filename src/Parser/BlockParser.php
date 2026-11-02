@@ -2260,13 +2260,6 @@ class BlockParser
             }
         }
         if ($next instanceof Paragraph && $followerColumn !== null) {
-            $nestedColumn = $this->state->session->parsedNestedListContentColumn($parent);
-            if (
-                $previous instanceof DefinitionList
-                && $nestedColumn !== null && $followerColumn >= $nestedColumn
-            ) {
-                return;
-            }
             $divColumn = $previous instanceof Div ? $this->state->session->divOpenerColumn($previous) : null;
             if ($divColumn !== null && $followerColumn < $divColumn) {
                 return;
@@ -6184,7 +6177,6 @@ class BlockParser
             consumeLooseKeyCallback: $this->consumeLooseKey(...),
             continuationFollowerIsEligibleCallback: $this->continuationFollowerIsEligible(...),
             endContainerAttributeScopeCallback: $this->endContainerAttributeScope(...),
-            endsDefinitionTermCallback: $this->endsDefinitionTerm(...),
             isBlockAttributeLineCallback: $this->isBlockAttributeLine(...),
             isCommentLineOrFenceCallback: $this->isCommentLineOrFence(...),
             isInvisibleOrAttributeLineCallback: $this->isInvisibleOrAttributeLine(...),

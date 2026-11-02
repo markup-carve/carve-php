@@ -122,7 +122,7 @@
     {
         "ticket": "carve-php#4158",
         "source": "* [ ] - :: t\n       : a\n        :: sibling\n        tail\n",
-        "html": "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>\n        <dl>\n          <dt>t\n: a</dt>\n          <dt>sibling\ntail</dt>\n        </dl>\n      </li>\n    </ul>\n  </li>\n</ul>"
+        "html": "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>\n        <dl>\n          <dt>t</dt>\n        </dl>\n      </li>\n    </ul>\n    : a\n    <dl>\n      <dt>sibling</dt>\n    </dl>\n    tail\n  </li>\n</ul>"
     },
     {
         "ticket": "carve-php#4282",

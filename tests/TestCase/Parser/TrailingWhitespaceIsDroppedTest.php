@@ -72,18 +72,18 @@ class TrailingWhitespaceIsDroppedTest extends TestCase
             // break - which is the shape the divergence was reported on.
             'definition term' => [
                 ":: `a\nb \n:  d\n",
-                "<dl>\n  <dt><code>a\nb</code></dt>\n  <dd>d</dd>\n</dl>\n",
+                "<dl>\n  <dt><code>a</code></dt>\n</dl>\n<p>b\n:  d</p>",
             ],
             // The run has to sit on the CONTINUATION line to discriminate: a
             // term's FIRST line was always trimmed, so `:: a<SP>` passes
             // against the unfixed parser and pins nothing.
             'definition term, plain text' => [
                 ":: a\nb \n:  d\n",
-                "<dl>\n  <dt>a\nb</dt>\n  <dd>d</dd>\n</dl>\n",
+                "<dl>\n  <dt>a</dt>\n</dl>\n<p>b\n:  d</p>",
             ],
             'definition term, a tab' => [
                 ":: a\nb\t\n:  d\n",
-                "<dl>\n  <dt>a\nb</dt>\n  <dd>d</dd>\n</dl>\n",
+                "<dl>\n  <dt>a</dt>\n</dl>\n<p>b\n:  d</p>",
             ],
         ];
     }
@@ -116,7 +116,7 @@ class TrailingWhitespaceIsDroppedTest extends TestCase
     public function testAnInteriorRunOnAFoldedTermLineSurvives(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<dl>\n  <dt><code>a\nb  </code></dt>\n  <dd>d</dd>\n</dl>\n"),
+            "<dl>\n  <dt><code>a</code></dt>\n</dl>\n<p>b  <code>\n:  d</code></p>",
             $this->html(":: `a\nb  `\n:  d\n"),
         );
     }

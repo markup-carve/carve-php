@@ -227,12 +227,12 @@
   {
     "id": "nested-marker-note-closer/generic-50",
     "source": "- a\n    - child\n    :: b\n      more\n      ~~~\n      code\n      ~~~\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer/generic-62",
     "source": "- a\n    - child\n    :: b\n      more\n        ~~~\n        code\n        ~~~\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer/generic-86",
@@ -257,12 +257,12 @@
   {
     "id": "nested-marker-note-closer/generic-338",
     "source": "- a\n    more\n    :: b\n      more\n      ~~~\n      code\n      ~~~\nafter\n",
-    "html": "<ul><li>a more<dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a more<dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer/generic-350",
     "source": "- a\n    more\n    :: b\n      more\n        ~~~\n        code\n        ~~~\nafter\n",
-    "html": "<ul><li>a more<dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a more<dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer/generic-374",
@@ -297,12 +297,12 @@
   {
     "id": "nested-marker-note-closer/generic-626",
     "source": "> - a\n>     - child\n>     :: b\n>       more\n>       ~~~\n>       code\n>       ~~~\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer/generic-638",
     "source": "> - a\n>     - child\n>     :: b\n>       more\n>         ~~~\n>         code\n>         ~~~\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer/generic-662",
@@ -327,12 +327,12 @@
   {
     "id": "nested-marker-note-closer/generic-914",
     "source": "> - a\n>     more\n>     :: b\n>       more\n>       ~~~\n>       code\n>       ~~~\n> after\n> ",
-    "html": "<blockquote><ul><li>a more<dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a more<dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer/generic-926",
     "source": "> - a\n>     more\n>     :: b\n>       more\n>         ~~~\n>         code\n>         ~~~\n> after\n> ",
-    "html": "<blockquote><ul><li>a more<dl><dt>b more</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a more<dl><dt>b</dt></dl>more<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer/generic-950",
@@ -417,7 +417,7 @@
   {
     "id": "lead-term-prose",
     "source": "- :: term\n     :: more\n   tail\n",
-    "html": "<ul><li><dl><dt>term</dt><dt>more tail</dt></dl></li></ul>"
+    "html": "<ul><li><dl><dt>term</dt><dt>more</dt></dl>tail</li></ul>"
   },
   {
     "id": "lead-term-fence-~~~-3",

@@ -14,7 +14,7 @@ final class ANestedQuotedTermContinuationUsesItsAuthoredColumnTest extends TestC
         $source = "- host\n  > - * :: t\n  >  : a\n  >   :: sibling\n  >   tail\n";
         $html = CarveConverter::create()->convert($source);
 
-        self::assertStringContainsString("<dt>sibling\ntail</dt>", $html);
+        self::assertStringContainsString("<dt>sibling</dt>\n      </dl>\n      <p>tail</p>", $html);
     }
 
     public function testTextPastTheTermColumnKeepsItsIndentation(): void
@@ -22,7 +22,7 @@ final class ANestedQuotedTermContinuationUsesItsAuthoredColumnTest extends TestC
         $source = "- host\n  > - * :: t\n  >  : a\n  >   :: sibling\n  >    tail\n";
         $html = CarveConverter::create()->convert($source);
 
-        self::assertStringContainsString("<dt>sibling\n tail</dt>", $html);
+        self::assertStringContainsString("<dt>sibling</dt>\n      </dl>\n      <p>tail</p>", $html);
     }
 
     public function testSameColumnWorksWhenASecondQuoteEnclosesTheList(): void
@@ -30,6 +30,6 @@ final class ANestedQuotedTermContinuationUsesItsAuthoredColumnTest extends TestC
         $source = "> - host\n>   > - * :: t\n>   >   :: sibling\n>   >   tail\n";
         $html = CarveConverter::create()->convert($source);
 
-        self::assertStringContainsString("<dt>sibling\ntail</dt>", $html);
+        self::assertStringContainsString("<dt>sibling</dt>\n            </dl>\n            tail\n", $html);
     }
 }

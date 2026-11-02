@@ -17,10 +17,10 @@ final class CaretDefinitionTermBoundaryTest extends TestCase
         );
     }
 
-    public function testPlainLineStillFoldsIntoTerm(): void
+    public function testAPlainLineAfterATermIsAParagraph(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<dl>\n  <dt>term\nplain</dt>\n</dl>\n"),
+            "<dl>\n  <dt>term</dt>\n</dl>\n<p>plain</p>",
             CarveConverter::create()->convert(":: term\nplain\n"),
         );
     }

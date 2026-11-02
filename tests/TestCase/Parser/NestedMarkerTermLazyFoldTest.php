@@ -16,7 +16,7 @@ final class NestedMarkerTermLazyFoldTest extends TestCase
     public static function cases(): iterable
     {
         yield 'definition-shaped line returns to outer item' => ["- - :: t\n  : a\n", "</ul>\n    : a"];
-        yield 'plain lazy line' => ["- - :: t\n  a\n", "<dt>t\na</dt>"];
+        yield 'plain lazy line' => ["- - :: t\n  a\n", "</ul>\n    a\n  </li>"];
         yield 'heading remains an outer block' => ["- - :: t\n  # h\n", '<h1 id="h">h</h1>'];
         yield 'table remains an outer block' => ["- - :: t\n  |a|\n", '<td>a</td>'];
     }

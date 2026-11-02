@@ -13,15 +13,15 @@ final class TaskItemSiblingTermColumnTest extends TestCase
     {
         $html = (new CarveConverter())->convert("* [ ] - :: t\n       : a\n       :: sibling\n       tail\n");
 
-        self::assertStringContainsString("</ul>\n    <dl>\n      <dt>sibling", $html);
+        self::assertStringContainsString("</ul>\n    : a\n    <dl>\n      <dt>sibling", $html);
         self::assertStringNotContainsString(':: sibling', $html);
     }
 
-    public function testTheTermAtTheNestedContentColumnStaysNested(): void
+    public function testATermPastTheFoldedSeparatorStaysInTheTaskItem(): void
     {
         $html = (new CarveConverter())->convert("* [ ] - :: t\n       : a\n        :: nested\n        tail\n");
 
-        self::assertStringContainsString("<dt>t\n: a</dt>\n          <dt>nested\ntail</dt>", $html);
-        self::assertStringNotContainsString("</ul>\n    <dl>", $html);
+        // A term is one line (carve#4861), so the separator below it is task-item text.
+        self::assertStringContainsString("<dt>t</dt>\n        </dl>\n      </li>\n    </ul>\n    : a\n    <dl>\n      <dt>nested</dt>", $html);
     }
 }

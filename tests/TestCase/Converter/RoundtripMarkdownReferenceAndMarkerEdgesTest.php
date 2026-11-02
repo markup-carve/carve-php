@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,6 +16,8 @@ use PHPUnit\Framework\TestCase;
  */
 class RoundtripMarkdownReferenceAndMarkerEdgesTest extends TestCase
 {
+    use RuleATodo;
+
     public function testPlainExportKeepsTheInlineForm(): void
     {
         $this->assertSame("[a](/u)\n", $this->export("[a][r]\n\n[r]: /u\n", false));
@@ -76,16 +79,18 @@ MD;
         $this->assertSame(":::\ninside\n:::\n", (new MarkdownToCarve())->convert($markdown));
     }
 
-    public function testAWrappedTermKeepsItsLineBreak(): void
+    public function testAParagraphAfterATermKeepsItsLines(): void
     {
+        // A term is one line (carve#4861): the lines after it are a paragraph.
         $source = <<<'CARVE'
 :: A term that
+
 wraps onto the next line
 : its definition
 
 CARVE;
 
-        $this->assertStringContainsString("<!-- carve: :: A term that\nwraps onto the next line -->", $this->export($source));
+        $this->assertStringContainsString("<!-- carve: :: A term that -->", $this->export($source));
         $this->assertSame($source, $this->back($source));
     }
 
@@ -93,6 +98,7 @@ CARVE;
     {
         $source = <<<'CARVE'
 > :: A term that
+>
 > wraps here
 > : its definition
 

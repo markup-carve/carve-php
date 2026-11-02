@@ -33,6 +33,6 @@ final class DefinitionListSourceColumnsTest extends TestCase
     public function testTermContinuationDropsTheReleasedItemPrefix(): void
     {
         $html = CarveConverter::create()->convert("- - :: t\n : a\n  :: sibling\n  tail\n");
-        self::assertStringContainsString("<dt>sibling\ntail</dt>", $html);
+        self::assertStringContainsString("<dt>sibling</dt>\n</dl>\n<p>tail</p>", $html);
     }
 }

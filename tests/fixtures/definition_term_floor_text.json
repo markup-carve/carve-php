@@ -32,32 +32,32 @@
   {
     "id": "invalid-floor-info-deep-term-6",
     "source": "- :: term\n  ``` {broken\n   ```\n   code\n   ```\nafter\n",
-    "html": "<ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "invalid-floor-info-deep-term-7",
     "source": "- :: term\n  ``` {broken\n   ~~~\n   code\n   ~~~\nafter\n",
-    "html": "<ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "invalid-floor-info-deep-term-8",
     "source": "- :: term\n  ``` {broken\n    ```\n    code\n    ```\nafter\n",
-    "html": "<ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "invalid-floor-info-deep-term-9",
     "source": "- :: term\n  ``` {broken\n    ~~~\n    code\n    ~~~\nafter\n",
-    "html": "<ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "invalid-floor-info-deep-term-10",
     "source": "- :: term\n  ``` {broken\n      ```\n      code\n      ```\nafter\n",
-    "html": "<ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "invalid-floor-info-deep-term-11",
     "source": "- :: term\n  ``` {broken\n      ~~~\n      code\n      ~~~\nafter\n",
-    "html": "<ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "invalid-floor-info-deep-term-12",
@@ -122,32 +122,32 @@
   {
     "id": "invalid-floor-info-deep-term-24",
     "source": "- :: term\n  ~~~ {broken\n   ```\n   code\n   ```\nafter\n",
-    "html": "<ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    ~~~ {broken\n    <pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "invalid-floor-info-deep-term-25",
     "source": "- :: term\n  ~~~ {broken\n   ~~~\n   code\n   ~~~\nafter\n",
-    "html": "<ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    ~~~ {broken\n    <pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "invalid-floor-info-deep-term-26",
     "source": "- :: term\n  ~~~ {broken\n    ```\n    code\n    ```\nafter\n",
-    "html": "<ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    ~~~ {broken\n    <pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "invalid-floor-info-deep-term-27",
     "source": "- :: term\n  ~~~ {broken\n    ~~~\n    code\n    ~~~\nafter\n",
-    "html": "<ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    ~~~ {broken\n    <pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "invalid-floor-info-deep-term-28",
     "source": "- :: term\n  ~~~ {broken\n      ```\n      code\n      ```\nafter\n",
-    "html": "<ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    ~~~ {broken\n    <pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "invalid-floor-info-deep-term-29",
     "source": "- :: term\n  ~~~ {broken\n      ~~~\n      code\n      ~~~\nafter\n",
-    "html": "<ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    ~~~ {broken\n    <pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "invalid-floor-info-deep-term-30",
@@ -212,32 +212,32 @@
   {
     "id": "invalid-floor-info-deep-term-42",
     "source": "> - :: term\n>   ``` {broken\n>    ```\n>    code\n>    ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-43",
     "source": "> - :: term\n>   ``` {broken\n>    ~~~\n>    code\n>    ~~~\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-44",
     "source": "> - :: term\n>   ``` {broken\n>     ```\n>     code\n>     ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-45",
     "source": "> - :: term\n>   ``` {broken\n>     ~~~\n>     code\n>     ~~~\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-46",
     "source": "> - :: term\n>   ``` {broken\n>       ```\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-47",
     "source": "> - :: term\n>   ``` {broken\n>       ~~~\n>       code\n>       ~~~\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-48",
@@ -302,32 +302,32 @@
   {
     "id": "invalid-floor-info-deep-term-60",
     "source": "> - :: term\n>   ~~~ {broken\n>    ```\n>    code\n>    ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      ~~~ {broken\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-61",
     "source": "> - :: term\n>   ~~~ {broken\n>    ~~~\n>    code\n>    ~~~\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      ~~~ {broken\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-62",
     "source": "> - :: term\n>   ~~~ {broken\n>     ```\n>     code\n>     ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      ~~~ {broken\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-63",
     "source": "> - :: term\n>   ~~~ {broken\n>     ~~~\n>     code\n>     ~~~\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      ~~~ {broken\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-64",
     "source": "> - :: term\n>   ~~~ {broken\n>       ```\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      ~~~ {broken\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-65",
     "source": "> - :: term\n>   ~~~ {broken\n>       ~~~\n>       code\n>       ~~~\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      ~~~ {broken\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-66",
@@ -392,32 +392,32 @@
   {
     "id": "invalid-floor-info-deep-term-78",
     "source": "> > - :: term\n> >   ``` {broken\n> >    ```\n> >    code\n> >    ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-79",
     "source": "> > - :: term\n> >   ``` {broken\n> >    ~~~\n> >    code\n> >    ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-80",
     "source": "> > - :: term\n> >   ``` {broken\n> >     ```\n> >     code\n> >     ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-81",
     "source": "> > - :: term\n> >   ``` {broken\n> >     ~~~\n> >     code\n> >     ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-82",
     "source": "> > - :: term\n> >   ``` {broken\n> >       ```\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-83",
     "source": "> > - :: term\n> >   ``` {broken\n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n<code> {broken</code></dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><code> {broken</code><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-84",
@@ -482,32 +482,32 @@
   {
     "id": "invalid-floor-info-deep-term-96",
     "source": "> > - :: term\n> >   ~~~ {broken\n> >    ```\n> >    code\n> >    ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        ~~~ {broken\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-97",
     "source": "> > - :: term\n> >   ~~~ {broken\n> >    ~~~\n> >    code\n> >    ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        ~~~ {broken\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-98",
     "source": "> > - :: term\n> >   ~~~ {broken\n> >     ```\n> >     code\n> >     ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        ~~~ {broken\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-99",
     "source": "> > - :: term\n> >   ~~~ {broken\n> >     ~~~\n> >     code\n> >     ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        ~~~ {broken\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-100",
     "source": "> > - :: term\n> >   ~~~ {broken\n> >       ```\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        ~~~ {broken\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-101",
     "source": "> > - :: term\n> >   ~~~ {broken\n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n~~~ {broken</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        ~~~ {broken\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "invalid-floor-info-deep-term-102",
@@ -542,32 +542,32 @@
   {
     "id": "term-floor-plain-sibling-0",
     "source": "- :: term\n  text\n   ```\n   code\n   ```\nafter\n",
-    "html": "<ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    text\n    <pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "term-floor-plain-sibling-1",
     "source": "- :: term\n  text\n   ~~~\n   code\n   ~~~\nafter\n",
-    "html": "<ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    text\n    <pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "term-floor-plain-sibling-2",
     "source": "- :: term\n  text\n    ```\n    code\n    ```\nafter\n",
-    "html": "<ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    text\n    <pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "term-floor-plain-sibling-3",
     "source": "- :: term\n  text\n    ~~~\n    code\n    ~~~\nafter\n",
-    "html": "<ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    text\n    <pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "term-floor-plain-sibling-4",
     "source": "- :: term\n  text\n      ```\n      code\n      ```\nafter\n",
-    "html": "<ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    text\n    <pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "term-floor-plain-sibling-5",
     "source": "- :: term\n  text\n      ~~~\n      code\n      ~~~\nafter\n",
-    "html": "<ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    text\n    <pre><code>code\n</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "term-floor-plain-sibling-12",
@@ -632,32 +632,32 @@
   {
     "id": "term-floor-plain-sibling-24",
     "source": "> - :: term\n>   text\n>    ```\n>    code\n>    ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      text\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "term-floor-plain-sibling-25",
     "source": "> - :: term\n>   text\n>    ~~~\n>    code\n>    ~~~\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      text\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "term-floor-plain-sibling-26",
     "source": "> - :: term\n>   text\n>     ```\n>     code\n>     ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      text\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "term-floor-plain-sibling-27",
     "source": "> - :: term\n>   text\n>     ~~~\n>     code\n>     ~~~\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      text\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "term-floor-plain-sibling-28",
     "source": "> - :: term\n>   text\n>       ```\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      text\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "term-floor-plain-sibling-29",
     "source": "> - :: term\n>   text\n>       ~~~\n>       code\n>       ~~~\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      text\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "term-floor-plain-sibling-36",
@@ -722,32 +722,32 @@
   {
     "id": "term-floor-plain-sibling-48",
     "source": "> > - :: term\n> >   text\n> >    ```\n> >    code\n> >    ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        text\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "term-floor-plain-sibling-49",
     "source": "> > - :: term\n> >   text\n> >    ~~~\n> >    code\n> >    ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        text\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "term-floor-plain-sibling-50",
     "source": "> > - :: term\n> >   text\n> >     ```\n> >     code\n> >     ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        text\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "term-floor-plain-sibling-51",
     "source": "> > - :: term\n> >   text\n> >     ~~~\n> >     code\n> >     ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        text\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "term-floor-plain-sibling-52",
     "source": "> > - :: term\n> >   text\n> >       ```\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        text\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "term-floor-plain-sibling-53",
     "source": "> > - :: term\n> >   text\n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\ntext</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        text\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "term-floor-plain-sibling-60",
@@ -842,22 +842,22 @@
   {
     "id": "term-wrapped-attribute-item-True-heading",
     "source": "- lead\n\n  :: term\n  floor text\n  {.a\n  .b}\n     # heading\n",
-    "html": "<ul><li>lead\n    <dl><dt>term\nfloor text</dt></dl><h1 class=\"a b\" id=\"heading\">heading</h1></li></ul>"
+    "html": "<ul><li>lead\n    <dl><dt>term</dt></dl>\n    floor text\n    <h1 class=\"a b\" id=\"heading\">heading</h1></li></ul>"
   },
   {
     "id": "term-wrapped-attribute-item-True-code",
     "source": "- lead\n\n  :: term\n  floor text\n  {.a\n  .b}\n     ```\n     code\n     ```\n",
-    "html": "<ul><li>lead\n    <dl><dt>term\nfloor text</dt></dl><pre class=\"a b\"><code>code\n</code></pre></li></ul>"
+    "html": "<ul><li>lead\n    <dl><dt>term</dt></dl>\n    floor text\n    <pre class=\"a b\"><code>code\n</code></pre></li></ul>"
   },
   {
     "id": "term-wrapped-attribute-item-True-quote",
     "source": "- lead\n\n  :: term\n  floor text\n  {.a\n  .b}\n     > quoted\n",
-    "html": "<ul><li>lead\n    <dl><dt>term\nfloor text</dt></dl><blockquote class=\"a b\"><p>quoted</p></blockquote></li></ul>"
+    "html": "<ul><li>lead\n    <dl><dt>term</dt></dl>\n    floor text\n    <blockquote class=\"a b\"><p>quoted</p></blockquote></li></ul>"
   },
   {
     "id": "term-wrapped-attribute-item-True-table",
     "source": "- lead\n\n  :: term\n  floor text\n  {.a\n  .b}\n     | a | b |\n",
-    "html": "<ul><li>lead\n    <dl><dt>term\nfloor text</dt></dl><table class=\"a b\"><tbody><tr><td>a</td><td>b</td></tr></tbody></table></li></ul>"
+    "html": "<ul><li>lead\n    <dl><dt>term</dt></dl>\n    floor text\n    <table class=\"a b\"><tbody><tr><td>a</td><td>b</td></tr></tbody></table></li></ul>"
   },
   {
     "id": "term-wrapped-attribute-item-True-div",
@@ -867,7 +867,7 @@
   {
     "id": "term-wrapped-attribute-item-True-term",
     "source": "- lead\n\n  :: term\n  floor text\n  {.a\n  .b}\n     :: next\n",
-    "html": "<ul><li>lead\n    <dl><dt>term\nfloor text</dt></dl><dl class=\"a b\"><dt>next</dt></dl></li></ul>"
+    "html": "<ul><li>lead\n    <dl><dt>term</dt></dl>\n    floor text\n    <dl class=\"a b\"><dt>next</dt></dl></li></ul>"
   },
   {
     "id": "term-wrapped-attribute-quoted-item-False-heading",
@@ -902,22 +902,22 @@
   {
     "id": "term-wrapped-attribute-quoted-item-True-heading",
     "source": "> - lead\n> \n>   :: term\n>   floor text\n>   {.a\n>   .b}\n>      # heading\n",
-    "html": "<blockquote><ul><li>lead\n      <dl><dt>term\nfloor text</dt></dl><h1 class=\"a b\" id=\"heading\">heading</h1></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead\n      <dl><dt>term</dt></dl>\n      floor text\n      <h1 class=\"a b\" id=\"heading\">heading</h1></li></ul></blockquote>"
   },
   {
     "id": "term-wrapped-attribute-quoted-item-True-code",
     "source": "> - lead\n> \n>   :: term\n>   floor text\n>   {.a\n>   .b}\n>      ```\n>      code\n>      ```\n",
-    "html": "<blockquote><ul><li>lead\n      <dl><dt>term\nfloor text</dt></dl><pre class=\"a b\"><code>code\n</code></pre></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead\n      <dl><dt>term</dt></dl>\n      floor text\n      <pre class=\"a b\"><code>code\n</code></pre></li></ul></blockquote>"
   },
   {
     "id": "term-wrapped-attribute-quoted-item-True-quote",
     "source": "> - lead\n> \n>   :: term\n>   floor text\n>   {.a\n>   .b}\n>      > quoted\n",
-    "html": "<blockquote><ul><li>lead\n      <dl><dt>term\nfloor text</dt></dl><blockquote class=\"a b\"><p>quoted</p></blockquote></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead\n      <dl><dt>term</dt></dl>\n      floor text\n      <blockquote class=\"a b\"><p>quoted</p></blockquote></li></ul></blockquote>"
   },
   {
     "id": "term-wrapped-attribute-quoted-item-True-table",
     "source": "> - lead\n> \n>   :: term\n>   floor text\n>   {.a\n>   .b}\n>      | a | b |\n",
-    "html": "<blockquote><ul><li>lead\n      <dl><dt>term\nfloor text</dt></dl><table class=\"a b\"><tbody><tr><td>a</td><td>b</td></tr></tbody></table></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead\n      <dl><dt>term</dt></dl>\n      floor text\n      <table class=\"a b\"><tbody><tr><td>a</td><td>b</td></tr></tbody></table></li></ul></blockquote>"
   },
   {
     "id": "term-wrapped-attribute-quoted-item-True-div",
@@ -927,7 +927,7 @@
   {
     "id": "term-wrapped-attribute-quoted-item-True-term",
     "source": "> - lead\n> \n>   :: term\n>   floor text\n>   {.a\n>   .b}\n>      :: next\n",
-    "html": "<blockquote><ul><li>lead\n      <dl><dt>term\nfloor text</dt></dl><dl class=\"a b\"><dt>next</dt></dl></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead\n      <dl><dt>term</dt></dl>\n      floor text\n      <dl class=\"a b\"><dt>next</dt></dl></li></ul></blockquote>"
   },
   {
     "id": "term-wrapped-attribute-nested-item-False-heading",
@@ -962,22 +962,22 @@
   {
     "id": "term-wrapped-attribute-nested-item-True-heading",
     "source": "- outer\n  - lead\n  \n    :: term\n    floor text\n    {.a\n    .b}\n       # heading\n",
-    "html": "<ul><li>outer\n    <ul><li>lead\n        <dl><dt>term\nfloor text</dt></dl><h1 class=\"a b\" id=\"heading\">heading</h1></li></ul></li></ul>"
+    "html": "<ul><li>outer\n    <ul><li>lead\n        <dl><dt>term</dt></dl>\n        floor text\n        <h1 class=\"a b\" id=\"heading\">heading</h1></li></ul></li></ul>"
   },
   {
     "id": "term-wrapped-attribute-nested-item-True-code",
     "source": "- outer\n  - lead\n  \n    :: term\n    floor text\n    {.a\n    .b}\n       ```\n       code\n       ```\n",
-    "html": "<ul><li>outer\n    <ul><li>lead\n        <dl><dt>term\nfloor text</dt></dl><pre class=\"a b\"><code>code\n</code></pre></li></ul></li></ul>"
+    "html": "<ul><li>outer\n    <ul><li>lead\n        <dl><dt>term</dt></dl>\n        floor text\n        <pre class=\"a b\"><code>code\n</code></pre></li></ul></li></ul>"
   },
   {
     "id": "term-wrapped-attribute-nested-item-True-quote",
     "source": "- outer\n  - lead\n  \n    :: term\n    floor text\n    {.a\n    .b}\n       > quoted\n",
-    "html": "<ul><li>outer\n    <ul><li>lead\n        <dl><dt>term\nfloor text</dt></dl><blockquote class=\"a b\"><p>quoted</p></blockquote></li></ul></li></ul>"
+    "html": "<ul><li>outer\n    <ul><li>lead\n        <dl><dt>term</dt></dl>\n        floor text\n        <blockquote class=\"a b\"><p>quoted</p></blockquote></li></ul></li></ul>"
   },
   {
     "id": "term-wrapped-attribute-nested-item-True-table",
     "source": "- outer\n  - lead\n  \n    :: term\n    floor text\n    {.a\n    .b}\n       | a | b |\n",
-    "html": "<ul><li>outer\n    <ul><li>lead\n        <dl><dt>term\nfloor text</dt></dl><table class=\"a b\"><tbody><tr><td>a</td><td>b</td></tr></tbody></table></li></ul></li></ul>"
+    "html": "<ul><li>outer\n    <ul><li>lead\n        <dl><dt>term</dt></dl>\n        floor text\n        <table class=\"a b\"><tbody><tr><td>a</td><td>b</td></tr></tbody></table></li></ul></li></ul>"
   },
   {
     "id": "term-wrapped-attribute-nested-item-True-div",
@@ -987,7 +987,7 @@
   {
     "id": "term-wrapped-attribute-nested-item-True-term",
     "source": "- outer\n  - lead\n  \n    :: term\n    floor text\n    {.a\n    .b}\n       :: next\n",
-    "html": "<ul><li>outer\n    <ul><li>lead\n        <dl><dt>term\nfloor text</dt></dl><dl class=\"a b\"><dt>next</dt></dl></li></ul></li></ul>"
+    "html": "<ul><li>outer\n    <ul><li>lead\n        <dl><dt>term</dt></dl>\n        floor text\n        <dl class=\"a b\"><dt>next</dt></dl></li></ul></li></ul>"
   },
   {
     "id": "attribute-after-later-term-item-1-4-False",

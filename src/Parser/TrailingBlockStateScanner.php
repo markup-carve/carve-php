@@ -715,6 +715,12 @@ final class TrailingBlockStateScanner
 
             return $state;
         }
+        // So is a term: it is one line, like a heading (carve#4861).
+        if (preg_match('/::(?!:) +(?=[ \t]*' . StringUtil::NON_WHITESPACE_CLASS . ')/A', $line, $ignored, 0, $deepestAt) === 1) {
+            $state->openParagraph = false;
+
+            return $state;
+        }
 
         // THE REST CLOSE, AND ARE TESTED AT COLUMN 0, which is this tracker's
         // convention: its docblock says the lines arrive stripped to
