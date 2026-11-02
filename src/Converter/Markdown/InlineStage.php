@@ -534,6 +534,7 @@ final class InlineStage
     }
 
     /**
+     * @param string $line
      * @param array<string> $protected
      * @param array<string> $protectedSources
      */

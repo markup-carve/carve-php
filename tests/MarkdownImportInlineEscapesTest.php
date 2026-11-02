@@ -59,7 +59,7 @@ class MarkdownImportInlineEscapesTest extends TestCase
             $main = (new MarkdownToCarve())->convert($markdown);
 
             self::assertStringNotContainsString("\\\n", $main);
-            self::assertStringNotContainsString("\\\\", $main);
+            self::assertStringNotContainsString('\\\\', $main);
         }
     }
 }
