@@ -993,7 +993,7 @@ final class InlineStage
             }
 
             return preg_replace('/[!-\/:-@\[-`{-~]/', '\\\\$0', $this->decodeLinkTitle($part, $protected)) ?? $part;
-        }, preg_split('/(\x00P\d+\x00|<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>)/', $value, flags: PREG_SPLIT_DELIM_CAPTURE) ?: []));
+        }, preg_split('/(\x00P\d+\x00|<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\x00-\x20]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>)/', $value, flags: PREG_SPLIT_DELIM_CAPTURE) ?: []));
     }
 
     /**
@@ -1003,7 +1003,7 @@ final class InlineStage
      */
     private function preserveReferenceAutolinks(string $value, Closure $protect, bool $table): string
     {
-        return preg_replace_callback('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', static function (array $match) use ($protect, $table): string {
+        return preg_replace_callback('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\x00-\x20]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', static function (array $match) use ($protect, $table): string {
             $body = substr($match[0], 1, -1);
             $prefix = preg_match('/^[A-Za-z][A-Za-z0-9+.-]{1,31}:/', $body) === 1 ? '' : 'mailto:';
             $url = $prefix . ($table ? DestinationEncoding::destination($body, true) : $body);
@@ -1143,7 +1143,7 @@ final class InlineStage
 
                     continue;
                 }
-                if ($authored[$at] === '<' && preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9.-]+)>/', $authored, $autolink, 0, $at) === 1) {
+                if ($authored[$at] === '<' && preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\x00-\x20]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9.-]+)>/', $authored, $autolink, 0, $at) === 1) {
                     $guarded .= $autolink[0];
                     $at += strlen($autolink[0]);
 
@@ -1268,7 +1268,7 @@ final class InlineStage
 
                     continue;
                 }
-                if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[^<>\s@]+@[^<>\s]+)>/', $subject, $auto, 0, $cursor) === 1) {
+                if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\x00-\x20]*|[^<>\s@]+@[^<>\s]+)>/', $subject, $auto, 0, $cursor) === 1) {
                     $cursor += strlen($auto[0]);
 
                     continue;
@@ -1626,7 +1626,7 @@ final class InlineStage
                 $href = $candidate['prefix'] . $body;
                 $document = new Document();
                 $paragraph = new Paragraph();
-                $link = new Link($href);
+                $link = new Link(DestinationEncoding::href($href));
                 foreach (preg_split('/([\[\]])/', $body, flags: PREG_SPLIT_DELIM_CAPTURE) ?: [] as $piece) {
                     if ($piece !== '') {
                         $link->appendChild(new Text($piece));
@@ -1670,7 +1670,7 @@ final class InlineStage
 
                 continue;
             }
-            if (($line[$at] === '<' || ($line[$at] === 'h' && $openLabels === [])) && preg_match('~\G(?:<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*>|https?://[^\s<>`\x00]+)~', $line, $url, 0, $at) === 1) {
+            if (($line[$at] === '<' || ($line[$at] === 'h' && $openLabels === [])) && preg_match('~\G(?:<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\x00-\x20]*>|https?://[^\s<>`\x00]+)~', $line, $url, 0, $at) === 1) {
                 $at += strlen($url[0]) - 1;
 
                 continue;
@@ -1778,7 +1778,7 @@ final class InlineStage
 
                         continue;
                     }
-                    if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[^<>\s@]+@[^<>\s]+)>/', $footnoteSource, $auto, 0, $footnoteCursor) === 1) {
+                    if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\x00-\x20]*|[^<>\s@]+@[^<>\s]+)>/', $footnoteSource, $auto, 0, $footnoteCursor) === 1) {
                         $footnoteCursor += strlen($auto[0]);
 
                         continue;
@@ -1914,7 +1914,7 @@ final class InlineStage
             if ($end !== null) {
                 return $end;
             }
-            if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9.-]+)>/', $sourceInput, $angle, 0, $at) === 1) {
+            if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\x00-\x20]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9.-]+)>/', $sourceInput, $angle, 0, $at) === 1) {
                 return $at + strlen($angle[0]);
             }
 
@@ -1925,7 +1925,7 @@ final class InlineStage
             $href = $candidate['prefix'] . $body;
             $document = new Document();
             $paragraph = new Paragraph();
-            $link = new Link($href);
+            $link = new Link(DestinationEncoding::href($href));
             foreach (preg_split('/([\[\]])/', $body, flags: PREG_SPLIT_DELIM_CAPTURE) ?: [] as $piece) {
                 if ($piece !== '') {
                     $link->appendChild(new Text($piece));
@@ -1978,7 +1978,7 @@ final class InlineStage
                 $boundarySubject = $subject;
                 $autolinkRanges = [];
                 $autolinks = [];
-                preg_match_all('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', $subject, $autolinks, PREG_OFFSET_CAPTURE);
+                preg_match_all('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\x00-\x20]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', $subject, $autolinks, PREG_OFFSET_CAPTURE);
                 foreach ($autolinks[0] as [$text, $offset]) {
                     $autolinkRanges[] = [$offset, $offset + strlen($text)];
                 }
@@ -2715,7 +2715,7 @@ final class InlineStage
 
                 continue;
             }
-            if ($char === '<' && preg_match('/\\G<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\\s]*>/', $line, $autolink, 0, $i) === 1) {
+            if ($char === '<' && preg_match('/\\G<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\\x00-\\x20]*>/', $line, $autolink, 0, $i) === 1) {
                 // Brackets inside an autolink are text; the enclosing link stays active.
                 $i += strlen($autolink[0]) - 1;
 
@@ -3728,7 +3728,7 @@ final class InlineStage
             $end = $source[$at] === '<'
                 ? $this->opaqueHtmlEnd($source, $at, $ends) ?? ($this->htmlTagAt($source, $at)['end'] ?? null)
                 : null;
-            if ($end === null && $source[$at] === '<' && preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)>/', $source, $autolink, 0, $at) === 1) {
+            if ($end === null && $source[$at] === '<' && preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\x00-\x20]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)>/', $source, $autolink, 0, $at) === 1) {
                 $end = $at + strlen($autolink[0]);
             }
             if ($end === null) {
@@ -3875,7 +3875,7 @@ final class InlineStage
                     continue;
                 }
             }
-            if ($line[$i] === '<' && preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', $line, $autolink, 0, $i) === 1) {
+            if ($line[$i] === '<' && preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\x00-\x20]*|[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', $line, $autolink, 0, $i) === 1) {
                 $out .= $autolink[0];
                 $i += strlen($autolink[0]);
 

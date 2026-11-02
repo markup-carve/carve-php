@@ -37,6 +37,9 @@ final class MarkdownGfmAutolinksTest extends TestCase
         yield 'escaped pointy email in table cell' => ["| \\<a\\|b@x.com> | z |\n|---|---|\n", '|= <a\\|[b@x.com](mailto:b@x.com)> |= z |'];
         yield 'email in bracketed table text' => ["| [a][&lt;a@x.com&gt;\\|z] | c |\n|---|---|", '|= \\[a][<[a@x.com](mailto:a@x.com)>\\|z] |= c |'];
         yield 'email in table reference text' => ["| [a\\|&lt;x@y.io&gt;][ref] | c |\n|---|---|", '|= \\[a\\|<[x@y.io](mailto:x@y.io)>][ref] |= c |'];
+        yield 'control character in pointy autolink' => ["<http://\x07>", "<[http://\x07>](http://%07>)"];
+        yield 'control character in pointy autolink host' => ["a <https://x.y\x01z> b", "a <[https://x.y\x01z>](https://x.y%01z>) b"];
+        yield 'control character in pointy autolink before text' => ["<http://\x07>x", "<[http://\x07>x](http://%07>x)"];
         yield 'invalid pointy destination after link text' => ["[link](<foo\nbar>)", "[link](`<foo\nbar>`{=html})"];
         yield 'bracket crossing an emphasis closer' => ['*foo [bar* baz]', '/foo \\[bar/ baz]'];
     }
