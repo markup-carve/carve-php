@@ -14,7 +14,7 @@
   "4409-corpus-826-5": {
    "ticket": "4409",
    "source": "- a\n  * +\n[r]: /u\n  after\n",
-   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><p>after</p>"
+   "html": "<ul><li>a <ul><li>+</li></ul> after</li></ul>"
   },
   "4409-sub1-note-list": {
    "ticket": "4409",
@@ -879,12 +879,12 @@
   "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus-5": {
    "ticket": "A",
    "source": "- a\n  * +\n[r]: /u\n  after\n",
-   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><p>after</p>"
+   "html": "<ul><li>a <ul><li>+</li></ul> after</li></ul>"
   },
   "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus-6": {
    "ticket": "A",
    "source": "- a\n  * +\n%% c\n  after\n",
-   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><p>after</p>"
+   "html": "<ul><li>a <ul><li>+</li></ul> after</li></ul>"
   },
   "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus": {
    "ticket": "A",
