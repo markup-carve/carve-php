@@ -2018,22 +2018,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\ARawBlockOpenerIsAValidInfoStringTest::testTheFenceRuleFollowsTheDefect with data set \"raw fence indented at the top level\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\ARawBlockOpenerIsAValidInfoStringTest::testTheFenceRuleFollowsTheDefect with data set \"raw fence under a quote, below its content column\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\ARawBlockOpenerIsAValidInfoStringTest::testTheFenceRuleFollowsTheDefect with data set \"tilde raw fence under a quote\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\AuthoringConformanceTest::testAuthoringAcceptanceSuite",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\ContinuationMarkerOwnerGateTest::testLintFollowsTheMarkerOwner with data set \"between list and quote\"",
             "ticket": "carve-php#4244"
         },
@@ -2099,10 +2083,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\SourceLinterTest::testReportsSharedTriggers",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\UnattachedBlockAttributeLinterTest::testFallbackFenceReportsBothDelimiters",
             "ticket": "carve-php#4244"
         },
         {

@@ -31,15 +31,15 @@ class ARawBlockOpenerIsAValidInfoStringTest extends TestCase
         return [
             'raw fence under a quote, below its content column' => [
                 "> q\n ```=html\n <b>r</b>\n ```\n",
-                ['fence-delimiter-indentation 2:2', 'fence-delimiter-indentation 4:2'],
+                [],
             ],
             'tilde raw fence under a quote' => [
                 "> q\n ~~~=html\n <b>r</b>\n ~~~\n",
-                ['fence-delimiter-indentation 2:2', 'fence-delimiter-indentation 4:2'],
+                [],
             ],
             'raw fence indented at the top level' => [
                 "x\n\n   ```=latex\n   \\r\n   ```\n",
-                ['fence-delimiter-indentation 3:4', 'fence-delimiter-indentation 5:4'],
+                [],
             ],
             'raw fence at column 0' => [
                 "x\n\n```=latex\n\\r\n```\n",

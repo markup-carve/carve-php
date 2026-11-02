@@ -30,6 +30,7 @@ final class ListColumnLinter
         $items = [];
         $warnings = [];
         $this->collect($document, $rows, $items, $warnings);
+        $siblings = $this->siblings($items);
 
         foreach ($rows as $index => [$line, $lineOffset]) {
             $lineNumber = $index + 1;
@@ -43,6 +44,14 @@ final class ListColumnLinter
             }
             $column = mb_strlen(substr($line, 0, $at), 'UTF-8') + 1;
             $visual = $this->visual(substr($line, 0, $at));
+            if (isset($siblings[$lineNumber])) {
+                $host = $siblings[$lineNumber];
+                $where = $this->blank($rows[$index - 1][0] ?? '') ? ' after a blank line' : '';
+                $message = "This list marker starts at column {$visual}{$where}, below the content column {$host['content']} of an earlier item in its list, so it is a sibling item, not a nested one. Indent it to column {$host['content']} to nest it under that item, or start it at column {$host['base']} to align it with that item.";
+                $warnings[] = new LintWarning($lineNumber, $column, 'list-marker-below-content-column', $message, $lineOffset + $at, $lineOffset + $at + strlen($marker[0]));
+
+                continue;
+            }
             $detached = $this->detached($items, $rows, $lineNumber, $at, $visual, $column, $lineOffset, $marker[0]);
             if ($detached !== null) {
                 $warnings[] = $detached;
@@ -77,9 +86,34 @@ final class ListColumnLinter
     }
 
     /**
+     * A marker past an earlier item's marker column and below its content column, in that item's list.
+     *
+     * @param list<array{first: int, last: int, base: int, content: int, quote: int, list: int, paragraphs: array<int, true>, textStarts: array<string, true>}> $items
+     *
+     * @return array<int, array{base: int, content: int}>
+     */
+    private function siblings(array $items): array
+    {
+        $earlier = [];
+        $siblings = [];
+        foreach ($items as $item) {
+            foreach (array_reverse($earlier[$item['list']] ?? []) as $host) {
+                if ($host['base'] < $item['base'] && $item['base'] < $host['content']) {
+                    $siblings[$item['first']] = ['base' => $host['base'], 'content' => $host['content']];
+
+                    break;
+                }
+            }
+            $earlier[$item['list']][] = $item;
+        }
+
+        return $siblings;
+    }
+
+    /**
      * A marker after a blank line, below the content column of the item above, starts a separate list.
      *
-     * @param list<array{first: int, last: int, base: int, content: int, quote: int, paragraphs: array<int, true>, textStarts: array<string, true>}> $items
+     * @param list<array{first: int, last: int, base: int, content: int, quote: int, list: int, paragraphs: array<int, true>, textStarts: array<string, true>}> $items
      * @param array<int, array{0: string, 1: int}> $rows
      * @param int $lineNumber
      * @param int $at
@@ -137,7 +171,7 @@ final class ListColumnLinter
     /**
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<int, array{0: string, 1: int}> $rows
-     * @param list<array{first: int, last: int, base: int, content: int, quote: int, paragraphs: array<int, true>, textStarts: array<string, true>}> $items
+     * @param list<array{first: int, last: int, base: int, content: int, quote: int, list: int, paragraphs: array<int, true>, textStarts: array<string, true>}> $items
      * @param list<\MarkupCarve\Carve\Lint\LintWarning> $warnings
      */
     private function collect(Node $node, array $rows, array &$items, array &$warnings): void
@@ -169,7 +203,7 @@ final class ListColumnLinter
                         }
                         $this->textStarts($block, $textStarts);
                     }
-                    $items[] = ['first' => $pos->startLine, 'last' => $pos->endLine, 'quote' => substr_count(substr($line, 0, $at), '>'), 'base' => $base, 'content' => $base + mb_strlen($match[2], 'UTF-8') + strlen($match[4]), 'paragraphs' => $paragraphs, 'textStarts' => $textStarts];
+                    $items[] = ['first' => $pos->startLine, 'last' => $pos->endLine, 'quote' => substr_count(substr($line, 0, $at), '>'), 'list' => spl_object_id($node), 'base' => $base, 'content' => $base + mb_strlen($match[2], 'UTF-8') + strlen($match[4]), 'paragraphs' => $paragraphs, 'textStarts' => $textStarts];
                 }
             }
             $this->collect($child, $rows, $items, $warnings);

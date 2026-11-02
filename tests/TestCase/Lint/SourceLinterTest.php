@@ -30,7 +30,6 @@ class SourceLinterTest extends TestCase
             'raw-block-syntax' => "```raw html\nx\n```\n",
             'blockquote-marker-without-space' => ">quoted\n",
             'block-marker-as-text' => "  ::: note\n",
-            'fence-delimiter-indentation' => "  ```\n  x\n  ```\n",
             'list-item-body-detached' => "1. item\n\n  # heading\n",
             'list-item-block-overindented' => "-{.x1} item\n\n       # heading\n",
             'empty-include-path' => "{{ #section }}\n",

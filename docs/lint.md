@@ -74,10 +74,11 @@ a sibling, a div closer or a block at another column below it, or at no marker
 column at all (`continuation-marker-refused`). A refused `+` stays a plain letter.
 
 `ListColumnLinter` reports two ordered-list column traps of explicit numbers.
-A list marker in an item's paragraph that starts past the item's marker column
-and below its content column folds in as text, and after a blank line it starts
-a separate list (`list-marker-below-content-column`); the warning names the
-content column that nests it. Two adjacent ordered lists whose numbering continues but whose
+A list marker past an item's marker column and below its content column
+(`list-marker-below-content-column`) is reported with the content column that
+nests it: a marker of the same kind is a sibling item, before and after a blank
+line, and any other marker folds in as text or, after a blank line, starts a
+separate list. Two adjacent ordered lists whose numbering continues but whose
 markers start at different columns are two lists
 (`ordered-list-split-by-indent`); align the markers, or use `{start=N}` with
 the auto-numbered `.` marker.

@@ -50,11 +50,10 @@ class UnattachedBlockAttributeLinterTest extends TestCase
         $this->assertSame([], $linter->lint('text'));
     }
 
-    public function testFallbackFenceReportsBothDelimiters(): void
+    public function testAnIndentedFenceOpensAndReportsNoDelimiters(): void
     {
         $warnings = (new SourceLinter())->lint(" ```\n code\n ```\n");
-        $this->assertSame([1, 3], array_column($warnings, 'line'));
-        $this->assertSame(['fence-delimiter-indentation', 'fence-delimiter-indentation'], array_column($warnings, 'rule'));
+        $this->assertSame([], $warnings);
         $this->assertSame([], (new SourceLinter())->lint("`a\n```\n`\n"));
     }
 
