@@ -495,7 +495,9 @@ class MarkdownToCarve
         $syntheticEmptyItems = [];
         $emptyMarkerColumn = null;
         $lineCount = count($lines);
-        for ($i = 0; $i < $lineCount; $i++) {
+        // The last line a setext heading on an item's marker line folded in.
+        $foldedThrough = -1;
+        for ($i = 0; $i < $lineCount; $i = max($i + 1, $foldedThrough + 1)) {
             $this->applyShift($result, $shiftFrom, $shiftCol, $shiftBy);
             $this->inlineContext->inlineRunSourceLine = $this->sourceLine($i);
             $this->inlineContext->inlineRunContinuesPrevious = $i > 0
@@ -504,6 +506,7 @@ class MarkdownToCarve
             $bareParagraphMarker = $this->prepareImportedBareMarker(
                 $lines,
                 $i,
+                $foldedThrough,
                 $fence,
                 $listCols,
                 $listMarkers,
@@ -541,6 +544,7 @@ class MarkdownToCarve
                 $lazyQuote,
                 $prevLineType,
                 $wasPrevBlank,
+                isset($emptyMarkerLines[$i - 1]),
             );
             if (
                 $afterClosedItem && $trimmed !== '' && ($listCols->isEmpty() || $listCols->outermost() > $this->indentWidth($line)) && end($result) !== ''
@@ -1722,6 +1726,125 @@ class MarkdownToCarve
     }
 
     /**
+     * An item's marker line whose paragraph a setext underline in the item
+     * ends, respelled as the ATX heading, and the underline's index.
+     *
+     * @param array<int, string> $lines
+     * @param int $i
+     * @param array<int, int> $columns
+     * @param string $prevLineType
+     *
+     * @return array{0: string, 1: int}|null
+     */
+    private function itemSetextHeading(array $lines, int $i, array $columns, string $prevLineType): ?array
+    {
+        // Every marker on the line opens an item; the paragraph is the innermost one's.
+        if (preg_match('/^([ \t]*)((?:[-*+]|\d{1,9}[.)]))([ \t]+(?:(?:[-*+]|\d{1,9}[.)])[ \t]{1,4})*)(\S.*)$/', $lines[$i], $m) !== 1) {
+            return null;
+        }
+        $column = $this->indentWidth($m[1]);
+        $contentCol = $this->columnWidth($m[1] . $m[2] . $m[3]);
+        if (
+            $column - $this->holderColumn($columns, $column) >= 4
+            || $this->columnWidth($m[1] . $m[2] . substr($m[3], 0, strspn($m[3], " \t"))) - $this->columnWidth($m[1] . $m[2]) > 4
+            || ($prevLineType === 'text' && preg_match('/^\d/', $m[2]) === 1 && (int)$m[2] !== 1)
+            || preg_match(self::THEMATIC_BREAK, trim($lines[$i])) === 1
+            || preg_match('/^(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $m[4]) === 1
+        ) {
+            return null;
+        }
+        $virtual = $lines;
+        $virtual[$i] = str_repeat(' ', $contentCol) . $m[4];
+        $end = $this->setextParagraphEnd($virtual, $i, $contentCol, true);
+        if ($end === null) {
+            return null;
+        }
+        $texts = [];
+        for ($at = $i; $at < $end; $at++) {
+            $texts[] = $this->setextLineText($virtual[$at], $at + 1 === $end);
+        }
+        // A trailing `#` run would close the ATX heading, and a trailing
+        // backslash is literal in a heading, not a hard break.
+        $text = (string)preg_replace('/(^|[ \t])(#+[ \t]*)$/', '$1\\\\$2', implode(' ', $texts));
+        if ((strlen($text) - strlen(rtrim($text, '\\'))) % 2 === 1) {
+            $text .= '\\';
+        }
+        $marker = ltrim($lines[$end], " \t")[0] === '=' ? '#' : '##';
+
+        return [$m[1] . $m[2] . $m[3] . $marker . ' ' . $text, $end];
+    }
+
+    /**
+     * Does a line whose item or quote markers end in a bare marker open an
+     * empty item? No paragraph is open in the container the line opens.
+     *
+     * @param string $line
+     * @param array<int, int> $columns
+     * @param string $prevLineType
+     */
+    private function opensEmptyItemAfterMarkers(string $line, array $columns, string $prevLineType): bool
+    {
+        if (
+            preg_match('/^([ \t]*)((?:[-*+]|\d{1,9}[.)]))[ \t]+(?:(?:[-*+]|\d{1,9}[.)])[ \t]+|>[ \t]?)*(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $line, $chain) !== 1
+            || $this->markerChainHoldsBreak($line)
+        ) {
+            return false;
+        }
+        $column = $this->indentWidth($chain[1]);
+
+        return $column - $this->holderColumn($columns, $column) < 4
+            && !($prevLineType === 'text' && preg_match('/^\d/', $chain[2]) === 1 && (int)$chain[2] !== 1);
+    }
+
+    /**
+     * A `+` marker after the line's first marker opens a new list, so it is
+     * written as `-`, the bullet Carve spells.
+     */
+    private function spellNestedPlusMarkers(string $line): string
+    {
+        if (preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)]))(.*)$/s', $line, $parts) !== 1) {
+            return $line;
+        }
+
+        return $parts[1] . preg_replace('/(?<=[ \t>])\+(?=[ \t]|$)/', '-', $parts[2]);
+    }
+
+    /**
+     * Is the line, or what follows any of its container markers, a thematic break?
+     */
+    private function markerChainHoldsBreak(string $line): bool
+    {
+        $rest = trim($line);
+        while (true) {
+            if (preg_match(self::THEMATIC_BREAK, $rest) === 1) {
+                return true;
+            }
+            if (preg_match('/^(?:[-*+]|\d{1,9}[.)]|>)[ \t]*/', $rest, $marker) !== 1) {
+                return false;
+            }
+            $rest = substr($rest, strlen($marker[0]));
+        }
+    }
+
+    /**
+     * The content column of the innermost open item at or left of `$column`.
+     *
+     * @param array<int, int> $columns
+     * @param int $column
+     */
+    private function holderColumn(array $columns, int $column): int
+    {
+        $holder = 0;
+        foreach ($columns as $col) {
+            if ($col <= $column) {
+                $holder = $col;
+            }
+        }
+
+        return $holder;
+    }
+
+    /**
      * Normalize a bare list marker and track the empty item it may open.
      *
      * @param array<string> $lines
@@ -1733,11 +1856,13 @@ class MarkdownToCarve
      * @param \MarkupCarve\Carve\Converter\Markdown\ListColumns $listCols
      * @param \MarkupCarve\Carve\Converter\Markdown\FenceWork $fence
      * @param int $i
+     * @param int $foldedThrough
      * @param array<int, true> $emptyMarkerLines
      */
     private function prepareImportedBareMarker(
         array &$lines,
         int $i,
+        int &$foldedThrough,
         FenceWork $fence,
         ListColumns $listCols,
         ListMarkers $listMarkers,
@@ -1756,8 +1881,16 @@ class MarkdownToCarve
         }
         if (!$fence->active) {
             $lines[$i] = $this->normalizeListMarkerPadding($lines[$i], $listCols->all());
+            $folded = $this->itemSetextHeading($lines, $i, $listCols->all(), $prevLineType);
+            if ($folded !== null) {
+                [$lines[$i], $foldedThrough] = $folded;
+            }
         }
         $bareMarker = !$fence->active && preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $lines[$i]) === 1;
+        if (!$fence->active && $this->opensEmptyItemAfterMarkers($lines[$i], $listCols->all(), $prevLineType)) {
+            $lines[$i] = $this->spellNestedPlusMarkers(rtrim($lines[$i], " \t")) . ' ' . EmptyListItemSpelling::PLACEHOLDER;
+            $emptyMarkerLines[$i] = true;
+        }
         $bareParagraphMarker = $bareMarker
             && !$listCols->isEmpty()
             && $this->indentWidth($lines[$i]) >= $listCols->innermost()
@@ -2172,6 +2305,7 @@ class MarkdownToCarve
      * @param array{prefix: string, col: int}|null $lazyQuote
      * @param string $prevLineType
      * @param bool $wasPrevBlank
+     * @param bool $afterEmptyItem
      *
      * @return array{bool, bool, int}
      */
@@ -2185,7 +2319,10 @@ class MarkdownToCarve
         ?array $lazyQuote,
         string $prevLineType,
         bool $wasPrevBlank,
+        bool $afterEmptyItem = false,
     ): array {
+        // An empty item holds no paragraph, so the line after it is no lazy line.
+        $wasPrevBlank = $wasPrevBlank || $afterEmptyItem;
         $overMarker = false;
         $paragraphMarker = false;
         $holderCol = 0;
@@ -2621,6 +2758,9 @@ class MarkdownToCarve
                 LayoutWork::$on = true;
             }
             $converter = CarveConverter::carve();
+            // The placeholder is paragraph text to the parser, so a line after
+            // an empty item would read as its lazy continuation.
+            $carve = EmptyListItemSpelling::spellBodiless($carve);
             $document = $converter->parse($carve);
             $pending = [$document];
             $hasContainer = false;
@@ -3744,6 +3884,13 @@ class MarkdownToCarve
         ) {
             $text = rtrim($text, " \t") . ' ' . EmptyListItemSpelling::PLACEHOLDER;
             $written = $text;
+        } elseif (
+            ($openBefore === null || $this->indentWidth($text) - $openBefore < 4)
+            && $this->opensEmptyItemAfterMarkers($text, [], $state->previous !== null && $this->quoteParagraphIsOpen($state->previous['text']) ? 'text' : 'blank')
+        ) {
+            // A bare marker after another item's marker opens an empty item.
+            $text = $this->spellNestedPlusMarkers(rtrim($text, " \t")) . ' ' . EmptyListItemSpelling::PLACEHOLDER;
+            $written = $text;
         }
         $opensItem = preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]/', $text) === 1;
         if ($opensItem) {
@@ -3998,9 +4145,10 @@ class MarkdownToCarve
      *
      * @param array<int, string> $lines
      * @param int $contentCol
+     * @param bool $lazy
      * @param int $start
      */
-    protected function setextParagraphEnd(array $lines, int $start, int $contentCol): ?int
+    protected function setextParagraphEnd(array $lines, int $start, int $contentCol, bool $lazy = false): ?int
     {
         for ($at = $start, $count = count($lines); $at < $count; $at++) {
             if (ImportWork::$on) {
@@ -4008,10 +4156,21 @@ class MarkdownToCarve
             }
             $line = $lines[$at];
             $indent = $this->indentWidth($line);
-            if (trim($line) === '' || $indent < $contentCol) {
+            $held = trim($line, " \t");
+            if ($held === '') {
                 return null;
             }
-            $held = trim($line, " \t");
+            if ($indent < $contentCol) {
+                // A lazy line continues the paragraph; it cannot underline it.
+                if (
+                    !$lazy || $at === $start || !$this->continuesParagraph($held)
+                    || preg_match('/^(?:[-*+]|\d{1,9}[.)])$/', $held) === 1 || !$this->foldsIntoSetext($lines, $at, $held, 0)
+                ) {
+                    return null;
+                }
+
+                continue;
+            }
             if ($at === $start) {
                 if ($indent - $contentCol >= 4 || !$this->continuesParagraph($held)) {
                     return null;
@@ -4290,7 +4449,8 @@ class MarkdownToCarve
 
             return;
         }
-        $itemParagraph = $this->quoteParagraphIsOpen($text) && preg_match('/^(?:[-*+]|\d+[.)])(?:[ \t]|$)/', $text) !== 1;
+        $itemParagraph = $this->quoteParagraphIsOpen($text) && preg_match('/^(?:[-*+]|\d+[.)])(?:[ \t]|$)/', $text) !== 1
+            && !str_starts_with($text, EmptyListItemSpelling::PLACEHOLDER);
     }
 
     /**

@@ -20,9 +20,17 @@ final class EmptyListItemSpelling
     /**
      * @var string
      */
-    private const MARKER_LINE = '/^((?:[ \t]*>)*[ \t]*(?:(?:[-*]|\d+[.)]|(?:[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\[\^[^\]]+\]:|:)[ \t]+)*(?:[-*]|\d+[.)]|(?:[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]+(?:\[[ xX]\][ \t]+)?)\+\x{E0FE}[ \t]*$/Du';
+    private const MARKER_LINE = '/^((?:[ \t]*>)*[ \t]*(?:(?:[-*]|\d+[.)]|(?:[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\[\^[^\]]+\]:|:)[ \t]+(?:>[ \t]*)*)*(?:[-*]|\d+[.)]|(?:[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]+(?:\[[ xX]\][ \t]+)?)\+\x{E0FE}[ \t]*$/Du';
 
-    public static function spell(string $carve): string
+    /**
+     * Spell only the empty items with no body below them, leaving the rest to {@see spell()}.
+     */
+    public static function spellBodiless(string $carve): string
+    {
+        return self::spell($carve, true);
+    }
+
+    public static function spell(string $carve, bool $bodilessOnly = false): string
     {
         if (!str_contains($carve, self::PLACEHOLDER)) {
             return $carve;
@@ -45,6 +53,15 @@ final class EmptyListItemSpelling
                 continue;
             }
             if (preg_match(self::MARKER_LINE, $line, $m) === 1) {
+                if ($bodilessOnly) {
+                    $next = $i + 1;
+                    while (isset($lines[$next]) && trim($lines[$next], " \t>") === '') {
+                        $next++;
+                    }
+                    if (self::bodyFollows($m[1], $lines[$next] ?? '')) {
+                        continue;
+                    }
+                }
                 $body = self::bodyAtColumn($m[1], $lines[$i + 1] ?? '');
                 if ($body === null) {
                     $lines[$i] = $m[1] . (self::bodyFollows($m[1], $lines[$i + 1] ?? '') ? '%%' : '{empty}');

@@ -10,6 +10,13 @@ use MarkupCarve\Carve\Converter\MigrationDiagnostic;
 final class ReferenceStage
 {
     /**
+     * How many lines a definition spread inside a quote is read across.
+     *
+     * @var int
+     */
+    private const SPREAD_DEFINITION_LINES = 32;
+
+    /**
      * @var string
      */
     private const THEMATIC_BREAK = '/^([-*_])(?:[ \t]*\1){2,}[ \t]*$/';
@@ -392,9 +399,9 @@ final class ReferenceStage
             }
             if (
                 $lineDepth > 0 && $listIndent === 0 && ($canStart || $lineDepth > $depth)
-                && preg_match('/^ {0,3}\[(?!\^)(?:[^[\]\\\\\n]|\\\\.)+\]:/', $content) === 1
+                && preg_match('/^ {0,3}\[(?!\^)/', $content) === 1
             ) {
-                $quoted = $this->readQuotedWrappedDefinition($lines, $i, $lineDepth);
+                $quoted = $this->readQuotedDefinition($lines, $i, $lineDepth, $content);
                 if ($quoted !== null) {
                     // A Carve definition has no title slot, so uses become titled inline links.
                     $rawKey = $this->inlineStage->normalizeReferenceLabel($quoted['label']);
@@ -418,6 +425,7 @@ final class ReferenceStage
                     $depth = $lineDepth;
                     $i += $quoted['lines'] - 1;
                     $listWork->definitionEnd = $i;
+                    $this->holdParagraphContinuation($lines, $i, $quotePrefix, 0);
                     $canStart = !$this->dropDefinitionLine($lines, $i, $quotePrefix, $kept);
 
                     continue;
@@ -534,6 +542,7 @@ final class ReferenceStage
 
                         continue;
                     }
+                    $this->holdParagraphContinuation($lines, $i, $quotePrefix, $listIndent);
                     if ($this->dropDefinitionLine($lines, $i, $quotePrefix, $kept)) {
                         $canStart = false;
                     }
@@ -610,6 +619,7 @@ final class ReferenceStage
 
                     continue;
                 }
+                $this->holdParagraphContinuation($lines, $i, $quotePrefix, $listIndent);
                 if ($this->dropDefinitionLine($lines, $i, $quotePrefix, $kept)) {
                     $canStart = false;
                 }
@@ -646,6 +656,36 @@ final class ReferenceStage
         $this->inlineContext->authoredReferenceLabelKeys = $authoredDefinitions;
 
         return $kept;
+    }
+
+    /**
+     * The definition took the head of a paragraph, so a line under it indented
+     * four columns continues that paragraph rather than opening code. It moves
+     * to the container's column, escaped where it would open a block there.
+     *
+     * @param array<int, string> $lines
+     * @param int $index
+     * @param string $quotePrefix
+     * @param int $listIndent
+     */
+    private function holdParagraphContinuation(array &$lines, int $index, string $quotePrefix, int $listIndent): void
+    {
+        $next = $lines[$index + 1] ?? null;
+        if ($listIndent > 0 || $next === null || $this->quotePrefixOf($next) !== $quotePrefix) {
+            return;
+        }
+        $rest = substr($next, strlen($quotePrefix));
+        $text = ltrim($rest, " \t");
+        // Raw HTML would open an HTML block there and has no escape that keeps it HTML.
+        if ($text === '' || ($this->indentWidth)($rest) < 4 || str_starts_with($text, '<')) {
+            return;
+        }
+        if (preg_match('/^\d{1,9}(?=[.)](?:[ \t]|$))/', $text, $digits) === 1) {
+            $text = $digits[0] . '\\' . substr($text, strlen($digits[0]));
+        } elseif ($this->opensMarkdownBlock($text)) {
+            $text = '\\' . $text;
+        }
+        $lines[$index + 1] = $quotePrefix . $text;
     }
 
     /**
@@ -1150,6 +1190,70 @@ final class ReferenceStage
     }
 
     /**
+     * Read a reference definition at `$start` inside a block quote that runs
+     * past its first line: a wrapped title, or a label, destination or title
+     * on the next lines.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $depth
+     * @param string $content
+     *
+     * @return array{label: string, title: string, target: string|null, lines: int}|null
+     */
+    protected function readQuotedDefinition(array $lines, int $start, int $depth, string $content): ?array
+    {
+        $wrapped = preg_match('/^ {0,3}\[(?!\^)(?:[^[\]\\\\\n]|\\\\.)+\]:/', $content) === 1
+            ? $this->readQuotedWrappedDefinition($lines, $start, $depth) : null;
+
+        return $wrapped ?? $this->readQuotedSpreadDefinition($lines, $start, $depth);
+    }
+
+    /**
+     * Read a reference definition at `$start` inside a block quote whose label,
+     * destination or title runs onto the next lines, quoted or lazy. Null when
+     * it fits on its own line, which the single-line reading takes.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $depth
+     *
+     * @return array{label: string, title: string, target: string|null, lines: int}|null
+     */
+    protected function readQuotedSpreadDefinition(array $lines, int $start, int $depth): ?array
+    {
+        $chunk = [];
+        $last = min(count($lines), $start + self::SPREAD_DEFINITION_LINES);
+        for ($at = $start; $at < $last; $at++) {
+            $prefix = $this->quotePrefixOf($lines[$at]);
+            $lineDepth = substr_count($prefix, '>');
+            $body = substr($lines[$at], strlen($prefix));
+            if ($at > $start && ($lineDepth > $depth || trim($body) === '' || $this->opensMarkdownBlock($body))) {
+                break;
+            }
+            $chunk[] = $lineDepth === $depth ? $body : ltrim($body, ' ');
+        }
+        $parsed = ReferenceDefinition::read(implode("\n", $chunk));
+        if ($parsed === null || $parsed['lines'] < 2) {
+            return null;
+        }
+        if (str_starts_with($parsed['target'], '<>')) {
+            if (preg_match('/^<>\s+("(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|\((?:\\\\.|[^()\\\\])*\))\s*\z/', $parsed['target'], $titled) !== 1) {
+                return null;
+            }
+
+            return [
+                'label' => $parsed['label'],
+                'title' => $this->inlineStage->decodeLinkTitle(substr($titled[1], 1, -1)),
+                'target' => null,
+                'lines' => $parsed['lines'],
+            ];
+        }
+
+        return ['label' => $parsed['label'], 'title' => '', 'target' => $parsed['target'], 'lines' => $parsed['lines']];
+    }
+
+    /**
      * Drop the definition ending at `$index`. A blank after it goes too where
      * nothing of its container comes before it or a blank does. A quote left
      * with nothing else keeps an empty line, so it still renders.
@@ -1167,15 +1271,18 @@ final class ReferenceStage
     {
         $marker = rtrim($quotePrefix);
         $after = $lines[$index + 1] ?? null;
+        // A lazy line keeps no more of the quote markers than it has.
+        $afterPrefix = $after === null ? '' : $this->quotePrefixOf($after);
+        $afterBody = $after === null ? '' : substr($after, strlen($afterPrefix));
         if (
             $marker !== ''
             && $after !== null
-            && trim($after) !== ''
-            && !str_starts_with(ltrim($after, ' '), '>')
-            && !$this->opensMarkdownBlock($after)
-            && preg_match('/^ {0,3}\[(?:[^[\]\\\\]|\\\\.)+\]:/', $after) !== 1
+            && trim($afterBody) !== ''
+            && substr_count($afterPrefix, '>') < substr_count($marker, '>')
+            && !$this->opensMarkdownBlock($afterBody)
+            && preg_match('/^ {0,3}\[(?:[^[\]\\\\]|\\\\.)+\]:/', $afterBody) !== 1
         ) {
-            $kept[] = $quotePrefix . ltrim($after, ' ');
+            $kept[] = $quotePrefix . ltrim($afterBody, ' ');
             $index++;
 
             return true;
