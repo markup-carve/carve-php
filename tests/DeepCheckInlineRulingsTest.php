@@ -22,7 +22,10 @@ final class DeepCheckInlineRulingsTest extends TestCase
         yield 'a comment counts as nothing for a double quote (carve#4552)' => ['{%%}"q"', '<p>“q”</p>'];
         yield 'text before the comment still closes (carve#4552)' => ["a{%%}'word", '<p>a’word</p>'];
         yield 'a literal bracket keeps its dashes (carve#4551)' => ['[--x] y', '<p>[--x] y</p>'];
-        yield 'a parenthesis still converts them (carve#4551)' => ['(--x) y', '<p>(–x) y</p>'];
+        yield 'a spaced parenthesis keeps them (carve#4813)' => ['(--x) y', '<p>(--x) y</p>'];
+        yield 'a tight parenthesis converts them (carve#4813)' => ['a(--x) y', '<p>a(–x) y</p>'];
+        yield 'quotes keep them (carve#4813)' => ['"--x" y', '<p>“--x” y</p>'];
+        yield '(c) and (r) stay text (carve#4808)' => ['options (a), (c) and (r)', '<p>options (a), (c) and (r)</p>'];
         yield 'a cell destination reads an escaped pipe (carve#4549)' => ['| [x](/a\|b) |', "<table>\n  <tbody>\n    <tr><td><a href=\"/a|b\">x</a></td></tr>\n  </tbody>\n</table>"];
         yield 'a destination outside a cell keeps it (carve#4549)' => ['[x](/a\|b)', '<p><a href="/a\|b">x</a></p>'];
         yield 'a blanked style keeps its alignment (carve#4548)' => ["{style=\"url(x)\" align=right}\np", '<p style="text-align: right;">p</p>'];

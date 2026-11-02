@@ -30,9 +30,9 @@ class MarkdownSmartTypographyModeTest extends TestCase
             'en dash' => ['a--b', 'a–b'],
             'em dash' => ['a---b', 'a—b'],
             'dash run' => ['a----b', 'a––b'],
-            'arrow' => ['a -> b', 'a → b'],
+            'arrow' => ['a --> b', 'a → b'],
             'comparison' => ['a <= b', 'a ≤ b'],
-            'copyright' => ['(c) 2026', '© 2026'],
+            'trademark' => ['(tm) 2026', '™ 2026'],
             'double quotes' => ['say "hi"', 'say “hi”'],
             'single quotes' => ["say 'hi'", 'say ‘hi’'],
         ];

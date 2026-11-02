@@ -48,7 +48,7 @@ class ADefinitionDestinationIsALinkDestinationTest extends TestCase
             // is prose, which is what the smart-typography pass does to it.
             'an outer opener left unclosed' => [
                 "[a]: a(b(c)d\n\n[x][a]\n",
-                "<p>[a]: a(b\u{00a9}d</p>\n<p>[x][a]</p>\n",
+                "<p>[a]: a(b(c)d</p>\n<p>[x][a]</p>\n",
             ],
             // The counts match and the order does not, so a check on the final
             // depth alone reads this as a definition.
