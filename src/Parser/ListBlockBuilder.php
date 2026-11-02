@@ -907,7 +907,10 @@ final class ListBlockBuilder
                     $lastItem = ($this->getListParser)()->getLastListItem($list);
                     $children = $lastItem?->getChildren() ?? [];
                     $marker = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);
-                    $attachedParagraphOpen = self::openParagraphIn($children) !== null;
+                    $lastAttached = ltrim($lines[$next - 1] ?? '', " \t");
+                    $attachedParagraphOpen = self::openParagraphIn($children) !== null
+                        && !$this->isFoldableInvisibleLine($lastAttached)
+                        && !(str_starts_with($lastAttached, '%%') && !str_starts_with($lastAttached, '%%%'));
                     $attachedParagraphAfterNoteSeparator = false;
 
                     continue;

@@ -40,6 +40,12 @@ trait BlockListMethods
         return $next;
     }
 
+    private function endsAttachedParagraph(string $line): bool
+    {
+        return (str_starts_with($line, '%%') && !str_starts_with($line, '%%%'))
+            || $this->referenceDefinitionExtractor->matchDefinitionLine($line) !== null;
+    }
+
     /**
      * @param array<string> $lines
      * @param int $i
@@ -1144,6 +1150,17 @@ trait BlockListMethods
                     && IndentationHelper::getLeadingColumns($line, $contentIndent) < $contentIndent
                     && $trailingState->fence === null
                     && $this->isReferenceDefinitionLine($trimmed)
+                ) {
+                    return true;
+                }
+                // A definition or line comment ended the attached paragraph, so a line below the column has nothing to fold into.
+                if (
+                    $attachedKind === self::ATTACHED_PARAGRAPH
+                    && $contentIndent !== null
+                    && $index > 0
+                    && $trailingState->fence === null
+                    && IndentationHelper::getLeadingColumns($line, $contentIndent) < $contentIndent
+                    && $this->endsAttachedParagraph(ltrim($lines[$index - 1], " \t"))
                 ) {
                     return true;
                 }
