@@ -549,8 +549,7 @@ final class DefinitionListBuilder
             $line = ltrim($lines[$k], " \t");
             if ($this->isDocumentAbbreviation($parent, $line)) {
                 if ($this->state->session->discoveringDefinitions && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(.*)$/D', $line, $abbr) === 1) {
-                    $this->state->session->abbreviations[$abbr[1]] = rtrim($abbr[2], " \t");
-                    $this->state->session->abbreviationDefinitions[] = ['abbr' => $abbr[1], 'expansion' => rtrim($abbr[2], " \t")];
+                    $this->state->session->defineAbbreviation($abbr[1], rtrim($abbr[2], " \t"), $this->sourceLineFor($k));
                     $this->state->session->discoveredAbbreviationLines[$this->sourceLineFor($k)] = true;
                     $this->state->session->siblingSkippedAbbreviations[$this->sourceLineFor($k)] = [$abbr[1], rtrim($abbr[2], " \t")];
                 }

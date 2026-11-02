@@ -3314,8 +3314,7 @@ final class ListBlockBuilder
             $line = ltrim($lines[$j], " \t");
             if (preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $line, $abbr) === 1) {
                 if ($this->state->session->discoveringDefinitions) {
-                    $this->state->session->abbreviations[$abbr[1]] = rtrim($abbr[2], " \t");
-                    $this->state->session->abbreviationDefinitions[] = ['abbr' => $abbr[1], 'expansion' => rtrim($abbr[2], " \t")];
+                    $this->state->session->defineAbbreviation($abbr[1], rtrim($abbr[2], " \t"), $this->sourceLineFor($j));
                     $this->state->session->discoveredAbbreviationLines[$this->sourceLineFor($j)] = true;
                     $this->state->session->siblingSkippedAbbreviations[$this->sourceLineFor($j)] = [$abbr[1], rtrim($abbr[2], " \t")];
                 }

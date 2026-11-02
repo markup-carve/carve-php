@@ -911,7 +911,7 @@ class BlockParser
         // Store abbreviations on document for round-trip support
         if ($this->state->session->abbreviations !== []) {
             $document->setAbbreviations($this->state->session->abbreviations);
-            $document->setAbbreviationDefinitions($this->state->session->abbreviationDefinitions);
+            $document->setAbbreviationDefinitions($this->state->session->abbreviationDefinitionsInSourceOrder());
             $document->setAbbreviationsBeforeBody($this->state->session->abbreviationsBeforeBody);
             $document->setAbbreviationSpans($this->state->session->abbreviationSpans);
         }
@@ -1176,8 +1176,7 @@ class BlockParser
             }
             [$term, $expansion] = $this->skippedAbbreviations[$line];
             unset($this->skippedAbbreviations[$line]);
-            $this->state->session->abbreviations[$term] = $expansion;
-            $this->state->session->abbreviationDefinitions[] = ['abbr' => $term, 'expansion' => $expansion];
+            $this->state->session->defineAbbreviation($term, $expansion, $line);
             $this->state->session->discoveredAbbreviationLines[$line] = true;
         }
     }
@@ -3967,8 +3966,7 @@ class BlockParser
             }
             if ($this->state->session->discoveringDefinitions && preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line, $m) === 1) {
                 $definition = rtrim($m[2], " \t");
-                $this->state->session->abbreviations[$m[1]] = $definition;
-                $this->state->session->abbreviationDefinitions[] = ['abbr' => $m[1], 'expansion' => $definition];
+                $this->state->session->defineAbbreviation($m[1], $definition, $this->sourceLineFor($start));
                 $this->state->session->discoveredAbbreviationLines[$this->sourceLineFor($start)] = true;
                 $this->state->session->siblingSkippedAbbreviations[$this->sourceLineFor($start)] = [$m[1], $definition];
             }
@@ -3987,8 +3985,7 @@ class BlockParser
             $parent->appendChild($node);
             if ($this->state->session->discoveringDefinitions) {
                 $definition = rtrim($m[2], " \t");
-                $this->state->session->abbreviations[$m[1]] = $definition;
-                $this->state->session->abbreviationDefinitions[] = ['abbr' => $m[1], 'expansion' => $definition];
+                $this->state->session->defineAbbreviation($m[1], $definition, $this->sourceLineFor($start));
                 $this->state->session->discoveredAbbreviationLines[$this->sourceLineFor($start)] = true;
                 if ($this->state->source->trackPositions) {
                     $span = $this->wholeLineSpan($this->sourceLineFor($start));
