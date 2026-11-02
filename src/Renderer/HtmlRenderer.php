@@ -1625,6 +1625,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
         }
 
+        // A paragraph of only comments renders nothing, as a `%%` line does (carve#4799).
+        // A render listener may give a comment output, so then the paragraph stays.
+        if ($node->getAttributeEntries() === [] && self::holdsOnlyComments($node) && !$this->childrenHaveRenderHooks($node)) {
+            return '';
+        }
+
         $content = $this->renderChildren($node);
 
         // Trailing line-end whitespace (corpus 102) is stripped from the SOURCE
@@ -1634,6 +1640,45 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // literal and needed a special case for dropped raw-format spans; the
         // source-level strip handles both naturally.
         return '<p' . $attrs . '>' . $content . "</p>\n";
+    }
+
+    private function childrenHaveRenderHooks(Paragraph $node): bool
+    {
+        if ($this->hasListenersFor('render.*') || ($this->renderMode === RenderMode::STATIC && $this->staticRenderExtensions !== [])) {
+            return true;
+        }
+        foreach ($node->getChildren() as $child) {
+            if ($this->hasListenersFor('render.' . $child->getType())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a paragraph opens with a braced comment and holds nothing else but comments.
+     */
+    public static function holdsOnlyComments(Paragraph $node): bool
+    {
+        $braced = false;
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Comment) {
+                $braced = $braced || $child->isDelimited();
+
+                continue;
+            }
+            if ($child instanceof SoftBreak) {
+                continue;
+            }
+            if ($child instanceof Text && trim($child->getContent(), " \t\r\n") === '') {
+                continue;
+            }
+
+            return false;
+        }
+
+        return $braced;
     }
 
     protected function renderHeading(Heading $node): string

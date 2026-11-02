@@ -1677,7 +1677,6 @@ class CarveCorpusTest extends TestCase
         '928-a-multi-line-paragraph-of-only-braced-comments-is-an-invisible-line' => 'carve#4799: a multi line paragraph of only braced comments is an invisible line',
         '928-a-multi-line-paragraph-of-only-braced-comments-is-an-invisible-line-2' => 'carve#4799: a multi line paragraph of only braced comments is an invisible line',
         '928-a-multi-line-paragraph-of-only-braced-comments-is-an-invisible-line-3' => 'carve#4799: a multi line paragraph of only braced comments is an invisible line',
-        '931-a-trailing-comment-in-a-comment-only-paragraph-ends-at-its-line-3' => 'carve#4799: a trailing comment in a comment only paragraph ends at its line',
         '154-an-over-indented-definition-attaches-an-under-indented-one-folds' => 'carve#4861: an over indented definition attaches an under indented one folds',
         '156-wrapped-definition-term-continuation-below-the-content-column-strips-leading-whitespace' => 'carve#4861: wrapped definition term continuation below the content column strips leading whitespace',
         '156-wrapped-definition-term-continuation-below-the-content-column-strips-leading-whitespace-2' => 'carve#4861: wrapped definition term continuation below the content column strips leading whitespace',
