@@ -2032,12 +2032,14 @@ final class DefinitionListBuilder
                 // A comment is column-exempt, so its column cannot release
                 // the list frames that own the blank before it.
                 if (!$this->isCommentLineOrFence(ltrim($after, " \t"))) {
+                    $leadMarker = ($this->getListParser)()->parseListItemMarker($b->lead());
                     $b->bodyFrames->releaseAfterBlank(
                         $afterColumn,
                         $b->continuationColumn,
                         $b->noteBodyColumn,
                         $b->bodyNestedState->fence !== null,
                         $look,
+                        $leadMarker === null ? null : $this->continuations->listMarkerWidth($b->lead(), $leadMarker),
                     );
                 }
                 $b->formABlockOpen = $b->bodyNestedState->fence !== null;

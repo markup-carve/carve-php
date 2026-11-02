@@ -74,13 +74,15 @@ final class DefinitionBodyFrameState
         ?int $noteBodyColumn,
         bool $inFence,
         int $afterIndex,
+        ?int $leadItemContentColumn = null,
     ): void {
         if ($this->releasedBlockBase !== null && $afterColumn < $continuationColumn + $this->releasedBlockBase && !$inFence) {
             $this->releasedBlockBase = null;
         }
+        $released = false;
         while ($this->descriptionContentColumns !== [] && $afterColumn < $this->descriptionContentColumns[array_key_last($this->descriptionContentColumns)]) {
             array_pop($this->descriptionContentColumns);
-            $this->releasedListLine = $afterIndex;
+            $released = true;
         }
         if (
             $this->listContentColumns !== []
@@ -91,6 +93,15 @@ final class DefinitionBodyFrameState
             while ($this->listContentColumns !== [] && $afterColumn - $continuationColumn < $this->listContentColumns[array_key_last($this->listContentColumns)]) {
                 array_pop($this->listContentColumns);
             }
+            $released = true;
+        }
+        // A line that still reaches an outer item or description stays in it (S2).
+        if (
+            $released
+            && $this->listContentColumns === []
+            && $this->descriptionContentColumns === []
+            && ($leadItemContentColumn === null || $afterColumn - $continuationColumn < $leadItemContentColumn)
+        ) {
             $this->releasedListLine = $afterIndex;
         }
     }
