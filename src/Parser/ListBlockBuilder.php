@@ -977,6 +977,10 @@ final class ListBlockBuilder
                 if ($currentIndent !== $baseIndent) {
                     break;
                 }
+                // The thematic break is tested before a list marker, so `- - -` ends the list (carve#4814).
+                if (preg_match('/^(?:-(?: -){2,}|\*(?: \*){2,})[ \t]*$/', $trimmedLine) === 1) {
+                    break;
+                }
                 $itemInfo = ($this->getListParser)()->parseListItemMarker($trimmedLine);
 
                 // Check if this is a list item of the same type, marker, and style

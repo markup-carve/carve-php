@@ -664,7 +664,7 @@ trait BlockColonMethods
             || $this->tableParser->isTableRow($block)
             || $this->isReferenceDefinitionLine($block)
             || preg_match('/^#{1,6}(?:[ \t]|$)/', $trimmed) === 1
-            || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1
+            || preg_match('/^(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/', $trimmed) === 1
         ) {
             return null;
         }

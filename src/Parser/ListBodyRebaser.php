@@ -536,7 +536,7 @@ final class ListBodyRebaser
                     // A definition at the parent's minimum releases the child.
                     if (
                         preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) === 1
-                        || ($hasBlank && preg_match('/^(?:#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '|([-*_])\1{2,}[ \t]*$)/', $line) === 1)
+                        || ($hasBlank && preg_match('/^(?:#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '|(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$)/', $line) === 1)
                         || ($this->getFencedBlockParser)()->parseCodeFenceOpener($line) !== null
                         || ($this->getFencedBlockParser)()->parseFencedCommentOpener($line) !== null
                     ) {
@@ -1140,7 +1140,7 @@ final class ListBodyRebaser
         $prefixHasFence = false;
         foreach ($lines as $index => $line) {
             $prefixHasFence = $prefixHasFence || ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($line, " \t"), 0);
-            if ($prefixHasFence && $index > $firstContentLine && preg_match('/^(?:#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '|([-*_])\1{2,}[ \t]*$)/', $line) === 1) {
+            if ($prefixHasFence && $index > $firstContentLine && preg_match('/^(?:#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '|(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$)/', $line) === 1) {
                 return $index;
             }
         }
@@ -1387,7 +1387,7 @@ final class ListBodyRebaser
 
                 continue;
             }
-            if (preg_match('/^(?:#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '|([-*_])\1{2,}[ \t]*$)/', $line) === 1) {
+            if (preg_match('/^(?:#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '|(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$)/', $line) === 1) {
                 $unclosedFenceBase = null;
             }
             if ($i > $minimumColonEnd && $eligible !== null && ($line[0] ?? '') === ':') {

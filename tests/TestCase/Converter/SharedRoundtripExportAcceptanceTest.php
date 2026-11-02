@@ -19,6 +19,7 @@ use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -27,6 +28,8 @@ use PHPUnit\Framework\TestCase;
  */
 class SharedRoundtripExportAcceptanceTest extends TestCase
 {
+    use RuleATodo;
+
     public function testCachedTitleMetadataDoesNotAddAReaderDepthLimit(): void
     {
         $document = new Document();

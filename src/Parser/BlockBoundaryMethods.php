@@ -400,10 +400,8 @@ trait BlockBoundaryMethods
             return $this->hasClosingCommentFenceAhead($line, $lines, $index);
         }
 
-        // Thematic breaks (---, ***, ___): a contiguous col-0 run of >= 3
-        // IDENTICAL markers, no internal whitespace (§262). Spaced Markdown
-        // forms (`* * *`) are matched by the list arm below, not here.
-        if (preg_match('/^([-*_])\1{2,}[ \t]*$/', $line)) {
+        // Thematic breaks (---, ***, ___, and the single-spaced `- - -` / `* * *`, carve#4814).
+        if (preg_match('/^(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/', $line)) {
             return true;
         }
 

@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 class ANestedMarkerNoteKeepsItsCodeBlocksTest extends TestCase
 {
+    use RuleATodo;
+
     public function testCodeBelongsToTheNestedDefinition(): void
     {
         foreach ([11, 12] as $row) {

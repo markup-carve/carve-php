@@ -1428,7 +1428,7 @@ final class BlockQuoteBuilder
             if (
                 $row
                 || preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $inner) === 1
-                || preg_match('/^([-*_])\\1{2,}[ \t]*$/', $inner) === 1
+                || preg_match('/^(?:([-*_])\\1{2,}|-(?: -){2,}|\\*(?: \\*){2,})[ \t]*$/', $inner) === 1
                 || $this->isReferenceDefinitionLine($inner)
                 || (($host['kinds'][array_key_last($host['kinds']) ?? 0] ?? null) === 'item'
                     && (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $inner) === 1 || $this->isBlockAttributeLine($inner)))
@@ -1848,7 +1848,7 @@ final class BlockQuoteBuilder
                         IndentationHelper::getLeadingColumns($content) === ($state['colonClaims'][array_key_last($state['colonClaims']) ?? 0]['column'] ?? 0)
                         && (
                             preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedInDiv) === 1
-                            || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
+                            || preg_match('/^(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/', $trimmedInDiv) === 1
                             || ($this->getTableParser)()->isTableRow($trimmedInDiv)
                         )
                     )
@@ -2008,7 +2008,7 @@ final class BlockQuoteBuilder
                 }
             }
             $isHeading = $atContentColumn && preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmed) === 1;
-            $isThematicBreak = $atContentColumn && preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1;
+            $isThematicBreak = $atContentColumn && preg_match('/^(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/', $trimmed) === 1;
             $isTableRow = $atContentColumn && ($this->getTableParser)()->isTableRow($trimmed);
         // A TABLE IS A TABLE HOWEVER ITS LAST ROW IS SPELLED. A continuation
         // row carries no leading pipe, so the row test above does not see it,

@@ -3132,16 +3132,14 @@ class BlockParser
 
     protected function tryParseThematicBreak(Node $parent, string $line, int $start): ?int
     {
-        // Grammar §262 thematic_break: a column-0 run of at least three IDENTICAL
-        // `-`, `*`, or `_` characters, contiguous (no leading or internal
-        // whitespace), followed only by optional trailing whitespace. Markdown's
-        // loose spaced/indented forms (`* * *`, ` ***`, `-*-*-`) are NOT thematic
-        // breaks and fall through to list/paragraph parsing.
-        if (!preg_match('/^([-*_])\1{2,}[ \t]*$/', $line, $matches)) {
+        // Grammar thematic_break: a column-0 run of at least three identical
+        // `-`, `*` or `_`; `-` and `*` may be spaced by single spaces
+        // (`* * *`, carve#4814). An indent or a mixed run is not a break.
+        if (!preg_match('/^(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/', $line)) {
             return null;
         }
 
-        $char = $matches[1];
+        $char = $line[0];
         $thematicBreak = new ThematicBreak($char);
         $this->applyPendingAttributes($thematicBreak);
         $parent->appendChild($thematicBreak);
@@ -5625,10 +5623,10 @@ class BlockParser
             case '-':
             case '*':
                 // A bullet does NOT interrupt a paragraph (symmetric with ordered
-                // markers; needs a blank line). Only a thematic break -- a
-                // contiguous col-0 run of at least three IDENTICAL markers, with
-                // no internal whitespace (§262) -- interrupts here.
-                return preg_match('/^' . preg_quote($first, '/') . '{3,}[ \t]*$/', $line) === 1;
+                // markers; needs a blank line). Only a thematic break interrupts
+                // here: a col-0 run of at least three identical markers, or the
+                // single-spaced `- - -` / `* * *` (carve#4814).
+                return preg_match('/^(?:' . preg_quote($first, '/') . '{3,}|' . preg_quote($first, '/') . '(?: ' . preg_quote($first, '/') . '){2,})[ \t]*$/', $line) === 1;
             case '+':
                 // `+` is the list-continuation marker, NOT a bullet (only the
                 // opt-in PlusBulletExtension re-enables it) and is not a

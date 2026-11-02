@@ -619,6 +619,10 @@ class ListParser
         if ($first !== '-' && $first !== '*' && $first !== '.' && !$this->markerTokenCanStartAt($line, 0)) {
             return null;
         }
+        // The thematic break is tested before a list marker on every line (carve#4814).
+        if (preg_match('/^(?:-(?: -){2,}|\*(?: \*){2,})[ \t]*$/', $line) === 1) {
+            return null;
+        }
 
         // A `{...}` attribute block ABUTTING the marker (no space before `{`)
         // attaches its attributes to the <li> (Carve addition, grammar
