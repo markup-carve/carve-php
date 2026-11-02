@@ -1604,6 +1604,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // where a bullet's content column NESTS the later list in the earlier.
             $previousList = null;
             $previousCompactDefinition = false;
+            $previousDescriptionList = false;
             $listSeparated = false;
             $descriptionListOffset = 0;
             $previousEmitted = null;
@@ -1633,16 +1634,22 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // marker need escaping (PART 11 §2, carve-php#758).
                 $this->afterCaptionHost = self::hostsACaption($block);
                 if ($block instanceof ListBlock) {
+                    $previousDescriptionList = false;
                     $listSeparated = $previousList !== null && self::listsWouldMerge($previousList, $block);
                     if (!$listSeparated) {
                         $descriptionListOffset = 0;
                     }
                     $previousList = $block;
                 } elseif ($block instanceof DefinitionList) {
-                    $listSeparated = $previousEmitted instanceof DefinitionList;
+                    $listSeparated = $previousEmitted instanceof DefinitionList || $previousDescriptionList;
                     $previousList = null;
+                    $previousDescriptionList = true;
+                } elseif ($block instanceof Comment) {
+                    // A comment parts no siblings (carve#4716): the boundary still goes behind it.
+                    $listSeparated = false;
                 } elseif (self::spellsSomething($rendered)) {
                     $previousList = null;
+                    $previousDescriptionList = false;
                     $listSeparated = false;
                     $descriptionListOffset = 0;
                 }
