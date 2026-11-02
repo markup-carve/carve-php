@@ -16,6 +16,13 @@ final class ReferenceContext
      */
     public array $hardReferenceSeparators = [];
 
+    /**
+     * Hard blank lines after such a comment, with the column of the list they end.
+     *
+     * @var array<int, int>
+     */
+    public array $commentListBoundaries = [];
+
     public bool $importingFootnoteBody = false;
 
     public int $markdownFrontmatterLines = 0;
@@ -49,4 +56,13 @@ final class ReferenceContext
      * @var list<list<string>>
      */
     public array $movedFootnotes = [];
+
+    /**
+     * The marker column of the list a hard blank line ends: all of them,
+     * except after a comment, which ends only its own list.
+     */
+    public function boundaryColumn(int $line): int
+    {
+        return $this->commentListBoundaries[$line] ?? 0;
+    }
 }

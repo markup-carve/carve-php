@@ -61,6 +61,8 @@ final class ReferenceStage
             $this->inlineContext->complexReferenceTargets = [];
         }
         $this->context->hardReferenceSeparators = [];
+        $this->context->commentListBoundaries = [];
+        $commentBoundary = CommentListBoundary::find($lines);
         $authoredDefinitions = [];
         $invalidDefinitionPrefixes = [];
         $referenceChunk = null;
@@ -102,6 +104,7 @@ final class ReferenceStage
             $prefix = preg_match($quote, $line, $parts) === 1 ? $parts[1] : '';
             $content = substr($line, strlen($prefix));
             $quotePrefix = $prefix;
+            $this->writeCommentListBoundary($kept, $i, $quotePrefix, $commentBoundary);
             $lineDepth = substr_count($prefix, '>');
             if ($diagnosticHtml !== null) {
                 if (
@@ -671,6 +674,31 @@ final class ReferenceStage
         }
 
         return preg_replace('/^([ \t]*(?:>[ \t]?)*[ \t]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?)\[/', '$1\\\\[', $line) ?? $line;
+    }
+
+    /**
+     * Three blank lines, at least one of them hard, between a list-ending comment and the next list.
+     *
+     * @param array<string> $kept
+     * @param int $index
+     * @param string $quotePrefix
+     * @param array<int, int> $boundaries
+     */
+    private function writeCommentListBoundary(array &$kept, int $index, string $quotePrefix, array $boundaries): void
+    {
+        if (!isset($boundaries[$index])) {
+            return;
+        }
+        $blanks = 0;
+        for ($at = count($kept) - 1; $at >= 0 && trim(str_replace('>', '', $kept[$at])) === ''; $at--) {
+            $blanks++;
+        }
+        for ($blank = $blanks; $blank < 3 || $blank === $blanks; $blank++) {
+            $this->context->hardReferenceSeparators[count($kept)] = true;
+            $this->context->commentListBoundaries[count($kept)] = $boundaries[$index];
+            $this->context->markdownSourceLines[count($kept)] = $index;
+            $kept[] = rtrim($quotePrefix);
+        }
     }
 
     /**
