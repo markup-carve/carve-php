@@ -1661,24 +1661,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     public static function holdsOnlyComments(Paragraph $node): bool
     {
-        $braced = false;
-        foreach ($node->getChildren() as $child) {
-            if ($child instanceof Comment) {
-                $braced = $braced || $child->isDelimited();
-
-                continue;
-            }
-            if ($child instanceof SoftBreak) {
-                continue;
-            }
-            if ($child instanceof Text && trim($child->getContent(), " \t\r\n") === '') {
-                continue;
-            }
-
-            return false;
-        }
-
-        return $braced;
+        return $node->holdsOnlyComments();
     }
 
     protected function renderHeading(Heading $node): string
@@ -4928,9 +4911,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $attrs = $this->renderAttributes($node);
         $children = $node->getChildren();
 
+        // A paragraph of only comments renders nothing, so it is no second block (carve#4799).
         $visible = array_values(array_filter(
             $children,
-            static fn (Node $child): bool => !$child instanceof Comment,
+            fn (Node $child): bool => !$child instanceof Comment
+                && !($child instanceof Paragraph && $child->rendersNothing() && !$this->childrenHaveRenderHooks($child)),
         ));
         // PART 9 §17 L7: a consumed `{loose}` on the list says the descriptions
         // render as BLOCKS, which is the one shape no blank line can spell - a
