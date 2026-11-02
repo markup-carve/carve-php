@@ -159,9 +159,10 @@ class ColonFenceSlotsTakeASpaceTest extends TestCase
     {
         $out = $this->html(":::\t{$token}\nx\n:::\n");
 
-        $this->assertStringContainsString(':::', $out);
+        $this->assertStringStartsWith("<p>:::\t", $out);
         $this->assertStringNotContainsString('<aside', $out);
-        $this->assertStringNotContainsString('<div', $out);
+        // The bare `:::` closer line is an opener of its own (carve#4863).
+        $this->assertStringEndsWith("x</p>\n<div>\n\n</div>", $out);
     }
 
     #[DataProvider('otherOpenerTokenProvider')]

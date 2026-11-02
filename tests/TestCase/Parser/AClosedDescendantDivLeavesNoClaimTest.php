@@ -96,9 +96,9 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
     public function testADeepMalformedFenceKeepsItsParagraphClaim(): void
     {
         $html = (new CarveConverter())->convert("- a\n  - b\n    - c\n      :::note\n      :::\ntail\n");
-        $this->assertStringContainsString("<li>c\n:::note\n:::\ntail</li>", $html);
-        $this->assertStringNotContainsString('<div>', $html);
-        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n"), $html);
+        // The bare `:::` opens a div in `c`, which takes no lazy line (carve#4863).
+        $this->assertStringContainsString("<li>c\n:::note\n            <div>", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n<p>tail</p>\n"), $html);
     }
 
     public function testTheDescendantClaimStateSurvivesAClosedDiv(): void

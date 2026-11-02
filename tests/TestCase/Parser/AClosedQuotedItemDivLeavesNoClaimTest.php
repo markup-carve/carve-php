@@ -92,8 +92,9 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
     public function testMalformedColonAbsorptionBelongsToOneItem(): void
     {
         $html = (new CarveConverter())->convert("> - :::bad\n>   :::\n- tail\n");
-        $this->assertStringContainsString(":::bad\n:::\n- tail", $html);
-        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n"), $html);
+        // The bare `:::` opens a div in the item, so `- tail` is a root list (carve#4863).
+        $this->assertStringContainsString("<li>:::bad\n      <div>", $html);
+        $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"), $html);
         $html = (new CarveConverter())->convert("> - prose\n>   :::bad\n> - next\n>   :::\n- tail\n");
         $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"), $html);
     }

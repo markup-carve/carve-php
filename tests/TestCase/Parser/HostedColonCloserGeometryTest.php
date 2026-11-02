@@ -58,7 +58,8 @@ class HostedColonCloserGeometryTest extends TestCase
     {
         $doc = (new BlockParser())->parse($source);
         $children = $doc->getChildren();
-        self::assertCount(1, $children, $source);
+        // The bare run after `:::bad` opens a div with no closer, so `- tail` is a root list (carve#4863).
+        self::assertCount($kind === 'literal' ? 2 : 1, $children, $source);
         $host = $children[0];
         for ($i = 0; $i < $depth; $i++) {
             self::assertSame('block_quote', $host->getType(), $source);
@@ -69,10 +70,13 @@ class HostedColonCloserGeometryTest extends TestCase
         $item = $host->getChildren()[0];
         $blocks = $item->getChildren();
         if ($kind === 'literal') {
-            self::assertCount(2, $blocks, $source);
+            self::assertCount(3, $blocks, $source);
             self::assertSame('line_block', $blocks[0]->getType(), $source);
             self::assertSame('paragraph', $blocks[1]->getType(), $source);
-            self::assertStringContainsString('- tail', self::text($blocks[1]), $source);
+            self::assertSame($run . 'bad', self::text($blocks[1]), $source);
+            self::assertSame('div', $blocks[2]->getType(), $source);
+            self::assertSame('list', $children[1]->getType(), $source);
+            self::assertStringContainsString('tail', self::text($children[1]), $source);
         } elseif ($kind === 'box') {
             self::assertCount(1, $blocks, $source);
             self::assertSame('div', $blocks[0]->getType(), $source);

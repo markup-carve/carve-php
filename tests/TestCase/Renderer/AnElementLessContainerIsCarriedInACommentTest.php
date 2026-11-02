@@ -197,7 +197,8 @@ class AnElementLessContainerIsCarriedInACommentTest extends TestCase
     public static function spelledProvider(): array
     {
         return [
-            'an attributes-only opener' => ["::: {.warning}\nx\n:::\n"],
+            // No closer line: a bare `:::` would open an empty div of its own (carve#4863).
+            'an attributes-only opener' => ["::: {.warning}\nx\n"],
             'a list table' => ["{header-rows=1}\n::: list-table\n- - A\n  - B\n- - one\n  - x\n:::\n"],
         ];
     }

@@ -3088,9 +3088,12 @@ class DjotToCarve
         }
         $containers = [];
         $fenceParser = new FencedBlockParser();
+        $colonParagraph = null;
         foreach ($lines as $i => $line) {
             $masked = $maskedLines[$i] ?? $line;
             if (trim($masked) === '') {
+                $colonParagraph = null;
+
                 continue;
             }
             $contentAt = strlen($line) - strlen(ltrim($line, " \t"));
@@ -3124,8 +3127,18 @@ class DjotToCarve
                 $top = $containers !== [] ? $containers[array_key_last($containers)] : null;
                 $close = $opener !== null && preg_match('/^:{3,}[ \t]*$/', $content) === 1
                     && $top !== null && $top['width'] === $opener['length'];
+                $depth = substr_count(substr($line, 0, $containerOffset), '>');
+                // A colon line Djot opens no div on is paragraph text, and so is a bare run continuing it (carve#4863).
+                $djotDiv = preg_match('/^:{3,}(?:[ \t]+[A-Za-z0-9_-]+)?[ \t]*$/', $content) === 1;
+                if (!$close && !$djotDiv) {
+                    $colonParagraph = $depth;
+                } elseif (!$close && $colonParagraph === $depth && preg_match('/^:{3,}[ \t]*$/', $content) === 1) {
+                    $lines[$i] = substr($line, 0, $containerOffset) . '\\' . substr($line, $containerOffset);
+
+                    continue;
+                }
                 $invalid = $close ? array_pop($containers)['invalid'] : ($opener['invalidMetadata'] ?? false);
-                if (!$close && $opener !== null) {
+                if (!$close && $opener !== null && $djotDiv) {
                     $containers[] = ['width' => $opener['length'], 'invalid' => $invalid];
                 }
                 if ($invalid) {

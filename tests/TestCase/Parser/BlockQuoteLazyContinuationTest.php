@@ -36,10 +36,10 @@ class BlockQuoteLazyContinuationTest extends TestCase
 
     public function testGluedTypeWordStaysParagraphInsideQuote(): void
     {
-        // `:::note` has no space after the fence, so it is paragraph text even
-        // when a fence-shaped line follows.
+        // `:::note` has no space after the fence, so it is paragraph text; the bare
+        // `:::` below still opens a div (carve#4863).
         $djot = "> :::note\nbody\n> :::";
-        $expected = "<blockquote><p>:::note\nbody\n:::</p></blockquote>\n";
+        $expected = "<blockquote>\n  <p>:::note\nbody</p>\n  <div>\n\n  </div>\n</blockquote>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($djot));
     }
@@ -67,7 +67,7 @@ class BlockQuoteLazyContinuationTest extends TestCase
     public function testLazyContinuationAfterGluedTypeWordStillFolds(): void
     {
         $djot = "> :::note\n> para\nlazy\n> :::";
-        $expected = "<blockquote><p>:::note\npara\nlazy\n:::</p></blockquote>\n";
+        $expected = "<blockquote>\n  <p>:::note\npara\nlazy</p>\n  <div>\n\n  </div>\n</blockquote>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($djot));
     }
