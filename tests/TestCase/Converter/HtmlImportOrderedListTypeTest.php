@@ -89,7 +89,7 @@ class HtmlImportOrderedListTypeTest extends TestCase
         );
 
         $this->assertSame(
-            "a. one\n   i. deep\n   ii. deeper\n",
+            "a.  one\n    i.  deep\n    ii.  deeper\n",
             $carve,
         );
         $this->assertStringContainsString('<ol type="i">', $this->carve->convert($carve));
@@ -198,7 +198,7 @@ class HtmlImportOrderedListTypeTest extends TestCase
     {
         $carve = $this->converter->convert('<ol type="a" class="steps"><li>one</li><li>two</li></ol>');
 
-        $this->assertSame("{.steps}\na. one\nb. two\n", $carve);
+        $this->assertSame("{.steps}\na.  one\nb.  two\n", $carve);
     }
 
     /**

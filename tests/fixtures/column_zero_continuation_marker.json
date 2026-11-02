@@ -108,11 +108,11 @@
     "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>+\nflush</p></blockquote>\n    </li>\n  </ul>\n</blockquote>"
   },
   {
-    "source": "a. > +\nflush",
+    "source": "a.  > +\nflush",
     "html": "<ol type=\"a\">\n  <li>\n    <blockquote><p>+\nflush</p></blockquote>\n  </li>\n</ol>"
   },
   {
-    "source": "i. > +\nflush",
+    "source": "i.  > +\nflush",
     "html": "<ol type=\"i\">\n  <li>\n    <blockquote><p>+\nflush</p></blockquote>\n  </li>\n</ol>"
   },
   {

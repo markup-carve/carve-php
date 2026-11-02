@@ -34,7 +34,7 @@ class DjotEmptyListItemTest extends TestCase
             'marker-line child before an outer quote' => ["- 1.\n  > q", "- 1. {empty}\n\n  \\> q", '<ul><li><ol><li></li></ol><p>&gt; q</p></li></ul>'],
             'dash' => ['-', '- {empty}', '<ul><li></li></ul>'],
             'number' => ['1.', '1. {empty}', '<ol><li></li></ol>'],
-            'letter' => ['a.', 'a. {empty}', '<ol type="a"><li></li></ol>'],
+            'letter' => ['a.', 'a.  {empty}', '<ol type="a"><li></li></ol>'],
             'star' => ['*', '* {empty}', '<ul><li></li></ul>'],
             'continuation marker' => ['+', '+', '<p>+</p>'],
             'before a paragraph' => ["-\na", "- {empty}\n\na", '<ul><li></li></ul><p>a</p>'],

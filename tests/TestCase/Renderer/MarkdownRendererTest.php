@@ -352,7 +352,7 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('2) Second', $result);
 
         // Alphabetic - normalized to numeric (not standard Markdown)
-        $djot = "a. First\nb. Second\nc. Third";
+        $djot = "a.  First\nb.  Second\nc.  Third";
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
@@ -360,7 +360,7 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('2. Second', $result);
 
         // Roman numerals - normalized to numeric (not standard Markdown)
-        $djot = "i. First\nii. Second\niii. Third";
+        $djot = "i.  First\nii.  Second\niii.  Third";
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 

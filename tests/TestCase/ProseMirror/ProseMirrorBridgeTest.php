@@ -1141,8 +1141,8 @@ class ProseMirrorBridgeTest extends TestCase
             // span carrying one would drop out of the covered population with
             // nothing to say so.
             'span with content' => ["x [y]{.c}\n"],
-            'alphabetic list' => ["a. apple\nb. pear\n"],
-            'roman list' => ["iv. four\nv. five\n"],
+            'alphabetic list' => ["a.  apple\nb.  pear\n"],
+            'roman list' => ["iv.  four\nv.  five\n"],
             'parenthesis delimiter' => ["1) one\n"],
             'asterisk bullet' => ["* a\n"],
             'bare dot ordered list' => [". first\n. second\n"],

@@ -3080,6 +3080,21 @@ class DjotToCarve
             if (($masked[$contentAt] ?? '') !== ($line[$contentAt] ?? '')) {
                 continue;
             }
+            // Djot takes one space after a letter `.` item and Carve two (carve#4811), quoted lines too.
+            // Djot has no marker attributes: `a.{#id} x` is a paragraph.
+            if (preg_match('/^([ \t]*(?:>[ \t]*)*)([A-Za-z]+)\. (?! )(?=\S)/', $masked, $letterDot) === 1) {
+                $token = $letterDot[2];
+                $roman = preg_match('/^(?=[MDCLXVI]+$)M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})$/i', $token) === 1;
+                $invisibleBody = preg_match('/^(?:\[\^[^\]\n]+\]:|%%%%|\x00DJOTEMPTYNOTE)/', substr($line, strlen($letterDot[0]))) === 1;
+                if (
+                    !$invisibleBody && str_starts_with($line, $letterDot[0])
+                    && (strlen($token) === 1 || ($roman && ($token === strtolower($token) || $token === strtoupper($token))))
+                ) {
+                    $line = $lines[$i] = substr($letterDot[0], 0, -1) . '  ' . substr($line, strlen($letterDot[0]));
+                    // The mask keeps the line's offsets for the checks below.
+                    $masked = substr($letterDot[0], 0, -1) . '  ' . substr($masked, strlen($letterDot[0]));
+                }
+            }
             $view = $line;
             while (preg_match('/^(?:[ \t]*> ?|[ \t]*(?:(?:[-*+]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)]|\([0-9A-Za-z]+\)) +(?:\[[ xX]\] +)?|: |\[\^[^\]\r\n]+\]: +))/', $view, $host)) {
                 $view = substr($view, strlen($host[0]));

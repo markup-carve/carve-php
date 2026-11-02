@@ -115,7 +115,7 @@ class AdjacentSiblingListsGetTheHardBoundaryTest extends TestCase
             // `CarveRenderer::listsWouldMerge()` reads.
             'numbering styles differ' => [
                 '<ol><li>a</li></ol><ol type="a"><li>b</li></ol>',
-                "1. a\n\na. b\n",
+                "1. a\n\na.  b\n",
             ],
             // A block between the lists separates them by itself.
             'a paragraph between the lists' => [

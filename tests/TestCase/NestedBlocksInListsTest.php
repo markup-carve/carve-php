@@ -121,9 +121,9 @@ DJOT;
     public function testBlockquoteInAlphaList(): void
     {
         $djot = <<<'DJOT'
-a. > Quote in alpha list
+a.  > Quote in alpha list
 
-b. Another item
+b.  Another item
 DJOT;
 
         $result = $this->converter->convert($djot);

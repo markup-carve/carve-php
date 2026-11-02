@@ -24,7 +24,7 @@ class ListDelimiterChangedTest extends TestCase
     public function testAdjacentListsReportTheChangedDelimiter(bool $roundTrip): void
     {
         $source = <<<'CARVE'
-a. one
+a.  one
 
 1. two
 

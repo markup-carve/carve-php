@@ -183,7 +183,7 @@ class ConformanceBatchTest extends TestCase
      */
     public function testFootnoteDefinitionInsideAlphaOrderedItemIsCollected(): void
     {
-        $html = $this->converter->convert("See [^a].\n\na. [^a]: note body\n");
+        $html = $this->converter->convert("See [^a].\n\na.  [^a]: note body\n");
 
         $this->assertStringContainsString('href="#fn1"', $html);
         $this->assertStringContainsString('role="doc-endnotes"', $html);

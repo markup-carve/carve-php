@@ -236,13 +236,15 @@ class ListParser
         $gap = ' +(?=[ \t]*' . StringUtil::NON_WHITESPACE_CLASS . ')';
         $bullet = '[' . ($bulletClass ?? $this->bulletMarkerClass) . ']';
 
+        // A letter `.` marker needs two spaces before its content, so `J. R.` is text (carve#4811).
+        $oneSpaceAfterDot = '(?!\.(?:\{(?:[^{}"\']|"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\')*\})? (?! ))';
         $tokens = [
             'task' => ['(' . $bullet . ')', ' +\[([ xX_>?\/!-])\]' . $gap],
             'bullet' => ['(' . $bullet . ')', $gap],
             'ordered' => ['(\d+)([.)])', $gap],
             'bare' => ['\.', $gap],
-            'roman' => ['(?P<roman>[ivxlcdmIVXLCDM]+)([.)])', $gap],
-            'alpha' => ['([a-zA-Z])([.)])', $gap],
+            'roman' => ['(?P<roman>[ivxlcdmIVXLCDM]+)' . $oneSpaceAfterDot . '([.)])', $gap],
+            'alpha' => ['([a-zA-Z])' . $oneSpaceAfterDot . '([.)])', $gap],
         ];
 
         if ($bulletClass !== null) {

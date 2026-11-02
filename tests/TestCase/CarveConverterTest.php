@@ -123,12 +123,12 @@ class CarveConverterTest extends TestCase
                 0,
                 -1,
             ),
-            $this->converter->convert("c. one\nd. two"),
+            $this->converter->convert("c.  one\nd.  two"),
         );
         // consecutive roman numeral still resolves to roman
         $this->assertStringContainsString(
             '<ol type="i">',
-            $this->converter->convert("i. one\nii. two"),
+            $this->converter->convert("i.  one\nii.  two"),
         );
     }
 
@@ -1404,7 +1404,7 @@ DJOT;
     public function testRomanNumeralList(): void
     {
         // The consecutive Roman sibling fixes the first marker as Roman.
-        $djot = "x. first\nxi. second\nxii. third";
+        $djot = "x.  first\nxi.  second\nxii.  third";
 
         $result = $this->converter->convert($djot);
 
@@ -1417,7 +1417,7 @@ DJOT;
     public function testRomanNumeralListUppercase(): void
     {
         // The consecutive Roman sibling fixes the uppercase dialect.
-        $djot = "X. first\nXI. second\nXII. third";
+        $djot = "X.  first\nXI.  second\nXII.  third";
 
         $result = $this->converter->convert($djot);
 
@@ -1430,7 +1430,7 @@ DJOT;
     public function testAlphabeticListWithAmbiguousMarkers(): void
     {
         // 'c' could be alpha (3rd) or roman (100), but should continue as alpha after a, b
-        $djot = "a. first\nb. second\nc. third";
+        $djot = "a.  first\nb.  second\nc.  third";
 
         $result = $this->converter->convert($djot);
 

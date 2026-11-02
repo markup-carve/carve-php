@@ -67,7 +67,7 @@ class ListAndFigureShapeTest extends TestCase
         // `a. apple` is an alpha-dialect ordered list: the dialect is `a` and
         // the delimiter is `.`. Publishing the dialect as `delim` lost the
         // delimiter and put an illegal value in its place.
-        $alpha = $this->firstBlock("a. apple\nb. banana\n");
+        $alpha = $this->firstBlock("a.  apple\nb.  banana\n");
 
         $this->assertSame('a', $alpha['olType']);
         $this->assertArrayNotHasKey('delim', $alpha);
@@ -89,7 +89,7 @@ class ListAndFigureShapeTest extends TestCase
     public function testBothSurviveARoundTrip(): void
     {
         $codec = new AstCodec();
-        foreach (["a. apple\nb. b\n", "1) a\n", "- a\n", "![alt](/i.png)\n^ cap\n"] as $source) {
+        foreach (["a.  apple\nb.  b\n", "1) a\n", "- a\n", "![alt](/i.png)\n^ cap\n"] as $source) {
             $encoded = $this->encode($source);
             $decoded = $codec->decode($encoded);
 

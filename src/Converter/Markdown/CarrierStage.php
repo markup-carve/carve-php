@@ -676,8 +676,10 @@ final class CarrierStage
         if (preg_match('/^([A-Za-z]+[.)])(?: ([A-Za-z]+[.)]))?$/D', $payload, $markers) !== 1) {
             return null;
         }
+        // A letter `.` marker takes two spaces (carve#4811).
+        $probe = static fn (string $marker): string => $marker . (str_ends_with($marker, '.') ? '  ' : ' ') . "item\n";
         if (isset($markers[2])) {
-            $source = $markers[1] . " item\n" . $markers[2] . " item\n";
+            $source = $probe($markers[1]) . $probe($markers[2]);
         } else {
             $first = substr($markers[1], 0, -1);
             if ($start !== null && preg_match('/^[IVXLCDM]$/i', $first) === 1) {
@@ -689,7 +691,7 @@ final class CarrierStage
                     return ctype_lower($first) ? 'a' : 'A';
                 }
             }
-            $source = $markers[1] . " item\n";
+            $source = $probe($markers[1]);
         }
         $lists = (new CarveConverter())->parse($source)->getChildren();
         $list = $lists[0] ?? null;
@@ -1049,7 +1051,7 @@ final class CarrierStage
                 if (preg_match('/^([0-9]+)([.)])([ \t]+.*)$/D', $line['text'], $marker) !== 1 || (int)$marker[1] !== $counter || $marker[2] !== $delimiter) {
                     break;
                 }
-                $line['text'] = $this->carrierStyledNumber($counter, $style) . $delimiter . $marker[3];
+                $line['text'] = $this->carrierStyledNumber($counter, $style) . $delimiter . ($delimiter === '.' ? ' ' : '') . $marker[3];
                 $items[$cursor] = $line;
                 $lastStyled = $cursor;
                 $counter++;
