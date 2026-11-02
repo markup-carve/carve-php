@@ -3492,10 +3492,11 @@ class BlockParser
             && !IndentationHelper::isBlankLine($lines[$i])
             && $this->continuationFollowerIsEligible($i)
         ) {
-            [$end, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock(
+            [$end, $attached, $attachedLineMap] = $this->continuationsMapper()->attachedFlushLeftBlock(
                 $lines,
                 $i,
                 $count,
+                invisibleLineEndsParagraph: true,
             );
             if ($attached !== []) {
                 $bodyLines = $attached;
@@ -3594,11 +3595,12 @@ class BlockParser
                 // before any extent is measured. The `+` is consumed
                 // either way, so the enclosing parse resumes on the
                 // line the marker did not take.
-                [$i, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock(
+                [$i, $attached, $attachedLineMap] = $this->continuationsMapper()->attachedFlushLeftBlock(
                     $lines,
                     $i,
                     $count,
                     static fn (string $a): bool => (bool)preg_match('/^\[\^[^\]]+\]:/', $a),
+                    invisibleLineEndsParagraph: true,
                 );
                 if ($attached !== []) {
                     // The accepted marker ends a fence in this body before its
