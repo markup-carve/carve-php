@@ -156,6 +156,11 @@ final class LineBlockBuilder
             AttributeParser::applyToNode($lineBlock, substr($divInfo['attrs'], 1, -1));
         }
 
+        $lazy = [];
+        foreach ($contentLines as $index => $line) {
+            $lazy[$index] = str_starts_with($line, BlockGrammar::LAZY_FRAME)
+                || isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($start + 1 + $index)]);
+        }
         $contentLines = array_map(BlockGrammar::stripLazyFrame(...), $contentLines);
         // A `%%%` span leaves no verse line and splits no stanza (CARVE-P9-047); it needs no closer.
         // Only an opener whose first character is `%` qualifies; the closer may be indented.
@@ -174,19 +179,21 @@ final class LineBlockBuilder
             if (preg_match('/^(%{3,})(.*)$/', $contentLine, $opener) === 1) {
                 $run = strlen($opener[1]);
                 $closer = $index + 1;
-                while ($closer < $count && self::commentRun($contentLines[$closer]) !== $run) {
+                // A lazy line missed the span's owner, so S1 ends the span before it (carve#4956).
+                while ($closer < $count && self::commentRun($contentLines[$closer]) !== $run && !$lazy[$closer]) {
                     $closer++;
                 }
+                $endedLazy = $closer < $count && $lazy[$closer] && self::commentRun($contentLines[$closer]) !== $run;
                 $tail = trim($opener[2], " \t");
                 $commentLines = array_slice($contentLines, $index + 1, $closer - $index - 1);
                 $comment = new Comment(implode("\n", $tail === '' ? $commentLines : [$tail, ...$commentLines]), $run);
-                $this->stampBlockSpan($comment, $this->sourceLineFor($lineNumber), $this->sourceLineFor($start + 1 + min($closer, $count - 1)));
+                $this->stampBlockSpan($comment, $this->sourceLineFor($lineNumber), $this->sourceLineFor($start + 1 + min($endedLazy ? $closer - 1 : $closer, $count - 1)));
                 if ($stanza !== []) {
                     $after[count($stanza) - 1][] = $comment;
                 } else {
                     $leading[] = $comment;
                 }
-                $index = $closer;
+                $index = $endedLazy ? $closer - 1 : $closer;
 
                 continue;
             }
