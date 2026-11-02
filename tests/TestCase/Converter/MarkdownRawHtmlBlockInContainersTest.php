@@ -142,6 +142,14 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
                 "> - <div>\n>   </div>\n> after\n",
                 "> - ```=html\n>   <div>\n>   </div>\n>   ```\n>\n> after\n",
             ],
+            'quoted item keeps a tab in its content' => [
+                "> - <div>\n>   " . self::TAB . "foo\n",
+                "> - ```=html\n>   <div>\n>   " . self::TAB . "foo\n>   ```\n",
+            ],
+            'quoted sibling items each hold their block' => [
+                "> - <div>\n>   x\n> - <div>\n>   y\n",
+                "> - ```=html\n>   <div>\n>   x\n>   ```\n> - ```=html\n>   <div>\n>   y\n>   ```\n",
+            ],
             'quoted comment' => [
                 "> - <!-- c -->\n>   x\n",
                 "> - %% c\n>   x\n",

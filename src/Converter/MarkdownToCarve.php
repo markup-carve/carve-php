@@ -5175,8 +5175,12 @@ class MarkdownToCarve
         $toBlank = $this->htmlBlockCloser($first) === null;
         $block = [str_repeat(' ', $contentColumn) . $first];
         for ($at = $start + 1, $count = count($lines); $at < $count; $at++) {
-            $content = $this->quotedText($this->expandLeadingTabs($lines[$at]), $prefix);
-            if ($content === null) {
+            // Tabs past the item's content column are the block's own bytes.
+            $markers = preg_match('/^(?:[ \t]*>)+/', $lines[$at], $quote) === 1 ? $this->columnWidth($quote[0]) + 1 : 0;
+            $content = $this->quotedText($this->expandLeadingTabs($lines[$at], $markers + $contentColumn), $prefix);
+            if ($content === null || (trim($content) !== '' && $this->indentWidth($content) < $contentColumn)) {
+                $block[] = (string)$content;
+
                 break;
             }
             $block[] = $content;
