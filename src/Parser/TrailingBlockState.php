@@ -24,10 +24,6 @@ final class TrailingBlockState
 
     public bool $literalDiv = false;
 
-    public bool $divAbsorbing = false;
-
-    public bool $divAbsorbedRun = false;
-
     public bool $namedDiv = false;
 
     public bool $nestedListSeen = false;
@@ -50,7 +46,6 @@ final class TrailingBlockState
         public bool $inDiv = false,
         public int $divFenceLength = 0,
         public int $divColumn = 0,
-        public bool $absorbingFence = false,
         public int $divDepth = 0,
         public bool $isLead = true,
         public bool $inTable = false,

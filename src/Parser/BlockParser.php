@@ -2486,7 +2486,7 @@ class BlockParser
      * `{` opener followed by many lines that never close stays LINEAR rather
      * than copying the growing run on every line.
      *
-     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, inlineFenceJustClosed?:bool, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool}} $state Mutated in place.
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool}>,divDepth:int,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, inlineFenceJustClosed?:bool, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool}} $state Mutated in place.
      * @param string $content
      */
     private function trackWrappedAttributeRun(array &$state, string $content): bool
@@ -3659,7 +3659,6 @@ class BlockParser
                     && $trailingState->nestedColumn === 0
                     && $trailingState->fence === null
                     && !$trailingState->hasOpenDiv()
-                    && !$trailingState->absorbingFence
                     && !$trailingState->inTable
                     && !$trailingState->nestedListSeen
                     && $this->listParser->parseListItemMarker($bodyLine) !== null
@@ -4043,7 +4042,6 @@ class BlockParser
         $standaloneCodeInclude = $codeIncludeLine !== null;
         /** @var list<string> $contentParts */
         $contentParts = [$content];
-        $hasUnclaimedColonFenceLine = $this->paragraphHasUnclaimedColonFenceLine($content);
         $foldedFenceColumn = null;
         if (self::isFoldedFenceLine(explode("\n", $content, 2)[0])) {
             $foldedFenceColumn = $this->authoredColumnOf($start, $line)
@@ -4094,7 +4092,7 @@ class BlockParser
             // written for, and PART 9 §10's I1 says nothing about brace state.
             // It protected nothing either - an inline attribute block cannot
             // span lines in any engine.
-            if ($this->interruptsParagraph($lines, $i, $contentParts, $start, $hasUnclaimedColonFenceLine, $topLevel, $itemBody)) {
+            if ($this->interruptsParagraph($lines, $i, $contentParts, $start, $topLevel, $itemBody)) {
                 break;
             }
 
@@ -4116,8 +4114,6 @@ class BlockParser
                 );
             }
             $contentParts[] = $nextLine;
-            $hasUnclaimedColonFenceLine = $hasUnclaimedColonFenceLine
-                || $this->paragraphHasUnclaimedColonFenceLine($nextLine);
             $i++;
         }
         if ($topLevel && !$itemBody) {
@@ -4387,7 +4383,6 @@ class BlockParser
      * @param int $i
      * @param list<string> $contentLines Current paragraph content before the candidate line.
      * @param int $sourceLine
-     * @param bool $hasUnclaimedColonFenceLine
      * @param bool $topLevel
      * @param bool $itemBody
      */
@@ -4396,7 +4391,6 @@ class BlockParser
         int $i,
         array $contentLines,
         int $sourceLine,
-        bool $hasUnclaimedColonFenceLine,
         bool $topLevel = false,
         bool $itemBody = false,
     ): bool {
@@ -4423,17 +4417,6 @@ class BlockParser
 
         if ($this->isCaptionLine($line)) {
             return $this->isCaptionableParagraphContent(implode("\n", $contentLines), $sourceLine);
-        }
-
-        // A bare colon run does not interrupt only when the open paragraph
-        // already carries an unclaimed colon opener the run would close (PART
-        // 9 §12). Otherwise an opener ALWAYS opens: a wrong-width bare run is
-        // an ordinary opener, and it interrupts the paragraph and opens an
-        // (empty) block - matching carve-js / carve-rs and grammar §12
-        // (markup-carve/carve#1970). The lazy-folded `- :::` marker-line
-        // exception is handled in the list-item collector, not here.
-        if ($this->isBareColonFence($line) && $hasUnclaimedColonFenceLine) {
-            return false;
         }
 
         if ($this->startsNewBlock($line, $lines, $i)) {
@@ -4794,25 +4777,6 @@ class BlockParser
     {
         return $this->referenceDefinitionExtractor->matchDefinitionLine($line) !== null
             || preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $line) === 1;
-    }
-
-    protected function paragraphHasUnclaimedColonFenceLine(string $content): bool
-    {
-        foreach (explode("\n", $content) as $line) {
-            if ($this->isUnclaimedColonFenceLine($line)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    protected function isUnclaimedColonFenceLine(string $line): bool
-    {
-        $trimmed = ltrim($line, " \t");
-
-        return preg_match('/^:{3,}/', $trimmed) === 1
-            && $this->fencedBlockParser->parseDivFenceOpener($trimmed) === null;
     }
 
     protected function isCaptionableParagraphContent(string $content, int $sourceLine): bool
@@ -6099,7 +6063,6 @@ class BlockParser
             $this->listContinuationEndsAtDedentedBlock(...),
             $this->listMarkerWidth(...),
             $this->markerFreeContent(...),
-            $this->paragraphHasUnclaimedColonFenceLine(...),
             $this->sourceMapper(),
             $this->spanningConstruct(...),
             $this->startsNewBlock(...),

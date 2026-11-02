@@ -50,7 +50,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
     public function testTheFlushLeftLineFoldsBecauseTheFenceOpenedNothing(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>item\n:::note\nbody\n:::\ntail</li>\n</ul>",
+            "<ul>\n  <li>item\n:::note\nbody\n    <div>\n\n    </div>\n  </li>\n</ul>\n<p>tail</p>",
             $this->html("- item\n  :::note\n  body\n  :::\ntail\n"),
         );
     }
@@ -69,7 +69,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
     public function testALazyLineOneColumnInFoldsToo(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>item\n:::note\nbody\n:::\ntail</li>\n</ul>",
+            "<ul>\n  <li>item\n:::note\nbody\n    <div>\n\n    </div>\n  </li>\n</ul>\n<p>tail</p>",
             $this->html("- item\n  :::note\n  body\n  :::\n tail\n"),
         );
     }
@@ -77,7 +77,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
     public function testTheMalformedFenceMayBeTheParagraphsFirstLine(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>:::note\nbody\n:::\ntail</li>\n</ul>",
+            "<ul>\n  <li>:::note\nbody\n    <div>\n\n    </div>\n  </li>\n</ul>\n<p>tail</p>",
             $this->html("- :::note\n  body\n  :::\ntail\n"),
         );
     }
@@ -87,7 +87,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // The quote's prefix matches on the lazy line but the item's indentation
         // does not - the partial match S4 is written for.
         $this->assertSame(
-            "<blockquote>\n  <ul>\n    <li>item\n:::note\nbody\n:::\ntail</li>\n  </ul>\n</blockquote>",
+            "<blockquote>\n  <ul>\n    <li>item\n:::note\nbody\n      <div>\n\n      </div>\n    </li>\n  </ul>\n  <p>tail</p>\n</blockquote>",
             $this->html("> - item\n>   :::note\n>   body\n>   :::\n> tail\n"),
         );
     }
@@ -107,7 +107,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // §12: "the absorption is not width-tagged". A malformed opener has no
         // length to match against.
         $this->assertSame(
-            "<ul>\n  <li>item\n:::note\nbody\n::::\ntail</li>\n</ul>",
+            "<ul>\n  <li>item\n:::note\nbody\n    <div>\n\n    </div>\n  </li>\n</ul>\n<p>tail</p>",
             $this->html("- item\n  :::note\n  body\n  ::::\ntail\n"),
         );
     }
@@ -156,7 +156,7 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
         // the same block sequence at the top level, which gives one paragraph
         // holding `:::oops`, `:::` and `tail`.
         $this->assertSame(
-            "<ul>\n  <li>item\n    <aside class=\"admonition note\" aria-label=\"Note\">\n\n    </aside>\n    :::oops\n:::\ntail\n  </li>\n</ul>",
+            "<ul>\n  <li>item\n    <aside class=\"admonition note\" aria-label=\"Note\">\n\n    </aside>\n    :::oops\n    <div>\n\n    </div>\n  </li>\n</ul>\n<p>tail</p>",
             $this->html("- item\n  ::: note\n  :::\n  :::oops\n  :::\ntail\n"),
         );
     }

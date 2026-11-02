@@ -161,15 +161,15 @@ class AContainerLabelPublishesItsInlineRunTest extends TestCase
         return [
             'an unclosed backtick run swallows the closer' => [
                 ":::[a `b]\nbody\n:::\n",
-                "<p>:::[a <code>b]\nbody\n:::</code></p>\n",
+                "<p>:::[a <code>b]\nbody</code></p>\n<div>\n\n</div>\n",
             ],
             'text after the run' => [
                 ":::[a] b\nbody\n:::\n",
-                "<p>:::[a] b\nbody\n:::</p>\n",
+                "<p>:::[a] b\nbody</p>\n<div>\n\n</div>\n",
             ],
             'an unbalanced nested opener' => [
                 ":::[a [b]\nbody\n:::\n",
-                "<p>:::[a [b]\nbody\n:::</p>\n",
+                "<p>:::[a [b]\nbody</p>\n<div>\n\n</div>\n",
             ],
         ];
     }

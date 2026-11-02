@@ -87,7 +87,8 @@ final class InvalidContainerMetadataTest extends TestCase
 
     public function testContainerKindRemainsAscii(): void
     {
-        self::assertStringNotContainsString('<div', (new CarveConverter())->convert("::: noté Title\nbody\n:::\n"));
+        // The bare run below the rejected opener opens a div of its own (carve#4863).
+        self::assertSame("<p>::: noté Title\nbody</p>\n<div>\n\n</div>", trim((new CarveConverter())->convert("::: noté Title\nbody\n:::\n")));
     }
 
     public function testProseOpenerDoesNotBlockFormatting(): void
@@ -106,15 +107,16 @@ final class InvalidContainerMetadataTest extends TestCase
         }
         $source = "::: tip Bad X\n\n::: note\nx\n:::\n:::\n";
         $migrated = (new DjotToCarve())->convert($source);
-        self::assertSame("<p>::: tip Bad X</p>\n<div class=\"note\">\n  <p>x</p>\n</div>\n<p>:::</p>", trim((new CarveConverter())->convert($migrated)));
+        self::assertSame("<p>::: tip Bad X</p>\n<div class=\"note\">\n  <p>x</p>\n</div>\n<div>\n\n</div>", trim((new CarveConverter())->convert($migrated)));
     }
 
     public function testLineAndHardBreakFencesKeepTheirOwnMigratedCloser(): void
     {
-        foreach (['::: |', '::: \\'] as $opener) {
+        // Djot reads every line as one paragraph, so each colon line stays text (carve#4863).
+        foreach (['::: |' => '\\::: |', '::: \\' => '\\:::\\'] as $opener => $text) {
             $source = "::: tip Bad X\n{$opener}\nl\n:::\nout\n:::\n";
             $migrated = (new DjotToCarve())->convert($source);
-            self::assertSame("\\::: tip Bad X\n{$opener}\nl\n:::\nout\n\\:::\n", $migrated);
+            self::assertSame("\\::: tip Bad X\n{$text}\nl\n\\:::\nout\n\\:::\n", $migrated);
         }
     }
 

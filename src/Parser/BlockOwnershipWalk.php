@@ -441,11 +441,6 @@ final class BlockOwnershipWalk
             }
             // S4: a line that missed a frame folds into the deepest open paragraph.
             if ($lazy) {
-                // A malformed colon opener is paragraph text even when it arrived lazily.
-                // Its next bare colon line is absorbed only at this paragraph's depth.
-                if ($this->absorbsColon($this->m['rest'])) {
-                    $this->frames[$topIndex]->absorbs = true;
-                }
                 // The readers open a list at a folded marker (§10 I2), so a `+` there is decided too.
                 if ($form->kind === 'item') {
                     $this->decideFoldedMarkerPlus($at, $reached + 1);
@@ -493,7 +488,6 @@ final class BlockOwnershipWalk
             ) {
                 $this->lead($lonePlus->markerCanon);
                 $result[] = $this->out . $this->src;
-                $lonePlus->absorbs = $this->absorbsColon($this->m['rest']);
                 $lonePlus->para = true;
                 $lonePlus->last = 'para';
                 if ($this->trace !== null) {
@@ -567,7 +561,6 @@ final class BlockOwnershipWalk
                 if ($owner->para && preg_match('/^(`{3,}|~{3,})/', $this->m['rest']) === 1) {
                     $this->textFences[count($result)] = $owner->canon;
                 }
-                $this->frames[$o]->absorbs = ($owner->para && $owner->absorbs) || $this->absorbsColon($this->m['rest']);
                 $this->frames[$o]->para = true;
                 $this->frames[$o]->last = 'para';
             } else {
@@ -815,7 +808,6 @@ final class BlockOwnershipWalk
             if ($plus) {
                 $this->plusHosts[$this->at] = $this->hostRecord($frame, self::columnOf($this->out), true);
             }
-            $this->frames[$frame]->absorbs = $this->absorbsColon($this->m['rest']);
             $this->frames[$frame]->para = !$plus;
             $this->frames[$frame]->last = 'para';
 
@@ -849,13 +841,6 @@ final class BlockOwnershipWalk
     {
         $this->out .= substr($this->src, 0, $count);
         $this->src = (string)substr($this->src, $count);
-    }
-
-    private function absorbsColon(string $rest): bool
-    {
-        $rest = rtrim($rest, " \t");
-
-        return preg_match('/^:{3,}/', $rest) === 1 && $this->fenced->parseDivFenceOpener($rest) === null;
     }
 
     /**
@@ -921,17 +906,10 @@ final class BlockOwnershipWalk
             $opener = $this->fenced->parseDivFenceOpener($rest);
             if ($opener !== null) {
                 $run = strlen($colon[1]);
-                // A bare `:::` interrupts unless the paragraph's own lines absorbed an
-                // invalid opener (§10 I4, CARVE-P9-016, CARVE-P9-017).
-                $interrupts = preg_match('/^(:{3,})[ \t]*$/D', $rest) !== 1
-                    || !($owner === $this->frames[count($this->frames) - 1] && $owner->para && $owner->absorbs);
-                if ($owner->para && !$interrupts) {
-                    return new OwnershipForm(kind: 'text', interrupts: false);
-                }
                 if ($opener['className'] === '|') {
                     return new OwnershipForm(
                         kind: 'fence',
-                        interrupts: $interrupts,
+                        interrupts: true,
                         lineBlock: true,
                         family: 'div',
                         closes: static fn (string $r, int $closerCol): bool => $closerCol <= $col
@@ -939,7 +917,7 @@ final class BlockOwnershipWalk
                     );
                 }
 
-                return new OwnershipForm(kind: 'colon', run: $run, interrupts: $interrupts);
+                return new OwnershipForm(kind: 'colon', run: $run, interrupts: true);
             }
         }
         if (

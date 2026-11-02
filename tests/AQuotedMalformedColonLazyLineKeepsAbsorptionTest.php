@@ -9,7 +9,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * CARVE-P9-016 and CARVE-P9-017: absorption follows the paragraph's own lazy lines.
+ * CARVE-P9-016 and CARVE-P9-017: a malformed colon line is paragraph text and leaves no
+ * absorbing state, so the bare run below it opens a div (carve#4863 ruling).
  */
 final class AQuotedMalformedColonLazyLineKeepsAbsorptionTest extends TestCase
 {
@@ -20,7 +21,7 @@ final class AQuotedMalformedColonLazyLineKeepsAbsorptionTest extends TestCase
     {
         yield 'unmarked malformed colon line belongs to the quote paragraph' => [
             "> e\n:::e\n> :::\nl\n",
-            "<blockquote><p>e\n:::e\n:::\nl</p></blockquote>",
+            "<blockquote>\n  <p>e\n:::e</p>\n  <div>\n\n  </div>\n</blockquote>\n<p>l</p>",
         ];
 
         yield 'bare run at the outer quote does not belong to the inner paragraph' => [
@@ -30,7 +31,7 @@ final class AQuotedMalformedColonLazyLineKeepsAbsorptionTest extends TestCase
 
         yield 'partially prefixed malformed line arms the inner paragraph' => [
             "> > e\n> :::e\n> > :::\nl\n",
-            "<blockquote>\n  <blockquote><p>e\n:::e\n:::\nl</p></blockquote>\n</blockquote>",
+            "<blockquote>\n  <blockquote>\n    <p>e\n:::e</p>\n    <div>\n\n    </div>\n  </blockquote>\n</blockquote>\n<p>l</p>",
         ];
     }
 

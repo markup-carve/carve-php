@@ -27,7 +27,6 @@ final class OwnershipFrame
      * @param int|null $listCol The marker column of the list's first item.
      * @param (\Closure(string, int): bool)|null $closes
      * @param string|null $span
-     * @param bool $absorbs
      * @param bool $lineBlock
      * @param int|null $run
      * @param int|null $reader
@@ -55,7 +54,6 @@ final class OwnershipFrame
         public ?int $run = null,
         public bool $lineBlock = false,
         public ?string $span = null,
-        public bool $absorbs = false,
         public ?int $reader = null,
         public ?int $plus = null,
         public ?int $docMarker = null,

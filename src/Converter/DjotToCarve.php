@@ -3088,9 +3088,12 @@ class DjotToCarve
         }
         $containers = [];
         $fenceParser = new FencedBlockParser();
+        $colonParagraph = null;
         foreach ($lines as $i => $line) {
             $masked = $maskedLines[$i] ?? $line;
             if (trim($masked) === '') {
+                $colonParagraph = null;
+
                 continue;
             }
             $contentAt = strlen($line) - strlen(ltrim($line, " \t"));
@@ -3112,6 +3115,11 @@ class DjotToCarve
             }
             $view = ltrim($view, " \t");
             $containerOffset = strlen($line) - strlen($view);
+            $hostRest = preg_replace('/^(?:[ \t]*>[ \t]?)*/', '', substr($line, 0, $containerOffset)) ?? '';
+            // A sibling item ends a colon paragraph its own item started.
+            if ($colonParagraph !== null && $colonParagraph['hosted'] && trim($hostRest) !== '') {
+                $colonParagraph = null;
+            }
             // Djot treats a bare period list marker as text.
             if (preg_match('/^\.(?=[ \t]|$|\{)/', $view) === 1 && ($masked[$containerOffset] ?? '') === '.') {
                 $lines[$i] = substr($line, 0, $containerOffset) . '\\' . $view;
@@ -3124,8 +3132,25 @@ class DjotToCarve
                 $top = $containers !== [] ? $containers[array_key_last($containers)] : null;
                 $close = $opener !== null && preg_match('/^:{3,}[ \t]*$/', $content) === 1
                     && $top !== null && $top['width'] === $opener['length'];
+                $depth = substr_count(substr($line, 0, $containerOffset), '>');
+                // A colon line Djot opens no div on is paragraph text, and so is any colon line continuing it (carve#4863).
+                $djotDiv = $this->opensDjotDiv($content);
+                if (!$close && $colonParagraph !== null && $colonParagraph['depth'] === $depth) {
+                    if ($opener !== null) {
+                        // Djot drops the spaces before a hard break's backslash.
+                        $text = preg_replace('/(?<!\\\\)[ \t]+((?:\\\\\\\\)*\\\\)$/', '$1', $content) ?? $content;
+                        $lines[$i] = substr($line, 0, $containerOffset) . '\\' . $text;
+                    }
+
+                    continue;
+                }
+                if ($close) {
+                    $colonParagraph = null;
+                } elseif (!$djotDiv) {
+                    $colonParagraph = ['depth' => $depth, 'hosted' => $hostRest !== ''];
+                }
                 $invalid = $close ? array_pop($containers)['invalid'] : ($opener['invalidMetadata'] ?? false);
-                if (!$close && $opener !== null) {
+                if (!$close && $opener !== null && $djotDiv) {
                     $containers[] = ['width' => $opener['length'], 'invalid' => $invalid];
                 }
                 if ($invalid) {
@@ -3204,6 +3229,19 @@ class DjotToCarve
             }
             $at += strlen($other[0]);
         }
+    }
+
+    /**
+     * Whether Djot opens a div on this colon line; with djot-php extensions a quoted admonition title counts too.
+     */
+    private function opensDjotDiv(string $content): bool
+    {
+        if (preg_match('/^:{3,}(?:[ \t]+[A-Za-z0-9_-]+)?[ \t]*$/', $content) === 1) {
+            return true;
+        }
+
+        return $this->djotPhpExtensions
+            && preg_match('/^:{3,}[ \t]+(?:note|tip|warning|danger|info|success|example|quote)[ \t]+"[^"\r\n]*"[ \t]*$/', $content) === 1;
     }
 
     private function definitionTermBlockBoundaries(string $source): string

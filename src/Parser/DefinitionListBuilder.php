@@ -1478,7 +1478,6 @@ final class DefinitionListBuilder
                 && !$b->bodyNestedState->quoteParagraph
                 && $b->bodyNestedState->fence === null
                 && !$b->bodyNestedState->inDiv
-                && !$b->bodyNestedState->absorbingFence
                 && (str_contains($b->body[0], "\n")
                     || ($this->getListParser)()->parseListItemMarker(ltrim($l->lastBody, " \t")) !== null);
         }
@@ -1631,11 +1630,6 @@ final class DefinitionListBuilder
                 || !$this->lineOpensBlockForLooseness($l->trimmedCont, invisibleArms: false))
         ) {
             $b->body[$l->lastBodyKey] .= "\n" . $l->trimmedCont;
-            // A folded invalid opener still arms absorption for the bare run after it (CARVE-P9-016).
-            if (str_starts_with($l->trimmedCont, ':::') && ($this->getFencedBlockParser)()->parseDivFenceOpener($l->trimmedCont) === null) {
-                $b->bodyState->absorbingFence = !$b->bodyState->hasOpenDiv();
-                $b->bodyNestedState->absorbingFence = !$b->bodyNestedState->hasOpenDiv();
-            }
             $b->i++;
 
             return true;
@@ -1654,7 +1648,6 @@ final class DefinitionListBuilder
             && $b->bodyNestedState->openParagraph
             && $b->bodyNestedState->fence === null
             && !$b->bodyNestedState->hasOpenDiv()
-            && !$b->bodyNestedState->absorbingFence
             && !$b->bodyNestedState->inTable
             && !$b->bodyNestedState->nestedListSeen
         ) {
@@ -1841,7 +1834,6 @@ final class DefinitionListBuilder
             $l->definitionPastTheColumn
             && $b->bodyNestedState->fence === null
             && !$b->bodyNestedState->inDiv
-            && !$b->bodyNestedState->absorbingFence
         ) {
             // §10 I5 HAS IT INTERRUPT WHATEVER PARAGRAPH IS
             // OPEN, so the body carries no open paragraph over

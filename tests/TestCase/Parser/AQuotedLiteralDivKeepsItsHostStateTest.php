@@ -22,8 +22,8 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
             $html = (new CarveConverter())->convert($source);
             $this->assertStringContainsString('<p>:::: box</p>', $html);
             $this->assertStringNotContainsString('class="box"', $html);
-            $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n"), $html);
-            $this->assertStringContainsString('tail', $html);
+            // The bare run below `:::bad` opens a div in the item, so `- tail` is a document list (carve#4863).
+            $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>", $html);
         }
     }
 
