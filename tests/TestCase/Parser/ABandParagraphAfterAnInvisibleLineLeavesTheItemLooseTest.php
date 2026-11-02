@@ -33,9 +33,8 @@ use PHPUnit\Framework\TestCase;
  * A `%%%` SPAN IS AN INVISIBLE LINE TOO, and the scan steps over the whole span.
  * Its payload is still not the second paragraph - that is what the old "return
  * the opener" branch protected - but the paragraph BEHIND its closer is, and it
- * never reached the question. An opener with NO closer has no line behind it, so
- * the item stays tight; the oracle reads it that way at either column, and
- * getting that arm wrong first is why it has a row here.
+ * never reached the question. An opener with NO closer is a `%%` line (PART 0
+ * recovery table, carve-php#4476), so the paragraph after it loosens the item.
  */
 class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
 {
@@ -141,22 +140,25 @@ class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
     }
 
     /**
-     * A `%%%` opener with no closer leaves the item tight at either column.
-     *
-     * Everything below the opener is payload, so there is no line behind the
-     * span for the blank to separate `t` from. A first pass here started the
-     * scan past the OPENER rather than past the closer, which read the payload
-     * as the second paragraph and loosened both spellings.
+     * A `%%%` opener with no closer is a `%%` line, so the paragraph after it loosens the item (carve-php#4476).
      */
-    public function testAnUnterminatedSpanLeavesTheItemTight(): void
+    public function testAnUnterminatedSpanLoosensTheItem(): void
     {
         foreach ([' ', '  '] as $indent) {
             $this->assertSame(
-                "<ul>\n  <li>t\n    c\nz\n  </li>\n</ul>",
+                "<ul>\n  <li><p>t</p>\n    <p>c\nz</p>\n  </li>\n</ul>",
                 $this->html("- t\n\n  %%%\n  c\n" . $indent . "z\n"),
                 'indent ' . strlen($indent),
             );
         }
+    }
+
+    public function testAnUnterminatedSpanAfterAQuoteLoosensTheItem(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li><p>o</p>\n    <blockquote><p>q</p></blockquote>\n    <p>p</p>\n  </li>\n</ul>",
+            $this->html("- o\n  > q\n\n  %%%\n  p\n"),
+        );
     }
 
     /**

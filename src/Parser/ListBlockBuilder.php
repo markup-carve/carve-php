@@ -333,7 +333,10 @@ final class ListBlockBuilder
                 $list->setTight($wasListTight);
             }
             // A collected definition after the blank leaves the blank a separator (PART 9 §17 L1b).
-            if ($lastItemHadBlankAfter && ($subRetainedMarker || ($firstSubLine !== false && $this->isFoldableInvisibleLine(ltrim($firstSubLine, " \t"))))) {
+            // A comment line or `%%%` opener after the blank is invisible as well (PART 0 recovery table).
+            $firstSubInvisible = $firstSubLine !== false
+                && ($this->isFoldableInvisibleLine(ltrim($firstSubLine, " \t")) || str_starts_with(ltrim($firstSubLine, " \t"), '%%'));
+            if ($lastItemHadBlankAfter && ($subRetainedMarker || $firstSubInvisible)) {
                 foreach (array_slice($lastItem->getChildren(), $before) as $child) {
                     if ($child instanceof Comment) {
                         continue;
