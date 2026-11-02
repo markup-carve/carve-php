@@ -318,6 +318,13 @@ final class BlockContinuationScanner
                 ) {
                     break;
                 }
+                // The walk folded it into the line block: S1 ends the verse's span (carve#4956).
+                if (
+                    $openCommentLength !== null && isset($this->state->source->lineBlockLazyLines[$this->sourceLineFor($i)])
+                    && !($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($nextTrimmed, $openCommentLength)
+                ) {
+                    $openCommentLength = null;
+                }
                 // A comment span's closing run is free of the column; a payload
                 // line that misses the item's prefix ends the item before the
                 // span is classified (`CARVE-P0-005`).

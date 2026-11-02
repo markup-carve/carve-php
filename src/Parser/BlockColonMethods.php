@@ -625,6 +625,10 @@ trait BlockColonMethods
         }
 
         for ($i = $start; $i < $count; $i++) {
+            // A lazy line missed the span's owner, so S1 ends the span before it (carve#4956).
+            if ($i > $start && (str_starts_with($lines[$i], BlockGrammar::LAZY_FRAME) || isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]))) {
+                return $i;
+            }
             $innerLines[] = $lines[$i];
             $innerLineMap[] = $this->sourceLineFor($i);
             if ($i > $start && $this->fencedBlockParser->isFencedCommentCloserAnyColumn($lines[$i], $commentInfo['length'])) {

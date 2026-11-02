@@ -1679,9 +1679,6 @@ class CarveCorpusTest extends TestCase
         '922-a-wrapped-attribute-lead-is-invisible-to-list-looseness-2' => 'carve#4758: a wrapped attribute lead is invisible to list looseness',
         '556-a-closed-block-leaves-no-frame-for-the-line-below-14' => 'carve#4907: a %% line below a div item column ends the comment span',
         '867-an-indented-comment-block-in-a-line-block-leaves-nothing-4' => 'carve#4469: an indented comment block in a line block leaves nothing',
-        '939-a-line-after-a-comment-block-in-a-line-block-reads-the-stanza-without-it-3' => 'carve#4956: a line after a comment block in a line block reads the stanza without it',
-        '939-a-line-after-a-comment-block-in-a-line-block-reads-the-stanza-without-it-4' => 'carve#4956: a line after a comment block in a line block reads the stanza without it',
-        '939-a-line-after-a-comment-block-in-a-line-block-reads-the-stanza-without-it-6' => 'carve#4956: a line after a comment block in a line block reads the stanza without it',
     ];
 
     /**

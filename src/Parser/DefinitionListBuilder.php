@@ -786,6 +786,8 @@ final class DefinitionListBuilder
                 $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan)
                 && $b->commentSpan->openComment !== null
                 && !($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($l->contLine, $b->commentSpan->openComment)
+                // The walk folded it into the line block, so it ends only the span (carve#4956).
+                && !isset($this->state->source->lineBlockLazyLines[$this->sourceLineFor($b->i)])
             ) {
                 return false;
             }

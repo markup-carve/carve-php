@@ -161,6 +161,11 @@ final class BlockOwnershipWalk
      */
     private bool $softLeaf = false;
 
+    /**
+     * Whether the last line in a verse's open comment span was blank; such a blank stays outside an S1 end.
+     */
+    private bool $verseSpanBlank = false;
+
     private string $src = '';
 
     private string $out = '';
@@ -391,6 +396,7 @@ final class BlockOwnershipWalk
                 continue;
             }
             if ($inner->kind === 'fence' && !$missed) {
+                $this->verseSpanBlank = $inner->lineBlock && $inner->span !== null && $inner->span[0] === '%' && $this->m['rest'] === '';
                 // S1: an open payload tests its closer first (B-<family>-keep, B-<family>-end).
                 $payloadPath = $this->trace !== null ? $this->ownerPath() : '';
                 $payloadForm = 'payload';
@@ -412,7 +418,7 @@ final class BlockOwnershipWalk
                         $this->frames[count($this->frames) - 1]->last = 'block';
                     }
                     $payloadForm = 'closer';
-                } elseif ($inner->lineBlock) {
+                } elseif ($inner->lineBlock && !($inner->span !== null && $inner->span[0] === '%')) {
                     // A span in a line-block payload pairs past the column too (carve-php#3137).
                     if (
                         preg_match('/^(`{3,}|~{3,})(.*)$/D', $rest, $f) === 1
@@ -421,10 +427,12 @@ final class BlockOwnershipWalk
                     ) {
                         $this->frames[$innerIndex]->span = $f[1];
                     } elseif (preg_match('/^(%{3,})/', $rest, $c) === 1) {
+                        // A comment span leaves nothing: the stanza stays as it was before it (carve#4956).
                         $this->frames[$innerIndex]->span = $c[1];
+                    } else {
+                        // A blank payload line ends the stanza, so no lazy line folds past it (PART 0 S4).
+                        $this->frames[$innerIndex]->para = $rest !== '';
                     }
-                    // A blank payload line ends the stanza, so no lazy line folds past it (PART 0 S4); a comment opener is no verse.
-                    $this->frames[$innerIndex]->para = $rest !== '' && preg_match('/^%{3,}/', $rest) !== 1;
                 }
                 $result[] = $this->out . $this->src;
                 if ($this->trace !== null) {
@@ -465,9 +473,14 @@ final class BlockOwnershipWalk
             }
             $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts && !$captionsQuote && $form->kind !== 'dd'
                 // A marker that a marker body owns, or that misses one, opens a list (PART 0 S3, carve#4860).
-                && !($form->kind === 'item' && $this->marksBodyList($reached));
+                && !($form->kind === 'item' && $this->marksBodyList($reached))
+                && !($this->verseSpanBlank && $this->frames[$topIndex]->lineBlock && $this->frames[$topIndex]->span !== null && $this->frames[$topIndex]->span[0] === '%');
             // S4: a line that missed a frame folds into the deepest open paragraph.
             if ($lazy) {
+                // The fold is the S1 end of a verse's comment span (carve#4956).
+                if ($this->frames[$topIndex]->lineBlock && $this->frames[$topIndex]->span !== null && $this->frames[$topIndex]->span[0] === '%') {
+                    $this->frames[$topIndex]->span = null;
+                }
                 // The readers open a list at a folded marker (§10 I2), so a `+` there is decided too.
                 if ($form->kind === 'item') {
                     $this->decideFoldedMarkerPlus($at, $reached + 1);
