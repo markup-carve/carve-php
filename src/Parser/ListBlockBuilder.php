@@ -1181,8 +1181,8 @@ final class ListBlockBuilder
             // (a parallel fix is in flight on php-collective/djot-php). The
             // single combined stream reuses the normal nested-list/absorption
             // logic -- no separate path.
-            $leadIsMarker = ($this->getListParser)()->parseListItemMarker($itemContent) !== null;
-            if ($leadIsMarker) {
+            $leadMarker = ($this->getListParser)()->parseListItemMarker($itemContent);
+            if ($leadMarker !== null) {
                 $i = $this->collectMarkerLeadItem(
                     $lines,
                     $i,
@@ -1216,7 +1216,7 @@ final class ListBlockBuilder
                 }
                 unset($collectedLine);
                 $itemLines = $this->keepTaskBoxColumns($itemLines, $itemLineMap, $markerHead, $trimmedLine, $itemInfo);
-                $this->callParseItemBlocks($listItem, $itemLines, $itemLineMap, $authoredBaseEligible);
+                $this->callParseItemBlocks($listItem, $itemLines, $itemLineMap, $authoredBaseEligible, $this->listMarkerWidth($itemContent, $leadMarker));
                 if ($this->state->session->itemHasParsedBlankBeforeParagraph($listItem)) {
                     $list->setTight(false);
                 }
