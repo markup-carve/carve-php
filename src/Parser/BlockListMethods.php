@@ -798,15 +798,22 @@ trait BlockListMethods
     /**
      * @param array<string> $lines
      * @param callable|null $transform
+     * @param callable|null $colonHostBoundary
      * @param callable $isBoundary
      * @param int $count
      * @param int $i
      *
      * @return array{0: int, 1: array<string>, 2: array<int, int>}
      */
-    private function collectAttachedBlock(array $lines, int $i, int $count, callable $isBoundary, ?callable $transform = null): array
-    {
-        return $this->continuationsMapper()->collectAttachedBlock($lines, $i, $count, $isBoundary, $transform);
+    private function collectAttachedBlock(
+        array $lines,
+        int $i,
+        int $count,
+        callable $isBoundary,
+        ?callable $transform = null,
+        ?callable $colonHostBoundary = null,
+    ): array {
+        return $this->continuationsMapper()->collectAttachedBlock($lines, $i, $count, $isBoundary, $transform, $colonHostBoundary);
     }
 
     /**
@@ -1199,6 +1206,8 @@ trait BlockListMethods
                 return false;
             },
             static fn (string $line): string => IndentationHelper::stripLeadingColumns($line, $baseIndent),
+            fn (string $line): bool => IndentationHelper::getLeadingColumns($line, $baseIndent + 1) <= $baseIndent
+                && $this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null,
         );
         if ($attached !== [] && $i < $count && $this->isCaptionLine(IndentationHelper::stripLeadingColumns($lines[$i], $baseIndent))) {
             // The attribute run before a fence leads it, so the fence still takes the caption (PART 9 §5).
