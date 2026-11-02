@@ -384,7 +384,9 @@ class MarkdownToCarve
     public function convert(string $markdown): string
     {
         $outer = $this->inlineContext->blockEscape;
-        $this->inlineContext->blockEscape = str_contains($markdown, InlineContext::BLOCK_ESCAPE) ? '\\' : InlineContext::BLOCK_ESCAPE;
+        // The marker must be a byte the document cannot hold, raw or decoded.
+        $holdsMarker = str_contains($markdown, InlineContext::BLOCK_ESCAPE) || preg_match('/&#(?:0*2|[xX]0*2);/', $markdown) === 1;
+        $this->inlineContext->blockEscape = $holdsMarker ? '\\' : InlineContext::BLOCK_ESCAPE;
         try {
             $carve = EmptyListItemSpelling::spell($this->importDocument($markdown));
         } finally {

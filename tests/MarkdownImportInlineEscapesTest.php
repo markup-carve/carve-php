@@ -52,4 +52,14 @@ class MarkdownImportInlineEscapesTest extends TestCase
         self::assertStringContainsString("a\x02b", $carve);
         self::assertStringContainsString('\\- c', $carve);
     }
+
+    public function testADecodedEscapeMarkerKeepsItsCharacter(): void
+    {
+        foreach (["&#2;\n", "&#x2;\n    - c\n"] as $markdown) {
+            $main = (new MarkdownToCarve())->convert($markdown);
+
+            self::assertStringNotContainsString("\\\n", $main);
+            self::assertStringNotContainsString("\\\\", $main);
+        }
+    }
 }
