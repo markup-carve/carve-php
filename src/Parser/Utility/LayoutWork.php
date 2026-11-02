@@ -93,6 +93,11 @@ final class LayoutWork
     public static int $spanStamps = 0;
 
     /**
+     * Children read by the item-blank looseness scan.
+     */
+    public static int $itemBlankChildReads = 0;
+
+    /**
      * Reset every counter.
      *
      * @return void
@@ -111,6 +116,7 @@ final class LayoutWork
         self::$markerFollowerProbes = 0;
         self::$markerExtentWork = 0;
         self::$spanStamps = 0;
+        self::$itemBlankChildReads = 0;
     }
 
     /**

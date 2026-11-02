@@ -1955,6 +1955,7 @@ class BlockParser
         $i = 0;
         $count = count($lines);
         $childrenBeforeBlank = null;
+        $visibleScanFrom = 0;
         $blankFollowerColumn = null;
         $blankFollowerLine = null;
         $blankRun = 0;
@@ -1964,7 +1965,7 @@ class BlockParser
             if ($sourceLine >= 0) {
                 $this->defineSkippedAbbreviationsBefore($sourceLine);
             }
-            if ($childrenBeforeBlank !== null && self::hasVisibleChildFrom($parent, $childrenBeforeBlank)) {
+            if ($childrenBeforeBlank !== null && self::hasVisibleChildFrom($parent, $visibleScanFrom)) {
                 $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn, $blankFollowerLine);
                 $childrenBeforeBlank = null;
                 $blankFollowerColumn = null;
@@ -1977,6 +1978,7 @@ class BlockParser
                 $blankRun++;
                 if ($parent instanceof ListItem && $childrenBeforeBlank === null && $parent->hasChildren()) {
                     $childrenBeforeBlank = count($parent->getChildren());
+                    $visibleScanFrom = $childrenBeforeBlank;
                 }
                 $i++;
 
@@ -2103,6 +2105,7 @@ class BlockParser
                     && IndentationHelper::isBlankLine($lines[$i + $consumed - 1]) && $parent->hasChildren()
                 ) {
                     $childrenBeforeBlank = count($parent->getChildren());
+                    $visibleScanFrom = $childrenBeforeBlank;
                 }
                 $i += $consumed;
 
@@ -2165,6 +2168,7 @@ class BlockParser
                 && IndentationHelper::isBlankLine($lines[$i + $consumed - 1]) && $parent->hasChildren()
             ) {
                 $childrenBeforeBlank = count($parent->getChildren());
+                $visibleScanFrom = $childrenBeforeBlank;
             }
             $i += $consumed;
             CycleCollection::checkpoint();
@@ -2180,11 +2184,16 @@ class BlockParser
     /**
      * Whether a child other than a comment follows the given index; a comment
      * after a blank does not answer the looseness question (PART 9 §17 L1b).
+     * `$from` moves past the comments it read, so a comment run is read once.
      */
-    private static function hasVisibleChildFrom(Node $parent, int $from): bool
+    private static function hasVisibleChildFrom(Node $parent, int &$from): bool
     {
-        foreach (array_slice($parent->getChildren(), $from) as $child) {
-            if (!$child instanceof Comment) {
+        $children = $parent->getChildren();
+        for ($count = count($children); $from < $count; $from++) {
+            if (LayoutWork::$on) {
+                LayoutWork::$itemBlankChildReads++;
+            }
+            if (!$children[$from] instanceof Comment) {
                 return true;
             }
         }
