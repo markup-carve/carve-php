@@ -3069,6 +3069,22 @@ class DjotToCarve
                 && (bool)preg_match('/^(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+\S/', ltrim($masked));
             $ancestors[] = ['columns' => $columns, 'marker' => $marker];
         }
+        // An earlier pass writes `{loose}` or a held attribute only above a block start; read it as a blank.
+        $starts = null;
+        if (preg_match('/[A-Za-z]\. |\([0-9A-Za-z]+\)/', $source) === 1) {
+            $scanned = (string)preg_replace_callback(
+                '/^([ \t>]*)(?:\{[^\n]*\}|\x00[^\n]*\x00)[ \t]*$/m',
+                static fn (array $match): string => $match[1] . str_repeat(' ', strlen($match[0]) - strlen($match[1])),
+                $source,
+            );
+            $starts = array_fill_keys($this->djotInlineBoundaries($scanned, $this->maskCodeAndDestinations($scanned), true), true);
+        }
+        $lineStarts = [];
+        $at = 0;
+        foreach ($lines as $line) {
+            $lineStarts[] = $at;
+            $at += strlen($line) + 1;
+        }
         $containers = [];
         $fenceParser = new FencedBlockParser();
         foreach ($lines as $i => $line) {
@@ -3080,20 +3096,14 @@ class DjotToCarve
             if (($masked[$contentAt] ?? '') !== ($line[$contentAt] ?? '')) {
                 continue;
             }
-            // Djot takes one space after a letter `.` item and Carve two (carve#4811), quoted lines too.
-            // Djot has no marker attributes: `a.{#id} x` is a paragraph.
-            if (preg_match('/^([ \t]*(?:>[ \t]*)*)([A-Za-z]+)\. (?! )(?=\S)/', $masked, $letterDot) === 1) {
-                $token = $letterDot[2];
-                $roman = preg_match('/^(?=[MDCLXVI]+$)M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})$/i', $token) === 1;
-                $invisibleBody = preg_match('/^(?:\[\^[^\]\n]+\]:|%%%%|\x00DJOTEMPTYNOTE)/', substr($line, strlen($letterDot[0]))) === 1;
-                if (
-                    !$invisibleBody && str_starts_with($line, $letterDot[0])
-                    && (strlen($token) === 1 || ($roman && ($token === strtolower($token) || $token === strtoupper($token))))
-                ) {
-                    $line = $lines[$i] = substr($letterDot[0], 0, -1) . '  ' . substr($line, strlen($letterDot[0]));
-                    // The mask keeps the line's offsets for the checks below.
-                    $masked = substr($letterDot[0], 0, -1) . '  ' . substr($masked, strlen($letterDot[0]));
-                }
+            // A line that continues a Djot paragraph is text, so its marker spelling stays as written.
+            $continuesParagraph = $starts !== null && !isset($starts[$lineStarts[$i]])
+                && $this->djotQuoteDepth($masked) <= $this->djotQuoteDepth($maskedLines[$i - 1] ?? '');
+            // Djot takes one space after a letter `.` marker and Carve two (carve#4811), at every
+            // marker of the line's chain (`- a. x`, `J. R. x`). Djot has no marker attributes.
+            if (!$continuesParagraph) {
+                $this->widenLetterDotChain($line, $masked);
+                $lines[$i] = $line;
             }
             $view = $line;
             while (preg_match('/^(?:[ \t]*> ?|[ \t]*(?:(?:[-*+]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)]|\([0-9A-Za-z]+\)) +(?:\[[ xX]\] +)?|: |\[\^[^\]\r\n]+\]: +))/', $view, $host)) {
@@ -3124,7 +3134,7 @@ class DjotToCarve
                 }
             }
             if (preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)\(((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,}))\)([ \t]+\S.*)$/', $masked, $match)) {
-                if (!preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)\(((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,}))\)([ \t]+\S.*)$/', $line, $authored)) {
+                if ($continuesParagraph || !preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)\(((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,}))\)([ \t]+\S.*)$/', $line, $authored)) {
                     continue;
                 }
                 $indent = $match[1] === '' && $nested[$i] ? $authored[2] : '';
@@ -3140,6 +3150,59 @@ class DjotToCarve
         }
 
         return implode("\n", $lines);
+    }
+
+    private function djotQuoteDepth(string $line): int
+    {
+        preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $line, $quote);
+
+        return substr_count($quote[0] ?? '', '>');
+    }
+
+    private function isDjotMarkerToken(string $token): bool
+    {
+        if (strlen($token) === 1) {
+            return true;
+        }
+
+        return preg_match('/^(?=[MDCLXVI]+$)M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})$/i', $token) === 1
+            && ($token === strtolower($token) || $token === strtoupper($token));
+    }
+
+    private function widenLetterDotChain(string &$line, string &$masked): void
+    {
+        // A description body opener the definition pass already wrote leads the chain too.
+        preg_match('/^[ \t]*(?:>[ \t]*)*(?::[ \t]+(?=\S))?/', $masked, $lead);
+        $at = strlen($lead[0] ?? '');
+        // The marker bytes must be unmasked; the body after them may be code.
+        $unmasked = static function (int $length) use (&$masked, &$line, &$at): bool {
+            return substr($masked, $at, $length) === substr($line, $at, $length);
+        };
+        while (true) {
+            $rest = substr($line, $at);
+            if (preg_match('/^([A-Za-z]+)\. (?! )(?=\S)/', $rest, $letterDot) === 1) {
+                if (
+                    !$this->isDjotMarkerToken($letterDot[1]) || !$unmasked(strlen($letterDot[0]))
+                    || preg_match('/^(?:\[\^[^\]\n]+\]:|%%%%|\x00DJOTEMPTYNOTE)/', substr($rest, strlen($letterDot[0]))) === 1
+                ) {
+                    return;
+                }
+                $end = $at + strlen($letterDot[0]);
+                $line = substr($line, 0, $end) . ' ' . substr($line, $end);
+                $masked = substr($masked, 0, $end) . ' ' . substr($masked, $end);
+                $at = $end + 1;
+
+                continue;
+            }
+            if (preg_match('/^(?:[-*+]|[0-9]+[.)]|([A-Za-z]+)(?:\.(?= {2})|\))|\(([0-9]+|[A-Za-z]+)\))[ \t]+(?=\S)/', $rest, $other) !== 1) {
+                return;
+            }
+            $letters = ($other[1] ?? '') !== '' ? $other[1] : ((($other[2] ?? '') !== '' && !ctype_digit($other[2][0])) ? $other[2] : null);
+            if (!$unmasked(strlen($other[0])) || ($letters !== null && !$this->isDjotMarkerToken($letters))) {
+                return;
+            }
+            $at += strlen($other[0]);
+        }
     }
 
     private function definitionTermBlockBoundaries(string $source): string
