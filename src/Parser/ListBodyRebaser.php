@@ -1362,10 +1362,17 @@ final class ListBodyRebaser
         $minimumColonIsLiteral = false;
         $beforeLeadNote = null;
         $seenBlank = false;
+        $nestedNoteSeen = false;
         $shiftedSeparator = $this->shiftedTermSeparatorIndex($lines, $eligible);
         $shiftedOwner = false;
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
+            if (
+                $absorbLeadNoteBody && $firstContentLine !== null && $i > $firstContentLine
+                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($line, " \t")) === 1
+            ) {
+                $nestedNoteSeen = true;
+            }
             if ($i < $protectedPrefixEnd) {
                 continue;
             }
@@ -1420,6 +1427,12 @@ final class ListBodyRebaser
                 continue;
             }
             $base = IndentationHelper::getLeadingColumns($line);
+            if (
+                $absorbLeadNoteBody && $nestedNoteSeen && $i <= $leadNoteExtentEnd
+                && $base >= BlockGrammar::FOOTNOTE_BODY_COLUMN
+            ) {
+                continue;
+            }
             if ($i === $shiftedSeparator) {
                 $nestedColumns = [];
                 $shiftedOwner = true;

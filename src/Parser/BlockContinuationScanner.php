@@ -2171,7 +2171,7 @@ final class BlockContinuationScanner
             && !($run->nestedNoteBodyColumn !== null && IndentationHelper::getLeadingColumns($nextLine, $run->nestedNoteBodyColumn) >= $run->nestedNoteBodyColumn)
             && !($trailingState->inFootnoteBody && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN) >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN && $this->leadNoteExtendsThrough($itemLines, $run->noteCursor, $run->noteBroken))
             && !(
-                $run->markerNoteItem && !$run->sawNestedNote
+                $run->markerNoteItem
                 && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN) >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
                 && $this->noteKeepsItsBody($itemLines, $run->markerRunCursor, $run->markerRunBroken)
                 && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $run->noteSourceCursor, $run->noteSourceBroken)
@@ -2724,7 +2724,7 @@ final class BlockContinuationScanner
                 $noteBodyFence = $run->markerNoteItem
                     && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
                     && $this->leadNoteExtendsThrough($itemLines, $run->noteCursor, $run->noteBroken);
-                $closedNoteBodyFence = $run->markerNoteItem && ($trailingState->inFootnoteBody || !$run->sawNestedNote)
+                $closedNoteBodyFence = $run->markerNoteItem
                     && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
                     && $this->noteKeepsItsBody($itemLines, $run->markerRunCursor, $run->markerRunBroken)
                     && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $run->noteSourceCursor, $run->noteSourceBroken);
@@ -2741,7 +2741,7 @@ final class BlockContinuationScanner
                     // unless it reaches the content column of a list the note opened.
                     if (!$closedNoteBodyFence) {
                         $run->authoredCodeColumn = $column;
-                    } elseif ($column < $this->noteChildContentColumn($itemLines, $contentIndent, $run->leadNoteHadBlank)) {
+                    } elseif ($column < $this->noteChildContentColumn($itemLines, $contentIndent, $run->leadNoteHadBlank || $run->sawNestedNote)) {
                         $run->authoredCodeColumn = $column - BlockGrammar::FOOTNOTE_BODY_COLUMN;
                     }
                 }
@@ -3879,6 +3879,11 @@ final class BlockContinuationScanner
                 $run->markerNoteItem && !$run->sawNestedNote
                 && $this->noteKeepsItsBody($itemLines, $run->markerRunCursor, $run->markerRunBroken)
                 && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $run->noteSourceCursor, $run->noteSourceBroken)
+                && $this->footnoteBodyResumesAfter($lines, $i, $count, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, false) !== null
+            )
+            || (
+                $run->markerNoteItem && $run->sawNestedNote
+                && $this->noteKeepsItsBody($itemLines, $run->markerRunCursor, $run->markerRunBroken)
                 && $this->footnoteBodyResumesAfter($lines, $i, $count, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, false) !== null
             )
             || $run->blankRun->nestedNoteContinues()
