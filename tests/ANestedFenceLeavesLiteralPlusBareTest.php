@@ -27,10 +27,10 @@ class ANestedFenceLeavesLiteralPlusBareTest extends TestCase
         }
     }
 
-    public function testTaskFenceOffsetsTheBarePlusByOneColumn(): void
+    public function testTaskFenceEscapesThePlusAtTheItemContentColumn(): void
     {
         $source = "- - [ ] ```js\n        x\n\n  +\ntail\n";
-        $expected = "- - [ ] ```js\n        x\n\n    ```\n\n   +\n  tail\n";
+        $expected = "- - [ ] ```js\n        x\n\n    ```\n\n  \\+\n  tail\n";
         $formatted = CarveConverter::toCarve($source);
         $converter = new CarveConverter();
 
