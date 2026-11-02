@@ -499,6 +499,7 @@ class MarkdownToCarve
         $foldedThrough = -1;
         for ($i = 0; $i < $lineCount; $i = max($i + 1, $foldedThrough + 1)) {
             $this->applyShift($result, $shiftFrom, $shiftCol, $shiftBy);
+            $prevLineType = $this->lineTypeAfterTable($tableWork, $lines[$i], $prevLineType);
             $this->inlineContext->inlineRunSourceLine = $this->sourceLine($i);
             $this->inlineContext->inlineRunContinuesPrevious = $i > 0
                 && trim($lines[$i - 1]) !== ''
@@ -875,7 +876,7 @@ class MarkdownToCarve
             // A body row of the table above, rebuilt so its padding is what the
             // formatter writes and its cells are fitted to the header, as GFM
             // reads them.
-            if ($tableWork->active() && $this->indentWidth($line) >= $tableWork->column() && $this->tableStage->continuesGfmTableBody($this->stripColumns($line, $tableWork->column()))) {
+            if ($tableWork->active() && $this->indentWidth($line) >= $tableWork->column() && $this->tableStage->continuesGfmTableBody($this->stripColumns($this->expandLeadingTabs($line), $tableWork->column()))) {
                 $cells = $this->tableStage->splitPipeCells($trimmed);
                 $this->tableStage->recordTableRowDiagnostics($trimmed, $i, $tableWork->width(), $cells);
                 $row = $this->tableStage->writeTableRow($cells, [], $tableWork->width());
@@ -1608,6 +1609,7 @@ class MarkdownToCarve
                             $quoteState->markers[$quoteKey]->end($this->indentWidth($quotedText));
                         }
                         if ($quotedTableCol === 0 && $prevLineType === 'blockquote' && rtrim((string)end($result)) !== rtrim($quoted[1])) {
+                            $this->endParagraphBeforeTable($result, $lines[$i - 1] ?? '');
                             $result[] = rtrim($quoted[1]);
                         }
                         foreach ($quotedTable['lines'] as $row) {
@@ -1666,6 +1668,42 @@ class MarkdownToCarve
     }
 
     /**
+     * The table ends the paragraph above it, where no hard break is left: a
+     * trailing backslash is text and trailing spaces are nothing.
+     *
+     * @param array<int, string|null> $result
+     * @param string $source
+     */
+    private function endParagraphBeforeTable(array &$result, string $source): void
+    {
+        $last = array_key_last($result);
+        if ($last === null || !is_string($result[$last])) {
+            return;
+        }
+        $written = $result[$last];
+        if ((strlen($written) - strlen(rtrim($written, '\\'))) % 2 === 0) {
+            return;
+        }
+        $result[$last] = str_ends_with($source, '  ') ? substr($written, 0, -1) : $written . '\\';
+    }
+
+    /**
+     * A table holds no paragraph, so the line that ends it continues none: it
+     * reads as the line after a closed block.
+     */
+    private function lineTypeAfterTable(TableWork $tableWork, string $line, string $prevLineType): string
+    {
+        if (
+            !$tableWork->active()
+            || ($this->indentWidth($line) >= $tableWork->column() && $this->tableStage->continuesGfmTableBody($this->stripColumns($this->expandLeadingTabs($line), $tableWork->column())))
+        ) {
+            return $prevLineType;
+        }
+
+        return trim($line) === '' ? $prevLineType : 'code_fence';
+    }
+
+    /**
      * Emit a GFM table header or record why a candidate was rejected.
      *
      * @param array<string> $lines
@@ -1702,6 +1740,9 @@ class MarkdownToCarve
             && $delimiterOver < 4
             && $this->tableStage->startsTableHeader($lines, $i)
         ) {
+            if (in_array($prevLineType, ['text', 'list', 'blockquote'], true)) {
+                $this->endParagraphBeforeTable($result, $lines[$i - 1] ?? '');
+            }
             // A table interrupts the paragraph of the item holding it.
             if ($prevLineType !== 'blank' && !($prevLineType === 'list' && $contentCol > 0) && $result !== []) {
                 $result[] = '';
@@ -1757,7 +1798,8 @@ class MarkdownToCarve
         $virtual = $lines;
         $virtual[$i] = str_repeat(' ', $contentCol) . $m[4];
         $end = $this->setextParagraphEnd($virtual, $i, $contentCol, true);
-        if ($end === null) {
+        // A delimiter row under the item's first line makes it a table header.
+        if ($end === null || $this->tableStage->startsTableHeader($virtual, $i)) {
             return null;
         }
         $texts = [];
