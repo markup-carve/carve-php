@@ -60,6 +60,7 @@ class ADjotMarkerOnAContinuationLineStaysTextTest extends TestCase
             ["a. `c` x\n", "a.  `c` x\n"],
             ["a. . x\n", "a.  \\. x\n"],
             ["foo.  a. x\n", "foo.  a. x\n"],
+            [": t\n\n  - a. y\n", "{loose}\n:: t\n\n:  - a.  y\n"],
         ];
     }
 
