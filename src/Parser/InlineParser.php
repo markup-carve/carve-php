@@ -45,6 +45,7 @@ use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
+use MarkupCarve\Carve\Parser\Utility\CommentFlank;
 use MarkupCarve\Carve\Parser\Utility\LinkDestination;
 use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -1483,7 +1484,7 @@ class InlineParser
             if ($char === '/' && ($text[$pos + 1] ?? '') === '*') {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $result = $this->parseBoldItalic($text, $pos, $openEntryAt === $pos - 1);
+                $result = $this->parseBoldItalic($text, $pos, $openEntryAt === CommentFlank::before($text, $pos) - 1);
                 if ($result !== null) {
                     $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
@@ -1506,7 +1507,7 @@ class InlineParser
             if ($delimitedNodeClass !== null) {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $guardOpen = $openEntryAt === $pos - 1;
+                $guardOpen = $openEntryAt === CommentFlank::before($text, $pos) - 1;
                 $result = $this->parseDelimited($text, $pos, $char, $delimitedNodeClass, $guardOpen);
                 if ($result !== null) {
                     $this->placeAt($result['node'], $pos, $result['pos']);
@@ -1966,10 +1967,11 @@ class InlineParser
     private function combinedCloserToken(string $text, int $from, int $end): ?int
     {
         while (($closer = strpos($text, '*/', $from)) !== false && $closer < $end) {
-            $after = $text[$closer + 2] ?? '';
+            $before = CommentFlank::before($text, $closer);
+            $after = CommentFlank::after($text, $closer + 2);
             if (
-                $closer > 0 && !StringUtil::isWhitespaceChar($text[$closer - 1])
-                && !$this->wordAfter($text, $closer + 2) && !$this->hasGraphemeExtender($text, $closer + 2)
+                $before > 0 && !StringUtil::isWhitespaceChar($text[$before - 1])
+                && !$this->wordAfter($text, $after) && !$this->hasGraphemeExtender($text, $after)
             ) {
                 return $closer;
             }
@@ -1986,10 +1988,11 @@ class InlineParser
     {
         $before = substr($text, 0, $at);
         while (($open = strrpos($before, '/*')) !== false) {
-            $next = $text[$open + 2] ?? '';
+            $bodyAt = CommentFlank::after($text, $open + 2);
+            $next = $text[$bodyAt] ?? '';
             if (
-                $next !== '' && !StringUtil::isWhitespaceChar($next) && !$this->hasGraphemeExtender($text, $open + 2)
-                && !$this->wordBefore($text, $open) && !$this->isEscapedAt($text, $open)
+                $next !== '' && !StringUtil::isWhitespaceChar($next) && !$this->hasGraphemeExtender($text, $bodyAt)
+                && !$this->wordBefore($text, CommentFlank::before($text, $open)) && !$this->isEscapedAt($text, $open)
             ) {
                 return $this->combinedCloserToken($text, $open + 2, $at) === null;
             }
@@ -3710,15 +3713,17 @@ class InlineParser
     protected function bareOpenerStands(string $text, int $pos, bool $guardOpen): bool
     {
         $delimiter = $text[$pos];
-        $after = $text[$pos + 1] ?? '';
-        $before = $pos > 0 ? $text[$pos - 1] : '';
-        if ($after === '' || StringUtil::isWhitespaceChar($after) || $this->hasGraphemeExtender($text, $pos + 1)) {
+        $afterAt = CommentFlank::after($text, $pos + 1);
+        $after = $text[$afterAt] ?? '';
+        $beforeAt = CommentFlank::before($text, $pos);
+        $before = $beforeAt > 0 ? $text[$beforeAt - 1] : '';
+        if ($after === '' || StringUtil::isWhitespaceChar($after) || $this->hasGraphemeExtender($text, $afterAt)) {
             return false;
         }
         if ($after === $delimiter || $before === $delimiter || in_array($delimiter, $this->openSpanKinds, true)) {
             return false;
         }
-        if ($this->wordBefore($text, $pos) || ($delimiter === '=' && $after === '>')) {
+        if ($this->wordBefore($text, $beforeAt) || ($delimiter === '=' && $after === '>')) {
             return false;
         }
 
@@ -3750,19 +3755,22 @@ class InlineParser
 
         // Check if this can be an opener (not preceded by whitespace for closer detection)
         $prevChar = $pos > 0 ? $text[$pos - 1] : ' ';
-        $nextChar = $text[$pos + 1] ?? ' ';
 
         // Does a BRACED opener actually precede this delimiter? An escaped `{`
         // is a literal character and opens nothing, so `\{/x/}` holds an
         // ordinary bare pair while `{/x/}` holds the braced construct. The
         // closer search below needs the distinction (markup-carve/carve-php#1191).
         $openerIsBraced = $prevChar === '{' && !$this->isEscapedAt($text, $pos - 1);
+        $nextAt = CommentFlank::after($text, $pos + 1);
+        $nextChar = $text[$nextAt] ?? ' ';
+        $prevAt = CommentFlank::before($text, $pos);
+        $flankPrev = $prevAt > 0 ? $text[$prevAt - 1] : ' ';
 
         // Can't open if followed by whitespace. PART 7's four characters, not
         // `ctype_space()`, which also takes a VERTICAL TAB and a FORM FEED - so
         // `/<VT>a/` was left as literal text while `/!a/` was emphasis
         // (markup-carve/carve#963).
-        if (StringUtil::isWhitespaceChar($nextChar) || $this->hasGraphemeExtender($text, $pos + 1)) {
+        if (StringUtil::isWhitespaceChar($nextChar) || $this->hasGraphemeExtender($text, $nextAt)) {
             return null;
         }
 
@@ -3777,17 +3785,17 @@ class InlineParser
         // same-type emphasis. This is uniform across all single-char
         // delimiters, so `**x**`, `~~x~~`, `^^x^^` stay literal exactly like
         // `//x//` and `__x__`.
-        if ($prevChar === $delimiter || $nextChar === $delimiter) {
+        if ($flankPrev === $delimiter || $nextChar === $delimiter) {
             return null;
         }
 
         // Bare single-char delimiters never open inside words. A `_` before,
         // or a `/` before `/` or `_`, guards the opener unless that guard is an
         // open entry where it stands (carve#3973 X1).
-        if ($this->wordBefore($text, $pos)) {
+        if ($this->wordBefore($text, $prevAt)) {
             return null;
         }
-        if (!$guardOpen && ($prevChar === '_' || (($delimiter === '/' || $delimiter === '_') && $prevChar === '/'))) {
+        if (!$guardOpen && ($flankPrev === '_' || (($delimiter === '/' || $delimiter === '_') && $flankPrev === '/'))) {
             return null;
         }
 
@@ -4043,7 +4051,8 @@ class InlineParser
             // Check for closing delimiter
             if ($char === $delimiter) {
                 // Check if this can be a closer (not preceded by whitespace)
-                $beforeClose = $searchPos > 0 ? $text[$searchPos - 1] : ' ';
+                $beforeCloseAt = CommentFlank::before($text, $searchPos);
+                $beforeClose = $beforeCloseAt > 0 ? $text[$beforeCloseAt - 1] : ' ';
                 if (!StringUtil::isWhitespaceChar($beforeClose)) {
                     $afterClose = $text[$searchPos + 1] ?? '';
                     if ($afterClose === '}' && $openerIsBraced) {
@@ -4062,8 +4071,8 @@ class InlineParser
                     // Bare single-char delimiters never close before an
                     // alphanumeric (right word boundary, grammar §9). Unlike the
                     // opener's left boundary, `_` does NOT block a closer.
-                    $afterClose = $text[$actualClose + 1] ?? '';
-                    if ($this->wordAfter($text, $actualClose + 1) || $this->hasGraphemeExtender($text, $actualClose + 1)) {
+                    $afterCloseAt = CommentFlank::after($text, $actualClose + 1);
+                    if ($this->wordAfter($text, $afterCloseAt) || $this->hasGraphemeExtender($text, $afterCloseAt)) {
                         $failedStarts[] = $actualClose + 1;
                         $searchPos = $actualClose + 1;
 
@@ -4114,11 +4123,13 @@ class InlineParser
     private function bareOpenerKind(string $text, int $at): string
     {
         $char = $text[$at];
-        $next = $text[$at + 1] ?? '';
-        $before = $at > 0 ? $text[$at - 1] : '';
+        $nextAt = CommentFlank::after($text, $at + 1);
+        $next = $text[$nextAt] ?? '';
+        $beforeAt = CommentFlank::before($text, $at);
+        $before = $beforeAt > 0 ? $text[$beforeAt - 1] : '';
         if (
             $next === '' || StringUtil::isWhitespaceChar($next) || $next === $char || $before === $char
-            || ($char === '=' && ($next === '>' || $this->isComparisonEquals($text, $at))) || $this->hasGraphemeExtender($text, $at + 1)
+            || ($char === '=' && ($next === '>' || $this->isComparisonEquals($text, $at))) || $this->hasGraphemeExtender($text, $nextAt)
         ) {
             return 'none';
         }
@@ -4129,7 +4140,7 @@ class InlineParser
             return $before === '_' || $char === '/' || $char === '_' ? 'guarded' : 'open';
         }
 
-        return $this->wordBefore($text, $at) ? 'none' : 'open';
+        return $this->wordBefore($text, $beforeAt) ? 'none' : 'open';
     }
 
     /**
@@ -4228,11 +4239,14 @@ class InlineParser
         $start = $pos + 2; // skip '/*'
 
         // A `_` or `/` guard that is an open entry does not block it (carve#3973 X1).
+        $beforeAt = CommentFlank::before($text, $pos);
+        $before = $beforeAt > 0 ? $text[$beforeAt - 1] : '';
+        $bodyAt = CommentFlank::after($text, $start);
         if (
-            ($pos > 0 && ((!$guardOpen && ($text[$pos - 1] === '_' || $text[$pos - 1] === '/')) || $this->wordBefore($text, $pos)))
+            (!$guardOpen && ($before === '_' || $before === '/')) || $this->wordBefore($text, $beforeAt)
             || $start >= $length
-            || StringUtil::isWhitespaceChar($text[$start])
-            || $this->hasGraphemeExtender($text, $start)
+            || StringUtil::isWhitespaceChar($text[$bodyAt] ?? '')
+            || $this->hasGraphemeExtender($text, $bodyAt)
         ) {
             return null;
         }
@@ -4390,13 +4404,14 @@ class InlineParser
             }
 
             if ($text[$searchPos] === '*' && $text[$searchPos + 1] === '/') {
-                if ($this->wordAfter($text, $searchPos + 2) || $this->hasGraphemeExtender($text, $searchPos + 2)) {
+                $afterAt = CommentFlank::after($text, $searchPos + 2);
+                if ($this->wordAfter($text, $afterAt) || $this->hasGraphemeExtender($text, $afterAt)) {
                     $searchPos++;
 
                     continue;
                 }
                 $content = substr($text, $start, $searchPos - $start);
-                if ($content === '' || StringUtil::isWhitespaceChar($content[strlen($content) - 1])) {
+                if ($content === '' || StringUtil::isWhitespaceChar($text[CommentFlank::before($text, $searchPos) - 1])) {
                     $searchPos++;
 
                     continue;
@@ -5158,13 +5173,14 @@ class InlineParser
         // Only that one shape is excluded. `pages 1--10`, `the Mon--Fri
         // window` and a trailing `text --` are left-flanked by a word or
         // right-flanked by space, and every one of them still converts.
-        $before = $this->characterBefore($text, $pos);
-        $after = $this->characterAt($text, $pos + $dashCount);
+        $before = $this->characterBefore($text, CommentFlank::before($text, $pos));
+        $afterAt = CommentFlank::after($text, $pos + $dashCount);
+        $after = $this->characterAt($text, $afterAt);
         if (
             ($before === '' || $this->isSpaceCharacter($before))
             && $after !== ''
             && !$this->isSpaceCharacter($after)
-            && !($after === '\\' && $this->backslashRendersSpace($text, $pos + $dashCount))
+            && !($after === '\\' && $this->backslashRendersSpace($text, $afterAt))
         ) {
             return [
                 'text' => str_repeat('-', $dashCount),

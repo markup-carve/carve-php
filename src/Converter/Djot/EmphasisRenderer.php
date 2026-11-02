@@ -261,6 +261,9 @@ final class EmphasisRenderer
         $forced = $this->omitQuoteDelimiters || str_contains('~^', $pair->kind) || $pair->forced || $scope || str_starts_with($content, "\0") || str_ends_with($content, "\0")
                 || ($pair->start > 0 && preg_match('/[A-Za-z0-9_]/', $this->source[$pair->start - 1]) === 1)
                 || preg_match('/[A-Za-z0-9_]/', $this->source[$pair->end] ?? '') === 1
+                // An empty attribute block writes a comment, which counts as nothing for a bare guard (carve#4719).
+                || substr($this->source, $pair->end, 2) === '{}'
+                || ($pair->start >= 2 && substr($this->source, $pair->start - 2, 2) === '{}' && !$this->escapedAt($pair->start - 2))
                 || preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content) === 1
                 || str_starts_with($content, $delimiter) || str_ends_with($content, $delimiter)
                 || ($delimiter === '/' && (($this->source[$pair->start - 1] ?? '') === '/' || ($this->source[$pair->end] ?? '') === '/'))
@@ -275,6 +278,16 @@ final class EmphasisRenderer
         }
 
         return $opening . $content . $closing;
+    }
+
+    private function escapedAt(int $at): bool
+    {
+        $start = $at;
+        while ($start > 0 && $this->source[$start - 1] === '\\') {
+            $start--;
+        }
+
+        return ($at - $start) % 2 !== 0;
     }
 
     private function protect(string $value): string

@@ -87,6 +87,7 @@ use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Parser\ReferenceDefinitionExtractor;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
+use MarkupCarve\Carve\Parser\Utility\CommentFlank;
 use MarkupCarve\Carve\Renderer\Utility\CarveFieldDiagnostic;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
@@ -4642,13 +4643,22 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                             throw new SourceUnspellableException('code', 'a line-block fence span needs its own delimiter lines');
                         }
                     }
-                    $prevChar = $this->lastBoundary($nodes[$i - 1] ?? null);
+                    // A braced comment counts as nothing for a flank test (carve#4719).
+                    $before = $i - 1;
+                    while (($nodes[$before] ?? null) instanceof Comment && $nodes[$before]->isDelimited()) {
+                        $before--;
+                    }
+                    $after = $i + 1;
+                    while (($nodes[$after] ?? null) instanceof Comment && $nodes[$after]->isDelimited()) {
+                        $after++;
+                    }
+                    $prevChar = $this->lastBoundary($nodes[$before] ?? null);
                     $rendered = $this->renderInlineAtRunEnd(
                         $node,
                         // A span leaves no boundary character of its own, so the
                         // one it WROTE (its closer) is what the next opener sits against.
-                        $prevChar === '' ? self::lastCharacter($out) : $prevChar,
-                        $this->firstBoundary($nodes[$i + 1] ?? null),
+                        $prevChar === '' ? self::lastCharacter(substr($out, 0, CommentFlank::before($out, strlen($out)))) : $prevChar,
+                        $this->firstBoundary($nodes[$after] ?? null),
                         $captionCanOpen,
                         self::opensAVerbatimRun($nodes[$i + 1] ?? null),
                         $i === $count - 1 && ($out !== '' || $this->inlineDepth > 1 || ($node instanceof Code && strlen($this->codeSpanFence($node->getContent())) < 3)),
