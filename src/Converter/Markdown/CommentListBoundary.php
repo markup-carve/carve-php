@@ -34,51 +34,102 @@ final class CommentListBoundary
             $lines[$at] = substr($line, strlen($quote[0] ?? ''));
         }
         $starts = [];
+        $fenced = self::fencedLines($lines);
         $count = count($lines);
         for ($item = 0; $item < $count; $item++) {
-            if (preg_match(self::MARKER, $lines[$item], $opened) !== 1) {
-                continue;
-            }
-            $indent = self::width($opened[1]);
-            $contentCol = self::contentColumn($opened[0]);
-            $comment = false;
-            $previousBlank = false;
-            for ($at = $item + 1; $at < $count; $at++) {
-                $line = $lines[$at];
-                if ($prefixes[$at] !== $prefixes[$item]) {
+            $consumed = 0;
+            // `- - a` opens one list per marker, each with its own column.
+            while (!isset($fenced[$item]) && preg_match(self::MARKER, substr($lines[$item], $consumed), $opened) === 1) {
+                $indent = self::width(substr($lines[$item], 0, $consumed + strlen($opened[1])));
+                $consumed += strlen($opened[0]);
+                $start = self::boundaryAfter($lines, $prefixes, $fenced, $item, $indent, self::contentColumn(substr($lines[$item], 0, $consumed)));
+                if ($start !== null) {
+                    $starts[$start] = $indent;
+                }
+                if ($consumed >= strlen($lines[$item])) {
                     break;
                 }
-                if (trim($line) === '') {
-                    $previousBlank = true;
-
-                    continue;
-                }
-                $lineIndent = self::width(substr($line, 0, strspn($line, " \t")));
-                $end = $lineIndent >= $indent && $lineIndent < $contentCol ? self::commentEnd($lines, $at) : null;
-                if ($end !== null) {
-                    $comment = true;
-                    $previousBlank = false;
-                    $at = $end;
-
-                    continue;
-                }
-                if ($comment) {
-                    // Any marker that is not indented code opens the next list.
-                    if ($lineIndent >= $indent && $lineIndent - $indent <= 3 && preg_match(self::MARKER, $line) === 1) {
-                        $starts[$at] = $indent;
-                    }
-
-                    break;
-                }
-                $lazy = !$previousBlank && preg_match('/^[ \t]*(?:[>#<]|`{3}|~{3}|[-*+][ \t]|\d{1,9}[.)][ \t])/', $line) !== 1;
-                if ($lineIndent < $contentCol && !$lazy) {
-                    break;
-                }
-                $previousBlank = false;
             }
         }
 
         return $starts;
+    }
+
+    /**
+     * The list line a comment parts from the item opening at `$item`, or null.
+     *
+     * @param array<int, string> $lines
+     * @param array<int, int> $prefixes
+     * @param array<int, true> $fenced
+     */
+    private static function boundaryAfter(array $lines, array $prefixes, array $fenced, int $item, int $indent, int $contentCol): ?int
+    {
+        $comment = false;
+        $previousBlank = false;
+        $count = count($lines);
+        for ($at = $item + 1; $at < $count; $at++) {
+            $line = $lines[$at];
+            if ($prefixes[$at] !== $prefixes[$item]) {
+                return null;
+            }
+            if (trim($line) === '') {
+                $previousBlank = true;
+
+                continue;
+            }
+            $lineIndent = self::width(substr($line, 0, strspn($line, " \t")));
+            $end = !isset($fenced[$at]) && $lineIndent >= $indent && $lineIndent < $contentCol ? self::commentEnd($lines, $at) : null;
+            if ($end !== null) {
+                $comment = true;
+                $previousBlank = false;
+                $at = $end;
+
+                continue;
+            }
+            if ($comment) {
+                // Any marker that is not indented code opens the next list.
+                $opens = !isset($fenced[$at]) && $lineIndent >= $indent && $lineIndent - $indent <= 3 && preg_match(self::MARKER, $line) === 1;
+
+                return $opens ? $at : null;
+            }
+            $lazy = !$previousBlank && preg_match('/^[ \t]*(?:[>#<]|`{3}|~{3}|[-*+][ \t]|\d{1,9}[.)][ \t])/', $line) !== 1;
+            if ($lineIndent < $contentCol && !$lazy) {
+                return null;
+            }
+            $previousBlank = false;
+        }
+
+        return null;
+    }
+
+    /**
+     * The lines a fenced code block holds, its fence lines included.
+     *
+     * @param array<int, string> $lines
+     *
+     * @return array<int, true>
+     */
+    private static function fencedLines(array $lines): array
+    {
+        $fenced = [];
+        $open = null;
+        foreach ($lines as $at => $line) {
+            $run = preg_match('/^[ \t]*(`{3,}|~{3,})(.*)$/', $line, $match) === 1 ? $match : null;
+            if ($open !== null) {
+                $fenced[$at] = true;
+                if ($run !== null && $run[1][0] === $open[0] && strlen($run[1]) >= strlen($open) && trim($run[2]) === '') {
+                    $open = null;
+                }
+
+                continue;
+            }
+            if ($run !== null && ($run[1][0] === '~' || !str_contains($run[2], '`'))) {
+                $fenced[$at] = true;
+                $open = $run[1];
+            }
+        }
+
+        return $fenced;
     }
 
     /**
