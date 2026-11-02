@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Node;
@@ -27,6 +28,8 @@ use WeakMap;
  */
 final class DefinitionListBuilder
 {
+    private bool $hostIsListItem = false;
+
     /**
      * @var string
      */
@@ -561,6 +564,7 @@ final class DefinitionListBuilder
                 }
                 $i = $next;
                 $closedByComment = false;
+                $this->hostIsListItem = $parent instanceof ListItem;
                 $m = $this->definitionBodyAt($lines, $i, $count, $termHasOwnColumn, $termColumn, $parent instanceof Footnote);
                 if ($m === null) {
                     break;
@@ -1074,7 +1078,7 @@ final class DefinitionListBuilder
             // A marker at the host's column the walk folded stays out of the body's list (carve#4479).
             && ($this->bodyHoldsFootnote($b->body)
                 || isset($this->state->source->lineBlockLazyLines[$sourceLine])
-                || ($l->contColumn === 0 && ($this->getListParser)()->parseListItemMarker(BlockGrammar::stripLazyFrame($l->contLine)) !== null))
+                || (!$this->hostIsListItem && $l->contColumn === 0 && ($this->getListParser)()->parseListItemMarker(BlockGrammar::stripLazyFrame($l->contLine)) !== null))
         ) {
             $b->body[] = BlockGrammar::LAZY_FRAME . ltrim(BlockGrammar::stripLazyFrame($l->contLine), " \t");
             $b->bodyMap[] = $sourceLine;
