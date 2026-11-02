@@ -383,7 +383,18 @@ class MarkdownToCarve
      */
     public function convert(string $markdown): string
     {
-        return EmptyListItemSpelling::spell($this->importDocument($markdown));
+        $outer = $this->inlineContext->blockEscape;
+        // The marker must be a byte the document cannot hold, raw or decoded.
+        $holdsMarker = str_contains($markdown, InlineContext::BLOCK_ESCAPE) || preg_match('/&#(?:0*2|[xX]0*2);/', $markdown) === 1;
+        $this->inlineContext->blockEscape = $holdsMarker ? '\\' : InlineContext::BLOCK_ESCAPE;
+        try {
+            $carve = EmptyListItemSpelling::spell($this->importDocument($markdown));
+        } finally {
+            $escape = $this->inlineContext->blockEscape;
+            $this->inlineContext->blockEscape = $outer;
+        }
+
+        return $escape === '\\' ? $carve : str_replace(InlineContext::BLOCK_ESCAPE, '\\', $carve);
     }
 
     private function importDocument(string $markdown): string
@@ -3913,11 +3924,14 @@ class MarkdownToCarve
      */
     protected function escapeBlockOpener(string $text): string
     {
+        // A marker the inline stage spells as `\` outside a code span and
+        // drops inside one, where a backslash would be code text.
+        $escape = $this->inlineContext->blockEscape;
         if (preg_match('/^(\d{1,9})([.)])(?=[ \t]|$)/', $text, $ordered) === 1) {
-            return $ordered[1] . '\\' . substr($text, strlen($ordered[1]));
+            return $ordered[1] . $escape . substr($text, strlen($ordered[1]));
         }
         if (preg_match(self::THEMATIC_BREAK, preg_replace('/^ {0,3}/', '', $text) ?? $text) === 1) {
-            return preg_replace('/[^ \t]/', '\\\\${0}', $text) ?? $text;
+            return preg_replace_callback('/[^ \t]/', static fn (array $m): string => $escape . $m[0], $text) ?? $text;
         }
         // A closed pipe row IS a table at column 0 and interrupts a paragraph
         // there, so it keeps its escape. A pipe that opens no row is not a
@@ -3931,7 +3945,7 @@ class MarkdownToCarve
             // A fence run opens a fence over a paragraph without a closer (carve#4018).
             || preg_match('/^~{3,}/', $text) === 1
         ) {
-            return '\\' . $text;
+            return $escape . $text;
         }
 
         return $text;
@@ -5705,7 +5719,33 @@ class MarkdownToCarve
             }
         }
 
-        return preg_replace('/^([ \t]*(?:>[ \t]?)*[ \t]*)\[(?=(?:[^\]\\\\\n]|\\\\.)+\]:)/', '$1\\\\[', $line, 1) ?? $line;
+        return preg_replace_callback(
+            '/^([ \t]*(?:>[ \t]?)*[ \t]*)\[(?=(?:[^\]\\\\\n]|\\\\.)+\]:)/',
+            fn (array $m): string => $m[1] . $this->inlineContext->blockEscape . '[',
+            $line,
+            1,
+        ) ?? $line;
+    }
+
+    /**
+     * Whether a backtick run in the text has no closing run of its length.
+     */
+    private function hasOpenCodeSpan(string $text): bool
+    {
+        if (!str_contains($text, '`')) {
+            return false;
+        }
+        preg_match_all('/`+/', preg_replace('/\\\\[!-\/:-@\[-`{-~]/', '', $text) ?? $text, $runs);
+        $sizes = array_map('strlen', $runs[0]);
+        for ($at = 0, $count = count($sizes); $at < $count; $at++) {
+            $close = array_search($sizes[$at], array_slice($sizes, $at + 1), true);
+            if ($close === false) {
+                return true;
+            }
+            $at += $close + 1;
+        }
+
+        return false;
     }
 
     /**
@@ -5760,6 +5800,11 @@ class MarkdownToCarve
                     $candidate = substr($candidate, min(2, strspn($candidate, " \t")));
                 }
                 $partialPointy = true;
+            }
+            // A lazy line continues the paragraph, so a code span it closes
+            // pairs across it (CommonMark 6.1).
+            if ($candidate === null && $this->continuesParagraph($lines[$at]) && $this->hasOpenCodeSpan(implode("\n", $parts))) {
+                $candidate = ltrim($lines[$at], " \t");
             }
             if ($candidate === null) {
                 break;
