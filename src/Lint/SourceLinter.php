@@ -681,7 +681,7 @@ class SourceLinter
             return;
         }
         $message = 'The code fence keeps its language and drops invalid opener metadata. Use a quoted title and optional [label] in that order.';
-        if (preg_match('/^(`{3,}|~{3,}) ?raw[ \t]+([A-Za-z_][A-Za-z0-9_-]*)(?![A-Za-z0-9_-])/', $view, $match)) {
+        if (preg_match('/^(`{3,}|~{3,}) ?raw[ \t]+([A-Za-z][A-Za-z0-9_-]*)(?![A-Za-z0-9_-])/', $view, $match)) {
             $message = 'The code fence keeps the language raw and drops the rest. For a raw block, use ' . $match[1] . '=' . $match[2] . '.';
         }
         $emit($ln, strlen($text) - strlen($view), strlen($view), 'fence-title-syntax', $message);
