@@ -212,7 +212,8 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
         $html = $this->converter->convert(":: t\n:  - a\n    [r]: /url\n     b");
 
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n    <p>b</p>\n  </dd>\n</dl>",
+            // The definition closes no item, so `b` reaches it (carve#4862).
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        b\n      </li>\n    </ul>\n  </dd>\n</dl>",
             trim($html),
         );
     }

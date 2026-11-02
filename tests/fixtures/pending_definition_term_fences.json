@@ -3200,25 +3200,25 @@
   {
     "id": "comment-history-0-0-0",
     "source": "- :: term\n%% note\n  ```\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl></li></ul><pre><code>code\ntail\n</code></pre>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
-      "code\ntail\n"
+      "code\n"
     ]
   },
   {
     "id": "comment-history-0-0-1",
     "source": "- :: term\n%%%\nnote\n%%%\n  ```\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl></li></ul><pre><code>code\ntail\n</code></pre>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
-      "code\ntail\n"
+      "code\n"
     ]
   },
   {
     "id": "comment-history-0-0-2",
     "source": "- :: term\n%%%\n:: fake\n: fake\n%%%\n  ```\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl></li></ul><pre><code>code\ntail\n</code></pre>",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
-      "code\ntail\n"
+      "code\n"
     ]
   },
   {
@@ -3344,25 +3344,25 @@
   {
     "id": "comment-history-1-0-37",
     "source": "> - :: term\n> %% note\n>   ```\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl></li></ul><pre><code>code\ntail\n</code></pre></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
-      "code\ntail\n"
+      "code\n"
     ]
   },
   {
     "id": "comment-history-1-0-38",
     "source": "> - :: term\n> %%%\n> note\n> %%%\n>   ```\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl></li></ul><pre><code>code\ntail\n</code></pre></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
-      "code\ntail\n"
+      "code\n"
     ]
   },
   {
     "id": "comment-history-1-0-39",
     "source": "> - :: term\n> %%%\n> :: fake\n> : fake\n> %%%\n>   ```\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl></li></ul><pre><code>code\ntail\n</code></pre></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
-      "code\ntail\n"
+      "code\n"
     ]
   },
   {
@@ -3488,25 +3488,25 @@
   {
     "id": "comment-history-2-0-74",
     "source": "> > - :: term\n> > %% note\n> >   ```\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl></li></ul><pre><code>code\ntail\n</code></pre></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
-      "code\ntail\n"
+      "code\n"
     ]
   },
   {
     "id": "comment-history-2-0-75",
     "source": "> > - :: term\n> > %%%\n> > note\n> > %%%\n> >   ```\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl></li></ul><pre><code>code\ntail\n</code></pre></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
-      "code\ntail\n"
+      "code\n"
     ]
   },
   {
     "id": "comment-history-2-0-76",
     "source": "> > - :: term\n> > %%%\n> > :: fake\n> > : fake\n> > %%%\n> >   ```\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl></li></ul><pre><code>code\ntail\n</code></pre></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
-      "code\ntail\n"
+      "code\n"
     ]
   },
   {

@@ -17,7 +17,8 @@ final class TermBelowColumnCommentBreakTest extends TestCase
     {
         return [
             'terminal comment' => ["- :: a\n %%\n", "<ul>\n  <li>\n    <dl>\n      <dt>a</dt>\n    </dl>\n  </li>\n</ul>"],
-            'continued term' => ["- :: a\n %%\n  b\n", "<ul>\n  <li>\n    <dl>\n      <dt>a</dt>\n    </dl>\n  </li>\n</ul>\n<p>b</p>"],
+            // The comment closes no item, so `b` stays in it (carve#4862).
+            'continued term' => ["- :: a\n %%\n  b\n", "<ul>\n  <li>\n    <dl>\n      <dt>a</dt>\n    </dl>\n    b\n  </li>\n</ul>"],
         ];
     }
 

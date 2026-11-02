@@ -182,12 +182,12 @@
   {
     "id": "below-column-comment-A",
     "source": "- ::: box\n  %% k\n%% j\n  x\n",
-    "html": "<ul><li><div class=\"box\"></div></li></ul><p>x</p>"
+    "html": "<ul><li><div class=\"box\"><p>x</p></div></li></ul>"
   },
   {
     "id": "below-column-comment-C",
     "source": "- ::: box\n  # h\n%% j\n  x\n",
-    "html": "<ul><li><div class=\"box\"><h1 id=\"h\">h</h1></div></li></ul><p>x</p>"
+    "html": "<ul><li><div class=\"box\"><h1 id=\"h\">h</h1><p>x</p></div></li></ul>"
   },
   {
     "id": "below-column-comment-D",
@@ -197,12 +197,12 @@
   {
     "id": "below-column-comment-I",
     "source": "- a\n\n  ::: box\n  # h\n%% j\n  x\n",
-    "html": "<ul><li>a\n    <div class=\"box\"><h1 id=\"h\">h</h1></div></li></ul><p>x</p>"
+    "html": "<ul><li>a\n    <div class=\"box\"><h1 id=\"h\">h</h1><p>x</p></div></li></ul>"
   },
   {
     "id": "below-column-comment-J",
     "source": "- a\n\n  ::: box\n  %% k\n%% j\n  x\n",
-    "html": "<ul><li>a\n    <div class=\"box\"></div></li></ul><p>x</p>"
+    "html": "<ul><li>a\n    <div class=\"box\"><p>x</p></div></li></ul>"
   },
   {
     "id": "opener-column-m2",

@@ -169,6 +169,10 @@ final class BlockOwnershipWalk
 
     private bool $onMarkerLine = false;
 
+    private int $nextVisible = -1;
+
+    private int $movedSpanEnd = -1;
+
     /**
      * Decision trace records (docs/decision-trace.md in carve), or null when
      * tracing is off. Step ids follow PART 0 (CARVE-P0-024).
@@ -204,6 +208,8 @@ final class BlockOwnershipWalk
         $this->softLeaf = false;
         $this->reach = 0;
         $this->wrappedAttributeEnd = -1;
+        $this->nextVisible = -1;
+        $this->movedSpanEnd = -1;
         $this->lazyLines = [];
         $this->attachedPreludeLines = [];
         $this->lineBlockLazyLines = [];
@@ -321,6 +327,7 @@ final class BlockOwnershipWalk
 
                 continue;
             }
+            $reached = $this->standInvisibleLine($reached, $plus !== null);
             // A lone `+` nothing took is a plain letter and ends nothing (carve#4396). Payload stays as written.
             if (
                 $plus === null && self::isPlus($this->m['rest'])
@@ -612,6 +619,121 @@ final class BlockOwnershipWalk
         }
 
         return true;
+    }
+
+    /**
+     * A comment or one-line definition closes no indentation frame: the next
+     * visible line picks the owner (CARVE-P9-013).
+     */
+    private function standInvisibleLine(int $from, bool $atPlus): int
+    {
+        $top = count($this->frames) - 1;
+        if ($this->at <= $this->movedSpanEnd) {
+            // The rest of a matched `%%%` span moves with its opener.
+            $this->standAt($this->frames[$top]->col);
+
+            return $top;
+        }
+        if ($atPlus || $from === $top || $this->frames[$top]->kind === 'fence' || !$this->transparentLine($this->m['rest'], $this->at)) {
+            return $from;
+        }
+        // A line that misses an open fence's owner ends that fence first (S1), so it is read where it stands.
+        $deeper = $this->nextVisibleReach($this->at, $from);
+        if ($deeper === $from) {
+            return $from;
+        }
+        // A document-level abbreviation keeps its definition and leaves a comment in the frame it moves into.
+        if ($from === 0 && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', rtrim($this->m['rest'], " \t"), $abbreviation) === 1) {
+            $this->skippedAbbreviations[$this->at] = [$abbreviation[1], $abbreviation[2]];
+            $this->m['rest'] = '%%';
+        }
+        $this->standAt($this->frames[$deeper]->col);
+        $this->movedSpanEnd = $this->commentSpanEnd(rtrim($this->m['rest'], " \t"), $this->at);
+
+        return $deeper;
+    }
+
+    private function standAt(int $col): void
+    {
+        $this->src = str_repeat(' ', $col) . $this->m['rest'];
+        $this->m = self::indentCols($this->src);
+    }
+
+    private function transparentLine(string $rest, int $k): bool
+    {
+        $text = rtrim($rest, " \t");
+        // CARVE-P11-073: a region marker below a list closes every item; a footnote definition opens a frame.
+        if (preg_match('/^%%[ \t]*#(?:end)?region(?![A-Za-z0-9_])/', $text) === 1 || str_starts_with($text, '[^')) {
+            return false;
+        }
+
+        return $this->commentSpanEnd($text, $k) !== -1 || str_starts_with($text, '%%') || ($this->isDefinition)($text)
+            || preg_match('/^\*\[[A-Za-z0-9]+\]: +(?![ \t]*$)[^ ]/', $text) === 1;
+    }
+
+    private function commentSpanEnd(string $text, int $k): int
+    {
+        if (preg_match('/^(%{3,})/', $text, $comment) !== 1 || ($this->closerRuns()['lastComment'][strlen($comment[1])] ?? -1) <= $k) {
+            return -1;
+        }
+        $count = count($this->lines);
+        for ($j = $k + 1; $j < $count; $j++) {
+            $line = ltrim(rtrim($this->lines[$j], " \t"), " \t>");
+            if (preg_match('/^(%{3,})/', $line, $close) === 1 && strlen($close[1]) === strlen($comment[1])) {
+                return $j;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * How deep the next visible line reaches through the indentation frames below `$from`.
+     */
+    private function nextVisibleReach(int $at, int $from): int
+    {
+        $count = count($this->lines);
+        $unquoted = static fn (string $line): string => self::indentCols((string)preg_replace('/^[ \t>]*(?=>)>? ?/', '', $line))['rest'];
+        if ($this->nextVisible <= $at) {
+            $own = $this->commentSpanEnd(rtrim($unquoted($this->lines[$at]), " \t"), $at);
+            $this->nextVisible = ($own === -1 ? $at : $own) + 1;
+            for (; $this->nextVisible < $count; $this->nextVisible++) {
+                $text = rtrim($unquoted($this->lines[$this->nextVisible]), " \t");
+                if ($text === '') {
+                    continue;
+                }
+                $span = $this->commentSpanEnd($text, $this->nextVisible);
+                if ($span !== -1) {
+                    $this->nextVisible = $span;
+                } elseif (!$this->transparentLine($text, $this->nextVisible)) {
+                    break;
+                }
+            }
+        }
+        if ($this->nextVisible >= $count) {
+            return $from;
+        }
+        $next = self::indentCols($this->lines[$this->nextVisible]);
+        for ($k = 1; $k <= $from; $k++) {
+            if ($this->frames[$k]->kind !== 'quote') {
+                continue;
+            }
+            if (preg_match(self::QUOTE, $next['rest'], $q) !== 1) {
+                return $from;
+            }
+            $next = self::indentCols($q[1] ?? '');
+        }
+        $deepest = $from;
+        $frameCount = count($this->frames);
+        for ($k = $from + 1; $k < $frameCount; $k++) {
+            $frame = $this->frames[$k];
+            if (!in_array($frame->kind, ['item', 'dd', 'note'], true) || $next['col'] < $frame->col) {
+                break;
+            }
+            $deepest = $k;
+        }
+
+        return $deepest;
     }
 
     private function abbreviationMissesFrames(int $reached, OwnershipForm $form): bool
