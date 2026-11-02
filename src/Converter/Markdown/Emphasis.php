@@ -75,6 +75,17 @@ final class Emphasis
                 }
             }
         }
+        // A literal `*` inside a strong span would close a bare one, since strong is written `*`.
+        $holdsLiteralStar = [];
+        foreach ($pairs as $open => $pair) {
+            for ($i = $open + $pair['width']; $pair['kind'] === '*' && $i < $pair['close']; $i++) {
+                if ($source[$i] === '*' && !isset($claimed[$i]) && preg_match('/[\s\\\\]/', $source[$i - 1]) !== 1) {
+                    $holdsLiteralStar[$open] = true;
+
+                    break;
+                }
+            }
+        }
         foreach (array_keys(self::straddledBracketClosers($brackets, $pairs)) as $offset) {
             $literalEscapes[$offset] = true;
         }
@@ -143,7 +154,7 @@ final class Emphasis
                         'kind' => $pair['kind'],
                         'parent' => $frame['kind'],
                         'scope' => $pair['scope'],
-                        'force' => $frame['scope'] !== $pair['scope'] && $frame['kind'] === $pair['kind'],
+                        'force' => ($frame['scope'] !== $pair['scope'] && $frame['kind'] === $pair['kind']) || isset($holdsLiteralStar[$pair['open']]),
                         'slot' => count($output),
                         'first' => '',
                         'last' => '',
@@ -315,7 +326,8 @@ final class Emphasis
             }
             while ($runs[$c]->remaining() > 0) {
                 $closer = $runs[$c];
-                $key = $closer->char . ':' . (int)$closer->open . ':' . ($closer->remaining() % 3);
+                // Rules 9 and 10 measure whole runs, not what is left of them (CommonMark 6.2).
+                $key = $closer->char . ':' . (int)$closer->open . ':' . (($closer->end - $closer->start) % 3);
                 $bottom = $bottoms[$key] ?? -1;
                 for ($o = $closer->previous; $o > $bottom; $o = $runs[$o]->previous) {
                     $onStep?->__invoke();
@@ -327,9 +339,9 @@ final class Emphasis
                     if ($opener->scope !== $closer->scope) {
                         continue;
                     }
-                    $a = $opener->remaining();
-                    $b = $closer->remaining();
-                    if ($closer->char === '~' && $a !== $b) {
+                    $a = $opener->end - $opener->start;
+                    $b = $closer->end - $closer->start;
+                    if ($closer->char === '~' && $opener->remaining() !== $closer->remaining()) {
                         continue;
                     }
                     if ($closer->char !== '~' && ($opener->close || $closer->open) && ($a + $b) % 3 === 0 && ($a % 3 !== 0 || $b % 3 !== 0)) {
