@@ -260,6 +260,13 @@ final class BlockParseSession
     public array $discoveredAbbreviationLines = [];
 
     /**
+     * Abbreviation definitions a sibling run skipped, by source line: no node carries them.
+     *
+     * @var array<int, array{string, string}>
+     */
+    public array $siblingSkippedAbbreviations = [];
+
+    /**
      * The authoritative structural walk is currently collecting mixed
      * definitions. Inline nodes are built normally; forward-only resolution is
      * completed after the walk exposes every definition.

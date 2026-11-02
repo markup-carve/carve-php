@@ -907,6 +907,7 @@ class BlockParser
             $document->setAbbreviationSpans($this->state->session->abbreviationSpans);
         }
         $invisibleDefinitions = [];
+        $this->placeSiblingSkippedAbbreviations($document);
         foreach ($walk->skippedAbbreviations as [$term, $expansion]) {
             $invisibleDefinitions[] = ['abbr' => $term, 'expansion' => $expansion];
         }
@@ -3965,6 +3966,36 @@ class BlockParser
         // The grammar's expansion ends at `newline`; an indented following
         // line is a new paragraph, not a continuation of the definition.
         return 1;
+    }
+
+    /**
+     * A definition a sibling run skipped keeps a node at its source position, so
+     * the writer puts it back in order among the other definitions.
+     */
+    private function placeSiblingSkippedAbbreviations(Document $document): void
+    {
+        $skipped = $this->state->session->siblingSkippedAbbreviations;
+        if ($skipped === []) {
+            return;
+        }
+        ksort($skipped);
+        $pending = [];
+        foreach ($skipped as $line => [$term, $expansion]) {
+            $node = new AbbreviationDefinition($term, $expansion);
+            $node->setPos($this->state->source->trackPositions ? $this->wholeLineSpan($line) : null);
+            $pending[] = $node;
+        }
+        $merged = [];
+        $next = 0;
+        $count = count($pending);
+        foreach ($document->getChildren() as $child) {
+            $start = $child->getPos()?->startLine;
+            while ($next < $count && $start !== null && ($pending[$next]->getPos()->startLine ?? PHP_INT_MAX) < $start) {
+                $merged[] = $pending[$next++];
+            }
+            $merged[] = $child;
+        }
+        $document->setChildren([...$merged, ...array_slice($pending, $next)]);
     }
 
     protected function isAbbreviationDefinitionLine(string $line): bool

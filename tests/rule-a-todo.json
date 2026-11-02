@@ -4522,10 +4522,6 @@
             "ticket": "carve#4850"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"913-an-invisible-line-between-list-or-description-siblings-is-skipped-2\"",
-            "ticket": "carve#4716"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"914-three-blank-lines-end-a-description-list-4\"",
             "ticket": "carve#4759"
         },
@@ -4558,10 +4554,6 @@
             "ticket": "carve#4850"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"913-an-invisible-line-between-list-or-description-siblings-is-skipped-2\"",
-            "ticket": "carve#4716"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"914-three-blank-lines-end-a-description-list-4\"",
             "ticket": "carve#4759"
         },
@@ -4584,10 +4576,6 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 430-below-a-definition-body-s-column-an-invisible-line-folds-as-text-5\"",
             "ticket": "carve#4850"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"913-an-invisible-line-between-list-or-description-siblings-is-skipped-2\"",
-            "ticket": "carve#4716"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"914-three-blank-lines-end-a-description-list-4\"",
