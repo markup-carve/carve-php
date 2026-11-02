@@ -1637,8 +1637,10 @@ class MarkdownToCarve
 
                     return [$i, 'blockquote', $body, true];
                 }
-                $quotedItemHtml = $this->collectQuotedItemHtml($lines, $i, $quoted[1], $quotedText);
-                if ($quotedItemHtml !== null && !$this->quotedMarkerContinuesParagraph($quotedText, $quoted[1], $prevLineType, $quoteState)) {
+                $quotedItemHtml = $this->quotedMarkerContinuesParagraph($quotedText, $quoted[1], $prevLineType, $quoteState)
+                    ? null
+                    : $this->collectQuotedItemHtml($lines, $i, $quoted[1], $quotedText);
+                if ($quotedItemHtml !== null) {
                     $opener = $this->respellQuotedLine($lines, $i, $quoted[1], $quotedItemHtml['opener'], $prevLineType === 'blockquote', $quoteState, $result);
                     $result[] = $opener;
                     $pad = str_repeat(' ', strlen($opener) - strlen($quotedItemHtml['tail']) - strlen($quoted[1]));
@@ -5182,9 +5184,14 @@ class MarkdownToCarve
                 break;
             }
         }
+        $comments = count($this->htmlCommentLines);
         $html = $this->collectVerbatimHtmlBlock($block, 0, $contentColumn, false);
         if ($html === null) {
             return null;
+        }
+        // The block was read from a slice, so its comment names the slice's line.
+        if (count($this->htmlCommentLines) > $comments) {
+            $this->htmlCommentLines[$comments] = $this->sourceLine($start);
         }
         $body = array_map(fn (string $line): string => $this->stripColumns($line, $contentColumn), array_slice($html['lines'], 1));
 

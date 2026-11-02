@@ -163,6 +163,20 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         $this->assertSame($expected, $this->converter->convert($markdown));
     }
 
+    public function testAQuotedItemsCommentIsReportedAtItsOwnLine(): void
+    {
+        $paths = static fn (string $markdown): array => array_values(array_map(
+            static fn ($loss): ?string => $loss->path,
+            array_filter(
+                (new MarkdownToCarve())->convertWithFidelityReport($markdown)->diagnostics,
+                static fn ($loss): bool => $loss->code === 'markdown-html-comment',
+            ),
+        ));
+
+        $this->assertSame(['line:3'], $paths("intro\n\n> - <!-- c -->\n"));
+        $this->assertSame([], $paths("> p\n> 2) <!-- c -->\n"));
+    }
+
     public function testAConditionOneToFiveBlockRunsPastABlankLine(): void
     {
         // Only conditions 6 and 7 end at a blank line. A `<script>` runs to its
