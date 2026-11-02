@@ -1068,23 +1068,10 @@ final class BlockContinuationScanner
         if ($info === null || $this->lastCommentFenceIndex($lines, $info['length']) <= $index) {
             return false;
         }
-        $column = IndentationHelper::getLeadingColumns($line);
-        $local = ltrim($line, " \t");
-        $marker = ($this->getListParser)()->parseListItemMarker($local);
-        if ($marker === null) {
-            return false;
-        }
-        $column += $this->listMarkerWidth($local, $marker);
-        for ($j = $index + 1, $count = count($lines); $j < $count; $j++) {
-            if (($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($lines[$j], $info['length'])) {
-                return true;
-            }
-            if (!IndentationHelper::isBlankLine($lines[$j]) && IndentationHelper::getLeadingColumns($lines[$j], $column) < $column) {
-                return false;
-            }
-        }
 
-        return false;
+        // An exact-width closer ahead matches the span even past a line that misses the item;
+        // that line ends the span and the item under PART 0 S1 (carve#4770, ruled B).
+        return ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null;
     }
 
     /**

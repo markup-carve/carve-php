@@ -4522,48 +4522,12 @@
             "ticket": "carve#4850"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"914-three-blank-lines-end-a-description-list-4\"",
-            "ticket": "carve#4759"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"916-a-comment-does-not-split-a-nested-list-boundary-2\"",
-            "ticket": "carve#4760"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"916-a-comment-does-not-split-a-nested-list-boundary\"",
-            "ticket": "carve#4760"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"914-three-blank-lines-end-a-description-list-4\"",
-            "ticket": "carve#4759"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"916-a-comment-does-not-split-a-nested-list-boundary-2\"",
-            "ticket": "carve#4760"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"916-a-comment-does-not-split-a-nested-list-boundary\"",
-            "ticket": "carve#4760"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"191-a-blank-after-a-comment-still-ends-the-item\"",
             "ticket": "carve#4850"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"430-below-a-definition-body-s-column-an-invisible-line-folds-as-text-5\"",
             "ticket": "carve#4850"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"914-three-blank-lines-end-a-description-list-4\"",
-            "ticket": "carve#4759"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"916-a-comment-does-not-split-a-nested-list-boundary-2\"",
-            "ticket": "carve#4760"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"916-a-comment-does-not-split-a-nested-list-boundary\"",
-            "ticket": "carve#4760"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testThePartElevenOneCCeilingIsNoLongerReached",
@@ -4576,18 +4540,6 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 430-below-a-definition-body-s-column-an-invisible-line-folds-as-text-5\"",
             "ticket": "carve#4850"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"914-three-blank-lines-end-a-description-list-4\"",
-            "ticket": "carve#4759"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"916-a-comment-does-not-split-a-nested-list-boundary-2\"",
-            "ticket": "carve#4760"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"916-a-comment-does-not-split-a-nested-list-boundary\"",
-            "ticket": "carve#4760"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\ConverterCorpusTest::testConvertedSourceRendersTheExpectedHtml with data set \"101-markdown-an-html-comment-block-imports-as-a-line-comment\"",
