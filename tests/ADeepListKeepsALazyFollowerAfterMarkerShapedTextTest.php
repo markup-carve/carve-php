@@ -17,12 +17,12 @@ final class ADeepListKeepsALazyFollowerAfterMarkerShapedTextTest extends TestCas
     {
         yield 'nested bullet' => [
             "1. - a\n     - y\n      1. ~~~\nz\n",
-            "<ol>\n  <li>\n    <ul>\n      <li>a\n        <ul>\n          <li>y\n1. ~~~\nz</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ol>",
+            "<ol>\n  <li>\n    <ul>\n      <li>a\n        <ul>\n          <li>y</li>\n        </ul>\n        <ol>\n          <li>\n            <pre><code></code></pre>\n          </li>\n        </ol>\n      </li>\n    </ul>\n  </li>\n</ol>\n<p>z</p>",
         ];
 
         yield 'ordered sibling' => [
             "1. 1. a\n    1. y\n      - ~~~\nz\n",
-            "<ol>\n  <li>\n    <ol>\n      <li>a</li>\n      <li>y\n- ~~~\nz</li>\n    </ol>\n  </li>\n</ol>",
+            "<ol>\n  <li>\n    <ol>\n      <li>a</li>\n      <li>y</li>\n    </ol>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ol>\n<p>z</p>",
         ];
     }
 

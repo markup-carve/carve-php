@@ -19,7 +19,6 @@ final class OwnershipForm
      * @param int $frame
      * @param (\Closure(string, int): bool)|null $closes
      * @param string|null $axes
-     * @param array<string, mixed>|null $marker The item's parsed marker, for the list axes.
      * @param int $head
      * @param int $width
      * @param bool $lineBlock
@@ -39,7 +38,6 @@ final class OwnershipForm
         public readonly int $width = 0,
         public readonly int $head = 0,
         public readonly ?string $axes = null,
-        public readonly ?array $marker = null,
         public readonly ?string $family = null,
         public readonly bool $task = false,
         public readonly bool $caption = false,

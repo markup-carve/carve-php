@@ -448,17 +448,12 @@ final class BlockOwnershipWalk
                 $this->softLeaf = true;
             }
             $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts && !$captionsQuote && !$termRefuses && $form->kind !== 'dd'
-                // A marker at the missed list's column or at or left of the owner's content column opens a list of its own (S4, carve#4369).
-                && !($form->kind === 'item' && $next->kind === 'item' && (
-                    ($next->marker !== null && $form->marker !== null && $this->listParser->itemMatchesList($next->marker, $form->marker))
-                    || $this->m['col'] === min($next->listCol ?? (int)$next->markerCol, (int)$next->markerCol)
-                    || $this->m['col'] <= $this->frames[$reached]->col
-                ))
+                // A marker past a missed item opens a list of its own, so its items measure against their own columns (S4, §11 N1; carve#4369, carve#4545).
+                && !($form->kind === 'item' && $next->kind === 'item')
                 // A marker that misses a description but reaches the item holding it opens there (S3, carve#4479).
                 && !($form->kind === 'item' && $next->kind === 'dd' && $this->frames[$reached]->kind === 'item' && $this->frames[$topIndex]->kind === 'item');
             // Past a missed note a marker opens only beside a missed list (carve#4160).
-            // A marker between a missed item's columns that differs on an axis still folds into the note.
-            if ($lazy && $missedNote && $form->kind === 'item' && $missedItem && !$this->foldsBetweenMissedItemColumns($reached, $form)) {
+            if ($lazy && $missedNote && $form->kind === 'item' && $missedItem) {
                 // A quote's readers still see the note's lazy line.
                 if ($next->kind === 'quote') {
                     $this->lazyLines[$at] = true;
@@ -803,7 +798,6 @@ final class BlockOwnershipWalk
                 markerCol: $col,
                 markerCanon: $canon,
                 axes: $form->axes,
-                marker: $form->marker,
                 listCol: $listCol,
                 task: $form->task,
                 reader: $reader + $form->width,
@@ -1036,7 +1030,6 @@ final class BlockOwnershipWalk
                     head: $head['content'],
                     interrupts: false,
                     task: isset($marker['taskMarker']),
-                    marker: $marker,
                     axes: $marker['type'] === 'ordered'
                         ? substr((string)$marker['marker'], -1)
                     : substr((string)$marker['marker'], 0, 1),
@@ -1468,22 +1461,6 @@ final class BlockOwnershipWalk
     /**
      * The `+` closing a marker chain on a line the walk folds stays for the readers only if it attaches.
      */
-    private function foldsBetweenMissedItemColumns(int $reached, OwnershipForm $form): bool
-    {
-        $col = $this->m['col'];
-        for ($k = $reached + 1, $top = count($this->frames); $k < $top; $k++) {
-            $frame = $this->frames[$k];
-            if (
-                $frame->kind === 'item' && $frame->markerCol !== null && $col > $frame->markerCol && $col < $frame->col
-                && !($frame->marker !== null && $form->marker !== null && $this->listParser->itemMatchesList($frame->marker, $form->marker))
-            ) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private function decideFoldedMarkerPlus(int $at, int $hostIndex): void
     {
         $tail = $this->m['rest'];

@@ -1673,6 +1673,66 @@ class CarveCorpusTest extends TestCase
             'reason' => 'carve#4078: a wrapped glued run with nothing below renders nothing',
             'html' => '',
         ],
+        '806-a-marker-folds-into-the-paragraph-a-first-block-plus-took-2' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<ol>\n  <li>+ w1</li>\n</ol>\n<ul>\n  <li>w2</li>\n</ul>",
+        ],
+        '806-a-marker-folds-into-the-paragraph-a-first-block-plus-took' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<ul>\n  <li>+\nb</li>\n</ul>\n<ul>\n  <li>w1</li>\n</ul>",
+        ],
+        '853-a-line-after-a-marker-line-folded-into-a-sublist-item-folds-too' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<ol>\n  <li>\n    <ul>\n      <li>a\n        <ul>\n          <li>y</li>\n        </ul>\n        <ol>\n          <li>\n            <pre><code></code></pre>\n          </li>\n        </ol>\n      </li>\n    </ul>\n  </li>\n</ol>\n<p>z</p>",
+        ],
+        '868-a-list-marker-between-an-item-s-columns-is-a-sibling-only-on-every-axis-2' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"a\"> a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>",
+        ],
+        '868-a-list-marker-between-an-item-s-columns-is-a-sibling-only-on-every-axis-3' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<ol>\n  <li>a</li>\n</ol>\n<ol type=\"a\">\n  <li>b</li>\n</ol>",
+        ],
+        '868-a-list-marker-between-an-item-s-columns-is-a-sibling-only-on-every-axis-4' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<ol>\n  <li>a</li>\n</ol>\n<ol type=\"i\">\n  <li>b</li>\n</ol>",
+        ],
+        '868-a-list-marker-between-an-item-s-columns-is-a-sibling-only-on-every-axis-5' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<ol type=\"a\">\n  <li>a</li>\n</ol>\n<ol>\n  <li>b</li>\n</ol>",
+        ],
+        '868-a-list-marker-between-an-item-s-columns-is-a-sibling-only-on-every-axis-6' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<ul>\n  <li>x\n    <ul>\n      <li>a</li>\n    </ul>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"b\"> b</li>\n    </ul>\n  </li>\n</ul>",
+        ],
+        '868-a-list-marker-between-an-item-s-columns-is-a-sibling-only-on-every-axis' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<ul>\n  <li>a</li>\n</ul>\n<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"b\"> b</li>\n</ul>",
+        ],
+        '872-every-list-item-measures-its-content-against-its-own-content-column-6' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<ul>\n  <li>a\n    <ul>\n      <li>w</li>\n    </ul>\n    <ol>\n      <li>v</li>\n    </ol>\n    <ul>\n      <li>u</li>\n    </ul>\n  </li>\n</ul>",
+        ],
+        '872-the-third-confirmation-round-s-model-findings-2' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n  <ul>\n    <li>c</li>\n  </ul>\n</blockquote>\n<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>n<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
+        ],
+        '872-the-third-confirmation-round-s-model-findings' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<ul>\n  <li></li>\n</ul>\n<ul>\n  <li>child</li>\n</ul>\n<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
+        ],
+        '878-a-folded-marker-keeps-a-note-item-measured-from-its-source-column-2' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<p>q</p>\n<p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n      <ul>\n        <li>z\n          <h1 id=\"H\">H</h1>\n        </li>\n      </ul>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
+        ],
+        '878-a-folded-marker-keeps-a-note-item-measured-from-its-source-column-3' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n  <ul>\n    <li>z</li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n<p>q</p>",
+        ],
+        '878-a-folded-marker-keeps-a-note-item-measured-from-its-source-column' => [
+            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
+            'html' => "<p>q</p>\n<p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <ul>\n        <li>a</li>\n      </ul>\n      <ul>\n        <li>z</li>\n      </ul>\n      <pre><code></code></pre>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
+        ],
     ];
 
     protected CarveConverter $converter;
