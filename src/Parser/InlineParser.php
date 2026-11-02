@@ -3668,7 +3668,7 @@ class InlineParser
     {
         return isset($text[$offset])
             && ord($text[$offset]) >= 0x80
-            && preg_match('/\G[\p{Mn}\p{Mc}\p{Me}\x{FE00}-\x{FE0F}\x{200D}]/u', $text, $matches, 0, $offset) === 1;
+            && preg_match('/\A[\p{Mn}\p{Mc}\p{Me}\x{FE00}-\x{FE0F}\x{200D}]/u', $this->characterAt($text, $offset)) === 1;
     }
 
     /**
@@ -3683,7 +3683,8 @@ class InlineParser
             return ctype_alnum($text[$offset]);
         }
 
-        return preg_match('/\G[\p{L}\p{N}]/u', $text, $matches, 0, $offset) === 1;
+        // One character, not $text: a `/u` match validates its whole subject.
+        return preg_match('/\A[\p{L}\p{N}]/u', $this->characterAt($text, $offset)) === 1;
     }
 
     /**
