@@ -227,9 +227,32 @@ final class BlockReferenceResolver
             // a hoisted definition's span still points at the line the author
             // wrote it on - which is the whole point of hoisting a NODE rather
             // than a root map. The definition is single-line by production.
-            $node->setPos($this->wholeLineSpan($definition->line));
+            $node->setPos($this->fromOwnBracket($this->wholeLineSpan($definition->line), $label));
             $document->appendChild($node);
         }
+    }
+
+    /**
+     * A definition is a leaf: a container prefix and indentation are outside its span (carve#4952).
+     */
+    private function fromOwnBracket(?SourceSpan $span, string $label): ?SourceSpan
+    {
+        $line = $span === null ? null : ($this->state->source->authoredLines[$span->startLine - 1] ?? null);
+        $bracket = $line === null ? false : strpos($line, '[' . $label . ']');
+        if ($span === null || $bracket === false || $bracket === 0) {
+            return $span;
+        }
+        $shift = mb_strlen(substr((string)$line, 0, $bracket), 'UTF-8');
+
+        return new SourceSpan(
+            startLine: $span->startLine,
+            endLine: $span->endLine,
+            startColumn: $span->startColumn + $shift,
+            endColumn: $span->endColumn,
+            startOffset: $span->startOffset + $shift,
+            endOffset: $span->endOffset,
+            file: $span->file,
+        );
     }
 
     private function getReference(string $label): ?ReferenceDefinition
