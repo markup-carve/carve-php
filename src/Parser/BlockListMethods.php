@@ -18,6 +18,11 @@ use MarkupCarve\Carve\Util\StringUtil;
 trait BlockListMethods
 {
     /**
+     * @var array{lines: array<string>, indent: int, from: int, to: int, answer: bool}|null
+     */
+    private ?array $invisibleDescriptionRun = null;
+
+    /**
      * @param \MarkupCarve\Carve\Node\Block\ListBlock $list
      * @param array<string> $lines
      * @param int $i
@@ -869,6 +874,16 @@ trait BlockListMethods
      */
     protected function advanceItemDefinitionBody(?int $openColumn, string $line): ?int
     {
+        // An invisible line between two descriptions is skipped (carve#4716), so it leaves the body open.
+        $trimmed = ltrim($line, " \t");
+        if (
+            $openColumn !== null
+            && (str_starts_with($trimmed, '%%')
+                || ($this->isReferenceDefinitionLine($trimmed) && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) !== 1))
+        ) {
+            return $openColumn;
+        }
+
         return BlockContinuationScanner::advanceDefinitionBody($openColumn, $line);
     }
 
@@ -901,7 +916,52 @@ trait BlockListMethods
         int $contentIndent,
         int $openColumn,
     ): bool {
-        return BlockContinuationScanner::definitionBodyContinues($lines, $index, $count, $contentIndent, $openColumn);
+        if (BlockContinuationScanner::definitionBodyContinues($lines, $index, $count, $contentIndent, $openColumn)) {
+            return true;
+        }
+        // An invisible run between two descriptions is skipped (carve#4716), short of three blanks (N1a).
+        // One answer per run: every blank of it would otherwise rescan the rest.
+        $cached = $this->invisibleDescriptionRun;
+        if ($cached !== null && $cached['lines'] === $lines && $cached['indent'] === $contentIndent && $index >= $cached['from'] && $index < $cached['to']) {
+            return $cached['answer'];
+        }
+        $blanks = 0;
+        $skipped = false;
+        for ($next = $index; $next < $count; $next++) {
+            $line = $lines[$next];
+            if (IndentationHelper::isBlankLine($line)) {
+                $blanks++;
+
+                continue;
+            }
+            $trimmed = ltrim($line, " \t");
+            if (IndentationHelper::getLeadingColumns($line) < $contentIndent) {
+                break;
+            }
+            $spanEnd = $this->commentFenceSpanEnd($trimmed, $lines, $next);
+            if ($spanEnd !== null) {
+                $skipped = true;
+                $next = $spanEnd - 1;
+
+                continue;
+            }
+            if (
+                str_starts_with($trimmed, '%%')
+                || ($this->isReferenceDefinitionLine($trimmed) && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) !== 1)
+            ) {
+                $skipped = true;
+
+                continue;
+            }
+
+            break;
+        }
+        $answer = $next < $count && $skipped && $blanks < 3
+            && IndentationHelper::getLeadingColumns($lines[$next]) >= $contentIndent
+            && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($lines[$next], " \t")) === 1;
+        $this->invisibleDescriptionRun = ['lines' => $lines, 'indent' => $contentIndent, 'from' => $index, 'to' => $next, 'answer' => $answer];
+
+        return $answer;
     }
 
     /**

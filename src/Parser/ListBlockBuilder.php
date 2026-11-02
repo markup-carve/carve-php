@@ -1446,6 +1446,8 @@ final class ListBlockBuilder
         // sibling markers inside it are the nested list's own
         // business and must not get a loosening blank injected.
         $subSawListMarker = false;
+        // Whether the collected stream already holds a term at the item's content column.
+        $subSawTerm = false;
         $subMarkerFence = null;
         $subMarkerFenceColumn = 0;
         $subMarkerFenceSourceColumn = 0;
@@ -1592,8 +1594,17 @@ final class ListBlockBuilder
             // marker at the column the collected list opened at is
             // that list's next item, whatever a deeper list did in
             // between (markup-carve/carve-php#2140).
-            $continuesCollectedList = $subSawListMarker
-                && ($this->getListParser)()->parseListItemMarker(ltrim(IndentationHelper::stripLeadingColumns($subLine, $subIndent), " \t")) !== null;
+            $subContent = ltrim(IndentationHelper::stripLeadingColumns($subLine, $subIndent), " \t");
+            $opensTermOrDescription = $lineIndent === $subIndent
+                && (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $subContent) === 1
+                    || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $subContent) === 1);
+            // A term or description below a collected term continues that description list too.
+            $continuesCollectedList = ($subSawListMarker
+                && ($this->getListParser)()->parseListItemMarker($subContent) !== null)
+                || ($subSawTerm && ($opensTermOrDescription
+                    || ($lineIndent === $subIndent && $this->invisibleRunReachesADescription($lines, $i, $count, $subIndent))));
+            $subSawTerm = $subSawTerm
+                || ($lineIndent === $subIndent && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $subContent) === 1);
             $nestedFenceMarker = $this->isNestedFenceMarker($subMarkerFence, $lineIndent, $subIndent, $i);
             // An open fence, div or block comment still owns the line
             // (carve-php#2507, carve-php#2519).
@@ -2899,6 +2910,65 @@ final class ListBlockBuilder
 
         return $info !== null && ($this->getListParser)()->itemMatchesList($listInfo, $info) ? $j : null;
     }
+
+    /**
+     * Whether an invisible run from `$i` is skipped into a description (carve#4716), short of three blanks (N1a).
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     * @param int $column
+     */
+    private function invisibleRunReachesADescription(array $lines, int $i, int $count, int $column): bool
+    {
+        // One answer per run: every line of it would otherwise rescan the rest.
+        $cached = $this->invisibleRunAnswer;
+        if ($cached !== null && $cached['lines'] === $lines && $cached['column'] === $column && $i >= $cached['from'] && $i < $cached['to']) {
+            return $cached['answer'];
+        }
+        $blanks = 0;
+        for ($b = $i - 1; $b >= 0 && IndentationHelper::isBlankLine($lines[$b]); $b--) {
+            $blanks++;
+        }
+        $skipped = false;
+        for ($k = $i; $k < $count; $k++) {
+            if (IndentationHelper::isBlankLine($lines[$k])) {
+                $blanks++;
+
+                continue;
+            }
+            $trimmed = ltrim($lines[$k], " \t");
+            if (IndentationHelper::getLeadingColumns($lines[$k]) !== $column) {
+                break;
+            }
+            if (str_starts_with($trimmed, '%%%') && ($this->commentRoles($lines)[$k] ?? null) === 'open') {
+                $roles = $this->commentRoles($lines);
+                for ($k++; $k < $count && ($roles[$k] ?? null) !== 'close'; $k++) {
+                }
+                $skipped = true;
+
+                continue;
+            }
+            if (str_starts_with($trimmed, '%%') || $this->isListTransparentDefinition($trimmed, false)) {
+                $skipped = true;
+
+                continue;
+            }
+
+            break;
+        }
+        $answer = $k < $count && $skipped && $blanks < 3
+            && IndentationHelper::getLeadingColumns($lines[$k]) === $column
+            && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($lines[$k], " \t")) === 1;
+        $this->invisibleRunAnswer = ['lines' => $lines, 'column' => $column, 'from' => $i, 'to' => $k, 'answer' => $answer];
+
+        return $answer;
+    }
+
+    /**
+     * @var array{lines: array<string>, column: int, from: int, to: int, answer: bool}|null
+     */
+    private ?array $invisibleRunAnswer = null;
 
     private function isListTransparentDefinition(string $line, bool $atDocument): bool
     {
