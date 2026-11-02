@@ -12,10 +12,8 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the notes family",
       "cases": [
-        "notes-47da77f91f9b",
         "notes-4dc51b5608ab",
-        "notes-aa4cc37942d1",
-        "notes-d2500c45a956"
+        "notes-aa4cc37942d1"
       ]
     },
     {
