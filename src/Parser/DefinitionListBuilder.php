@@ -1117,7 +1117,7 @@ final class DefinitionListBuilder
             && $l->contColumn < $b->continuationColumn
             && !(preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($l->lastBody, " \t")) === 1
                 && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($l->contLine, " \t")) === 1)
-            && !$this->lineOpensBlockForLooseness(ltrim($l->contLine, " \t"), true)
+            && !$this->lineOpensBlockForLooseness(ltrim($l->contLine, " \t"))
             && preg_match('/^\|.*\|[ \t]*$/', ltrim($l->contLine, " \t")) !== 1
             && $this->bodyEntryStartsParagraph($b->body[array_key_last($b->body)])
             && ($this->getListParser)()->parseListItemMarker(ltrim($l->lastBody, " \t")) === null
@@ -1775,7 +1775,7 @@ final class DefinitionListBuilder
             && ($belowColumnMarker || $l->paragraphFenceIsText
                 || ($b->descriptionAtDocumentOrQuote
                     && $l->indent < $b->continuationColumn && $l->belowDescriptionTextOpener)
-                || !$this->lineOpensBlockForLooseness($l->trimmedCont, true, invisibleArms: false))
+                || !$this->lineOpensBlockForLooseness($l->trimmedCont, invisibleArms: false))
         ) {
             $b->body[$l->lastBodyKey] .= "\n" . $l->trimmedCont;
             // A folded invalid opener still arms absorption for the bare run after it (CARVE-P9-016).
@@ -2429,7 +2429,7 @@ final class DefinitionListBuilder
                     ($b->bodyState->nestedColumn > 0 || $l->indent > 0)
                     && ($l->indent > 0 && $b->descriptionAtDocumentOrQuote
                         && $l->indent < $b->continuationColumn && $l->belowDescriptionTextOpener
-                        || !$this->lineOpensBlockForLooseness($l->trimmedCont, true, invisibleArms: false))
+                        || !$this->lineOpensBlockForLooseness($l->trimmedCont, invisibleArms: false))
                 )
             )
             && !IndentationHelper::isBlankLine($l->contLine)
