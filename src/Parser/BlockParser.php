@@ -86,6 +86,18 @@ class BlockParser
 
     private ?BlockContinuationScanner $continuationsService = null;
 
+    /**
+     * Document-owned abbreviation definitions skipped by a plus, in source order.
+     *
+     * @var array<int, array{string, string}>
+     */
+    private array $skippedAbbreviations = [];
+
+    /**
+     * @var array<int, true>
+     */
+    private array $syntheticAbbreviationLines = [];
+
     private ?NestedLeadFenceScanner $nestedLeadFenceService = null;
 
     /**
@@ -749,7 +761,10 @@ class BlockParser
         $walk->trace = $this->traceNext ? [] : null;
         $this->traceNext = false;
         $plusLetter = PlusLetter::for($input);
+        $this->state->session->plusLetter = $plusLetter;
         $lines = $walk->own($lines, $plusLetter);
+        $this->skippedAbbreviations = $walk->skippedAbbreviations;
+        $this->syntheticAbbreviationLines = array_fill_keys(array_keys($walk->skippedAbbreviations), true);
         if ($walk->trace !== null) {
             $this->decisionTrace = $walk->trace;
         }
@@ -791,6 +806,7 @@ class BlockParser
         // Definitions are collected by this authoritative structural walk, and
         // forward inline references are resolved afterwards.
         $this->parseBlocks($document, $lines, 0, topLevel: true);
+        $this->defineSkippedAbbreviationsBefore(PHP_INT_MAX);
         $this->state->session->discoveringDefinitions = false;
         $this->finishIntegratedDefinitionPass($document, $lines);
 
@@ -890,6 +906,11 @@ class BlockParser
             $document->setAbbreviationsBeforeBody($this->state->session->abbreviationsBeforeBody);
             $document->setAbbreviationSpans($this->state->session->abbreviationSpans);
         }
+        $invisibleDefinitions = [];
+        foreach ($walk->skippedAbbreviations as [$term, $expansion]) {
+            $invisibleDefinitions[] = ['abbr' => $term, 'expansion' => $expansion];
+        }
+        $document->setInvisibleAbbreviationDefinitions($invisibleDefinitions);
 
         // Record the source byte length so renderers can size the
         // abbreviation-expansion budget (output-amplification DoS guard).
@@ -1134,6 +1155,21 @@ class BlockParser
             $this->settleDeferredImageCaptions(...),
             $this->hasFootnote(...),
         ))->finish($document, $lines);
+    }
+
+    private function defineSkippedAbbreviationsBefore(int $sourceLine): void
+    {
+        while ($this->skippedAbbreviations !== []) {
+            $line = array_key_first($this->skippedAbbreviations);
+            if ($line >= $sourceLine) {
+                break;
+            }
+            [$term, $expansion] = $this->skippedAbbreviations[$line];
+            unset($this->skippedAbbreviations[$line]);
+            $this->state->session->abbreviations[$term] = $expansion;
+            $this->state->session->abbreviationDefinitions[] = ['abbr' => $term, 'expansion' => $expansion];
+            $this->state->session->discoveredAbbreviationLines[$line] = true;
+        }
     }
 
     /**
@@ -1923,6 +1959,10 @@ class BlockParser
         $blankRun = 0;
 
         while ($i < $count) {
+            $sourceLine = $this->sourceLineFor($i);
+            if ($sourceLine >= 0) {
+                $this->defineSkippedAbbreviationsBefore($sourceLine);
+            }
             if ($childrenBeforeBlank !== null && self::hasVisibleChildFrom($parent, $childrenBeforeBlank)) {
                 $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn, $blankFollowerLine);
                 $childrenBeforeBlank = null;
@@ -2813,6 +2853,14 @@ class BlockParser
         // Carve line comment: a `%%` line (the `%%%` fenced form is handled
         // earlier by tryParseFencedComment) runs to end of line, not rendered.
         if (str_starts_with(ltrim($line, " \t"), '%%')) {
+            $sourceLine = $this->sourceLineFor($start);
+            if (
+                isset($this->syntheticAbbreviationLines[$sourceLine])
+                || isset($this->state->session->discoveredAbbreviationLines[$sourceLine])
+                    && preg_match(self::ABBREVIATION_DEFINITION_PATTERN, trim($this->state->source->authoredLines[$sourceLine] ?? '')) === 1
+            ) {
+                return 1;
+            }
             $content = substr(ltrim($line, " \t"), 2);
             if ($content !== '' && $content[0] === ' ') {
                 $content = substr($content, 1);

@@ -18,6 +18,8 @@ use WeakMap;
  */
 final class BlockParseSession
 {
+    public string $plusLetter = '';
+
     /**
      * Physical opener column of a folded fence inside a parsed paragraph.
      *

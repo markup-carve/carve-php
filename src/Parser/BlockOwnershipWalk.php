@@ -64,6 +64,13 @@ final class BlockOwnershipWalk
     public array $attachedPreludeLines = [];
 
     /**
+     * Abbreviation definitions skipped after an attached plus, keyed by source line.
+     *
+     * @var array<int, array{string, string}>
+     */
+    public array $skippedAbbreviations = [];
+
+    /**
      * Lazy lines folded into an open line block's stanza, keyed by line index.
      *
      * @var array<int, true>
@@ -623,7 +630,14 @@ final class BlockOwnershipWalk
         if (isset($skipped['noteBodies'][$at])) {
             $this->lazyLines[$at] = true;
         }
-        $result[] = $skipped['lead'] . (($skipped['fenced'][$at] ?? false)
+        $abbreviation = $skipped['hostIndex'] === 1
+            && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', trim($this->lines[$at]), $match) === 1
+            ? [$match[1], rtrim($match[2], " \t")]
+            : null;
+        if ($abbreviation !== null) {
+            $this->skippedAbbreviations[$at] = $abbreviation;
+        }
+        $result[] = $skipped['lead'] . (($skipped['fenced'][$at] ?? false) || $abbreviation !== null
             ? '%%'
             : ($this->throughQuotes($this->lines[$at], $skipped['hostIndex'], $this->frames)['rest'] ?? ''));
         if ($this->trace !== null) {
@@ -1253,7 +1267,10 @@ final class BlockOwnershipWalk
                     $noteBodies[$k] = true;
                     $k++;
                 }
-            } elseif (preg_match('/^%%/', $rest) === 1 || ($this->isDefinition)($rest)) {
+            } elseif (
+                preg_match('/^%%/', $rest) === 1 || ($this->isDefinition)($rest)
+                || ($hostIndex === 1 && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1)
+            ) {
                 $k++;
             } elseif ($rest !== '' && $rest[0] === '{' && ($this->isAttributeLine)($rest)) {
                 $k++;

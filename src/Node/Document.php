@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Node;
 
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
+use WeakMap;
 
 /**
  * Root document node
@@ -35,6 +36,13 @@ class Document extends Node
      * @var array<int, array<string, string>>
      */
     protected array $abbreviationDefinitions = [];
+
+    /**
+     * Parser-only definitions omitted from the authored tree.
+     *
+     * @var \WeakMap<self, array<int, array<string, string>>>|null
+     */
+    private static ?WeakMap $invisibleAbbreviationDefinitions = null;
 
     /**
      * Where each `*[ABBR]: …` line sat, keyed by abbreviation.
@@ -157,6 +165,9 @@ class Document extends Node
     public function setAbbreviations(array $abbreviations): void
     {
         $this->abbreviations = $abbreviations;
+        if (self::$invisibleAbbreviationDefinitions !== null) {
+            unset(self::$invisibleAbbreviationDefinitions[$this]);
+        }
     }
 
     public function hasAbbreviationsBeforeBody(): bool
@@ -212,6 +223,18 @@ class Document extends Node
     public function setAbbreviationDefinitions(array $definitions): void
     {
         $this->abbreviationDefinitions = $definitions;
+        if (self::$invisibleAbbreviationDefinitions !== null) {
+            unset(self::$invisibleAbbreviationDefinitions[$this]);
+        }
+    }
+
+    /**
+     * @param array<int, array<string, string>> $definitions
+     */
+    public function setInvisibleAbbreviationDefinitions(array $definitions): void
+    {
+        self::$invisibleAbbreviationDefinitions ??= new WeakMap();
+        self::$invisibleAbbreviationDefinitions[$this] = $definitions;
     }
 
     /**
@@ -222,20 +245,24 @@ class Document extends Node
      */
     public function getAbbreviationDefinitionsNotInTree(): array
     {
-        if ($this->abbreviationDefinitions !== []) {
-            return [];
+        if (self::$invisibleAbbreviationDefinitions !== null && isset(self::$invisibleAbbreviationDefinitions[$this])) {
+            return self::$invisibleAbbreviationDefinitions[$this];
         }
 
         $inTree = [];
         foreach ($this->children as $child) {
             if ($child instanceof AbbreviationDefinition) {
-                $inTree[$child->getAbbr()] = true;
+                $key = $child->getAbbr() . "\0" . $child->getExpansion();
+                $inTree[$key] = ($inTree[$key] ?? 0) + 1;
             }
         }
 
         $residual = [];
         foreach ($this->getAbbreviationDefinitions() as $definition) {
-            if (isset($inTree[$definition['abbr']])) {
+            $key = $definition['abbr'] . "\0" . $definition['expansion'];
+            if (($inTree[$key] ?? 0) > 0) {
+                $inTree[$key]--;
+
                 continue;
             }
             $residual[] = $definition;

@@ -2856,20 +2856,37 @@ final class ListBlockBuilder
      */
     private function commentRunBeforeSibling(array $lines, int $i, int $count, int $baseIndent, array $listInfo): ?int
     {
-        if (!str_contains($lines[$i], '%%')) {
-            return null;
-        }
         $roles = $this->commentRoles($lines);
-        if (($roles[$i] ?? null) !== 'line' && ($roles[$i] ?? null) !== 'open') {
+        if (
+            ($roles[$i] ?? null) !== 'line' && ($roles[$i] ?? null) !== 'open'
+            && !$this->isListTransparentDefinition(ltrim($lines[$i], " \t"))
+        ) {
             return null;
         }
         $j = $i;
-        while ($j < $count && isset($roles[$j])) {
+        $hasDefinition = false;
+        while (
+            $j < $count && (isset($roles[$j]) || $this->isListTransparentDefinition(ltrim($lines[$j], " \t")))
+        ) {
+            $hasDefinition = $hasDefinition || $this->isListTransparentDefinition(ltrim($lines[$j], " \t"));
             $j++;
         }
         $k = $j;
         while ($k < $count && IndentationHelper::isBlankLine($lines[$k])) {
             $k++;
+        }
+        if ($hasDefinition) {
+            $prior = $this->sourceLineFor($i) - 1;
+            $priorBody = $prior >= 0
+                ? ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$prior] ?? '')
+                : '';
+            $priorBody = str_replace($this->state->session->plusLetter, '+', $priorBody);
+            if (
+                !$this->leadBottomIsContinuationMarker(ltrim($priorBody, " \t"))
+                || ($i > 0 && IndentationHelper::isBlankLine($lines[$i - 1]))
+            ) {
+                return null;
+            }
         }
         if ($k >= $count || IndentationHelper::getLeadingColumns($lines[$k]) !== $baseIndent) {
             return null;
@@ -2877,6 +2894,14 @@ final class ListBlockBuilder
         $info = ($this->getListParser)()->parseListItemMarker(ltrim($lines[$k], " \t"));
 
         return $info !== null && ($this->getListParser)()->itemMatchesList($listInfo, $info) ? $j : null;
+    }
+
+    private function isListTransparentDefinition(string $line): bool
+    {
+        return preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $line) === 1
+            || ($this->isFoldableInvisibleLine($line)
+                && ReferenceDefinitionExtractor::isDefinitionHead($line)
+                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) !== 1);
     }
 
     /**
@@ -3003,7 +3028,16 @@ final class ListBlockBuilder
         $run = [];
         $map = [];
         for ($j = $i; $j < $end; $j++) {
-            $run[] = preg_match('/^[ \t]*%%/', $lines[$j]) === 1 ? ltrim($lines[$j], " \t") : $lines[$j];
+            $line = ltrim($lines[$j], " \t");
+            if (preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $line, $abbr) === 1) {
+                if ($this->state->session->discoveringDefinitions) {
+                    $this->state->session->abbreviations[$abbr[1]] = rtrim($abbr[2], " \t");
+                    $this->state->session->abbreviationDefinitions[] = ['abbr' => $abbr[1], 'expansion' => rtrim($abbr[2], " \t")];
+                    $this->state->session->discoveredAbbreviationLines[$this->sourceLineFor($j)] = true;
+                }
+                $line = '%%';
+            }
+            $run[] = str_starts_with($line, '%%') ? $line : $lines[$j];
             $map[] = $this->sourceLineFor($j);
         }
         $this->callParseItemBlocks($lastItem, $run, $map);
