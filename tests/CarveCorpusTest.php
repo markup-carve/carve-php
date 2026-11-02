@@ -1712,7 +1712,6 @@ class CarveCorpusTest extends TestCase
         '933-a-list-marker-in-an-item-ends-a-comment-only-paragraph-3' => 'carve#4890: a list marker in an item ends a comment only paragraph',
         '933-a-list-marker-in-an-item-ends-a-comment-only-paragraph-4' => 'carve#4890: a list marker in an item ends a comment only paragraph',
         '936-an-invisible-line-keeps-a-description-entry-open-2' => 'carve#4901: an invisible line keeps a description entry open',
-        '936-an-invisible-line-keeps-a-description-entry-open-5' => 'carve#4862: an invisible line keeps a description entry open',
         '937-a-blank-before-only-invisible-lines-loosens-the-list' => 'carve#4903: a blank before only invisible lines loosens the list',
         '937-a-blank-before-only-invisible-lines-loosens-the-list-3' => 'carve#4903: a blank before only invisible lines loosens the list',
         '880-an-own-line-plus-reaches-a-marker-line-quote-at-its-authored-column-3' => 'carve#4702: own-line plus reaches a marker-line quote',
