@@ -435,6 +435,10 @@ class AstCodecTest extends TestCase
         '744-a-task-item-uses-the-ordered-item-column-rule.crv',
         // carve#4432, at the pin to carve b7876589
         '856-a-quote-at-the-content-column-stays-in-the-item-after-a-refused-separator.crv',
+        // carve#4716: the writer drops an abbreviation definition between list siblings
+        '913-an-invisible-line-between-list-or-description-siblings-is-skipped-2.crv',
+        // carve#4762, at the pin to carve c3c2f80f
+        '914-a-line-block-in-an-item-child-keeps-its-stanza-after-a-comment-or-marker-shaped-payload-3.crv',
     ];
 
     /**

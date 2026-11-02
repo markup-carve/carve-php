@@ -1738,14 +1738,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"187-a-comment-fence-is-a-comment-at-any-column-too\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"192-a-comment-fence-under-a-nested-item-does-not-close-it-either\"",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"228-a-line-at-a-footnote-definition-s-own-column-followed-by-non-blank-text-forms-its-own-tight-block\"",
             "ticket": "carve-php#4244"
         },
@@ -1759,10 +1751,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"285-adjacent-block-openers-in-an-attached-run-stay-separate-2\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"637-definition-body-note-and-fence-owner-boundaries-5\"",
             "ticket": "carve-php#4244"
         },
         {
@@ -1826,14 +1814,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 187-a-comment-fence-is-a-comment-at-any-column-too\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 192-a-comment-fence-under-a-nested-item-does-not-close-it-either\"",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 228-a-line-at-a-footnote-definition-s-own-column-followed-by-non-blank-text-forms-its-own-tight-block\"",
             "ticket": "carve-php#4244"
         },
@@ -1850,31 +1830,7 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 637-definition-body-note-and-fence-owner-boundaries-5\"",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 99-table-cell-attributes\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 103-a-heading-marker-opens-at-an-indented-top-level-column\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 103-a-heading-marker-opens-at-an-indented-top-level-column-2\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 159-indented-reference-and-footnote-definitions-register-2\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 184-a-definition-below-every-content-column-ends-the-item-and-registers\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 422-a-recognized-opener-in-a-body-needs-no-blank-line-above-it-6\"",
             "ticket": "carve-php#4244"
         },
         {
@@ -4556,6 +4512,102 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\QuoteAndFootnoteFirstBlockTest::testItemQuoteFirstBlockForm with data set \"marker-line quote takes table at its column\"",
             "ticket": "carve-php#4328"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"191-a-blank-after-a-comment-still-ends-the-item\"",
+            "ticket": "carve#4850"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"430-below-a-definition-body-s-column-an-invisible-line-folds-as-text-5\"",
+            "ticket": "carve#4850"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"913-an-invisible-line-between-list-or-description-siblings-is-skipped-2\"",
+            "ticket": "carve#4716"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"914-three-blank-lines-end-a-description-list-4\"",
+            "ticket": "carve#4759"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"916-a-comment-does-not-split-a-nested-list-boundary-2\"",
+            "ticket": "carve#4760"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"916-a-comment-does-not-split-a-nested-list-boundary\"",
+            "ticket": "carve#4760"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"914-three-blank-lines-end-a-description-list-4\"",
+            "ticket": "carve#4759"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"916-a-comment-does-not-split-a-nested-list-boundary-2\"",
+            "ticket": "carve#4760"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"916-a-comment-does-not-split-a-nested-list-boundary\"",
+            "ticket": "carve#4760"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"191-a-blank-after-a-comment-still-ends-the-item\"",
+            "ticket": "carve#4850"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"430-below-a-definition-body-s-column-an-invisible-line-folds-as-text-5\"",
+            "ticket": "carve#4850"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"913-an-invisible-line-between-list-or-description-siblings-is-skipped-2\"",
+            "ticket": "carve#4716"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"914-three-blank-lines-end-a-description-list-4\"",
+            "ticket": "carve#4759"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"916-a-comment-does-not-split-a-nested-list-boundary-2\"",
+            "ticket": "carve#4760"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"916-a-comment-does-not-split-a-nested-list-boundary\"",
+            "ticket": "carve#4760"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testThePartElevenOneCCeilingIsNoLongerReached",
+            "ticket": "carve#4850"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 191-a-blank-after-a-comment-still-ends-the-item\"",
+            "ticket": "carve#4850"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 430-below-a-definition-body-s-column-an-invisible-line-folds-as-text-5\"",
+            "ticket": "carve#4850"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"913-an-invisible-line-between-list-or-description-siblings-is-skipped-2\"",
+            "ticket": "carve#4716"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"914-three-blank-lines-end-a-description-list-4\"",
+            "ticket": "carve#4759"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"916-a-comment-does-not-split-a-nested-list-boundary-2\"",
+            "ticket": "carve#4760"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"916-a-comment-does-not-split-a-nested-list-boundary\"",
+            "ticket": "carve#4760"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\ConverterCorpusTest::testConvertedSourceRendersTheExpectedHtml with data set \"101-markdown-an-html-comment-block-imports-as-a-line-comment\"",
+            "ticket": "carve#4812"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\ConverterCorpusTest::testConvertedSourceRendersTheExpectedHtml with data set \"102-markdown-a-multi-line-html-comment-imports-as-a-comment-fence\"",
+            "ticket": "carve#4812"
         }
     ]
 }

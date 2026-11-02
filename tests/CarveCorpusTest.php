@@ -1600,6 +1600,28 @@ class CarveCorpusTest extends TestCase
         'a-term-continuation-in-a-description-keeps-spaces-past-the-body-column',
         'folded-separator-lines-keep-a-description-in-a-div-in-an-item',
         'paragraphs-after-a-closed-marker-line-child-loosen-the-item',
+        'a-fence-on-a-note-s-marker-line-item-reads-its-payload-at-the-item-s-content-column',
+        'a-line-block-in-a-description-under-a-list-item-takes-a-lazy-line-after-a-definition-shaped-payload',
+        'an-invisible-line-between-list-or-description-siblings-is-skipped',
+        'a-line-block-in-an-item-child-keeps-its-stanza-after-a-comment-or-marker-shaped-payload',
+        'three-blank-lines-end-a-description-list',
+        'abbreviations-skip-caption-cross-reference-text-and-an-unresolved-cross-reference',
+        'a-comment-does-not-split-a-nested-list-boundary',
+        'a-braced-comment-after-a-quote-does-not-change-its-direction',
+        'an-unresolved-reference-in-a-cell-reads-the-unescaped-pipe',
+        'a-plus-attached-div-in-a-list-item-ends-at-the-next-sibling-marker',
+        'a-wrapped-attribute-lead-is-invisible-to-list-looseness',
+        'a-line-block-stanza-remains-open-after-a-paired-payload-run',
+        'an-authored-rowspan-or-colspan-on-a-cell-is-dropped',
+        'a-note-frame-ends-before-a-second-item-paragraph',
+        'a-task-item-reads-a-definition-after-extra-box-padding',
+        'a-code-fence-with-invalid-metadata-keeps-its-language',
+        'abbreviations-skip-an-editorial-comment-and-an-unresolved-symbol',
+        'an-indented-caption-line-captions-its-host',
+        'unicode-letters-block-bare-emphasis',
+        'a-quote-holding-only-braced-comments-is-not-a-caption-host',
+        'a-single-capital-with-a-dot-needs-two-spaces',
+        'an-attached-colon-frame-stops-at-a-description-sibling',
     ];
 
     /**
@@ -1641,6 +1663,36 @@ class CarveCorpusTest extends TestCase
         '872-a-table-writes-one-col-per-column-entry' => 'carve#4608: a table writes one col per column entry',
         '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',
         '873-a-plus-after-an-attached-block-reaches-its-host-through-quote-prefixes-2' => 'carve#4649: a plus reaches its host through quote prefixes',
+        '01-emphasis-6' => 'carve#4810: emphasis',
+        '132-thematic-break-requires-contiguous-markers' => 'carve#4814: thematic break requires contiguous markers',
+        '132-thematic-break-requires-contiguous-markers-5' => 'carve#4814: thematic break requires contiguous markers',
+        '15-heading-ids-4' => 'carve#4815: heading ids',
+        '163-unresolved-footnote-reference-with-a-trailing-attribute-stays-literal' => 'carve#4814: unresolved footnote reference with a trailing attribute stays literal',
+        '20-smart-typography-arrows-and-symbols' => 'carve#4808: smart typography arrows and symbols',
+        '288-heading-index-plain-text-covers-visible-leaves-and-rejects-an-empty-key-3' => 'carve#4809: heading index plain text covers visible leaves and rejects an empty key',
+        '386-the-doubled-run-is-the-canonical-arrow-in-both-families' => 'carve#4815: the doubled run is the canonical arrow in both families',
+        '45-inline-extensions-6' => 'carve#4513: inline extensions',
+        '489-a-caption-s-placeholder-is-any-that-does-not-begin-a-tag-5' => 'carve#4809: a caption s placeholder is any that does not begin a tag',
+        '60-tag-requires-a-word-boundary-2' => 'carve#4809: tag requires a word boundary',
+        '806-a-marker-folds-into-the-paragraph-a-first-block-plus-took-3' => 'carve#4545: a marker folds into the paragraph a first block plus took',
+        '822-an-id-dropped-with-an-unresolved-reference-reserves-nothing' => 'carve#4814: an id dropped with an unresolved reference reserves nothing',
+        '822-an-id-dropped-with-an-unresolved-reference-reserves-nothing-2' => 'carve#4814: an id dropped with an unresolved reference reserves nothing',
+        '849-a-marker-the-left-boundary-refuses-is-an-ordinary-character' => 'carve#4815: a marker the left boundary refuses is an ordinary character',
+        '849-a-marker-the-left-boundary-refuses-is-an-ordinary-character-2' => 'carve#4815: a marker the left boundary refuses is an ordinary character',
+        '866-a-literal-bracket-run-is-a-typography-region-2' => 'carve#4813: a literal bracket run is a typography region',
+        '869-a-braced-comment-line-after-a-plus-is-the-attached-paragraph' => 'carve#4799: a braced comment line after a plus is the attached paragraph',
+        '883-an-arrow-takes-its-hyphens-from-a-longer-run' => 'carve#4645: an arrow takes its hyphens from a longer run',
+        '922-a-wrapped-attribute-lead-is-invisible-to-list-looseness' => 'carve#4758: a wrapped attribute lead is invisible to list looseness',
+        '922-a-wrapped-attribute-lead-is-invisible-to-list-looseness-2' => 'carve#4758: a wrapped attribute lead is invisible to list looseness',
+        '926-a-quote-holding-only-braced-comments-is-not-a-caption-host' => 'carve#4799: a quote holding only braced comments is not a caption host',
+        '926-a-single-capital-with-a-dot-needs-two-spaces' => 'carve#4811: a single capital with a dot needs two spaces',
+        '926-a-single-capital-with-a-dot-needs-two-spaces-10' => 'carve#4811: a single capital with a dot needs two spaces',
+        '926-a-single-capital-with-a-dot-needs-two-spaces-11' => 'carve#4811: a single capital with a dot needs two spaces',
+        '926-a-single-capital-with-a-dot-needs-two-spaces-2' => 'carve#4811: a single capital with a dot needs two spaces',
+        '926-a-single-capital-with-a-dot-needs-two-spaces-3' => 'carve#4811: a single capital with a dot needs two spaces',
+        '926-a-single-capital-with-a-dot-needs-two-spaces-5' => 'carve#4811: a single capital with a dot needs two spaces',
+        '926-a-single-capital-with-a-dot-needs-two-spaces-6' => 'carve#4811: a single capital with a dot needs two spaces',
+        '926-a-single-capital-with-a-dot-needs-two-spaces-8' => 'carve#4811: a single capital with a dot needs two spaces',
     ];
 
     /**
@@ -1656,116 +1708,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '11-fenced-code-11' => [
-            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
-            'html' => "<pre><code class=\"language-js\">code\n</code></pre>\n",
-        ],
-        '11-fenced-code-12' => [
-            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
-            'html' => "<pre><code class=\"language-php\">code\n</code></pre>\n",
-        ],
-        '258-code-fence-metadata-slots-must-be-a-space-too-4' => [
-            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
-            'html' => "<pre><code class=\"language-js\">x\n</code></pre>\n",
-        ],
-        '258-code-fence-metadata-slots-must-be-a-space-too-5' => [
-            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
-            'html' => "<pre><code class=\"language-js\">x\n</code></pre>\n",
-        ],
-        '258-code-fence-metadata-slots-must-be-a-space-too-6' => [
-            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
-            'html' => "<pre><code class=\"language-js\">x\n</code></pre>\n",
-        ],
-        '258-code-fence-metadata-slots-must-be-a-space-too-7' => [
-            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
-            'html' => "<pre><code class=\"language-js\">x\n</code></pre>\n",
-        ],
-        '258-code-fence-metadata-slots-must-be-a-space-too-8' => [
-            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
-            'html' => "<pre><code class=\"language-js\">x\n</code></pre>\n",
-        ],
-        '258-code-fence-metadata-slots-must-be-a-space-too-9' => [
-            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
-            'html' => "<pre><code class=\"language-js\">x\n</code></pre>\n",
-        ],
-        '704-a-non-ascii-letter-does-not-block-a-bare-delimiter' => [
-            'reason' => 'carve#4806: the alnum guard reads Unicode letters and numbers',
-            'html' => "<p>é*x* y and a*x* y\ny *x*é and y *x*a</p>\n",
-        ],
-        '792-a-glued-attribute-run-is-one-physical-line-2' => [
-            'reason' => 'carve#4078: each block of a glued run may wrap',
-            'html' => "<p class=\"a b\">p</p>\n",
-        ],
-        '792-a-glued-attribute-run-is-one-physical-line-3' => [
-            'reason' => 'carve#4078: each block of a glued run may wrap',
-            'html' => "<p class=\"a b\">p</p>\n",
-        ],
-        '792-a-glued-attribute-run-is-one-physical-line-4' => [
-            'reason' => 'carve#4078: a wrapped glued run with nothing below renders nothing',
-            'html' => '',
-        ],
-        '806-a-marker-folds-into-the-paragraph-a-first-block-plus-took-2' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<ol>\n  <li>+ w1</li>\n</ol>\n<ul>\n  <li>w2</li>\n</ul>",
-        ],
-        '806-a-marker-folds-into-the-paragraph-a-first-block-plus-took' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<ul>\n  <li>+\nb</li>\n</ul>\n<ul>\n  <li>w1</li>\n</ul>",
-        ],
-        '853-a-line-after-a-marker-line-folded-into-a-sublist-item-folds-too' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<ol>\n  <li>\n    <ul>\n      <li>a\n        <ul>\n          <li>y</li>\n        </ul>\n        <ol>\n          <li>\n            <pre><code></code></pre>\n          </li>\n        </ol>\n      </li>\n    </ul>\n  </li>\n</ol>\n<p>z</p>",
-        ],
-        '868-a-list-marker-between-an-item-s-columns-is-a-sibling-only-on-every-axis-2' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"a\"> a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>",
-        ],
-        '868-a-list-marker-between-an-item-s-columns-is-a-sibling-only-on-every-axis-3' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<ol>\n  <li>a</li>\n</ol>\n<ol type=\"a\">\n  <li>b</li>\n</ol>",
-        ],
-        '868-a-list-marker-between-an-item-s-columns-is-a-sibling-only-on-every-axis-4' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<ol>\n  <li>a</li>\n</ol>\n<ol type=\"i\">\n  <li>b</li>\n</ol>",
-        ],
-        '868-a-list-marker-between-an-item-s-columns-is-a-sibling-only-on-every-axis-5' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<ol type=\"a\">\n  <li>a</li>\n</ol>\n<ol>\n  <li>b</li>\n</ol>",
-        ],
-        '868-a-list-marker-between-an-item-s-columns-is-a-sibling-only-on-every-axis-6' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<ul>\n  <li>x\n    <ul>\n      <li>a</li>\n    </ul>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"b\"> b</li>\n    </ul>\n  </li>\n</ul>",
-        ],
-        '868-a-list-marker-between-an-item-s-columns-is-a-sibling-only-on-every-axis' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<ul>\n  <li>a</li>\n</ul>\n<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"b\"> b</li>\n</ul>",
-        ],
-        '872-every-list-item-measures-its-content-against-its-own-content-column-6' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<ul>\n  <li>a\n    <ul>\n      <li>w</li>\n    </ul>\n    <ol>\n      <li>v</li>\n    </ol>\n    <ul>\n      <li>u</li>\n    </ul>\n  </li>\n</ul>",
-        ],
-        '872-the-third-confirmation-round-s-model-findings-2' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n  <ul>\n    <li>c</li>\n  </ul>\n</blockquote>\n<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>n<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
-        ],
-        '872-the-third-confirmation-round-s-model-findings' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<ul>\n  <li></li>\n</ul>\n<ul>\n  <li>child</li>\n</ul>\n<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
-        ],
-        '878-a-folded-marker-keeps-a-note-item-measured-from-its-source-column-2' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<p>q</p>\n<p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n      <ul>\n        <li>z\n          <h1 id=\"H\">H</h1>\n        </li>\n      </ul>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
-        ],
-        '878-a-folded-marker-keeps-a-note-item-measured-from-its-source-column-3' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n  <ul>\n    <li>z</li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n<p>q</p>",
-        ],
-        '878-a-folded-marker-keeps-a-note-item-measured-from-its-source-column' => [
-            'reason' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-            'html' => "<p>q</p>\n<p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <ul>\n        <li>a</li>\n      </ul>\n      <ul>\n        <li>z</li>\n      </ul>\n      <pre><code></code></pre>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 

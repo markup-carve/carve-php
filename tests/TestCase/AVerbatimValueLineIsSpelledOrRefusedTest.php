@@ -15,9 +15,7 @@ class AVerbatimValueLineIsSpelledOrRefusedTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const UNSPELLED_AHEAD_OF_PIN = [
-        'dot-marker-in-a-bullet-item' => 'carve#4545: a marker between an item\'s columns that differs on an axis opens a new list',
-    ];
+    protected const UNSPELLED_AHEAD_OF_PIN = [];
 
     /**
      * @return array<string, array{string, string}>
