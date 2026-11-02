@@ -3042,6 +3042,7 @@ final class ListBlockBuilder
                     $this->state->session->abbreviations[$abbr[1]] = rtrim($abbr[2], " \t");
                     $this->state->session->abbreviationDefinitions[] = ['abbr' => $abbr[1], 'expansion' => rtrim($abbr[2], " \t")];
                     $this->state->session->discoveredAbbreviationLines[$this->sourceLineFor($j)] = true;
+                    $this->state->session->siblingSkippedAbbreviations[$this->sourceLineFor($j)] = [$abbr[1], rtrim($abbr[2], " \t")];
                 }
                 $line = '%%';
             }

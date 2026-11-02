@@ -682,6 +682,7 @@ final class DefinitionListBuilder
                     $this->state->session->abbreviations[$abbr[1]] = rtrim($abbr[2], " \t");
                     $this->state->session->abbreviationDefinitions[] = ['abbr' => $abbr[1], 'expansion' => rtrim($abbr[2], " \t")];
                     $this->state->session->discoveredAbbreviationLines[$this->sourceLineFor($k)] = true;
+                    $this->state->session->siblingSkippedAbbreviations[$this->sourceLineFor($k)] = [$abbr[1], rtrim($abbr[2], " \t")];
                 }
                 $line = '%%';
             }
