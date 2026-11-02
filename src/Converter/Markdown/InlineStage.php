@@ -28,6 +28,8 @@ final class InlineStage
     use EscapesCarveConstructs;
     use ReportsMigrationFidelity;
 
+    private static ?CarveConverter $markupProbe = null;
+
     /**
      * @var string
      */
@@ -126,6 +128,10 @@ final class InlineStage
             if ($fence === 0) {
                 return $protectCode($span, $raw);
             }
+            if ($this->context->blockEscape === InlineContext::BLOCK_ESCAPE) {
+                $span = str_replace(InlineContext::BLOCK_ESCAPE, '', $span);
+                $fence = strspn($span, '`');
+            }
             $value = preg_replace('/\n[ \t]*/', ' ', substr($span, $fence, -$fence)) ?? '';
             if (str_starts_with($value, ' ') && str_ends_with($value, ' ') && trim($value, ' ') !== '') {
                 $value = substr($value, 1, -1);
@@ -136,6 +142,9 @@ final class InlineStage
             return $protectCode($codeWriter->spellImportedCodeSpan($value), $span);
         };
         $line = $this->protectCodeSpans($line, $writeCodeSpan);
+        if ($this->context->blockEscape === InlineContext::BLOCK_ESCAPE) {
+            $line = str_replace(InlineContext::BLOCK_ESCAPE, '\\', $line);
+        }
         $line = preg_replace_callback(
             '/(?<!\\\\)\[(\^[^\[\]\n]*?)\\\\\]/',
             static fn (array $match): string => $protect('\\[', '[') . $match[1] . '\\]',
@@ -518,9 +527,19 @@ final class InlineStage
         $line = str_replace('&#', '&\\#', $line);
 
         $line = $this->escapeLinkLabelSlashes($line, $protected);
-        $line = Emphasis::convert($line, function (): void {
+        $onFlatten = function (): void {
             $this->context->flattenedEmphasis = true;
-        }, null, $protected, strikethrough: true, spanSources: $protectedSources);
+        };
+        $converted = Emphasis::convert($line, $onFlatten, null, $protected, strikethrough: true, spanSources: $protectedSources);
+        // A `_` or `*` run Markdown leaves bare can still pair under Carve's
+        // flanking rules (`._!___a`), so it is escaped when Carve would read markup.
+        if (preg_match_all('/(?<!\\\\)[_*]/', $converted) >= 2) {
+            $escaped = Emphasis::convert($line, $onFlatten, null, $protected, strikethrough: true, spanSources: $protectedSources, escapeBare: true);
+            if ($escaped !== $converted && self::escapesAFlankingRun($converted, $escaped) && $this->pairedMarkupCount($converted, $protected) > $this->pairedMarkupCount($escaped, $protected)) {
+                $converted = $escaped;
+            }
+        }
+        $line = $converted;
 
         $line = strtr($line, $nativeInlineTags);
 
@@ -529,6 +548,45 @@ final class InlineStage
         $line = $this->escapeFinalInlineText($line, $work, $protect, $hasProtectedEscapeBefore, $table);
 
         return $this->restoreProtectedInlineOutput($line, $work, $table);
+    }
+
+    /**
+     * Whether an escape `$escaped` adds sits on a run with a non-word neighbor:
+     * a run between two letters or digits pairs with nothing in Carve.
+     */
+    private static function escapesAFlankingRun(string $converted, string $escaped): bool
+    {
+        $length = strlen($converted);
+        for ($at = 0, $other = 0; $at < $length; $at++, $other++) {
+            if ($converted[$at] === ($escaped[$other] ?? '')) {
+                continue;
+            }
+            $other++;
+            $before = $converted[$at - 1] ?? ' ';
+            $after = $converted[$at + 1] ?? ' ';
+            if ($at === 0 || !ctype_alnum($before) || !ctype_alnum($after)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * How many strong and underline spans Carve reads in a converted line.
+     *
+     * @param string $line
+     * @param array<string> $protected
+     */
+    private function pairedMarkupCount(string $line, array $protected): int
+    {
+        for ($pass = 0; $pass < 4 && str_contains($line, "\x00P"); $pass++) {
+            $line = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $m): string => $protected[(int)$m[1]] ?? 'x', $line) ?? $line;
+        }
+        self::$markupProbe ??= new CarveConverter();
+        $html = self::$markupProbe->convert(str_replace("\x00", 'x', $line));
+
+        return (int)preg_match_all('/<(?:strong|u)>/', $html);
     }
 
     private function resolveMarkdownAngleLabelClosers(string $line, Closure $protect): string
@@ -3056,7 +3114,10 @@ final class InlineStage
             $label,
         ) ?? $label;
 
+        // A hard break's plain text is the line ending, an autolink's its address.
+        $label = preg_replace('/(?<!\\\\)((?:\\\\\\\\)*)\\\\\n|(?<! ) {2,}\n/', "\$1\n", $label) ?? $label;
         $label = Emphasis::convert($label, protectedSpans: $protected, plainText: true);
+        $label = preg_replace('/<([A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\x00-\x20]*|[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', '$1', $label) ?? $label;
 
         return preg_replace_callback(
             '/\x00P(\d+)\x00/',

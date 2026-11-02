@@ -18,6 +18,7 @@ final class Emphasis
      * @param bool $plainText
      * @param bool $strikethrough
      * @param array<string> $spanSources
+     * @param bool $escapeBare escape every `_` and `*` no pair claims
      */
     public static function convert(
         string $source,
@@ -27,6 +28,7 @@ final class Emphasis
         bool $plainText = false,
         bool $strikethrough = false,
         array $spanSources = [],
+        bool $escapeBare = false,
     ): string {
         $neighbor = static function (int $offset, bool $left) use ($source, $protectedSpans, $spanSources): string {
             $index = $left ? $offset - 1 : $offset;
@@ -67,7 +69,7 @@ final class Emphasis
         foreach ($runs as $run) {
             $neighbors = self::before($source, $run->start) . self::after($source, $run->end);
             $partiallyClaimed = isset($claimed[$run->start]) || isset($claimed[$run->end - 1]);
-            if ($partiallyClaimed || ($run->char === '_' && preg_match('/[^\x00-\x7f]/u', $neighbors)) || str_contains($neighbors, "\u{00a0}")) {
+            if ($partiallyClaimed || ($escapeBare && $run->char !== '~') || ($run->char === '_' && preg_match('/[^\x00-\x7f]/u', $neighbors)) || str_contains($neighbors, "\u{00a0}")) {
                 for ($i = $run->start; $i < $run->end; $i++) {
                     if (!isset($claimed[$i])) {
                         $literalEscapes[$i] = true;

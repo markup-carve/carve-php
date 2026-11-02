@@ -9,6 +9,17 @@ use MarkupCarve\Carve\Renderer\CarveRenderer;
 final class InlineContext
 {
     /**
+     * @var string
+     */
+    public const BLOCK_ESCAPE = "\x02";
+
+    /**
+     * What the block stage writes before a block opener in paragraph text:
+     * `BLOCK_ESCAPE`, or a plain backslash when the input holds that byte.
+     */
+    public string $blockEscape = '\\';
+
+    /**
      * @var array<string, string|null>
      */
     public array $authoredDestinations = [];
