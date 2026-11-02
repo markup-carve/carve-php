@@ -22,7 +22,7 @@ class ACommentAfterAPlusPulledParagraphTakesNoPlusTest extends TestCase
         return [
             'closerless comment opener in a nested item' => [
                 ". a\n  . %%%\n    n\n  zz\n%%%\n",
-                ". a\n  . %% %\n    n\n+\nzz\n  %% %\n",
+                ". a\n  . %%%\n    n\n    %%%\n  zz\n  %%%\n\n  %%%\n",
             ],
             'line comment after a pulled paragraph' => [
                 ". a\n  . b\n    n\n+\nzz\n%% c\n",

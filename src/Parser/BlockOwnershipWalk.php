@@ -362,9 +362,33 @@ final class BlockOwnershipWalk
             $plusFollower = $afterPlus || $this->frames[count($this->frames) - 1]->plus === $at - 1;
             $afterPlus = false;
             $missed = $reached < count($this->frames) - 1;
-            $this->reach = $reached;
             $innerIndex = count($this->frames) - 1;
             $inner = $this->frames[$innerIndex];
+            // A comment line below the column misses no host of an open comment span (CARVE-P0-005).
+            if (
+                $missed && $inner->kind === 'fence' && $inner->family === 'comment' && $inner->span === null
+                && str_starts_with($this->m['rest'], '%%')
+                && !($inner->closes !== null && ($inner->closes)($this->m['rest'], $this->m['col']))
+            ) {
+                $missed = false;
+                $reached = $innerIndex;
+            }
+            $this->reach = $reached;
+            // A comment closer below its host's column still closes the span (PART 9 §28).
+            if (
+                $inner->kind === 'fence' && $inner->family === 'comment' && $missed && $inner->span === null
+                && $this->m['rest'] !== '' && $inner->closes !== null && ($inner->closes)($this->m['rest'], $this->m['col'])
+            ) {
+                array_pop($this->frames);
+                $this->frames[count($this->frames) - 1]->last = 'block';
+                $this->lead($this->frames[$reached]->canon);
+                $result[] = $this->out . $this->src;
+                if ($this->trace !== null) {
+                    $this->emit($at, 'S1', $this->ownerPath(), 'CARVE-P0-005', 'closer', ['cell' => 'B-comment-end']);
+                }
+
+                continue;
+            }
             if ($inner->kind === 'fence' && !$missed) {
                 // S1: an open payload tests its closer first (B-<family>-keep, B-<family>-end).
                 $payloadPath = $this->trace !== null ? $this->ownerPath() : '';
@@ -395,11 +419,11 @@ final class BlockOwnershipWalk
                         && ($this->closerRuns()['widest'][$f[1][0]][$at + 1] ?? 0) >= strlen($f[1])
                     ) {
                         $this->frames[$innerIndex]->span = $f[1];
-                    } elseif (preg_match('/^(%{3,})/', $rest, $c) === 1 && ($this->closerRuns()['lastComment'][strlen($c[1])] ?? -1) > $at) {
+                    } elseif (preg_match('/^(%{3,})/', $rest, $c) === 1) {
                         $this->frames[$innerIndex]->span = $c[1];
                     }
-                    // A blank payload line ends the stanza, so no lazy line folds past it (PART 0 S4).
-                    $this->frames[$innerIndex]->para = $rest !== '';
+                    // A blank payload line ends the stanza, so no lazy line folds past it (PART 0 S4); a comment opener is no verse.
+                    $this->frames[$innerIndex]->para = $rest !== '' && preg_match('/^%{3,}/', $rest) !== 1;
                 }
                 $result[] = $this->out . $this->src;
                 if ($this->trace !== null) {
@@ -1052,14 +1076,13 @@ final class BlockOwnershipWalk
         }
         if (preg_match('/^(%{3,})(.*)$/D', $rest, $comment) === 1) {
             $run = strlen($comment[1]);
-            if (($this->closerRuns()['lastComment'][$run] ?? -1) > $this->at) {
-                return new OwnershipForm(
-                    kind: 'fence',
-                    interrupts: true,
-                    closes: static fn (string $r, int $closerCol): bool => preg_match('/^(%{3,})/', $r, $c) === 1 && strlen($c[1]) === $run,
-                    family: 'comment',
-                );
-            }
+
+            return new OwnershipForm(
+                kind: 'fence',
+                interrupts: true,
+                closes: static fn (string $r, int $closerCol): bool => preg_match('/^(%{3,})/', $r, $c) === 1 && strlen($c[1]) === $run,
+                family: 'comment',
+            );
         }
         if (str_starts_with($rest, '%%')) {
             return new OwnershipForm(kind: 'leaf', interrupts: true);
@@ -1316,12 +1339,13 @@ final class BlockOwnershipWalk
             if (self::docColumn($this->lines[$k], $view($k)) !== $column) {
                 return $k;
             }
-            if (preg_match('/^(%{3,})/', $rest, $c) === 1 && ($this->closerRuns()['lastComment'][strlen($c[1])] ?? -1) > $k) {
+            if (preg_match('/^(%{3,})/', $rest, $c) === 1) {
                 $closer = '/^%{' . strlen($c[1]) . '}(?!%)/';
                 $opener = $k++;
                 // A nonblank line that misses the host ends the span (CARVE-P0-005, carve#4870).
                 $misses = fn (int $j): bool => $this->throughQuotes($this->lines[$j], $hostIndex, $frames) === null
-                    || (trim($view($j), " \t") !== '' && self::docColumn($this->lines[$j], $view($j)) < $column);
+                    || (trim($view($j), " \t") !== '' && !str_starts_with(ltrim($view($j), " \t"), '%%')
+                        && self::docColumn($this->lines[$j], $view($j)) < $column);
                 while ($k < $n && preg_match($closer, $view($k)) !== 1 && !$misses($k)) {
                     $k++;
                 }

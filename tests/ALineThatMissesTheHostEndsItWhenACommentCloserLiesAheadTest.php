@@ -22,23 +22,23 @@ class ALineThatMissesTheHostEndsItWhenACommentCloserLiesAheadTest extends TestCa
         return [
             'nested item, line at column 0 (929)' => [
                 ". a\n  . %%%\n    n\n>>\n%%%\n",
-                "<ol>\n  <li>a\n    <ol>\n      <li>n</li>\n    </ol>\n  </li>\n</ol>\n<p>&gt;&gt;</p>",
+                "<ol>\n  <li>a\n    <ol>\n      <li></li>\n    </ol>\n  </li>\n</ol>\n<p>&gt;&gt;</p>",
             ],
             'nested item, line in the outer item' => [
                 ". a\n  . %%%\n    n\n  zz\n%%%\n",
-                "<ol>\n  <li>a\n    <ol>\n      <li>n</li>\n    </ol>\n    zz\n  </li>\n</ol>",
+                "<ol>\n  <li>a\n    <ol>\n      <li></li>\n    </ol>\n    zz\n  </li>\n</ol>",
             ],
             'nested item without a closer folds as after %%' => [
                 ". a\n  . %%%\n    n\n  zz\n",
-                "<ol>\n  <li>a\n    <ol>\n      <li>n\nzz</li>\n    </ol>\n  </li>\n</ol>",
+                "<ol>\n  <li>a\n    <ol>\n      <li></li>\n    </ol>\n    zz\n  </li>\n</ol>",
             ],
             'description in an item keeps its payload' => [
                 "- a\n  :: t\n  : b\n    %%%\n    n\n  >>\n  %%%\n",
-                "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>b</p>\n        <p>n</p>\n      </dd>\n    </dl>\n    &gt;&gt;\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n      <dd>b</dd>\n    </dl>\n    &gt;&gt;\n  </li>\n</ul>",
             ],
             'description in a quote keeps its payload' => [
                 "> :: t\n> : b\n>   %%%\n>   n\n> >>\n> %%%\n",
-                "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>\n      <p>b</p>\n      <p>n</p>\n    </dd>\n  </dl>\n  <p>&gt;&gt;</p>\n</blockquote>",
+                "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>b</dd>\n  </dl>\n  <p>&gt;&gt;</p>\n</blockquote>",
             ],
         ];
     }

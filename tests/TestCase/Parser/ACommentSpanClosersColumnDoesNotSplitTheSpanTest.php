@@ -184,7 +184,7 @@ class ACommentSpanClosersColumnDoesNotSplitTheSpanTest extends TestCase
             // answer it that way, which is why it belongs here.
             'a quote, a marker-abutting run is text' => [
                 "> head\n>\n>   %%%\n>   a\n>%%%\n",
-                "<blockquote>\n  <p>head</p>\n  <p>a\n&gt;%%%</p>\n</blockquote>",
+                "<blockquote><p>head</p></blockquote>\n<p>&gt;%%%</p>",
             ],
             'a quote, closer at its opener base' => [
                 "> head\n>\n>   %%%\n>   a\n>   %%%\n",
@@ -220,7 +220,8 @@ class ACommentSpanClosersColumnDoesNotSplitTheSpanTest extends TestCase
         foreach (range(0, 5) as $column) {
             $rows['delimiter at column ' . $column] = [
                 "- head\n\n    ```\n    %%%\n    ```\n" . str_repeat(' ', $column) . "%%%\ntail\n",
-                "<ul>\n  <li>head\n    <pre><code>%%%\n</code></pre>\n  </li>\n</ul>\n<p>tail</p>",
+                // Below the item's column the opener holds `tail`; from it on, `tail` ends the span (carve#4907).
+                "<ul>\n  <li>head\n    <pre><code>%%%\n</code></pre>\n  </li>\n</ul>" . ($column < 2 ? '' : "\n<p>tail</p>"),
             ];
         }
 

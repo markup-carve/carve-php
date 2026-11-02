@@ -46,13 +46,11 @@ class LinkDefinitionInsideACommentTest extends TestCase
         $this->assertStringContainsString('href="/u"', $html);
     }
 
-    public function testAnUnterminatedFenceDoesNotSuppressTheRestOfTheDocument(): void
+    public function testAnUnterminatedFenceHidesTheRestOfTheDocument(): void
     {
-        // An unterminated `%%%` is not a fenced comment - it degrades to a
-        // single-line comment. Treating it as open would have swallowed every
-        // later definition in the document.
+        // An unterminated `%%%` opens a span to the end of the document (carve#4907).
         $html = $this->converter->convert("%%%\n[r]: /u\n\n[r][]");
 
-        $this->assertStringContainsString('href="/u"', $html);
+        $this->assertSame('', $html);
     }
 }

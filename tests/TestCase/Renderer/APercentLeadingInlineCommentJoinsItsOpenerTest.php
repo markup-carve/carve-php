@@ -38,8 +38,8 @@ class APercentLeadingInlineCommentJoinsItsOpenerTest extends TestCase
     public static function inlineSpellings(): array
     {
         return [
-            'a verse line holds the run whole' => ["::: |\na\n%%%\nb\n:::\n", "::: |\na\n%%%\nb\n:::\n"],
-            'a verse line canonicalizes the separated spelling' => ["::: |\na\n%% %\nb\n:::\n", "::: |\na\n%%%\nb\n:::\n"],
+            'a verse line opener hides the rest of the block' => ["::: |\na\n%%%\nb\n:::\n", "::: |\na\n%%%\nb\n:::\n%%%\n:::\n"],
+            'a verse line keeps the separated spelling' => ["::: |\na\n%% %\nb\n:::\n", "::: |\na\n%% %\nb\n:::\n"],
             'a trailing comment on a paragraph' => ["a %%%\n", "a %%%\n"],
             'the separated spelling canonicalizes to it' => ["a %% %\n", "a %%%\n"],
             'a longer run keeps its content' => ["a %%%foo\n", "a %%%foo\n"],
@@ -97,12 +97,12 @@ class APercentLeadingInlineCommentJoinsItsOpenerTest extends TestCase
 
     public function testTheBlockArmKeepsItsSeparator(): void
     {
-        $this->assertSame("%% %\n\nx\n\n%% %\n", CarveConverter::toCarve("%%%\nx\n%% %\n"));
+        $this->assertSame("%%%\nx\n%% %\n%%%\n", CarveConverter::toCarve("%%%\nx\n%% %\n"));
     }
 
     public function testTheBlockArmNeverEmitsAJoinedLine(): void
     {
-        $this->assertStringNotContainsString("\n%%%\n", "\n" . CarveConverter::toCarve("%%%\nx\n%% %\n"));
+        $this->assertStringContainsString("\n%% %\n", CarveConverter::toCarve("%%%\nx\n%% %\n"));
     }
 
     public function testTheParagraphBetweenTwoBlockCommentsSurvives(): void
@@ -114,9 +114,9 @@ class APercentLeadingInlineCommentJoinsItsOpenerTest extends TestCase
         );
     }
 
-    public function testThatParagraphIsStillRendered(): void
+    public function testThatParagraphStaysHiddenInTheSpan(): void
     {
-        $this->assertStringContainsString('<p>x</p>', $this->converter->convert(CarveConverter::toCarve("%%%\nx\n%% %\n")));
+        $this->assertStringNotContainsString('<p>x</p>', $this->converter->convert(CarveConverter::toCarve("%%%\nx\n%% %\n")));
     }
 
     /**

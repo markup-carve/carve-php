@@ -157,15 +157,8 @@ final class LineBlockBuilder
         }
 
         $contentLines = array_map(BlockGrammar::stripLazyFrame(...), $contentLines);
-        // A closed `%%%` pair leaves no verse line and splits no stanza (CARVE-P9-047).
+        // A `%%%` span leaves no verse line and splits no stanza (CARVE-P9-047); it needs no closer.
         // Only an opener whose first character is `%` qualifies; the closer may be indented.
-        $lastCloser = [];
-        foreach ($contentLines as $index => $contentLine) {
-            $run = self::commentRun($contentLine);
-            if ($run !== null) {
-                $lastCloser[$run] = $index;
-            }
-        }
 
         $stanza = [];
         /** @var list<\MarkupCarve\Carve\Node\Block\Comment> $leading */
@@ -178,16 +171,16 @@ final class LineBlockBuilder
         for ($index = 0; $index < $count; $index++) {
             $contentLine = $contentLines[$index];
             $lineNumber = $start + 1 + $index;
-            if (preg_match('/^(%{3,})(.*)$/', $contentLine, $opener) === 1 && ($lastCloser[strlen($opener[1])] ?? -1) > $index) {
+            if (preg_match('/^(%{3,})(.*)$/', $contentLine, $opener) === 1) {
                 $run = strlen($opener[1]);
                 $closer = $index + 1;
-                while (self::commentRun($contentLines[$closer]) !== $run) {
+                while ($closer < $count && self::commentRun($contentLines[$closer]) !== $run) {
                     $closer++;
                 }
                 $tail = trim($opener[2], " \t");
                 $commentLines = array_slice($contentLines, $index + 1, $closer - $index - 1);
                 $comment = new Comment(implode("\n", $tail === '' ? $commentLines : [$tail, ...$commentLines]), $run);
-                $this->stampBlockSpan($comment, $this->sourceLineFor($lineNumber), $this->sourceLineFor($start + 1 + $closer));
+                $this->stampBlockSpan($comment, $this->sourceLineFor($lineNumber), $this->sourceLineFor($start + 1 + min($closer, $count - 1)));
                 if ($stanza !== []) {
                     $after[count($stanza) - 1][] = $comment;
                 } else {

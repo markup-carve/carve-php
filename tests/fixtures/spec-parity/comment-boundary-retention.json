@@ -47,7 +47,7 @@
   {
     "id": "comment-boundary-retention/446-a-degraded-comment-fence-leaves-a-lazy-follower-where-the-line-form-does-3",
     "source": "- x\n  %%%\n  body\ny\n",
-    "html": "<ul>\n  <li>x\n    body\ny\n  </li>\n</ul>\n"
+    "html": "<ul>\n  <li>x</li>\n</ul>\n<p>y</p>\n"
   },
   {
     "id": "comment-boundary-retention/446-a-degraded-comment-fence-leaves-a-lazy-follower-where-the-line-form-does-4",
@@ -77,7 +77,7 @@
   {
     "id": "comment-boundary-retention/446-a-degraded-comment-fence-leaves-a-lazy-follower-where-the-line-form-does-9",
     "source": "> x\n  %%%\n y\n",
-    "html": "<blockquote><p>x</p></blockquote>\n<p>y</p>\n"
+    "html": "<blockquote><p>x</p></blockquote>\n"
   },
   {
     "id": "comment-boundary-retention/446-a-degraded-comment-fence-leaves-a-lazy-follower-where-the-line-form-does",
@@ -117,7 +117,7 @@
   {
     "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-4",
     "source": ":: t\n:  x\n%%%\ny\nz\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n<p>y\nz</p>\n"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n"
   },
   {
     "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-5",
@@ -127,7 +127,7 @@
   {
     "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-6",
     "source": ":: t\n:  x\n   %%%\ny\n   %%%\nz\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n<p>y</p>\n<p>z</p>\n"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n<p>y</p>\n"
   },
   {
     "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-7",
@@ -142,7 +142,7 @@
   {
     "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-9",
     "source": ":: t\n:  x\n%%%\n   more\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <p>more</p>\n  </dd>\n</dl>\n"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n"
   },
   {
     "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body",

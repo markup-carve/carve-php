@@ -68,7 +68,9 @@ edit from the consumed key its block reads (`consumed-key-near-miss`): `{tabel}`
 on a `csv` or `tsv` fence, or `{lose}` on a list or definition list. The key
 stays an ordinary attribute, so the table or the loose list never happens.
 `FenceAndContinuationLinter` reports an unclosed code or raw fence at its opener
-(`unclosed-code-fence`) and a lone `+` the one attach rule refuses: at a host's
+(`unclosed-code-fence`), a `%%%` comment fence with no closer, which hides
+everything to the end of its container (`unclosed-comment-fence`), and a lone
+`+` the one attach rule refuses: at a host's
 marker column or on its marker line with a blank line, the end of the document,
 a sibling, a div closer or a block at another column below it, or at no marker
 column at all (`continuation-marker-refused`). A refused `+` stays a plain letter.

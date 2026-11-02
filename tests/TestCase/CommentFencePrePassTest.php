@@ -158,7 +158,8 @@ final class CommentFencePrePassTest extends TestCase
         // between (markup-carve/carve-rs#1052 landed the bound for this reason).
         $html = $this->html("- item\n  %%%\n  hidden\n\n[r]: /url\n\n%%%\n\n[r][]\n");
 
-        $this->assertStringContainsString('href="/url"', $html, 'the column-0 definition must still register');
+        // Since carve#4907 the column-0 `%%%` opens a span of its own and hides the reference.
+        $this->assertSame("<ul>\n  <li>item</li>\n</ul>", trim($html));
         $this->assertStringNotContainsString('[r]: /url', $html, 'and it must not leak as text');
     }
 

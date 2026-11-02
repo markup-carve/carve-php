@@ -23,7 +23,7 @@ final class ABlankBeforeInvisibleContentStillSeparatesTest extends TestCase
         yield 'blank before a comment span loosens before a sibling (#4195)' => ["- - a\n\n  %%%\n  note\n  %%%\n- sib\n", "<ul>\n  <li>\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n  <li><p>sib</p></li>\n</ul>"];
         yield 'blank before a comment span after a sub-list loosens before a sibling' => ["- a\n  - b\n\n  %%%\n  note\n  %%%\n- sib\n", "<ul>\n  <li><p>a</p>\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n  <li><p>sib</p></li>\n</ul>"];
         yield 'blank before a comment span after a sub-list loosens before a paragraph' => ["- a\n  - b\n\n  %%%\n  note\n  %%%\n  tail\n", "<ul>\n  <li><p>a</p>\n    <ul>\n      <li>b</li>\n    </ul>\n    <p>tail</p>\n  </li>\n</ul>"];
-        yield 'a comment after a sub-list without a blank stays tight' => ["- - x\n  %%%\n  y\n", "<ul>\n  <li>\n    <ul>\n      <li>x</li>\n    </ul>\n    y\n  </li>\n</ul>"];
+        yield 'a comment after a sub-list without a blank stays tight' => ["- - x\n  %%%\n  y\n", "<ul>\n  <li>\n    <ul>\n      <li>x</li>\n    </ul>\n  </li>\n</ul>"];
     }
 
     #[DataProvider('documents')]

@@ -65,7 +65,7 @@ class ADegradedCommentFenceAtAContainersColumnZeroKeepsTheFollowerTest extends T
             'a bullet host' => ["- x\n%%%\ny\n", $kept],
             'the line form it must equal' => ["- x\n%% z\ny\n", $kept],
             'a terminated fence still ends the item' => ["- x\n%%%\n%%%\ny\n", "<ul>\n  <li>x</li>\n</ul>\n<p>y</p>"],
-            'an ordered host' => ["1. x\n%%%\ny\n", "<ol>\n  <li>x</li>\n</ol>\n<p>y</p>"],
+            'an ordered host' => ["1. x\n%%%\ny\n", "<ol>\n  <li>x</li>\n</ol>"],
             'a padded marker' => ["-   x\n%%%\ny\n", $kept],
             'a nested item at its own column 0' => [
                 "- - x\n  %%%\n  y\n",
@@ -74,8 +74,8 @@ class ADegradedCommentFenceAtAContainersColumnZeroKeepsTheFollowerTest extends T
             'a wider unterminated run' => ["- x\n%%%%\ny\n", $kept],
             'a wider run below is not a closer' => ["- x\n%%%\n%%%%\ny\n", $kept],
             'the closer is looked for ahead' => ["- x\n%%%\ny\n%%%\nz\n", "<ul>\n  <li>x</li>\n</ul>\n<p>z</p>"],
-            'the list stays open, not only the item' => ["- x\n%%%\n- y\n", "<ul>\n  <li>x</li>\n  <li>y</li>\n</ul>"],
-            'a block quote has no such exception' => ["> x\n%%%\ny\n", "<blockquote><p>x</p></blockquote>\n<p>y</p>"],
+            'the list stays open, not only the item' => ["- x\n%%%\n- y\n", "<ul>\n  <li>x</li>\n</ul>"],
+            'a block quote has no such exception' => ["> x\n%%%\ny\n", '<blockquote><p>x</p></blockquote>'],
         ];
     }
 
@@ -110,13 +110,15 @@ class ADegradedCommentFenceAtAContainersColumnZeroKeepsTheFollowerTest extends T
     }
 
     #[DataProvider('substitutionProvider')]
-    public function testADegradedFenceAnswersLikeTheLineForm(string $host, int $column): void
+    public function testAnUnclosedFenceHidesTheFollower(string $host, int $column): void
     {
+        // carve#4907 F1: the fence opens with no closer ahead. Below the content column it holds `y`;
+        // from the content column on, `y` misses the item and ends the span (PART 0 S1).
         $pad = str_repeat(' ', $column);
         $fence = $this->converter->convert($host . "\n" . $pad . "%%%\ny\n");
-        $line = $this->converter->convert($host . "\n" . $pad . "%% z\ny\n");
+        $expected = trim($this->converter->convert($host . "\n")) . ($column < strlen($host) - 1 ? '' : "\n<p>y</p>");
 
-        $this->assertSame(trim($line), trim($fence));
+        $this->assertSame($expected, trim($fence));
     }
 
     /**

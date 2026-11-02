@@ -62,6 +62,20 @@
         "roundtrip-9c334d5b1459",
         "roundtrip-e62305f7bd97"
       ]
+    },
+    {
+      "ticket": "markup-carve/carve-php#4511",
+      "cause": "a same-width run after PART 0 S1 ended a comment span is read as its closer (carve#4907 F1 residue)",
+      "cases": [
+        "fences-dd3d9d6c9819"
+      ]
+    },
+    {
+      "ticket": "markup-carve/carve#4907",
+      "cause": "an unclosed column-0 span after a list item stops at a blank line before an attribute line (F1 residue, listed on carve-php#4506)",
+      "cases": [
+        "attributes-8f9441a23e92"
+      ]
     }
   ]
 }

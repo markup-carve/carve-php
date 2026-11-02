@@ -37,7 +37,7 @@
   {
     "id": "owner134-9",
     "source": "> - ::: |\n>   %%%\n>   :::\n>   :::bad\n>   :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p></p></div>\n      :::bad\n      <div></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-10",
@@ -97,7 +97,7 @@
   {
     "id": "owner134-23",
     "source": "> - :::: |\n>   %%%\n>   ::::\n>   :::bad\n>   :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p></p></div>\n      :::bad\n      <div></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-24",
@@ -157,7 +157,7 @@
   {
     "id": "owner134-37",
     "source": "> - ::::: |\n>   %%%\n>   :::::\n>   :::bad\n>   :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p></p></div>\n      :::bad\n      <div></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-38",
@@ -217,7 +217,7 @@
   {
     "id": "owner134-51",
     "source": "> > - ::: |\n> >   %%%\n> >   :::\n> >   :::bad\n> >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p></p></div>\n        :::bad\n        <div></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-52",
@@ -277,7 +277,7 @@
   {
     "id": "owner134-65",
     "source": "> > - :::: |\n> >   %%%\n> >   ::::\n> >   :::bad\n> >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p></p></div>\n        :::bad\n        <div></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-66",
@@ -337,7 +337,7 @@
   {
     "id": "owner134-79",
     "source": "> > - ::::: |\n> >   %%%\n> >   :::::\n> >   :::bad\n> >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p></p></div>\n        :::bad\n        <div></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-80",
@@ -397,7 +397,7 @@
   {
     "id": "owner134-93",
     "source": "> > > - ::: |\n> > >   %%%\n> > >   :::\n> > >   :::bad\n> > >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p></p></div>\n          :::bad\n          <div></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-94",
@@ -457,7 +457,7 @@
   {
     "id": "owner134-107",
     "source": "> > > - :::: |\n> > >   %%%\n> > >   ::::\n> > >   :::bad\n> > >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p></p></div>\n          :::bad\n          <div></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-108",
@@ -517,7 +517,7 @@
   {
     "id": "owner134-121",
     "source": "> > > - ::::: |\n> > >   %%%\n> > >   :::::\n> > >   :::bad\n> > >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p></p></div>\n          :::bad\n          <div></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-122",

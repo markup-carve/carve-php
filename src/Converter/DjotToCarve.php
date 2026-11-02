@@ -681,7 +681,7 @@ class DjotToCarve
         $carve = Emphasis::convert($source, $mask, fn (string $plain, array $slashLayout = []): string => $this->rewriteDjotInline($plain, $slashLayout), $wire ?? [], cellBoundaries: $this->djotTableCellBoundaries($source), omitQuoteDelimiters: $this->omitQuoteDelimiters);
 
         $carve = str_replace($emptyTerm, '%%', $carve);
-        $carve = $this->keepInvisibleLeadListsLoose(str_replace($emptyNote, '%%%%', $carve));
+        $carve = $this->keepInvisibleLeadListsLoose(str_replace($emptyNote, '%%', $carve));
         $heldOrphans = $orphanSpans;
         foreach ($reservedOrphanIds as $token => $_) {
             $heldOrphans[$token] = $token;
@@ -3074,7 +3074,7 @@ class DjotToCarve
         $starts = null;
         if (preg_match('/[A-Za-z]\. |\([0-9A-Za-z]+\)/', $source) === 1) {
             $scanned = (string)preg_replace_callback(
-                '/^([ \t>]*)(?:\{[^\n]*\}|\x00[^\n]*\x00|\[\^[^\]\n]+\]:[ \t]*(?:%%%%|\x00DJOTEMPTYNOTE[^\n]*))[ \t]*$/m',
+                '/^([ \t>]*)(?:\{[^\n]*\}|\x00[^\n]*\x00|\[\^[^\]\n]+\]:[ \t]*(?:%%|\x00DJOTEMPTYNOTE[^\n]*))[ \t]*$/m',
                 static fn (array $match): string => $match[1] . str_repeat(' ', strlen($match[0]) - strlen($match[1])),
                 $source,
             );
@@ -3209,7 +3209,7 @@ class DjotToCarve
             if (preg_match('/^([A-Za-z]+)\. (?! )(?=\S)/', $rest, $letterDot) === 1) {
                 if (
                     !$this->isDjotMarkerToken($letterDot[1]) || !$unmasked(strlen($letterDot[0]))
-                    || preg_match('/^(?:\[\^[^\]\n]+\]:|%%%%|\x00DJOTEMPTYNOTE)/', substr($rest, strlen($letterDot[0]))) === 1
+                    || preg_match('/^(?:\[\^[^\]\n]+\]:|%%|\x00DJOTEMPTYNOTE)/', substr($rest, strlen($letterDot[0]))) === 1
                 ) {
                     return;
                 }
@@ -6872,13 +6872,13 @@ class DjotToCarve
      */
     private function keepInvisibleLeadListsLoose(string $carve): string
     {
-        if (!str_contains($carve, '%%%%')) {
+        if (!str_contains($carve, '%%')) {
             return $carve;
         }
         $lines = explode("\n", $carve);
         $known = null;
         for ($at = count($lines) - 1; $at >= 0; $at--) {
-            if (preg_match('/^( *)([-*+]|\d+[.)]) (?:\[[ xX]\] )?%%%%$/D', $lines[$at], $lead) !== 1) {
+            if (preg_match('/^( *)([-*+]|\d+[.)]) (?:\[[ xX]\] )?%%$/D', $lines[$at], $lead) !== 1) {
                 continue;
             }
             $indent = strlen($lead[1]);
@@ -6923,7 +6923,7 @@ class DjotToCarve
      * @param array<string, true> $inherited
      * @param string $emptyNote
      */
-    private function normalizeDjotFootnotes(string $source, ?Closure $isDefinitionBoundary = null, array $inherited = [], string $emptyNote = '%%%%'): string
+    private function normalizeDjotFootnotes(string $source, ?Closure $isDefinitionBoundary = null, array $inherited = [], string $emptyNote = '%%'): string
     {
         if (!str_contains($source, '[^')) {
             return $source;

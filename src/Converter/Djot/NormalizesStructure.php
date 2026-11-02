@@ -416,7 +416,7 @@ trait NormalizesStructure
     private function normalizeDjotStructure(
         string $source,
         ?Closure $isBoundary = null,
-        string $emptyNote = '%%%%',
+        string $emptyNote = '%%',
         ?Closure $holdItemAttributes = null,
         ?Closure $onLiteralQuote = null,
     ): string {

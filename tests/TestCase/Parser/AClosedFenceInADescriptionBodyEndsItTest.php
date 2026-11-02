@@ -103,6 +103,12 @@ class AClosedFenceInADescriptionBodyEndsItTest extends TestCase
             ":: term\n:  definition\n{$pad}{$open}\n{$pad}body\ntail\n",
         );
 
+        if ($open === '%%%') {
+            // `tail` misses the body, so it ends the span and the body (PART 0 S1, carve#4907).
+            $this->assertMatchesRegularExpression('~</dl>\s*<p>tail</p>~', $html);
+
+            return;
+        }
         $this->assertDoesNotMatchRegularExpression('~</dl>\s*<p>tail</p>~', $html);
     }
 

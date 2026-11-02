@@ -3333,8 +3333,8 @@ final class ListBlockBuilder
     private array $commentRolesCache = [];
 
     /**
-     * Comment role per line (PART 9 section 28): `line` for a `%%` line or a
-     * fence with no exact-width fence below it, `open`/`payload`/`close` for a span.
+     * Comment role per line (PART 9 section 28): `line` for a `%%` line,
+     * `open`/`payload`/`close` for a span, which needs no closer to open.
      *
      * @param array<string> $lines
      *
@@ -3353,12 +3353,6 @@ final class ListBlockBuilder
                 $widths[$j] = strlen($run[1]);
             }
         }
-        $later = [];
-        $hasLater = [];
-        foreach (array_reverse($widths, true) as $j => $width) {
-            $hasLater[$j] = isset($later[$width]);
-            $later[$width] = true;
-        }
         $roles = [];
         $open = null;
         foreach ($lines as $j => $line) {
@@ -3368,8 +3362,8 @@ final class ListBlockBuilder
                     $open = null;
                 }
             } elseif (isset($widths[$j])) {
-                $roles[$j] = $hasLater[$j] ? 'open' : 'line';
-                $open = $hasLater[$j] ? $widths[$j] : null;
+                $roles[$j] = 'open';
+                $open = $widths[$j];
             } elseif (str_contains($line, '%%') && preg_match('/^[ \t]*%%/', $line) === 1) {
                 $roles[$j] = 'line';
             }

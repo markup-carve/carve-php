@@ -46,34 +46,6 @@ final class BlockParseFrame
     public array $currentContentColumns = [];
 
     /**
-     * Comment-fence index for the current line set, built once per line set.
-     *
-     * A closer must match the opener width EXACTLY, so any later line carrying a
-     * fence of that width IS a valid closer: "is there a closer after $i" is
-     * exactly "last index for this width > $i". That replaces a per-opener scan
-     * to the end of the line set, which is superlinear on input full of openers
-     * with DISTINCT widths - the case where a per-width negative cache can never
-     * help, because each width is only seen once.
-     *
-     * @var array<int, int>|null Fence length => LAST index carrying that fence.
-     */
-    public ?array $commentFenceLastIndex = null;
-
-    /**
-     * Source index => next same-width quoted fence before the quote ends.
-     *
-     * @var array<int, int>|null
-     */
-    public ?array $blockQuoteCommentCloserIndex = null;
-
-    /**
-     * Next matching comment fence by source indentation, quote depth and line.
-     *
-     * @var array<string, array<int, int>>|null
-     */
-    public ?array $blockQuoteCommentCloserIndexes = null;
-
-    /**
      * Where a closer of each fence shape LAST occurs in the current line set,
      * built once by fenceCloserIndex().
      *
@@ -105,8 +77,6 @@ final class BlockParseFrame
     public array $itemSourceBoundaryPositions = [];
 
     public ?IndexedFenceView $literalSourceFenceView = null;
-
-    public ?LiteralCommentClosers $literalSourceCommentView = null;
 
     public ?RangeMaximum $literalSourceBoundaryColumns = null;
 

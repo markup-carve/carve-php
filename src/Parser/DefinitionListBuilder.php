@@ -763,6 +763,21 @@ final class DefinitionListBuilder
 
             return true;
         }
+        // A line that misses the body ends a span open in it, and the body (PART 0 S1).
+        if (
+            !IndentationHelper::isBlankLine($l->contLine)
+            && $l->contColumn < $b->continuationColumn
+            && !$b->retainedBelowComment
+            && !str_starts_with(ltrim($l->contLine, " \t"), '%%')
+        ) {
+            if (
+                $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan)
+                && $b->commentSpan->openComment !== null
+                && !($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($l->contLine, $b->commentSpan->openComment)
+            ) {
+                return false;
+            }
+        }
         $admitted = $this->descriptionLineReleased($b, $l) ?? $this->foldDescriptionLazyLine($b, $l);
         if ($admitted !== null) {
             return $admitted;
@@ -1254,11 +1269,16 @@ final class DefinitionListBuilder
             for ($k = count($b->body); $b->bodyStateCursor < $k; $b->bodyStateCursor++) {
                 $b->bodyState = $this->advanceTrailingStateWithFenceLookahead($b->bodyState, $b->body[$b->bodyStateCursor], $b->body, $b->bodyStateCursor, true);
             }
-            $closesBodySpan = $this->linesLeaveACommentSpanOpen($b->body, new CollectedCommentSpan());
+            $bodySpan = new CollectedCommentSpan();
+            $closesBodySpan = $this->linesLeaveACommentSpanOpen($b->body, $bodySpan);
             if ($b->bodyState->openParagraph || $b->retainedBelowComment) {
                 $holder = new Document();
-                $consumed = $this->tryParseFencedComment($holder, $b->lines, $b->i)
-                    ?? $this->tryParseComment($holder, $b->lines, $b->i) ?? 1;
+                // The open span's exact-width closer ends that span; it opens no span of its own.
+                $consumed = $bodySpan->openComment !== null
+                    && ($this->getFencedBlockParser)()->isFencedCommentCloser($commentText, $bodySpan->openComment)
+                    ? 1
+                    : ($this->tryParseFencedComment($holder, $b->lines, $b->i)
+                        ?? $this->tryParseComment($holder, $b->lines, $b->i) ?? 1);
                 if ($consumed > 1 && $l->indent === 0) {
                     return false;
                 }

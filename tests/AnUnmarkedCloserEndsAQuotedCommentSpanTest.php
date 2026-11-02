@@ -29,8 +29,8 @@ final class AnUnmarkedCloserEndsAQuotedCommentSpanTest extends TestCase
         ];
 
         yield 'a closer with text' => ["> %%%\n> s\n%%% tail\nafter\n", '<blockquote></blockquote><p>after</p>'];
-        yield 'a blank line releases the span' => ["> %%%\n> s\n\n%%%\n", '<blockquote><p>s</p></blockquote>'];
-        yield 'another width closes nothing' => ["> %%%\n> s\n%%%%\n", '<blockquote><p>s</p></blockquote>'];
+        yield 'a blank line leaves the span open to the end of the quote' => ["> %%%\n> s\n\n%%%\n", '<blockquote></blockquote>'];
+        yield 'another width closes nothing, so the span runs to the end of the quote' => ["> %%%\n> s\n%%%%\n", '<blockquote></blockquote>'];
     }
 
     #[DataProvider('documents')]

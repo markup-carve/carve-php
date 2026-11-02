@@ -179,11 +179,11 @@ class ACommentSpansPayloadKeepsItsHostRelativeColumnsTest extends TestCase
      */
     public function testAControlADegradedOpenerOwnsNoPayload(): void
     {
+        // Since carve#4907 the opener opens a span: `a` is its payload and `b` misses the item (PART 0 S1).
         $source = "- head\n\n    %%%\n    a\nb\ntail\n";
         $html = (new CarveConverter())->convert($source);
 
-        $this->assertSame(['%'], $this->payloads($source));
-        $this->assertStringContainsString('a', $html);
-        $this->assertStringContainsString('b', $html);
+        $this->assertSame(['a'], $this->payloads($source));
+        $this->assertSame("<ul>\n  <li>head</li>\n</ul>\n<p>b\ntail</p>", trim($html));
     }
 }

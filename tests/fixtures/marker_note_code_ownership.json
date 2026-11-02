@@ -1667,12 +1667,12 @@
   {
     "id": "continued-review-G-comment-col0",
     "source": "- [^n]: text\n    - child\n    %%%\nhidden\n    %%%\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>hidden</p><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><ul><li>child</li></ul><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>hidden</p>"
   },
   {
     "id": "continued-review-G-comment-first-col0",
     "source": "- [^n]: text\n    %%%\nhidden\n    %%%\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>hidden</p><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>hidden</p>"
   },
   {
     "id": "continued-review-G-div",
@@ -1822,7 +1822,7 @@
   {
     "id": "continued-review-L-more-comment-col0",
     "source": "- [^n]: text\n    more\n    %%%\nhidden\n    %%%\nafter [^n]\n",
-    "html": "<ul><li></li></ul><p>hidden</p><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>hidden</p>"
   },
   {
     "id": "continued-review-L-existing-contline-note-more-tail0",

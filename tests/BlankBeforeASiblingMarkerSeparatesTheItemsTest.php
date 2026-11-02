@@ -70,7 +70,7 @@ class BlankBeforeASiblingMarkerSeparatesTheItemsTest extends TestCase
             ],
             'comment fence' => [
                 "- %%%\n  b\n\n- s\n",
-                "<ul>\n  <li><p>b</p></li>\n  <li><p>s</p></li>\n</ul>\n",
+                "<ul>\n  <li></li>\n  <li><p>s</p></li>\n</ul>\n",
             ],
             'an ordered list, whose marker width differs' => [
                 "1. ```\n   b\n\n2. s\n",

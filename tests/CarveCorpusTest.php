@@ -52,6 +52,8 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-line-after-a-comment-block-in-a-line-block-reads-the-stanza-without-it',
+        'a-braced-comment-before-a-flag-opener-counts-as-nothing',
         'a-list-marker-opens-a-list-in-every-marker-body',
         'a-comment-closer-ahead-is-read-from-the-span-s-raw-lines',
         'a-list-marker-in-an-item-ends-a-comment-only-paragraph',
@@ -1703,6 +1705,11 @@ class CarveCorpusTest extends TestCase
         '853-an-abbreviation-definition-below-a-content-column-stands-in-the-document-9' => 'carve#4865: an abbreviation definition below a content column stands in the document',
         '866-an-abbreviation-definition-after-a-plus-is-skipped-like-a-link-definition-4' => 'carve#4865: an abbreviation definition after a plus is skipped like a link definition',
         '866-an-abbreviation-definition-after-a-plus-is-skipped-like-a-link-definition-5' => 'carve#4865: an abbreviation definition after a plus is skipped like a link definition',
+        '556-a-closed-block-leaves-no-frame-for-the-line-below-14' => 'carve#4907: a %% line below a div item column ends the comment span',
+        '867-an-indented-comment-block-in-a-line-block-leaves-nothing-4' => 'carve#4469: an indented comment block in a line block leaves nothing',
+        '939-a-line-after-a-comment-block-in-a-line-block-reads-the-stanza-without-it-3' => 'carve#4956: a line after a comment block in a line block reads the stanza without it',
+        '939-a-line-after-a-comment-block-in-a-line-block-reads-the-stanza-without-it-4' => 'carve#4956: a line after a comment block in a line block reads the stanza without it',
+        '939-a-line-after-a-comment-block-in-a-line-block-reads-the-stanza-without-it-6' => 'carve#4956: a line after a comment block in a line block reads the stanza without it',
     ];
 
     /**
