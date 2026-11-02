@@ -3115,6 +3115,11 @@ class DjotToCarve
             }
             $view = ltrim($view, " \t");
             $containerOffset = strlen($line) - strlen($view);
+            $hostRest = preg_replace('/^(?:[ \t]*>[ \t]?)*/', '', substr($line, 0, $containerOffset)) ?? '';
+            // A sibling item ends a colon paragraph its own item started.
+            if ($colonParagraph !== null && $colonParagraph['hosted'] && trim($hostRest) !== '') {
+                $colonParagraph = null;
+            }
             // Djot treats a bare period list marker as text.
             if (preg_match('/^\.(?=[ \t]|$|\{)/', $view) === 1 && ($masked[$containerOffset] ?? '') === '.') {
                 $lines[$i] = substr($line, 0, $containerOffset) . '\\' . $view;
@@ -3130,7 +3135,7 @@ class DjotToCarve
                 $depth = substr_count(substr($line, 0, $containerOffset), '>');
                 // A colon line Djot opens no div on is paragraph text, and so is any colon line continuing it (carve#4863).
                 $djotDiv = $this->opensDjotDiv($content);
-                if (!$close && $colonParagraph === $depth) {
+                if (!$close && $colonParagraph !== null && $colonParagraph['depth'] === $depth) {
                     if ($opener !== null) {
                         // Djot drops the spaces before a hard break's backslash.
                         $text = preg_replace('/(?<!\\\\)[ \t]+((?:\\\\\\\\)*\\\\)$/', '$1', $content) ?? $content;
@@ -3139,8 +3144,10 @@ class DjotToCarve
 
                     continue;
                 }
-                if (!$close && !$djotDiv) {
-                    $colonParagraph = $depth;
+                if ($close) {
+                    $colonParagraph = null;
+                } elseif (!$djotDiv) {
+                    $colonParagraph = ['depth' => $depth, 'hosted' => $hostRest !== ''];
                 }
                 $invalid = $close ? array_pop($containers)['invalid'] : ($opener['invalidMetadata'] ?? false);
                 if (!$close && $opener !== null && $djotDiv) {
