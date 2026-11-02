@@ -2656,6 +2656,23 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             && !$this->opensWithAnAttributeLine($rendered);
     }
 
+    /**
+     * A quote whose children are all hoisted out writes only `>`, which a `+` cannot attach (carve-php#4470).
+     */
+    private function quoteWritesNoContent(?Node $node): bool
+    {
+        if (!$node instanceof BlockQuote) {
+            return false;
+        }
+        foreach ($node->getChildren() as $child) {
+            if (!$child instanceof Footnote && !$child instanceof LinkReferenceDefinition) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     protected function atMarkerColumn(string $text): string
     {
         return implode("\n", array_map(
@@ -2914,7 +2931,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     }
                 }
                 if (
-                    ($this->listDepth > 1 || $this->indentedHostDepth > 0 || $this->quoteHostDepth > 0)
+                    ($this->listDepth > 1 || $this->indentedHostDepth > 0 || $this->quoteHostDepth > 0
+                        || (!$atMarkerColumn && ($this->quoteWritesNoContent($child) || $this->quoteWritesNoContent($previousEmitted))))
                     && $child instanceof BlockQuote && $previousEmitted instanceof BlockQuote
                 ) {
                     $out .= "\n" . $rendered;
@@ -2934,13 +2952,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     // content and both halves of the pair are written at column
                     // 0, escaping the item (carve-php#1950).
                     || ($out !== '' && $next !== null && $this->adjacentBlocksMerge($child, $next)
-                        && !($child instanceof DefinitionList && $next instanceof DefinitionList))
+                        && !($child instanceof DefinitionList && $next instanceof DefinitionList)
+                        && !$this->quoteWritesNoContent($child) && !$this->quoteWritesNoContent($next))
                     // The pair still has to be parted when it opens the item,
                     // so that half of the question asks about the PRECEDING
                     // sibling - which by then IS on the marker line. Below any
                     // other child this adds nothing: the lookahead above has
                     // already latched $atMarkerColumn.
-                    || ($previousEmitted !== null && $this->adjacentBlocksMerge($previousEmitted, $child))
+                    || ($previousEmitted !== null && $this->adjacentBlocksMerge($previousEmitted, $child)
+                        && !$this->quoteWritesNoContent($previousEmitted) && !$this->quoteWritesNoContent($child))
                     || (
                         !$separated
                         && $this->openParagraphReachesDown($previousEmitted)
