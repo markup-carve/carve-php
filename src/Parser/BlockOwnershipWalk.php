@@ -548,8 +548,9 @@ final class BlockOwnershipWalk
                 $missed && !$plusFollower && $this->m['rest'] !== '' && !$afterSoftLeaf
                 && ($inner->kind !== 'fence' || $inner->family === 'code'
                     || ($inner->family === 'comment' && $reached < $innerIndex - 1
-                        && in_array($this->frames[$innerIndex - 1]->kind, ['quote', 'dd', 'note'], true)
-                        && $this->commentCloserBeforeBlank($at, $inner)))
+                        && (in_array($this->frames[$innerIndex - 1]->kind, ['quote', 'dd', 'note'], true)
+                            || ($this->frames[$innerIndex - 1]->kind === 'item' && $reached === $innerIndex - 2))
+                        && $this->commentCloserBeforeBlank($at, $inner, $this->frames[$innerIndex - 1]->kind === 'quote')))
                 && (!$this->frames[$topIndex]->para || ($termRefuses && $next?->kind !== 'item') || ($form->kind === 'leaf' && $form->interrupts
                     && (($this->isDefinition)($this->m['rest']) || $this->abbreviationMissesFrames($reached, $form))))
             ) {
@@ -1072,8 +1073,10 @@ final class BlockOwnershipWalk
 
     /**
      * A missed comment owner closes the reader's run only while a closer is still in it.
+     *
+     * Only a quote's search stops at a blank line (carve corpus 930-4).
      */
-    private function commentCloserBeforeBlank(int $from, OwnershipFrame $fence): bool
+    private function commentCloserBeforeBlank(int $from, OwnershipFrame $fence, bool $stopAtBlank = true): bool
     {
         if ($fence->opened === null || preg_match('/(%{3,})/', $this->lines[$fence->opened], $opener) !== 1) {
             return false;
@@ -1092,7 +1095,7 @@ final class BlockOwnershipWalk
             }
         }
 
-        return isset($positions[$lo]) && $positions[$lo] < ($runs['nextBlank'][$from + 1] ?? count($this->lines));
+        return isset($positions[$lo]) && (!$stopAtBlank || $positions[$lo] < ($runs['nextBlank'][$from + 1] ?? count($this->lines)));
     }
 
     /**
