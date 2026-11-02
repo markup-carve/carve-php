@@ -158,6 +158,15 @@ and degrade to literal text.
 would punish authors writing the language properly. Verbatim spans are skipped,
 so a code span holding `**not bold**` is code rather than a habit.
 
+Two more hints name a parsed span that reads like something else:
+
+| rule | what it catches |
+|---|---|
+| `comment-shaped-emphasis` | `/* foo */`, which renders as emphasis around `* foo *` |
+| `glob-shaped-strong` | `*.js,*.ts`, which renders a strong span holding `.js,` |
+
+Code and escaped delimiters stay quiet.
+
 ## Platform autolink rules
 
 Off by default and selected per host. These two are the only rules that read the

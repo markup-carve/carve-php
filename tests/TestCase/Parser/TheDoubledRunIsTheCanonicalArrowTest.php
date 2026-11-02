@@ -38,9 +38,15 @@ class TheDoubledRunIsTheCanonicalArrowTest extends TestCase
         $this->assertSame("<p>\u{21D0} \u{21D2} \u{21D4}</p>", $this->html("<== ==> <=>\n"));
     }
 
-    public function testTheSingleHyphenFormsAreDeprecatedButStillRender(): void
+    public function testTheSingleHyphenFormsAreText(): void
     {
-        $this->assertSame("<p>\u{2192} \u{2190} \u{2194}</p>", $this->html("-> <- <->\n"));
+        $this->assertSame('<p>-&gt; &lt;- &lt;-&gt;</p>', $this->html("-> <- <->\n"));
+    }
+
+    public function testAnArrowNeedsItsExactRun(): void
+    {
+        $this->assertSame("<p>a&lt;\u{2014}b</p>", $this->html("a<---b\n"));
+        $this->assertSame("<p>&lt;\u{2014}&gt;</p>", $this->html("<--->\n"));
     }
 
     public function testAFatArrowIsCodeRatherThanAnArrow(): void

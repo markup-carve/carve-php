@@ -34,10 +34,10 @@ class QuotesOnlyTypographyTest extends TestCase
     #[DataProvider('rendererProvider')]
     public function testQuotesOnlyMode(string $rendererClass): void
     {
-        $source = 'He said "hi" and \'yes\'; it\'s fine... a--b c---d -> <= (c) (r) (tm) +-' . "\n";
+        $source = 'He said "hi" and \'yes\'; it\'s fine... a--b c---d --> <= (tm) +-' . "\n";
         $renderer = (new $rendererClass())->setSmartTypography(SmartTypographyMode::QuotesSource);
         $converter = new CarveConverter(renderer: $renderer);
-        $this->assertStringContainsString('He said "hi" and \'yes\'; it\'s fine… a–b c—d → ≤ © ® ™ ±', $converter->convert($source));
+        $this->assertStringContainsString('He said "hi" and \'yes\'; it\'s fine… a–b c—d → ≤ ™ ±', $converter->convert($source));
         $viaOption = new CarveConverter(renderer: new $rendererClass(), smartTypography: SmartTypographyMode::QuotesSource);
         $this->assertSame($converter->convert($source), $viaOption->convert($source));
     }

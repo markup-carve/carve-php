@@ -97,7 +97,7 @@ class InlineLiteralTest extends TestCase
     public function testTypographyStillTransformsInOrdinaryText(): void
     {
         // Proves the case above is a real suppression, not an inert input.
-        $this->assertSame('<p>a – b … “q” ©</p>', $this->html('a -- b ... "q" (c)'));
+        $this->assertSame('<p>a – b … “q” ™</p>', $this->html('a -- b ... "q" (tm)'));
     }
 
     public function testTypographySuppressedInsideAttributedLiteral(): void

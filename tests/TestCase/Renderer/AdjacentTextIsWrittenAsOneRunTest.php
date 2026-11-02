@@ -31,10 +31,10 @@ class AdjacentTextIsWrittenAsOneRunTest extends TestCase
     public static function splitProvider(): array
     {
         return [
-            'split replacement' => ['{"type":"text","value":"x (r"},{"type":"text","value":") y"}', "x \\(r) y\n"],
+            'split replacement' => ['{"type":"text","value":"x (tm"},{"type":"text","value":") y"}', "x \\(tm) y\n"],
             'one node per character' => [
-                '{"type":"text","value":"x "},{"type":"text","value":"("},{"type":"text","value":"r"},{"type":"text","value":")"},{"type":"text","value":" y"}',
-                "x \\(r) y\n",
+                '{"type":"text","value":"x "},{"type":"text","value":"("},{"type":"text","value":"tm"},{"type":"text","value":")"},{"type":"text","value":" y"}',
+                "x \\(tm) y\n",
             ],
             'split dash run' => ['{"type":"text","value":"x -"},{"type":"text","value":"- y"}', "x \\-\\- y\n"],
         ];
@@ -50,13 +50,13 @@ class AdjacentTextIsWrittenAsOneRunTest extends TestCase
 
     public function testAFlattenedRubyIsWrittenAsTheTextItFlattensTo(): void
     {
-        $ruby = '{"type":"ruby","pairs":[{"base":[{"type":"text","value":"["}],"annotation":[{"type":"text","value":"r"}]}]}';
+        $ruby = '{"type":"ruby","pairs":[{"base":[{"type":"text","value":"["}],"annotation":[{"type":"text","value":"tm"}]}]}';
         $this->assertSame(
-            "[\\[\\(r)]{.c}\n",
+            "[\\[\\(tm)]{.c}\n",
             self::written('{"type":"span","attrs":{"classes":["c"]},"children":[' . $ruby . ']}'),
         );
         $this->assertSame(
-            "[/\\[\\(r)/]{.c}\n",
+            "[/\\[\\(tm)/]{.c}\n",
             self::written('{"type":"span","attrs":{"classes":["c"]},"children":[{"type":"emphasis","children":[' . $ruby . ']}]}'),
         );
     }

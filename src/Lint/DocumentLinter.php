@@ -20,6 +20,7 @@ final class DocumentLinter
         $warnings = array_merge(
             (new MarkdownHabitLinter())->lint($source, ['platforms' => $options['platforms'] ?? []]),
             (new AuthoringLinter())->lint($source, $options['captionLookingParagraph'] ?? false),
+            (new ShapedSpanLinter())->lint($source),
             (new SemanticAttributeLinter())->lint($source),
             (new ReferenceLinter())->lint($source, ['extensions' => $options['extensions'] ?? []]),
             (new SourceLinter())->lint($source),

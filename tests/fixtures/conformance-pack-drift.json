@@ -53,7 +53,6 @@
       "cause": "untriaged drift at the carve c3c2f80f pin in the attributes family, mostly 2026-11-01 evening rulings not ported yet",
       "cases": [
         "attributes-2afe4202d100",
-        "attributes-3481180e4ffd",
         "attributes-44c4fa90d885",
         "attributes-4a9626ec0fde",
         "attributes-c75f6c3a7eac",
@@ -74,95 +73,45 @@
     },
     {
       "ticket": "markup-carve/carve-php#4254",
-      "cause": "untriaged drift at the carve c3c2f80f pin in the fences family, mostly 2026-11-01 evening rulings not ported yet",
-      "cases": [
-        "fences-71becdeddb36",
-        "fences-a6d596da0873"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged drift at the carve c3c2f80f pin in the guards family, mostly 2026-11-01 evening rulings not ported yet",
       "cases": [
-        "guards-02555d723840",
-        "guards-07be9aa229ab",
-        "guards-080413ff64f7",
-        "guards-0862991fd260",
         "guards-0ae1e7cf5796",
         "guards-0e0fc39f0596",
         "guards-11d3c29b2665",
         "guards-153e8b05b9cb",
         "guards-15a9109d8e3b",
         "guards-16989181fda6",
-        "guards-1df901b84a50",
         "guards-245a4551d0e2",
         "guards-24a53be1d849",
         "guards-2b7fb4ac3fc8",
-        "guards-2f67ea01c870",
-        "guards-3081ec65ee60",
-        "guards-320316c8406b",
-        "guards-37085ad9ee2a",
-        "guards-37347c3de75c",
-        "guards-3a21f1ad43c8",
-        "guards-3f2e9d5112ea",
         "guards-44609b4341fd",
-        "guards-48a4cb9fe8c9",
-        "guards-4d5ee5719854",
-        "guards-4ef7cf3f188e",
-        "guards-50bf5d209de9",
         "guards-538f8f3d5647",
-        "guards-554f2033aae7",
         "guards-58469fc51e16",
         "guards-5d99fcddeb1f",
         "guards-61e1689d452b",
         "guards-6252f82b074f",
         "guards-63ab4e3cd217",
         "guards-678b7f2445b0",
-        "guards-6c200e84f112",
         "guards-6e5e0526a7a8",
-        "guards-71b78fb9e703",
         "guards-72b7ec5a9d87",
         "guards-784386fcc34c",
         "guards-7c0814c12f9e",
-        "guards-7febfd42240a",
         "guards-80a8f39b6aec",
         "guards-81d567ec370d",
-        "guards-81e25c1d561e",
         "guards-81fb5229db8a",
-        "guards-84ced70c4389",
-        "guards-856f2cd24262",
         "guards-8e441b658f28",
-        "guards-9027d0b19ea9",
-        "guards-90c12824f69a",
-        "guards-92d4f35fd545",
-        "guards-94b396f2ca4a",
         "guards-9576a8f87b86",
         "guards-95dff57d1cf3",
         "guards-98ffc177480c",
         "guards-9dad92e90e2e",
-        "guards-a096ea53ebac",
-        "guards-a69ec8d92c6e",
-        "guards-a6fc1338964b",
-        "guards-ab4962f775ea",
         "guards-ae980139912d",
-        "guards-b609e52f91bb",
-        "guards-b74e9da45bf6",
         "guards-bac12aa94ce8",
         "guards-c0829a2caebd",
         "guards-c0a7aa0a48ae",
-        "guards-c0ac35f28bf5",
         "guards-d3b31f777ca6",
-        "guards-d87f0377a840",
-        "guards-d965fccc74bb",
-        "guards-e519b31a208a",
         "guards-e5c740c83e1d",
-        "guards-e75c70df5134",
         "guards-e7d7661f3da3",
-        "guards-edce488e5e5d",
         "guards-eeed8105767a",
-        "guards-ef56aa2c51b1",
-        "guards-f06484d5b174",
-        "guards-f212064baebd",
         "guards-f2819695d45d",
         "guards-fe76b0d67261"
       ]
@@ -171,20 +120,8 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged drift at the carve c3c2f80f pin in the inline family, mostly 2026-11-01 evening rulings not ported yet",
       "cases": [
-        "inline-00ec4febb903",
-        "inline-03155db5e823",
-        "inline-0a963796db69",
-        "inline-2a8d1d536d47",
-        "inline-40b8e22fb745",
-        "inline-4c5322e2e695",
-        "inline-68745d509b91",
-        "inline-6944c61ff846",
-        "inline-8957caef9941",
         "inline-97a7245ea9b9",
-        "inline-b57dce59e1d6",
-        "inline-c702204f208a",
-        "inline-cf70d44fa904",
-        "inline-e59c2d8d5c7c"
+        "inline-b57dce59e1d6"
       ]
     },
     {
@@ -192,9 +129,7 @@
       "cause": "untriaged drift at the carve c3c2f80f pin in the lazy family, mostly 2026-11-01 evening rulings not ported yet",
       "cases": [
         "lazy-679190d42655",
-        "lazy-83177b2ed116",
-        "lazy-e94649399f1c",
-        "lazy-f6908add6b39"
+        "lazy-e94649399f1c"
       ]
     },
     {
@@ -212,17 +147,8 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged drift at the carve c3c2f80f pin in the ownership family, mostly 2026-11-01 evening rulings not ported yet",
       "cases": [
-        "ownership-34fa9b509539",
-        "ownership-7e96653cd703",
         "ownership-a83a55ed37d6",
         "ownership-a98e893f6197"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve-php#4254",
-      "cause": "untriaged drift at the carve c3c2f80f pin in the roundtrip family, mostly 2026-11-01 evening rulings not ported yet",
-      "cases": [
-        "roundtrip-603bc6197796"
       ]
     }
   ]

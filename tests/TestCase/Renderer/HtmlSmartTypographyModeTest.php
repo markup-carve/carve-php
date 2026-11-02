@@ -37,9 +37,9 @@ class HtmlSmartTypographyModeTest extends TestCase
             'ellipsis' => ['a...b', '<p>a…b</p>', '<p>a...b</p>'],
             'en dash' => ['a--b', '<p>a–b</p>', '<p>a--b</p>'],
             'em dash' => ['a---b', '<p>a—b</p>', '<p>a---b</p>'],
-            'arrow' => ['a -> b', '<p>a → b</p>', '<p>a -&gt; b</p>'],
+            'arrow' => ['a --> b', '<p>a → b</p>', '<p>a --&gt; b</p>'],
             'comparison' => ['a <= b', '<p>a ≤ b</p>', '<p>a &lt;= b</p>'],
-            'copyright' => ['(c) 2026', '<p>© 2026</p>', '<p>(c) 2026</p>'],
+            'trademark' => ['(tm) 2026', '<p>™ 2026</p>', '<p>(tm) 2026</p>'],
             'double quotes' => ['say "hi"', '<p>say “hi”</p>', '<p>say "hi"</p>'],
         ];
     }

@@ -4999,15 +4999,16 @@ class InlineParser
     }
 
     /**
-     * Smart typography for arrows, comparison operators, and (c)/(r)/(tm).
+     * Smart typography for arrows, comparison operators, and (tm).
      *
      * ORDERED LONGEST-FIRST, and the order is the rule (markup-carve/carve#1442):
-     * `<-->` beats `<->` and `<--`, `-->` beats the hyphen-run pass, `<==` beats
-     * `<=`, `(tm)` beats `(c)`. Mirrors the carve-js SMART_TOKENS table.
+     * `<-->` beats `<--`, `-->` beats the hyphen-run pass, `<==` beats
+     * `<=`. Mirrors the carve-js SMART_TOKENS table.
      *
-     * The doubled run is the canonical arrow in both families. `<-` `->` `<->`
-     * still match and are DEPRECATED rather than removed, so a document written
-     * before the rule goes on working. `=>` is GONE: it is ubiquitous in prose
+     * The doubled run is the only hyphen arrow: `<-` `->` `<->` are text
+     * (markup-carve/carve#4815), and an arrow needs its exact run, so a longer
+     * hyphen run is a dash run (markup-carve/carve#4645). `=>` is
+     * GONE: it is ubiquitous in prose
      * about code (`key => value`, `x => x + 1`, `Some(x) => x`) and every one of
      * those silently became an arrow in the rendered output only. `<=` keeps ≤
      * for the mirror-image reason, which is what forces the left double arrow to
@@ -5020,16 +5021,14 @@ class InlineParser
         static $map = [
             '<' => [
                 '<-->' => "\u{2194}",
-                '<->' => "\u{2194}",
                 '<--' => "\u{2190}",
                 '<=>' => "\u{21D4}",
                 '<==' => "\u{21D0}",
-                '<-' => "\u{2190}",
                 '<=' => "\u{2264}",
             ],
-            '-' => ['-->' => "\u{2192}", '->' => "\u{2192}"],
+            '-' => ['-->' => "\u{2192}"],
             '=' => ['==>' => "\u{21D2}"],
-            '(' => ['(tm)' => "\u{2122}", '(c)' => "\u{00A9}", '(r)' => "\u{00AE}"],
+            '(' => ['(tm)' => "\u{2122}"],
             '>' => ['>=' => "\u{2265}"],
             '!' => ['!=' => "\u{2260}"],
             '+' => ['+-' => "\u{00B1}"],
@@ -5037,6 +5036,10 @@ class InlineParser
 
         foreach ($map[$text[$pos]] ?? [] as $needle => $repl) {
             if (substr_compare($text, $needle, $pos, strlen($needle)) === 0) {
+                if ($needle === '<--' && ($text[$pos + 3] ?? '') === '-') {
+                    continue;
+                }
+
                 return [$repl, strlen($needle)];
             }
         }
@@ -5053,9 +5056,9 @@ class InlineParser
     protected function smartSymbolKind(string $source): string
     {
         return match ($source) {
-            '<-->', '<->' => 'left_right_arrow',
-            '-->', '->' => 'rightwards_arrow',
-            '<--', '<-' => 'leftwards_arrow',
+            '<-->' => 'left_right_arrow',
+            '-->' => 'rightwards_arrow',
+            '<--' => 'leftwards_arrow',
             '<=>' => 'left_right_double_arrow',
             '==>' => 'rightwards_double_arrow',
             '<==' => 'leftwards_double_arrow',
@@ -5063,8 +5066,6 @@ class InlineParser
             '>=' => 'greater_than_or_equal',
             '!=' => 'not_equal',
             '+-' => 'plus_minus',
-            '(c)' => 'copyright',
-            '(r)' => 'registered',
             '(tm)' => 'trademark',
             default => 'text',
         };
@@ -5174,7 +5175,13 @@ class InlineParser
         // Only that one shape is excluded. `pages 1--10`, `the Mon--Fri
         // window` and a trailing `text --` are left-flanked by a word or
         // right-flanked by space, and every one of them still converts.
-        $before = $this->characterBefore($text, CommentFlank::before($text, $pos));
+        $beforeAt = CommentFlank::before($text, $pos);
+        $before = $this->characterBefore($text, $beforeAt);
+        // An opening `(`, `"` or `'` that itself follows whitespace or the start
+        // of the content counts as whitespace (markup-carve/carve#4813).
+        if ($before === '(' || $before === '"' || $before === "'") {
+            $before = $this->characterBefore($text, CommentFlank::before($text, $beforeAt - 1));
+        }
         $afterAt = CommentFlank::after($text, $pos + $dashCount);
         $after = $this->characterAt($text, $afterAt);
         if (
@@ -7103,7 +7110,7 @@ class InlineParser
         ) {
             return null;
         }
-        $close = $this->extensionCloseFrom($text, $nameEnd + 1);
+        $close = $this->extensionCloseOf($text, $nameEnd);
         if ($close === null) {
             return null;
         }
@@ -7133,7 +7140,7 @@ class InlineParser
     }
 
     /**
-     * Return the position after an extension's first closing bracket.
+     * Return the position after an extension's closing bracket.
      */
     private function scanInlineExtensionEnd(string $text, int $pos): ?int
     {
@@ -7148,45 +7155,57 @@ class InlineParser
             return null;
         }
 
-        $close = $this->extensionCloseFrom($text, $nameEnd + 1);
+        $close = $this->extensionCloseOf($text, $nameEnd);
 
         return $close === null ? null : $close + 1;
     }
 
     /**
-     * The first `]` at or after $from that is not an escaped character (CARVE-P3-026).
-     *
-     * A run of backslashes before a `]` pairs into escaped backslashes, so an odd run escapes it.
+     * The `]` that closes the extension whose `[` is at $open: the one at bracket
+     * depth zero, or the first unescaped one when that `[` is unbalanced
+     * (CARVE-P3-026, markup-carve/carve#4513).
      */
-    private function extensionCloseFrom(string $text, int $from): ?int
+    private function extensionCloseOf(string $text, int $open): ?int
     {
         if ($text !== $this->extensionCloseText) {
             $this->extensionCloseText = $text;
             $this->extensionCloses = [];
-            $offset = 0;
-            while (($at = strpos($text, ']', $offset)) !== false) {
-                $run = 0;
-                while ($at - $run > 0 && $text[$at - $run - 1] === '\\') {
-                    $run++;
+            $stack = [];
+            $unescapedCloses = [];
+            $length = strlen($text);
+            $at = strcspn($text, '\\[]');
+            while ($at < $length) {
+                $byte = $text[$at];
+                if ($byte === '\\') {
+                    $at++;
+                } elseif ($byte === '[') {
+                    $stack[] = $at;
+                } else {
+                    $unescapedCloses[] = $at;
+                    $opener = array_pop($stack);
+                    if ($opener !== null) {
+                        $this->extensionCloses[$opener] = $at;
+                    }
                 }
-                if ($run % 2 === 0) {
-                    $this->extensionCloses[] = $at;
+                $at++;
+                if ($at < $length) {
+                    $at += strcspn($text, '\\[]', $at);
                 }
-                $offset = $at + 1;
             }
-        }
-        $low = 0;
-        $high = count($this->extensionCloses);
-        while ($low < $high) {
-            $mid = intdiv($low + $high, 2);
-            if ($this->extensionCloses[$mid] < $from) {
-                $low = $mid + 1;
-            } else {
-                $high = $mid;
+            // Openers left on the stack are ascending: pair each with the first `]` after it.
+            $next = 0;
+            $closeCount = count($unescapedCloses);
+            foreach ($stack as $unclosed) {
+                while ($next < $closeCount && $unescapedCloses[$next] < $unclosed) {
+                    $next++;
+                }
+                if ($next < $closeCount) {
+                    $this->extensionCloses[$unclosed] = $unescapedCloses[$next];
+                }
             }
         }
 
-        return $this->extensionCloses[$low] ?? null;
+        return $this->extensionCloses[$open] ?? null;
     }
 
     /**

@@ -35,7 +35,9 @@ final class AHardBreakFlankAndAnEscapedExtensionCloserTest extends TestCase
             'only an escaped closer' => [":foo[\\]]\n", '<p><span class="ext-foo">]</span></p>'],
             'no unescaped closer' => [":foo[a\\]\n", '<p>:foo[a]</p>'],
             'inside link text' => ["[:foo[a\\]b]](/u)\n", '<p><a href="/u"><span class="ext-foo">a]b</span></a></p>'],
-            'nested bracket still closes early' => [":foo[a [b] c]\n", '<p><span class="ext-foo">a [b</span> c]</p>'],
+            'a balanced bracket stays in the content' => [":foo[a [b] c]\n", '<p><span class="ext-foo">a [b] c</span></p>'],
+            'an unbalanced bracket closes at the first closer' => [":foo[a[b]c]d]\n", '<p><span class="ext-foo">a[b]c</span>d]</p>'],
+            'a link in the content' => [":foo[[x](u) y]\n", '<p><span class="ext-foo"><a href="u">x</a> y</span></p>'],
         ];
     }
 

@@ -477,12 +477,12 @@ class InlineParserTest extends TestCase
 
     public function testSmartSymbolCarriesItsSourceRun(): void
     {
-        $para = $this->parseInline('a -> b');
+        $para = $this->parseInline('a --> b');
 
         $arrow = $para->getChildren()[1];
         $this->assertInstanceOf(SmartPunctuation::class, $arrow);
         $this->assertSame('rightwards_arrow', $arrow->getKind());
-        $this->assertSame('->', $arrow->getContent());
+        $this->assertSame('-->', $arrow->getContent());
     }
 
     public function testParseEllipsis(): void
