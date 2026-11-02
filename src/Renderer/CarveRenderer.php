@@ -2921,6 +2921,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $this->quoteHostDepth > 0 && !$child instanceof Paragraph
                         && !$child instanceof CodeBlock
                         && !$child instanceof Div && !$child instanceof Figure
+                        && !($child instanceof Comment && !$child->isDelimited())
                     ) {
                         $out .= "\n" . $rendered;
                         $previous = $child;
@@ -3011,7 +3012,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     for ($k = $index + 2; $after instanceof Comment; $k++) {
                         $after = $children[$k] ?? null;
                     }
-                    if (!$after instanceof Paragraph) {
+                    // Only an authored blank: a synthesized one loosens the list (PART 9 §17 L1).
+                    $previousEnd = $previousEmitted->getPos()?->endLine;
+                    $commentStart = $child->getPos()?->startLine;
+                    $authoredGap = $previousEnd === null || $commentStart === null || $commentStart > $previousEnd + 1;
+                    if (!$after instanceof Paragraph && $authoredGap) {
                         $out .= "\n";
                     }
                 }
