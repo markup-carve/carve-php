@@ -49,33 +49,10 @@
     },
     {
       "ticket": "markup-carve/carve-php#4254",
-      "cause": "untriaged drift at the carve c3c2f80f pin in the attributes family, mostly 2026-11-01 evening rulings not ported yet",
-      "cases": [
-        "attributes-2afe4202d100",
-        "attributes-44c4fa90d885",
-        "attributes-c75f6c3a7eac",
-        "attributes-e1149009ae29",
-        "attributes-eba8702e9d43",
-        "attributes-f2bba43a8dc7"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged drift at the carve c3c2f80f pin in the lazy family, mostly 2026-11-01 evening rulings not ported yet",
       "cases": [
         "lazy-679190d42655",
         "lazy-e94649399f1c"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve-php#4254",
-      "cause": "untriaged drift at the carve c3c2f80f pin in the notes family, mostly 2026-11-01 evening rulings not ported yet",
-      "cases": [
-        "notes-3c63065f8cfe",
-        "notes-47f402872317",
-        "notes-6b315a461246",
-        "notes-cfaf3a8e8e2f",
-        "notes-f86f005f5751"
       ]
     },
     {

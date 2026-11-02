@@ -22,7 +22,7 @@ class ReferencesLabelsAndClassesRenderLikeTheModelTest extends TestCase
         return [
             'carve#4293 double left arrow' => ["# a <== b\n", "<section id=\"a-b\">\n  <h1>a ⇐ b</h1>\n</section>"],
             'carve#4293 double two-way arrow' => ["# a <=> b\n", "<section id=\"a-b\">\n  <h1>a ⇔ b</h1>\n</section>"],
-            'carve#4349 dropped footnote reference id' => ["x[^n]{#i}\n\n# i\n", "<p>x[^n]</p>\n<section id=\"i\">\n  <h1>i</h1>\n</section>"],
+            'carve#4349 dropped footnote reference id' => ["x[^n]{#i}\n\n# i\n", "<p>x[^n]{#i}</p>\n<section id=\"i\">\n  <h1>i</h1>\n</section>"],
             'carve#4349 dropped link reference id' => ["[a][nope]{#i}\n\n# i\n", "<p>[a][nope]{#i}</p>\n<section id=\"i\">\n  <h1>i</h1>\n</section>"],
             'carve#4310 escaped space before a comment' => ["::: note [x\\  %% c]\nbody\n:::\n", $note('x&nbsp;')],
             'carve#4137 invalid header-rows count' => ["{header-rows=7}\n|= a |\n| b |\n", "<table>\n  <tbody>\n    <tr><th scope=\"row\">a</th></tr>\n    <tr><td>b</td></tr>\n  </tbody>\n</table>"],

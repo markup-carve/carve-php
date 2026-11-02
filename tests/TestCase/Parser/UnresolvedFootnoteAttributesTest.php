@@ -53,7 +53,7 @@ class UnresolvedFootnoteAttributesTest extends TestCase
     {
         // The node changed; the OUTPUT must not. An unresolved reference has no
         // number, no backlink and no attributes to apply - it is literal source.
-        $this->assertStringContainsString('<p>Text[^a].</p>', (new CarveConverter())->convert(self::SOURCE));
+        $this->assertStringContainsString('<p>Text[^a]{.ref}.</p>', (new CarveConverter())->convert(self::SOURCE));
         // BOTH brackets are escaped. This line used to read "`[` goes bare under
         // PART 11 section 8a M1b", and M1b does not reach here: it governs "a
         // character that reached this writer inside a TEXT node - one the Carve
@@ -64,7 +64,7 @@ class UnresolvedFootnoteAttributesTest extends TestCase
         // here: a reader with footnotes enabled takes `[^a\]:` as a DEFINITION
         // whose label is `a\` (markup-carve/carve#1040).
         $this->assertStringContainsString('Text\[^a\].', CarveConverter::markdown()->convert(self::SOURCE));
-        $this->assertStringContainsString('Text[^a].', CarveConverter::plainText()->convert(self::SOURCE));
+        $this->assertStringContainsString('Text[^a]{.ref}.', CarveConverter::plainText()->convert(self::SOURCE));
     }
 
     public function testAResolvedReferenceIsUnaffected(): void

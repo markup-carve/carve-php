@@ -32,13 +32,13 @@ class UnresolvedFootnoteRefAttrTest extends TestCase
     }
 
     /**
-     * Case 1: unresolved reference + attribute block -> literal, attribute dropped.
+     * Case 1: unresolved reference + attribute block -> literal, the run kept as text (carve#4816).
      */
     public function testUnresolvedRefWithAttrStaysLiteralAndDropsAttr(): void
     {
         $result = $this->converter->convert('Text[^a]{.ref}.');
 
-        $this->assertSame(preg_replace('/\n\z/', '', "<p>Text[^a].</p>\n"), $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>Text[^a]{.ref}.</p>\n"), $result);
     }
 
     /**
@@ -116,13 +116,13 @@ class UnresolvedFootnoteRefAttrTest extends TestCase
     }
 
     /**
-     * Consecutive valid attribute blocks are both consumed and dropped.
+     * Consecutive valid attribute blocks are both kept as typed (carve#4816).
      */
     public function testUnresolvedRefDropsConsecutiveAttrBlocks(): void
     {
         $result = $this->converter->convert('Text[^a]{.ref}{.foo}.');
 
-        $this->assertSame(preg_replace('/\n\z/', '', "<p>Text[^a].</p>\n"), $result);
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>Text[^a]{.ref}{.foo}.</p>\n"), $result);
     }
 
     /**

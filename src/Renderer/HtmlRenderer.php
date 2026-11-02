@@ -5162,7 +5162,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // literal source it was written as - no number, no backlink, and no
         // attributes, which had nothing to attach to (carve#352).
         if ($node->isUnresolved()) {
-            return $this->escape('[^' . $node->getLabel() . ']');
+            return $this->escape('[^' . $node->getLabel() . ']' . $node->getAttributeSource());
         }
 
         $context = $this->getRenderContext();
