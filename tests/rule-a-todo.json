@@ -4046,10 +4046,6 @@
             "ticket": "carve-php#4243"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\MarkerNoteMarkerContinuationTest::testAMarkerAtAMarkerLineNotesColumnIsTheNotes with data set \"matrix-n6626\"",
-            "ticket": "carve-php#4243"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\NestedFenceBlankOwnershipTest::testNestedFenceOwnsOnlyBlanksAtItsContentColumn with data set \"invisible definition leaves a separator\"",
             "ticket": "carve-php#4244"
         },
