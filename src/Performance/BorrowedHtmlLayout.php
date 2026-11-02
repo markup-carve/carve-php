@@ -521,8 +521,9 @@ final class BorrowedHtmlLayout
                     || ctype_space($text[$close - 1])
                     // `bare_opener` (CARVE-P3-013) refuses a marker preceded by
                     // the same marker, so the second run of `/x//y/` is text.
-                    || ($i > 0 && (ctype_alnum($text[$i - 1]) || $text[$i - 1] === $delimiter))
-                    || (isset($text[$close + 1]) && ctype_alnum($text[$close + 1]))
+                    // A non-ASCII flank may be a word character: the full parser reads it.
+                    || ($i > 0 && (ctype_alnum($text[$i - 1]) || $text[$i - 1] === $delimiter || ord($text[$i - 1]) >= 0x80))
+                    || (isset($text[$close + 1]) && (ctype_alnum($text[$close + 1]) || ord($text[$close + 1]) >= 0x80))
                 ) {
                     return null;
                 }

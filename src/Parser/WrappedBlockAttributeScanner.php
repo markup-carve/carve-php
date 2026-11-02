@@ -29,24 +29,70 @@ final class WrappedBlockAttributeScanner
                 : null;
         }
 
-        $attrContent = substr($line, 1);
+        $parts = [];
+        $at = $start;
+        $pos = 0;
+        $count = count($lines);
+        while (true) {
+            $line = $lines[$at];
+            $end = self::findSingleLineAttributeBlockEnd($line, $pos);
+            if ($end !== null) {
+                $part = trim(substr($line, $pos + 1, $end - $pos - 1), ' ');
+                if ($part === '' || !AttributeParser::inlineInteriorIsSpaceOnly($part)) {
+                    return null;
+                }
+            } else {
+                $wrapped = self::wrappedBlock($lines, $at, $pos, $count, $inlineParser);
+                if ($wrapped === null) {
+                    return null;
+                }
+                [$part, $at, $end] = $wrapped;
+                $line = $lines[$at];
+            }
+            $parts[] = $part;
+            $pos = $end + 1;
+            if (rtrim(substr($line, $pos), " \t") === '') {
+                $payload = trim(implode(' ', $parts));
+
+                return self::validPayload($payload, $inlineParser)
+                    ? ['payload' => $payload, 'length' => $at - $start + 1]
+                    : null;
+            }
+            if ($line[$pos] !== '{') {
+                return null;
+            }
+        }
+    }
+
+    /**
+     * Read one block that wraps from $pos on line $at (PART 9 section 15 A5).
+     *
+     * @param array<string> $lines
+     * @param int $at
+     * @param int $pos
+     * @param int $count
+     * @param \MarkupCarve\Carve\Parser\InlineParser $inlineParser
+     *
+     * @return array{string, int, int}|null The block's payload, its last line and its closing brace.
+     */
+    private static function wrappedBlock(array $lines, int $at, int $pos, int $count, InlineParser $inlineParser): ?array
+    {
+        $attrContent = substr($lines[$at], $pos + 1);
         if (str_starts_with($attrContent, "\t")) {
             return null;
         }
         $openQuote = self::attrPayloadOpenQuote($attrContent, null);
-        $count = count($lines);
-        for ($i = $start + 1; $i < $count; $i++) {
+        for ($i = $at + 1; $i < $count; $i++) {
             if ($openQuote !== null) {
                 return null;
             }
             $nextLine = $lines[$i];
-            if (preg_match('/^(.*)\}[ \t]*$/', $nextLine, $closeMatch)) {
-                $attrStr = trim($attrContent . ' ' . $closeMatch[1]);
-                if (!self::validPayload($attrStr, $inlineParser)) {
-                    return null;
-                }
+            $close = self::findSingleLineAttributeBlockEnd($nextLine, -1);
+            if ($close !== null) {
+                $part = trim($attrContent . ' ' . substr($nextLine, 0, $close));
 
-                return ['payload' => $attrStr, 'length' => $i - $start + 1];
+                // Validated here so a run of openers fails at once rather than rescanning the document.
+                return self::validPayload($part, $inlineParser) ? [$part, $i, $close] : null;
             }
             if (IndentationHelper::isBlankLine($nextLine)) {
                 return null;
@@ -62,6 +108,41 @@ final class WrappedBlockAttributeScanner
         }
 
         return null;
+    }
+
+    /**
+     * Whether a line of a glued attribute run ends inside a block. $inside: it starts in one.
+     */
+    public static function endsInsideBlock(string $line, bool $inside): bool
+    {
+        $pos = 0;
+        $length = strlen($line);
+        while ($pos < $length) {
+            if (!$inside && $line[$pos] !== '{') {
+                return false;
+            }
+            $end = self::findSingleLineAttributeBlockEnd($line, $inside ? $pos - 1 : $pos);
+            if ($end === null) {
+                return true;
+            }
+            $inside = false;
+            $pos = $end + 1;
+            if (rtrim(substr($line, $pos), " \t") === '') {
+                return false;
+            }
+        }
+
+        return $inside;
+    }
+
+    /**
+     * Whether a line inside a block holds another `{` before the `}` that closes that block.
+     */
+    public static function opensInsideBlock(string $line): bool
+    {
+        $open = strpos($line, '{');
+
+        return $open !== false && !str_contains(substr($line, 0, $open), '}');
     }
 
     public static function validPayload(string $payload, InlineParser $inlineParser): bool

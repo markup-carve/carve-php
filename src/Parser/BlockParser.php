@@ -2457,7 +2457,7 @@ class BlockParser
      */
     private function opensWrappedAttributeBlock(string $content): bool
     {
-        return str_starts_with($content, '{') && !str_contains($content, '}');
+        return str_starts_with($content, '{') && WrappedBlockAttributeScanner::endsInsideBlock($content, false);
     }
 
     /**
@@ -2488,7 +2488,7 @@ class BlockParser
                 return false;
             }
             $state['attrRun'][] = $content;
-            if (!str_contains($content, '}')) {
+            if (WrappedBlockAttributeScanner::endsInsideBlock($content, true)) {
                 return false;
             }
             $lines = $state['attrRun'];
@@ -5520,7 +5520,7 @@ class BlockParser
         for ($next = $index + 1; isset($lines[$next]); $next++) {
             $run[] = $lines[$next];
             if (
-                preg_match('/\}[ \t]*$/', $lines[$next]) === 1 || IndentationHelper::isBlankLine($lines[$next])
+                !WrappedBlockAttributeScanner::endsInsideBlock($lines[$next], true) || IndentationHelper::isBlankLine($lines[$next])
                 || !$this->inlineParser->isValidAttrPayload(ltrim($lines[$next], " \t"))
             ) {
                 break;

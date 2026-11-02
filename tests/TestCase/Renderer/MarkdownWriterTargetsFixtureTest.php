@@ -52,6 +52,11 @@ class MarkdownWriterTargetsFixtureTest extends TestCase
             $expected = str_replace(['%28', '%29'], ['\\(', '\\)'], $expected);
         }
 
+        // carve#4806 makes the closing * before a Unicode letter literal; the pinned fixture holds the old reading.
+        if ($case['name'] === 'strong-around-italic-before-a-letter') {
+            $expected = "x \\**a*\\*é y \\**b*\\*中 z\n";
+        }
+
         $this->assertSame($expected, (new MarkdownRenderer())->render($doc));
     }
 }

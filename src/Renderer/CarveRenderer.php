@@ -4643,7 +4643,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $node,
                         // A span leaves no boundary character of its own, so the
                         // one it WROTE (its closer) is what the next opener sits against.
-                        $prevChar === '' ? substr($out, -1) : $prevChar,
+                        $prevChar === '' ? self::lastCharacter($out) : $prevChar,
                         $this->firstBoundary($nodes[$i + 1] ?? null),
                         $captionCanOpen,
                         self::opensAVerbatimRun($nodes[$i + 1] ?? null),
@@ -5476,7 +5476,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // emphasis holding literal stars, so fall back to the nested spelling.
             if (
                 $content !== '' && !preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content)
-                && !ctype_alnum($prevChar) && $prevChar !== '_' && $prevChar !== '/' && !ctype_alnum($nextChar)
+                && preg_match('/[\p{L}\p{N}_\/]/u', $prevChar) !== 1 && preg_match('/[\p{L}\p{N}]/u', $nextChar) !== 1
                 && preg_match('/\A[\p{Mn}\p{Mc}\p{Me}\x{FE00}-\x{FE0F}\x{200D}]/u', $nextChar) !== 1
             ) {
                 return '/*' . $content . '*/';
@@ -5942,12 +5942,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         // The characters `bare_opener` refuses before a marker (CARVE-P3-013).
         $needsForced = $commentTakesTheCloser
-            || preg_match('/[A-Za-z0-9_]/', $prevChar) === 1
+            || preg_match('/[\p{L}\p{N}_]/u', $prevChar) === 1
             || $prevChar === $delimiter
             || ($prevChar === '/' && ($delimiter === '/' || $delimiter === '_'))
             // A bare closer after these reads as a comparison, and an arrow's `=` closes (PART 9 section 9).
             || ($delimiter === '=' && preg_match('/(?<!\\\\)[!<>]\z|<==|<=>|==>/', $content) === 1)
-            || preg_match('/[A-Za-z0-9_]/', $nextChar) === 1
+            || preg_match('/[\p{L}\p{N}_]/u', $nextChar) === 1
             || preg_match('/\A[\p{Mn}\p{Mc}\p{Me}\x{FE00}-\x{FE0F}\x{200D}]/u', $nextChar) === 1
             || str_starts_with($content, $delimiter)
             || str_ends_with($content, $delimiter)
@@ -6892,7 +6892,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $text = $this->inlineBoundaryText($node);
 
-        return $text === '' ? '' : substr($text, -1);
+        return self::lastCharacter($text);
+    }
+
+    protected static function lastCharacter(string $text): string
+    {
+        return preg_match('/.\z/su', $text, $last) === 1 ? $last[0] : substr($text, -1);
     }
 
     protected function firstBoundary(?Node $node): string

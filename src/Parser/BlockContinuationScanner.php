@@ -1005,7 +1005,7 @@ final class BlockContinuationScanner
                     break;
                 }
                 $run[] = $next;
-                if (str_contains($next, '}')) {
+                if (!WrappedBlockAttributeScanner::endsInsideBlock($next, true)) {
                     break;
                 }
             }
