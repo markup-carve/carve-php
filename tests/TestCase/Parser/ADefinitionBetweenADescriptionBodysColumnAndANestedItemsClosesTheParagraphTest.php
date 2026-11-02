@@ -463,11 +463,12 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
         // Below every content column the marker is lazy item text; at the
         // body column it opens a sibling item of the list.
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n- n\ntail</li>\n    </ul>\n  </dd>\n</dl>",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<ul>\n  <li>n\ntail</li>\n</ul>",
             trim($this->converter->convert(":: t\n:  - a\n - n\ntail")),
         );
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n      <li>n\ntail</li>\n    </ul>\n  </dd>\n</dl>",
+            // A marker that misses the description body closes it (carve#4860).
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<ul>\n  <li>n\ntail</li>\n</ul>",
             trim($this->converter->convert(":: t\n:  - a\n  - n\ntail")),
         );
     }

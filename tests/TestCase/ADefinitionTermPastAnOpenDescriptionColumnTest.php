@@ -19,9 +19,6 @@ class ADefinitionTermPastAnOpenDescriptionColumnTest extends TestCase
     public static function foldedLines(): array
     {
         return [
-            'bullet' => ["  - a\n    * b", "- a\n* b"],
-            'ordered' => ['  1. a', '1. a'],
-            'task' => ['  * [ ] a', '* [ ] a'],
             'footnote' => ['  [^n]: note', '[^n]: note'],
         ];
     }
@@ -31,6 +28,29 @@ class ADefinitionTermPastAnOpenDescriptionColumnTest extends TestCase
     {
         $source = ":: t\n:  d\n{$lines}\n      :: u\n      :  e";
         $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d\n{$folded}</p>\n    <dl>\n      <dt>u</dt>\n      <dd>e</dd>\n    </dl>\n  </dd>\n</dl>";
+
+        self::assertSame($expected, trim((new CarveConverter())->convert($source)));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function missedMarkers(): array
+    {
+        return [
+            'bullet' => ["  - a\n    * b", "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<ul>\n  <li>a\n    <ul>\n      <li>b\n        <dl>\n          <dt>u</dt>\n          <dd>e</dd>\n        </dl>\n      </li>\n    </ul>\n  </li>\n</ul>"],
+            'ordered' => ['  1. a', "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<ol>\n  <li>a\n    <dl>\n      <dt>u</dt>\n      <dd>e</dd>\n    </dl>\n  </li>\n</ol>"],
+            'task' => ['  * [ ] a', "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"a\"> a\n    <dl>\n      <dt>u</dt>\n      <dd>e</dd>\n    </dl>\n  </li>\n</ul>"],
+        ];
+    }
+
+    /**
+     * A list marker that misses the description body closes it (carve#4860), so the term opens in the list.
+     */
+    #[DataProvider('missedMarkers')]
+    public function testAMarkerThatMissesTheBodyClosesTheDescription(string $lines, string $expected): void
+    {
+        $source = ":: t\n:  d\n{$lines}\n      :: u\n      :  e";
 
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
@@ -71,14 +91,14 @@ class ADefinitionTermPastAnOpenDescriptionColumnTest extends TestCase
     public function testAParagraphAfterABlankReturnsToTheDescription(): void
     {
         $source = ":: t\n: d\n  - a\n     :: u\n     :  e\n\n     x";
-        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d\n- a</p>\n    <dl>\n      <dt>u</dt>\n      <dd>e</dd>\n    </dl>\n    <p>x</p>\n  </dd>\n</dl>";
+        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <ul>\n      <li><p>a</p>\n        <dl>\n          <dt>u</dt>\n          <dd>e</dd>\n        </dl>\n        <p>x</p>\n      </li>\n    </ul>\n  </dd>\n</dl>";
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
 
     public function testADeeperTermKeepsItsDescription(): void
     {
         $source = ":: t\n:  d\n  - a\n      :: u\n      :  e\n         :: v\n         :  f";
-        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d\n- a</p>\n    <dl>\n      <dt>u</dt>\n      <dd>\n        <p>e</p>\n        <dl>\n          <dt>v</dt>\n          <dd>f</dd>\n        </dl>\n      </dd>\n    </dl>\n  </dd>\n</dl>";
+        $expected = "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<ul>\n  <li>a\n    <dl>\n      <dt>u</dt>\n      <dd>\n        <p>e</p>\n        <dl>\n          <dt>v</dt>\n          <dd>f</dd>\n        </dl>\n      </dd>\n    </dl>\n  </li>\n</ul>";
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
 
@@ -112,21 +132,21 @@ class ADefinitionTermPastAnOpenDescriptionColumnTest extends TestCase
     public function testTwoFoldedMarkersKeepTheNestedSeparatorAligned(): void
     {
         $source = ":: t\n: d\n  - a\n    * b\n     :: u\n     :  e";
-        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d\n- a\n* b</p>\n    <dl>\n      <dt>u</dt>\n      <dd>e</dd>\n    </dl>\n  </dd>\n</dl>";
+        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <ul>\n      <li>a\n        <ul>\n          <li>b</li>\n        </ul>\n        <dl>\n          <dt>u</dt>\n          <dd>e</dd>\n        </dl>\n      </li>\n    </ul>\n  </dd>\n</dl>";
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
 
     public function testALaterFenceKeepsASeparatorShapedCodeLine(): void
     {
         $source = ":: t\n:  d\n  - a\n      :: u\n      :  e\n\n   ```\n      :  x\n   ```";
-        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d\n- a</p>\n    <dl>\n      <dt>u</dt>\n      <dd>e</dd>\n    </dl>\n    <pre><code>   :  x\n</code></pre>\n  </dd>\n</dl>";
+        $expected = "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<ul>\n  <li>a\n    <dl>\n      <dt>u</dt>\n      <dd>e</dd>\n    </dl>\n  </li>\n</ul>\n<pre><code>   :  x\n</code></pre>";
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
 
     public function testAParagraphAfterTwoFoldedMarkersReturnsToTheDescription(): void
     {
         $source = ":: t\n: d\n  - a\n    * b\n     :: u\n     :  e\n\n     x";
-        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d\n- a\n* b</p>\n    <dl>\n      <dt>u</dt>\n      <dd>e</dd>\n    </dl>\n    <p>x</p>\n  </dd>\n</dl>";
+        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <ul>\n      <li><p>a</p>\n        <ul>\n          <li>b</li>\n        </ul>\n        <dl>\n          <dt>u</dt>\n          <dd>e</dd>\n        </dl>\n        <p>x</p>\n      </li>\n    </ul>\n  </dd>\n</dl>";
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
 
@@ -142,14 +162,14 @@ class ADefinitionTermPastAnOpenDescriptionColumnTest extends TestCase
     public function testAnotherTermAtTheSameColumnStaysInTheNestedList(string $separator): void
     {
         $source = ":: t\n: d\n  - a\n    * b\n     :: u\n     :  e\n{$separator}     :: v\n     :  f";
-        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d\n- a\n* b</p>\n    <dl>\n      <dt>u</dt>\n      <dd>e</dd>\n      <dt>v</dt>\n      <dd>f</dd>\n    </dl>\n  </dd>\n</dl>";
+        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <ul>\n      <li>a\n        <ul>\n          <li>b</li>\n        </ul>\n        <dl>\n          <dt>u</dt>\n          <dd>e</dd>\n          <dt>v</dt>\n          <dd>f</dd>\n        </dl>\n      </li>\n    </ul>\n  </dd>\n</dl>";
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
 
     public function testAQuotedDescriptionUsesTheSameBodyColumn(): void
     {
         $source = "> :: t\n> :  d\n>   * b\n>     :: u\n>     :  e";
-        $expected = "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>\n      <p>d\n* b</p>\n      <dl>\n        <dt>u</dt>\n        <dd>e</dd>\n      </dl>\n    </dd>\n  </dl>\n</blockquote>";
+        $expected = "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>d</dd>\n  </dl>\n  <ul>\n    <li>b\n      <dl>\n        <dt>u</dt>\n        <dd>e</dd>\n      </dl>\n    </li>\n  </ul>\n</blockquote>";
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
 }

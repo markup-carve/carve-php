@@ -13,8 +13,9 @@ final class NestedDescriptionLazyMarkerTest extends TestCase
     {
         $html = (new CarveConverter())->convert(":: outer\n:  :: inner\n   : para\n- li\n");
 
-        self::assertStringContainsString("<dd>para\n- li</dd>", $html);
-        self::assertStringNotContainsString('<ul>', $html);
+        // A marker that misses both description bodies closes them (carve#4860).
+        self::assertStringContainsString('<dd>para</dd>', $html);
+        self::assertStringContainsString("</dl>\n<ul>\n  <li>li</li>\n</ul>", $html);
     }
 
     public function testAnIndentedMarkerAtTheOuterBodyColumnOpensAList(): void

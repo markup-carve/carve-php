@@ -42,7 +42,8 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     {
         return [
             'a block quote' => ['> q', '<blockquote>'],
-            'a bullet list marker remains lazy without a blank' => ['- x', '- x</dd>'],
+            // A marker past the body column opens a list in the description (carve#4860).
+            'a bullet list marker opens a list in the body' => ['- x', "<dd>\n    <p>body</p>\n    <ul>\n      <li>x</li>"],
             'a heading' => ['# h', '<h1'],
             'a thematic break' => ['---', '<hr>'],
             'a table row' => ['| a |', '<table>'],

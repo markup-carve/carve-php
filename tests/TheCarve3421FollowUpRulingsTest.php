@@ -55,7 +55,7 @@ class TheCarve3421FollowUpRulingsTest extends TestCase
         yield 'hosted heading' => ["> - > +\n# h\n", '<blockquote><ul><li><blockquote><p>+</p></blockquote></li></ul></blockquote><section id="h"><h1>h</h1></section>'];
         yield 'hosted table' => ["> - > +\n| c |\n", '<blockquote><ul><li><blockquote><p>+</p></blockquote></li></ul></blockquote><table><tbody><tr><td>c</td></tr></tbody></table>'];
         yield 'hosted heading after a sibling heading' => ["> - a\n> # t\n> - > +\n# h\n", '<blockquote><ul><li>a</li></ul><h1 id="t">t</h1><ul><li><blockquote><p>+</p></blockquote></li></ul></blockquote><section id="h"><h1>h</h1></section>'];
-        yield 'hosted list follower folds' => ["> - - > +\n- s\n", '<blockquote><ul><li><ul><li><blockquote><p>+- s</p></blockquote></li></ul></li></ul></blockquote>'];
+        yield 'hosted list follower folds' => ["> - - > +\n- s\n", '<blockquote><ul><li><ul><li><blockquote><p>+</p></blockquote></li></ul></li></ul></blockquote><ul><li>s</li></ul>'];
 
         yield 'wrapped attribute in a nested item' => ["- a\n  - b\n    {.c\n}\npara\n", '<ul><li>a<ul><li>b</li></ul></li></ul><p>para</p>'];
         yield 'wrapped attribute below the column opens a block' => ["- a\n {.c\n}\npara\n", '<ul><li>a</li></ul><p class="c">para</p>'];

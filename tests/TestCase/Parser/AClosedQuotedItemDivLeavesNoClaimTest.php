@@ -33,9 +33,10 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
 
     public function testAnOpenParagraphStillKeepsTheMarkerAsText(): void
     {
+        // A marker that misses the quoted item closes it and opens a list of its own (carve#4860).
         $html = (new CarveConverter())->convert("> - paragraph\n- tail\n");
-        $this->assertStringContainsString("<li>paragraph\n- tail</li>", $html);
-        $this->assertSame(1, substr_count($html, '<ul>'));
+        $this->assertStringContainsString('<li>paragraph</li>', $html);
+        $this->assertStringContainsString("</blockquote>\n<ul>\n  <li>tail</li>", $html);
     }
 
     public function testExplicitQuoteAndAttachmentMarkersKeepTheListQuoted(): void

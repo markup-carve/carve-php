@@ -12,22 +12,22 @@
   {
     "id": "nested-paragraph-bullet",
     "source": "> - a\n>   - child\n- next\n",
-    "html": "<blockquote><ul><li>a\n      <ul><li>child\n- next</li></ul></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <ul><li>child</li></ul></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "nested-paragraph-ordered",
     "source": "> - a\n>   - child\n1. next\n",
-    "html": "<blockquote><ul><li>a\n      <ul><li>child\n1. next</li></ul></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <ul><li>child</li></ul></li></ul></blockquote><ol><li>next</li></ol>"
   },
   {
     "id": "nested-paragraph-after-blank",
     "source": "> - a\n>\n>   - child\n- next\n",
-    "html": "<blockquote><ul><li>a\n      <ul><li>child\n- next</li></ul></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <ul><li>child</li></ul></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "nested-paragraph-second-line",
     "source": "> - a\n>   - child\n>   more\n- next\n",
-    "html": "<blockquote><ul><li>a\n      <ul><li>child\nmore\n- next</li></ul></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <ul><li>child\nmore</li></ul></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "div-lead-keeps-no-frame",
@@ -117,41 +117,41 @@
   {
     "id": "div-paragraph-1",
     "source": "> - a\n>     - child\n>     ::: box\n>     text\n- next\n",
-    "html": "<blockquote><ul><li>a\n      <ul><li>child</li></ul><div class=\"box\"><p>text\n- next</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <ul><li>child</li></ul><div class=\"box\"><p>text</p></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "div-paragraph-2",
     "source": "> - a\n>     - child\n>       ::: box\n>       text\n- next\n",
-    "html": "<blockquote><ul><li>a\n      <ul><li>child\n          <div class=\"box\"><p>text\n- next</p></div></li></ul></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <ul><li>child\n          <div class=\"box\"><p>text</p></div></li></ul></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "div-paragraph-3",
     "source": "> - a\n>     1. child\n>     ::: box\n>     text\n- next\n",
-    "html": "<blockquote><ul><li>a\n      <ol><li>child</li></ol><div class=\"box\"><p>text\n- next</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <ol><li>child</li></ol><div class=\"box\"><p>text</p></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "div-paragraph-4",
     "source": "> - a\n>     1. child\n>       ::: box\n>       text\n- next\n",
-    "html": "<blockquote><ul><li>a\n      <ol><li>child</li></ol><div class=\"box\"><p>text\n- next</p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>a\n      <ol><li>child</li></ol><div class=\"box\"><p>text</p></div></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "div-paragraph-5",
     "source": "> > - a\n> >     - child\n> >     ::: box\n> >     text\n- next\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <ul><li>child</li></ul><div class=\"box\"><p>text\n- next</p></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <ul><li>child</li></ul><div class=\"box\"><p>text</p></div></li></ul></blockquote></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "div-paragraph-6",
     "source": "> > - a\n> >     - child\n> >       ::: box\n> >       text\n- next\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <ul><li>child\n            <div class=\"box\"><p>text\n- next</p></div></li></ul></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <ul><li>child\n            <div class=\"box\"><p>text</p></div></li></ul></li></ul></blockquote></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "div-paragraph-7",
     "source": "> > - a\n> >     1. child\n> >     ::: box\n> >     text\n- next\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <ol><li>child</li></ol><div class=\"box\"><p>text\n- next</p></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <ol><li>child</li></ol><div class=\"box\"><p>text</p></div></li></ul></blockquote></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "div-paragraph-8",
     "source": "> > - a\n> >     1. child\n> >       ::: box\n> >       text\n- next\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <ol><li>child</li></ol><div class=\"box\"><p>text\n- next</p></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>a\n        <ol><li>child</li></ol><div class=\"box\"><p>text</p></div></li></ul></blockquote></blockquote><ul><li>next</li></ul>"
   }
 ]

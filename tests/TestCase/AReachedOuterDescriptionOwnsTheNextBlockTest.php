@@ -16,10 +16,7 @@ final class AReachedOuterDescriptionOwnsTheNextBlockTest extends TestCase
     public static function reachedDescriptions(): array
     {
         return [
-            'full ruling' => [
-                ":: term\n:  detail\n  1. ordered\n    :: term\n    :  detail\n      1. ordered\n       q\n       > quote\n",
-                '<dl><dt>term</dt><dd><p>detail1. ordered</p><dl><dt>term</dt><dd>detail</dd></dl><ol><li>orderedq</li></ol><blockquote><p>quote</p></blockquote></dd></dl>',
-            ],
+            'full ruling' => [":: term\n:  detail\n  1. ordered\n    :: term\n    :  detail\n      1. ordered\n       q\n       > quote\n", '<dl><dt>term</dt><dd>detail</dd></dl><ol><li>ordered</li></ol><dl><dt>term</dt><dd>detail</dd></dl><ol><li>orderedq</li></ol><blockquote><p>quote</p></blockquote>'],
             'description host' => [
                 ":: t\n:  d\n   :: u\n   :  e\n    1. x\n     q\n",
                 '<dl><dt>t</dt><dd><p>d</p><dl><dt>u</dt><dd>e</dd></dl><ol><li>xq</li></ol></dd></dl>',

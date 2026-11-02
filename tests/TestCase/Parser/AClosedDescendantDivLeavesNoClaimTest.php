@@ -156,8 +156,9 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
     {
         $source = "[^n]: note\n  - b\n    ::: box\n    ```\n    [r]: /url\n    ```\n    :::\n\nref[^n]\n";
         $html = (new CarveConverter())->convert($source);
-        $this->assertStringContainsString("<p>note\n- b</p>", $html);
-        $this->assertStringContainsString("<div class=\"box\">\n        <pre><code>[r]: /url\n</code></pre>", $html);
+        // The marker opens a list in the note (carve#4860).
+        $this->assertStringContainsString("<p>note</p>\n      <ul>\n        <li>b", $html);
+        $this->assertStringContainsString("<div class=\"box\">\n            <pre><code>[r]: /url\n</code></pre>", $html);
     }
 
     public function testEmptyOrTableEndingContinuationDivsLeaveNoClaim(): void
@@ -172,6 +173,7 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
     {
         $html = (new CarveConverter())->convert("[^n]: note\n  - ::: box\n    [r]: /url\n    :::\n\nref[^n]\n");
         $this->assertStringNotContainsString('[r]: /url', $html);
-        $this->assertStringContainsString("<p>note\n- ::: box</p>", $html);
+        // The marker opens a list in the note (carve#4860).
+        $this->assertStringContainsString("<p>note</p>\n      <ul>\n        <li>\n          <div class=\"box\">", $html);
     }
 }

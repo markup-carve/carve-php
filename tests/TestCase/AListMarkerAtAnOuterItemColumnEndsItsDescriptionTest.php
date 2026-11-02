@@ -73,7 +73,7 @@ final class AListMarkerAtAnOuterItemColumnEndsItsDescriptionTest extends TestCas
     public function testOpenQuoteParagraphKeepsUnmarkedMarker(): void
     {
         $source = "- a\n  :: t\n  : > q\n    - b\n";
-        $expected = "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <blockquote><p>q\n- b</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>\n";
+        $expected = "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <blockquote><p>q</p></blockquote>\n        <ul>\n          <li>b</li>\n        </ul>\n      </dd>\n    </dl>\n  </li>\n</ul>\n";
         self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 }

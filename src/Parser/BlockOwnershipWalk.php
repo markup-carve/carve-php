@@ -17,6 +17,13 @@ use MarkupCarve\Carve\Parser\Block\TableParser;
 final class BlockOwnershipWalk
 {
     /**
+     * Frames whose body opens a list at a list marker under an open paragraph (PART 0 S3, carve#4860).
+     *
+     * @var array<string>
+     */
+    private const BODY_FRAMES = ['item', 'dd', 'note'];
+
+    /**
      * @var string
      */
     private const QUOTE = '/^>(?: ([^\r\n]*)|[ \t]*$)/D';
@@ -423,10 +430,8 @@ final class BlockOwnershipWalk
             }
             $next = $this->frames[$reached + 1] ?? null;
             $missedNote = false;
-            $missedItem = false;
             for ($k = $reached + 1; $k <= $topIndex; $k++) {
                 $missedNote = $missedNote || $this->frames[$k]->kind === 'note';
-                $missedItem = $missedItem || $this->frames[$k]->kind === 'item';
             }
             // A caption at its owner's block column attaches to a quote it follows and is never its lazy line (carve#4312).
             $captionsQuote = $form->caption && $this->m['col'] === $this->frames[$reached]->col && $next?->kind === 'quote' && !$missedNote;
@@ -434,18 +439,8 @@ final class BlockOwnershipWalk
                 $this->softLeaf = true;
             }
             $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts && !$captionsQuote && $form->kind !== 'dd'
-                // A marker past a missed item opens a list of its own, so its items measure against their own columns (S4, §11 N1; carve#4369, carve#4545).
-                && !($form->kind === 'item' && $next->kind === 'item')
-                // A marker that misses a description but reaches the item holding it opens there (S3, carve#4479).
-                && !($form->kind === 'item' && $next->kind === 'dd' && $this->frames[$reached]->kind === 'item' && $this->frames[$topIndex]->kind === 'item');
-            // Past a missed note a marker opens only beside a missed list (carve#4160).
-            if ($lazy && $missedNote && $form->kind === 'item' && $missedItem) {
-                // A quote's readers still see the note's lazy line.
-                if ($next->kind === 'quote') {
-                    $this->lazyLines[$at] = true;
-                }
-                $lazy = false;
-            }
+                // A marker that a marker body owns, or that misses one, opens a list (PART 0 S3, carve#4860).
+                && !($form->kind === 'item' && $this->marksBodyList($reached));
             // S4: a line that missed a frame folds into the deepest open paragraph.
             if ($lazy) {
                 // The readers open a list at a folded marker (§10 I2), so a `+` there is decided too.
@@ -1082,7 +1077,7 @@ final class BlockOwnershipWalk
         $marker = $this->listParser->parseListItemMarker($rest);
         if ($marker !== null) {
             // A term is not a paragraph a marker continues.
-            if ($owner->para && $owner->kind !== 'item') {
+            if ($owner->para && !in_array($owner->kind, self::BODY_FRAMES, true)) {
                 return new OwnershipForm(kind: 'text', interrupts: false);
             }
             $head = $this->listParser->markerHeadAt($rest);
@@ -1761,5 +1756,28 @@ final class BlockOwnershipWalk
         }
 
         return ['col' => $col, 'rest' => $i >= $len ? '' : substr($line, $i)];
+    }
+
+    /**
+     * Whether the owner at `$reached` is a marker body, or the line misses one (a first-block quote stands for its item).
+     */
+    private function marksBodyList(int $reached): bool
+    {
+        if (in_array($this->frames[$reached]->kind, self::BODY_FRAMES, true)) {
+            return true;
+        }
+        $count = count($this->frames);
+        for ($k = $reached + 1; $k < $count; $k++) {
+            $frame = $this->frames[$k];
+            if (in_array($frame->kind, self::BODY_FRAMES, true)) {
+                return true;
+            }
+            $host = $this->frames[$k - 1];
+            if ($frame->kind === 'quote' && ($host->kind === 'item' || $host->kind === 'dd') && $host->plus !== null && $host->plus === ($frame->line ?? -2) - 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

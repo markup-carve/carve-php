@@ -22,11 +22,11 @@ final class ADeepestQuotedParagraphKeepsLazyLineTest extends TestCase
             ],
             'sibling list type and lazy list marker' => [
                 "> > 1. > +\n> > * > +\n>  - sibling\n",
-                "+\n- sibling",
+                '+',
             ],
             'list marker at the ancestor quote column' => [
                 "> > - > +\n> > - > +\n> - sibling\n",
-                "+\n- sibling",
+                '+',
             ],
             'three quote levels and an inline link' => [
                 "> > > - > +\n> > > 1. > +\n> >  some [link](x)\n",

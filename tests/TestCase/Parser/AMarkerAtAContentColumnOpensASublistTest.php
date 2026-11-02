@@ -130,7 +130,7 @@ class AMarkerAtAContentColumnOpensASublistTest extends TestCase
     public function testAMarkerOnAQuoteLazyContinuationIsNotWhatThisRuleDecides(): void
     {
         $this->assertSame(
-            '<ul> <li> <blockquote><p>q - s tail</p></blockquote> </li> </ul>',
+            '<ul> <li> <blockquote><p>q</p></blockquote> <ul> <li>s tail</li> </ul> </li> </ul>',
             $this->html("- > q\n  - s\ntail\n"),
         );
     }

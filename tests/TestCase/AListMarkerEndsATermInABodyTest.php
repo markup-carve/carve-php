@@ -38,7 +38,7 @@ class AListMarkerEndsATermInABodyTest extends TestCase
   - child
 
 [^n]
-', '<p><a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><dl><dt>term</dt><dd>def - child</dd></dl><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+', '<p><a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><dl><dt>term</dt><dd>def</dd></dl><ul><li>child</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
             ],
             'note-para-then-term' => [
                 '[^n]: para
@@ -55,14 +55,14 @@ class AListMarkerEndsATermInABodyTest extends TestCase
   - child
 
 [^n]
-', '<p><a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><dl><dt>term</dt></dl><p>more - child<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+', '<p><a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><dl><dt>term</dt></dl><p>more</p><ul><li>child</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
             ],
             'note-para' => [
                 '[^n]: para
   - child
 
 [^n]
-', '<p><a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>para - child<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+', '<p><a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>para</p><ul><li>child</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
             ],
             'dd-term' => [
                 ':: t
@@ -89,7 +89,7 @@ class AListMarkerEndsATermInABodyTest extends TestCase
                 ':: t
 : d
   - child
-', '<dl><dt>t</dt><dd>d - child</dd></dl>',
+', '<dl><dt>t</dt><dd><p>d</p><ul><li>child</li></ul></dd></dl>',
             ],
             'note-heading' => [
                 '[^n]: # H
