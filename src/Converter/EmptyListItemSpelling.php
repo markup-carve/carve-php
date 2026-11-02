@@ -54,7 +54,10 @@ final class EmptyListItemSpelling
             }
             if (preg_match(self::MARKER_LINE, $line, $m) === 1) {
                 if ($bodilessOnly) {
-                    for ($next = $i + 1; isset($lines[$next]) && trim($lines[$next], " \t>") === ''; $next++);
+                    $next = $i + 1;
+                    while (isset($lines[$next]) && trim($lines[$next], " \t>") === '') {
+                        $next++;
+                    }
                     if (self::bodyFollows($m[1], $lines[$next] ?? '')) {
                         continue;
                     }

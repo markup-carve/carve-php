@@ -497,16 +497,7 @@ class MarkdownToCarve
         $lineCount = count($lines);
         // The last line a setext heading on an item's marker line folded in.
         $foldedThrough = -1;
-        for ($i = 0; $i < $lineCount; $i++) {
-            if ($i <= $foldedThrough) {
-                continue;
-            }
-            if (!$fence->active) {
-                $folded = $this->itemSetextHeading($lines, $i, $listCols->all(), $prevLineType);
-                if ($folded !== null) {
-                    [$lines[$i], $foldedThrough] = $folded;
-                }
-            }
+        for ($i = 0; $i < $lineCount; $i = max($i + 1, $foldedThrough + 1)) {
             $this->applyShift($result, $shiftFrom, $shiftCol, $shiftBy);
             $this->inlineContext->inlineRunSourceLine = $this->sourceLine($i);
             $this->inlineContext->inlineRunContinuesPrevious = $i > 0
@@ -515,6 +506,7 @@ class MarkdownToCarve
             $bareParagraphMarker = $this->prepareImportedBareMarker(
                 $lines,
                 $i,
+                $foldedThrough,
                 $fence,
                 $listCols,
                 $listMarkers,
@@ -551,7 +543,8 @@ class MarkdownToCarve
                 $lazyAllowed,
                 $lazyQuote,
                 $prevLineType,
-                $wasPrevBlank || isset($emptyMarkerLines[$i - 1]),
+                $wasPrevBlank,
+                isset($emptyMarkerLines[$i - 1]),
             );
             if (
                 $afterClosedItem && $trimmed !== '' && ($listCols->isEmpty() || $listCols->outermost() > $this->indentWidth($line)) && end($result) !== ''
@@ -1733,46 +1726,34 @@ class MarkdownToCarve
     }
 
     /**
-     * Normalize a bare list marker and track the empty item it may open.
-     *
-     * @param array<string> $lines
-     * @param int|null $emptyMarkerColumn
-     * @param string $prevLineType
-     * @param bool $itemParagraph
-     * @param bool $prevBlank
-     * @param \MarkupCarve\Carve\Converter\Markdown\ListMarkers $listMarkers
-     * @param \MarkupCarve\Carve\Converter\Markdown\ListColumns $listCols
-     * @param \MarkupCarve\Carve\Converter\Markdown\FenceWork $fence
-     * @param int $i
-     * @param array<int, true> $emptyMarkerLines
-     */
-    /**
      * An item's marker line whose paragraph a setext underline in the item
      * ends, respelled as the ATX heading, and the underline's index.
      *
      * @param array<int, string> $lines
+     * @param int $i
      * @param array<int, int> $columns
+     * @param string $prevLineType
      *
      * @return array{0: string, 1: int}|null
      */
     private function itemSetextHeading(array $lines, int $i, array $columns, string $prevLineType): ?array
     {
         // Every marker on the line opens an item; the paragraph is the innermost one's.
-        if (preg_match('/^([ \t]*)((?:[-*+]|(\d{1,9})[.)]))([ \t]+(?:(?:[-*+]|\d{1,9}[.)])[ \t]{1,4})*)(\S.*)$/', $lines[$i], $m) !== 1) {
+        if (preg_match('/^([ \t]*)((?:[-*+]|\d{1,9}[.)]))([ \t]+(?:(?:[-*+]|\d{1,9}[.)])[ \t]{1,4})*)(\S.*)$/', $lines[$i], $m) !== 1) {
             return null;
         }
         $column = $this->indentWidth($m[1]);
-        $contentCol = $this->columnWidth($m[1] . $m[2] . $m[4]);
+        $contentCol = $this->columnWidth($m[1] . $m[2] . $m[3]);
         if (
             $column - $this->holderColumn($columns, $column) >= 4
-            || $this->columnWidth($m[1] . $m[2] . substr($m[4], 0, strspn($m[4], " \t"))) - $this->columnWidth($m[1] . $m[2]) > 4
-            || ($prevLineType === 'text' && $m[3] !== '' && (int)$m[3] !== 1)
+            || $this->columnWidth($m[1] . $m[2] . substr($m[3], 0, strspn($m[3], " \t"))) - $this->columnWidth($m[1] . $m[2]) > 4
+            || ($prevLineType === 'text' && preg_match('/^\d/', $m[2]) === 1 && (int)$m[2] !== 1)
             || preg_match(self::THEMATIC_BREAK, trim($lines[$i])) === 1
         ) {
             return null;
         }
         $virtual = $lines;
-        $virtual[$i] = str_repeat(' ', $contentCol) . $m[5];
+        $virtual[$i] = str_repeat(' ', $contentCol) . $m[4];
         $end = $this->setextParagraphEnd($virtual, $i, $contentCol, true);
         if ($end === null) {
             return null;
@@ -1789,7 +1770,29 @@ class MarkdownToCarve
         }
         $marker = ltrim($lines[$end], " \t")[0] === '=' ? '#' : '##';
 
-        return [$m[1] . $m[2] . $m[4] . $marker . ' ' . $text, $end];
+        return [$m[1] . $m[2] . $m[3] . $marker . ' ' . $text, $end];
+    }
+
+    /**
+     * Does a line whose item or quote markers end in a bare marker open an
+     * empty item? No paragraph is open in the container the line opens.
+     *
+     * @param string $line
+     * @param array<int, int> $columns
+     * @param string $prevLineType
+     */
+    private function opensEmptyItemAfterMarkers(string $line, array $columns, string $prevLineType): bool
+    {
+        if (
+            preg_match('/^([ \t]*)((?:[-*+]|\d{1,9}[.)]))[ \t]+(?:(?:[-*+]|\d{1,9}[.)])[ \t]+|>[ \t]?)*(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $line, $chain) !== 1
+            || $this->markerChainHoldsBreak($line)
+        ) {
+            return false;
+        }
+        $column = $this->indentWidth($chain[1]);
+
+        return $column - $this->holderColumn($columns, $column) < 4
+            && !($prevLineType === 'text' && preg_match('/^\d/', $chain[2]) === 1 && (int)$chain[2] !== 1);
     }
 
     /**
@@ -1802,7 +1805,7 @@ class MarkdownToCarve
             if (preg_match(self::THEMATIC_BREAK, $rest) === 1) {
                 return true;
             }
-            if (preg_match('/^(?:[-*+]|\d{1,9}[.)]|>)[ \t]*/', $rest, $marker) !== 1 || $marker[0] === '') {
+            if (preg_match('/^(?:[-*+]|\d{1,9}[.)]|>)[ \t]*/', $rest, $marker) !== 1) {
                 return false;
             }
             $rest = substr($rest, strlen($marker[0]));
@@ -1813,6 +1816,7 @@ class MarkdownToCarve
      * The content column of the innermost open item at or left of `$column`.
      *
      * @param array<int, int> $columns
+     * @param int $column
      */
     private function holderColumn(array $columns, int $column): int
     {
@@ -1826,9 +1830,25 @@ class MarkdownToCarve
         return $holder;
     }
 
+    /**
+     * Normalize a bare list marker and track the empty item it may open.
+     *
+     * @param array<string> $lines
+     * @param int|null $emptyMarkerColumn
+     * @param string $prevLineType
+     * @param bool $itemParagraph
+     * @param bool $prevBlank
+     * @param \MarkupCarve\Carve\Converter\Markdown\ListMarkers $listMarkers
+     * @param \MarkupCarve\Carve\Converter\Markdown\ListColumns $listCols
+     * @param \MarkupCarve\Carve\Converter\Markdown\FenceWork $fence
+     * @param int $i
+     * @param int $foldedThrough
+     * @param array<int, true> $emptyMarkerLines
+     */
     private function prepareImportedBareMarker(
         array &$lines,
         int $i,
+        int &$foldedThrough,
         FenceWork $fence,
         ListColumns $listCols,
         ListMarkers $listMarkers,
@@ -1847,17 +1867,13 @@ class MarkdownToCarve
         }
         if (!$fence->active) {
             $lines[$i] = $this->normalizeListMarkerPadding($lines[$i], $listCols->all());
+            $folded = $this->itemSetextHeading($lines, $i, $listCols->all(), $prevLineType);
+            if ($folded !== null) {
+                [$lines[$i], $foldedThrough] = $folded;
+            }
         }
         $bareMarker = !$fence->active && preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $lines[$i]) === 1;
-        // A bare marker after another item's or a quote's marker opens an
-        // empty item: no paragraph is open in the container the line opens.
-        if (
-            !$fence->active
-            && preg_match('/^([ \t]*)(?:[-*+]|(\d{1,9})[.)])[ \t]+(?:(?:[-*+]|\d{1,9}[.)])[ \t]+|>[ \t]?)*(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $lines[$i], $chain) === 1
-            && !$this->markerChainHoldsBreak($lines[$i])
-            && $this->indentWidth($chain[1]) - $this->holderColumn($listCols->all(), $this->indentWidth($chain[1])) < 4
-            && !($prevLineType === 'text' && ($chain[2] ?? '') !== '' && (int)$chain[2] !== 1)
-        ) {
+        if (!$fence->active && $this->opensEmptyItemAfterMarkers($lines[$i], $listCols->all(), $prevLineType)) {
             $lines[$i] = rtrim($lines[$i], " \t") . ' ' . EmptyListItemSpelling::PLACEHOLDER;
             $emptyMarkerLines[$i] = true;
         }
@@ -2275,6 +2291,7 @@ class MarkdownToCarve
      * @param array{prefix: string, col: int}|null $lazyQuote
      * @param string $prevLineType
      * @param bool $wasPrevBlank
+     * @param bool $afterEmptyItem
      *
      * @return array{bool, bool, int}
      */
@@ -2288,7 +2305,10 @@ class MarkdownToCarve
         ?array $lazyQuote,
         string $prevLineType,
         bool $wasPrevBlank,
+        bool $afterEmptyItem = false,
     ): array {
+        // An empty item holds no paragraph, so the line after it is no lazy line.
+        $wasPrevBlank = $wasPrevBlank || $afterEmptyItem;
         $overMarker = false;
         $paragraphMarker = false;
         $holderCol = 0;
@@ -3851,16 +3871,14 @@ class MarkdownToCarve
             $text = rtrim($text, " \t") . ' ' . EmptyListItemSpelling::PLACEHOLDER;
             $written = $text;
         } elseif (
-            preg_match('/^[ \t]*(?:[-*+]|(\d{1,9})[.)])[ \t]+(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)*(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $text, $chain) === 1
-            && !$this->markerChainHoldsBreak($text)
-            && ($openBefore === null || $this->indentWidth($text) - $openBefore < 4)
-            && !(($chain[1] ?? '') !== '' && (int)$chain[1] !== 1 && $state->previous !== null && $this->quoteParagraphIsOpen($state->previous['text']))
+            ($openBefore === null || $this->indentWidth($text) - $openBefore < 4)
+            && $this->opensEmptyItemAfterMarkers($text, [], $state->previous !== null && $this->quoteParagraphIsOpen($state->previous['text']) ? 'text' : 'blank')
         ) {
             // A bare marker after another item's marker opens an empty item.
             $text = rtrim($text, " \t") . ' ' . EmptyListItemSpelling::PLACEHOLDER;
             $written = $text;
         }
-        $opensItem =preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]/', $text) === 1;
+        $opensItem = preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]/', $text) === 1;
         if ($opensItem) {
             $itemQuote = null;
         }
@@ -4113,6 +4131,7 @@ class MarkdownToCarve
      *
      * @param array<int, string> $lines
      * @param int $contentCol
+     * @param bool $lazy
      * @param int $start
      */
     protected function setextParagraphEnd(array $lines, int $start, int $contentCol, bool $lazy = false): ?int

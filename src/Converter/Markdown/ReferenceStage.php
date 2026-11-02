@@ -401,9 +401,7 @@ final class ReferenceStage
                 $lineDepth > 0 && $listIndent === 0 && ($canStart || $lineDepth > $depth)
                 && preg_match('/^ {0,3}\[(?!\^)/', $content) === 1
             ) {
-                $quoted = preg_match('/^ {0,3}\[(?!\^)(?:[^[\]\\\\\n]|\\\\.)+\]:/', $content) === 1
-                    ? $this->readQuotedWrappedDefinition($lines, $i, $lineDepth) : null;
-                $quoted ??= $this->readQuotedSpreadDefinition($lines, $i, $lineDepth);
+                $quoted = $this->readQuotedDefinition($lines, $i, $lineDepth, $content);
                 if ($quoted !== null) {
                     // A Carve definition has no title slot, so uses become titled inline links.
                     $rawKey = $this->inlineStage->normalizeReferenceLabel($quoted['label']);
@@ -427,7 +425,7 @@ final class ReferenceStage
                     $depth = $lineDepth;
                     $i += $quoted['lines'] - 1;
                     $listWork->definitionEnd = $i;
-                    $this->holdParagraphContinuation($lines, $i, $quotePrefix);
+                    $this->holdParagraphContinuation($lines, $i, $quotePrefix, 0);
                     $canStart = !$this->dropDefinitionLine($lines, $i, $quotePrefix, $kept);
 
                     continue;
@@ -544,9 +542,7 @@ final class ReferenceStage
 
                         continue;
                     }
-                    if ($listIndent === 0) {
-                        $this->holdParagraphContinuation($lines, $i, $quotePrefix);
-                    }
+                    $this->holdParagraphContinuation($lines, $i, $quotePrefix, $listIndent);
                     if ($this->dropDefinitionLine($lines, $i, $quotePrefix, $kept)) {
                         $canStart = false;
                     }
@@ -623,9 +619,7 @@ final class ReferenceStage
 
                     continue;
                 }
-                if ($listIndent === 0) {
-                    $this->holdParagraphContinuation($lines, $i, $quotePrefix);
-                }
+                $this->holdParagraphContinuation($lines, $i, $quotePrefix, $listIndent);
                 if ($this->dropDefinitionLine($lines, $i, $quotePrefix, $kept)) {
                     $canStart = false;
                 }
@@ -672,11 +666,12 @@ final class ReferenceStage
      * @param array<int, string> $lines
      * @param int $index
      * @param string $quotePrefix
+     * @param int $listIndent
      */
-    private function holdParagraphContinuation(array &$lines, int $index, string $quotePrefix): void
+    private function holdParagraphContinuation(array &$lines, int $index, string $quotePrefix, int $listIndent): void
     {
         $next = $lines[$index + 1] ?? null;
-        if ($next === null || $this->quotePrefixOf($next) !== $quotePrefix) {
+        if ($listIndent > 0 || $next === null || $this->quotePrefixOf($next) !== $quotePrefix) {
             return;
         }
         $rest = substr($next, strlen($quotePrefix));
@@ -1192,6 +1187,26 @@ final class ReferenceStage
             'target' => str_starts_with($parsed['target'], '<>') ? null : $parsed['target'],
             'lines' => $parsed['lines'],
         ];
+    }
+
+    /**
+     * Read a reference definition at `$start` inside a block quote that runs
+     * past its first line: a wrapped title, or a label, destination or title
+     * on the next lines.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $depth
+     * @param string $content
+     *
+     * @return array{label: string, title: string, target: string|null, lines: int}|null
+     */
+    protected function readQuotedDefinition(array $lines, int $start, int $depth, string $content): ?array
+    {
+        $wrapped = preg_match('/^ {0,3}\[(?!\^)(?:[^[\]\\\\\n]|\\\\.)+\]:/', $content) === 1
+            ? $this->readQuotedWrappedDefinition($lines, $start, $depth) : null;
+
+        return $wrapped ?? $this->readQuotedSpreadDefinition($lines, $start, $depth);
     }
 
     /**
