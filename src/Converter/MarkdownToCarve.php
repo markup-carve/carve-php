@@ -1603,7 +1603,7 @@ class MarkdownToCarve
                 }
                 $quotedItemFence = $this->collectQuotedItemFence($lines, $i, $quoted[1], $quotedText);
                 if ($quotedItemFence !== null) {
-                    $result[] = $this->respellQuotedLine($lines, $i, $quoted[1], $quotedText, $prevLineType === 'blockquote', $quoteState, $result);
+                    $result[] = $this->respellQuotedLine($lines, $i, $quoted[1], $quotedItemFence['opener'], $prevLineType === 'blockquote', $quoteState, $result);
                     array_push($result, ...$quotedItemFence['lines']);
                     $i = $quotedItemFence['end'];
                     $quoteState->clearPrevious();
@@ -4424,9 +4424,11 @@ class MarkdownToCarve
     {
         $decoded = $this->inlineStage->decodeLinkTitle($info);
         $word = preg_split('/[ \t]/', trim($decoded, " \t"), 2)[0] ?? '';
+        // CommonMark 0.31 renders `language-js` as class `language-js`, not `language-language-js`.
+        $language = str_starts_with($word, 'language-') ? substr($word, 9) : $word;
 
-        if ($word === '' || preg_match('~^[A-Za-z0-9_+#/.-]+$~', $word) === 1) {
-            return $word;
+        if ($word === '' || ($language !== '' && preg_match('~^[A-Za-z0-9_+#/.-]+$~', $language) === 1)) {
+            return $language;
         }
         $this->referenceContext->boundaryDiagnostics[] = new MigrationDiagnostic(
             'structure-unspellable',
@@ -4807,7 +4809,7 @@ class MarkdownToCarve
      * @param string $prefix
      * @param string $text
      *
-     * @return array{lines: array<int, string>, end: int}|null
+     * @return array{opener: string, lines: array<int, string>, end: int}|null
      */
     private function collectQuotedItemFence(array $lines, int $start, string $prefix, string $text): ?array
     {
@@ -4828,7 +4830,7 @@ class MarkdownToCarve
                 $this->indentWidth($content) <= $contentColumn + 3
                 && preg_match('/^[ \t]*' . preg_quote($fence[0], '/') . '{' . strlen($fence) . ',}[ \t]*$/', $content) === 1
             ) {
-                return ['lines' => $kept, 'end' => $at];
+                return ['opener' => $opener[1] . $fence . $this->fenceLanguage($opener[3], $this->sourceLine($start)), 'lines' => $kept, 'end' => $at];
             }
         }
 

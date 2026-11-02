@@ -79,7 +79,7 @@ final class ReferenceDefinition
                 'label' => $label,
                 'target' => $destination . $title,
                 'lines' => substr_count(substr($source, $offset, $end - $offset), "\n") + 1,
-                'complex' => str_contains($label, "\n") || str_contains($label, '\\]') || str_contains($title, "\n"),
+                'complex' => self::labelNeedsInline($label) || str_contains($title, "\n"),
             ];
         };
         $withoutTitle = static function () use ($source, $destinationEnd, $finish): ?array {
@@ -130,5 +130,14 @@ final class ReferenceDefinition
         while (isset($source[$at]) && ($source[$at] === ' ' || $source[$at] === "\t")) {
             $at++;
         }
+    }
+
+    /**
+     * A label Carve cannot spell back as the same key: a line break, an escaped
+     * `]`, or a literal backslash (one not escaping ASCII punctuation).
+     */
+    public static function labelNeedsInline(string $label): bool
+    {
+        return preg_match('/\n|^(?:[^\\\\]|\\\\[!-\/:-@\[-\\\\^-`{-~])*\\\\(?:\]|[^!-\/:-@\[-`{-~]|$)/', $label) === 1;
     }
 }

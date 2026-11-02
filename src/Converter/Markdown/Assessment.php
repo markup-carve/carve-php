@@ -332,7 +332,7 @@ final class Assessment
                 if ($info !== '' && !preg_match('~^[A-Za-z0-9_+./-]+$~', $info)) {
                     $this->complete = false;
                 }
-                $html .= '<pre><code' . ($info === '' ? '' : ' class="language-' . self::escape($info) . '"') . '>' . self::escape(implode("\n", $body) . ($body === [] ? '' : "\n")) . "</code></pre>\n";
+                $html .= '<pre><code' . ($info === '' ? '' : ' class="' . (str_starts_with($info, 'language-') ? '' : 'language-') . self::escape($info) . '"') . '>' . self::escape(implode("\n", $body) . ($body === [] ? '' : "\n")) . "</code></pre>\n";
 
                 continue;
             }

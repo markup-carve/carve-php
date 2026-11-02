@@ -476,7 +476,7 @@ final class InlineStage
             $subject = $line;
             // A literal closer written by protectClosersOfLinksHoldingALink() is text, not a reference tail.
             $line = preg_replace_callback(
-                '/(!?)\[([^[\]\n^][^[\]\n]*)\]/',
+                '/(!?)\[([^[\]\n^][^[\]]*)\]/',
                 function (array $match) use ($subject, $protected, $protectedSources, $protect, $protectDestination, $closers, $literalReferenceOpeners, $table, $isReferenceDefinition, &$referenceUrls, &$referenceUrlAt): string {
                     return $this->rewriteShortcutReference($match, $subject, $protected, $protectedSources, $protect, $protectDestination, $closers, $literalReferenceOpeners, $table, $isReferenceDefinition, $referenceUrls, $referenceUrlAt);
                 },
@@ -1321,7 +1321,8 @@ final class InlineStage
         $referenceClosers[$offset + strlen($match[0][0]) - 1] = true;
         $labelStart = $reference === '' ? strrpos(substr($subject, 0, max(0, $offset - 1)), '[') : false;
         $preceding = $labelStart === false ? '' : substr($subject, $labelStart + 1, $offset - $labelStart - 2);
-        $label = $reference !== '' ? $reference : (strpbrk($preceding, "]\n") === false ? $preceding : null);
+        $label = $reference !== '' ? $reference : (!str_contains($preceding, ']') ? $preceding : null);
+        $label = $label === null ? null : self::withoutQuoteMarkers($label);
         $target = $label !== null ? $this->complexReferenceTarget($label, $protectedSources) : null;
         if ($target !== null) {
             return $protectDestination('', '(' . $target . ')', null, true);
@@ -1411,6 +1412,7 @@ final class InlineStage
             return $match[0][0];
         }
         $label = $match[2][0];
+        $key = self::withoutQuoteMarkers($label);
         $end = $match[0][1] + strlen($match[0][0]);
         if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
             $tail = $protectedSources[(int)$next[1]] ?? '';
@@ -1425,12 +1427,12 @@ final class InlineStage
         if (($this->cmarkReadsTaskCheckbox)($subject, $match[0][1])) {
             return $match[0][0];
         }
-        $target = $this->complexReferenceTarget($label, $protectedSources);
-        $rawLabel = $this->referenceSourceText($label, $protectedSources);
+        $target = $this->complexReferenceTarget($key, $protectedSources);
+        $rawLabel = $this->referenceSourceText($key, $protectedSources);
         $definition = preg_match('/&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $rawLabel) === 1
                     && !isset($this->context->authoredReferenceLabelKeys[$this->normalizeReferenceLabel($rawLabel)])
                     ? null
-                    : ($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protectedSources))] ?? null);
+                    : ($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($key, $protectedSources))] ?? null);
         if ($url !== null && $offset < $url['start'] && ($target !== null || $definition !== null)) {
             for ($at = $referenceUrlAt; isset($referenceUrls[$at]) && $referenceUrls[$at]['start'] < $end; $at++) {
                 $referenceUrls[$at]['end'] = min($referenceUrls[$at]['end'], $end);
@@ -3109,6 +3111,14 @@ final class InlineStage
         $this->recordAuthoredDestination($encoded, $this->referenceSourceText($url, $protected));
 
         return $encoded;
+    }
+
+    /**
+     * A label wrapped inside a quote still carries the `>` markers of its continuation lines; they are not label text.
+     */
+    private static function withoutQuoteMarkers(string $label): string
+    {
+        return str_contains($label, "\n") ? preg_replace('/\n {0,3}(?:>[ \t]?)+/', "\n", $label) ?? $label : $label;
     }
 
     /**
