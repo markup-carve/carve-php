@@ -11,9 +11,12 @@ use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -311,14 +314,17 @@ final class ListBlockBuilder
         $invisibleContinuation = false;
         if ($subLines !== []) {
             $before = count($lastItem->getChildren());
+            $captionsBefore = $this->captionCount(array_slice($lastItem->getChildren(), 0, $before));
             $this->callParseItemBlocks($lastItem, $subLines, $subLineMap, $subEligible, null, $unclosedFenceBase);
             if ($this->state->session->itemHasParsedBlankBeforeParagraph($lastItem)) {
                 $list->setTight(false);
             }
             $children = $lastItem->getChildren();
             if ($lastItemHadBlankAfter && preg_match('/^\^[ ]+\S/', ltrim($currentLine, " \t")) === 1) {
-                $captionHost = $children[count($children) - 1] ?? null;
-                if ($captionHost instanceof Paragraph) {
+                if (
+                    $this->captionCount(array_slice($children, 0, $before)) === $captionsBefore
+                    && $this->firstVisible(array_slice($children, $before)) instanceof Paragraph
+                ) {
                     $list->setTight(false);
                 }
             }
@@ -381,6 +387,40 @@ final class ListBlockBuilder
         }
 
         return [$i, $lastItemHadBlankAfter, $unclosedFenceBase];
+    }
+
+    /**
+     * Captions held by the item's blocks, so a `^ ` line that attached is told
+     * from a later paragraph repeating its text (carve#4965).
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     */
+    private function captionCount(array $nodes): int
+    {
+        $count = 0;
+        foreach ($nodes as $node) {
+            if ($node instanceof Figure) {
+                $count += count($node->getCaptions());
+            } elseif (($node instanceof Table || $node instanceof FigureGroup) && $node->getCaption() !== null) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     */
+    private function firstVisible(array $nodes): ?Node
+    {
+        foreach ($nodes as $node) {
+            if (!$node instanceof Comment) {
+                return $node;
+            }
+        }
+
+        return null;
     }
 
     /**
