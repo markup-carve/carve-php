@@ -51,19 +51,18 @@ class AnOpenBlockCommentInALooseItemKeepsItsBodyPastABlankTest extends TestCase
     }
 
     /**
-     * An opener with no closer ahead opens nothing (PART 9 section 28), so the
-     * tracker must not latch and swallow the rest of the item.
+     * An opener with no closer ahead opens a span to the end of the item (carve#4907).
      */
-    public function testAnUnclosedOpenerStillDegradesToALineComment(): void
+    public function testAnUnclosedOpenerHidesTheRestOfTheItem(): void
     {
         $src = "- a\n\n  %%%\n   y\n\n  b\n";
         $comments = self::comments((new BlockParser())->parse($src));
         $this->assertCount(1, $comments);
-        $this->assertNull($comments[0]->getFenceLength());
-        $this->assertSame('%', $comments[0]->getContent());
+        $this->assertSame(3, $comments[0]->getFenceLength());
+        $this->assertSame(" y\n\nb", $comments[0]->getContent());
 
         $this->assertSame(
-            "<ul>\n  <li><p>a</p>\n    <p>y</p>\n    <p>b</p>\n  </li>\n</ul>",
+            "<ul>\n  <li>a</li>\n</ul>",
             rtrim((new CarveConverter())->convert($src), "\n"),
         );
     }

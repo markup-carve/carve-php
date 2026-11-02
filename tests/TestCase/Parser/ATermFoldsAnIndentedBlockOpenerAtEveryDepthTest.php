@@ -98,9 +98,9 @@ final class ATermFoldsAnIndentedBlockOpenerAtEveryDepthTest extends TestCase
                 "[t][r]\n\n:: a\n: b\n  :: c\n    %%%\n\n    hidden\n    %%%\n    [r]: /u\n",
                 '<p>[t][r]</p><dl><dt>a</dt><dd><p>b</p><dl><dt>c[r]: /u</dt></dl></dd></dl>',
             ],
-            'an unclosed comment fence is a line comment, so a blank still ends the term' => [
+            'an unclosed comment fence hides the definition below it' => [
                 ":: a\n: b\n  :: c\n    %%% unclosed\n\n    [r]: /u\n\n[t][r]\n",
-                '<dl><dt>a</dt><dd><p>b</p><dl><dt>c</dt></dl></dd></dl><p><a href="/u">t</a></p>',
+                '<dl><dt>a</dt><dd><p>b</p><dl><dt>c</dt></dl></dd></dl><p>[t][r]</p>',
             ],
             'a percent-led folded comment line keeps its visible neighbors' => [
                 ":: c\n  %% % note\n  visible\n  %% %\n  more\n",

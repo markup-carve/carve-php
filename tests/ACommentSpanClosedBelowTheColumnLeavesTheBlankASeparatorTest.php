@@ -105,9 +105,9 @@ class ACommentSpanClosedBelowTheColumnLeavesTheBlankASeparatorTest extends TestC
             // §28: an opener with no closer ahead opens NOTHING and is one
             // `%%` line comment. Loose here because the blanks are ordinary
             // separators, not because a span was closed.
-            'an unterminated opener latches nothing' => [
+            'an unterminated opener hides the rest of the item' => [
                 "- head\n  %%%\n  a\n\n  tail\n",
-                "<ul>\n  <li><p>head</p>\n    <p>a</p>\n    <p>tail</p>\n  </li>\n</ul>\n",
+                "<ul>\n  <li>head</li>\n</ul>\n",
             ],
             'the line-comment spelling is untouched' => [
                 "- head\n  %%\n  a\n\n  tail\n",

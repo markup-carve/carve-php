@@ -3579,7 +3579,14 @@ final class BlockContinuationScanner
             }
             // A payload line that misses the item's prefix ends the item
             // before the span is classified (`CARVE-P0-005`); only the
-            // closing run is free of the column.
+            // closing run and a comment line are free of the column.
+            if ($run->openCommentLength !== null && str_starts_with($nextTrimmed, '%%')) {
+                $itemLines[] = $nextIndent > 0 ? ' ' . $nextTrimmed : $nextTrimmed;
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $i++;
+
+                return true;
+            }
             if ($run->openCommentLength !== null) {
                 return false;
             }
@@ -4524,23 +4531,7 @@ final class BlockContinuationScanner
      */
     private function literalSourceCommentHasCloser(array $lines, int $index, int $width, int $floor): bool
     {
-        $parser = ($this->getFencedBlockParser)();
-        if ($parser::class === FencedBlockParser::class) {
-            $view = $this->state->frame->literalSourceCommentView ??= new LiteralCommentClosers($lines, $parser);
-
-            return $view->hasCloser($width, $index, $floor);
-        }
-        for ($at = $index + 1, $count = count($lines); $at < $count; $at++) {
-            $line = $lines[$at];
-            if ($parser->isFencedCommentCloserAnyColumn($line, $width)) {
-                return true;
-            }
-            if (!IndentationHelper::isBlankLine($line) && !str_starts_with(ltrim($line, " \t"), '%%') && IndentationHelper::getLeadingColumns($line) < $floor) {
-                return false;
-            }
-        }
-
-        return false;
+        return true;
     }
 
     /**

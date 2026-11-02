@@ -90,7 +90,7 @@ class AColumnZeroCommentEndsADescriptionBodyTest extends TestCase
     public function testAnUnclosedCommentFenceEndsTheBodyToo(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>",
+            "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>",
             $this->html(":: t\n:  d\n%%%\ntail\n"),
         );
     }

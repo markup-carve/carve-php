@@ -60,21 +60,21 @@ class FencedCommentFenceTest extends TestCase
                 "before\n\n%%%% html\nhidden %%% inner\n%%%%\n\nafter\n",
                 "<p>before</p>\n<p>after</p>\n",
             ],
-            'unterminated opener with tail degrades' => [
+            'unterminated opener with tail hides the rest' => [
                 "before\n\n%%% TODO\nsecret\n\nafter\n",
-                "<p>before</p>\n<p>secret</p>\n<p>after</p>\n",
+                "<p>before</p>\n",
             ],
-            'unterminated bare opener degrades' => [
+            'unterminated bare opener hides the rest' => [
                 "before\n\n%%%\nsecret\n\nafter\n",
-                "<p>before</p>\n<p>secret</p>\n<p>after</p>\n",
+                "<p>before</p>\n",
             ],
             'shorter closer does not close' => [
                 "before\n\n%%%%\nsecret\n%%%\n\nafter\n",
-                "<p>before</p>\n<p>secret</p>\n<p>after</p>\n",
+                "<p>before</p>\n",
             ],
             'longer closer does not close' => [
                 "before\n\n%%%\nsecret\n%%%%\n\nafter\n",
-                "<p>before</p>\n<p>secret</p>\n<p>after</p>\n",
+                "<p>before</p>\n",
             ],
         ];
     }
@@ -99,7 +99,7 @@ class FencedCommentFenceTest extends TestCase
     {
         $converter = new CarveConverter(warnings: true);
 
-        $this->assertSame(preg_replace('/\n\z/', '', "<p>before</p>\n<p>secret</p>\n"), $converter->convert("before\n\n%%% TODO\nsecret\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>before</p>\n"), $converter->convert("before\n\n%%% TODO\nsecret\n"));
 
         $warnings = $converter->getWarnings();
         $this->assertCount(1, $warnings);
@@ -269,7 +269,7 @@ class FencedCommentFenceTest extends TestCase
         $input = "> %%% x\n> visible\n\nafter\n";
 
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<blockquote><p>visible</p></blockquote>\n<p>after</p>\n"),
+            preg_replace('/\n\z/', '', "<blockquote>\n\n</blockquote>\n<p>after</p>\n"),
             (new CarveConverter())->convert($input),
         );
     }
@@ -277,12 +277,12 @@ class FencedCommentFenceTest extends TestCase
     public function testFencedCommentInABlockQuoteEndsAtABlankLine(): void
     {
         // A blank line ends the quote, so a closer after it cannot close the
-        // fence inside it: the opener degrades and the body renders.
+        // fence inside it: the span runs to the end of the quote (carve#4907).
         $input = "> %%% x\n> visible\n\n> %%%\n";
 
         $html = (new CarveConverter())->convert($input);
 
-        $this->assertStringContainsString('visible', $html);
+        $this->assertStringNotContainsString('visible', $html);
     }
 
     /**
@@ -420,7 +420,8 @@ class FencedCommentFenceTest extends TestCase
      * Widening the opener alone is a worse defect than the gap it closes: the
      * block parser degrades an opener with no closer in its container to a
      * one-line comment, so a prepass that enters the region on a far closer
-     * suppresses every definition between the two. Every row here registers.
+     * suppresses every definition between the two. Since carve#4907 an unclosed
+     * span hides the definition, so no row registers it.
      *
      * @return array<string, array{string}>
      */
@@ -445,7 +446,8 @@ class FencedCommentFenceTest extends TestCase
     #[DataProvider('quotedOpenerNeedsItsCloserInTheQuoteProvider')]
     public function testQuotedOpenerNeedsItsCloserInTheQuote(string $input): void
     {
-        $this->assertStringContainsString('<a href="/url">r</a>', (new CarveConverter())->convert($input));
+        // Unclosed in its quote, the span hides the definition to the quote's end (carve#4907).
+        $this->assertStringNotContainsString('<a href="/url">r</a>', (new CarveConverter())->convert($input));
     }
 
     /**
@@ -608,7 +610,8 @@ class FencedCommentFenceTest extends TestCase
     #[DataProvider('nestedPrefixOpenerNeedsItsOwnCloserProvider')]
     public function testNestedPrefixOpenerNeedsItsOwnCloser(string $input): void
     {
-        $this->assertStringContainsString('<a href="/url">r</a>', (new CarveConverter())->convert($input));
+        // Unclosed in its quote, the span hides the definition to the quote's end (carve#4907).
+        $this->assertStringNotContainsString('<a href="/url">r</a>', (new CarveConverter())->convert($input));
     }
 
     public function testAListMarkerDoesNotCloseAFence(): void
@@ -616,12 +619,11 @@ class FencedCommentFenceTest extends TestCase
         // The walk reads a list marker for an OPENER only. A fence opens on the
         // line that opens its item, but a closer is a CONTINUATION line, where
         // a marker opens a new item instead. Reading markers on both sides
-        // would let `- %%%` close the top-level fence above it - and the
-        // definition BETWEEN the two is what makes that observable, because a
-        // fence with no closer opens nothing and suppresses nothing.
+        // would let `- %%%` close the top-level fence above it. Unclosed, the
+        // span hides everything after it (carve#4907).
         $input = "%%%\n[r]: /url\n- %%%\n\nSee [r][].\n";
 
-        $this->assertStringContainsString('<a href="/url">r</a>', (new CarveConverter())->convert($input));
+        $this->assertSame('', (new CarveConverter())->convert($input));
     }
 
     /**

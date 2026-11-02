@@ -4828,7 +4828,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         // Opening a line of a term, the comment is read as a
                         // block comment line, where a joined `%` would make a
                         // fence (markup-carve/carve#2411).
-                        str_starts_with($content, '%') && !($this->inTerm && str_ends_with($out, "\n")) => '%%' . $content,
+                        // At a line start a joined `%%%` opens a fence with no closer needed (carve#4907).
+                        str_starts_with($content, '%') && !(($this->inTerm || $this->inLineBlock > 0) && ($out === '' || str_ends_with($out, "\n"))) => '%%' . $content,
                         default => '%% ' . $content,
                     };
 

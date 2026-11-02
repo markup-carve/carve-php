@@ -148,11 +148,14 @@ class ProseMirrorCorpusTest extends TestCase
      * b7876589 adds two more: a comment block in a line block (855) and a
      * quote after a refused description separator (856). The pin to carve
      * 6bb54c35 adds a cloned heading that drops its ids (870). The pin to
-     * carve b8c898ac adds a line block in a nested description (910).
+     * carve b8c898ac adds a line block in a nested description (910). The pin
+     * to carve 04ab7a96 counts 7: an unclosed verse span (855-3, carve#4907)
+     * and three line blocks after a verse span (939, carve#4956) join, while 856
+     * and 910 leave.
      *
      * @var int
      */
-    private const MAXIMUM_COVERED_BUT_DIFFERING = 5;
+    private const MAXIMUM_COVERED_BUT_DIFFERING = 7;
 
     public function testTheCorpusSurvivesTheBridge(): void
     {

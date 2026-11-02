@@ -4264,6 +4264,50 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-nested-closer-760\"",
             "ticket": "carve-php#4243"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"930-a-line-that-misses-a-nested-host-ends-it-when-a-comment-closer-lies-ahead-5\"",
+            "ticket": "carve-php#4508"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 34-thematic-breaks\"",
+            "ticket": "carve#4982"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter-4\"",
+            "ticket": "carve#4907"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"34-thematic-breaks\"",
+            "ticket": "carve#4982"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter-4\"",
+            "ticket": "carve#4907"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"930-a-line-that-misses-a-nested-host-ends-it-when-a-comment-closer-lies-ahead-5\"",
+            "ticket": "carve-php#4508"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"34-thematic-breaks\"",
+            "ticket": "carve#4982"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter-4\"",
+            "ticket": "carve#4907"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"930-a-line-that-misses-a-nested-host-ends-it-when-a-comment-closer-lies-ahead-5\"",
+            "ticket": "carve-php#4508"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testThePartElevenOneCCeilingIsNoLongerReached",
+            "ticket": "carve#4982"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"marker-colon-always-opens/556-a-closed-block-leaves-no-frame-for-the-line-below-14\"",
+            "ticket": "carve#4907"
         }
     ]
 }

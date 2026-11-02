@@ -6,7 +6,9 @@ namespace MarkupCarve\Carve\Lint;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\RawBlock;
+use MarkupCarve\Carve\Node\Node;
 
 final class FenceAndContinuationLinter
 {
@@ -93,6 +95,7 @@ final class FenceAndContinuationLinter
                 sprintf('The %s fence opened here has no closing fence; %s. Add a closing %s where the code should stop.', $marker, $ending, $marker),
             );
         }
+        array_push($warnings, ...$this->unclosedCommentFences($document, $rows));
         $seen = [];
         foreach ($parser->getRefusedContinuationMarkers() as $marker) {
             $key = $marker['line'] . ':' . $marker['column'];
@@ -142,6 +145,78 @@ final class FenceAndContinuationLinter
     }
 
     /**
+     * One finding per `%%%` comment whose last line is not its closer (PART 9 §28).
+     *
+     * @param \MarkupCarve\Carve\Node\Node $document
+     * @param array<int, array{string, int}> $rows
+     *
+     * @return list<\MarkupCarve\Carve\Lint\LintWarning>
+     */
+    private function unclosedCommentFences(Node $document, array $rows): array
+    {
+        $warnings = [];
+        $seen = [];
+        $pending = [$document];
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            array_push($pending, ...$node->getChildren());
+            if (!$node instanceof Comment || $node->getFenceLength() === null) {
+                continue;
+            }
+            $pos = $node->getPos();
+            if ($pos === null) {
+                continue;
+            }
+            $lineText = $rows[$pos->startLine - 1][0] ?? '';
+            $column = $pos->startColumn;
+            // The parser counts a BOM as a column; `warning()` adds its bytes itself.
+            if ($pos->startLine === 1 && str_starts_with($lineText, "\u{FEFF}")) {
+                $lineText = substr($lineText, 3);
+                $column = max(1, $column - 1);
+            }
+            $rest = mb_substr($lineText, $column - 1, null, 'UTF-8');
+            // A top-level opener is positioned at its indentation.
+            $column += strlen($rest) - strlen(ltrim($rest, " \t"));
+            if (preg_match('/^%{3,}/', ltrim($rest, " \t"), $match) !== 1) {
+                continue;
+            }
+            $opener = $match[0];
+            $key = $pos->startLine . ':' . $column;
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $last = ltrim($rows[$pos->endLine - 1][0] ?? '', " \t>");
+            if ($pos->endLine > $pos->startLine && preg_match('/^%+/', $last, $closer) === 1 && $closer[0] === $opener) {
+                continue;
+            }
+            $tail = false;
+            for ($row = $pos->endLine, $rowCount = count($rows); $row < $rowCount; $row++) {
+                if (trim($rows[$row][0]) !== '') {
+                    $tail = true;
+
+                    break;
+                }
+            }
+            $warnings[] = $this->warning(
+                $rows,
+                $pos->startLine,
+                $column,
+                strlen($opener),
+                'unclosed-comment-fence',
+                sprintf(
+                    'The %s comment fence opened here has no closing fence and hides everything to the end of %s. Add a closing %s where the comment should stop.',
+                    $opener,
+                    $tail ? 'its container' : 'the document',
+                    $opener,
+                ),
+            );
+        }
+
+        return $warnings;
+    }
+
+    /**
      * @param array<int, array{string, int}> $rows
      * @param string $message
      * @param string $rule
@@ -152,8 +227,9 @@ final class FenceAndContinuationLinter
     private function warning(array $rows, int $line, int $column, int $width, string $rule, string $message): LintWarning
     {
         [$content, $start] = $rows[$line - 1];
-        $prefix = mb_substr($content, 0, $column - 1, 'UTF-8');
         $bom = $line === 1 && str_starts_with($content, "\u{FEFF}") ? 3 : 0;
+        // Columns do not count the BOM, so the prefix is measured past it.
+        $prefix = mb_substr(substr($content, $bom), 0, $column - 1, 'UTF-8');
         $offset = $start + strlen($prefix) + $bom;
 
         return new LintWarning($line, $column, $rule, $message, $offset, $offset + $width);

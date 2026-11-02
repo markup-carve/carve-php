@@ -16,26 +16,11 @@
       ]
     },
     {
-      "ticket": "markup-carve/carve-php#4254",
-      "cause": "untriaged day-one drift in the roundtrip family",
-      "cases": [
-        "roundtrip-2f0bd736a7de"
-      ]
-    },
-    {
       "ticket": "markup-carve/carve-php#4328",
       "cause": "remaining differences of the + port; listed in the PR body",
       "cases": [
         "lazy-68fe7c68d81d",
         "roundtrip-615415506b26"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve#4716",
-      "cause": "the pinned pack predates carve#4766; the engine skips every invisible line between siblings, as the current model does",
-      "cases": [
-        "lazy-21cb87fd7067",
-        "fences-a46060654787"
       ]
     },
     {
@@ -61,6 +46,20 @@
         "roundtrip-9a648d1ed12f",
         "roundtrip-9c334d5b1459",
         "roundtrip-e62305f7bd97"
+      ]
+    },
+    {
+      "ticket": "markup-carve/carve-php#4511",
+      "cause": "a same-width run after PART 0 S1 ended a comment span is read as its closer (carve#4907 F1 residue)",
+      "cases": [
+        "fences-dd3d9d6c9819"
+      ]
+    },
+    {
+      "ticket": "markup-carve/carve#4907",
+      "cause": "an unclosed column-0 span after a list item stops at a blank line before an attribute line (F1 residue, listed on carve-php#4506)",
+      "cases": [
+        "attributes-8f9441a23e92"
       ]
     }
   ]

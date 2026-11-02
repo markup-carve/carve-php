@@ -152,7 +152,7 @@ class ACommentSpanSCloserColumnDoesNotMoveTheItemSOwnershipTest extends TestCase
     public function testAnUnclosedSpanStillRegistersTheDefinitionBelowIt(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>item</li>\n</ul>\n<p><a href=\"/url\">use</a></p>",
+            "<ul>\n  <li>item</li>\n</ul>\n<p>[use][r]</p>",
             trim((new CarveConverter())->convert("- item\n  %%%\n  [r]: /url\n\n[use][r]\n")),
         );
     }
@@ -173,11 +173,11 @@ class ACommentSpanSCloserColumnDoesNotMoveTheItemSOwnershipTest extends TestCase
         return [
             'one payload line at the column, one below it' => [
                 "- item\n  %%%\n  hidden\nhidden2\n%%%\ntail\n",
-                "<ul>\n  <li>item\n    hidden\n  </li>\n</ul>\n<p>hidden2</p>\n<p>tail</p>",
+                "<ul>\n  <li>item</li>\n</ul>\n<p>hidden2</p>",
             ],
             'CONTROL - the only payload line is below the column' => [
                 "- item\n  %%%\nhidden\n%%%\ntail\n",
-                "<ul>\n  <li>item</li>\n</ul>\n<p>hidden</p>\n<p>tail</p>",
+                "<ul>\n  <li>item</li>\n</ul>\n<p>hidden</p>",
             ],
             'CONTROL - both payload lines at the column' => [
                 "- item\n  %%%\n  hidden\n  hidden2\n%%%\ntail\n",

@@ -140,13 +140,14 @@ class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
     }
 
     /**
-     * A `%%%` opener with no closer is a `%%` line, so the paragraph after it loosens the item (carve-php#4476).
+     * A `%%%` opener with no closer opens a span (carve#4907): a line below the item ends it and the item,
+     * a line at the item's column is its payload.
      */
     public function testAnUnterminatedSpanLoosensTheItem(): void
     {
-        foreach ([' ', '  '] as $indent) {
+        foreach ([' ' => "\n<p>z</p>", '  ' => ''] as $indent => $after) {
             $this->assertSame(
-                "<ul>\n  <li><p>t</p>\n    <p>c\nz</p>\n  </li>\n</ul>",
+                "<ul>\n  <li>t</li>\n</ul>" . $after,
                 $this->html("- t\n\n  %%%\n  c\n" . $indent . "z\n"),
                 'indent ' . strlen($indent),
             );
@@ -156,7 +157,7 @@ class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
     public function testAnUnterminatedSpanAfterAQuoteLoosensTheItem(): void
     {
         $this->assertSame(
-            "<ul>\n  <li><p>o</p>\n    <blockquote><p>q</p></blockquote>\n    <p>p</p>\n  </li>\n</ul>",
+            "<ul>\n  <li>o\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>",
             $this->html("- o\n  > q\n\n  %%%\n  p\n"),
         );
     }
@@ -223,7 +224,7 @@ class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
     public function testASpanPayloadOutsideTheItemEndsIt(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>t</li>\n</ul>\n<p>x</p>\n<p>z</p>",
+            "<ul>\n  <li>t</li>\n</ul>\n<p>x</p>",
             $this->html("- t\n\n  %%%\nx\n  %%%\n  z\n"),
         );
     }

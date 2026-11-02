@@ -1705,7 +1705,7 @@ final class BlockQuoteBuilder
             $state['inTable'] = false;
 
             if ($state['mode'] === BlockQuoteLazyMode::CommentFence) {
-                if (($this->getFencedBlockParser)()->isFencedCommentCloser(BlockGrammar::quotedContentAtDepth($content, $state['innerDepth']) ?? $content, $state['commentLength'])) {
+                if (($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn(BlockGrammar::quotedContentAtDepth($content, $state['innerDepth']) ?? $content, $state['commentLength'])) {
                     $state['mode'] = BlockQuoteLazyMode::Content;
                 }
                 $state['paragraphOpen'] = false;
@@ -1750,15 +1750,14 @@ final class BlockQuoteBuilder
 
                 return;
             }
-            if (!$state['paragraphOpen']) {
-                $commentInfo = ($this->getFencedBlockParser)()->parseFencedCommentOpener($content);
-                if ($commentInfo !== null && $this->hasClosingCommentFenceAheadInBlockQuote($sourceLines, $sourceIndex, $commentInfo['length'])) {
-                    $state['mode'] = BlockQuoteLazyMode::CommentFence;
-                    $state['commentLength'] = $commentInfo['length'];
-                    $state['paragraphOpen'] = false;
+            // A comment fence interrupts a paragraph, closer or not (carve#4907).
+            $commentInfo = ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn($content);
+            if ($commentInfo !== null && $this->hasClosingCommentFenceAheadInBlockQuote($sourceLines, $sourceIndex, $commentInfo['length'])) {
+                $state['mode'] = BlockQuoteLazyMode::CommentFence;
+                $state['commentLength'] = $commentInfo['length'];
+                $state['paragraphOpen'] = false;
 
-                    return;
-                }
+                return;
             }
 
         // A DIV IS A CONTAINER ON THE OPEN STACK, and S4 asks what that stack

@@ -59,7 +59,7 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
     {
         // PART 9 §28: without a closer it is not a fenced comment, so the
         // following blocks still render instead of being swallowed to EOF.
-        $this->assertSame(preg_replace('/\n\z/', '', "<p>a</p>\n<p>b</p>\n"), $this->converter->convert("a\n  %%% x\nb\n"));
+        $this->assertSame(preg_replace('/\n\z/', '', "<p>a</p>\n"), $this->converter->convert("a\n  %%% x\nb\n"));
     }
 
     public function testInsideAListItemTheWholeSpanIsInvisible(): void

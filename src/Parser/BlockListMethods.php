@@ -833,14 +833,7 @@ trait BlockListMethods
      * that closes the open one, because a longer opener nests shorter fences
      * (PART 9 §28).
      *
-     * AN OPENER WITH NO CLOSER AHEAD OPENS NOTHING and must not latch this
-     * tracker: §28 gives it no block, and latching it would run the item to end
-     * of input. That is the whole reason this lives beside
-     * `advanceTrailingStateCore()` instead of inside it - the shared tracker
-     * sees one line and cannot ask the question. `lastCommentFenceIndex()`
-     * answers it from a width -> last-index map built once per line set, so a
-     * document full of unclosable openers with DISTINCT widths costs one pass
-     * rather than one scan per opener.
+     * A valid opener opens a span whether or not a closer follows (carve#4907).
      *
      * @param int|null $openLength The width currently open, or null.
      * @param string $line The collected line, already dedented.
@@ -854,15 +847,8 @@ trait BlockListMethods
         }
 
         $info = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line);
-        // STRICTLY AFTER. The opener is itself a line of its own width, so a
-        // `>=` here lets it count as its own closer and every unterminated
-        // `%%% x` opens a span that runs to end of input - which is the exact
-        // latch this lookahead exists to prevent.
-        if ($info === null || $this->lastCommentFenceIndex($lines, $info['length']) <= $index) {
-            return null;
-        }
 
-        return $info['length'];
+        return $info === null ? null : $info['length'];
     }
 
     /**

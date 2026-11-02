@@ -2941,11 +2941,6 @@ class BlockParser
         }
 
         $fenceLength = $fenceInfo['length'];
-        if (!$this->hasClosingCommentFenceAhead($line, $lines, $start)) {
-            $this->addWarning('Unclosed fenced comment', $start, 1, true);
-
-            return null;
-        }
 
         /** @var list<string> $contentLines */
         $contentLines = [];
@@ -2954,17 +2949,22 @@ class BlockParser
         }
         $i = $start + 1;
         $count = count($lines);
+        $closed = false;
         while ($i < $count) {
             $currentLine = $lines[$i];
 
             if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($currentLine, $fenceLength)) {
                 $i++;
+                $closed = true;
 
                 break;
             }
 
             $contentLines[] = $currentLine;
             $i++;
+        }
+        if (!$closed) {
+            $this->addWarning('Unclosed fenced comment', $start, 1, true);
         }
 
         // The body keeps its bytes: blank and whitespace-only lines, leading or
@@ -3669,6 +3669,11 @@ class BlockParser
                 $bodyLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
                 $i++;
+            } elseif (
+                // A line that misses the body ends a span open in it, and the body (PART 0 S1).
+                $this->collectedLinesLeaveACommentSpanOpen($bodyLines, $commentSpan)
+            ) {
+                break;
             } elseif (
                 preg_match('/^[ \t]+%%(?!%)/', $nextLine) === 1
                 && ($this->definitionsBuilder()->bodyTermIsOpen($bodyLines, $termScan, $lines, $i)
@@ -5631,44 +5636,20 @@ class BlockParser
      */
     protected function hasClosingCommentFenceAhead(string $line, ?array $lines, ?int $index): bool
     {
-        $fenceInfo = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line);
-        if ($fenceInfo === null) {
-            return false;
-        }
-
-        if ($lines === null || $index === null) {
-            return true;
-        }
-
-        return $this->lastCommentFenceIndex($lines, $fenceInfo['length']) > $index;
+        // A valid opener opens a span whether or not a closer follows (carve#4907).
+        return $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line) !== null;
     }
 
     /**
-     * Last index in $lines carrying a comment fence of exactly $length, or -1.
-     *
-     * Built once per line set: see the $commentFenceLastIndex docblock for why
-     * this is exact rather than an approximation.
+     * Where a span's closer may lie: past every line, since an opener needs no
+     * closer to open (carve#4907).
      *
      * @param array<string> $lines
      * @param int $length
      */
     protected function lastCommentFenceIndex(array $lines, int $length): int
     {
-        if ($this->state->frame->commentFenceLastIndex === null) {
-            $index = [];
-            foreach ($lines as $i => $candidate) {
-                // Any column: the consumption sites read an indented fence, so
-                // the index answering whether a closer exists must see one too.
-                $info = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($candidate);
-                if ($info !== null) {
-                    $index[$info['length']] = $i;
-                }
-            }
-
-            $this->state->frame->commentFenceLastIndex = $index;
-        }
-
-        return $this->state->frame->commentFenceLastIndex[$length] ?? -1;
+        return PHP_INT_MAX;
     }
 
     /**
@@ -5700,6 +5681,9 @@ class BlockParser
         int $column = 0,
         bool $withInlineBoundary = false,
     ): bool {
+        if ($char === '%') {
+            return true;
+        }
         $sourceIndent = IndentationHelper::getLeadingColumns($lines[$index]);
         $key = $sourceIndent . ':' . $depth . ':' . $column . ':' . $char;
         if ($char === '%') {
@@ -5761,129 +5745,7 @@ class BlockParser
      */
     protected function hasClosingCommentFenceAheadInBlockQuote(array $lines, int $index, int $length): bool
     {
-        $sourceIndent = IndentationHelper::getLeadingColumns($lines[$index]);
-        $opener = IndentationHelper::stripLeadingColumns($lines[$index], $sourceIndent);
-        $depth = 0;
-        $at = 0;
-        while (($width = ContainerPrefix::quoteMarkerWidth($opener, $at)) !== null) {
-            $depth++;
-            $at += $width;
-        }
-        if ($sourceIndent !== 0 || $depth > 1) {
-            $this->state->frame->blockQuoteCommentCloserIndexes ??= $this->indexNestedQuoteCommentClosers($lines);
-
-            return ($this->state->frame->blockQuoteCommentCloserIndexes[$sourceIndent . ':' . $depth][$index] ?? -1) > $index;
-        }
-        $cache = &$this->state->frame->blockQuoteCommentCloserIndex;
-        if ($cache === null) {
-            $nextByLength = [];
-            $indexByLine = [];
-            for ($i = count($lines) - 1; $i >= 0; $i--) {
-                if (IndentationHelper::isBlankLine($lines[$i])) {
-                    $nextByLength = [];
-
-                    continue;
-                }
-                $line = IndentationHelper::getLeadingColumns($lines[$i]) === $sourceIndent
-                    ? IndentationHelper::stripLeadingColumns($lines[$i], $sourceIndent)
-                    : '';
-                $content = $this->blockQuoteLineContent($line);
-                if ($content === null) {
-                    // A non-quoted line ends the quoted region. A later fence
-                    // cannot close an opener before this boundary, but the line itself can (PART 0 S1).
-                    $nextByLength = [];
-                    $run = strspn(ltrim($lines[$i], " \t"), '%');
-                    if ($run >= 3) {
-                        $nextByLength[$run] = $i;
-                    }
-
-                    continue;
-                }
-                $info = $this->fencedBlockParser->parseFencedCommentOpener($content);
-                if ($info === null) {
-                    continue;
-                }
-                $fenceLength = $info['length'];
-                $indexByLine[$i] = $nextByLength[$fenceLength] ?? -1;
-                $nextByLength[$fenceLength] = $i;
-            }
-            $cache = $indexByLine;
-        }
-
-        return ($cache[$index] ?? -1) > $index;
-    }
-
-    /**
-     * @param array<string> $lines
-     *
-     * @return array<string, array<int, int>>
-     */
-    private function indexNestedQuoteCommentClosers(array $lines): array
-    {
-        $indexes = [];
-        $nextByDepth = [];
-        $activeIndent = null;
-        // The nearest line short of a span's depth still closes it when it is its run (PART 0 S1).
-        $shortLines = [];
-        for ($i = count($lines) - 1; $i >= 0; $i--) {
-            $sourceIndent = IndentationHelper::getLeadingColumns($lines[$i]);
-            if ($activeIndent !== $sourceIndent || IndentationHelper::isBlankLine($lines[$i])) {
-                $nextByDepth = [];
-            }
-            if (IndentationHelper::isBlankLine($lines[$i])) {
-                $shortLines = [];
-
-                continue;
-            }
-            $activeIndent = $sourceIndent;
-            $line = IndentationHelper::stripLeadingColumns($lines[$i], $sourceIndent);
-            $depth = 0;
-            $at = 0;
-            while (($width = ContainerPrefix::quoteMarkerWidth($line, $at)) !== null) {
-                $depth++;
-                $at += $width;
-            }
-            if ($depth === 0) {
-                $nextByDepth = [];
-                $shortLines = [['depth' => 0, 'run' => strspn($line, '%'), 'at' => $i]];
-
-                continue;
-            }
-            self::discardDeeperQuoteCommentClosers($nextByDepth, $depth);
-            $info = $this->fencedBlockParser->parseFencedCommentOpener(substr($line, $at));
-            while ($shortLines !== [] && $shortLines[array_key_last($shortLines)]['depth'] >= $depth) {
-                array_pop($shortLines);
-            }
-            $shortest = $shortLines === [] ? null : $shortLines[array_key_last($shortLines)];
-            $shortLines[] = ['depth' => $depth, 'run' => $info['length'] ?? 0, 'at' => $i];
-            if ($info === null) {
-                continue;
-            }
-            $length = $info['length'];
-            $closer = $nextByDepth[$depth][$length] ?? -1;
-            if ($closer === -1 && $shortest !== null && $shortest['run'] === $length) {
-                $closer = $shortest['at'];
-            }
-            $indexes[$sourceIndent . ':' . $depth][$i] = $closer;
-            $nextByDepth[$depth][$length] = $i;
-        }
-
-        return $indexes;
-    }
-
-    /**
-     * @param array<int, array<int, int>> $nextByDepth
-     * @param int $depth
-     *
-     * @return void
-     */
-    private static function discardDeeperQuoteCommentClosers(array &$nextByDepth, int $depth): void
-    {
-        foreach ($nextByDepth as $heldDepth => $unused) {
-            if ($heldDepth > $depth) {
-                unset($nextByDepth[$heldDepth]);
-            }
-        }
+        return true;
     }
 
     /**

@@ -17,9 +17,31 @@ final class FenceAndContinuationConformanceTest extends TestCase
         self::assertSame([1, 1, 3, 6], [$warnings[0]->line, $warnings[0]->column, $warnings[0]->start, $warnings[0]->end]);
     }
 
+    public function testBomKeepsTheCommentFenceByteSpanOnItsMarker(): void
+    {
+        $warnings = array_values(array_filter(
+            (new FenceAndContinuationLinter())->lint("\u{FEFF}%%%\nx\n"),
+            static fn ($warning): bool => $warning->rule === 'unclosed-comment-fence',
+        ));
+        self::assertCount(1, $warnings);
+        self::assertSame([1, 1, 3, 6], [$warnings[0]->line, $warnings[0]->column, $warnings[0]->start, $warnings[0]->end]);
+    }
+
+    public function testBomKeepsAnIndentedFenceByteSpanOnItsMarker(): void
+    {
+        foreach (["\u{FEFF}  %%%\nsecret\n" => 'unclosed-comment-fence', "\u{FEFF}  ```\nx\n" => 'unclosed-code-fence'] as $source => $rule) {
+            $warnings = array_values(array_filter(
+                (new FenceAndContinuationLinter())->lint($source),
+                static fn ($warning): bool => $warning->rule === $rule,
+            ));
+            self::assertCount(1, $warnings, $rule);
+            self::assertSame([1, 3, 5, 8], [$warnings[0]->line, $warnings[0]->column, $warnings[0]->start, $warnings[0]->end], $rule);
+        }
+    }
+
     public function testVectors(): void
     {
-        foreach (['unclosed-code-fence' => 20, 'continuation-marker-refused' => 55] as $rule => $count) {
+        foreach (['unclosed-code-fence' => 20, 'continuation-marker-refused' => 55, 'unclosed-comment-fence' => 21] as $rule => $count) {
             $data = json_decode((string)file_get_contents(__DIR__ . '/../../Fixture/lint-rule-vectors/' . $rule . '.json'), true, 512, JSON_THROW_ON_ERROR);
             self::assertCount($count, $data['vectors']);
             foreach ($data['vectors'] as $vector) {
