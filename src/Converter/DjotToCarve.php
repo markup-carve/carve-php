@@ -3069,11 +3069,12 @@ class DjotToCarve
                 && (bool)preg_match('/^(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+\S/', ltrim($masked));
             $ancestors[] = ['columns' => $columns, 'marker' => $marker];
         }
-        // An earlier pass writes `{loose}` or a held attribute only above a block start; read it as a blank.
+        // An earlier pass writes `{loose}`, a held attribute or an empty note's placeholder only above
+        // a block start; read it as a blank.
         $starts = null;
         if (preg_match('/[A-Za-z]\. |\([0-9A-Za-z]+\)/', $source) === 1) {
             $scanned = (string)preg_replace_callback(
-                '/^([ \t>]*)(?:\{[^\n]*\}|\x00[^\n]*\x00)[ \t]*$/m',
+                '/^([ \t>]*)(?:\{[^\n]*\}|\x00[^\n]*\x00|\[\^[^\]\n]+\]:[ \t]*(?:%%%%|\x00DJOTEMPTYNOTE[^\n]*))[ \t]*$/m',
                 static fn (array $match): string => $match[1] . str_repeat(' ', strlen($match[0]) - strlen($match[1])),
                 $source,
             );
