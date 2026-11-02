@@ -36,6 +36,26 @@ class MarkdownImportSweepBlockStartsTest extends TestCase
                 "> ```=html\n> \t<div>\n> a\n> ```\n",
                 "<blockquote>\n  \t<div>\na\n</blockquote>",
             ],
+            'a lazy line closes a comment opened in a quote' => [
+                "> a <!--x\ny--> b\n",
+                "> a `<!--x\n> y-->`{=html} b\n",
+                "<blockquote><p>a <!--x\ny--> b</p></blockquote>",
+            ],
+            'a lazy line closes a comment opened in an item' => [
+                "- a <!--x\ny--> b\n",
+                "- a `<!--x\n  y-->`{=html} b\n",
+                "<ul>\n  <li>a <!--x\ny--> b</li>\n</ul>",
+            ],
+            'an indented line closes a tag and keeps its indentation' => [
+                "a </t\n\t> b\n",
+                "a `</t\n\t>`{=html} b\n",
+                "<p>a </t\n> b</p>",
+            ],
+            'lazy lines carry a tag to its end' => [
+                "> a <span\nclass=a\n    > b\n",
+                "> a `<span\n> class=a\n> >`{=html} b\n",
+                "<blockquote><p>a <span\nclass=a\n> b</p></blockquote>",
+            ],
         ];
     }
 

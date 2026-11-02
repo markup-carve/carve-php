@@ -3626,6 +3626,51 @@ final class InlineStage
     }
 
     /**
+     * How many of the following lines a raw HTML construct the text leaves open
+     * needs before it ends (0 when none ends within them), and the offset in
+     * the last of them where it ends.
+     *
+     * @param string $text
+     * @param array<int, string> $next
+     *
+     * @return array{0: int, 1: int}
+     */
+    public function rawHtmlLinesAcross(string $text, array $next): array
+    {
+        if (!str_contains($text, '<') || $next === []) {
+            return [0, 0];
+        }
+        $joined = $text;
+        $ends = [];
+        foreach ($next as $line) {
+            $ends[] = strlen($joined) + 1 + strlen($line);
+            $joined .= "\n" . $line;
+        }
+        $length = strlen($text);
+        for ($at = strpos($text, '<'); $at !== false; $at = strpos($text, '<', $at + 1)) {
+            if ($at > 0 && $text[$at - 1] === '\\') {
+                continue;
+            }
+            $kinds = [];
+            if ($this->opaqueHtmlEnd($text, $at, $kinds) !== null || $this->htmlTagAt($text, $at) !== null) {
+                continue;
+            }
+            $kinds = [];
+            $end = $this->opaqueHtmlEnd($joined, $at, $kinds) ?? ($this->htmlTagAt($joined, $at)['end'] ?? null);
+            if ($end === null || $end <= $length) {
+                continue;
+            }
+            foreach ($ends as $index => $lineEnd) {
+                if ($end <= $lineEnd) {
+                    return [$index + 1, $end - ($lineEnd - strlen($next[$index]))];
+                }
+            }
+        }
+
+        return [0, 0];
+    }
+
+    /**
      * @param string $source
      * @param int $start
      * @param array<string, int|false> $ends

@@ -3916,6 +3916,34 @@ class MarkdownToCarve
     }
 
     /**
+     * Can lines inside raw HTML start Carve lines as they are? An escape there
+     * would be raw text, so a line Carve reads as a block opener cannot. The
+     * raw span closes at `$closeAt` in the last line.
+     *
+     * @param array<int, string> $lines
+     * @param int $closeAt
+     */
+    protected function rawHtmlLinesSpellable(array $lines, int $closeAt): bool
+    {
+        $last = array_key_last($lines);
+        foreach ($lines as $index => $line) {
+            $text = $index === $last ? substr($line, 0, $closeAt) . '`' . substr($line, $closeAt) : $line;
+            if (str_starts_with($text, '>')) {
+                if (preg_match('/^>(?:[ \t]|$)/', $text) === 1) {
+                    return false;
+                }
+
+                continue;
+            }
+            if ($this->escapeBlockOpener($text) !== $text || $this->escapeCarveOnlyMarker($text) !== $text) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * A list marker only Carve has - a bare `.`, a letter or roman numeral, or
      * a number past nine digits - opens a list where Markdown has text, so it
      * is escaped wherever it starts a line's text.
@@ -5525,6 +5553,13 @@ class MarkdownToCarve
         return ($this->indentWidth($next) >= 4 && trim($next) !== '') || $this->continuesParagraph($next);
     }
 
+    /**
+     * How far ahead a lazy line is searched for the end of raw HTML.
+     *
+     * @var int
+     */
+    private const RAW_HTML_LAZY_LINES = 8;
+
     protected function continuesParagraph(string $line): bool
     {
         $trimmed = trim($line);
@@ -5798,6 +5833,7 @@ class MarkdownToCarve
         $stripPointyIndent = [false];
         $end = $index;
         $count = count($lines);
+        $rawHtmlThrough = -1;
         for ($at = $index + 1; $at < $count; $at++) {
             if (ImportWork::$on) {
                 ImportWork::$paragraphVisits++;
@@ -5818,17 +5854,47 @@ class MarkdownToCarve
             if ($candidate === null && $this->continuesParagraph($lines[$at]) && $this->hasOpenCodeSpan(implode("\n", $parts))) {
                 $candidate = ltrim($lines[$at], " \t");
             }
+            // So does raw HTML it closes, and the lazy lines up to its end.
+            $lazyHtml = false;
+            if ($candidate === null && $at > $rawHtmlThrough && trim($lines[$at]) !== '') {
+                $lazy = [];
+                $last = min($count, $at + self::RAW_HTML_LAZY_LINES);
+                for ($ahead = $at; $ahead < $last; $ahead++) {
+                    $held = $inside($lines[$ahead]);
+                    $relative = $held !== null && $depth === 0 ? $this->indentWidth($lines[$ahead]) - $columns : $this->indentWidth($held ?? $lines[$ahead]);
+                    $held ??= $lines[$ahead];
+                    if (!$this->continuesParagraph($held) && $relative < 4) {
+                        break;
+                    }
+                    $lazy[] = ltrim($held, " \t");
+                }
+                [$needed, $closeAt] = $this->inlineStage->rawHtmlLinesAcross(implode("\n", $parts), $lazy);
+                if ($needed > 0 && $this->rawHtmlLinesSpellable(array_slice($lazy, 0, $needed), $closeAt)) {
+                    $rawHtmlThrough = $at + $needed - 1;
+                }
+            }
+            if ($candidate === null && $at <= $rawHtmlThrough) {
+                $candidate = $this->indentWidth($lines[$at]) >= 4 ? $lines[$at] : ltrim($lines[$at], " \t");
+                $lazyHtml = true;
+            }
             if ($candidate === null) {
                 break;
             }
             $after = $inside($lines[$at + 1] ?? '') ?? '';
+            // Raw HTML closed on an indented line keeps the line's indentation,
+            // so its tail is not read as a block opener.
+            $heldIndent = $this->indentWidth($candidate) >= 4 && $lazyHtml;
+            if ($this->indentWidth($candidate) >= 4 && !$lazyHtml) {
+                [$needed, $closeAt] = $this->inlineStage->rawHtmlLinesAcross(implode("\n", $parts), [ltrim($candidate, " \t")]);
+                $heldIndent = $needed > 0 && $this->rawHtmlLinesSpellable([ltrim($candidate, " \t")], $closeAt);
+            }
             if ($this->indentWidth($candidate) >= 4) {
-                $candidate = $this->escapeBlockOpener(ltrim($candidate, " \t"));
+                $candidate = $heldIndent ? $candidate : $this->escapeBlockOpener(ltrim($candidate, " \t"));
             } elseif (!$this->isParagraphLine([$candidate, $after], 0)) {
                 break;
             }
             $candidate = $this->escapeDefinitionContinuation($candidate, (string)end($parts), (string)end($parts));
-            if (!$partialPointy && !$escapedPointy) {
+            if (!$partialPointy && !$escapedPointy && !$heldIndent) {
                 $listIndent = 0;
                 if ($depth > 0) {
                     $afterQuote = substr($prefix, (int)strrpos($prefix, '>') + 1);
