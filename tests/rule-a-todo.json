@@ -1726,14 +1726,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\DjotDefinitionBoundariesTest::testEmptyDefinitionsPreserveNativeStructure",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\DjotEmptyDefinitionsTest::testEmptyDefinitionsPreserveNativeStructure",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\DjotReviewAlignmentTest::testReconciledNoteAndAttributeBoundaries",
             "ticket": "carve-php#4244"
         },
@@ -4380,10 +4372,6 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\ANestedMarkerNoteKeepsItsCodeBlocksTest::testCodeBelongsToTheNestedDefinition",
             "ticket": "carve#4860"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\SharedRoundtripExportAcceptanceTest::testThePublishedPortableContract with data set \"markdownExportImport/definition-list-wrapped-term\"",
-            "ticket": "carve#4861"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\AuthoringConformanceTest::testAuthoringAcceptanceSuite",
