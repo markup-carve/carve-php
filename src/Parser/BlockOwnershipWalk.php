@@ -1252,10 +1252,15 @@ final class BlockOwnershipWalk
             if (preg_match('/^(%{3,})/', $rest, $c) === 1 && ($this->closerRuns()['lastComment'][strlen($c[1])] ?? -1) > $k) {
                 $closer = '/^%{' . strlen($c[1]) . '}(?!%)/';
                 $opener = $k++;
-                while ($k < $n && preg_match($closer, $view($k)) !== 1) {
+                // A nonblank line that misses the host ends the span (CARVE-P0-005, carve#4870).
+                $misses = fn (int $j): bool => $this->throughQuotes($this->lines[$j], $hostIndex, $frames) === null
+                    || (trim($view($j), " \t") !== '' && self::docColumn($this->lines[$j], $view($j)) < $column);
+                while ($k < $n && preg_match($closer, $view($k)) !== 1 && !$misses($k)) {
                     $k++;
                 }
-                $k++;
+                if ($k < $n && preg_match($closer, $view($k)) === 1) {
+                    $k++;
+                }
                 for ($j = $opener; $j < min($k, $n); $j++) {
                     $fenced[$j] = true;
                 }
