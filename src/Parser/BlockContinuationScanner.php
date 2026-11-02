@@ -863,10 +863,11 @@ final class BlockContinuationScanner
      * @param int $i Index of the first line after the `+` marker.
      * @param int $count Total line count.
      * @param (callable(string): bool)|null $endsAtSibling Names a sibling of this container, or null.
+     * @param (callable(string, int): bool)|null $frameSibling Ends a colon frame the `+` attached, closer or not.
      *
      * @return array{0: int, 1: array<string>, 2: array<int>}
      */
-    public function attachedFlushLeftBlock(array $lines, int $i, int $count, ?callable $endsAtSibling = null): array
+    public function attachedFlushLeftBlock(array $lines, int $i, int $count, ?callable $endsAtSibling = null, ?callable $frameSibling = null): array
     {
         $attachedKind = BlockGrammar::ATTACHED_PENDING;
         $pendingThrough = -1;
@@ -891,6 +892,7 @@ final class BlockContinuationScanner
 
                 return false;
             },
+            frameSibling: $frameSibling,
         );
 
         return [$i, $attached, $attachedRawLineMap];
@@ -906,14 +908,21 @@ final class BlockContinuationScanner
      *
      * @param array<string> $lines
      * @param callable|null $transform
+     * @param callable|null $frameSibling
      * @param callable $isBoundary
      * @param int $count
      * @param int $i
      *
      * @return array{0: int, 1: array<string>, 2: array<int, int>}
      */
-    public function collectAttachedBlock(array $lines, int $i, int $count, callable $isBoundary, ?callable $transform = null): array
-    {
+    public function collectAttachedBlock(
+        array $lines,
+        int $i,
+        int $count,
+        callable $isBoundary,
+        ?callable $transform = null,
+        ?callable $frameSibling = null,
+    ): array {
         if (!$this->continuationFollowerIsEligible($i)) {
             return [$i, [], []];
         }
@@ -941,7 +950,7 @@ final class BlockContinuationScanner
             $opener = $this->skipLeadingAttributeLines($lines, $i, $count, $transform);
             $fenced = $this->attachedFencedBlockEnd($lines, $opener, $count, $transform);
             if ($fenced !== -1) {
-                $take = $fenced - $i + 1;
+                $take = ($frameSibling === null ? $fenced : $this->colonFrameEnd($lines, $opener, $fenced, $transform, $frameSibling)) - $i + 1;
             } else {
                 $take = 0;
                 while ($i + $take < $count) {
@@ -973,6 +982,36 @@ final class BlockContinuationScanner
         }
 
         return [$i + $take, $collected, $rawLineMap];
+    }
+
+    /**
+     * The last line of a colon frame that stops at its host's sibling (CARVE-P9-084); opaque payload hides siblings.
+     *
+     * @param array<string> $lines
+     * @param int $opener
+     * @param int $end Last line of the frame with its closer.
+     * @param callable|null $transform
+     * @param callable(string, int): bool $isSibling
+     */
+    private function colonFrameEnd(array $lines, int $opener, int $end, ?callable $transform, callable $isSibling): int
+    {
+        $view = $lines[$opener] ?? '';
+        if (($this->getFencedBlockParser)()->parseDivFenceOpener($transform === null ? $view : $transform($view)) === null) {
+            return $end;
+        }
+        for ($at = $opener + 1; $at <= $end; $at++) {
+            $opaque = $this->opaqueSpanEnd($lines, $at, $end + 1, $transform);
+            if ($opaque !== -1) {
+                $at = $opaque;
+
+                continue;
+            }
+            if ($isSibling($lines[$at], $at)) {
+                return $at - 1;
+            }
+        }
+
+        return $end;
     }
 
     /**
