@@ -704,12 +704,19 @@ final class BlockOwnershipWalk
             || preg_match('/^\*\[[A-Za-z0-9]+\]: +(?![ \t]*$)[^ ]/', $text) === 1;
     }
 
+    /**
+     * The last line of the `%%%` span opened by `$text` at `$k`, or -1 when `$text` opens none.
+     * With no closer the span runs to the end (carve#4907), so its follower is no visible line.
+     */
     private function commentSpanEnd(string $text, int $k): int
     {
-        if (preg_match('/^(%{3,})/', $text, $comment) !== 1 || ($this->closerRuns()['lastComment'][strlen($comment[1])] ?? -1) <= $k) {
+        if (preg_match('/^(%{3,})/', $text, $comment) !== 1) {
             return -1;
         }
         $count = count($this->lines);
+        if (($this->closerRuns()['lastComment'][strlen($comment[1])] ?? -1) <= $k) {
+            return $count - 1;
+        }
         for ($j = $k + 1; $j < $count; $j++) {
             $line = ltrim(rtrim($this->lines[$j], " \t"), " \t>");
             if (preg_match('/^(%{3,})/', $line, $close) === 1 && strlen($close[1]) === strlen($comment[1])) {
@@ -717,7 +724,7 @@ final class BlockOwnershipWalk
             }
         }
 
-        return -1;
+        return $count - 1;
     }
 
     /**
