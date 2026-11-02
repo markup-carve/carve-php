@@ -27,7 +27,7 @@ class AMarkdownHtmlBlockKeepsItsLinesTest extends TestCase
             'four blank lines in a row' => ["<pre>\na\n\n\n\n\nb\n</pre>\n", "```=html\n<pre>\na\n\n\n\n\nb\n</pre>\n```\n"],
             'a line two columns in' => ["<div>\n  text\n</div>\n", "```=html\n<div>\n  text\n</div>\n```\n"],
             'a tab-indented line' => ["<div>\n\ttabbed\n</div>\n", "```=html\n<div>\n\ttabbed\n</div>\n```\n"],
-            'a comment' => ["<!--\n    indented\n-->\n", "```=html\n<!--\n    indented\n-->\n```\n"],
+            'a comment' => ["<!--\n    indented\n-->\n", "%%%\nindented\n%%%\n"],
             'in a quote' => ["> <div>\n>     code\n> </div>\n", "> ```=html\n> <div>\n>     code\n> </div>\n> ```\n"],
             'in a list item' => ["- a\n\n  <div>\n      code\n  </div>\n", "{loose}\n- a\n\n  ```=html\n  <div>\n      code\n  </div>\n  ```\n"],
             'a whitespace-only line' => ["<script>\n    \n</script>\n", "```=html\n<script>\n    \n</script>\n```\n"],

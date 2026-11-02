@@ -136,6 +136,8 @@ but renders differently:
   spellings that never form the intended markup.
 - `markdown-italic-underline`, `heading-level-skip`, `bare-html-tag`, and
   `github-alert-marker` name common syntax that renders with another meaning.
+- `html-comment-renders-as-text` flags a complete `<!-- ... -->` in a
+  paragraph, which publishes as text; write `%%` or a `%%%` fence instead.
 
 `caption-looking-paragraph` is opt-in because ordinary prose can look like a
 caption. Enable it with `['captionLookingParagraph' => true]` in the

@@ -114,7 +114,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
             $this->converter->convert("<script>\n\nprose\n<footer>x</footer>\n</script>\n"),
         );
         $this->assertSame(
-            self::rawBlock("<!--\n\nprose\n<footer>x</footer>\n-->") . "\nafter\n",
+            "%%%\nprose\n<footer>x</footer>\n%%%\n\nafter\n",
             $this->converter->convert("<!--\n\nprose\n<footer>x</footer>\n-->\nafter\n"),
         );
     }
@@ -250,7 +250,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
             // `<![CDATA[` at document level, where it keeps the line inline.
             'condition 1, script' => ['<script>var a = 1;</script>', true],
             'condition 1, pre' => ['<pre>x</pre>', true],
-            'condition 2, comment' => ['<!-- a note -->', true],
+            'condition 2, comment' => ['<!-- a note --> <b>', true],
             'condition 3, processing instruction' => ['<?php echo 1; ?>', true],
             'condition 4, declaration' => ['<!DOCTYPE html>', true],
             'condition 5, CDATA' => ['<![CDATA[raw]]>', true],
@@ -388,15 +388,15 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
             $this->converter->convert("<script>var a = 1;</script>\nafter\n"),
         );
         $this->assertSame(
-            self::rawBlock('<!-- a note -->') . "\nafter\n",
+            "%% a note\n\nafter\n",
             $this->converter->convert("<!-- a note -->\nafter\n"),
         );
         $this->assertSame(
-            self::rawBlock("<!--\nnote\n-->") . "\nafter\n",
+            "%%%\nnote\n%%%\n\nafter\n",
             $this->converter->convert("<!--\nnote\n-->\nafter\n"),
         );
         $this->assertSame(
-            self::rawBlock('<!-- a note -->', '> ') . ">\n> after\n",
+            "> %% a note\n>\n> after\n",
             $this->converter->convert("> <!-- a note -->\n> after\n"),
         );
     }

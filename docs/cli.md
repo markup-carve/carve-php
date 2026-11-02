@@ -168,6 +168,12 @@ a list item or another quote.
 migration report records each conversion as `markdown-github-alert`,
 info/normalized/exact, at the quote's first line.
 
+An HTML block holding exactly one `<!-- ... -->` comment imports as a Carve
+comment: a one-line body as `%% body`, a body across lines as a `%%%` fence,
+widened past any `%` fence line inside it. Other HTML blocks and a comment
+inside a paragraph stay raw HTML. The migration report records each conversion
+as `markdown-html-comment`, info/normalized/exact, at the comment's first line.
+
 HTML reports its import
 `mode` and `adapter`; its resource-limit exceptions are reported as command
 errors rather than partial migration reports. Opaque raw HTML is `degraded` even

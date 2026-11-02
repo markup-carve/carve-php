@@ -117,12 +117,12 @@
   {
     "name": "a definition after a closed HTML comment",
     "source": "<!-- c -->\n[r]: <>\n\n[r]",
-    "carve": "```=html\n<!-- c -->\n```\n\n[r][]\n\n[r]:"
+    "carve": "%% c\n\n[r][]\n\n[r]:"
   },
   {
     "name": "a definition after a multi-line HTML comment",
     "source": "<!--\nx\n-->\n[r]: <>\n\n[r]",
-    "carve": "```=html\n<!--\nx\n-->\n```\n\n[r][]\n\n[r]:"
+    "carve": "%%%\nx\n%%%\n\n[r][]\n\n[r]:"
   },
   {
     "name": "a definition after a quote ends its open fence",

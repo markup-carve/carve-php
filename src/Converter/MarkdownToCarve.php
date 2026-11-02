@@ -125,6 +125,13 @@ class MarkdownToCarve
     private bool $frontmatterSynthesized = false;
 
     /**
+     * Source lines of HTML comment blocks imported as Carve comments (CARVE-P2-034).
+     *
+     * @var array<int, int>
+     */
+    private array $htmlCommentLines = [];
+
+    /**
      * Case-only fragment rewrites of the last conversion, as `link-fragment-case-rewritten` rows.
      *
      * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
@@ -2506,6 +2513,7 @@ class MarkdownToCarve
         $this->referenceContext->markdownSourceLines = [];
         $this->referenceContext->markdownHtmlSourceLines = [];
         $this->frontmatterSynthesized = false;
+        $this->htmlCommentLines = [];
         $this->frontmatterOpenerTyped = false;
         $this->fragmentFixups = [];
         $this->inlineContext->authoredDestinations = [];
@@ -2911,10 +2919,10 @@ class MarkdownToCarve
             // `frontmatter-synthesized` is a report the assessment knows nothing
             // about, so the fast path must not replace a report that carries it.
             if ($assessment['complete'] && !$this->inlineContext->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableContext->tableDiagnostics === [] && $this->inlineContext->rawSpanWhitespaceDiagnostics === [] && $this->referenceContext->boundaryDiagnostics === [] && $this->inlineContext->leadingWhitespaceDiagnostics === [] && $this->inlineContext->codeFallbackDiagnostics === [] && $this->inlineContext->flattenedAnchorDiagnostics === [] && $losses <= $assessedLosses) {
-                return new MigrationResult($value, 'markdown', $assessment['diagnostics']);
+                return new MigrationResult($value, 'markdown', [...$assessment['diagnostics'], ...$this->htmlCommentDiagnostics()]);
             }
         }
-        if ($this->unspellableOrderedTasks === [] && !$this->inlineContext->flattenedEmphasis && $this->tableContext->tableDiagnostics === [] && $this->inlineContext->rawSpanWhitespaceDiagnostics === [] && $this->referenceContext->boundaryDiagnostics === [] && $this->inlineContext->leadingWhitespaceDiagnostics === [] && $this->inlineContext->codeFallbackDiagnostics === [] && $this->inlineContext->flattenedAnchorDiagnostics === [] && !$this->frontmatterSynthesized) {
+        if ($this->unspellableOrderedTasks === [] && !$this->inlineContext->flattenedEmphasis && $this->tableContext->tableDiagnostics === [] && $this->inlineContext->rawSpanWhitespaceDiagnostics === [] && $this->referenceContext->boundaryDiagnostics === [] && $this->inlineContext->leadingWhitespaceDiagnostics === [] && $this->inlineContext->codeFallbackDiagnostics === [] && $this->inlineContext->flattenedAnchorDiagnostics === [] && !$this->frontmatterSynthesized && $this->htmlCommentLines === []) {
             return $result;
         }
         // `structure-unspellable` is the code the import side already uses for a
@@ -2954,7 +2962,22 @@ class MarkdownToCarve
             );
         }
 
-        return new MigrationResult($result->value, $result->sourceFormat, $diagnostics);
+        return new MigrationResult($result->value, $result->sourceFormat, [...$diagnostics, ...$this->htmlCommentDiagnostics()]);
+    }
+
+    /**
+     * @return array<int, \MarkupCarve\Carve\Converter\MigrationDiagnostic>
+     */
+    private function htmlCommentDiagnostics(): array
+    {
+        return array_map(static fn (int $line): MigrationDiagnostic => new MigrationDiagnostic(
+            'markdown-html-comment',
+            'Imported a Markdown HTML comment as a Carve comment.',
+            'info',
+            'normalized',
+            'exact',
+            'line:' . $line,
+        ), $this->htmlCommentLines);
     }
 
     /**
@@ -3347,6 +3370,15 @@ class MarkdownToCarve
             $prefix = str_repeat(' ', $contentCol);
             $parts[0] = $this->stripColumns($sourcePrefix, $contentCol) . $parts[0];
         }
+        $comment = $this->htmlCommentBlock($parts);
+        if ($comment !== null) {
+            $this->htmlCommentLines[] = $this->sourceLine($start);
+
+            return [
+                'lines' => array_map(static fn (string $line): string => $line === '' ? rtrim($prefix) : $prefix . $line, $comment),
+                'end' => $end,
+            ];
+        }
         $continuation = $prefix;
         $fenceLength = 3;
         foreach ($parts as $part) {
@@ -3364,6 +3396,40 @@ class MarkdownToCarve
         $output[] = $prefix . $fence;
 
         return ['lines' => $output, 'end' => $end];
+    }
+
+    /**
+     * Spell an HTML block holding exactly one comment as a Carve comment (CARVE-P2-034).
+     *
+     * @param array<int, string> $parts
+     *
+     * @return array<int, string>|null
+     */
+    private function htmlCommentBlock(array $parts): ?array
+    {
+        $source = implode("\n", $parts);
+        if (
+            preg_match('/^[ \t]*<!--(.*?)-->[ \t]*$/s', $source, $match) !== 1
+            || str_contains($match[1], '<!--')
+            || str_contains($match[1], '-->')
+            || preg_match('/^[ \t]*<!-- carve:/', $source) === 1
+        ) {
+            return null;
+        }
+        $body = trim($match[1], " \t\n\r");
+        if (!str_contains($match[1], "\n")) {
+            return [$body === '' ? '%%' : '%% ' . $body];
+        }
+        $lines = explode("\n", $body);
+        $width = 3;
+        foreach ($lines as $line) {
+            if (preg_match('/^[ \t]*(%{3,})/', $line, $run) === 1) {
+                $width = max($width, strlen($run[1]) + 1);
+            }
+        }
+        $fence = str_repeat('%', $width);
+
+        return [$fence, ...$lines, $fence];
     }
 
     /**
