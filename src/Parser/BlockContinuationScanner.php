@@ -4038,6 +4038,47 @@ final class BlockContinuationScanner
     }
 
     /**
+     * The first line at or after `$j` that is neither blank nor a comment: an invisible line
+     * does not choose the next line's owner (CARVE-P9-013).
+     *
+     * @param array<string> $lines
+     * @param int $j
+     * @param int $count
+     */
+    private function pastBlanksAndComments(array $lines, int $j, int $count): int
+    {
+        $fenced = ($this->getFencedBlockParser)();
+        while ($j < $count) {
+            $trimmed = ltrim($lines[$j], " \t");
+            if (IndentationHelper::isBlankLine($lines[$j])) {
+                $j++;
+
+                continue;
+            }
+            if (!str_starts_with($trimmed, '%%')) {
+                return $j;
+            }
+            $opener = $fenced->parseFencedCommentOpenerAnyColumn($trimmed);
+            $j++;
+            if ($opener === null) {
+                continue;
+            }
+            // An unclosed span runs to its host's end.
+            $closer = $count;
+            for ($k = $j; $k < $count; $k++) {
+                if ($fenced->isFencedCommentCloserAnyColumn(ltrim($lines[$k], " \t"), $opener['length'])) {
+                    $closer = $k;
+
+                    break;
+                }
+            }
+            $j = $closer + 1;
+        }
+
+        return min($j, $count);
+    }
+
+    /**
      * A term the item holds takes a description past a blank run (CARVE-P9-016).
      *
      * @param \MarkupCarve\Carve\Parser\PlainContinuationState $run
@@ -4067,8 +4108,7 @@ final class BlockContinuationScanner
         }
         $answer = false;
         if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $last) === 1 && IndentationHelper::getLeadingColumns($itemLines[$k + 1]) === 0) {
-            for ($j = $i + 1; $j < $count && IndentationHelper::isBlankLine($lines[$j]); $j++) {
-            }
+            $j = $this->pastBlanksAndComments($lines, $i + 1, $count);
             $answer = $j < $count && IndentationHelper::getLeadingColumns($lines[$j], $contentIndent + 1) === $contentIndent
                 && preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, ltrim($lines[$j], " \t")) === 1;
         }

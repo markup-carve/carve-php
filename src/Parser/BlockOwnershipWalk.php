@@ -368,7 +368,10 @@ final class BlockOwnershipWalk
                     }
                 } elseif ($rest !== '' && $inner->closes !== null && ($inner->closes)($rest, $this->m['col'])) {
                     array_pop($this->frames);
-                    $this->frames[count($this->frames) - 1]->last = 'block';
+                    // A matched comment span is invisible: its host keeps the form it had (§10 I5).
+                    if ($inner->family !== 'comment') {
+                        $this->frames[count($this->frames) - 1]->last = 'block';
+                    }
                     $payloadForm = 'closer';
                 } elseif ($inner->lineBlock) {
                     // A span in a line-block payload pairs past the column too (carve-php#3137).
@@ -707,8 +710,8 @@ final class BlockOwnershipWalk
         $this->frames[$owner]->para = $form->caption;
         // An invisible line between siblings leaves the host's last form standing (carve#4716).
         if (
-            $form->kind !== 'leaf' || ((!str_starts_with($this->m['rest'], '%%') || str_starts_with($this->m['rest'], '%%%')) && !($this->isDefinition)($this->m['rest'])
-            && !($this->frames[$owner]->kind === 'doc' && preg_match('/^\*\[[A-Za-z0-9]+\]: +(?![ \t]*$)/', $this->m['rest']) === 1))
+            $form->family !== 'comment' && ($form->kind !== 'leaf' || ((!str_starts_with($this->m['rest'], '%%') || str_starts_with($this->m['rest'], '%%%')) && !($this->isDefinition)($this->m['rest'])
+            && !($this->frames[$owner]->kind === 'doc' && preg_match('/^\*\[[A-Za-z0-9]+\]: +(?![ \t]*$)/', $this->m['rest']) === 1)))
         ) {
             $this->frames[$owner]->last = $form->kind;
         }
