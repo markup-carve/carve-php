@@ -11474,19 +11474,19 @@
   },
   {
     "source": "[r]: /u(\n\n[t][r]",
-    "html": "<p><a href=\"/u(\">t</a></p>\n"
+    "html": "<p>[r]: /u(</p>\n<p>[t][r]</p>\n"
   },
   {
     "source": "- a\n\n[r]: /u(\n\n- b\n\n[t][r]",
-    "html": "<ul>\n<li>a</li>\n</ul>\n<ul>\n<li>b</li>\n</ul>\n<p><a href=\"/u(\">t</a></p>\n"
+    "html": "<ul>\n<li>a</li>\n</ul>\n<p>[r]: /u(</p>\n<ul>\n<li>b</li>\n</ul>\n<p>[t][r]</p>\n"
   },
   {
     "source": "[r]: /u((\n\n[t][r]",
-    "html": "<p><a href=\"/u((\">t</a></p>\n"
+    "html": "<p>[r]: /u((</p>\n<p>[t][r]</p>\n"
   },
   {
     "source": "- a\n\n[r]: /u((\n\n- b\n\n[t][r]",
-    "html": "<ul>\n<li>a</li>\n</ul>\n<ul>\n<li>b</li>\n</ul>\n<p><a href=\"/u((\">t</a></p>\n"
+    "html": "<ul>\n<li>a</li>\n</ul>\n<p>[r]: /u((</p>\n<ul>\n<li>b</li>\n</ul>\n<p>[t][r]</p>\n"
   },
   {
     "source": "[r]: /u)\n\n[t][r]",
@@ -11498,27 +11498,27 @@
   },
   {
     "source": "[r]: /u( \"title\"\n\n[t][r]",
-    "html": "<p><a href=\"/u(\" title=\"title\">t</a></p>\n"
+    "html": "<p>[r]: /u( &quot;title&quot;</p>\n<p>[t][r]</p>\n"
   },
   {
     "source": "- a\n\n[r]: /u( \"title\"\n\n- b\n\n[t][r]",
-    "html": "<ul>\n<li>a</li>\n</ul>\n<ul>\n<li>b</li>\n</ul>\n<p><a href=\"/u(\" title=\"title\">t</a></p>\n"
+    "html": "<ul>\n<li>a</li>\n</ul>\n<p>[r]: /u( &quot;title&quot;</p>\n<ul>\n<li>b</li>\n</ul>\n<p>[t][r]</p>\n"
   },
   {
     "source": "[x|y]: /u(\n\n[t][x|y]",
-    "html": "<p><a href=\"/u(\">t</a></p>\n"
+    "html": "<p>[x|y]: /u(</p>\n<p>[t][x|y]</p>\n"
   },
   {
     "source": "- a\n\n[x|y]: /u(\n\n- b\n\n[t][x|y]",
-    "html": "<ul>\n<li>a</li>\n</ul>\n<ul>\n<li>b</li>\n</ul>\n<p><a href=\"/u(\">t</a></p>\n"
+    "html": "<ul>\n<li>a</li>\n</ul>\n<p>[x|y]: /u(</p>\n<ul>\n<li>b</li>\n</ul>\n<p>[t][x|y]</p>\n"
   },
   {
     "source": "[x|y]: /u((\n\n[t][x|y]",
-    "html": "<p><a href=\"/u((\">t</a></p>\n"
+    "html": "<p>[x|y]: /u((</p>\n<p>[t][x|y]</p>\n"
   },
   {
     "source": "- a\n\n[x|y]: /u((\n\n- b\n\n[t][x|y]",
-    "html": "<ul>\n<li>a</li>\n</ul>\n<ul>\n<li>b</li>\n</ul>\n<p><a href=\"/u((\">t</a></p>\n"
+    "html": "<ul>\n<li>a</li>\n</ul>\n<p>[x|y]: /u((</p>\n<ul>\n<li>b</li>\n</ul>\n<p>[t][x|y]</p>\n"
   },
   {
     "source": "[x|y]: /u)\n\n[t][x|y]",
@@ -11530,27 +11530,27 @@
   },
   {
     "source": "[x|y]: /u( \"title\"\n\n[t][x|y]",
-    "html": "<p><a href=\"/u(\" title=\"title\">t</a></p>\n"
+    "html": "<p>[x|y]: /u( &quot;title&quot;</p>\n<p>[t][x|y]</p>\n"
   },
   {
     "source": "- a\n\n[x|y]: /u( \"title\"\n\n- b\n\n[t][x|y]",
-    "html": "<ul>\n<li>a</li>\n</ul>\n<ul>\n<li>b</li>\n</ul>\n<p><a href=\"/u(\" title=\"title\">t</a></p>\n"
+    "html": "<ul>\n<li>a</li>\n</ul>\n<p>[x|y]: /u( &quot;title&quot;</p>\n<ul>\n<li>b</li>\n</ul>\n<p>[t][x|y]</p>\n"
   },
   {
     "source": "[x\\]y]: /u(\n\n[t][x\\]y]",
-    "html": "<p><a href=\"/u(\">t</a></p>\n"
+    "html": "<p>[x]y]: /u(</p>\n<p>[t][x]y]</p>\n"
   },
   {
     "source": "- a\n\n[x\\]y]: /u(\n\n- b\n\n[t][x\\]y]",
-    "html": "<ul>\n<li>a</li>\n</ul>\n<ul>\n<li>b</li>\n</ul>\n<p><a href=\"/u(\">t</a></p>\n"
+    "html": "<ul>\n<li>a</li>\n</ul>\n<p>[x]y]: /u(</p>\n<ul>\n<li>b</li>\n</ul>\n<p>[t][x]y]</p>\n"
   },
   {
     "source": "[x\\]y]: /u((\n\n[t][x\\]y]",
-    "html": "<p><a href=\"/u((\">t</a></p>\n"
+    "html": "<p>[x]y]: /u((</p>\n<p>[t][x]y]</p>\n"
   },
   {
     "source": "- a\n\n[x\\]y]: /u((\n\n- b\n\n[t][x\\]y]",
-    "html": "<ul>\n<li>a</li>\n</ul>\n<ul>\n<li>b</li>\n</ul>\n<p><a href=\"/u((\">t</a></p>\n"
+    "html": "<ul>\n<li>a</li>\n</ul>\n<p>[x]y]: /u((</p>\n<ul>\n<li>b</li>\n</ul>\n<p>[t][x]y]</p>\n"
   },
   {
     "source": "[x\\]y]: /u)\n\n[t][x\\]y]",
@@ -11562,10 +11562,10 @@
   },
   {
     "source": "[x\\]y]: /u( \"title\"\n\n[t][x\\]y]",
-    "html": "<p><a href=\"/u(\" title=\"title\">t</a></p>\n"
+    "html": "<p>[x]y]: /u( &quot;title&quot;</p>\n<p>[t][x]y]</p>\n"
   },
   {
     "source": "- a\n\n[x\\]y]: /u( \"title\"\n\n- b\n\n[t][x\\]y]",
-    "html": "<ul>\n<li>a</li>\n</ul>\n<ul>\n<li>b</li>\n</ul>\n<p><a href=\"/u(\" title=\"title\">t</a></p>\n"
+    "html": "<ul>\n<li>a</li>\n</ul>\n<p>[x]y]: /u( &quot;title&quot;</p>\n<ul>\n<li>b</li>\n</ul>\n<p>[t][x]y]</p>\n"
   }
 ]

@@ -68,7 +68,7 @@ final class ReferenceDefinition
                     }
                 }
             }
-            if ($at === $destinationStart) {
+            if ($at === $destinationStart || $depth !== 0) {
                 return null;
             }
         }
