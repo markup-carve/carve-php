@@ -6103,6 +6103,8 @@ class BlockParser
             wrappedBlockAttributeLengthCallback: $this->wrappedBlockAttributeLength(...),
             isBlockAttributeLineCallback: $this->isBlockAttributeLine(...),
             startsWrappedBlockAttributesCallback: $this->startsWrappedBlockAttributes(...),
+            // An abbreviation line in an item is paragraph text (PART 12 §7), so it is not counted.
+            isInvisibleSiblingLineCallback: fn (string $line): bool => $this->referenceDefinitionExtractor->matchDefinitionLine($line) !== null,
             parseItemBlocksCallback: static::class !== self::class ? $this->parseItemBlocks(...) : null,
             canRepairParagraphLocallyCallback: fn (): bool => $this->blockMatchers === [],
         );

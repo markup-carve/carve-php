@@ -1661,8 +1661,6 @@ class CarveCorpusTest extends TestCase
         '933-a-list-marker-in-an-item-ends-a-comment-only-paragraph-2' => 'carve#4890: a list marker in an item ends a comment only paragraph',
         '933-a-list-marker-in-an-item-ends-a-comment-only-paragraph-3' => 'carve#4890: a list marker in an item ends a comment only paragraph',
         '933-a-list-marker-in-an-item-ends-a-comment-only-paragraph-4' => 'carve#4890: a list marker in an item ends a comment only paragraph',
-        '937-a-blank-before-only-invisible-lines-loosens-the-list' => 'carve#4903: a blank before only invisible lines loosens the list',
-        '937-a-blank-before-only-invisible-lines-loosens-the-list-3' => 'carve#4903: a blank before only invisible lines loosens the list',
         '880-an-own-line-plus-reaches-a-marker-line-quote-at-its-authored-column-3' => 'carve#4702: own-line plus reaches a marker-line quote',
         '882-attributed-bracket-spans-share-the-inline-cap' => 'carve#4681: attributed bracket spans share the inline cap',
         '796-a-tab-past-an-off-stop-frame-column-is-measured-in-that-frame' => 'carve#4186: a tab past an off-stop frame column is measured in that frame',

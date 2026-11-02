@@ -82,6 +82,7 @@ final class ListBlockBuilder
      * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int, array<int, int>|null, bool, bool): (void) $parseBlocksCallback
      * @param \Closure(string, array<string>|null, int|null): (bool) $startsNewBlockCallback
      * @param (\Closure(\MarkupCarve\Carve\Node\Node, array<string>, array<int, int>|null, array<int, true>|null, int|null): (void))|null $parseItemBlocksCallback
+     * @param \Closure(string): (bool) $isInvisibleSiblingLineCallback
      * @param (\Closure(): bool)|null $canRepairParagraphLocallyCallback
      * @param \Closure(array<string>, int): ?int $wrappedBlockAttributeLengthCallback
      * @param \Closure(string): bool $isBlockAttributeLineCallback
@@ -121,6 +122,7 @@ final class ListBlockBuilder
         private Closure $wrappedBlockAttributeLengthCallback,
         private Closure $isBlockAttributeLineCallback,
         private Closure $startsWrappedBlockAttributesCallback,
+        private Closure $isInvisibleSiblingLineCallback,
         private ?Closure $parseItemBlocksCallback = null,
         private ?Closure $canRepairParagraphLocallyCallback = null,
     ) {
@@ -460,6 +462,58 @@ final class ListBlockBuilder
     }
 
     /**
+     * A blank with only invisible lines after it, at any depth inside the item
+     * that starts at `$head`, still stands before the sibling marker at `$at`
+     * (PART 9 §17 L1c, CARVE-P9-013).
+     *
+     * @param array<string> $lines
+     * @param int $at
+     * @param int $head
+     */
+    private function blankBehindInvisibleLines(array $lines, int $at, int $head): bool
+    {
+        if ($at - 1 <= $head || IndentationHelper::isBlankLine($lines[$at - 1])) {
+            return false;
+        }
+        // Spans pair in parse order: an opener closes at the next line of its own run.
+        $runs = [];
+        for ($k = $head + 1; $k < $at; $k++) {
+            $runs[$k] = strspn(ltrim($lines[$k], " \t"), '%');
+        }
+        $next = [];
+        $seen = [];
+        for ($k = $at - 1; $k > $head; $k--) {
+            if ($runs[$k] >= 3) {
+                $next[$k] = $seen[$runs[$k]] ?? null;
+                $seen[$runs[$k]] = $k;
+            }
+        }
+        $inSpan = [];
+        for ($k = $head + 1; $k < $at; $k++) {
+            if ($runs[$k] >= 3 && $next[$k] !== null) {
+                for ($end = $next[$k]; $k <= $end; $k++) {
+                    $inSpan[$k] = true;
+                }
+                $k--;
+            }
+        }
+        $k = $at - 1;
+        $skipped = false;
+        while ($k > $head && !IndentationHelper::isBlankLine($lines[$k])) {
+            $visible = !isset($inSpan[$k]) && $runs[$k] !== 2
+                && ($runs[$k] >= 3 || !($this->isInvisibleSiblingLineCallback)(ltrim($lines[$k], " \t")));
+            if ($visible) {
+                return false;
+            }
+            $k--;
+            $skipped = true;
+        }
+
+        // A blank inside a span is part of the comment, not a separator.
+        return $skipped && $k > $head && !isset($inSpan[$k]);
+    }
+
+    /**
      * Like contentRendersNothing(), with a closed comment span counted as invisible.
      *
      * @param array<string> $lines
@@ -788,6 +842,7 @@ final class ListBlockBuilder
         $i = $start;
         $count = count($lines);
         $lastItemHadBlankAfter = false;
+        $itemHead = $start;
         $firstItem = true; // Track first item to use listInfo directly
         // Content column of the most recently opened item (marker width + base).
         // A post-blank continuation belongs to that item only if it reaches this
@@ -1067,7 +1122,10 @@ final class ListBlockBuilder
                     break;
                 }
 
-                if ($i > $start && IndentationHelper::isBlankLine($lines[$i - 1])) {
+                if (
+                    $i > $start && IndentationHelper::isBlankLine($lines[$i - 1])
+                    || $this->blankBehindInvisibleLines($lines, $i, $itemHead)
+                ) {
                     $lastItemHadBlankAfter = true;
                 }
             }
@@ -1107,6 +1165,7 @@ final class ListBlockBuilder
             /** @var string|null $taskMarker */
             $taskMarker = $itemInfo['taskMarker'] ?? null;
             $listItem = new ListItem($taskMarker);
+            $itemHead = $i;
             $attachedParagraphOpen = false;
             $attachedParagraphAfterNoteSeparator = false;
             $attachedBlockFollowedByItemContent = false;
