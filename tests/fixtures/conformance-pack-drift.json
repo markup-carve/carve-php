@@ -27,8 +27,7 @@
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the roundtrip family",
       "cases": [
-        "roundtrip-2f0bd736a7de",
-        "roundtrip-d1f9fa04915c"
+        "roundtrip-2f0bd736a7de"
       ]
     },
     {

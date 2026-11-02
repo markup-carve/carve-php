@@ -1912,11 +1912,15 @@ final class ListBlockBuilder
                 // Content at base indent that's not a matching list marker
                 // Check if it's a block element - if so, end list content collection
                 // Use isBlockElementStart() which detects blocks regardless of mode
+                // A line the walk read as lazy text, such as a `^ ` caption, does not interrupt (PART 1 S4).
                 if (
-                    $this->isBlockElementStart($trimmedLine, $lines, $i)
-                    || $this->startsNewBlock($trimmedLine, $lines, $i)
-                    || ($this->isBlockAttributeLineCallback)($trimmedLine)
-                    || ($this->startsWrappedBlockAttributesCallback)($trimmedLine, $lines, $i)
+                    !isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
+                    && (
+                        $this->isBlockElementStart($trimmedLine, $lines, $i)
+                        || $this->startsNewBlock($trimmedLine, $lines, $i)
+                        || ($this->isBlockAttributeLineCallback)($trimmedLine)
+                        || ($this->startsWrappedBlockAttributesCallback)($trimmedLine, $lines, $i)
+                    )
                 ) {
                     break;
                 }
