@@ -2474,6 +2474,25 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
+     * Whether a list's items hold a paragraph that a loose list would wrap.
+     */
+    protected function listShowsLooseness(?Node $list): bool
+    {
+        if (!$list instanceof ListBlock) {
+            return true;
+        }
+        foreach ($list->getChildren() as $item) {
+            foreach ($item->getChildren() as $block) {
+                if ($block instanceof Paragraph) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Whether this block's WRITTEN form is a bare `%%` line.
      *
      * The predicate is about the block BELOW a sub-list, not about the
@@ -3012,11 +3031,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     for ($k = $index + 2; $after instanceof Comment; $k++) {
                         $after = $children[$k] ?? null;
                     }
-                    // Only an authored blank: a synthesized one loosens the list (PART 9 §17 L1).
+                    // A blank the source lacks loosens the list (PART 9 §17 L1c), which shows wherever it holds a paragraph.
                     $previousEnd = $previousEmitted->getPos()?->endLine;
                     $commentStart = $child->getPos()?->startLine;
                     $authoredGap = $previousEnd === null || $commentStart === null || $commentStart > $previousEnd + 1;
-                    if (!$after instanceof Paragraph && $authoredGap) {
+                    if (!$after instanceof Paragraph && ($authoredGap || !$this->listShowsLooseness($node->getParent()))) {
                         $out .= "\n";
                     }
                 }

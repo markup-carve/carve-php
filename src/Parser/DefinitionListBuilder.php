@@ -2752,7 +2752,7 @@ final class DefinitionListBuilder
      */
     private function attachedFlushLeftBlock(array $lines, int $i, int $count, ?callable $endsAtSibling = null, ?callable $colonHostBoundary = null): array
     {
-        return $this->continuations->attachedFlushLeftBlock($lines, $i, $count, $endsAtSibling, $colonHostBoundary);
+        return $this->continuations->attachedFlushLeftBlock($lines, $i, $count, $endsAtSibling, $colonHostBoundary, invisibleLineEndsParagraph: true);
     }
 
     /**

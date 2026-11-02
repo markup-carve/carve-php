@@ -894,11 +894,18 @@ final class BlockContinuationScanner
      * @param int $count Total line count.
      * @param (callable(string): bool)|null $endsAtSibling Names a sibling of this container, or null.
      * @param (callable(string, int): bool)|null $colonHostBoundary
+     * @param bool $invisibleLineEndsParagraph
      *
      * @return array{0: int, 1: array<string>, 2: array<int>}
      */
-    public function attachedFlushLeftBlock(array $lines, int $i, int $count, ?callable $endsAtSibling = null, ?callable $colonHostBoundary = null): array
-    {
+    public function attachedFlushLeftBlock(
+        array $lines,
+        int $i,
+        int $count,
+        ?callable $endsAtSibling = null,
+        ?callable $colonHostBoundary = null,
+        bool $invisibleLineEndsParagraph = false,
+    ): array {
         $attachedKind = BlockGrammar::ATTACHED_PENDING;
         $pendingThrough = -1;
         $attachedState = new TrailingBlockState();
@@ -906,7 +913,7 @@ final class BlockContinuationScanner
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, $lines, $endsAtSibling): bool {
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, $lines, $endsAtSibling, $invisibleLineEndsParagraph): bool {
                 if (
                     IndentationHelper::isBlankLine($line)
                     || $this->isContinuationMarker($line)
@@ -915,6 +922,16 @@ final class BlockContinuationScanner
                     return true;
                 }
                 if ($this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState)) {
+                    return true;
+                }
+                // In a note or description an invisible line ends the attached paragraph, or a container it stands left of (PART 9 §10 I5).
+                if (
+                    $invisibleLineEndsParagraph && $attachedState->fence === null && !$attachedState->hasOpenDiv()
+                    && $this->isInvisibleOneLiner($line, $lines, $index)
+                    && ($attachedKind === BlockGrammar::ATTACHED_PARAGRAPH
+                        || ($attachedKind !== BlockGrammar::ATTACHED_PENDING && IndentationHelper::getLeadingColumns($line) === 0
+                            && ($attachedKind === BlockGrammar::ATTACHED_SPANNING . ':quote' || $this->nextVisibleLineLeavesTheBlock($lines, $index))))
+                ) {
                     return true;
                 }
                 $attachedKind = $this->advanceAttachedKind($attachedKind, $pendingThrough, $line, $lines, $index);
@@ -5156,6 +5173,59 @@ final class BlockContinuationScanner
     private function isFoldableInvisibleLine(string $line, ?array $lines = null, ?int $index = null): bool
     {
         return ($this->isFoldableInvisibleLineCallback)($line, $lines, $index);
+    }
+
+    /**
+     * @param string $line
+     * @param array<string> $lines
+     * @param int $index
+     */
+    private function isInvisibleOneLiner(string $line, array $lines, int $index): bool
+    {
+        return $this->isOneLineComment($line, $lines, $index) || $this->isReferenceDefinitionLine(ltrim($line, " \t"));
+    }
+
+    /**
+     * Whether the first visible line past `$index` is column-0 text, which no attached list continues.
+     *
+     * @param array<string> $lines
+     * @param int $index
+     */
+    private function nextVisibleLineLeavesTheBlock(array $lines, int $index): bool
+    {
+        $count = count($lines);
+        for ($at = $index + 1; $at < $count; $at++) {
+            $line = $lines[$at];
+            if (IndentationHelper::isBlankLine($line)) {
+                return false;
+            }
+            if ($this->isInvisibleOneLiner($line, $lines, $at)) {
+                continue;
+            }
+
+            return IndentationHelper::getLeadingColumns($line) === 0
+                && !str_starts_with($line, '>')
+                && ($this->getListParser)()->parseListItemMarker($line) === null;
+        }
+
+        return false;
+    }
+
+    /**
+     * A `%%` line that opens no span: a closer-less opener is a comment line too.
+     *
+     * @param string $line
+     * @param array<string> $lines
+     * @param int $index
+     */
+    private function isOneLineComment(string $line, array $lines, int $index): bool
+    {
+        if (preg_match('/^[ \t]*%%/', $line) !== 1) {
+            return false;
+        }
+        $opener = ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn($line);
+
+        return $opener === null || $this->lastCommentFenceIndex($lines, $opener['length']) <= $index;
     }
 
     private function isReferenceDefinitionLine(string $line): bool
