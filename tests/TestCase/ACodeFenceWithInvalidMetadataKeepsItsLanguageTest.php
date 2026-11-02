@@ -93,6 +93,7 @@ class ACodeFenceWithInvalidMetadataKeepsItsLanguageTest extends TestCase
             'legacy raw in a list item' => ["- ```raw html\n  x\n  ```\n", [['fence-title-syntax', 1, 3, '```=html']]],
             'a longer tilde fence keeps its spelling' => ["~~~~raw html\nx\n~~~~\n", [['fence-title-syntax', 1, 1, '~~~~=html']]],
             'a non-format word gets the generic message' => ["```raw 1x\nx\n```\n", [['fence-title-syntax', 1, 1, 'drops invalid opener metadata']]],
+            'a word no raw block accepts gets the generic message' => ["```raw _html\nx\n```\n", [['fence-title-syntax', 1, 1, 'drops invalid opener metadata']]],
             'another language' => ["```js {1,3}\nx\n```\n", [['fence-title-syntax', 1, 1, 'drops invalid opener metadata']]],
             'raw alone is a language' => ["```raw\nx\n```\n", []],
             'raw with a title is a language' => ["```raw \"t\"\nx\n```\n", []],
