@@ -822,8 +822,9 @@ class MarkdownToCarve
                 $tableWork->end();
                 $sourceBlanks[count($result)] = true;
                 if (isset($this->referenceContext->hardReferenceSeparators[$i])) {
-                    $listMarkers->end(0);
-                    $listCols->clear();
+                    $column = $this->referenceContext->boundaryColumn($i);
+                    $listMarkers->end($column);
+                    $listCols->popAbove($column);
                     $hardListBlanks[count($result)] = true;
                 }
                 $result[] = $line;
@@ -3868,7 +3869,7 @@ class MarkdownToCarve
         }
         $list = $state->markers[$prefix] ??= new ListMarkers();
         if ($blank && isset($this->referenceContext->hardReferenceSeparators[$index])) {
-            $list->end(0);
+            $list->end($this->referenceContext->boundaryColumn($index));
         }
         $written = $text;
         // Four columns past the column the open paragraph's content starts at,
