@@ -1047,7 +1047,7 @@ final class BlockOwnershipWalk
         }
         if (
             preg_match('/^(#{1,6}) +(?=.*[^ \t\n\r])(.*)$/D', $rest) === 1
-            || preg_match('/^(-{3,}|\*{3,}|_{3,})[ \t]*$/D', $rest) === 1
+            || preg_match('/^(-{3,}|\*{3,}|_{3,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/D', $rest) === 1
             || ($this->isDefinition)($rest)
             // An abbreviation-shaped line is visible paragraph text in every container (CARVE-P12-026).
             || ($owner->kind === 'doc' && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1)

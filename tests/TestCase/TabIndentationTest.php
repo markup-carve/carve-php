@@ -362,17 +362,14 @@ class TabIndentationTest extends TestCase
     }
 
     /**
-     * A thematic break is a column-0 contiguous run of >= 3 identical markers
-     * (grammar §262). A tab-indented, space-separated line like `\t* * *` is NOT
-     * a thematic break: the leading tab and the internal spaces both disqualify
-     * it, so it parses as a (nested) list -- matching the executable-spec oracle.
+     * A single-spaced `* * *` is a thematic break (carve#4814), tested before a
+     * list marker, so the tab-indented line renders a break as the spec model does.
      */
-    public function testTabIndentedSpacedMarkersAreNotThematicBreak(): void
+    public function testTabIndentedSpacedMarkersAreAThematicBreak(): void
     {
         $input = "\t* * *";
         $result = $this->converter->convert($input);
 
-        $this->assertStringNotContainsString('<hr', $result);
-        $this->assertStringContainsString('<ul>', $result);
+        $this->assertSame('<hr>', trim($result));
     }
 }

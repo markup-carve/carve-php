@@ -889,7 +889,7 @@ final class BorrowedHtmlLayout
             return false;
         }
 
-        return preg_match('/^(?:-{3,}|\*{3,}|_{3,})$/', $line) === 1;
+        return preg_match('/^(?:-{3,}|\*{3,}|_{3,}|-(?: -){2,}|\*(?: \*){2,})$/', $line) === 1;
     }
 
     /**

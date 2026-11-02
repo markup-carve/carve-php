@@ -2026,7 +2026,7 @@ final class DefinitionListBuilder
             && str_starts_with($l->trimmedCont, '>')
             && !str_starts_with(ltrim(substr($l->trimmedCont, 1), " \t"), '%%');
         $closesParagraphAtColumn = preg_match('/^#{1,6} .+$/', $l->trimmedCont) === 1
-            || preg_match('/^([-*_])\1{2,}[ \t]*$/', $l->trimmedCont) === 1
+            || preg_match('/^(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/', $l->trimmedCont) === 1
             || preg_match('/^\|.*\|[ \t]*$/', $l->trimmedCont) === 1
             || ReferenceDefinitionExtractor::isDefinitionHead($l->trimmedCont)
             || $this->isBlockAttributeLine($l->trimmedCont)
@@ -2045,7 +2045,7 @@ final class DefinitionListBuilder
         if (
             preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $b->lead()) === 1
             && IndentationHelper::getLeadingColumns($entry) === 1
-            && preg_match('/^([-*_])\1{2,}[ \t]*$/', $l->trimmedCont) === 1
+            && preg_match('/^(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/', $l->trimmedCont) === 1
         ) {
             $entry = ltrim($entry, " \t");
         }

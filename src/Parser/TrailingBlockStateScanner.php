@@ -419,7 +419,7 @@ final class TrailingBlockStateScanner
             // open paragraph, exactly as they do outside one.
             $trimmedInDiv = ltrim(BlockGrammar::subjectFrom($line, $at, $end), " \t");
             if (
-                preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
+                preg_match('/^(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/', $trimmedInDiv) === 1
                 || ($column === $state->divColumn && preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedInDiv) === 1)
                 || ($this->getTableParser)()->isTableRow($trimmedInDiv)
                 || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $trimmedInDiv) === 1
@@ -746,7 +746,7 @@ final class TrailingBlockStateScanner
         // answer a heading gets one branch up, which is the shape a rule should
         // match. The definition and the attribute line stay where they are: each
         // has a tightness half that has to move with it, and that is a ruling.
-        if (preg_match('/([-*_])\1{2,}[ \t]*$/A', $line, $ignored, 0, $deepestAt) === 1) {
+        if (preg_match('/(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/A', $line, $ignored, 0, $deepestAt) === 1) {
             $state->openParagraph = false;
 
             return $state;
@@ -907,7 +907,7 @@ final class TrailingBlockStateScanner
             0,
             $at,
         ) === 1
-            || preg_match('/[ \t]*([-*_])\1{2,}[ \t]*$/A', $line, $ignored, 0, $at) === 1;
+            || preg_match('/[ \t]*(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/A', $line, $ignored, 0, $at) === 1;
         $state->absorbingFence = $wasAbsorbing && !$endsTheParagraph;
         // A nested item that is only a heading leaves no paragraph open, so an
         // unclosed fence at this column opens a block (CARVE-P0-014).
