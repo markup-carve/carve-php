@@ -42,10 +42,6 @@
             "ticket": "carve#4446"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"856-every-folded-caret-line-loses-its-leading-whitespace-in-a-deep-term\"",
-            "ticket": "carve#4522"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"864-a-paragraph-after-a-closed-third-level-item-takes-a-lazy-line\"",
             "ticket": "carve#4541"
         },
@@ -60,10 +56,6 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"854-an-indented-dash-line-neither-opens-nor-closes-frontmatter\"",
             "ticket": "carve#4521"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"856-every-folded-caret-line-loses-its-leading-whitespace-in-a-deep-term\"",
-            "ticket": "carve#4522"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"858-a-typed-div-s-directive-classes-lead-its-attributes-4\"",
@@ -3790,14 +3782,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"nested note closer continuation/nested-marker-note-closer/nested-closer-744\"",
-            "ticket": "carve-php#4243"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"nested note closer continuation/nested-marker-note-closer/nested-closer-745\"",
-            "ticket": "carve-php#4243"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"nested-marker-note-closer/nested-103\"",
             "ticket": "carve-php#4244"
         },
@@ -4191,38 +4175,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermBoundaryTest::testCodeKeepsBoundaryBlanksAndLiteralPayload with data set \"attribute-history-2-4-110\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"empty nested note marker and fence/nested-marker-note-closer/nested-51\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"empty nested note marker and fence/nested-marker-note-closer/nested-147\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"empty nested note marker and fence/nested-marker-note-closer/nested-151\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"empty nested note marker and fence/nested-marker-note-closer/nested-243\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"empty nested note marker and fence/nested-marker-note-closer/nested-339\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"empty nested note marker and fence/nested-marker-note-closer/nested-343\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"authored definition term fence boundary/nested-marker-note-closer/generic-431\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"authored definition term fence boundary/nested-marker-note-closer/generic-1007\"",
             "ticket": "carve-php#4308"
         },
         {
