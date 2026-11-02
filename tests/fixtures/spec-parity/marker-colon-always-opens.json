@@ -87,12 +87,12 @@
   {
     "id": "marker-colon-always-opens/556-a-closed-block-leaves-no-frame-for-the-line-below-14",
     "source": "- ::: box\n  %%%%\n%% j\n  x\n",
-    "html": "<ul>\n  <li>\n    <div class=\"box\">\n\n    </div>\n  </li>\n</ul>\n<p>x</p>\n"
+    "html": "<ul>\n  <li>\n    <div class=\"box\">\n      <p>x</p>\n    </div>\n  </li>\n</ul>\n"
   },
   {
     "id": "marker-colon-always-opens/556-a-closed-block-leaves-no-frame-for-the-line-below-15",
     "source": "- a\n  %%%%\n%%%\n  x\n",
-    "html": "<ul>\n  <li>a</li>\n</ul>\n<p>x</p>\n"
+    "html": "<ul>\n  <li>a\n    x\n  </li>\n</ul>\n"
   },
   {
     "id": "marker-colon-always-opens/556-a-closed-block-leaves-no-frame-for-the-line-below-2",

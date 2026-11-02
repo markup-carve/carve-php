@@ -61,33 +61,6 @@
       ]
     },
     {
-      "ticket": "markup-carve/carve#4862",
-      "cause": "comments and one-line definitions close no indentation container (carve#4884 at the carve 1c3a839d pin); not ported yet",
-      "cases": [
-        "attributes-2b77986c20cb",
-        "attributes-80f499652a38",
-        "attributes-8f9441a23e92",
-        "fences-0f3cd4f4afa1",
-        "fences-0f97ddc61064",
-        "fences-12567203d079",
-        "fences-6bc0ef499ad3",
-        "fences-ff7cb8098738",
-        "lazy-4c72164cbc27",
-        "notes-141a19fe4d26",
-        "notes-2e4eb2b5337e",
-        "notes-ad837470e80a",
-        "notes-c4395f59a509",
-        "notes-cbc6b5f84405",
-        "notes-deb41a7e6a8b",
-        "ownership-0b450abbd040",
-        "ownership-fed027499f76",
-        "roundtrip-06b8bec64416",
-        "roundtrip-50e7fa11ce58",
-        "roundtrip-6195169377bd",
-        "roundtrip-6c679719a4ee"
-      ]
-    },
-    {
       "ticket": "markup-carve/carve#4865",
       "cause": "an abbreviation definition is a definition in every container (carve#4874 at the carve 1c3a839d pin); not ported yet",
       "cases": [

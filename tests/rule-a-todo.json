@@ -306,14 +306,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\CommentsPreserveListContentColumnTest::testCommentsPreserveListContentColumn with data set \"- intro\n%% c\n  - tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\CommentsPreserveListContentColumnTest::testCommentsPreserveListContentColumn with data set \"- intro\n%% c\n  -{.y} tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\CommentsPreserveListContentColumnTest::testCommentsPreserveListContentColumn with data set \"- intro\n%% c\n - tail\n\n  para\n\"",
             "ticket": "carve-php#4244"
         },
@@ -354,18 +346,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- - intro\n  %% c\n    - tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- - intro\n%% c\n\n    tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- - intro\n%% c\n    tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- - intro\n%% c\n  tail\n\"",
             "ticket": "carve-php#4244"
         },
@@ -378,59 +358,11 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- > intro\n%% c\n\n    - tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- > intro\n%% c\n\n  - tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- > intro\n%% c\n    - tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- > intro\n%% c\n  - tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- > intro\n%% c\n - tail\n\"",
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- intro\n%% c\n\n    - tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- intro\n%% c\n\n  - tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- intro\n%% c\n    - tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- intro\n%% c\n  - tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- intro\n%% c\n - tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"> - intro\n> %% c\n> \n>     - tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"> - intro\n> %% c\n> \n>   - tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"> - intro\n> %% c\n>     - tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"> - intro\n> %% c\n>   - tail\n\"",
             "ticket": "carve-php#4244"
         },
         {
@@ -1563,10 +1495,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\BlockFamilyRoundSixTest::testCommentColumn with data set \"n:footnote/desc-6729\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\BlockFamilyRoundSixTest::testCommentColumn with data set \"n:ordered/footnote-3255\"",
             "ticket": "carve-php#4244"
         },
         {

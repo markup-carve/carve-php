@@ -486,7 +486,7 @@
   {
     "id": "preservation-14261",
     "source": "1. a\n   - b\n  %% c\n \t ```\n    \t[^n]: f\n",
-    "html": "<ol>\n  <li>a\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n</ol>\n<pre><code>   [^n]: f\n</code></pre>"
+    "html": "<ol>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>  [^n]: f\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ol>"
   },
   {
     "id": "preservation-14270",

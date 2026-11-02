@@ -2,12 +2,12 @@
   {
     "id": "owner134-0",
     "source": "> - ::: box\n>   a\n> %% note\n>   :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-1",
     "source": "> - ::: box\n>   a\n>  %% note\n>   :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-2",
@@ -62,12 +62,12 @@
   {
     "id": "owner134-14",
     "source": "> - :::: box\n>   a\n> %% note\n>   ::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-15",
     "source": "> - :::: box\n>   a\n>  %% note\n>   ::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-16",
@@ -122,12 +122,12 @@
   {
     "id": "owner134-28",
     "source": "> - ::::: box\n>   a\n> %% note\n>   :::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-29",
     "source": "> - ::::: box\n>   a\n>  %% note\n>   :::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-30",
@@ -182,12 +182,12 @@
   {
     "id": "owner134-42",
     "source": "> > - ::: box\n> >   a\n> > %% note\n> >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-43",
     "source": "> > - ::: box\n> >   a\n> >  %% note\n> >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-44",
@@ -242,12 +242,12 @@
   {
     "id": "owner134-56",
     "source": "> > - :::: box\n> >   a\n> > %% note\n> >   ::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-57",
     "source": "> > - :::: box\n> >   a\n> >  %% note\n> >   ::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-58",
@@ -302,12 +302,12 @@
   {
     "id": "owner134-70",
     "source": "> > - ::::: box\n> >   a\n> > %% note\n> >   :::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-71",
     "source": "> > - ::::: box\n> >   a\n> >  %% note\n> >   :::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-72",
@@ -362,12 +362,12 @@
   {
     "id": "owner134-84",
     "source": "> > > - ::: box\n> > >   a\n> > > %% note\n> > >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-85",
     "source": "> > > - ::: box\n> > >   a\n> > >  %% note\n> > >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-86",
@@ -422,12 +422,12 @@
   {
     "id": "owner134-98",
     "source": "> > > - :::: box\n> > >   a\n> > > %% note\n> > >   ::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-99",
     "source": "> > > - :::: box\n> > >   a\n> > >  %% note\n> > >   ::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-100",
@@ -482,12 +482,12 @@
   {
     "id": "owner134-112",
     "source": "> > > - ::::: box\n> > >   a\n> > > %% note\n> > >   :::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-113",
     "source": "> > > - ::::: box\n> > >   a\n> > >  %% note\n> > >   :::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul><div></div></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><p>a</p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-114",
