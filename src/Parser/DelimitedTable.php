@@ -166,8 +166,7 @@ final class DelimitedTable
             $width = max($width, count($fields));
         }
         $footer = self::rowCount($table->getAttribute('footer-rows')) ?? 0;
-        $headers = self::rowCount($table->getAttribute('header-rows'));
-        $headers ??= min(1, max(0, count($data) - $footer));
+        $headers = self::headerRows($table->getAttribute('header-rows'), $table->getAttribute('footer-rows'), count($data));
         foreach ($data as $index => $fields) {
             $header = $index < $headers;
             $row = new TableRow($header);
@@ -216,6 +215,21 @@ final class DelimitedTable
         }
 
         return $table;
+    }
+
+    /**
+     * How many leading records are header cells. An explicit header and footer that
+     * overlap mark none; a lone oversized count still marks every row (carve#4640).
+     */
+    public static function headerRows(?string $header, ?string $footer, int $rows): int
+    {
+        $headers = self::rowCount($header);
+        $footers = self::rowCount($footer);
+        if ($headers !== null && $footers !== null && $headers + $footers > $rows) {
+            return 0;
+        }
+
+        return $headers ?? min(1, max(0, $rows - ($footers ?? 0)));
     }
 
     public static function rowCount(?string $raw): ?int

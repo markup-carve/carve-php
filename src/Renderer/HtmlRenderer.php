@@ -3229,7 +3229,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($colspan > 1) {
             $structuralAttrs['colspan'] = (string)$colspan;
         }
-        $attrs = $structuralAttrs + self::withoutNames($attrs, array_keys($structuralAttrs));
+        // Only the `^` and `<` markers shape the grid, so an authored span is always dropped (carve#4715).
+        $attrs = $structuralAttrs + self::withoutNames($attrs, [...array_keys($structuralAttrs), 'rowspan', 'colspan']);
 
         $alignment = $node->getAlignment();
         if ($alignment === TableCell::ALIGN_DEFAULT && isset($column['align'])) {

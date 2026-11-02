@@ -3926,10 +3926,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $separator = $format === 'csv' ? ',' : "\t";
         $lines = [];
         $rows = $table->getChildren();
-        $footCount = DelimitedTable::rowCount($table->getAttribute('footer-rows')) ?? 0;
-        $declared = $table->getAttribute('header-rows');
-        $headCount = DelimitedTable::rowCount($declared)
-            ?? min(1, max(0, count($rows) - $footCount));
+        $headCount = DelimitedTable::headerRows($table->getAttribute('header-rows'), $table->getAttribute('footer-rows'), count($rows));
         foreach ($rows as $index => $row) {
             if (!$row instanceof TableRow || $row->getAttributes() !== []) {
                 return null;
