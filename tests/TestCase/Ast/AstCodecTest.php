@@ -76,10 +76,11 @@ class AstCodecTest extends TestCase
 
         $this->assertArrayHasKey('marker', $encoded['children'][0]);
         $this->assertSame('_', $encoded['children'][0]['marker']);
-        $this->assertSame("___\n", (new CarveRenderer())->render($document));
+        // PART 11 section 6 (carve#4973): the marker survives for interchange; the canonical writer ignores it.
+        $this->assertSame("***\n", (new CarveRenderer())->render($document));
 
         unset($wire['children'][0]['marker']);
-        $this->assertSame("---\n", (new CarveRenderer())->render($this->codec->decode($wire)));
+        $this->assertSame("***\n", (new CarveRenderer())->render($this->codec->decode($wire)));
 
         $wire['children'][0]['marker'] = '-';
         $decoded = $this->codec->decode($wire);

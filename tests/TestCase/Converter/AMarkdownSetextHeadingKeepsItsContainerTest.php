@@ -67,7 +67,7 @@ class AMarkdownSetextHeadingKeepsItsContainerTest extends TestCase
     {
         $imported = (new MarkdownToCarve())->convert("> foo | bar\n> --- | ---\n> ---\n");
 
-        $this->assertSame("> |= foo |= bar |\n>\n> ---\n", $imported);
+        $this->assertSame("> |= foo |= bar |\n>\n> ***\n", $imported);
         $this->assertSame($imported, CarveConverter::toCarve($imported));
     }
 

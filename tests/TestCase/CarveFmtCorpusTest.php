@@ -348,6 +348,10 @@ class CarveFmtCorpusTest extends TestCase
         }
 
         unset($value['srcByteLength'], $value['pos']);
+        // PART 11 section 6 (carve#4973): the canonical writer ignores the author's break marker.
+        if (($value['type'] ?? null) === 'thematic_break') {
+            unset($value['marker']);
+        }
         if (($value['type'] ?? null) === 'table') {
             // PART 11 §6h treats the recorded separator as source spelling in fmt.
             unset($value['separatorWidths']);
@@ -1007,20 +1011,16 @@ class CarveFmtCorpusTest extends TestCase
      * THE COMPARISON CAN FAIL, and fails on what the other three miss.
      *
      * §2a's own shape: two spellings that render identically and are not the
-     * same document. A thematic break written `***` and one written `---` both
-     * render `<hr />`, are each idempotent under the writer, and each re-parse
-     * cleanly - all three existing properties pass either way - and the marker
-     * is part of the tree.
-     *
-     * That pair is not academic here. The writer respells EVERY break in a
-     * document as `***` when the finished bytes would otherwise be misread as
-     * frontmatter, so substituting one construct for another is a move this
-     * writer actually makes, and until now nothing in this file could see it.
+     * same document. A smart `...` and a literal `…` both render `…`, are each
+     * idempotent under the writer, and each re-parse cleanly - all three
+     * existing properties pass either way - and the smart run is part of the
+     * tree. (The thematic-break marker no longer serves: PART 11 section 6,
+     * carve#4973, takes it out of what the writer keeps.)
      */
     public function testTheTreeComparisonCatchesASubstitutedConstruct(): void
     {
-        $source = "a\n\n---\n";
-        $substituted = "a\n\n***\n";
+        $source = "a...\n";
+        $substituted = "a\u{2026}\n";
         $converter = new CarveConverter();
 
         // The three properties this file already had, on the substitution:

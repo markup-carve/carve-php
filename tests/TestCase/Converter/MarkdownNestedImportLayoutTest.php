@@ -25,7 +25,7 @@ class MarkdownNestedImportLayoutTest extends TestCase
         $markdown = "> ---\n> Foo\n> ---\n> Bar\n> ---\n> Baz\n";
         $imported = (new MarkdownToCarve())->convert($markdown);
 
-        self::assertSame("> ---\n>\n> ## Foo\n>\n> ## Bar\n>\n> Baz\n", $imported);
+        self::assertSame("> ***\n>\n> ## Foo\n>\n> ## Bar\n>\n> Baz\n", $imported);
         self::assertSame($imported, CarveConverter::toCarve($imported));
     }
 

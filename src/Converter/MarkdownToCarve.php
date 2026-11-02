@@ -3433,7 +3433,7 @@ class MarkdownToCarve
      * exactly at its container's content column, so every other CommonMark
      * spelling has to be respelled or it comes back as a nested list (`* * *`,
      * `- - -`) or a paragraph (`_ _ _`, an indented `---`). The target is the
-     * bytes CarveRenderer writes for a ThematicBreak node, which are `---`.
+     * bytes CarveRenderer writes for a ThematicBreak node, which are `***`.
      */
     protected function thematicBreakLine(string $line, int $contentCol): ?string
     {
@@ -3447,10 +3447,10 @@ class MarkdownToCarve
             // are what Carve reads the line by, and `normalizeBlockquoteMarkers`
             // alone starts at the first byte, so an indented `>>` came back
             // whole and the break was text (carve-php#2341).
-            return $this->normalizeHeldQuoteMarkers($matches[0] . '---');
+            return $this->normalizeHeldQuoteMarkers($matches[0] . CarveRenderer::THEMATIC_BREAK);
         }
 
-        return str_repeat(' ', $contentCol) . '---';
+        return str_repeat(' ', $contentCol) . CarveRenderer::THEMATIC_BREAK;
     }
 
     /**
@@ -4585,7 +4585,7 @@ class MarkdownToCarve
         }
 
         if (preg_match(self::THEMATIC_BREAK, preg_replace('/^ {0,3}/', '', $text) ?? $text) === 1) {
-            return ['lines' => [$lead . '---'], 'end' => $index, 'table' => 0, 'closes' => true];
+            return ['lines' => [$lead . CarveRenderer::THEMATIC_BREAK], 'end' => $index, 'table' => 0, 'closes' => true];
         }
 
         $quoted = $this->normalizeBlockquoteMarkers($text);

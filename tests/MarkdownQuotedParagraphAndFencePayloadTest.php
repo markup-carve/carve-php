@@ -118,7 +118,7 @@ final class MarkdownQuotedParagraphAndFencePayloadTest extends TestCase
     public function testAThematicBreakOnTheItemLineKeepsItsOwnItem(): void
     {
         $written = (new MarkdownToCarve())->convert("- Foo\n- * * *\n- Bar\n");
-        self::assertSame("- Foo\n- ---\n- Bar\n", $written);
+        self::assertSame("- Foo\n- ***\n- Bar\n", $written);
         self::assertStringContainsString('<li>Foo</li>', $this->html($written));
         self::assertStringContainsString('<li>Bar</li>', $this->html($written));
         self::assertStringContainsString('<hr>', $this->html($written));

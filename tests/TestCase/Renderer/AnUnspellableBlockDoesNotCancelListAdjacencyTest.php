@@ -91,7 +91,7 @@ class AnUnspellableBlockDoesNotCancelListAdjacencyTest extends TestCase
         // two lists". Both of these spell something, so they part the lists as
         // they always did and no boundary is needed.
         $this->assertSame(2, $this->lists(['type' => 'thematic_break']));
-        $this->assertStringContainsString('---', $this->written(['type' => 'thematic_break']));
+        $this->assertStringContainsString('***', $this->written(['type' => 'thematic_break']));
 
         // A NO-BREAK space is CONTENT (PART 11 §7). This row is what holds
         // the line there: counting U+00A0 as layout makes this paragraph

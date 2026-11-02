@@ -35,10 +35,10 @@ final class TheMarkdownImporterRespellsACollidingBreakTest extends TestCase
             "***\n\n***\n\n```\n---\n```\n",
         ];
 
-        yield 'a break that is not at byte 0' => ["> ***\n\n```\n---\n```\n", "> ---\n\n```\n---\n```\n"];
+        yield 'a break that is not at byte 0' => ["> ***\n\n```\n---\n```\n", "> ***\n\n```\n---\n```\n"];
         yield 'real frontmatter and a later break' => [
             "---yaml\ntitle: Hi\n---\n\nBody\n\n***\n\nMore\n",
-            "---yaml\ntitle: Hi\n---\n\nBody\n\n---\n\nMore\n",
+            "---yaml\ntitle: Hi\n---\n\nBody\n\n***\n\nMore\n",
         ];
     }
 

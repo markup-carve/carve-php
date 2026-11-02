@@ -25,7 +25,7 @@ class MarkdownImportCommonMarkSweepTest extends TestCase
             'escaped backslash before an entity' => ["[](<\\\\&quot;>)\n", "[](\\\")\n", '<p><a href="\\&quot;"></a></p>'],
             'escaped backslash before punctuation' => ["[a](<a\\\\*>)\n", "[a](a\\*)\n", '<p><a href="a\\*">a</a></p>'],
             'escaped backslash before a space' => ["[a](<\\\\&#32;>)\n", "[a](\\%20)\n", '<p><a href="\\%20">a</a></p>'],
-            'break between two lines of a tight item' => ["* _\n_**\n  ___\n  ^_\n", "* _\n  _**\n  ---\n  ^_\n", "<ul>\n  <li>_\n_**\n    <hr>\n    ^_\n  </li>\n</ul>"],
+            'break between two lines of a tight item' => ["* _\n_**\n  ___\n  ^_\n", "* _\n  _**\n  ***\n  ^_\n", "<ul>\n  <li>_\n_**\n    <hr>\n    ^_\n  </li>\n</ul>"],
             'outer quote blank after an open fence' => ["> > ```\n> > code\n>\n> > text\n", "> > ```\n> > code\n> > ```\n>\n> > text\n", ''],
             'outer quote blank after a closed fence' => ["> > ```\n> > c\n> > ```\n>\n> t\n", "> > ```\n> > c\n> > ```\n>\n> t\n", ''],
         ];

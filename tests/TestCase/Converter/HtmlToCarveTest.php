@@ -609,7 +609,7 @@ class HtmlToCarveTest extends TestCase
     public function testHorizontalRule(): void
     {
         $result = $this->converter->convert('<p>Above</p><hr><p>Below</p>');
-        $this->assertStringContainsString('---', $result);
+        $this->assertStringContainsString('***', $result);
     }
 
     public function testLineBreak(): void
@@ -1649,7 +1649,8 @@ HTML;
         $djot = '---';
         $html = $djotConverter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
-        $this->assertSame('---', $back, 'Dash thematic break should round-trip');
+        // PART 11 section 6 (carve#4973): a dash break carries no data-char, so it comes back canonical.
+        $this->assertSame('***', $back, 'Dash thematic break should come back as the canonical break');
 
         // Test asterisk (preserved via data-char)
         $djot = '***';

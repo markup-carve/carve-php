@@ -35,7 +35,7 @@ class EmptyBlockAttributesImportTest extends TestCase
     {
         $result = (new HtmlToCarve())->convertWithReport('<hr id="h">');
 
-        self::assertSame("{#h}\n---", trim($result->value));
+        self::assertSame("{#h}\n***", trim($result->value));
         self::assertSame([], $result->diagnostics);
     }
 
@@ -85,7 +85,7 @@ class EmptyBlockAttributesImportTest extends TestCase
     public function testRoleOnAnEmptyParagraphGoesWithIt(): void
     {
         $result = (new HtmlToCarve())->convertWithReport('<p role="note"></p><hr role="separator">');
-        self::assertSame("{role=separator}\n---", trim($result->value));
+        self::assertSame("{role=separator}\n***", trim($result->value));
         self::assertSame(['Dropped <p> holding no content'], array_column($result->report()['diagnostics'], 'message'));
     }
 

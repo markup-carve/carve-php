@@ -122,7 +122,8 @@ class TheWriterDoesNotManufactureFrontmatterTest extends TestCase
     public function testABreakBelowTheHeadKeepsTheAuthoredSpelling(): void
     {
         $formatted = $this->fmt("p\n\n***\n\nq\n\n___\n");
-        $this->assertSame("p\n\n***\n\nq\n\n___\n", $formatted);
+        // PART 11 section 6 (carve#4973): every break is written `***`.
+        $this->assertSame("p\n\n***\n\nq\n\n***\n", $formatted);
         $this->assertRoundTrips("p\n\n***\n\nq\n\n___\n");
     }
 

@@ -55,20 +55,20 @@ final class TheMarkdownImporterSeparatesBlocksLikeTheWriterTest extends TestCase
         ];
 
         // carve-php#2989.
-        yield 'a break under a paragraph' => ["a\n***\nb\n", "a\n\n---\n\nb\n"];
+        yield 'a break under a paragraph' => ["a\n***\nb\n", "a\n\n***\n\nb\n"];
         yield 'a break under a list' => [
             "---\n- one\n- two\n---\nBody\n",
             "***\n\n- one\n- two\n\n***\n\nBody\n",
         ];
 
         // The separator sits at the container the break is in, not at column 0.
-        yield 'a break inside a block quote' => ["> a\n> ***\n> b\n", "> a\n>\n> ---\n>\n> b\n"];
+        yield 'a break inside a block quote' => ["> a\n> ***\n> b\n", "> a\n>\n> ***\n>\n> b\n"];
 
         // Where the collision guard from carve-php#2982 meets the separator:
-        // the frontmatter survives AND the later break stays a `---`.
+        // the frontmatter survives AND the later break is written `***`.
         yield 'real frontmatter and a later break' => [
             "---\ntitle: Hi\n---\nBody\n***\nMore\n",
-            "---yaml\ntitle: Hi\n---\n\nBody\n\n---\n\nMore\n",
+            "---yaml\ntitle: Hi\n---\n\nBody\n\n***\n\nMore\n",
         ];
     }
 }
