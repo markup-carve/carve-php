@@ -35,7 +35,7 @@ final class MarkdownImportFixedPointTest extends TestCase
             'ordinary-paragraph-punctuation' => ["x (\n ) y\n", "x (\n) y\n", "<p>x (\n) y</p>\n"],
             'ordinary-paragraph-closer' => ["x\n ] y\n", "x\n] y\n", "<p>x\n] y</p>\n"],
             'open-label-tab' => ["x [\n\t] y\n", "x [\n] y\n", "<p>x [\n] y</p>\n"],
-            'multiline-reference-label' => ["[a\n b]: /u\n\n[a\n b]\n", "[a\nb]\n", "<p>[a\nb]</p>\n"],
+            'multiline-reference-label' => ["[a\n b]: /u\n\n[a\n b]\n", "[a\nb](/u)\n", "<p><a href=\"/u\">a\nb</a></p>\n"],
             'list-label-continuation' => ["- [\n  ]\n", "- [\n  ]\n", "<ul>\n  <li>[\n]</li>\n</ul>\n"],
             'quote-label-continuation' => ["> [\n>  ]\n", "> [\n> ]\n", "<blockquote><p>[\n]</p></blockquote>\n"],
             'list-before-quote-link-continuation' => ["- > [link](/url \"title\")\n  > [link](/url 'title')\n", "- > [link](/url \"title\")\n  > [link](/url \"title\")\n", "<ul>\n  <li>\n    <blockquote><p><a href=\"/url\" title=\"title\">link</a>\n<a href=\"/url\" title=\"title\">link</a></p></blockquote>\n  </li>\n</ul>\n"],
