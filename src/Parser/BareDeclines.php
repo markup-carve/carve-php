@@ -91,6 +91,7 @@ final class BareDeclines
 
     /**
      * @param array<int> $from
+     * @param int $at
      */
     private function lastAtOrBefore(array $from, int $at): int
     {
