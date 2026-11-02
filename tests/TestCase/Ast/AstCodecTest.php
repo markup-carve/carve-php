@@ -402,7 +402,7 @@ class AstCodecTest extends TestCase
      * The documents a JSON round trip does not return to their authored form,
      * and the only ones.
      *
-     * The current spec pin adds four authored-form losses tracked in
+     * The current spec pin adds five authored-form losses tracked in
      * carve-php#4168 (shifted separators) and carve-php#4166 (task item).
      * `173` was the implicit-heading-reference gap: the parsed link
      * records that its destination was derived from a heading, and that flag is
@@ -432,6 +432,7 @@ class AstCodecTest extends TestCase
         '743-a-later-term-after-a-shifted-separator-opens-in-the-outer-item.crv',
         // carve-php#4166
         '744-a-task-item-uses-the-ordered-item-column-rule-2.crv',
+        '744-a-task-item-uses-the-ordered-item-column-rule.crv',
         // carve#4432, at the pin to carve b7876589
         '856-a-quote-at-the-content-column-stays-in-the-item-after-a-refused-separator.crv',
     ];

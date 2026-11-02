@@ -278,6 +278,13 @@ final class DefinitionListBuilder
 
                     continue;
                 }
+                // A rebased lazy line keeps its frame behind the rebase indent.
+                $part['lines'] = array_map(
+                    static fn (string $line): string => str_contains($line, BlockGrammar::LAZY_FRAME)
+                        ? ltrim(BlockGrammar::stripLazyFrame($line), " \t")
+                        : $line,
+                    $part['lines'],
+                );
                 // A term folds continuation lines exactly as a paragraph does,
                 // so it needs the same per-line map rather than the single-line
                 // one - which found nothing the moment a term wrapped.

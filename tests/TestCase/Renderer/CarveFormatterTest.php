@@ -63,15 +63,6 @@ class CarveFormatterTest extends TestCase
         $reformatted = CarveConverter::toCarve($formatted);
 
         $converter = new CarveConverter();
-        if ($slug === '744-a-task-item-uses-the-ordered-item-column-rule') {
-            $this->assertNotSame(
-                $this->normalizeHtml($converter->convert($crv)),
-                $this->normalizeHtml($converter->convert($formatted)),
-                $slug . ' now preserves HTML; remove the carve-php#4166 gap',
-            );
-            $this->assertNotSame($formatted, $reformatted, $slug . ' is now idempotent; remove the carve-php#4166 gap');
-            $this->markTestIncomplete('carve-php#4166');
-        }
         $this->assertSame(
             $this->normalizeHtml($converter->convert($crv)),
             $this->normalizeHtml($converter->convert($formatted)),

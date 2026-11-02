@@ -669,11 +669,6 @@ class CarveFmtCorpusTest extends TestCase
 
     private function assertSameOrTrackedGap(string $slug, string $expected, string $actual, string $message): void
     {
-        if ($slug === '744-a-task-item-uses-the-ordered-item-column-rule') {
-            $this->assertNotSame($expected, $actual, $slug . ' now passes; remove the carve-php#4166 gap');
-            $this->markTestIncomplete('carve-php#4166');
-        }
-
         $this->assertSame($expected, $actual, $message);
     }
 
