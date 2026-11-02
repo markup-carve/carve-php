@@ -1749,6 +1749,7 @@ class MarkdownToCarve
             || $this->columnWidth($m[1] . $m[2] . substr($m[3], 0, strspn($m[3], " \t"))) - $this->columnWidth($m[1] . $m[2]) > 4
             || ($prevLineType === 'text' && preg_match('/^\d/', $m[2]) === 1 && (int)$m[2] !== 1)
             || preg_match(self::THEMATIC_BREAK, trim($lines[$i])) === 1
+            || preg_match('/^(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $m[4]) === 1
         ) {
             return null;
         }
@@ -1793,6 +1794,19 @@ class MarkdownToCarve
 
         return $column - $this->holderColumn($columns, $column) < 4
             && !($prevLineType === 'text' && preg_match('/^\d/', $chain[2]) === 1 && (int)$chain[2] !== 1);
+    }
+
+    /**
+     * A `+` marker after the line's first marker opens a new list, so it is
+     * written as `-`, the bullet Carve spells.
+     */
+    private function spellNestedPlusMarkers(string $line): string
+    {
+        if (preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)]))(.*)$/s', $line, $parts) !== 1) {
+            return $line;
+        }
+
+        return $parts[1] . preg_replace('/(?<=[ \t>])\+(?=[ \t]|$)/', '-', $parts[2]);
     }
 
     /**
@@ -1874,7 +1888,7 @@ class MarkdownToCarve
         }
         $bareMarker = !$fence->active && preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $lines[$i]) === 1;
         if (!$fence->active && $this->opensEmptyItemAfterMarkers($lines[$i], $listCols->all(), $prevLineType)) {
-            $lines[$i] = rtrim($lines[$i], " \t") . ' ' . EmptyListItemSpelling::PLACEHOLDER;
+            $lines[$i] = $this->spellNestedPlusMarkers(rtrim($lines[$i], " \t")) . ' ' . EmptyListItemSpelling::PLACEHOLDER;
             $emptyMarkerLines[$i] = true;
         }
         $bareParagraphMarker = $bareMarker
@@ -3875,7 +3889,7 @@ class MarkdownToCarve
             && $this->opensEmptyItemAfterMarkers($text, [], $state->previous !== null && $this->quoteParagraphIsOpen($state->previous['text']) ? 'text' : 'blank')
         ) {
             // A bare marker after another item's marker opens an empty item.
-            $text = rtrim($text, " \t") . ' ' . EmptyListItemSpelling::PLACEHOLDER;
+            $text = $this->spellNestedPlusMarkers(rtrim($text, " \t")) . ' ' . EmptyListItemSpelling::PLACEHOLDER;
             $written = $text;
         }
         $opensItem = preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]/', $text) === 1;
