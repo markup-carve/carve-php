@@ -227,8 +227,9 @@ final class FenceAndContinuationLinter
     private function warning(array $rows, int $line, int $column, int $width, string $rule, string $message): LintWarning
     {
         [$content, $start] = $rows[$line - 1];
-        $prefix = mb_substr($content, 0, $column - 1, 'UTF-8');
         $bom = $line === 1 && str_starts_with($content, "\u{FEFF}") ? 3 : 0;
+        // Columns do not count the BOM, so the prefix is measured past it.
+        $prefix = mb_substr(substr($content, $bom), 0, $column - 1, 'UTF-8');
         $offset = $start + strlen($prefix) + $bom;
 
         return new LintWarning($line, $column, $rule, $message, $offset, $offset + $width);
