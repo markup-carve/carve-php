@@ -226,15 +226,12 @@ class CarveConverterTest extends TestCase
         $this->assertSame(substr($expected, 0, -1), $this->converter->convert($djot));
     }
 
-    public function testMaliciousMultiwordFenceInfoIsNotAFence(): void
+    public function testMaliciousMultiwordFenceInfoNeverReachesAnAttribute(): void
     {
-        // A multiword/quoted info string (here an attribute-injection attempt)
-        // is NOT a fenced code block: the info string must be a single token
-        // (optionally + a [label]). The line falls back to inline parsing, so
-        // there is no class attribute to inject into -- the quotes/`=` become
-        // inert inline-code content. The bare ``` below is a valid opener of its own.
+        // The token ends at the quote, so the fence recovers and drops the
+        // attribute-injection attempt with the rest of its metadata.
         $djot = "``` php\" onclick=\"alert(1)\necho 1;\n```";
-        $expected = "<p><code> php\" onclick=\"alert(1)\necho 1;</code></p>\n<pre><code></code></pre>\n";
+        $expected = "<pre><code class=\"language-php\">echo 1;\n</code></pre>\n";
 
         $this->assertSame(substr($expected, 0, -1), $this->converter->convert($djot));
     }
@@ -3251,14 +3248,13 @@ DJOT;
         $this->assertSame(substr("<p>text <code></code></p>\n", 0, -1), $result);
     }
 
-    public function testUnclosedBackticksWithInfoStringIsInlineCode(): void
+    public function testUnclosedBackticksWithInfoStringRecoversAsACodeBlock(): void
     {
-        // From official code_blocks: unclosed ``` with info string = inline code
+        // carve#4807: the first word is the language and the rest is dropped.
         $djot = '``` not a code block';
         $result = $this->converter->convert($djot);
 
-        // Should be inline code in a paragraph
-        $this->assertSame(substr("<p><code> not a code block</code></p>\n", 0, -1), $result);
+        $this->assertSame('<pre><code class="language-not"></code></pre>', $result);
     }
 
     public function testBackticksWithClosingFenceIsCodeBlock(): void

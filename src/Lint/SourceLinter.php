@@ -92,6 +92,7 @@ class SourceLinter
         $ignored = [];
         $comments = [];
         $inlineVerbatim = [];
+        $codeOpeners = [];
         $ambiguousFenceEnds = [];
         $paragraphs = [];
         $headings = [];
@@ -124,6 +125,9 @@ class SourceLinter
                     for ($ln = $pos->startLine + 1; $ln <= $pos->endLine; $ln++) {
                         $inlineVerbatim[$ln] = true;
                     }
+                }
+                if ($type === 'code_block') {
+                    $codeOpeners[$pos->startLine] = true;
                 }
                 if (in_array($type, ['code_block', 'raw_block', 'comment', 'frontmatter'], true)) {
                     for ($ln = $pos->startLine; $ln <= $pos->endLine; $ln++) {
@@ -312,6 +316,9 @@ class SourceLinter
                 $at = strspn($text, " \t");
                 $emit($ln, $at, strlen($text) - $at, 'region-marker-renders-as-text', 'This line renders as text and is not a region marker for a Carve include. Use "%% #region name".');
             }
+            if (isset($codeOpeners[$ln])) {
+                $this->lintRecoveredCodeFence($text, $fenceParser, $ln, $emit);
+            }
             if (isset($ignored[$ln])) {
                 continue;
             }
@@ -320,9 +327,7 @@ class SourceLinter
             }
             $view = ltrim(self::containerView($text), " \t");
             $at = strlen($text) - strlen($view);
-            if (preg_match('/^([ \t]*)(`{3,}|~{3,})[ \t]*raw[ \t]+\S+/', $view, $match)) {
-                $emit($ln, $at + strlen($match[1]), strlen($view) - strlen($match[1]), 'raw-block-syntax', 'Use a fence followed by =FORMAT for a raw block; raw FORMAT does not open one.');
-            } elseif (isset($paragraphs[$ln]) && (!isset($inlineVerbatim[$ln]) || isset($ambiguousFenceEnds[$ln])) && preg_match('/^(`{3,}|~{3,})/', $view, $match)) {
+            if (isset($paragraphs[$ln]) && (!isset($inlineVerbatim[$ln]) || isset($ambiguousFenceEnds[$ln])) && preg_match('/^(`{3,}|~{3,})/', $view, $match)) {
                 $run = $match[1];
                 if (!str_contains(substr($view, strlen($run)), $run)) {
                     // A raw block's `=FORMAT` is a well-formed info string, not
@@ -661,6 +666,25 @@ class SourceLinter
         $rest = ltrim($rest, " \t");
 
         return [$rest, strlen($text) - strlen($rest)];
+    }
+
+    /**
+     * @param string $text
+     * @param \MarkupCarve\Carve\Parser\Block\FencedBlockParser $fenceParser
+     * @param int $ln
+     * @param \Closure(int, int, int, string, string): void $emit
+     */
+    private function lintRecoveredCodeFence(string $text, FencedBlockParser $fenceParser, int $ln, Closure $emit): void
+    {
+        $view = ltrim(self::containerView($text), " \t");
+        if ($fenceParser->parseRecoveredCodeFenceOpener($view) === null) {
+            return;
+        }
+        $message = 'The code fence keeps its language and drops invalid opener metadata. Use a quoted title and optional [label] in that order.';
+        if (preg_match('/^(`{3,}|~{3,}) ?raw[ \t]+([A-Za-z_][A-Za-z0-9_-]*)(?![A-Za-z0-9_-])/', $view, $match)) {
+            $message = 'The code fence keeps the language raw and drops the rest. For a raw block, use ' . $match[1] . '=' . $match[2] . '.';
+        }
+        $emit($ln, strlen($text) - strlen($view), strlen($view), 'fence-title-syntax', $message);
     }
 
     private static function containerView(string $text): string

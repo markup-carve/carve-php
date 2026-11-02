@@ -2,6 +2,33 @@
   "comment": "Conformance pack cases this engine renders differently from the spec model, one entry per cause with its open ticket. See tests/ConformancePackTest.php.",
   "entries": [
     {
+      "ticket": "markup-carve/carve#4807",
+      "cause": "ahead of the pinned pack: the fence keeps its language and drops invalid metadata; these cases match the model at carve main",
+      "cases": [
+        "lazy-20b00bdee7fc",
+        "lazy-c5b0b08a512a",
+        "lazy-e2b892cd05e2",
+        "notes-ef170eff7258",
+        "fences-05dfb47f13f2",
+        "fences-0b4476cd774e",
+        "fences-6d4033fce117",
+        "fences-701d91b58311",
+        "fences-8ab033d9d772",
+        "fences-b314ec762e60",
+        "fences-cd29c71895fc",
+        "fences-cf6e82cfe467",
+        "guards-452f40158533",
+        "guards-6c1c1a31402e",
+        "guards-943f45b7ba97",
+        "guards-b0869d33055f",
+        "guards-d289e5b76040",
+        "guards-d9f2c06986a8",
+        "roundtrip-0d0b6ab806b5",
+        "roundtrip-a1486263b16e",
+        "roundtrip-c09a3a8a043a"
+      ]
+    },
+    {
       "ticket": "markup-carve/carve-php#4254",
       "cause": "untriaged day-one drift in the lazy family",
       "cases": [

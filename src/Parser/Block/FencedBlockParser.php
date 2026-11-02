@@ -26,6 +26,45 @@ class FencedBlockParser
      */
     public function parseCodeFenceOpener(string $line): ?array
     {
+        return $this->parseStrictCodeFenceOpener($line) ?? $this->parseRecoveredCodeFenceOpener($line);
+    }
+
+    /**
+     * A language token ending where metadata would start keeps the block and
+     * drops the rest (carve#4807), unless a later run closes an inline span.
+     *
+     * @param string $line The line to check
+     *
+     * @return array{fence: string, char: string, length: int, info: string, header: string|null, label: string|null, indent: string}|null
+     */
+    public function parseRecoveredCodeFenceOpener(string $line): ?array
+    {
+        if (
+            !preg_match('/^(`{3,}|~{3,}) ?([A-Za-z0-9_\-+#.\/]+)(?=[\p{Z}\t\n\x0B\f\r\x{85}\x{FEFF}"{\[\x{201C}\x{201D}])(.*)$/su', $line, $matches)
+            || str_contains($matches[3], $matches[1])
+            || $this->parseStrictCodeFenceOpener($line) !== null
+        ) {
+            return null;
+        }
+
+        return [
+            'fence' => $matches[1],
+            'char' => $matches[1][0],
+            'length' => strlen($matches[1]),
+            'info' => $matches[2],
+            'header' => null,
+            'label' => null,
+            'indent' => '',
+        ];
+    }
+
+    /**
+     * @param string $line The line to check
+     *
+     * @return array{fence: string, char: string, length: int, info: string, header: string|null, label: string|null, indent: string}|null
+     */
+    private function parseStrictCodeFenceOpener(string $line): ?array
+    {
         // Fast early exit: code blocks start exactly at the container content
         // column. Container parsers strip their own prefixes before calling in.
         if (!isset($line[0]) || ($line[0] !== '`' && $line[0] !== '~')) {
@@ -59,8 +98,8 @@ class FencedBlockParser
         // the [label] is structured metadata a group extension (code-group)
         // uses as the tab name. Anything else -- a bare second word, a key=val
         // pair (```js title="x"), an inline {...} (``` php {.x}), or the
-        // header/label in the wrong order (```php [l] "h") -- is NOT a fenced
-        // code block and falls back to inline parsing. (Raw ```=FORMAT blocks
+        // header/label in the wrong order (```php [l] "h") -- is invalid
+        // metadata, left to the recovery above. (Raw ```=FORMAT blocks
         // are matched by parseRawBlockOpener first; a leading `=` is never a
         // language token, and a raw block takes no header.)
         $language = '';

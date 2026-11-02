@@ -82,44 +82,43 @@ class CodeFenceHeaderTest extends TestCase
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
-    public function testKeyValuePairStillFallsBackToInlineSpan(): void
+    public function testKeyValuePairRecoversAsACodeBlock(): void
     {
         $carve = <<<'CARVE'
         ```js title="x"
         code
         ```
         CARVE;
-        $expected = "<p><code>js title=\"x\"\ncode</code></p>\n<pre><code></code></pre>\n";
+        $expected = "<pre><code class=\"language-js\">code\n</code></pre>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
-    public function testHeaderLabelWrongOrderFallsBackToInlineSpan(): void
+    public function testHeaderLabelWrongOrderRecoversAsACodeBlock(): void
     {
         $carve = <<<'CARVE'
         ```php [Composer] "x"
         code
         ```
         CARVE;
-        $expected = "<p><code>php [Composer] \"x\"\ncode</code></p>\n<pre><code></code></pre>\n";
+        $expected = "<pre><code class=\"language-php\">code\n</code></pre>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
-    public function testMetadataGluedToLanguageFallsBack(): void
+    public function testMetadataGluedToLanguageRecoversAsACodeBlock(): void
     {
-        // Header/label must be space-separated from the language (grammar:
-        // space+). A glued quote or bracket is not metadata -> inline span.
+        // A glued quote is not metadata, and the token ends where metadata would start.
         $carve = "```php\"x\"\ncode\n```";
-        $expected = "<p><code>php\"x\"\ncode</code></p>\n<pre><code></code></pre>\n";
+        $expected = "<pre><code class=\"language-php\">code\n</code></pre>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }
 
-    public function testLabelGluedToHeaderFallsBack(): void
+    public function testLabelGluedToHeaderRecoversAsACodeBlock(): void
     {
         $carve = "```php \"x\"[Install]\ncode\n```";
-        $expected = "<p><code>php \"x\"[Install]\ncode</code></p>\n<pre><code></code></pre>\n";
+        $expected = "<pre><code class=\"language-php\">code\n</code></pre>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($carve));
     }

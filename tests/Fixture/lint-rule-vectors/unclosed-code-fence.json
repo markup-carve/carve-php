@@ -282,10 +282,10 @@
     },
     {
       "name": "invalid-opener-is-not-a-fence",
-      "description": "An opener with invalid metadata stays paragraph text and opens no code block.",
+      "description": "An opener with invalid metadata keeps its language and opens an unclosed code block.",
       "source": "para\n```js title=\"x\"\ncode\n",
       "expected": {
-        "findings": []
+        "findings": [{ "line": 2, "column": 1, "includes": [] }]
       }
     },
     {

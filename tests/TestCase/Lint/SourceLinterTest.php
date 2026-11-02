@@ -26,8 +26,7 @@ class SourceLinterTest extends TestCase
     {
         $cases = [
             'heading-trailing-attribute' => "# Title {#id}\n",
-            'fence-opener-fallback' => "``` php extra bad info\ncode\n```\n",
-            'raw-block-syntax' => "```raw html\nx\n```\n",
+            'fence-opener-fallback' => "```php, bad\ncode\n```\n",
             'blockquote-marker-without-space' => ">quoted\n",
             'block-marker-as-text' => "  ::: note\n",
             'list-item-body-detached' => "1. item\n\n  # heading\n",
@@ -86,7 +85,7 @@ class SourceLinterTest extends TestCase
 
     public function testQuotedMarkupGetsSpecificWarningsAndMarkerSpans(): void
     {
-        $this->assertContains('raw-block-syntax', array_column((new SourceLinter())->lint("> ```raw html\n> x\n> ```\n"), 'rule'));
+        $this->assertSame(['fence-title-syntax'], array_column((new SourceLinter())->lint("> ```raw html\n> x\n> ```\n"), 'rule'));
         $this->assertContains('heading-trailing-attribute', array_column((new SourceLinter())->lint("> # T {#id}\n"), 'rule'));
         $source = "  {.cls} text\n";
         $warnings = (new SourceLinter())->lint($source);
