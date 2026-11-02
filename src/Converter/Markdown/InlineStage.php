@@ -128,10 +128,8 @@ final class InlineStage
             if ($fence === 0) {
                 return $protectCode($span, $raw);
             }
-            if ($this->context->blockEscape === InlineContext::BLOCK_ESCAPE) {
-                $span = str_replace(InlineContext::BLOCK_ESCAPE, '', $span);
-                $fence = strspn($span, '`');
-            }
+            $span = $this->withoutBlockEscapes($span);
+            $fence = strspn($span, '`');
             $value = preg_replace('/\n[ \t]*/', ' ', substr($span, $fence, -$fence)) ?? '';
             if (str_starts_with($value, ' ') && str_ends_with($value, ' ') && trim($value, ' ') !== '') {
                 $value = substr($value, 1, -1);
@@ -141,10 +139,7 @@ final class InlineStage
 
             return $protectCode($codeWriter->spellImportedCodeSpan($value), $span);
         };
-        $line = $this->protectCodeSpans($line, $writeCodeSpan);
-        if ($this->context->blockEscape === InlineContext::BLOCK_ESCAPE) {
-            $line = str_replace(InlineContext::BLOCK_ESCAPE, '\\', $line);
-        }
+        $line = $this->spellBlockEscapes($this->protectCodeSpans($line, $writeCodeSpan));
         $line = preg_replace_callback(
             '/(?<!\\\\)\[(\^[^\[\]\n]*?)\\\\\]/',
             static fn (array $match): string => $protect('\\[', '[') . $match[1] . '\\]',
@@ -527,6 +522,23 @@ final class InlineStage
         $line = str_replace('&#', '&\\#', $line);
 
         $line = $this->escapeLinkLabelSlashes($line, $protected);
+        $line = $this->convertEmphasis($line, $protected, $protectedSources);
+
+        $line = strtr($line, $nativeInlineTags);
+
+        $line = $this->rewriteNativeInlineTags($line, $work, $protect, $hasProtectedEscapeBefore, $nativeInline);
+
+        $line = $this->escapeFinalInlineText($line, $work, $protect, $hasProtectedEscapeBefore, $table);
+
+        return $this->restoreProtectedInlineOutput($line, $work, $table);
+    }
+
+    /**
+     * @param array<string> $protected
+     * @param array<string> $protectedSources
+     */
+    private function convertEmphasis(string $line, array $protected, array $protectedSources): string
+    {
         $onFlatten = function (): void {
             $this->context->flattenedEmphasis = true;
         };
@@ -539,15 +551,24 @@ final class InlineStage
                 $converted = $escaped;
             }
         }
-        $line = $converted;
 
-        $line = strtr($line, $nativeInlineTags);
+        return $converted;
+    }
 
-        $line = $this->rewriteNativeInlineTags($line, $work, $protect, $hasProtectedEscapeBefore, $nativeInline);
+    /**
+     * A code span's text without the block stage's escape markers.
+     */
+    private function withoutBlockEscapes(string $span): string
+    {
+        return $this->context->blockEscape === InlineContext::BLOCK_ESCAPE ? str_replace(InlineContext::BLOCK_ESCAPE, '', $span) : $span;
+    }
 
-        $line = $this->escapeFinalInlineText($line, $work, $protect, $hasProtectedEscapeBefore, $table);
-
-        return $this->restoreProtectedInlineOutput($line, $work, $table);
+    /**
+     * The block stage's escape markers outside code spans, written as backslashes.
+     */
+    private function spellBlockEscapes(string $line): string
+    {
+        return $this->context->blockEscape === InlineContext::BLOCK_ESCAPE ? str_replace(InlineContext::BLOCK_ESCAPE, '\\', $line) : $line;
     }
 
     /**
