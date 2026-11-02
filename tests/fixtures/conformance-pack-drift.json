@@ -16,26 +16,11 @@
       ]
     },
     {
-      "ticket": "markup-carve/carve-php#4254",
-      "cause": "untriaged day-one drift in the roundtrip family",
-      "cases": [
-        "roundtrip-2f0bd736a7de"
-      ]
-    },
-    {
       "ticket": "markup-carve/carve-php#4328",
       "cause": "remaining differences of the + port; listed in the PR body",
       "cases": [
         "lazy-68fe7c68d81d",
         "roundtrip-615415506b26"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve#4716",
-      "cause": "the pinned pack predates carve#4766; the engine skips every invisible line between siblings, as the current model does",
-      "cases": [
-        "lazy-21cb87fd7067",
-        "fences-a46060654787"
       ]
     },
     {
