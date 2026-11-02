@@ -87,7 +87,8 @@ final class InvalidContainerMetadataTest extends TestCase
 
     public function testContainerKindRemainsAscii(): void
     {
-        self::assertStringNotContainsString('<div', (new CarveConverter())->convert("::: noté Title\nbody\n:::\n"));
+        // The bare run below the rejected opener opens a div of its own (carve#4863).
+        self::assertSame("<p>::: noté Title\nbody</p>\n<div>\n\n</div>", trim((new CarveConverter())->convert("::: noté Title\nbody\n:::\n")));
     }
 
     public function testProseOpenerDoesNotBlockFormatting(): void

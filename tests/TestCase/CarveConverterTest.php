@@ -1235,7 +1235,8 @@ DJOT;
         $html = $this->converter->convert("::: {.x}\nz\n:::");
 
         $this->assertStringStartsWith('<p>', $html);
-        $this->assertStringNotContainsString('<div', $html);
+        // The bare run below it opens a div of its own (carve#4863).
+        $this->assertSame("<p>::: {.x}\nz</p>\n<div>\n\n</div>", $html);
     }
 
     public function testDigitFirstExplicitIdentifierIsAcceptedButAttributeNameStaysLiteral(): void

@@ -832,7 +832,7 @@
   {
     "id": "term-wrapped-attribute-item-False-div",
     "source": "- lead\n\n  :: term\n  {.a\n  .b}\n     ::: .box\n     inside\n     :::\n",
-    "html": "<ul><li>lead\n    <dl><dt>term</dt></dl><p class=\"a b\">::: .box\ninside\n:::</p></li></ul>"
+    "html": "<ul><li>lead\n    <dl><dt>term</dt></dl><p class=\"a b\">::: .box\ninside</p><div></div></li></ul>"
   },
   {
     "id": "term-wrapped-attribute-item-False-term",
@@ -862,7 +862,7 @@
   {
     "id": "term-wrapped-attribute-item-True-div",
     "source": "- lead\n\n  :: term\n  floor text\n  {.a\n  .b}\n     ::: .box\n     inside\n     :::\n",
-    "html": "<ul><li>lead\n    <dl><dt>term\nfloor text</dt></dl><p class=\"a b\">::: .box\ninside\n:::</p></li></ul>"
+    "html": "<ul><li>lead\n    <dl><dt>term\nfloor text</dt></dl><p class=\"a b\">::: .box\ninside</p><div></div></li></ul>"
   },
   {
     "id": "term-wrapped-attribute-item-True-term",
@@ -892,7 +892,7 @@
   {
     "id": "term-wrapped-attribute-quoted-item-False-div",
     "source": "> - lead\n> \n>   :: term\n>   {.a\n>   .b}\n>      ::: .box\n>      inside\n>      :::\n",
-    "html": "<blockquote><ul><li>lead\n      <dl><dt>term</dt></dl><p class=\"a b\">::: .box\ninside\n:::</p></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead\n      <dl><dt>term</dt></dl><p class=\"a b\">::: .box\ninside</p><div></div></li></ul></blockquote>"
   },
   {
     "id": "term-wrapped-attribute-quoted-item-False-term",
@@ -922,7 +922,7 @@
   {
     "id": "term-wrapped-attribute-quoted-item-True-div",
     "source": "> - lead\n> \n>   :: term\n>   floor text\n>   {.a\n>   .b}\n>      ::: .box\n>      inside\n>      :::\n",
-    "html": "<blockquote><ul><li>lead\n      <dl><dt>term\nfloor text</dt></dl><p class=\"a b\">::: .box\ninside\n:::</p></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>lead\n      <dl><dt>term\nfloor text</dt></dl><p class=\"a b\">::: .box\ninside</p><div></div></li></ul></blockquote>"
   },
   {
     "id": "term-wrapped-attribute-quoted-item-True-term",
@@ -952,7 +952,7 @@
   {
     "id": "term-wrapped-attribute-nested-item-False-div",
     "source": "- outer\n  - lead\n  \n    :: term\n    {.a\n    .b}\n       ::: .box\n       inside\n       :::\n",
-    "html": "<ul><li>outer\n    <ul><li>lead\n        <dl><dt>term</dt></dl><p class=\"a b\">::: .box\ninside\n:::</p></li></ul></li></ul>"
+    "html": "<ul><li>outer\n    <ul><li>lead\n        <dl><dt>term</dt></dl><p class=\"a b\">::: .box\ninside</p><div></div></li></ul></li></ul>"
   },
   {
     "id": "term-wrapped-attribute-nested-item-False-term",
@@ -982,7 +982,7 @@
   {
     "id": "term-wrapped-attribute-nested-item-True-div",
     "source": "- outer\n  - lead\n  \n    :: term\n    floor text\n    {.a\n    .b}\n       ::: .box\n       inside\n       :::\n",
-    "html": "<ul><li>outer\n    <ul><li>lead\n        <dl><dt>term\nfloor text</dt></dl><p class=\"a b\">::: .box\ninside\n:::</p></li></ul></li></ul>"
+    "html": "<ul><li>outer\n    <ul><li>lead\n        <dl><dt>term\nfloor text</dt></dl><p class=\"a b\">::: .box\ninside</p><div></div></li></ul></li></ul>"
   },
   {
     "id": "term-wrapped-attribute-nested-item-True-term",
