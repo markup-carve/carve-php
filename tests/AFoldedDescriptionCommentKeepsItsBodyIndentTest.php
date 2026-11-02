@@ -13,7 +13,8 @@ class AFoldedDescriptionCommentKeepsItsBodyIndentTest extends TestCase
     {
         $folded = ":: t\n:  d\n  %% c\n";
         $document = ":: t\n: d\n\n%% c\n";
-        self::assertSame(":: t\n: d\n\n  %% c\n", CarveConverter::toCarve($folded));
+        // CARVE-P11-079 (b): the document owns a comment below the description's column.
+        self::assertSame($document, CarveConverter::toCarve($folded));
         self::assertSame($document, CarveConverter::toCarve($document));
         self::assertSame(CarveConverter::toCarve($folded), CarveConverter::toCarve(CarveConverter::toCarve($folded)));
     }

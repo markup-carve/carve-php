@@ -4514,34 +4514,6 @@
             "ticket": "carve-php#4328"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"191-a-blank-after-a-comment-still-ends-the-item\"",
-            "ticket": "carve#4850"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"430-below-a-definition-body-s-column-an-invisible-line-folds-as-text-5\"",
-            "ticket": "carve#4850"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"191-a-blank-after-a-comment-still-ends-the-item\"",
-            "ticket": "carve#4850"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"430-below-a-definition-body-s-column-an-invisible-line-folds-as-text-5\"",
-            "ticket": "carve#4850"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testThePartElevenOneCCeilingIsNoLongerReached",
-            "ticket": "carve#4850"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 191-a-blank-after-a-comment-still-ends-the-item\"",
-            "ticket": "carve#4850"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 430-below-a-definition-body-s-column-an-invisible-line-folds-as-text-5\"",
-            "ticket": "carve#4850"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\ConverterCorpusTest::testConvertedSourceRendersTheExpectedHtml with data set \"101-markdown-an-html-comment-block-imports-as-a-line-comment\"",
             "ticket": "carve#4812"
         },

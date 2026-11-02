@@ -275,6 +275,9 @@ final class BlockContinuationScanner
                 break;
             }
             $lowComment = str_starts_with($first, '%%') ? $nextIndent < $contentIndent && $trailingState->fence === null && $openCommentLength === null : $lowComment;
+            if ($lowComment && !$trailingState->hasOpenDiv() && $this->advanceItemCommentFence(null, $first, $lines, $i) === null) {
+                break;
+            }
             if ($nextIndent < $contentIndent && $this->walkOwnsElsewhere($nextLine, $i)) {
                 break;
             }
