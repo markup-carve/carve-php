@@ -5720,7 +5720,7 @@ class MarkdownToCarve
         }
 
         return preg_replace_callback(
-            '/^([ \t]*(?:>[ \t]?)*[ \t]*)\[(?=(?:[^\]\\\\\n]|\\\\.)+\]:)/',
+            '/^([ \t]*(?:>[ \t]?)*[ \t]*)\[(?=(?:[^\]\\\\\n]|\\\\.)+\]:|(?:[^\]\\\\\n]|\\\\[^\]\n])*\\\\\]:)/',
             fn (array $m): string => $m[1] . $this->inlineContext->blockEscape . '[',
             $line,
             1,
