@@ -2271,6 +2271,14 @@ class BlockParser
         }
     }
 
+    /**
+     * Only a fence-length run folds a fence; a code span such as `` `x` `` is plain text.
+     */
+    private static function isFoldedFenceLine(string $line): bool
+    {
+        return preg_match('/^(?:`{3,}|~{3,})/', $line) === 1;
+    }
+
     private function authoredColumnOf(int $index, string $line): ?int
     {
         return $this->sourceMapper()->authoredColumnOf($index, $line);
@@ -3999,7 +4007,7 @@ class BlockParser
         $contentParts = [$content];
         $hasUnclaimedColonFenceLine = $this->paragraphHasUnclaimedColonFenceLine($content);
         $foldedFenceColumn = null;
-        if ($this->fencedBlockParser->isCodeFenceHead(explode("\n", $content, 2)[0])) {
+        if (self::isFoldedFenceLine(explode("\n", $content, 2)[0])) {
             $foldedFenceColumn = $this->authoredColumnOf($start, $line)
                 ?? IndentationHelper::getLeadingColumns($line);
         }
@@ -4055,7 +4063,7 @@ class BlockParser
             // Strip leading whitespace from continuation lines (matching JS reference)
             $rawNextLine = self::stripLazyFrame($nextLine);
             $nextLine = ltrim($rawNextLine, " \t");
-            if ($foldedFenceColumn === null && $this->fencedBlockParser->isCodeFenceHead($nextLine)) {
+            if ($foldedFenceColumn === null && self::isFoldedFenceLine($nextLine)) {
                 $foldedFenceColumn = $this->authoredColumnOf($i, $rawNextLine)
                     ?? IndentationHelper::getLeadingColumns($rawNextLine);
             }

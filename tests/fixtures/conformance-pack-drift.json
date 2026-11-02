@@ -39,6 +39,13 @@
         "roundtrip-29bf84d5501e",
         "roundtrip-615415506b26"
       ]
+    },
+    {
+      "ticket": "markup-carve/carve#4734",
+      "cause": "the pinned pack predates carve#4819; the engine follows the current model, which loosens the outer list",
+      "cases": [
+        "fences-350b56897079"
+      ]
     }
   ]
 }
