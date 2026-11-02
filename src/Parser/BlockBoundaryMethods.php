@@ -313,9 +313,9 @@ trait BlockBoundaryMethods
             $wrapped = null;
             if (str_starts_with(ltrim($line, " \t"), '{')) {
                 $run = [ltrim($line, " \t")];
-                for ($at = $k + 1; $at < $count && !IndentationHelper::isBlankLine($lines[$at]) && !str_contains($lines[$at], '{'); $at++) {
+                for ($at = $k + 1; $at < $count && !IndentationHelper::isBlankLine($lines[$at]) && !WrappedBlockAttributeScanner::opensInsideBlock($lines[$at]); $at++) {
                     $run[] = ltrim($lines[$at], " \t");
-                    if (str_contains($lines[$at], '}')) {
+                    if (!WrappedBlockAttributeScanner::endsInsideBlock($lines[$at], true)) {
                         break;
                     }
                 }

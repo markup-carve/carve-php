@@ -1290,7 +1290,7 @@ trait BlockListMethods
                 break;
             }
             // A `{` cannot continue an attribute, so an unclosed run stops at the next opener.
-            if (str_contains($line, '{')) {
+            if (WrappedBlockAttributeScanner::opensInsideBlock($line)) {
                 break;
             }
             // Its continuation lines may sit at any column (carve#3421).
@@ -1298,7 +1298,7 @@ trait BlockListMethods
                 ? ltrim($line, " \t")
                 : IndentationHelper::stripLeadingColumns($line, $contentIndent);
             $probe[] = $content;
-            if (str_contains($content, '}')) {
+            if (!WrappedBlockAttributeScanner::endsInsideBlock($content, true)) {
                 break;
             }
         }

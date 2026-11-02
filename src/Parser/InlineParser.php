@@ -1969,7 +1969,7 @@ class InlineParser
             $after = $text[$closer + 2] ?? '';
             if (
                 $closer > 0 && !StringUtil::isWhitespaceChar($text[$closer - 1])
-                && ($after === '' || !ctype_alnum($after)) && !$this->hasGraphemeExtender($text, $closer + 2)
+                && !$this->wordAfter($text, $closer + 2) && !$this->hasGraphemeExtender($text, $closer + 2)
             ) {
                 return $closer;
             }
@@ -1989,7 +1989,7 @@ class InlineParser
             $next = $text[$open + 2] ?? '';
             if (
                 $next !== '' && !StringUtil::isWhitespaceChar($next) && !$this->hasGraphemeExtender($text, $open + 2)
-                && ($open === 0 || !ctype_alnum($text[$open - 1])) && !$this->isEscapedAt($text, $open)
+                && !$this->wordBefore($text, $open) && !$this->isEscapedAt($text, $open)
             ) {
                 return $this->combinedCloserToken($text, $open + 2, $at) === null;
             }
@@ -3668,6 +3668,34 @@ class InlineParser
             && preg_match('/\G[\p{Mn}\p{Mc}\p{Me}\x{FE00}-\x{FE0F}\x{200D}]/u', $text, $matches, 0, $offset) === 1;
     }
 
+    /**
+     * The alnum guard of bare emphasis: a Unicode letter or number starts at $offset.
+     */
+    private function wordAfter(string $text, int $offset): bool
+    {
+        if (!isset($text[$offset])) {
+            return false;
+        }
+        if (ord($text[$offset]) < 0x80) {
+            return ctype_alnum($text[$offset]);
+        }
+
+        return preg_match('/\G[\p{L}\p{N}]/u', $text, $matches, 0, $offset) === 1;
+    }
+
+    /**
+     * The alnum guard of bare emphasis: a Unicode letter or number ends before $offset.
+     */
+    private function wordBefore(string $text, int $offset): bool
+    {
+        $at = $offset - 1;
+        while ($at > 0 && $offset - $at < 4 && (ord($text[$at]) & 0xC0) === 0x80) {
+            $at--;
+        }
+
+        return $at >= 0 && $this->wordAfter($text, $at);
+    }
+
     private function hasDecoratedBracedOpener(string $text, int $pos): bool
     {
         return str_contains('/*_^,~=+-#%', $text[$pos + 1] ?? "\0")
@@ -3690,7 +3718,7 @@ class InlineParser
         if ($after === $delimiter || $before === $delimiter || in_array($delimiter, $this->openSpanKinds, true)) {
             return false;
         }
-        if (preg_match('/[A-Za-z0-9]/', $before) === 1 || ($delimiter === '=' && $after === '>')) {
+        if ($this->wordBefore($text, $pos) || ($delimiter === '=' && $after === '>')) {
             return false;
         }
 
@@ -3756,7 +3784,7 @@ class InlineParser
         // Bare single-char delimiters never open inside words. A `_` before,
         // or a `/` before `/` or `_`, guards the opener unless that guard is an
         // open entry where it stands (carve#3973 X1).
-        if (ctype_alnum($prevChar)) {
+        if ($this->wordBefore($text, $pos)) {
             return null;
         }
         if (!$guardOpen && ($prevChar === '_' || (($delimiter === '/' || $delimiter === '_') && $prevChar === '/'))) {
@@ -4035,7 +4063,7 @@ class InlineParser
                     // alphanumeric (right word boundary, grammar §9). Unlike the
                     // opener's left boundary, `_` does NOT block a closer.
                     $afterClose = $text[$actualClose + 1] ?? '';
-                    if (($afterClose !== '' && ctype_alnum($afterClose)) || $this->hasGraphemeExtender($text, $actualClose + 1)) {
+                    if ($this->wordAfter($text, $actualClose + 1) || $this->hasGraphemeExtender($text, $actualClose + 1)) {
                         $failedStarts[] = $actualClose + 1;
                         $searchPos = $actualClose + 1;
 
@@ -4101,7 +4129,7 @@ class InlineParser
             return $before === '_' || $char === '/' || $char === '_' ? 'guarded' : 'open';
         }
 
-        return ctype_alnum($before) ? 'none' : 'open';
+        return $this->wordBefore($text, $at) ? 'none' : 'open';
     }
 
     /**
@@ -4117,7 +4145,7 @@ class InlineParser
         $before = $at >= 2 ? $text[$at - 2] : '';
         if (
             $guard === $delimiter || in_array($guard, $this->openSpanKinds, true) || $before === $guard || $before === '\\'
-            || ($before !== '' && ctype_alnum($before)) || StringUtil::isWhitespaceChar($text[$at])
+            || $this->wordBefore($text, $at - 1) || StringUtil::isWhitespaceChar($text[$at])
         ) {
             return false;
         }
@@ -4201,7 +4229,7 @@ class InlineParser
 
         // A `_` or `/` guard that is an open entry does not block it (carve#3973 X1).
         if (
-            ($pos > 0 && ((!$guardOpen && ($text[$pos - 1] === '_' || $text[$pos - 1] === '/')) || ctype_alnum($text[$pos - 1])))
+            ($pos > 0 && ((!$guardOpen && ($text[$pos - 1] === '_' || $text[$pos - 1] === '/')) || $this->wordBefore($text, $pos)))
             || $start >= $length
             || StringUtil::isWhitespaceChar($text[$start])
             || $this->hasGraphemeExtender($text, $start)
@@ -4362,7 +4390,7 @@ class InlineParser
             }
 
             if ($text[$searchPos] === '*' && $text[$searchPos + 1] === '/') {
-                if ((isset($text[$searchPos + 2]) && ctype_alnum($text[$searchPos + 2])) || $this->hasGraphemeExtender($text, $searchPos + 2)) {
+                if ($this->wordAfter($text, $searchPos + 2) || $this->hasGraphemeExtender($text, $searchPos + 2)) {
                     $searchPos++;
 
                     continue;

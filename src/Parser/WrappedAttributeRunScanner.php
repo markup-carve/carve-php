@@ -44,11 +44,11 @@ final class WrappedAttributeRunScanner
         $depth = $this->quoteDepth($start);
         for ($at = $start + 1; $at < $count && !IndentationHelper::isBlankLine($lines[$at]); $at++) {
             // A lazy line outside the opener's quote cannot close its attribute.
-            if ($this->quoteDepth($at) < $depth || str_contains($lines[$at], '{')) {
+            if ($this->quoteDepth($at) < $depth || WrappedBlockAttributeScanner::opensInsideBlock($lines[$at])) {
                 break;
             }
             $probe[] = ltrim($lines[$at], " \t");
-            if (str_contains($lines[$at], '}')) {
+            if (!WrappedBlockAttributeScanner::endsInsideBlock($lines[$at], true)) {
                 break;
             }
         }

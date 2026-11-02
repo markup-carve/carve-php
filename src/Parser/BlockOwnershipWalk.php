@@ -916,7 +916,7 @@ final class BlockOwnershipWalk
                 $line = $q[1] ?? '';
             }
             $run[] = $line;
-            if (preg_match('/\}[ \t]*$/D', $line) === 1) {
+            if (!WrappedBlockAttributeScanner::endsInsideBlock($line, true)) {
                 break;
             }
             if (trim($line, " \t") === '' || ltrim($line, " \t")[0] === '{') {

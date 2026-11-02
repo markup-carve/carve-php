@@ -1657,7 +1657,24 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '704-a-non-ascii-letter-does-not-block-a-bare-delimiter' => [
+            'reason' => 'carve#4806: the alnum guard reads Unicode letters and numbers',
+            'html' => "<p>é*x* y and a*x* y\ny *x*é and y *x*a</p>\n",
+        ],
+        '792-a-glued-attribute-run-is-one-physical-line-2' => [
+            'reason' => 'carve#4078: each block of a glued run may wrap',
+            'html' => "<p class=\"a b\">p</p>\n",
+        ],
+        '792-a-glued-attribute-run-is-one-physical-line-3' => [
+            'reason' => 'carve#4078: each block of a glued run may wrap',
+            'html' => "<p class=\"a b\">p</p>\n",
+        ],
+        '792-a-glued-attribute-run-is-one-physical-line-4' => [
+            'reason' => 'carve#4078: a wrapped glued run with nothing below renders nothing',
+            'html' => '',
+        ],
+    ];
 
     protected CarveConverter $converter;
 

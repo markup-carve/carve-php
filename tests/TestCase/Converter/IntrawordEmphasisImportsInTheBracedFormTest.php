@@ -122,6 +122,11 @@ class IntrawordEmphasisImportsInTheBracedFormTest extends TestCase
                 'a{%  note  %}*b* c',
                 '<p>a<strong>b</strong> c</p>',
             ],
+            'between accented letters' => [
+                '<p>é<strong>b</strong>é</p>',
+                'é{*b*}é',
+                '<p>é<strong>b</strong>é</p>',
+            ],
             // Nesting does not change the question: the inner span is intraword
             // inside its own parent's content.
             'inside another emphasis' => [
@@ -165,9 +170,6 @@ class IntrawordEmphasisImportsInTheBracedFormTest extends TestCase
             'inside parentheses' => ['<p>(<strong>b</strong>) c</p>', '(*b*) c'],
             'before a comma' => ['<p>a <strong>b</strong>, c</p>', 'a *b*, c'],
             'after a hyphen' => ['<p>a-<strong>b</strong> c</p>', 'a-*b* c'],
-            // The rule is ASCII-only in every engine, so an accented letter
-            // does not block the bare delimiter.
-            'between accented letters' => ['<p>é<strong>b</strong>é</p>', 'é*b*é'],
             'between guillemets' => ['<p>«<strong>b</strong>»</p>', '«*b*»'],
             // A neighbouring construct ends in its own closing punctuation, so
             // it puts no word character next to the delimiter.
