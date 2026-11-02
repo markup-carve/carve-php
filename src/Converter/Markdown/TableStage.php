@@ -320,6 +320,11 @@ final class TableStage
         if (!str_contains($next, '|') || preg_match('/^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/', $next) !== 1) {
             return false;
         }
+        // A bullet with content interrupts the paragraph before a delimiter
+        // row can: `- | -` opens a list item.
+        if (preg_match('/^-[ \t]+\S/', $next) === 1) {
+            return false;
+        }
 
         return count($this->splitPipeCells($trimmed)) === count($this->splitPipeCells($next));
     }
