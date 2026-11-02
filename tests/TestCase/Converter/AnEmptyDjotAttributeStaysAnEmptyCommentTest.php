@@ -18,9 +18,9 @@ class AnEmptyDjotAttributeStaysAnEmptyCommentTest extends TestCase
         return [
             'block level' => ["{}\nhi\n", "%%\nhi\n"],
             'multi-line comment above a paragraph' => ["{% a\n  b %}\nParagraph.\n", "%%\nParagraph.\n"],
-            'between strong spans' => ["*a*{}*b*\n", "*a*{%%}*b*\n"],
-            'between emphasis spans' => ["_a_{}_b_\n", "/a/{%%}/b/\n"],
-            'doubled' => ["*a*{}{}*b*\n", "*a*{%%}*b*\n"],
+            'between strong spans' => ["*a*{}*b*\n", "{*a*}{%%}{*b*}\n"],
+            'between emphasis spans' => ["_a_{}_b_\n", "{/a/}{%%}{/b/}\n"],
+            'doubled' => ["*a*{}{}*b*\n", "{*a*}{%%}{*b*}\n"],
         ];
     }
 
