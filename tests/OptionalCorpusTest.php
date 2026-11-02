@@ -75,8 +75,7 @@ class OptionalCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-    ];
+    protected const KNOWN_GAPS = [];
 
     /**
      * Features this engine genuinely does not implement, each with the reason.
