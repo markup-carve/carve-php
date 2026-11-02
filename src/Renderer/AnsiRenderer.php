@@ -716,7 +716,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $node instanceof Symbol => $this->renderSymbol($node),
                 $node instanceof InlineFootnote => '(' . $this->renderChildren($node) . ')',
                 $node instanceof FootnoteRef && $node->isUnresolved()
-                => $this->stripControls('[^' . $node->getLabel() . ']'),
+                => $this->stripControls('[^' . $node->getLabel() . ']' . $node->getAttributeSource()),
                 $node instanceof FootnoteRef => $this->renderFootnoteRef($node),
                 $node instanceof HeadingRef => $this->renderHeadingRef($node),
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),

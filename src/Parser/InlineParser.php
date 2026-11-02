@@ -6981,7 +6981,10 @@ class InlineParser
             $endPos = $pos + strlen($matches[0]);
             $length = strlen($text);
             if ($endPos < $length && $text[$endPos] === '{') {
+                $runStart = $endPos;
                 $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
+                $run = str_replace("\0", "\u{00A0}", substr($text, $runStart, $endPos - $runStart));
+                $node->setAttributeSource($this->inTableCell ? $this->unescapeTableReferencePipes($run) : $run);
             }
 
             return [
@@ -6994,10 +6997,14 @@ class InlineParser
         $endPos = $pos + strlen($matches[0]);
 
         // A trailing `{...}` attaches to the noteref <a> (grammar PART 9 §note;
-        // mirrors the inline-footnote `^[...]{attrs}` path).
+        // mirrors the inline-footnote `^[...]{attrs}` path). The run is kept too,
+        // for a profile that strips the definition later (carve#4816).
         $length = strlen($text);
         if ($endPos < $length && $text[$endPos] === '{') {
+            $runStart = $endPos;
             $endPos = $this->applyConsecutiveAttributes($node, $text, $endPos);
+            $run = str_replace("\0", "\u{00A0}", substr($text, $runStart, $endPos - $runStart));
+            $node->setAttributeSource($this->inTableCell ? $this->unescapeTableReferencePipes($run) : $run);
         }
 
         return [

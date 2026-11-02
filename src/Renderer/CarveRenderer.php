@@ -5162,6 +5162,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof InlineExtension => $withAttrs(':' . $this->escapeIdentifier($node->getExtensionType()) . '[' . $this->renderInlines($node->getChildren()) . ']'),
             $node instanceof Abbreviation => $this->escapeText($this->renderInlines($node->getChildren())),
             $node instanceof InlineFootnote => $withAttrs('^[' . $this->renderInlineNoteContent($node) . ']'),
+            $node instanceof FootnoteRef && $node->isUnresolved() && $node->getAttributeSource() !== ''
+            => $this->writtenRawReference('[^' . $this->writeFlatBracketRun($node->getLabel()) . ']' . $node->getAttributeSource()),
             $node instanceof FootnoteRef => $withAttrs('[^' . $this->writeFlatBracketRun($node->getLabel()) . ']'),
             $node instanceof NonBreakingSpace => $node->getAttributeEntries() === []
                 ? $this->verbatimSentinels[4]
@@ -6424,6 +6426,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return $rendered;
+    }
+
+    /**
+     * The canonical `{...}` block for a node's own attributes, outside any enclosing marker.
+     */
+    public function spellAttributes(Node $node): string
+    {
+        return $this->renderAttrList($node->getAttributeEntries(), $node->getAttributeOrder());
     }
 
     /**

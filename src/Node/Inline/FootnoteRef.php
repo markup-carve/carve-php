@@ -28,6 +28,24 @@ class FootnoteRef extends InlineNode
         return $this->label;
     }
 
+    /**
+     * The attribute run an unresolved reference keeps as text, as typed (carve#4816).
+     *
+     * NOT part of the wire shape either, like carve-js: the AST names no field
+     * for it, and a resolved reference takes the run as attributes.
+     */
+    protected string $attributeSource = '';
+
+    public function getAttributeSource(): string
+    {
+        return $this->attributeSource;
+    }
+
+    public function setAttributeSource(string $attributeSource): void
+    {
+        $this->attributeSource = $attributeSource;
+    }
+
     public function isUnresolved(): bool
     {
         return $this->unresolved;

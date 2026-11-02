@@ -36,6 +36,7 @@ use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Profile;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\CrossReferenceResolver;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\TableSpanGrid;
@@ -263,6 +264,8 @@ class AstCodec
         // field the reference shape does not carry (PART 12 §3). Re-derived
         // after decoding, in `resolveFootnoteRefs`.
         'unresolved',
+        // The run an unresolved reference keeps as text; no wire field names it (carve#4816).
+        'attributeSource',
     ];
 
     /**
@@ -1001,9 +1004,15 @@ class AstCodec
             }
         }
 
-        $walk = static function (Node $node) use (&$walk, $defined): void {
+        $writer = null;
+        $walk = static function (Node $node) use (&$walk, &$writer, $defined): void {
             if ($node instanceof FootnoteRef) {
                 $node->setUnresolved(!isset($defined[$node->getLabel()]));
+                // The kept run is not on the wire, so a decoded reference spells its attributes canonically (carve#4816).
+                if ($node->isUnresolved() && $node->getAttributeSource() === '' && $node->getAttributeEntries() !== []) {
+                    $writer ??= new CarveRenderer();
+                    $node->setAttributeSource($writer->spellAttributes($node));
+                }
             }
             foreach ($node->getChildren() as $child) {
                 $walk($child);
