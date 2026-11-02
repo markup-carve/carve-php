@@ -11,9 +11,10 @@ use PHPUnit\Framework\TestCase;
 /**
  * A colspan cell is written plain (`| < |`), so a header row whose spans form a
  * trailing run of colspans keeps the native `|=` form instead of falling back
- * to a GFM delimiter row. A leading span, a real cell after a header span, or a
- * trailing rowspan still needs the delimiter row. Both the Carve writer and the
- * HTML importer follow the same rule.
+ * to a GFM delimiter row. A leading span or a trailing rowspan still needs the
+ * delimiter row; a real cell after a header span is written natively since
+ * carve#4974 ruling A. Both the Carve writer and the HTML importer follow the
+ * same rule.
  */
 class ATrailingHeaderSpanWritesTheNativeFormTest extends TestCase
 {
@@ -65,11 +66,11 @@ class ATrailingHeaderSpanWritesTheNativeFormTest extends TestCase
         self::assertSame("| < | b |\n|---|---|\n| c | d |\n", $carve);
     }
 
-    public function testARealCellAfterAHeaderSpanKeepsTheDelimiterRow(): void
+    public function testARealCellAfterAHeaderSpanWritesNativeCells(): void
     {
         $carve = (new CarveConverter())->toCarve("| H | < | < | K |\n|---|---|---|---|\n| p | q | s | t |\n");
 
-        self::assertStringContainsString('|---|---|---|---|', $carve);
+        self::assertSame("|= H | < | < |= K |\n| p | q | s | t |\n", $carve);
     }
 
     public function testATrailingRowspanHeaderKeepsTheDelimiterRow(): void

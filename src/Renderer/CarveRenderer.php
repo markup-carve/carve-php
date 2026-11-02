@@ -3759,40 +3759,20 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 }
             }
         }
-        // A colspan cell is always written plain (`| < |`), so a header row can
-        // keep the native `|=` form when every span marker in it is a colspan
-        // after at least one real header cell: each `<` absorbs into the `|=`
-        // header on its left, and a real cell after the run is its own `|=`
-        // cell (corpus section 579). A leading span has no `|=` anchor before
-        // it, and a rowspan (`^`) does not absorb left, so those still need a
-        // delimiter row.
+        // A colspan cell is always written plain (`| < |`) and absorbs into the
+        // `|=` header on its left. Only two head-row shapes have no native
+        // spelling that keeps the tree, so only they get a generated separator
+        // (carve#4974 ruling A): a placeholder with no origin in the row (any
+        // `^`, or a `<` in column 0), and a placeholder carrying an alignment.
         $needsDelimiter = $forceDelimiter;
-        if ($headerRow) {
-            $headerCellsRow = array_values(array_filter(
-                $tableRows[0]->getChildren(),
-                static fn (Node $child): bool => $child instanceof TableCell,
-            ));
-            $firstSpan = -1;
-            foreach ($headerCellsRow as $index => $cell) {
-                if ($cell->getSpanMarker() !== null) {
-                    $firstSpan = $index;
+        if ($headerRow && !$needsDelimiter) {
+            foreach ($firstRowCells as $index => $cell) {
+                $marker = $cell->getSpanMarker();
+                if ($marker === '^' || ($marker === '<' && ($index === 0 || $cell->getAlignment() !== TableCell::ALIGN_DEFAULT))) {
+                    $needsDelimiter = true;
 
                     break;
                 }
-            }
-            if ($firstSpan >= 0) {
-                $trailingColspansOnly = $firstSpan >= 1;
-                $headerCellCount = count($headerCellsRow);
-                for ($column = $firstSpan; $column < $headerCellCount; $column++) {
-                    // '<' is the colspan marker (rowspan is '^'); a real `|=` cell after a run keeps the form.
-                    $marker = $headerCellsRow[$column]->getSpanMarker();
-                    if (($marker !== null && $marker !== '<') || ($node->getSeparatorWidths() !== null && $marker === null)) {
-                        $trailingColspansOnly = false;
-
-                        break;
-                    }
-                }
-                $needsDelimiter = $needsDelimiter || !$trailingColspansOnly;
             }
         }
         // The `+` lines each row is followed by, one slot per cell (CARVE-P12-069).
