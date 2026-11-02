@@ -1413,6 +1413,9 @@ final class DefinitionListBuilder
 
                     return true;
                 }
+                if ($consumed === 1 && !$closesBodySpan) {
+                    return false;
+                }
                 for ($end = $b->i + $consumed; $b->i < $end; $b->i++) {
                     $b->body[] = $consumed > 1
                         ? $this->keptCommentDelimiter($b->lines[$b->i]) : ltrim($b->lines[$b->i], " \t");
