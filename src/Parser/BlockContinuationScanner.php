@@ -909,11 +909,13 @@ final class BlockContinuationScanner
         $attachedKind = BlockGrammar::ATTACHED_PENDING;
         $pendingThrough = -1;
         $attachedState = new TrailingBlockState();
+        // The verdict for a run of invisible lines, read once: [run end, leaves].
+        $invisibleRun = [-1, false];
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, $lines, $endsAtSibling, $invisibleLineEndsParagraph): bool {
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, $lines, $endsAtSibling, $invisibleLineEndsParagraph): bool {
                 if (
                     IndentationHelper::isBlankLine($line)
                     || $this->isContinuationMarker($line)
@@ -930,7 +932,7 @@ final class BlockContinuationScanner
                     && $this->isInvisibleOneLiner($line, $lines, $index)
                     && ($attachedKind === BlockGrammar::ATTACHED_PARAGRAPH
                         || ($attachedKind !== BlockGrammar::ATTACHED_PENDING && IndentationHelper::getLeadingColumns($line) === 0
-                            && ($attachedKind === BlockGrammar::ATTACHED_SPANNING . ':quote' || $this->nextVisibleLineLeavesTheBlock($lines, $index))))
+                            && ($attachedKind === BlockGrammar::ATTACHED_SPANNING . ':quote' || $this->nextVisibleLineLeavesTheBlock($lines, $index, $invisibleRun))))
                 ) {
                     return true;
                 }
@@ -5190,25 +5192,32 @@ final class BlockContinuationScanner
      *
      * @param array<string> $lines
      * @param int $index
+     * @param array{0: int, 1: bool} $run The verdict cached for the invisible run `$index` sits in.
      */
-    private function nextVisibleLineLeavesTheBlock(array $lines, int $index): bool
+    private function nextVisibleLineLeavesTheBlock(array $lines, int $index, array &$run): bool
     {
+        if ($index < $run[0]) {
+            return $run[1];
+        }
         $count = count($lines);
+        $leaves = false;
         for ($at = $index + 1; $at < $count; $at++) {
             $line = $lines[$at];
             if (IndentationHelper::isBlankLine($line)) {
-                return false;
+                break;
             }
             if ($this->isInvisibleOneLiner($line, $lines, $at)) {
                 continue;
             }
-
-            return IndentationHelper::getLeadingColumns($line) === 0
+            $leaves = IndentationHelper::getLeadingColumns($line) === 0
                 && !str_starts_with($line, '>')
                 && ($this->getListParser)()->parseListItemMarker($line) === null;
-        }
 
-        return false;
+            break;
+        }
+        $run = [$at, $leaves];
+
+        return $leaves;
     }
 
     /**
