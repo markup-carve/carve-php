@@ -468,7 +468,8 @@ final class Assessment
                         $body[] = trim($lines[$i]) === '' ? '' : substr($lines[$i], $column);
                     }
                     $blank = false;
-                    while (end($body) === '') {
+                    // The marker line stays: an item may open with only spaces after its marker.
+                    while (isset($body[1]) && end($body) === '') {
                         array_pop($body);
                         $blank = true;
                     }

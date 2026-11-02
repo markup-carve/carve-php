@@ -520,7 +520,7 @@ final class InlineStage
         $line = $this->escapeLinkLabelSlashes($line, $protected);
         $line = Emphasis::convert($line, function (): void {
             $this->context->flattenedEmphasis = true;
-        }, null, $protected, strikethrough: true);
+        }, null, $protected, strikethrough: true, spanSources: $protectedSources);
 
         $line = strtr($line, $nativeInlineTags);
 
@@ -3080,9 +3080,8 @@ final class InlineStage
 
             return "\\\n" . (($this->context->pointyContinuationStrip[$pointyLine] ?? false) ? '' : substr($match[0], 2));
         }, $pointy) ?? $pointy;
-        $url = preg_replace_callback('/\\\\([!-\/:-@\[-`{-~])/', static fn (array $match): string => $match[1] === '&' ? $match[0] : $match[1], $pointy) ?? $pointy;
 
-        return str_replace('\\%0A', '\\\\%0A', DestinationEncoding::destination($url));
+        return DestinationEncoding::href(DestinationEncoding::markdownBare($this->decodeMarkdownScalar($pointy)));
     }
 
     private function decodeMarkdownScalar(string $text): string

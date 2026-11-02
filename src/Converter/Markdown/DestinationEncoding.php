@@ -49,6 +49,40 @@ final class DestinationEncoding
         return $out;
     }
 
+    /**
+     * A decoded destination written as a Markdown bare destination that reads back to the same value.
+     */
+    public static function markdownBare(string $value): string
+    {
+        $unpaired = [];
+        $openers = [];
+        $length = strlen($value);
+        for ($i = 0; $i < $length; $i++) {
+            if ($value[$i] === '(') {
+                $openers[] = $i;
+            } elseif ($value[$i] === ')') {
+                if ($openers === []) {
+                    $unpaired[$i] = true;
+                } else {
+                    array_pop($openers);
+                }
+            }
+        }
+        foreach ($openers as $i) {
+            $unpaired[$i] = true;
+        }
+        $out = '';
+        for ($i = 0; $i < $length; $i++) {
+            $char = $value[$i];
+            $escape = isset($unpaired[$i])
+                || $char === '\\'
+                || ($char === '&' && preg_match('/\G&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $value, offset: $i) === 1);
+            $out .= $escape ? '\\' . $char : $char;
+        }
+
+        return $out;
+    }
+
     public static function href(string $value, bool $table = false): string
     {
         return preg_replace_callback('/[\p{White_Space}\p{Cc}]/u', static fn (array $match): string => rawurlencode($match[0]), $table ? str_replace('|', '%7C', $value) : $value) ?? $value;
