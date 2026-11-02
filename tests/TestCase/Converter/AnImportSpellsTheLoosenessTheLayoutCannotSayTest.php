@@ -64,7 +64,7 @@ class AnImportSpellsTheLoosenessTheLayoutCannotSayTest extends TestCase
         $html = '<section role="doc-endnotes" aria-label="Footnotes">'
             . '<hr><ol><li><p>Note text.</p></li></ol></section>';
 
-        $this->assertSame("---\n\n{loose}\n1. Note text.\n", $this->import($html));
+        $this->assertSame("***\n\n{loose}\n1. Note text.\n", $this->import($html));
     }
 
     /**

@@ -56,7 +56,7 @@ class MarkdownImportSweepTablesTest extends TestCase
             ],
             'a table on an item line is no setext paragraph' => [
                 "- a | b\n  --|--\n  1 | 2\n  ---\n",
-                "- |= a |= b |\n  | 1 | 2 |\n  ---\n",
+                "- |= a |= b |\n  | 1 | 2 |\n  ***\n",
                 "<ul>\n  <li>\n    <table>\n      <thead>\n        <tr><th scope=\"col\">a</th><th scope=\"col\">b</th></tr>\n      </thead>\n      <tbody>\n        <tr><td>1</td><td>2</td></tr>\n      </tbody>\n    </table>\n    <hr>\n  </li>\n</ul>",
             ],
         ];

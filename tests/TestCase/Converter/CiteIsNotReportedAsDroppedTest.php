@@ -112,7 +112,7 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
     {
         $html = '<hr foo="bar">';
 
-        $this->assertSame("{foo=bar}\n---", $this->carve($html));
+        $this->assertSame("{foo=bar}\n***", $this->carve($html));
         $this->assertSame([], $this->diagnostics($html));
     }
 

@@ -97,7 +97,7 @@
   {
     "name": "a definition after a thematic break",
     "source": "---\n[r]: <>\n\n[r]",
-    "carve": "---\n\n[r][]\n\n[r]:"
+    "carve": "***\n\n[r][]\n\n[r]:"
   },
   {
     "name": "a block quote interrupting a paragraph opens a definition",
@@ -147,7 +147,7 @@
   {
     "name": "a definition after a starred thematic break",
     "source": "* * *\n[r]: <>\n\n[r]",
-    "carve": "---\n\n[r][]\n\n[r]:"
+    "carve": "***\n\n[r][]\n\n[r]:"
   },
   {
     "name": "a definition opening a list item",

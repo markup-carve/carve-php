@@ -65,7 +65,7 @@ class ABlockOpenerInImportedTextIsEscapedTest extends TestCase
             'a bullet after a hard break at the top level' => ['<p>a<br>- x</p>', "a\\\n- x"],
             'a strong that starts the paragraph' => ['<p><strong>- x</strong></p>', '*- x*'],
             'a span label bracket' => ['<p><span class="k">[a</span></p>', '[\\[a]{.k}'],
-            'a rule inside an unwrapped element' => ['<button><hr></button>', '---'],
+            'a rule inside an unwrapped element' => ['<button><hr></button>', '***'],
         ];
     }
 

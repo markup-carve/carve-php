@@ -96,11 +96,11 @@ class AMarkdownThematicBreakImportsAsACarveBreakTest extends TestCase
     public static function containerProvider(): array
     {
         return [
-            'in a list item' => ["- a\n\n  * * *", "{loose}\n- a\n\n  ---"],
-            'on an item continuation line' => ["- a\n  - - -", "- a\n  ---"],
-            'in a quote' => ["> a\n>\n> * * *", "> a\n>\n> ---"],
-            'abutting the quote marker' => ['>* * *', '> ---'],
-            'closing the list it dedents past' => ["- x\n- - -", "- x\n\n---"],
+            'in a list item' => ["- a\n\n  * * *", "{loose}\n- a\n\n  ***"],
+            'on an item continuation line' => ["- a\n  - - -", "- a\n  ***"],
+            'in a quote' => ["> a\n>\n> * * *", "> a\n>\n> ***"],
+            'abutting the quote marker' => ['>* * *', '> ***'],
+            'closing the list it dedents past' => ["- x\n- - -", "- x\n\n***"],
         ];
     }
 
@@ -129,11 +129,11 @@ class AMarkdownThematicBreakImportsAsACarveBreakTest extends TestCase
     public static function afterProvider(): array
     {
         return [
-            'an empty item' => ["***\n-", "---\n\n- {empty}"],
-            'an empty ordered item' => ["***\n1.", "---\n\n1. {empty}"],
-            'indented code' => ["***\n    code", "---\n\n```\ncode\n```"],
-            'a heading' => ["***\n# h", "---\n\n# h"],
-            'an ordered item that does not start at one' => ["***\n2. x", "---\n\n2. x"],
+            'an empty item' => ["***\n-", "***\n\n- {empty}"],
+            'an empty ordered item' => ["***\n1.", "***\n\n1. {empty}"],
+            'indented code' => ["***\n    code", "***\n\n```\ncode\n```"],
+            'a heading' => ["***\n# h", "***\n\n# h"],
+            'an ordered item that does not start at one' => ["***\n2. x", "***\n\n2. x"],
         ];
     }
 
@@ -158,7 +158,7 @@ class AMarkdownThematicBreakImportsAsACarveBreakTest extends TestCase
         $converter = new CarveConverter();
 
         $this->assertSame(
-            $converter->convert(str_replace("---\n\n", "---\n", $carve)),
+            $converter->convert(str_replace("***\n\n", "***\n", $carve)),
             $converter->convert($carve),
         );
     }
@@ -181,7 +181,7 @@ class AMarkdownThematicBreakImportsAsACarveBreakTest extends TestCase
     {
         $imported = (new MarkdownToCarve())->convert("a\n\n* * *\n\nb");
 
-        $this->assertSame("a\n\n---\n\nb", $imported);
+        $this->assertSame("a\n\n***\n\nb", $imported);
         $this->assertSame(
             preg_replace('/\n\z/', '', "<p>a</p>\n<hr>\n<p>b</p>\n"),
             (new CarveConverter())->convert($imported),

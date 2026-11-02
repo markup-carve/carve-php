@@ -63,12 +63,12 @@ class MarkdownImportSweepListItemsTest extends TestCase
             ],
             'a bare marker below an item opens an item, not a lazy line' => [
                 "- a\n-\n  ---\n",
-                "- a\n- ---\n",
+                "- a\n- ***\n",
                 "<ul>\n  <li>a</li>\n  <li>\n    <hr>\n  </li>\n</ul>",
             ],
             'a bare nested marker is no setext heading text' => [
                 "- -\n  ---\n",
-                "- - {empty}\n   ---\n",
+                "- - {empty}\n   ***\n",
                 "<ul>\n  <li>\n    <ul>\n      <li></li>\n    </ul>\n    <hr>\n  </li>\n</ul>",
             ],
             'a nested plus marker opens an empty item' => [

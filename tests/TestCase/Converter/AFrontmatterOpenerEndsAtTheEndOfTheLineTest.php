@@ -40,7 +40,7 @@ class AFrontmatterOpenerEndsAtTheEndOfTheLineTest extends TestCase
     {
         $carve = (new MarkdownToCarve())->convert($opener . self::BODY);
 
-        $this->assertSame($written . "\na: 1\n\n---\n\nt\n", $carve);
+        $this->assertSame($written . "\na: 1\n\n***\n\nt\n", $carve);
         $this->assertSame(
             preg_replace('/\n\z/', '', '<p>' . $rendered . "\na: 1</p>\n<hr>\n<p>t</p>\n"),
             CarveConverter::create()->convert($carve),

@@ -241,7 +241,7 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
     {
         return [
             'punctuation only' => ['<p><button>...</button></p>', '\\.\\.\\.'],
-            'a rule for a child' => ['<button><hr></button>', '---'],
+            'a rule for a child' => ['<button><hr></button>', '***'],
         ];
     }
 

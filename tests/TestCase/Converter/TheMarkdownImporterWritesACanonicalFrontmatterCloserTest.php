@@ -105,7 +105,7 @@ class TheMarkdownImporterWritesACanonicalFrontmatterCloserTest extends TestCase
     {
         $imported = $this->convert("---yaml\ntitle: Hi\n--- \nBody\n\n*** \n\nMore\n");
 
-        $this->assertSame("---yaml\ntitle: Hi\n---\n\nBody\n\n---\n\nMore\n", $imported);
+        $this->assertSame("---yaml\ntitle: Hi\n---\n\nBody\n\n***\n\nMore\n", $imported);
     }
 
     /**

@@ -93,7 +93,7 @@ class AnUnreferencedEndnotesSectionKeepsItsTextTest extends TestCase
             '<section role="doc-endnotes"><hr><ol><li id="fn1"><p>n</p></li></ol></section>',
         );
 
-        $this->assertStringStartsWith("---\n", $imported);
+        $this->assertStringStartsWith("***\n", $imported);
         // The item's `id` rides ON the marker. It used to be written on an
         // indented line below it, where a block attribute floats forward, so a
         // one-block note lost it entirely (carve-php#1587).

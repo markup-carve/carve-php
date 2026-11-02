@@ -1144,6 +1144,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     public const FRONTMATTER_SAFE_BREAK_MARKER = '***';
 
     /**
+     * The one spelling the canonical writer gives every thematic break (PART 11 section 6, carve#4973).
+     *
+     * @var string
+     */
+    public const THEMATIC_BREAK = '***';
+
+    /**
      * The closer the writer writes under a frontmatter block: a bare `---`.
      *
      * `frontmatter_close` names no format slot, so unlike the opener the closer
@@ -2045,8 +2052,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof BlockQuote => $withAttrs($this->renderBlockQuote($node)),
             $node instanceof ListBlock => $withLooseAttrs($node, $this->renderList($node)),
             $node instanceof ListItem => $this->renderListItem($node),
+            // PART 11 section 6 (carve#4973): canonical output is `***`. Source-preserving output (HTML import)
+            // keeps a recorded `data-char`; a plain `<hr>` records none and stays canonical.
             $node instanceof ThematicBreak => $withAttrs(
-                $this->thematicBreakMarker === '---' ? str_repeat($node->char, 3) : $this->thematicBreakMarker,
+                $this->preserveTableSeparators && $node->getRenderHint("\0carve-recorded-break-marker") === '1'
+                    ? ($this->thematicBreakMarker === '---' ? str_repeat($node->char, 3) : $this->thematicBreakMarker)
+                    : self::THEMATIC_BREAK,
             ),
             $node instanceof Table => $this->renderTableWithAttrs($node, $withAttrs),
             $node instanceof Div && $node->isTyped() && $this->canRenderTypedDiv($node) => $this->withFencedDivAttrs($node, [$node->getClassEntries()[0] ?? ''], $this->renderTypedDiv($node)),

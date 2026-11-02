@@ -171,6 +171,12 @@ Two more hints name a parsed span that reads like something else:
 
 Code and escaped delimiters stay quiet.
 
+One hint names a spelling `carve fmt` rewrites:
+
+| rule | what it catches |
+|---|---|
+| `thematic-break-spelling` | a thematic break written other than `***` (`---`, `___`, a longer run, or the spaced `- - -` and `* * *`). They render the same `<hr>`; `carve fmt` writes `***` (markup-carve/carve#4973) |
+
 ## Platform autolink rules
 
 Off by default and selected per host. These two are the only rules that read the

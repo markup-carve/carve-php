@@ -1040,8 +1040,11 @@ final class HtmlAstBuilder
                 $break['marker'] = $node->getAttribute('data-char');
             }
             $this->attachAttrs($break, $node, ['data-char']);
+            if (in_array($node->getAttribute('data-char'), ['-', '*', '_'], true)) {
+                $this->addHint($break, "\0carve-recorded-break-marker");
+            }
 
-            return [$break];
+            return [['type' => 'thematic_break'] + $break];
         }
         if ($tag === 'blockquote') {
             $quote = ['type' => 'block_quote', 'children' => $this->blocks($this->children($node))];
