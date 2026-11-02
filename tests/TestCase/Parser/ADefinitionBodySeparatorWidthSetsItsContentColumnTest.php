@@ -72,7 +72,7 @@ class ADefinitionBodySeparatorWidthSetsItsContentColumnTest extends TestCase
 
         yield 'a colon line below a folding term ends the term' => [
             ":: term\nwrapped on\n: definition\n",
-            "<dl>\n  <dt>term\nwrapped on</dt>\n  <dd>definition</dd>\n</dl>\n",
+            "<dl>\n  <dt>term</dt>\n</dl>\n<p>wrapped on\n: definition</p>",
         ];
     }
 
@@ -180,7 +180,8 @@ class ADefinitionBodySeparatorWidthSetsItsContentColumnTest extends TestCase
     public function testASeparatorOnlyLineOpensNoBodyAtAnyWidth(string $source): void
     {
         $this->assertStringNotContainsString('<dd>', $this->html($source));
-        $this->assertStringNotContainsString('<p>', $this->html($source));
+        // A term is one line (carve#4861), so the contentless separator is a paragraph of its own.
+        $this->assertStringContainsString("<dl>\n  <dt>term</dt>\n</dl>\n<p>:</p>", $this->html($source));
         $this->assertSame($this->html(":: term\n:\n"), $this->html($source));
     }
 

@@ -84,7 +84,7 @@ final class ASeparatorBelowListContentColumnStaysInItemNearFootnoteTest extends 
         $source = "r[^1]\n\n- outer\n  - [^1]: x\n     :: t\n   : zq\n";
         $html = (new CarveConverter())->convert($source);
 
-        self::assertStringContainsString("<dt>t\n: zq</dt>", $html);
+        self::assertStringContainsString("<dt>t</dt>\n        </dl>\n      </li>\n    </ul>\n    : zq", $html);
     }
 
     public function testASeparatorAtTheMarkerColumnLeavesTheRecoveredItem(): void

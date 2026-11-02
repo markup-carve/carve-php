@@ -1678,7 +1678,7 @@
   {
     "id": "pending-term-boundary-27",
     "source": "- :: term\n  plain\n\n      ```\n      code\n      ```\nafter\n",
-    "html": "<ul><li><dl><dt>term\nplain</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    plain\n    <pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -1686,7 +1686,7 @@
   {
     "id": "pending-term-boundary-28",
     "source": "- :: term\n  plain\n\n      ~~~\n      code\n      ~~~\nafter\n",
-    "html": "<ul><li><dl><dt>term\nplain</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    plain\n    <pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -1694,7 +1694,7 @@
   {
     "id": "pending-term-boundary-29",
     "source": "- :: term\n  plain\n\n      ```=txt\n      code\n      ```\nafter\n",
-    "html": "<ul><li><dl><dt>term\nplain</dt></dl></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    plain\n  </li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -1994,7 +1994,7 @@
   {
     "id": "pending-term-boundary-81",
     "source": "> - :: term\n>   plain\n> \n>       ```\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\nplain</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      plain\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2002,7 +2002,7 @@
   {
     "id": "pending-term-boundary-82",
     "source": "> - :: term\n>   plain\n> \n>       ~~~\n>       code\n>       ~~~\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\nplain</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      plain\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2010,7 +2010,7 @@
   {
     "id": "pending-term-boundary-83",
     "source": "> - :: term\n>   plain\n> \n>       ```=txt\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term\nplain</dt></dl></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      plain\n    </li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -2310,7 +2310,7 @@
   {
     "id": "pending-term-boundary-135",
     "source": "> > - :: term\n> >   plain\n> > \n> >       ```\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\nplain</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        plain\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2318,7 +2318,7 @@
   {
     "id": "pending-term-boundary-136",
     "source": "> > - :: term\n> >   plain\n> > \n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\nplain</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        plain\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2326,7 +2326,7 @@
   {
     "id": "pending-term-boundary-137",
     "source": "> > - :: term\n> >   plain\n> > \n> >       ```=txt\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term\nplain</dt></dl></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        plain\n      </li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {

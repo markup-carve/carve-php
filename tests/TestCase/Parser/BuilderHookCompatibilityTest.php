@@ -221,7 +221,8 @@ class BuilderHookCompatibilityTest extends TestCase
         self::assertArrayHasKey('convertParagraphSoftBreaksToHardBreaks', $parser->calls);
         self::assertArrayHasKey('parseTableCellMarker', $parser->calls);
         self::assertArrayHasKey('resolveRowSpans', $parser->calls);
-        self::assertArrayHasKey('endsDefinitionTerm', $parser->calls);
+        // A term is one line (carve#4861), so no line is asked whether it ends one.
+        self::assertArrayNotHasKey('endsDefinitionTerm', $parser->calls);
         self::assertArrayHasKey('endsBlockQuote', $parser->calls);
     }
 }

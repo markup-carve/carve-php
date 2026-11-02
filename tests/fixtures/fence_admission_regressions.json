@@ -116,7 +116,7 @@
   {
     "id": "preservation-2048",
     "source": "- a\n\t- b\n     +\n\t\t```php\n    \t[^n]: f\n\t:: t\n      \tz\n\t  \nafter\n",
-    "html": "<ul><li>a\n    <ul><li>b\n+\n        <pre><code class=\"language-php\">[^n]: f\n</code></pre></li></ul><dl><dt>t\n    z</dt></dl></li></ul><p>after</p>"
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>b\n+\n        <pre><code class=\"language-php\">[^n]: f\n</code></pre>\n      </li>\n    </ul>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    z\n  </li>\n</ul>\n<p>after</p>"
   },
   {
     "id": "preservation-2082",

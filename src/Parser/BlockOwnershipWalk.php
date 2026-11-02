@@ -24,11 +24,6 @@ final class BlockOwnershipWalk
     /**
      * @var string
      */
-    private const DESCRIPTION_LEAD = '/^: +(?=[^ \t])/';
-
-    /**
-     * @var string
-     */
     private const BARE_QUOTE_MARKERS = '/^(?:>[ \t]*)*$/D';
 
     /**
@@ -423,31 +418,12 @@ final class BlockOwnershipWalk
                 $missedNote = $missedNote || $this->frames[$k]->kind === 'note';
                 $missedItem = $missedItem || $this->frames[$k]->kind === 'item';
             }
-            // A `: ` description is a sibling at any column where its list's owner reads it (CARVE-P0-024 S3).
-            $missedQuote = false;
-            for ($k = $reached + 1; $k <= $topIndex; $k++) {
-                $missedQuote = $missedQuote || $this->frames[$k]->kind === 'quote';
-            }
-            // PART 0 [B-term-keep]: past a missed quote or note a marker leaves a term, and past a quote a separator too (carve#4300).
-            $termRefuses = $this->frames[$topIndex]->last === 'term' && ($this->listParser->parseListItemMarker($this->m['rest']) !== null
-                ? $missedQuote || $missedNote
-                : $missedQuote && preg_match(self::DESCRIPTION_LEAD, $this->m['rest']) === 1);
-            // That separator ends the quote; a container around it that the line also missed keeps it as lazy text (carve#4432).
-            if ($termRefuses && $this->listParser->parseListItemMarker($this->m['rest']) === null && $next?->kind !== 'quote' && !$missedNote) {
-                for ($k = $topIndex; $this->frames[$k]->kind !== 'quote'; $k--) {
-                }
-                array_splice($this->frames, $k);
-                $topIndex = count($this->frames) - 1;
-                $this->frames[$topIndex]->para = true;
-                $this->frames[$topIndex]->last = 'para';
-                $termRefuses = false;
-            }
             // A caption at its owner's block column attaches to a quote it follows and is never its lazy line (carve#4312).
             $captionsQuote = $form->caption && $this->m['col'] === $this->frames[$reached]->col && $next?->kind === 'quote' && !$missedNote;
             if ($captionsQuote) {
                 $this->softLeaf = true;
             }
-            $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts && !$captionsQuote && !$termRefuses && $form->kind !== 'dd'
+            $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts && !$captionsQuote && $form->kind !== 'dd'
                 // A marker past a missed item opens a list of its own, so its items measure against their own columns (S4, §11 N1; carve#4369, carve#4545).
                 && !($form->kind === 'item' && $next->kind === 'item')
                 // A marker that misses a description but reaches the item holding it opens there (S3, carve#4479).
@@ -466,10 +442,6 @@ final class BlockOwnershipWalk
                 // Its next bare colon line is absorbed only at this paragraph's depth.
                 if ($this->absorbsColon($this->m['rest'])) {
                     $this->frames[$topIndex]->absorbs = true;
-                }
-                // A separator line the quote still marks is text, so the term is over for a later line.
-                if ($this->frames[$topIndex]->last === 'term' && preg_match(self::DESCRIPTION_LEAD, $this->m['rest']) === 1) {
-                    $this->frames[$topIndex]->last = 'para';
                 }
                 // The readers open a list at a folded marker (§10 I2), so a `+` there is decided too.
                 if ($form->kind === 'item') {
@@ -551,7 +523,7 @@ final class BlockOwnershipWalk
                         && (in_array($this->frames[$innerIndex - 1]->kind, ['quote', 'dd', 'note'], true)
                             || ($this->frames[$innerIndex - 1]->kind === 'item' && $reached === $innerIndex - 2))
                         && $this->commentCloserBeforeBlank($at, $inner, $this->frames[$innerIndex - 1]->kind === 'quote')))
-                && (!$this->frames[$topIndex]->para || ($termRefuses && $next?->kind !== 'item') || ($form->kind === 'leaf' && $form->interrupts
+                && (!$this->frames[$topIndex]->para || ($form->kind === 'leaf' && $form->interrupts
                     && (($this->isDefinition)($this->m['rest']) || $this->abbreviationMissesFrames($reached, $form))))
             ) {
                 $this->closingLines[$at] = true;
@@ -586,18 +558,15 @@ final class BlockOwnershipWalk
                 $this->frames[$t]->last = 'block';
             } elseif ($form->kind === 'text') {
                 $owner = $this->frames[$o];
-                $term = $owner->para && $owner->last === 'term';
                 $this->lead($owner->para || !$closedColumn || $plusFollower
-                    ? max($this->m['col'] - ($term ? $owner->termCut : $owner->cut), $owner->canon)
-                    : $owner->canon, $term);
+                    ? max($this->m['col'] - $owner->cut, $owner->canon)
+                    : $owner->canon);
                 if ($owner->para && preg_match('/^(`{3,}|~{3,})/', $this->m['rest']) === 1) {
                     $this->textFences[count($result)] = $owner->canon;
                 }
                 $this->frames[$o]->absorbs = ($owner->para && $owner->absorbs) || $this->absorbsColon($this->m['rest']);
                 $this->frames[$o]->para = true;
-                if (!$term) {
-                    $this->frames[$o]->last = 'para';
-                }
+                $this->frames[$o]->last = 'para';
             } else {
                 $this->lead($this->frames[$o]->canon, $form->kind === 'term' || $form->kind === 'dd');
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon);
@@ -735,7 +704,7 @@ final class BlockOwnershipWalk
     private function apply(int $owner, int $col, OwnershipForm $form, int $canon, ?int $reader = null): void
     {
         $reader ??= $this->frames[$owner]->reader ?? $this->frames[$owner]->canon;
-        $this->frames[$owner]->para = $form->kind === 'term' || $form->caption;
+        $this->frames[$owner]->para = $form->caption;
         // An invisible line between siblings leaves the host's last form standing (carve#4716).
         if (
             $form->kind !== 'leaf' || ((!str_starts_with($this->m['rest'], '%%') || str_starts_with($this->m['rest'], '%%%')) && !($this->isDefinition)($this->m['rest'])
@@ -744,9 +713,6 @@ final class BlockOwnershipWalk
             $this->frames[$owner]->last = $form->kind;
         }
         $this->frames[$owner]->tableLine = $form->table ? $this->at : null;
-        if ($form->kind === 'term') {
-            $this->frames[$owner]->termCut = $col - $canon;
-        }
         $o = $this->frames[$owner];
         if ($form->kind === 'fence' || $form->kind === 'colon') {
             if ($form->kind === 'fence' && !$form->lineBlock) {
@@ -1013,7 +979,7 @@ final class BlockOwnershipWalk
         $marker = $this->listParser->parseListItemMarker($rest);
         if ($marker !== null) {
             // A term is not a paragraph a marker continues.
-            if ($owner->para && $owner->kind !== 'item' && $owner->last !== 'term') {
+            if ($owner->para && $owner->kind !== 'item') {
                 return new OwnershipForm(kind: 'text', interrupts: false);
             }
             $head = $this->listParser->markerHeadAt($rest);

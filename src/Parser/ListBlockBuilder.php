@@ -1575,23 +1575,9 @@ final class ListBlockBuilder
                 continue;
             }
 
+            // A line below the item's column ends a fence after a term (PART 0 S2).
             if ($subTermCodeFence !== null && $lineIndent < $subIndent) {
-                $subject = ltrim($subLine, " \t");
-                if (
-                    (($this->getListParser)()->parseListItemMarker($subject) !== null && $lineIndent <= $baseIndent)
-                    || (!($this->getFencedBlockParser)()->isCodeFenceHead($subject, 0)
-                        && ($this->isBlockElementStart($subject, $lines, $i)
-                            || $this->startsNewBlock($subject, $lines, $i)
-                            || ($this->isBlockAttributeLineCallback)($subject)
-                            || $this->isFoldableInvisibleLine($subject)))
-                ) {
-                    break;
-                }
-                $subLines[] = BlockGrammar::LAZY_FRAME . $subject;
-                $subLineMap[] = $this->sourceLineFor($i);
-                $i++;
-
-                continue;
+                break;
             }
 
             // If we've seen content at a higher indent level (actual nested content),

@@ -49,12 +49,11 @@ class CommentUnderDefinitionTermTest extends TestCase
         );
     }
 
-    public function testAPlainLineStillFoldsIntoTheTerm(): void
+    public function testAPlainLineAfterATermIsAParagraph(): void
     {
-        // The rule the comment was being mistaken for: "A term folds a
-        // following plain line as a soft break."
+        // A term is one line (carve#4861), so a plain line after it is a paragraph.
         $this->assertSame(
-            '<dl> <dt>t plain</dt> </dl>',
+            '<dl> <dt>t</dt> </dl> <p>plain</p>',
             $this->squash($this->converter->convert(":: t\nplain\n")),
         );
     }

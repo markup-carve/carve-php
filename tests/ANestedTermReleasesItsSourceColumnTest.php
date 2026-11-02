@@ -34,10 +34,10 @@ final class ANestedTermReleasesItsSourceColumnTest extends TestCase
         self::assertStringNotContainsString("<dt>t\n: a</dt>", $html);
     }
 
-    public function testOneColumnPastMarkerStillFoldsIntoTerm(): void
+    public function testOneColumnPastMarkerLeavesTheOneLineTerm(): void
     {
         self::assertStringContainsString(
-            "<dt>t\n: a</dt>",
+            "</ul>\n    : a\n  </li>",
             CarveConverter::create()->convert("- - :: t\n   : a\n"),
         );
     }

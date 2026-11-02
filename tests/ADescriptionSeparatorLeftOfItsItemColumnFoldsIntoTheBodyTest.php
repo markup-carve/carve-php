@@ -46,11 +46,11 @@ class ADescriptionSeparatorLeftOfItsItemColumnFoldsIntoTheBodyTest extends TestC
             ],
             'term line folds into a tight body' => [
                 "- item\n\n  :: Term\n  :  Def\n :: under\n",
-                "<ul>\n  <li>item\n    <dl>\n      <dt>Term</dt>\n      <dd>Def\n:: under</dd>\n    </dl>\n  </li>\n</ul>",
+                "<ul>\n  <li>item\n    <dl>\n      <dt>Term</dt>\n      <dd>Def</dd>\n    </dl>\n  </li>\n</ul>\n<dl>\n  <dt>under</dt>\n</dl>",
             ],
             'separator folds into an open term' => [
                 "- item\n\n  :: Term\n :  under\n",
-                "<ul>\n  <li>item\n    <dl>\n      <dt>Term\n:  under</dt>\n    </dl>\n  </li>\n</ul>",
+                "<ul>\n  <li>item\n    <dl>\n      <dt>Term</dt>\n    </dl>\n  </li>\n</ul>\n<p>:  under</p>",
             ],
             'body continued by a plain line' => [
                 "- item\n\n  :: Term\n  :  Def\n  more\n :  under\n",
@@ -74,7 +74,7 @@ class ADescriptionSeparatorLeftOfItsItemColumnFoldsIntoTheBodyTest extends TestC
             ],
             'separator after an unclosed fence line in a loose item' => [
                 "- item\n\n  :: A\n  :  first\n  ```\n :  next\n",
-                "<ul>\n  <li>item\n    <dl>\n      <dt>A</dt>\n      <dd>first\n<code>\n:  next</code></dd>\n    </dl>\n  </li>\n</ul>",
+                "<ul>\n  <li>item\n    <dl>\n      <dt>A</dt>\n      <dd>first</dd>\n    </dl>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>:  next</p>",
             ],
             'separator after an unclosed fence line in a tight item' => [
                 "- item\n  :: A\n  :  first\n  ```\n :  next\n",

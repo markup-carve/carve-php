@@ -43,7 +43,7 @@ class ARefusedNotePlusIsFramedLazyInTheNoteTest extends TestCase
             ],
             'a refused plus after a note term' => [
                 "[^f]: :: t\n+\n > q\n.\n",
-                "<blockquote><p>q\n.</p></blockquote>",
+                "<p>+</p><blockquote><p>q\n.</p></blockquote>",
             ],
             'a refused plus in a quoted note' => [
                 "> [^f]: a\n> +\n>  > q\n> .\n",

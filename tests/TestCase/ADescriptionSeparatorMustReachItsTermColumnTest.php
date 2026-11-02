@@ -20,37 +20,37 @@ class ADescriptionSeparatorMustReachItsTermColumnTest extends TestCase
     {
         yield 'open term one column in' => [
             "- one\n  :: term\n :  def\n",
-            '<ul> <li>one <dl> <dt>term : def</dt> </dl> </li> </ul>',
+            '<ul> <li>one <dl> <dt>term</dt> </dl> </li> </ul> <p>: def</p>',
         ];
 
         yield 'wrapped term one column in' => [
             "- a\n  :: m\n  more\n : x\n",
-            '<ul> <li>a <dl> <dt>m more : x</dt> </dl> </li> </ul>',
+            '<ul> <li>a <dl> <dt>m</dt> </dl> more : x </li> </ul>',
         ];
 
         yield 'wrapped term at outer marker column' => [
             "- a\n  :: m\n  more\n: x\n",
-            '<ul> <li>a <dl> <dt>m more</dt> </dl> </li> </ul> <p>: x</p>',
+            '<ul> <li>a <dl> <dt>m</dt> </dl> more </li> </ul> <p>: x</p>',
         ];
 
         yield 'open ordered term one column in' => [
             "1. one\n   :: term\n  :  def\n",
-            '<ol> <li>one <dl> <dt>term : def</dt> </dl> </li> </ol>',
+            '<ol> <li>one <dl> <dt>term</dt> </dl> </li> </ol> <p>: def</p>',
         ];
 
         yield 'open task term one column in' => [
             "- [ ] one\n      :: term\n     :  def\n",
-            '<ul class="task-list"> <li><input type="checkbox" disabled aria-label="one"> one <dl> <dt>term : def</dt> </dl> </li> </ul>',
+            '<ul class="task-list"> <li><input type="checkbox" disabled aria-label="one"> one <dl> <dt>term</dt> <dd>def</dd> </dl> </li> </ul>',
         ];
 
         yield 'nested open term one column in' => [
             "- a\n  - b\n    - c\n      :: term\n     :  def\n",
-            '<ul> <li>a <ul> <li>b <ul> <li>c <dl> <dt>term : def</dt> </dl> </li> </ul> </li> </ul> </li> </ul>',
+            '<ul> <li>a <ul> <li>b <ul> <li>c <dl> <dt>term</dt> </dl> </li> </ul> : def </li> </ul> </li> </ul>',
         ];
 
         yield 'quoted open term one column in' => [
             "> - one\n>   :: term\n>  :  def\n",
-            '<blockquote> <ul> <li>one <dl> <dt>term : def</dt> </dl> </li> </ul> </blockquote>',
+            '<blockquote> <ul> <li>one <dl> <dt>term</dt> </dl> </li> </ul> <p>: def</p> </blockquote>',
         ];
 
         yield 'separator reaches the last of two terms' => [

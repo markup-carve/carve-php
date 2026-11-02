@@ -21,7 +21,7 @@
   },
   {
     "source": ":: term\nnext \\\n: definition\n",
-    "markdown": "**term\nnext <br>**\n\ndefinition\n",
+    "markdown": "**term**\n\nnext\\\n: definition\n",
     "html": "<p><strong>term\nnext <br></strong></p>\n<p>definition</p>\n"
   },
   {

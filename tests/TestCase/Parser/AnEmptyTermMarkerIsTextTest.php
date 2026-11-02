@@ -52,7 +52,7 @@ class AnEmptyTermMarkerIsTextTest extends TestCase
             ],
             'after a term, before its description' => [
                 ":: t\n:: \n: d\n",
-                "<dl>\n  <dt>t\n::</dt>\n  <dd>d</dd>\n</dl>\n",
+                "<dl>\n  <dt>t</dt>\n</dl>\n<p>::\n: d</p>",
             ],
         ];
     }

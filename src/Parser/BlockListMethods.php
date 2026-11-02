@@ -1004,7 +1004,8 @@ trait BlockListMethods
             return self::ATTACHED_SPANNING . ':extension';
         }
 
-        if (!$this->isBlockElementStart($line, $lines, $index)) {
+        // A term is one line, like a heading: it leaves no paragraph (carve#4861).
+        if (!$this->isBlockElementStart($line, $lines, $index) && preg_match(self::DEFINITION_TERM_LINE_PATTERN, $line) !== 1) {
             return self::ATTACHED_PARAGRAPH;
         }
 
@@ -1043,7 +1044,7 @@ trait BlockListMethods
         if ($this->tableParser->isTableRow($line) || $this->tableParser->isContinuationRow($line)) {
             return 'table';
         }
-        if (preg_match(self::DEFINITION_TERM_LINE_PATTERN, $line) === 1) {
+        if (preg_match(self::DEFINITION_TERM_LINE_PATTERN, $line) === 1 || preg_match(self::DEFINITION_BODY_LINE_PREFIX, $line) === 1) {
             return 'definition';
         }
 

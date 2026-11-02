@@ -182,7 +182,7 @@
   {
     "id": "root-ul-ul-tick-term-o2-c3-empty-para",
     "source": "- a\n  - child\n  :: b\n  ```\n   ```\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>``` after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>```</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ul-tick-term-o2-c3-empty-item",
@@ -197,7 +197,7 @@
   {
     "id": "root-ul-ul-tick-term-o2-c3-pay-para",
     "source": "- a\n  - child\n  :: b\n  ```\n  x\n   ```\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x ``` after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x ```</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ul-tick-term-o2-c3-pay-item",
@@ -212,7 +212,7 @@
   {
     "id": "root-ul-ul-tick-term-o2-cnone-empty-para",
     "source": "- a\n  - child\n  :: b\n  ```\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code></code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ul-tick-term-o2-cnone-empty-item",
@@ -227,7 +227,7 @@
   {
     "id": "root-ul-ul-tick-term-o2-cnone-pay-para",
     "source": "- a\n  - child\n  :: b\n  ```\n  x\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ul-tick-term-o2-cnone-pay-item",
@@ -642,7 +642,7 @@
   {
     "id": "root-ul-ul-tilde-term-o2-c3-empty-para",
     "source": "- a\n  - child\n  :: b\n  ~~~\n   ~~~\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>~~~ after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>~~~</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ul-tilde-term-o2-c3-empty-item",
@@ -657,7 +657,7 @@
   {
     "id": "root-ul-ul-tilde-term-o2-c3-pay-para",
     "source": "- a\n  - child\n  :: b\n  ~~~\n  x\n   ~~~\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x ~~~ after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x ~~~</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ul-tilde-term-o2-c3-pay-item",
@@ -672,7 +672,7 @@
   {
     "id": "root-ul-ul-tilde-term-o2-cnone-empty-para",
     "source": "- a\n  - child\n  :: b\n  ~~~\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code></code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ul-tilde-term-o2-cnone-empty-item",
@@ -687,7 +687,7 @@
   {
     "id": "root-ul-ul-tilde-term-o2-cnone-pay-para",
     "source": "- a\n  - child\n  :: b\n  ~~~\n  x\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x after</code></pre></li></ul>"
+    "html": "<ul><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ul-tilde-term-o2-cnone-pay-item",
@@ -1102,7 +1102,7 @@
   {
     "id": "root-ul-ol-tick-term-o2-c3-empty-para",
     "source": "- a\n  1. child\n  :: b\n  ```\n   ```\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>``` after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>```</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ol-tick-term-o2-c3-empty-item",
@@ -1117,7 +1117,7 @@
   {
     "id": "root-ul-ol-tick-term-o2-c3-pay-para",
     "source": "- a\n  1. child\n  :: b\n  ```\n  x\n   ```\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x ``` after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x ```</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ol-tick-term-o2-c3-pay-item",
@@ -1132,7 +1132,7 @@
   {
     "id": "root-ul-ol-tick-term-o2-cnone-empty-para",
     "source": "- a\n  1. child\n  :: b\n  ```\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code></code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ol-tick-term-o2-cnone-empty-item",
@@ -1147,7 +1147,7 @@
   {
     "id": "root-ul-ol-tick-term-o2-cnone-pay-para",
     "source": "- a\n  1. child\n  :: b\n  ```\n  x\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ol-tick-term-o2-cnone-pay-item",
@@ -1562,7 +1562,7 @@
   {
     "id": "root-ul-ol-tilde-term-o2-c3-empty-para",
     "source": "- a\n  1. child\n  :: b\n  ~~~\n   ~~~\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>~~~ after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>~~~</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ol-tilde-term-o2-c3-empty-item",
@@ -1577,7 +1577,7 @@
   {
     "id": "root-ul-ol-tilde-term-o2-c3-pay-para",
     "source": "- a\n  1. child\n  :: b\n  ~~~\n  x\n   ~~~\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x ~~~ after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x ~~~</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ol-tilde-term-o2-c3-pay-item",
@@ -1592,7 +1592,7 @@
   {
     "id": "root-ul-ol-tilde-term-o2-cnone-empty-para",
     "source": "- a\n  1. child\n  :: b\n  ~~~\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code></code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ol-tilde-term-o2-cnone-empty-item",
@@ -1607,7 +1607,7 @@
   {
     "id": "root-ul-ol-tilde-term-o2-cnone-pay-para",
     "source": "- a\n  1. child\n  :: b\n  ~~~\n  x\nafter\n",
-    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x after</code></pre></li></ul>"
+    "html": "<ul><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "root-ul-ol-tilde-term-o2-cnone-pay-item",
@@ -2022,7 +2022,7 @@
   {
     "id": "root-ol-ul-tick-term-o3-c4-empty-para",
     "source": "1. a\n   - child\n   :: b\n   ```\n    ```\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>``` after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>```</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ul-tick-term-o3-c4-empty-item",
@@ -2037,7 +2037,7 @@
   {
     "id": "root-ol-ul-tick-term-o3-c4-pay-para",
     "source": "1. a\n   - child\n   :: b\n   ```\n   x\n    ```\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x ``` after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x ```</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ul-tick-term-o3-c4-pay-item",
@@ -2052,7 +2052,7 @@
   {
     "id": "root-ol-ul-tick-term-o3-cnone-empty-para",
     "source": "1. a\n   - child\n   :: b\n   ```\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code></code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ul-tick-term-o3-cnone-empty-item",
@@ -2067,7 +2067,7 @@
   {
     "id": "root-ol-ul-tick-term-o3-cnone-pay-para",
     "source": "1. a\n   - child\n   :: b\n   ```\n   x\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ul-tick-term-o3-cnone-pay-item",
@@ -2482,7 +2482,7 @@
   {
     "id": "root-ol-ul-tilde-term-o3-c4-empty-para",
     "source": "1. a\n   - child\n   :: b\n   ~~~\n    ~~~\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>~~~ after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>~~~</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ul-tilde-term-o3-c4-empty-item",
@@ -2497,7 +2497,7 @@
   {
     "id": "root-ol-ul-tilde-term-o3-c4-pay-para",
     "source": "1. a\n   - child\n   :: b\n   ~~~\n   x\n    ~~~\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x ~~~ after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x ~~~</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ul-tilde-term-o3-c4-pay-item",
@@ -2512,7 +2512,7 @@
   {
     "id": "root-ol-ul-tilde-term-o3-cnone-empty-para",
     "source": "1. a\n   - child\n   :: b\n   ~~~\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code></code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ul-tilde-term-o3-cnone-empty-item",
@@ -2527,7 +2527,7 @@
   {
     "id": "root-ol-ul-tilde-term-o3-cnone-pay-para",
     "source": "1. a\n   - child\n   :: b\n   ~~~\n   x\nafter\n",
-    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x after</code></pre></li></ol>"
+    "html": "<ol><li>a<ul><li>child</li></ul><dl><dt>b</dt></dl><pre><code>x</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ul-tilde-term-o3-cnone-pay-item",
@@ -2942,7 +2942,7 @@
   {
     "id": "root-ol-ol-tick-term-o3-c4-empty-para",
     "source": "1. a\n   1. child\n   :: b\n   ```\n    ```\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>``` after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>```</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ol-tick-term-o3-c4-empty-item",
@@ -2957,7 +2957,7 @@
   {
     "id": "root-ol-ol-tick-term-o3-c4-pay-para",
     "source": "1. a\n   1. child\n   :: b\n   ```\n   x\n    ```\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x ``` after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x ```</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ol-tick-term-o3-c4-pay-item",
@@ -2972,7 +2972,7 @@
   {
     "id": "root-ol-ol-tick-term-o3-cnone-empty-para",
     "source": "1. a\n   1. child\n   :: b\n   ```\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code></code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ol-tick-term-o3-cnone-empty-item",
@@ -2987,7 +2987,7 @@
   {
     "id": "root-ol-ol-tick-term-o3-cnone-pay-para",
     "source": "1. a\n   1. child\n   :: b\n   ```\n   x\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ol-tick-term-o3-cnone-pay-item",
@@ -3402,7 +3402,7 @@
   {
     "id": "root-ol-ol-tilde-term-o3-c4-empty-para",
     "source": "1. a\n   1. child\n   :: b\n   ~~~\n    ~~~\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>~~~ after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>~~~</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ol-tilde-term-o3-c4-empty-item",
@@ -3417,7 +3417,7 @@
   {
     "id": "root-ol-ol-tilde-term-o3-c4-pay-para",
     "source": "1. a\n   1. child\n   :: b\n   ~~~\n   x\n    ~~~\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x ~~~ after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x ~~~</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ol-tilde-term-o3-c4-pay-item",
@@ -3432,7 +3432,7 @@
   {
     "id": "root-ol-ol-tilde-term-o3-cnone-empty-para",
     "source": "1. a\n   1. child\n   :: b\n   ~~~\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code></code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ol-tilde-term-o3-cnone-empty-item",
@@ -3447,7 +3447,7 @@
   {
     "id": "root-ol-ol-tilde-term-o3-cnone-pay-para",
     "source": "1. a\n   1. child\n   :: b\n   ~~~\n   x\nafter\n",
-    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x after</code></pre></li></ol>"
+    "html": "<ol><li>a<ol><li>child</li></ol><dl><dt>b</dt></dl><pre><code>x</code></pre></li></ol><p>after</p>"
   },
   {
     "id": "root-ol-ol-tilde-term-o3-cnone-pay-item",

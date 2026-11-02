@@ -196,9 +196,10 @@ class DjotLossReportTest extends TestCase
         self::assertSame("[wrapped][a and b] and [ref][ref]\n\n[a and b]: url\n\n\n[ref]: /url {title=\"two words\"}\n", (new DjotToCarve())->convert($source));
     }
 
-    public function testDefinitionTermContinuationIsDedented(): void
+    public function testDefinitionTermContinuationJoinsTheTermLine(): void
     {
-        self::assertStringContainsString(":: apple\nfruit\n", (new DjotToCarve())->convert(": apple\n fruit\n\n  Body\n\n: orange\n"));
+        // A Carve term is one line (carve#4861).
+        self::assertStringContainsString(":: apple fruit\n", (new DjotToCarve())->convert(": apple\n fruit\n\n  Body\n\n: orange\n"));
     }
 
     public function testSharedDefinitionPreservesParagraphSeparation(): void

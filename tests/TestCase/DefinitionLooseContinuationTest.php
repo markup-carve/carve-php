@@ -129,11 +129,11 @@ class DefinitionLooseContinuationTest extends TestCase
         $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>+</dd>\n</dl>", $out);
     }
 
-    public function testTermFoldsWrappedLineAndKeepsDefinition(): void
+    public function testAWrappedTermLineEndsTheTerm(): void
     {
         $out = rtrim($this->converter->convert(":: A term that\nwraps\n:  def"), "\n");
         $this->assertSame(
-            "<dl>\n  <dt>A term that\nwraps</dt>\n  <dd>def</dd>\n</dl>",
+            "<dl>\n  <dt>A term that</dt>\n</dl>\n<p>wraps\n:  def</p>",
             $out,
         );
     }
