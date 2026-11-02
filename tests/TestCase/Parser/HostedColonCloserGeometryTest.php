@@ -58,8 +58,11 @@ class HostedColonCloserGeometryTest extends TestCase
     {
         $doc = (new BlockParser())->parse($source);
         $children = $doc->getChildren();
-        // The bare run after `:::bad` opens a div with no closer, so `- tail` is a root list (carve#4863).
-        self::assertCount($kind === 'literal' ? 2 : 1, $children, $source);
+        // After a closed literal or verse block, `- tail` misses the quoted item and opens its own list (carve#4860).
+        self::assertCount($kind === 'box' ? 1 : 2, $children, $source);
+        if ($kind !== 'box') {
+            self::assertSame('list', $children[1]->getType(), $source);
+        }
         $host = $children[0];
         for ($i = 0; $i < $depth; $i++) {
             self::assertSame('block_quote', $host->getType(), $source);
@@ -86,8 +89,6 @@ class HostedColonCloserGeometryTest extends TestCase
         } else {
             self::assertCount(1, $blocks, $source);
             self::assertSame('line_block', $blocks[0]->getType(), $source);
-            // An open stanza takes the root `- tail` as a lazy line (carve#4748).
-            self::assertStringContainsString('- tail', self::text($blocks[0]), $source);
             self::assertStringContainsString('&nbsp;&nbsp;' . $run, (new CarveConverter())->render($doc), $source);
         }
     }

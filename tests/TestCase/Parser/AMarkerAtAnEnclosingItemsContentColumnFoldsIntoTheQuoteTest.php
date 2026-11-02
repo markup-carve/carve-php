@@ -65,15 +65,15 @@ class AMarkerAtAnEnclosingItemsContentColumnFoldsIntoTheQuoteTest extends TestCa
         return [
             'a quoted list below the item lead' => [
                 "- a\n  > - x\n  - m\n",
-                '<ul> <li>a <blockquote> <ul> <li>x - m</li> </ul> </blockquote> </li> </ul>',
+                '<ul> <li>a <blockquote> <ul> <li>x</li> </ul> </blockquote> <ul> <li>m</li> </ul> </li> </ul>',
             ],
             'the quote on the lead line itself' => [
                 "- > - x\n  - m\n",
-                '<ul> <li> <blockquote> <ul> <li>x - m</li> </ul> </blockquote> </li> </ul>',
+                '<ul> <li> <blockquote> <ul> <li>x</li> </ul> </blockquote> <ul> <li>m</li> </ul> </li> </ul>',
             ],
             'intervening prose does not escape the quote' => [
                 "- a\n  > - x\n  p\n  - m\n",
-                '<ul> <li>a <blockquote> <ul> <li>x p - m</li> </ul> </blockquote> </li> </ul>',
+                '<ul> <li>a <blockquote> <ul> <li>x p</li> </ul> </blockquote> <ul> <li>m</li> </ul> </li> </ul>',
             ],
         ];
     }
@@ -92,7 +92,7 @@ class AMarkerAtAnEnclosingItemsContentColumnFoldsIntoTheQuoteTest extends TestCa
     public function testTheParagraphTwinStillFolds(): void
     {
         $this->assertSame(
-            '<ul> <li>a <blockquote><p>q - m</p></blockquote> </li> </ul>',
+            '<ul> <li>a <blockquote><p>q</p></blockquote> <ul> <li>m</li> </ul> </li> </ul>',
             $this->html("- a\n  > q\n  - m\n"),
         );
     }

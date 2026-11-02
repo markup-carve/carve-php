@@ -17,7 +17,9 @@ final class HostedNoteBoundaryTest extends TestCase
         foreach ([3, 4] as $column) {
             $source = ":: term\n:  [^f]: alpha\n" . str_repeat(' ', $column) . "- child\nSee[^f]\n";
             $html = (new CarveConverter())->convert($source);
-            self::assertStringContainsString('<dd></dd>', $html);
+            // A marker that misses the note body closes it and opens a list in the description (carve#4860).
+            self::assertStringContainsString("<dd>\n    <ul>\n      <li>child", $html);
+            self::assertStringContainsString('<p>alpha<a href', $html);
         }
     }
 
@@ -26,7 +28,8 @@ final class HostedNoteBoundaryTest extends TestCase
         $source = ":: term\n:  [^f]: alpha\n     - child\n\nSee[^f]\n";
         $html = (new CarveConverter())->convert($source);
         self::assertStringContainsString('<dd></dd>', $html);
-        self::assertStringContainsString("alpha\n- child", $html);
+        // The note opens its own list under its paragraph (carve#4860).
+        self::assertStringContainsString("<p>alpha</p>\n      <ul>\n        <li>child</li>", $html);
     }
 
     public function testQuotedDescriptionSeparatesNoteBodyFromLazySibling(): void

@@ -22,7 +22,8 @@ class ABlankVerbatimLineDoesNotRaiseANestedDefinitionListTest extends TestCase
     {
         return [
             'nested definition list' => [":: t\n: d\n\n  :: r\n  : q\n\n    ```\n\n    ```\n\n  x\n"],
-            'nested list item' => [":: t\n: d\n\n  :: r\n  : q\n\n    - i\n      ```\n\n      ```\n\n  x\n"],
+            // A description's paragraph and its list join without a blank (carve#4860).
+            'nested list item' => [":: t\n: d\n\n  :: r\n  : q\n    - i\n      ```\n\n      ```\n\n  x\n"],
             'nested raw block' => [":: t\n: d\n\n  :: r\n  : q\n\n    ```=html\n\n    ```\n\n  x\n"],
         ];
     }

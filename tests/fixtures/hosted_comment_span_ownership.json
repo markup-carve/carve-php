@@ -7,7 +7,7 @@
   {
     "id": "ticket-provisional-comment-tail",
     "source": "> - ::: |\n>   %%%\n>   :::\n>   :::bad\n- tail\n>   %%%\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p></p></div>\n      :::bad\n    </li></ul><p>- tail</p></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p></p></div>\n      :::bad\n    </li></ul></blockquote><ul><li>tail</li></ul><blockquote></blockquote>"
   },
   {
     "id": "ticket-comment-dedent-tail",
@@ -17,7 +17,7 @@
   {
     "id": "ticket-provisional-comment-mixed-width",
     "source": "> - ::: |\n>   %%%\n>   %%%%\n>   :::\n>   :::bad\n- tail\n>   %%%\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p><br></p></div>\n      :::bad\n    </li></ul><p>- tail</p></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p><br></p></div>\n      :::bad\n    </li></ul></blockquote><ul><li>tail</li></ul><blockquote></blockquote>"
   },
   {
     "id": "ticket-unquoted-4",
@@ -32,7 +32,7 @@
   {
     "id": "ticket-attached-code",
     "source": "> - ::: |\n>   %%%\n>   :::\n>   :::bad\n- tail\n>   %%%\n>\n> ```\n> code\n+\nz\n> - %%%\n>   ::: box\n>   :::\n- tail\n>   %%%\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p></p></div>\n      :::bad\n    </li></ul><p>- tail</p><pre><code>code\n</code></pre><p>z</p><ul><li><div class=\"box\"></div></li></ul></blockquote><ul><li>tail</li></ul><blockquote></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p></p></div>\n      :::bad\n    </li></ul></blockquote><ul><li>tail</li></ul><blockquote><pre><code>code\n</code></pre><p>z</p><ul><li><div class=\"box\"></div></li></ul></blockquote><ul><li>tail</li></ul><blockquote></blockquote>"
   },
   {
     "id": "literal-u4-min2",

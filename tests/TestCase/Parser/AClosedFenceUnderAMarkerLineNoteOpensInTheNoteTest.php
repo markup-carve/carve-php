@@ -37,7 +37,8 @@ class AClosedFenceUnderAMarkerLineNoteOpensInTheNoteTest extends TestCase
         yield 'past the column, after a folded marker line' => [
             "- [^n]: text\n    - child\n      ```\n      code\n      ```\nafter [^n]\n",
             '<ul><li></li></ul><p>after ' . self::NOTE_REF . '</p>' . $notes
-                . "<p>text\n- child</p><pre><code>code\n</code></pre>" . self::BACKLINK . '</li></ol></section>',
+                // The marker opens a list in the note, and the fence at its content column is the child's (carve#4860).
+                . "<p>text</p><ul><li>child\n          <pre><code>code\n</code></pre></li></ul>" . self::BACKLINK . '</li></ol></section>',
         ];
 
         yield 'at the column, directly under the marker line' => [

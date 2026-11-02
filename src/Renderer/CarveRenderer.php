@@ -1674,6 +1674,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $parentList = $item->getParent();
                         $separator = $parentList instanceof ListBlock && $parentList->isTight() ? "\n" : "\n\n";
                         $parts[array_key_last($parts)] .= $separator . $rendered;
+                    } elseif (
+                        $parts !== [] && ($descriptionBody || ($this->markerBodyBlocks !== null && $blocks === $this->markerBodyBlocks))
+                        && $previousEmitted instanceof Paragraph && $block instanceof ListBlock && !$listSeparated
+                    ) {
+                        // A marker body's list ends its paragraph with no blank, as an item's does (PART 0 S3, carve#4860).
+                        $parts[array_key_last($parts)] .= "\n" . $rendered;
                     } elseif ($listSeparated && $parts !== [] && $descriptionBody && !$block instanceof DefinitionList) {
                         // Each sibling list takes the next body column. Move
                         // item continuations and nested children with its opener.
@@ -4501,7 +4507,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $firstBlockLength = null;
         try {
             $rawBody = $this->atAnAuthoredBodyColumn(function () use ($node, $inDefinitionDescription, &$firstBlockLength): string {
-                return $this->renderBlocks($node->getChildren(), $inDefinitionDescription, firstBlockLength: $firstBlockLength);
+                $outer = $this->markerBodyBlocks;
+                $this->markerBodyBlocks = $node->getChildren();
+                try {
+                    return $this->renderBlocks($this->markerBodyBlocks, $inDefinitionDescription, firstBlockLength: $firstBlockLength);
+                } finally {
+                    $this->markerBodyBlocks = $outer;
+                }
             });
         } finally {
             $this->indentedHostDepth--;
@@ -4579,6 +4591,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     protected bool $renderedVerbatimTail = false;
+
+    /**
+     * The blocks of the footnote body being written, whose paragraph and list join without a blank.
+     *
+     * @var array<\MarkupCarve\Carve\Node\Node>|null
+     */
+    protected ?array $markerBodyBlocks = null;
 
     /**
      * @param array<\MarkupCarve\Carve\Node\Node> $nodes

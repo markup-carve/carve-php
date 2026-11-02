@@ -1193,7 +1193,8 @@ class BlockParser
         $warnings = $session->warnings;
         try {
             if (count($body['lines']) !== 1 || rtrim($body['lines'][0], " \t") !== '{empty}') {
-                $this->parseBlocks($host, $body['lines'], 0, $body['lineMap']);
+                // A marker body opens a list at its column 0 as an item does (PART 0 S3, carve#4860).
+                $this->parseBlocks($host, $body['lines'], 0, $body['lineMap'], itemBody: true);
             }
             if (!isset($session->footnotes[$label])) {
                 $session->warnings = $warnings;
@@ -1836,6 +1837,7 @@ class BlockParser
             || in_array($parent->getType(), ['list_item', 'definition_description', 'footnote_definition', 'block_quote'], true);
         $frame->listHostedColonFences = $previousFrame->listHostedColonFences || $parent->getType() === 'list_item';
         $frame->noteHostedColonFences = $previousFrame->noteHostedColonFences || $parent->getType() === 'footnote';
+        $frame->markerBody = $itemBody;
         $unchangedColonBody = $this->pendingColonView !== null;
         if ($unchangedColonBody) {
             $frame->colonFenceIndex = $this->pendingColonView['index'];
@@ -3647,27 +3649,6 @@ class BlockParser
                     && $this->listParser->parseListItemMarker(ltrim($bodyLine, " \t")) !== null
                 ) {
                     $bodyLine = BlockGrammar::LAZY_FRAME . ltrim($bodyLine, " \t");
-                }
-                // A marker at the column folds into the body's open paragraph
-                // (§10 I2) and opens no item, so it joins that line and leaves
-                // the next line measured against the body.
-                $lastBodyKey = array_key_last($bodyLines);
-                if (
-                    $bodyLines[$lastBodyKey] !== ''
-                    && IndentationHelper::getLeadingColumns($bodyLine) === 0
-                    && $trailingState->openParagraph
-                    && $trailingState->nestedColumn === 0
-                    && $trailingState->fence === null
-                    && !$trailingState->hasOpenDiv()
-                    && !$trailingState->inTable
-                    && !$trailingState->nestedListSeen
-                    && $this->listParser->parseListItemMarker($bodyLine) !== null
-                    && !$this->definitionsBuilder()->bodyTermIsOpen($bodyLines, $termScan, $lines, $i)
-                ) {
-                    $bodyLines[$lastBodyKey] .= "\n" . $bodyLine;
-                    $i++;
-
-                    continue;
                 }
                 $bodyLines[] = $bodyLine;
                 $bodyLineMap[] = $this->sourceLineFor($i);

@@ -21,12 +21,12 @@ class AMarkerThatMissesADescriptionFoldsIntoItsItemTest extends TestCase
     public static function cases(): array
     {
         return [
-            'column 0' => [":: t\n: - a\n- b\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n- b</li>\n    </ul>\n  </dd>\n</dl>"],
-            'ordered' => [":: t\n: 1. a\n2. b\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ol>\n      <li>a\n2. b</li>\n    </ol>\n  </dd>\n</dl>"],
-            'two lines' => [":: t\n: - a\n- b\n- c\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n- b\n- c</li>\n    </ul>\n  </dd>\n</dl>"],
-            'quoted' => ["> :: t\n> : - a\n> - b\n", "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>\n      <ul>\n        <li>a\n- b</li>\n      </ul>\n    </dd>\n  </dl>\n</blockquote>"],
+            'column 0' => [":: t\n: - a\n- b\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<ul>\n  <li>b</li>\n</ul>"],
+            'ordered' => [":: t\n: 1. a\n2. b\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ol>\n      <li>a</li>\n    </ol>\n  </dd>\n</dl>\n<ol start=\"2\">\n  <li>b</li>\n</ol>"],
+            'two lines' => [":: t\n: - a\n- b\n- c\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<ul>\n  <li>b</li>\n  <li>c</li>\n</ul>"],
+            'quoted' => ["> :: t\n> : - a\n> - b\n", "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>\n      <ul>\n        <li>a</li>\n      </ul>\n    </dd>\n  </dl>\n  <ul>\n    <li>b</li>\n  </ul>\n</blockquote>"],
             'a blank still ends the description' => [":: t\n: - a\n\n- b\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<ul>\n  <li>b</li>\n</ul>"],
-            'quoted description in an item' => ["- > :: t\n  > : d\n  > - z\n", "<ul>\n  <li>\n    <blockquote>\n      <dl>\n        <dt>t</dt>\n        <dd>d\n- z</dd>\n      </dl>\n    </blockquote>\n  </li>\n</ul>"],
+            'quoted description in an item' => ["- > :: t\n  > : d\n  > - z\n", "<ul>\n  <li>\n    <blockquote>\n      <dl>\n        <dt>t</dt>\n        <dd>d</dd>\n      </dl>\n      <ul>\n        <li>z</li>\n      </ul>\n    </blockquote>\n  </li>\n</ul>"],
             'an outer item takes the marker' => ["- :: t\n  : - a\n   - b\n", "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <ul>\n          <li>a</li>\n        </ul>\n      </dd>\n    </dl>\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>"],
         ];
     }

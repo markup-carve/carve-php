@@ -40,7 +40,7 @@ class AMarkerBelowADescriptionInAnItemOpensAListTest extends TestCase
             ],
             'a quote host still folds' => [
                 "- > :: t\n  > : d\n  > - z\n",
-                "<ul>\n  <li>\n    <blockquote>\n      <dl>\n        <dt>t</dt>\n        <dd>d\n- z</dd>\n      </dl>\n    </blockquote>\n  </li>\n</ul>",
+                "<ul>\n  <li>\n    <blockquote>\n      <dl>\n        <dt>t</dt>\n        <dd>d</dd>\n      </dl>\n      <ul>\n        <li>z</li>\n      </ul>\n    </blockquote>\n  </li>\n</ul>",
             ],
         ];
     }

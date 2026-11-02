@@ -91,15 +91,15 @@ class SixFuzzShapesAgreeWithTheOracleTest extends TestCase
             ],
             'a nested ordered marker with an empty attribute block' => [
                 "> . *\n.{} _\n",
-                "<blockquote>\n  <ol>\n    <li>*\n.{} _</li>\n  </ol>\n</blockquote>\n",
+                "<blockquote>\n  <ol>\n    <li>*</li>\n  </ol>\n</blockquote>\n<ol>\n  <li>_</li>\n</ol>\n",
             ],
             'the same lazy marker with no attribute block' => [
                 "> . a\n. b\n",
-                "<blockquote>\n  <ol>\n    <li>a\n. b</li>\n  </ol>\n</blockquote>\n",
+                "<blockquote>\n  <ol>\n    <li>a</li>\n  </ol>\n</blockquote>\n<ol>\n  <li>b</li>\n</ol>\n",
             ],
             'a marker with a class attribute answers the same' => [
                 "> . a\n.{.c} b\n",
-                "<blockquote>\n  <ol>\n    <li>a\n.{.c} b</li>\n  </ol>\n</blockquote>\n",
+                "<blockquote>\n  <ol>\n    <li>a</li>\n  </ol>\n</blockquote>\n<ol>\n  <li class=\"c\">b</li>\n</ol>\n",
             ],
             'a definition in a quote, then a lazy line' => [
                 ">  [d]: u\n)\n",

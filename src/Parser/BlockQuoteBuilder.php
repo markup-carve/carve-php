@@ -539,6 +539,7 @@ final class BlockQuoteBuilder
                 && !($attachedParagraphOpen && ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null)
                 && !(($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
                     && $this->lastQuoteLineIsBareTerm($innerLines))
+                && !$this->markerOpensBodyList($currentLine, $innerLines, $lazyState)
                 && !(IndentationHelper::getLeadingColumns($currentLine) === 0
                     && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $currentLine) === 1
                     && (($lazyState['hosts']['termOpen'] ?? false)
@@ -2354,5 +2355,38 @@ final class BlockQuoteBuilder
         }
 
         return $this->blockQuoteLazyExtentEnd($lines, $start);
+    }
+
+    /**
+     * A marker in a marker body, or one that misses a body in this quote, opens a list (PART 0 S3, carve#4860).
+     *
+     * @param string $line
+     * @param array<string> $innerLines
+     * @param array<string, mixed> $lazyState
+     */
+    private function markerOpensBodyList(string $line, array $innerLines, array $lazyState): bool
+    {
+        if (
+            str_starts_with($line, BlockGrammar::LAZY_FRAME)
+            || ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) === null
+        ) {
+            return false;
+        }
+        // A `+` the quote holds keeps its attached paragraph's markers as text up to a blank (§17 L3).
+        for ($k = count($innerLines) - 1; $k >= 0; $k--) {
+            $above = trim(BlockGrammar::stripLazyFrame($innerLines[$k]), " \t");
+            if ($above === '') {
+                break;
+            }
+            if ($above === '+') {
+                return false;
+            }
+        }
+        if ($this->state->frame->markerBody) {
+            return true;
+        }
+        $hosts = $lazyState['hosts'] ?? null;
+
+        return is_array($hosts) && (($hosts['kinds'] ?? []) !== [] || isset($hosts['descriptionColumn']));
     }
 }

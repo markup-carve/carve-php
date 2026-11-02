@@ -769,7 +769,7 @@
   "A-801-a-footnote-body-takes-its-first-block-at-its-body-column-2": {
    "ticket": "A",
    "source": "[^a]: +\n  - x\n  - y\n\nsee[^a]\n",
-   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ - x - y</p></li>"
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+</p><ul><li>x</li><li>y</li></ul></li>"
   },
   "A-801-a-footnote-body-takes-its-first-block-at-its-body-column-3": {
    "ticket": "A",

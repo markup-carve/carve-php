@@ -661,7 +661,7 @@
   },
   {
     "source": "- - [ ] + text\n%% c\ntail",
-    "html": "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"+ text\"> + text\n        tail\n      </li>\n    </ul>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"+ text\"> + text</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>"
   },
   {
     "source": "- - [ ] a\n+\n%% c\ntail",
@@ -757,7 +757,7 @@
   },
   {
     "source": "> - - [ ] + text\n> %% c\n> tail",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul class=\"task-list\">\n        <li><input type=\"checkbox\" disabled aria-label=\"+ text\"> + text\n          tail\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul class=\"task-list\">\n        <li><input type=\"checkbox\" disabled aria-label=\"+ text\"> + text</li>\n      </ul>\n    </li>\n  </ul>\n  <p>tail</p>\n</blockquote>"
   },
   {
     "source": "> - - [ ] a\n> +\n> %% c\n> tail",
@@ -833,11 +833,11 @@
   },
   {
     "source": "> - [ ] +\n- s",
-    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li><input type=\"checkbox\" disabled aria-label=\"+ - s\"> +\n- s</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li><input type=\"checkbox\" disabled aria-label=\"+\"> +</li>\n  </ul>\n</blockquote>\n<ul>\n  <li>s</li>\n</ul>"
   },
   {
     "source": "> - [ ] + text\n- s",
-    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li><input type=\"checkbox\" disabled aria-label=\"+ text - s\"> + text\n- s</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li><input type=\"checkbox\" disabled aria-label=\"+ text\"> + text</li>\n  </ul>\n</blockquote>\n<ul>\n  <li>s</li>\n</ul>"
   },
   {
     "source": "> - [ ] a\n+\n- s",
@@ -845,7 +845,7 @@
   },
   {
     "source": "> - [ ] a\n  +\n- s",
-    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li><input type=\"checkbox\" disabled aria-label=\"a + - s\"> a\n+\n- s</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li><input type=\"checkbox\" disabled aria-label=\"a +\"> a\n+</li>\n  </ul>\n</blockquote>\n<ul>\n  <li>s</li>\n</ul>"
   },
   {
     "source": "> - [ ] +\n%% c\ntail",
@@ -929,11 +929,11 @@
   },
   {
     "source": "> > - [ ] +\n> - s",
-    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"+ - s\"> +\n- s</li>\n    </ul>\n  </blockquote>\n</blockquote>"
+    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"+\"> +</li>\n    </ul>\n  </blockquote>\n  <ul>\n    <li>s</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": "> > - [ ] + text\n> - s",
-    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"+ text - s\"> + text\n- s</li>\n    </ul>\n  </blockquote>\n</blockquote>"
+    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"+ text\"> + text</li>\n    </ul>\n  </blockquote>\n  <ul>\n    <li>s</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": "> > - [ ] a\n> +\n> - s",
@@ -941,7 +941,7 @@
   },
   {
     "source": "> > - [ ] a\n  +\n> - s",
-    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"a + - s\"> a\n+\n- s</li>\n    </ul>\n  </blockquote>\n</blockquote>"
+    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"a +\"> a\n+</li>\n    </ul>\n  </blockquote>\n  <ul>\n    <li>s</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": "> > - [ ] +\n> %% c\n> tail",
@@ -1813,7 +1813,7 @@
   },
   {
     "source": "- - [x] + text\n%% c\ntail",
-    "html": "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text\"> + text\n        tail\n      </li>\n    </ul>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text\"> + text</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>"
   },
   {
     "source": "- - [x] a\n+\n%% c\ntail",
@@ -1909,7 +1909,7 @@
   },
   {
     "source": "> - - [x] + text\n> %% c\n> tail",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul class=\"task-list\">\n        <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text\"> + text\n          tail\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul class=\"task-list\">\n        <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text\"> + text</li>\n      </ul>\n    </li>\n  </ul>\n  <p>tail</p>\n</blockquote>"
   },
   {
     "source": "> - - [x] a\n> +\n> %% c\n> tail",
@@ -1985,11 +1985,11 @@
   },
   {
     "source": "> - [x] +\n- s",
-    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ - s\"> +\n- s</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+\"> +</li>\n  </ul>\n</blockquote>\n<ul>\n  <li>s</li>\n</ul>"
   },
   {
     "source": "> - [x] + text\n- s",
-    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text - s\"> + text\n- s</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text\"> + text</li>\n  </ul>\n</blockquote>\n<ul>\n  <li>s</li>\n</ul>"
   },
   {
     "source": "> - [x] a\n+\n- s",
@@ -1997,7 +1997,7 @@
   },
   {
     "source": "> - [x] a\n  +\n- s",
-    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"a + - s\"> a\n+\n- s</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"a +\"> a\n+</li>\n  </ul>\n</blockquote>\n<ul>\n  <li>s</li>\n</ul>"
   },
   {
     "source": "> - [x] +\n%% c\ntail",
@@ -2081,11 +2081,11 @@
   },
   {
     "source": "> > - [x] +\n> - s",
-    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ - s\"> +\n- s</li>\n    </ul>\n  </blockquote>\n</blockquote>"
+    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+\"> +</li>\n    </ul>\n  </blockquote>\n  <ul>\n    <li>s</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": "> > - [x] + text\n> - s",
-    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text - s\"> + text\n- s</li>\n    </ul>\n  </blockquote>\n</blockquote>"
+    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text\"> + text</li>\n    </ul>\n  </blockquote>\n  <ul>\n    <li>s</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": "> > - [x] a\n> +\n> - s",
@@ -2093,7 +2093,7 @@
   },
   {
     "source": "> > - [x] a\n  +\n> - s",
-    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"a + - s\"> a\n+\n- s</li>\n    </ul>\n  </blockquote>\n</blockquote>"
+    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"a\"> a</li>\n    </ul>\n    <ul>\n      <li>s</li>\n    </ul>\n  </blockquote>\n</blockquote>"
   },
   {
     "source": "> > - [x] +\n> %% c\n> tail",
@@ -2965,7 +2965,7 @@
   },
   {
     "source": "- - [X] + text\n%% c\ntail",
-    "html": "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text\"> + text\n        tail\n      </li>\n    </ul>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text\"> + text</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>"
   },
   {
     "source": "- - [X] a\n+\n%% c\ntail",
@@ -3061,7 +3061,7 @@
   },
   {
     "source": "> - - [X] + text\n> %% c\n> tail",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul class=\"task-list\">\n        <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text\"> + text\n          tail\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul class=\"task-list\">\n        <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text\"> + text</li>\n      </ul>\n    </li>\n  </ul>\n  <p>tail</p>\n</blockquote>"
   },
   {
     "source": "> - - [X] a\n> +\n> %% c\n> tail",
@@ -3137,11 +3137,11 @@
   },
   {
     "source": "> - [X] +\n- s",
-    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ - s\"> +\n- s</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+\"> +</li>\n  </ul>\n</blockquote>\n<ul>\n  <li>s</li>\n</ul>"
   },
   {
     "source": "> - [X] + text\n- s",
-    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text - s\"> + text\n- s</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text\"> + text</li>\n  </ul>\n</blockquote>\n<ul>\n  <li>s</li>\n</ul>"
   },
   {
     "source": "> - [X] a\n+\n- s",
@@ -3149,7 +3149,7 @@
   },
   {
     "source": "> - [X] a\n  +\n- s",
-    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"a + - s\"> a\n+\n- s</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"a +\"> a\n+</li>\n  </ul>\n</blockquote>\n<ul>\n  <li>s</li>\n</ul>"
   },
   {
     "source": "> - [X] +\n%% c\ntail",
@@ -3233,11 +3233,11 @@
   },
   {
     "source": "> > - [X] +\n> - s",
-    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ - s\"> +\n- s</li>\n    </ul>\n  </blockquote>\n</blockquote>"
+    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+\"> +</li>\n    </ul>\n  </blockquote>\n  <ul>\n    <li>s</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": "> > - [X] + text\n> - s",
-    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text - s\"> + text\n- s</li>\n    </ul>\n  </blockquote>\n</blockquote>"
+    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"+ text\"> + text</li>\n    </ul>\n  </blockquote>\n  <ul>\n    <li>s</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": "> > - [X] a\n> +\n> - s",
@@ -3245,7 +3245,7 @@
   },
   {
     "source": "> > - [X] a\n  +\n> - s",
-    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"a + - s\"> a\n+\n- s</li>\n    </ul>\n  </blockquote>\n</blockquote>"
+    "html": "<blockquote>\n  <blockquote>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"a\"> a</li>\n    </ul>\n    <ul>\n      <li>s</li>\n    </ul>\n  </blockquote>\n</blockquote>"
   },
   {
     "source": "> > - [X] +\n> %% c\n> tail",

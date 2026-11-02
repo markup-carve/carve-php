@@ -53,37 +53,29 @@ class AMarkerOnAQuoteLazyContinuationIsTextTest extends TestCase
         return [
             'the reported document' => [
                 "- > q\n  - s\ntail\n",
-                '<ul> <li> <blockquote><p>q - s tail</p></blockquote> </li> </ul>',
+                '<ul> <li> <blockquote><p>q</p></blockquote> <ul> <li>s tail</li> </ul> </li> </ul>',
             ],
             'an ordered marker' => [
                 "- > q\n  1. s\ntail\n",
-                '<ul> <li> <blockquote><p>q 1. s tail</p></blockquote> </li> </ul>',
+                '<ul> <li> <blockquote><p>q</p></blockquote> <ol> <li>s tail</li> </ol> </li> </ul>',
             ],
-            'a task marker' => [
-                "- > q\n  - [ ] s\ntail\n",
-                '<ul> <li> <blockquote><p>q - [ ] s tail</p></blockquote> </li> </ul>',
-            ],
-            // An abutting-attribute bullet is a marker too, and it reached this
-            // gate by the same door.
-            'an abutting-attribute bullet' => [
-                "- > q\n  -{.x} s\ntail\n",
-                '<ul> <li> <blockquote><p>q -{.x} s tail</p></blockquote> </li> </ul>',
-            ],
+            'a task marker' => ["- > q\n  - [ ] s\ntail\n", '<ul> <li> <blockquote><p>q</p></blockquote> <ul class="task-list"> <li><input type="checkbox" disabled aria-label="s tail"> s tail</li> </ul> </li> </ul>'],
+            'an abutting-attribute bullet' => ["- > q\n  -{.x} s\ntail\n", '<ul> <li> <blockquote><p>q</p></blockquote> <ul> <li class="x">s tail</li> </ul> </li> </ul>'],
             'an ordered host' => [
                 "1. > q\n   - s\ntail\n",
-                '<ol> <li> <blockquote><p>q - s tail</p></blockquote> </li> </ol>',
+                '<ol> <li> <blockquote><p>q</p></blockquote> <ul> <li>s tail</li> </ul> </li> </ol>',
             ],
             'a nested quote' => [
                 "- > > q\n  - s\ntail\n",
-                '<ul> <li> <blockquote> <blockquote><p>q - s tail</p></blockquote> </blockquote> </li> </ul>',
+                '<ul> <li> <blockquote> <blockquote><p>q</p></blockquote> </blockquote> <ul> <li>s tail</li> </ul> </li> </ul>',
             ],
             'a second quoted line above it' => [
                 "- > q\n  > r\n  - s\ntail\n",
-                '<ul> <li> <blockquote><p>q r - s tail</p></blockquote> </li> </ul>',
+                '<ul> <li> <blockquote><p>q r</p></blockquote> <ul> <li>s tail</li> </ul> </li> </ul>',
             ],
             'two items deep' => [
                 "- - > q\n    - s\ntail\n",
-                '<ul> <li> <ul> <li> <blockquote><p>q - s tail</p></blockquote> </li> </ul> </li> </ul>',
+                '<ul> <li> <ul> <li> <blockquote><p>q</p></blockquote> <ul> <li>s tail</li> </ul> </li> </ul> </li> </ul>',
             ],
             // THE POST-BLANK DOOR. The collector that runs here does not break
             // at the marker - it injects a synthetic blank before it, which is
@@ -91,7 +83,7 @@ class AMarkerOnAQuoteLazyContinuationIsTextTest extends TestCase
             // second spelling and needed the same guard.
             'reached after a blank line' => [
                 "- x\n\n  > q\n  - s\ntail\n",
-                '<ul> <li>x <blockquote><p>q - s tail</p></blockquote> </li> </ul>',
+                '<ul> <li>x <blockquote><p>q</p></blockquote> <ul> <li>s tail</li> </ul> </li> </ul>',
             ],
         ];
     }
@@ -121,7 +113,7 @@ class AMarkerOnAQuoteLazyContinuationIsTextTest extends TestCase
     public function testInterveningProseStaysInTheQuote(): void
     {
         $this->assertSame(
-            '<ul> <li> <blockquote><p>q p - s tail</p></blockquote> </li> </ul>',
+            '<ul> <li> <blockquote><p>q p</p></blockquote> <ul> <li>s tail</li> </ul> </li> </ul>',
             $this->html("- > q\n  p\n  - s\ntail\n"),
         );
     }
@@ -161,7 +153,7 @@ class AMarkerOnAQuoteLazyContinuationIsTextTest extends TestCase
             // A folded marker keeps the quote paragraph open for the next one.
             'a second marker below the folded one' => [
                 "- > q\n  - s\n  - t\ntail\n",
-                '<ul> <li> <blockquote><p>q - s - t tail</p></blockquote> </li> </ul>',
+                '<ul> <li> <blockquote><p>q</p></blockquote> <ul> <li>s</li> <li>t tail</li> </ul> </li> </ul>',
             ],
         ];
     }

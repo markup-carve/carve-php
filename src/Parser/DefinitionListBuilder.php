@@ -620,14 +620,17 @@ final class DefinitionListBuilder
         $firstBlockAttached = false;
         $firstBlockOwner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $definitionSource);
         if (($firstBlockOwner['kind'] ?? null) === 'description' && $firstBlockOwner['column'] === $definitionColumn) {
+            // A list marker ends an attached block that is no list; the body then opens or closes at it (PART 0 S3, carve#4860).
+            $markerEnds = !$this->continuations->attachedLeadIsList($lines, $i, $count);
             [$i, $body, $bodyRawMap] = $this->collectAttachedBlock(
                 $lines,
                 $i,
                 $count,
-                function (string $a, int $at) use ($continuationColumn, $definitionColumn): bool {
+                function (string $a, int $at) use ($continuationColumn, $definitionColumn, $markerEnds): bool {
                     $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($at));
 
                     return IndentationHelper::isBlankLine($a)
+                        || ($markerEnds && ($this->getListParser)()->parseListItemMarker(ltrim($a, " \t")) !== null)
                         || $decision['column'] >= 0 && $decision['owner'] !== null
                         || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
                         || $this->opensDescriptionBelowBody($a, $at, $definitionColumn, $continuationColumn);
@@ -1604,10 +1607,17 @@ final class DefinitionListBuilder
      */
     private function foldBelowColumnLine(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?bool
     {
+        // A list marker that misses a marker body closes it (PART 0 S3, carve#4860).
+        if (
+            $l->indent < $b->continuationColumn
+            && !IndentationHelper::isBlankLine($l->contLine)
+            && ($this->getListParser)()->parseListItemMarker($l->trimmedCont) !== null
+        ) {
+            return false;
+        }
         $belowColumnMarker = $l->indent < $b->continuationColumn
             && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) !== 1
-            && (($this->getListParser)()->parseListItemMarker($l->trimmedCont) !== null
-                || ReferenceDefinitionExtractor::isDefinitionHead($l->trimmedCont)
+            && (ReferenceDefinitionExtractor::isDefinitionHead($l->trimmedCont)
                 || $this->isBlockAttributeLine($l->trimmedCont));
         if (
             !IndentationHelper::isBlankLine($l->contLine)
@@ -1628,28 +1638,6 @@ final class DefinitionListBuilder
                 || ($b->descriptionAtDocumentOrQuote
                     && $l->indent < $b->continuationColumn && $l->belowDescriptionTextOpener)
                 || !$this->lineOpensBlockForLooseness($l->trimmedCont, invisibleArms: false))
-        ) {
-            $b->body[$l->lastBodyKey] .= "\n" . $l->trimmedCont;
-            $b->i++;
-
-            return true;
-        }
-        // A marker at the column folds into the body's open
-        // paragraph (§10 I2) and opens no item, so it joins that
-        // entry and leaves the next line measured against the body.
-        if (
-            $l->indent === $b->continuationColumn
-            && $l->lastBodyKey !== null
-            && ($b->body[$l->lastBodyKey] ?? '') !== ''
-            && !isset($b->bodyDefinition[$l->lastBodyKey])
-            && ($this->getListParser)()->parseListItemMarker($l->trimmedCont) !== null
-            && !$this->bodyTermIsOpen($b->body, $b->termScan, $b->lines, $b->i)
-            && $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy) === 0
-            && $b->bodyNestedState->openParagraph
-            && $b->bodyNestedState->fence === null
-            && !$b->bodyNestedState->hasOpenDiv()
-            && !$b->bodyNestedState->inTable
-            && !$b->bodyNestedState->nestedListSeen
         ) {
             $b->body[$l->lastBodyKey] .= "\n" . $l->trimmedCont;
             $b->i++;
@@ -2524,7 +2512,8 @@ final class DefinitionListBuilder
             $this->parseBlocks($dd, $b->detachedFootnote, 0, $b->detachedFootnoteMap);
         }
         if (count($b->body) !== 1 || rtrim($b->body[0], " \t") !== '{empty}') {
-            $this->parseBlocks($dd, $b->body, 0, $b->bodyMap);
+            // A marker body opens a list at its column 0 as an item does (PART 0 S3, carve#4860).
+            $this->parseBlocks($dd, $b->body, 0, $b->bodyMap, itemBody: true);
         }
         unset($this->descriptionContentColumns[$dd]);
         // The description is a container too, and its boundary ends the

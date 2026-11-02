@@ -24,7 +24,7 @@ final class AMarkerOfAnotherKindPastAMissedItemOpensItsOwnListTest extends TestC
         yield 'a note in an item does not take a marker of another list kind' => ["- [^f]: n\n1. tail\n", "<ul>\n  <li></li>\n</ul>\n<ol>\n  <li>tail</li>\n</ol>"];
         yield 'a note in a quote in an item does not take it either' => ["- > para\n  > [^f]: n\n1. tail\n", "<ul>\n  <li>\n    <blockquote><p>para</p></blockquote>\n  </li>\n</ul>\n<ol>\n  <li>tail</li>\n</ol>"];
         yield 'a sibling marker still ends the note' => ["- [^f]: n\n- tail\n", "<ul>\n  <li></li>\n  <li>tail</li>\n</ul>"];
-        yield 'a quote around the item still folds the line into the note' => ["> - para\n>   [^f]: n\n- tail\n", "<blockquote>\n  <ul>\n    <li>para</li>\n  </ul>\n</blockquote>"];
+        yield 'a quote around the item still folds the line into the note' => ["> - para\n>   [^f]: n\n- tail\n", "<blockquote>\n  <ul>\n    <li>para</li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"];
     }
 
     #[DataProvider('documents')]

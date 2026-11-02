@@ -909,15 +909,18 @@ final class BlockContinuationScanner
         $attachedState = new TrailingBlockState();
         // The verdict for a run of invisible lines, read once: [run end, leaves].
         $invisibleRun = [-1, false];
+        // In a note or description a list marker ends an attached block that is no list (PART 0 S3, carve#4860).
+        $markerEnds = $invisibleLineEndsParagraph && !$this->attachedLeadIsList($lines, $i, $count);
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, $lines, $endsAtSibling, $invisibleLineEndsParagraph): bool {
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds): bool {
                 if (
                     IndentationHelper::isBlankLine($line)
                     || $this->isContinuationMarker($line)
                     || ($attachedState->fence === null && $endsAtSibling !== null && $endsAtSibling($line))
+                    || ($markerEnds && $attachedState->fence === null && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null)
                 ) {
                     return true;
                 }
@@ -944,6 +947,36 @@ final class BlockContinuationScanner
         );
 
         return [$i, $attached, $attachedRawLineMap];
+    }
+
+    /**
+     * Whether the first visible line a `+` attaches, past attribute, definition and comment lines, is a list marker.
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     */
+    public function attachedLeadIsList(array $lines, int $i, int $count): bool
+    {
+        for ($k = $i; $k < $count && !IndentationHelper::isBlankLine($lines[$k]); $k++) {
+            $line = ltrim($lines[$k], " \t");
+            $afterNote = $k > $i && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($lines[$k - 1], " \t")) === 1;
+            if (
+                $this->isBlockAttributeLine($line)
+                || $this->isReferenceDefinitionLine($line)
+                || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) === 1
+                || preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/', $line) === 1
+                || $this->isCommentLineOrFence($line)
+                // A note's lazy text is part of it.
+                || ($afterNote && ($this->getListParser)()->parseListItemMarker($line) === null)
+            ) {
+                continue;
+            }
+
+            return ($this->getListParser)()->parseListItemMarker($line) !== null;
+        }
+
+        return true;
     }
 
     /**
@@ -2208,7 +2241,9 @@ final class BlockContinuationScanner
             && (!$trailingState->hasOpenDiv() || ($run->minimumFenceBase && $run->floorParagraphWitness && !$run->floorExistingDiv && !$run->floorSawFenceState && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + $trailingState->divColumn) < $contentIndent + $trailingState->divColumn))
             && ($trailingState->divDepth === 0 || ($run->minimumFenceBase && $run->floorParagraphWitness && !$run->floorExistingDiv && !$run->floorSawFenceState && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + $trailingState->divColumn) < $contentIndent + $trailingState->divColumn))
             && $run->openCommentLength === null
-            && !$trailingState->quoteParagraph
+            // A marker in the item opens a list under a quote's paragraph too (PART 0 S3, carve#4860).
+            && !($trailingState->quoteParagraph
+                && (isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]) || $this->quotePlusHolds($lines, $i)))
             && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
             && $markerLeavesDescription
             && $run->rejectedColonFenceLength === null
@@ -2986,8 +3021,10 @@ final class BlockContinuationScanner
             && ($nextTrimmed[0] ?? '') !== '`' && ($nextTrimmed[0] ?? '') !== '~'
             && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed)
                 || $this->isBlockAttributeLine($nextTrimmed));
+        // A marker in the item opens a list under a quote's paragraph too; only the quote's own `+` keeps it (PART 0 S3, carve#4860).
         $quotedLazyMarker = $trailingState->quoteParagraph && $wasOpenParagraph
             && $column === $contentIndent
+            && $this->quotePlusHolds($lines, $i)
             && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null;
         if ($retainedQuoteFence) {
             return $trailingState;
@@ -5053,9 +5090,11 @@ final class BlockContinuationScanner
     {
         $count = count($itemLines);
         $lead = (string)preg_replace(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, '$2', $itemLines[0] ?? '');
+        // A marker under the note's paragraph opens a list too (PART 0 S3, carve#4860).
         if (
             !($this->isCommentLineOrFence($lead) || $this->isBlockElementStart($lead) || $this->startsNewBlock($lead))
             && !$afterBlank
+            && ($count < 2 || ($this->getListParser)()->parseListItemMarker(ltrim($itemLines[$count - 1], " \t")) === null)
         ) {
             return PHP_INT_MAX;
         }
@@ -5461,5 +5500,38 @@ final class BlockContinuationScanner
             $this->listMarkerWidth(...),
             $this->isContinuationMarker(...),
         );
+    }
+
+    /**
+     * Whether a quote's own `+` still holds the line: no blank or new quote line since it (§17 L3).
+     *
+     * @param array<string> $lines
+     * @param int $i
+     */
+    private function quotePlusHolds(array $lines, int $i): bool
+    {
+        for ($k = $i - 1; $k >= 0; $k--) {
+            $line = $this->pastListMarkers(trim(BlockGrammar::stripLazyFrame($lines[$k]), " \t"));
+            if ($line === '') {
+                return false;
+            }
+            if (str_starts_with($line, '>')) {
+                return trim(ContainerPrefix::afterLeadingQuoteMarkers($line), " \t") === '+';
+            }
+            if ($line === '+' && str_starts_with($this->pastListMarkers(trim($lines[$k - 1] ?? '', " \t")), '>')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function pastListMarkers(string $line): string
+    {
+        while (($marker = ($this->getListParser)()->parseListItemMarker($line)) !== null && $marker['content'] !== $line) {
+            $line = ltrim((string)$marker['content'], " \t");
+        }
+
+        return $line;
     }
 }

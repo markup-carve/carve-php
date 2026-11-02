@@ -597,7 +597,7 @@
   {
     "id": "list/low-comment/1/sibling",
     "source": "- intro\n%% c\n - tail\n",
-    "html": "<ul>\n  <li>intro\n    - tail\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>intro</li>\n  <li>tail</li>\n</ul>"
   },
   {
     "id": "list/low-comment/1/quote",
@@ -1097,7 +1097,7 @@
   {
     "id": "quote-list/low-comment/1/sibling",
     "source": "> - intro\n> %% c\n>  - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>intro\n      - tail\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>intro</li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "id": "quote-list/low-comment/1/quote",
@@ -1422,7 +1422,7 @@
   {
     "id": "list-quote/ordinary/2/sibling",
     "source": "- > intro\n  - tail\n",
-    "html": "<ul>\n  <li>\n    <blockquote><p>intro\n- tail</p></blockquote>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <blockquote><p>intro</p></blockquote>\n    <ul>\n      <li>tail</li>\n    </ul>\n  </li>\n</ul>"
   },
   {
     "id": "list-quote/ordinary/2/quote",
@@ -1447,7 +1447,7 @@
   {
     "id": "list-quote/ordinary/4/sibling",
     "source": "- > intro\n    - tail\n",
-    "html": "<ul>\n  <li>\n    <blockquote><p>intro\n- tail</p></blockquote>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <blockquote><p>intro</p></blockquote>\n    <ul>\n      <li>tail</li>\n    </ul>\n  </li>\n</ul>"
   },
   {
     "id": "list-quote/ordinary/4/quote",
@@ -1597,7 +1597,7 @@
   {
     "id": "list-quote/low-comment/1/sibling",
     "source": "- > intro\n%% c\n - tail\n",
-    "html": "<ul>\n  <li>\n    <blockquote><p>intro</p></blockquote>\n    - tail\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <blockquote><p>intro</p></blockquote>\n  </li>\n  <li>tail</li>\n</ul>"
   },
   {
     "id": "list-quote/low-comment/1/quote",
@@ -2062,7 +2062,7 @@
   {
     "id": "list-list/low-comment/0/text",
     "source": "- - intro\n%% c\ntail\n",
-    "html": "<ul>\n  <li>\n    <ul>\n      <li>intro\n        tail\n      </li>\n    </ul>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>intro</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>"
   },
   {
     "id": "list-list/low-comment/0/heading",
@@ -2087,7 +2087,7 @@
   {
     "id": "list-list/low-comment/1/text",
     "source": "- - intro\n%% c\n tail\n",
-    "html": "<ul>\n  <li>\n    <ul>\n      <li>intro\n        tail\n      </li>\n    </ul>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>intro</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>"
   },
   {
     "id": "list-list/low-comment/1/heading",

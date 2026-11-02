@@ -34,6 +34,11 @@ final class BlockParseFrame
     public bool $noteHostedColonFences = false;
 
     /**
+     * An item, description or footnote body: a list marker opens a list here (PART 0 S3, carve#4860).
+     */
+    public bool $markerBody = false;
+
+    /**
      * Where THIS level's content begins on each source line, in bytes.
      *
      * @var array<int, int>

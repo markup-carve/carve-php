@@ -653,8 +653,9 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
         $absorbed = "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>tail</p>";
 
         return [
-            'at the dd body column, below the note floor' => [3, "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>"],
-            'one past the dd body column, still below the floor' => [4, "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>"],
+            // Below the note floor the marker closes the note and opens a list in the description (carve#4860).
+            'at the dd body column, below the note floor' => [3, "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>nested\ntail</li>\n    </ul>\n  </dd>\n</dl>"],
+            'one past the dd body column, still below the floor' => [4, "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>nested\ntail</li>\n    </ul>\n  </dd>\n</dl>"],
             'at the footnote body floor' => [5, $absorbed],
             'one past the floor' => [6, $absorbed],
             'two past the floor' => [7, $absorbed],
