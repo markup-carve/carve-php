@@ -17,6 +17,11 @@ use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
  */
 final class BlockContinuationScanner
 {
+    /**
+     * @var int
+     */
+    private const TASK_BOX_WIDTH = 4;
+
     private ?TrailingBlockStateScanner $trailingStateService = null;
 
     /**
@@ -1270,12 +1275,13 @@ final class BlockContinuationScanner
             $nextLine = $lines[$i];
             // The source marker column ends the nested item even when its
             // term is still open. The collected line has lost that column.
+            // A task marker's checkbox adds a stripped column pair: its bullet's content column ends the item too.
             if (
                 $run->pendingDefinitionTerm && $itemMarkerColumn !== null
                 && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($nextLine, " \t")) === 1
-                && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
+                && in_array(IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
                     $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
-                )) === $itemMarkerColumn
+                )), $baseIndent === self::TASK_BOX_WIDTH ? [$itemMarkerColumn, $itemMarkerColumn - self::TASK_BOX_WIDTH] : [$itemMarkerColumn], true)
             ) {
                 break;
             }
