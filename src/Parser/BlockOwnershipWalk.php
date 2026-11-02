@@ -740,7 +740,13 @@ final class BlockOwnershipWalk
     {
         $reader ??= $this->frames[$owner]->reader ?? $this->frames[$owner]->canon;
         $this->frames[$owner]->para = $form->kind === 'term' || $form->caption;
-        $this->frames[$owner]->last = $form->kind;
+        // An invisible line between siblings leaves the host's last form standing (carve#4716).
+        if (
+            $form->kind !== 'leaf' || ((!str_starts_with($this->m['rest'], '%%') || str_starts_with($this->m['rest'], '%%%')) && !($this->isDefinition)($this->m['rest'])
+            && !($this->frames[$owner]->kind === 'doc' && preg_match('/^\*\[[A-Za-z0-9]+\]: +(?![ \t]*$)/', $this->m['rest']) === 1))
+        ) {
+            $this->frames[$owner]->last = $form->kind;
+        }
         $this->frames[$owner]->tableLine = $form->table ? $this->at : null;
         if ($form->kind === 'term') {
             $this->frames[$owner]->termCut = $col - $canon;

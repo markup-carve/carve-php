@@ -10073,7 +10073,7 @@
   },
   {
     "source": "- a\n  - b\n  +\n  text\n [r]: /url\n- b\n\nSee [r][], [^n].\n",
-    "html": "<ul>\n  <li>a\n    <ul>\n      <li>b\n        text\n      </li>\n    </ul>\n  </li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<p>See <a href=\"/url\">r</a>, [^n].</p>"
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>b\n        text\n      </li>\n    </ul>\n  </li>\n  <li>b</li>\n</ul>\n<p>See <a href=\"/url\">r</a>, [^n].</p>"
   },
   {
     "source": "- a\n  - b\n  +\n  text\n  [r]: /url\n\nSee [r][], [^n].\n",
@@ -10241,7 +10241,7 @@
   },
   {
     "source": "- a\n  - b\n  +\n  `x`\n [r]: /url\n- b\n\nSee [r][], [^n].\n",
-    "html": "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <code>x</code>\n      </li>\n    </ul>\n  </li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<p>See <a href=\"/url\">r</a>, [^n].</p>"
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <code>x</code>\n      </li>\n    </ul>\n  </li>\n  <li>b</li>\n</ul>\n<p>See <a href=\"/url\">r</a>, [^n].</p>"
   },
   {
     "source": "- a\n  - b\n  +\n  `x`\n  [r]: /url\n\nSee [r][], [^n].\n",

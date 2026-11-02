@@ -71,14 +71,12 @@ class AColumnZeroCommentEndsADescriptionBodyTest extends TestCase
     }
 
     /**
-     * The next block may be another definition list. The fold used to keep both
-     * entries in ONE `dl`, which is the loudest spelling of the same defect: the
-     * comment did not merely fail to end the body, it merged two lists.
+     * The next entry stays in the list: an invisible line between siblings is skipped (carve#4716).
      */
-    public function testItEndsTheListBeforeAFollowingDefinitionList(): void
+    public function testItLeavesAFollowingEntryInTheList(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<dl>\n  <dt>t2</dt>\n  <dd>d2</dd>\n</dl>",
+            "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n  <dt>t2</dt>\n  <dd>d2</dd>\n</dl>",
             $this->html(":: t\n:  d\n%% c\n:: t2\n:  d2\n"),
         );
     }

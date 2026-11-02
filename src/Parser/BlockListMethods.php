@@ -214,7 +214,8 @@ trait BlockListMethods
             $next < $count
             && (IndentationHelper::getLeadingColumns($lines[$next]) !== 0
                 || $this->listParser->parseListItemMarker($lines[$next]) !== null
-                || $this->isContinuationMarker($lines[$next]))
+                || $this->isContinuationMarker($lines[$next])
+                || str_contains('%[*{', $lines[$next][0]))
         ) {
             return null;
         }
@@ -306,7 +307,8 @@ trait BlockListMethods
             $next < $count
             && (IndentationHelper::getLeadingColumns($lines[$next]) !== 0
                 || $this->listParser->parseListItemMarker($lines[$next]) !== null
-                || $this->isContinuationMarker($lines[$next]))
+                || $this->isContinuationMarker($lines[$next])
+                || str_contains('%[*{', $lines[$next][0]))
         ) {
             return null;
         }
@@ -383,7 +385,8 @@ trait BlockListMethods
             $next < $count
             && (IndentationHelper::getLeadingColumns($lines[$next]) !== 0
                 || $this->listParser->parseListItemMarker($lines[$next]) !== null
-                || $this->isContinuationMarker($lines[$next]))
+                || $this->isContinuationMarker($lines[$next])
+                || str_contains('%[*{', $lines[$next][0]))
         ) {
             return null;
         }
@@ -456,7 +459,8 @@ trait BlockListMethods
             $next < $count
             && (IndentationHelper::getLeadingColumns($lines[$next]) !== 0
                 || $this->listParser->parseListItemMarker($lines[$next]) !== null
-                || $this->isContinuationMarker($lines[$next]))
+                || $this->isContinuationMarker($lines[$next])
+                || str_contains('%[*{', $lines[$next][0]))
         ) {
             if ($i < $count && str_starts_with($lines[$next], '- ')) {
                 return $this->tryParsePlainLooseList($parent, $lines, $start);
@@ -534,7 +538,8 @@ trait BlockListMethods
             $next < $count
             && (IndentationHelper::getLeadingColumns($lines[$next]) !== 0
                 || $this->listParser->parseListItemMarker($lines[$next]) !== null
-                || $this->isContinuationMarker($lines[$next]))
+                || $this->isContinuationMarker($lines[$next])
+                || str_contains('%[*{', $lines[$next][0]))
         ) {
             return null;
         }

@@ -46,6 +46,26 @@
       "cases": [
         "fences-350b56897079"
       ]
+    },
+    {
+      "ticket": "markup-carve/carve#4716",
+      "cause": "the pinned pack predates carve#4766; the engine skips every invisible line between siblings, as the current model does",
+      "cases": [
+        "ownership-31696bef6f5e",
+        "ownership-aec21029593f",
+        "ownership-fed027499f76",
+        "lazy-21cb87fd7067",
+        "lazy-fc49faf4b6f8",
+        "fences-12567203d079",
+        "fences-a46060654787",
+        "plus-a0f7cf7091d8",
+        "attributes-039947672a58",
+        "roundtrip-2ca215ed4cc3",
+        "roundtrip-600b6e265ced",
+        "roundtrip-95c287319027",
+        "roundtrip-e3b6651f99d3",
+        "roundtrip-ef2690538ca4"
+      ]
     }
   ]
 }

@@ -497,6 +497,7 @@ final class ReferenceStage
                         || (!$opensItem && $referenceNestedListAbove && $this->partsTwoLists($lines, $i, $kept, $quotePrefix, null, $referenceListAbove))
                     ) {
                         if (!str_starts_with($definition[1], '^')) {
+                            $this->writeHardListBoundary($opensItem, $line, $kept, $i, $quotePrefix, $fenceCloser, $outdent);
                             $this->context->markdownSourceLines[count($kept)] = $i - count($continued);
                             $head = strpos($line, '[' . $definition[1] . ']:');
                             $kept[] = $continued === [] || $head === false
@@ -640,6 +641,42 @@ final class ReferenceStage
         $this->inlineContext->authoredReferenceLabelKeys = $authoredDefinitions;
 
         return $kept;
+    }
+
+    /**
+     * An invisible line no longer parts two lists (carve#4716), so a hard boundary does.
+     *
+     * @param bool $opensItem
+     * @param string $line
+     * @param array<string> $kept
+     * @param int $index
+     * @param string $quotePrefix
+     * @param string|null $fenceCloser
+     * @param int $outdent
+     */
+    private function writeHardListBoundary(
+        bool $opensItem,
+        string $line,
+        array &$kept,
+        int $index,
+        string $quotePrefix,
+        ?string &$fenceCloser,
+        int &$outdent,
+    ): void {
+        if ($opensItem || strpos($line, '[') !== strlen($quotePrefix)) {
+            return;
+        }
+        if ($fenceCloser !== null) {
+            $this->context->markdownSourceLines[count($kept)] = $index;
+            $kept[] = $fenceCloser;
+            $outdent = strspn($fenceCloser, ' ');
+            $fenceCloser = null;
+        }
+        for ($blank = 0; $blank < 2; $blank++) {
+            $this->context->hardReferenceSeparators[count($kept)] = true;
+            $this->context->markdownSourceLines[count($kept)] = $index;
+            $kept[] = $quotePrefix;
+        }
     }
 
     /**

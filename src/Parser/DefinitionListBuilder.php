@@ -544,10 +544,14 @@ final class DefinitionListBuilder
             );
             $termHasOwnColumn = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($termSourceLine, " \t")) === 1;
             $closedByComment = false;
+            $i = $this->skipInvisibleBeforeEntry($parent, $dl, $lines, $i, $count, BlockGrammar::DEFINITION_BODY_PATTERN);
             while ($i < $count) {
-                if ($closedByComment) {
+                $next = $this->skipInvisibleBeforeEntry($parent, $dl, $lines, $i, $count, BlockGrammar::DEFINITION_BODY_PATTERN);
+                if ($closedByComment && $next === $i && !$this->entryFollows($lines, $i, $count, BlockGrammar::DEFINITION_BODY_PATTERN)) {
                     break;
                 }
+                $i = $next;
+                $closedByComment = false;
                 $m = $this->definitionBodyAt($lines, $i, $count, $termHasOwnColumn, $termColumn, $parent instanceof Footnote);
                 if ($m === null) {
                     break;
@@ -569,9 +573,11 @@ final class DefinitionListBuilder
             // the first entry and started a second `<dl>` for the next
             // (carve#839). The outer condition re-tests the same line, and the
             // term loop above always consumes it, so this cannot spin.
-            if ($closedByComment) {
+            $next = $this->skipInvisibleBeforeEntry($parent, $dl, $lines, $i, $count, BlockGrammar::DEFINITION_TERM_PATTERN . 's');
+            if ($closedByComment && $next === $i && !$this->entryFollows($lines, $i, $count, BlockGrammar::DEFINITION_TERM_PATTERN . 's')) {
                 break;
             }
+            $i = $next;
             if ($i < $count && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $lines[$i])) {
                 continue;
             }
@@ -610,6 +616,111 @@ final class DefinitionListBuilder
         $parent->appendChild($dl);
 
         return $i - $start;
+    }
+
+    /**
+     * Past a run of invisible lines when the entry `$pattern` names follows it (carve#4716).
+     *
+     * Between siblings every invisible line is skipped, so the run reads as if it
+     * were not there. Its comments stay with the entry above; its definitions
+     * still define.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Node\Block\DefinitionList $dl
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     * @param string $pattern
+     */
+    private function skipInvisibleBeforeEntry(Node $parent, DefinitionList $dl, array &$lines, int $i, int $count, string $pattern): int
+    {
+        $holder = new Document();
+        $blanks = 0;
+        $end = $i;
+        $at = $i;
+        while ($at < $count) {
+            $line = $lines[$at];
+            if (IndentationHelper::isBlankLine($line)) {
+                $blanks++;
+                $at++;
+
+                continue;
+            }
+            $trimmed = ltrim($line, " \t");
+            $consumed = str_starts_with($trimmed, '%%')
+                ? $this->tryParseFencedComment($holder, $lines, $at) ?? $this->tryParseComment($holder, [$trimmed], 0)
+                : null;
+            if (
+                $consumed === null && !$this->isDocumentAbbreviation($parent, $trimmed)
+                && (!$this->isReferenceDefinitionLine($trimmed) || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) === 1)
+            ) {
+                break;
+            }
+            $at += $consumed ?? 1;
+            $end = $at;
+        }
+        if ($end === $i || $blanks >= 3 || $at >= $count || preg_match($pattern, ltrim($lines[$at], " \t")) !== 1) {
+            return $i;
+        }
+
+        $lines[$at] = ltrim($lines[$at], " \t");
+        $run = [];
+        $map = [];
+        for ($k = $i; $k < $end; $k++) {
+            $line = ltrim($lines[$k], " \t");
+            if ($this->isDocumentAbbreviation($parent, $line)) {
+                if ($this->state->session->discoveringDefinitions && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(.*)$/D', $line, $abbr) === 1) {
+                    $this->state->session->abbreviations[$abbr[1]] = rtrim($abbr[2], " \t");
+                    $this->state->session->abbreviationDefinitions[] = ['abbr' => $abbr[1], 'expansion' => rtrim($abbr[2], " \t")];
+                    $this->state->session->discoveredAbbreviationLines[$this->sourceLineFor($k)] = true;
+                }
+                $line = '%%';
+            }
+            $run[] = $line;
+            $map[] = $this->sourceLineFor($k);
+        }
+        $children = $dl->getChildren();
+        $last = $children[count($children) - 1] ?? null;
+        if ($last instanceof DefinitionDescription) {
+            $this->parseBlocks($last, $run, 0, $map);
+
+            return $at;
+        }
+        $holder = new Document();
+        $this->parseBlocks($holder, $run, 0, $map);
+        foreach ($holder->getChildren() as $node) {
+            // A term holds a line comment only; a comment span cannot be written inside it.
+            if ($node instanceof Comment && $last !== null && $node->getFenceLength() === null && !$node->isDelimited()) {
+                $last->appendChild($node);
+            } else {
+                $parent->appendChild($node);
+            }
+        }
+
+        return $at;
+    }
+
+    /**
+     * Whether the next non-blank line is the entry `$pattern` names, under the N1a blank limit.
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     * @param string $pattern
+     */
+    private function entryFollows(array $lines, int $i, int $count, string $pattern): bool
+    {
+        $at = $i;
+        while ($at < $count && $at - $i < 3 && IndentationHelper::isBlankLine($lines[$at])) {
+            $at++;
+        }
+
+        return $at < $count && $at - $i < 3 && preg_match($pattern, ltrim($lines[$at], " \t")) === 1;
+    }
+
+    private function isDocumentAbbreviation(Node $parent, string $line): bool
+    {
+        return $parent instanceof Document && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $line) === 1;
     }
 
     /**
