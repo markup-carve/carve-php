@@ -6908,7 +6908,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected static function lastCharacter(string $text): string
     {
-        return preg_match('/.\z/su', $text, $last) === 1 ? $last[0] : substr($text, -1);
+        if ($text === '') {
+            return '';
+        }
+        // A pattern over the whole text would make each inline's boundary check linear in its host.
+        $length = strlen($text);
+        $start = $length - 1;
+        $floor = max(0, $length - 4);
+        while ($start > $floor && (ord($text[$start]) & 0xC0) === 0x80) {
+            $start--;
+        }
+        $last = substr($text, $start);
+
+        return preg_match('//u', $last) === 1 ? $last : substr($text, -1);
     }
 
     protected function firstBoundary(?Node $node): string

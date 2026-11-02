@@ -1657,6 +1657,38 @@ class CarveCorpusTest extends TestCase
      * @var array<string, array{reason: string, html: string}>
      */
     protected const AHEAD_OF_PIN = [
+        '11-fenced-code-11' => [
+            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
+            'html' => "<pre><code class=\"language-js\">code\n</code></pre>\n",
+        ],
+        '11-fenced-code-12' => [
+            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
+            'html' => "<pre><code class=\"language-php\">code\n</code></pre>\n",
+        ],
+        '258-code-fence-metadata-slots-must-be-a-space-too-4' => [
+            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
+            'html' => "<pre><code class=\"language-js\">x\n</code></pre>\n",
+        ],
+        '258-code-fence-metadata-slots-must-be-a-space-too-5' => [
+            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
+            'html' => "<pre><code class=\"language-js\">x\n</code></pre>\n",
+        ],
+        '258-code-fence-metadata-slots-must-be-a-space-too-6' => [
+            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
+            'html' => "<pre><code class=\"language-js\">x\n</code></pre>\n",
+        ],
+        '258-code-fence-metadata-slots-must-be-a-space-too-7' => [
+            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
+            'html' => "<pre><code class=\"language-js\">x\n</code></pre>\n",
+        ],
+        '258-code-fence-metadata-slots-must-be-a-space-too-8' => [
+            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
+            'html' => "<pre><code class=\"language-js\">x\n</code></pre>\n",
+        ],
+        '258-code-fence-metadata-slots-must-be-a-space-too-9' => [
+            'reason' => 'carve#4807: the fence keeps its language and drops invalid metadata',
+            'html' => "<pre><code class=\"language-js\">x\n</code></pre>\n",
+        ],
         '704-a-non-ascii-letter-does-not-block-a-bare-delimiter' => [
             'reason' => 'carve#4806: the alnum guard reads Unicode letters and numbers',
             'html' => "<p>é*x* y and a*x* y\ny *x*é and y *x*a</p>\n",

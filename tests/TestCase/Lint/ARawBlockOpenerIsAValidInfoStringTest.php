@@ -53,9 +53,9 @@ class ARawBlockOpenerIsAValidInfoStringTest extends TestCase
                 "x\n\n   ```=1bad\n   y\n   ```\n",
                 ['fence-opener-fallback 3:4'],
             ],
-            'an invalid code fence info string still falls back' => [
+            'an invalid code fence info string recovers' => [
                 "x\n\n   ```js title=\"x\"\n   y\n   ```\n",
-                ['fence-opener-fallback 3:4'],
+                ['fence-title-syntax 3:4'],
             ],
         ];
     }

@@ -83,8 +83,6 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
     {
         $templates = [
             'info slot' => '```%sjs',
-            'header slot after a language' => '``` js%s"T"',
-            'label slot after a language and a header' => '``` js "T"%s[l]',
             'label slot with no language and no header' => '```%s[l]',
             'header slot with no language' => '```%s"T"',
             'label slot after a header with no language' => '``` "T"%s[l]',
@@ -396,6 +394,29 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
         $this->assertSame(1, substr_count($out, '<pre'));
     }
 
+    /**
+     * A language token already read keeps its block and drops the metadata (carve#4807).
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function recoveredCodeFenceOpenerProvider(): array
+    {
+        $rows = [];
+        foreach (['header slot after a language' => '``` js%s"T"', 'label slot after a language and a header' => '``` js "T"%s[l]'] as $slot => $template) {
+            foreach (self::NON_SPACE_RUNS as $runName => $run) {
+                $rows["{$slot}, {$runName}"] = [sprintf($template, $run)];
+            }
+        }
+
+        return $rows;
+    }
+
+    #[DataProvider('recoveredCodeFenceOpenerProvider')]
+    public function testANonSpaceRunAfterALanguageDropsTheMetadata(string $opener): void
+    {
+        $this->assertSame("<pre><code class=\"language-js\">x\n</code></pre>", $this->html("{$opener}\nx\n```\n"));
+    }
+
     #[DataProvider('codeFenceOpenerProvider')]
     public function testANonSpaceRunLeavesTheCodeFenceLineAsProse(string $opener): void
     {
@@ -529,7 +550,8 @@ class FenceOpenerSlotsTakeASpaceTest extends TestCase
         $this->assertCount(12, self::trailingRunOpenerProvider());
         $this->assertCount(6, self::separatorRunOpenerProvider());
         $this->assertCount(4, self::emptyInfoSpacedOpenerProvider());
-        $this->assertCount(30, self::codeFenceOpenerProvider());
+        $this->assertCount(20, self::codeFenceOpenerProvider());
+        $this->assertCount(10, self::recoveredCodeFenceOpenerProvider());
         $this->assertCount(9, self::spacedCodeFenceOpenerProvider());
         $this->assertCount(2, self::runFilledOpenerSlotProvider());
         $this->assertCount(5, self::frontmatterOpenerProvider());
