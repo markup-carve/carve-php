@@ -9,10 +9,10 @@ use PHPUnit\Framework\TestCase;
 
 final class AQuotedAbbreviationLineStaysInItsParagraphTest extends TestCase
 {
-    public function testShallowerQuotedLineKeepsInnerParagraphOpen(): void
+    public function testShallowerQuotedLineDefinesAndClosesTheInnerParagraph(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<blockquote>\n  <blockquote><p>a\n*[C]: d</p></blockquote>\n</blockquote>\n"),
+            preg_replace('/\n\z/', '', "<blockquote>\n  <blockquote><p>a</p></blockquote>\n</blockquote>\n"),
             CarveConverter::create()->convert("> > a\n> *[C]: d\n"),
         );
     }

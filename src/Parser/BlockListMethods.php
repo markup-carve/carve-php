@@ -48,7 +48,8 @@ trait BlockListMethods
     private function endsAttachedParagraph(string $line): bool
     {
         return (str_starts_with($line, '%%') && !str_starts_with($line, '%%%'))
-            || $this->referenceDefinitionExtractor->matchDefinitionLine($line) !== null;
+            || $this->referenceDefinitionExtractor->matchDefinitionLine($line) !== null
+            || $this->isAbbreviationDefinitionLine($line);
     }
 
     /**

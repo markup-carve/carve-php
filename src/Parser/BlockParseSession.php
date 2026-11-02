@@ -235,12 +235,26 @@ final class BlockParseSession
     public array $abbreviations = [];
 
     /**
+     * The source line each term in `$abbreviations` was defined on.
+     *
+     * @var array<string, int>
+     */
+    public array $abbreviationLines = [];
+
+    /**
      * Every authored abbreviation definition line in source order, shadowed
      * ones kept.
      *
      * @var array<int, array<string, string>>
      */
     public array $abbreviationDefinitions = [];
+
+    /**
+     * The source line of each `$abbreviationDefinitions` entry, by index.
+     *
+     * @var array<int, int>
+     */
+    public array $abbreviationDefinitionLines = [];
 
     public bool $abbreviationsBeforeBody = false;
 
@@ -265,6 +279,13 @@ final class BlockParseSession
      * @var array<int, array{string, string}>
      */
     public array $siblingSkippedAbbreviations = [];
+
+    /**
+     * The 0-based source line each document child started on.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Node, int>|null
+     */
+    public ?WeakMap $documentChildStartLines = null;
 
     /**
      * The authoritative structural walk is currently collecting mixed
@@ -372,4 +393,31 @@ final class BlockParseSession
     public array $unattachedBlockAttributes = [];
 
     public ?SourceSpan $pendingAttributeSpan = null;
+
+    /**
+     * The later source line wins, even when a footnote body is parsed after the document.
+     */
+    public function defineAbbreviation(string $term, string $expansion, int $line): void
+    {
+        $this->abbreviationDefinitions[] = ['abbr' => $term, 'expansion' => $expansion];
+        $this->abbreviationDefinitionLines[] = $line;
+        if (($this->abbreviationLines[$term] ?? -1) > $line) {
+            return;
+        }
+        $this->abbreviations[$term] = $expansion;
+        $this->abbreviationLines[$term] = $line;
+    }
+
+    /**
+     * Every authored definition in source order, whatever order the bodies were parsed in.
+     *
+     * @return array<int, array<string, string>>
+     */
+    public function abbreviationDefinitionsInSourceOrder(): array
+    {
+        $order = array_keys($this->abbreviationDefinitions);
+        usort($order, fn (int $a, int $b): int => ($this->abbreviationDefinitionLines[$a] ?? 0) <=> ($this->abbreviationDefinitionLines[$b] ?? 0) ?: $a <=> $b);
+
+        return array_map(fn (int $k): array => $this->abbreviationDefinitions[$k], $order);
+    }
 }

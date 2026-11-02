@@ -85,7 +85,7 @@ class AQuotesInlineRunIsOneParagraphTest extends TestCase
             'a bullet after a hard break' => ['<blockquote>a<br>- x</blockquote>', "> a\\\n> - x\n"],
             // Idle under the quote marker, escaped without one, so this pins
             // the marker the run is written under.
-            'an opener the quote marker disarms' => ['<blockquote>*[b]: x</blockquote>', "> *[b]: x\n"],
+            'an abbreviation definition the quote marker does not disarm' => ['<blockquote>*[b]: x</blockquote>', "> \\*[b]: x\n"],
         ];
     }
 

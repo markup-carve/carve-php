@@ -53,7 +53,7 @@ final class DefinitionListBuilder
      * @param \Closure(array<string>, int, bool): (int) $commentOnlyParagraphEndCallback
      * @param \Closure(string): (bool) $isBlockAttributeLineCallback
      * @param \Closure(string, int): (bool) $isCommentLineOrFenceCallback
-     * @param \Closure(string, bool): (bool) $isInvisibleOrAttributeLineCallback
+     * @param \Closure(string): (bool) $isInvisibleOrAttributeLineCallback
      * @param \Closure(string): (bool) $isReferenceDefinitionLineCallback
      * @param \Closure(string): (string) $keptCommentDelimiterCallback
      * @param \Closure(array<string>, int): (int) $lastCommentFenceIndexCallback
@@ -549,8 +549,7 @@ final class DefinitionListBuilder
             $line = ltrim($lines[$k], " \t");
             if ($this->isDocumentAbbreviation($parent, $line)) {
                 if ($this->state->session->discoveringDefinitions && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(.*)$/D', $line, $abbr) === 1) {
-                    $this->state->session->abbreviations[$abbr[1]] = rtrim($abbr[2], " \t");
-                    $this->state->session->abbreviationDefinitions[] = ['abbr' => $abbr[1], 'expansion' => rtrim($abbr[2], " \t")];
+                    $this->state->session->defineAbbreviation($abbr[1], rtrim($abbr[2], " \t"), $this->sourceLineFor($k));
                     $this->state->session->discoveredAbbreviationLines[$this->sourceLineFor($k)] = true;
                     $this->state->session->siblingSkippedAbbreviations[$this->sourceLineFor($k)] = [$abbr[1], rtrim($abbr[2], " \t")];
                 }
@@ -600,7 +599,7 @@ final class DefinitionListBuilder
 
     private function isDocumentAbbreviation(Node $parent, string $line): bool
     {
-        return $parent instanceof Document && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $line) === 1;
+        return preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $line) === 1;
     }
 
     /**
@@ -2725,7 +2724,7 @@ final class DefinitionListBuilder
             }
             if (
                 $content !== ltrim($head, " \t")
-                && ($this->isInvisibleOrAttributeLine($content, false)
+                && ($this->isInvisibleOrAttributeLine($content)
                     || $this->startsNewBlock($content)
                     || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $content) === 1)
             ) {
@@ -2736,7 +2735,7 @@ final class DefinitionListBuilder
         return $head !== false
             && !$this->startsNewBlock($head)
             && ($this->getListParser)()->parseListItemMarker($head) === null
-            && !$this->isInvisibleOrAttributeLine($head, false);
+            && !$this->isInvisibleOrAttributeLine($head);
     }
 
     private static function firstBodyLine(string $entry): string|false
@@ -2808,9 +2807,9 @@ final class DefinitionListBuilder
         return ($this->isCommentLineOrFenceCallback)($line, $at);
     }
 
-    private function isInvisibleOrAttributeLine(string $line, bool $abbreviationCounts = true): bool
+    private function isInvisibleOrAttributeLine(string $line): bool
     {
-        return ($this->isInvisibleOrAttributeLineCallback)($line, $abbreviationCounts);
+        return ($this->isInvisibleOrAttributeLineCallback)($line);
     }
 
     private function isReferenceDefinitionLine(string $line): bool

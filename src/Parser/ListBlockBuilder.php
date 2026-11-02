@@ -888,7 +888,7 @@ final class ListBlockBuilder
             // Get indentation of current line
             $currentIndent = IndentationHelper::getLeadingColumns($currentLine);
             $sourceLine = $this->sourceLineFor($i);
-            $afterComments = $this->carryCommentRunToLastItem($list, $lines, $i, $count, $baseIndent, $lastItemContentIndent, $listInfo, $firstItem, $parent instanceof Document, $parent instanceof ListItem);
+            $afterComments = $this->carryCommentRunToLastItem($list, $lines, $i, $count, $baseIndent, $lastItemContentIndent, $listInfo, $firstItem, $parent instanceof ListItem);
             if ($afterComments !== null) {
                 $i = $afterComments;
 
@@ -3028,15 +3028,14 @@ final class ListBlockBuilder
      * @param int $count
      * @param int $baseIndent
      * @param array<string, mixed> $listInfo
-     * @param bool $atDocument Only the document owns an abbreviation definition.
      * @param bool $inItem
      */
-    private function commentRunBeforeSibling(array $lines, int $i, int $count, int $baseIndent, array $listInfo, bool $atDocument, bool $inItem): ?int
+    private function commentRunBeforeSibling(array $lines, int $i, int $count, int $baseIndent, array $listInfo, bool $inItem): ?int
     {
         $roles = $this->commentRoles($lines);
         if (
             ($roles[$i] ?? null) !== 'line' && ($roles[$i] ?? null) !== 'open'
-            && !$this->isListTransparentDefinition(ltrim($lines[$i], " \t"), $atDocument)
+            && !$this->isListTransparentDefinition(ltrim($lines[$i], " \t"))
             && $this->commentOnlyParagraphEnd($lines, $i, $inItem) === -1
         ) {
             return null;
@@ -3052,7 +3051,7 @@ final class ListBlockBuilder
             if (IndentationHelper::isBlankLine($lines[$k]) && !isset($roles[$k])) {
                 $blanks++;
                 $k++;
-            } elseif (isset($roles[$k]) || $this->isListTransparentDefinition(ltrim($lines[$k], " \t"), $atDocument)) {
+            } elseif (isset($roles[$k]) || $this->isListTransparentDefinition(ltrim($lines[$k], " \t"))) {
                 $j = ++$k;
             } else {
                 $paragraphEnd = $this->commentOnlyParagraphEnd($lines, $k, $inItem);
@@ -3136,7 +3135,7 @@ final class ListBlockBuilder
 
                 continue;
             }
-            if (str_starts_with($trimmed, '%%') || $this->isListTransparentDefinition($trimmed, false)) {
+            if (str_starts_with($trimmed, '%%') || $this->isListTransparentDefinition($trimmed)) {
                 $skipped = true;
 
                 continue;
@@ -3157,9 +3156,9 @@ final class ListBlockBuilder
      */
     private ?array $invisibleRunAnswer = null;
 
-    private function isListTransparentDefinition(string $line, bool $atDocument): bool
+    private function isListTransparentDefinition(string $line): bool
     {
-        return ($atDocument && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $line) === 1)
+        return (preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $line) === 1)
             || ($this->isFoldableInvisibleLine($line)
                 && ReferenceDefinitionExtractor::isDefinitionHead($line)
                 && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) !== 1);
@@ -3277,7 +3276,6 @@ final class ListBlockBuilder
      * @param int $contentIndent
      * @param array<string, mixed> $listInfo
      * @param bool $firstItem
-     * @param bool $atDocument
      * @param bool $inItem
      *
      * @return int|null The index after the run, or null when no run was carried.
@@ -3291,10 +3289,9 @@ final class ListBlockBuilder
         int $contentIndent,
         array $listInfo,
         bool $firstItem,
-        bool $atDocument,
         bool $inItem,
     ): ?int {
-        $end = $firstItem ? null : $this->commentRunBeforeSibling($lines, $i, $count, $baseIndent, $listInfo, $atDocument, $inItem);
+        $end = $firstItem ? null : $this->commentRunBeforeSibling($lines, $i, $count, $baseIndent, $listInfo, $inItem);
         $lastItem = $end === null ? null : ($this->getListParser)()->getLastListItem($list);
         if ($end === null || $lastItem === null) {
             return null;
@@ -3317,8 +3314,7 @@ final class ListBlockBuilder
             $line = ltrim($lines[$j], " \t");
             if (preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $line, $abbr) === 1) {
                 if ($this->state->session->discoveringDefinitions) {
-                    $this->state->session->abbreviations[$abbr[1]] = rtrim($abbr[2], " \t");
-                    $this->state->session->abbreviationDefinitions[] = ['abbr' => $abbr[1], 'expansion' => rtrim($abbr[2], " \t")];
+                    $this->state->session->defineAbbreviation($abbr[1], rtrim($abbr[2], " \t"), $this->sourceLineFor($j));
                     $this->state->session->discoveredAbbreviationLines[$this->sourceLineFor($j)] = true;
                     $this->state->session->siblingSkippedAbbreviations[$this->sourceLineFor($j)] = [$abbr[1], rtrim($abbr[2], " \t")];
                 }

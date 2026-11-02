@@ -188,10 +188,10 @@ class ADefinitionDescriptionDedentsByItsOwnContentColumnTest extends TestCase
      * here, and a guard that excluded every definition-shaped line would move
      * it.
      */
-    public function testAnAbbreviationShapeInsideADescriptionStillFolds(): void
+    public function testAnAbbreviationDefinitionInsideADescriptionDefines(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>*[H]: Hyper\nb</dd>\n</dl>\n<p>H</p>\n"),
+            preg_replace('/\n\z/', '', "<dl>\n  <dt>t</dt>\n  <dd>b</dd>\n</dl>\n<p><abbr title=\"Hyper\">H</abbr></p>\n"),
             $this->html(":: t\n:  *[H]: Hyper\n    b\n\nH\n"),
         );
     }

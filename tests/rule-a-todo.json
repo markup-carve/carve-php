@@ -4242,10 +4242,6 @@
             "ticket": "carve-php#4243"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\ALineUnderAFoldedMarkerIsReadInTheBodyTest::testTheLineIsReadInTheBody with data set \"control: abbreviation stays text\"",
-            "ticket": "carve#4865"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\TaskItemContinuationMarkerTest::testTaskItemMarkerShape with data set #523",
             "ticket": "carve-php#4243"
         },

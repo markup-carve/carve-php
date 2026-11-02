@@ -79,13 +79,13 @@ class DefinitionContinuationColumnsTest extends TestCase
         }
     }
 
-    public function testAbbreviationShapeIsItemProseNotADefinition(): void
+    public function testAnAbbreviationDefinitionClosesTheBelowContentColumnPathToo(): void
     {
         foreach ([['- a', 2], ['1. a', 3], ['. a', 2]] as [$head, $contentColumn]) {
             $html = $this->converter->convert(
                 $this->source($head, $contentColumn, '*[A]: expansion', 1),
             );
-            $this->assertTrue($this->tailIsInside($html), $html);
+            $this->assertFalse($this->tailIsInside($html), $html);
         }
     }
 }

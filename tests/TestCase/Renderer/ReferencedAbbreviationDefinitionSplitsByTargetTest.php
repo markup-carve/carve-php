@@ -309,10 +309,10 @@ class ReferencedAbbreviationDefinitionSplitsByTargetTest extends TestCase
      * (markup-carve/carve#601), so its line is kept - through a container that
      * rewrites the start of every line it holds.
      */
-    public function testADefinitionInsideAContainerKeepsItsLineIntact(): void
+    public function testADefinitionInsideAContainerDefinesForTheDocument(): void
     {
         $this->assertSame(
-            "\"*[HTML]: Hyper Text\"\n\nHTML\n",
+            "\"\"\n\nHTML (Hyper Text)\n",
             $this->plain("> *[HTML]: Hyper Text\n\nHTML\n"),
         );
     }
