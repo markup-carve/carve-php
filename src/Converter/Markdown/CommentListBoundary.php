@@ -44,7 +44,7 @@ final class CommentListBoundary
                 $consumed += strlen($opened[0]);
                 $start = self::boundaryAfter($lines, $prefixes, $fenced, $item, $indent, self::contentColumn(substr($lines[$item], 0, $consumed)));
                 if ($start !== null) {
-                    $starts[$start] = $indent;
+                    $starts[$start] = min($indent, $starts[$start] ?? $indent);
                 }
                 if ($consumed >= strlen($lines[$item])) {
                     break;
@@ -61,6 +61,9 @@ final class CommentListBoundary
      * @param array<int, string> $lines
      * @param array<int, int> $prefixes
      * @param array<int, true> $fenced
+     * @param int $contentCol
+     * @param int $indent
+     * @param int $item
      */
     private static function boundaryAfter(array $lines, array $prefixes, array $fenced, int $item, int $indent, int $contentCol): ?int
     {
@@ -78,7 +81,7 @@ final class CommentListBoundary
                 continue;
             }
             $lineIndent = self::width(substr($line, 0, strspn($line, " \t")));
-            $end = !isset($fenced[$at]) && $lineIndent >= $indent && $lineIndent < $contentCol ? self::commentEnd($lines, $at) : null;
+            $end = !isset($fenced[$at]) && $lineIndent < $contentCol ? self::commentEnd($lines, $at) : null;
             if ($end !== null) {
                 $comment = true;
                 $previousBlank = false;
@@ -113,7 +116,13 @@ final class CommentListBoundary
     {
         $fenced = [];
         $open = null;
+        $inComment = false;
         foreach ($lines as $at => $line) {
+            if ($open === null && ($inComment || str_contains($line, '<!--'))) {
+                $inComment = !str_contains(substr($line, $inComment ? 0 : (int)strpos($line, '<!--') + 4), '-->');
+
+                continue;
+            }
             $run = preg_match('/^[ \t]*(`{3,}|~{3,})(.*)$/', $line, $match) === 1 ? $match : null;
             if ($open !== null) {
                 $fenced[$at] = true;
