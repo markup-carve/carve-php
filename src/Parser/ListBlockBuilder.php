@@ -736,7 +736,7 @@ final class ListBlockBuilder
             // Get indentation of current line
             $currentIndent = IndentationHelper::getLeadingColumns($currentLine);
             $sourceLine = $this->sourceLineFor($i);
-            $afterComments = $this->carryCommentRunToLastItem($list, $lines, $i, $count, $baseIndent, $listInfo, $firstItem);
+            $afterComments = $this->carryCommentRunToLastItem($list, $lines, $i, $count, $baseIndent, $listInfo, $firstItem, $parent instanceof Document);
             if ($afterComments !== null) {
                 $i = $afterComments;
 
@@ -2856,40 +2856,36 @@ final class ListBlockBuilder
      * @param int $count
      * @param int $baseIndent
      * @param array<string, mixed> $listInfo
+     * @param bool $atDocument Only the document owns an abbreviation definition.
      */
-    private function commentRunBeforeSibling(array $lines, int $i, int $count, int $baseIndent, array $listInfo): ?int
+    private function commentRunBeforeSibling(array $lines, int $i, int $count, int $baseIndent, array $listInfo, bool $atDocument): ?int
     {
         $roles = $this->commentRoles($lines);
         if (
             ($roles[$i] ?? null) !== 'line' && ($roles[$i] ?? null) !== 'open'
-            && !$this->isListTransparentDefinition(ltrim($lines[$i], " \t"))
+            && !$this->isListTransparentDefinition(ltrim($lines[$i], " \t"), $atDocument)
         ) {
             return null;
         }
+        // Blanks count across the run, which reads as if it were not there (carve#4716, N1a).
+        $blanks = 0;
+        for ($b = $i - 1; $b >= 0 && IndentationHelper::isBlankLine($lines[$b]); $b--) {
+            $blanks++;
+        }
         $j = $i;
-        $hasDefinition = false;
-        while (
-            $j < $count && (isset($roles[$j]) || $this->isListTransparentDefinition(ltrim($lines[$j], " \t")))
-        ) {
-            $hasDefinition = $hasDefinition || $this->isListTransparentDefinition(ltrim($lines[$j], " \t"));
-            $j++;
-        }
-        $k = $j;
-        while ($k < $count && IndentationHelper::isBlankLine($lines[$k])) {
-            $k++;
-        }
-        if ($hasDefinition) {
-            $prior = $this->sourceLineFor($i) - 1;
-            $priorBody = $prior >= 0
-                ? ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$prior] ?? '')
-                : '';
-            $priorBody = str_replace($this->state->session->plusLetter, '+', $priorBody);
-            if (
-                !$this->leadBottomIsContinuationMarker(ltrim($priorBody, " \t"))
-                || ($i > 0 && IndentationHelper::isBlankLine($lines[$i - 1]))
-            ) {
-                return null;
+        $k = $i;
+        while ($k < $count) {
+            if (IndentationHelper::isBlankLine($lines[$k]) && !isset($roles[$k])) {
+                $blanks++;
+                $k++;
+            } elseif (isset($roles[$k]) || $this->isListTransparentDefinition(ltrim($lines[$k], " \t"), $atDocument)) {
+                $j = ++$k;
+            } else {
+                break;
             }
+        }
+        if ($blanks >= 3) {
+            return null;
         }
         if ($k >= $count || IndentationHelper::getLeadingColumns($lines[$k]) !== $baseIndent) {
             return null;
@@ -2899,9 +2895,9 @@ final class ListBlockBuilder
         return $info !== null && ($this->getListParser)()->itemMatchesList($listInfo, $info) ? $j : null;
     }
 
-    private function isListTransparentDefinition(string $line): bool
+    private function isListTransparentDefinition(string $line, bool $atDocument): bool
     {
-        return preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $line) === 1
+        return ($atDocument && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $line) === 1)
             || ($this->isFoldableInvisibleLine($line)
                 && ReferenceDefinitionExtractor::isDefinitionHead($line)
                 && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) !== 1);
@@ -3018,12 +3014,21 @@ final class ListBlockBuilder
      * @param int $baseIndent
      * @param array<string, mixed> $listInfo
      * @param bool $firstItem
+     * @param bool $atDocument
      *
      * @return int|null The index after the run, or null when no run was carried.
      */
-    private function carryCommentRunToLastItem(ListBlock $list, array $lines, int $i, int $count, int $baseIndent, array $listInfo, bool $firstItem): ?int
-    {
-        $end = $firstItem ? null : $this->commentRunBeforeSibling($lines, $i, $count, $baseIndent, $listInfo);
+    private function carryCommentRunToLastItem(
+        ListBlock $list,
+        array $lines,
+        int $i,
+        int $count,
+        int $baseIndent,
+        array $listInfo,
+        bool $firstItem,
+        bool $atDocument,
+    ): ?int {
+        $end = $firstItem ? null : $this->commentRunBeforeSibling($lines, $i, $count, $baseIndent, $listInfo, $atDocument);
         $lastItem = $end === null ? null : ($this->getListParser)()->getLastListItem($list);
         if ($end === null || $lastItem === null) {
             return null;

@@ -59,18 +59,11 @@ class CommentUnderDefinitionTermTest extends TestCase
         );
     }
 
-    public function testACommentBetweenTermAndDefinitionEndsTheEntry(): void
+    public function testACommentBetweenTermAndDefinitionIsSkipped(): void
     {
-        // Pinned as MEASURED, not as assumed: carve-rs and carve-js do this too,
-        // so the comment ends the entry and the `:  d` line is left as prose in
-        // all three engines.
-        //
-        // Arguably a comment should be transparent here - it renders nothing,
-        // and an author would expect it to annotate the entry rather than break
-        // it. But three engines agree, so changing it is a language decision and
-        // not this fix's business. Recorded so the agreement is deliberate.
+        // carve#4716: an invisible line between description siblings is skipped.
         $this->assertSame(
-            '<dl> <dt>t</dt> </dl> <p>: d</p>',
+            '<dl> <dt>t</dt> <dd>d</dd> </dl>',
             $this->squash($this->converter->convert(":: t\n%%\n:  d\n")),
         );
     }

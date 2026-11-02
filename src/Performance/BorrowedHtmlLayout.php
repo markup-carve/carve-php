@@ -261,6 +261,21 @@ final class BorrowedHtmlLayout
     }
 
     /**
+     * A definition after a list may sit between its siblings (carve#4716): the full parser decides.
+     *
+     * @param list<string> $lines
+     * @param int $at
+     */
+    private function definitionFollows(array $lines, int $at): bool
+    {
+        while (isset($lines[$at]) && trim($lines[$at]) === '') {
+            $at++;
+        }
+
+        return isset($lines[$at]) && $lines[$at][0] === '[' && preg_match('/^\[[^\]]+\]:/', $lines[$at]) === 1;
+    }
+
+    /**
      * @param list<string> $lines
      * @param array<string, array{href: string, title: ?string}> $definitions
      * @param array<string, int> $stats
@@ -386,7 +401,7 @@ final class BorrowedHtmlLayout
             }
             if (str_starts_with($line, '- ') || str_starts_with($line, '* ')) {
                 $rendered = $this->renderList($lines, $i, 0, $depth, $definitions, $stats);
-                if ($rendered === null) {
+                if ($rendered === null || $this->definitionFollows($lines, $rendered['next'])) {
                     return null;
                 }
                 $i = $rendered['next'];
@@ -404,7 +419,7 @@ final class BorrowedHtmlLayout
             }
             if ($this->decimalListItem($line) !== null) {
                 $rendered = $this->renderOrderedList($lines, $i, $depth, $definitions, $stats);
-                if ($rendered === null) {
+                if ($rendered === null || $this->definitionFollows($lines, $rendered['next'])) {
                     return null;
                 }
                 $i = $rendered['next'];

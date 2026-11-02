@@ -52,6 +52,6 @@
     {
         "source": "- a\n  - x\n\n  [r]: /u\n\n  - y\n\n[t][r]",
         "nativeHtml": "<ul>\n<li>\n<p>a</p>\n<ul>\n<li>x</li>\n</ul>\n<ul>\n<li>y</li>\n</ul>\n</li>\n</ul>\n<p><a href=\"/u\">t</a></p>\n",
-        "html": "<ul>\n  <li><p>a</p>\n    <ul>\n      <li>x</li>\n    </ul>\n    <ul>\n      <li>y</li>\n    </ul>\n  </li>\n</ul>\n<p><a href=\"/u\">t</a></p>\n"
+        "html": "<ul>\n  <li>a\n    <ul>\n      <li><p>x</p></li>\n      <li><p>y</p></li>\n    </ul>\n  </li>\n</ul>\n<p><a href=\"/u\">t</a></p>\n"
     }
 ]

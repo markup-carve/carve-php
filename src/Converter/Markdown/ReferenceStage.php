@@ -497,6 +497,20 @@ final class ReferenceStage
                         || (!$opensItem && $referenceNestedListAbove && $this->partsTwoLists($lines, $i, $kept, $quotePrefix, null, $referenceListAbove))
                     ) {
                         if (!str_starts_with($definition[1], '^')) {
+                            // An invisible line no longer parts two lists (carve#4716), so a hard boundary does.
+                            if (!$opensItem && strpos($line, '[') === strlen($quotePrefix)) {
+                                if ($fenceCloser !== null) {
+                                    $this->context->markdownSourceLines[count($kept)] = $i;
+                                    $kept[] = $fenceCloser;
+                                    $outdent = strspn($fenceCloser, ' ');
+                                    $fenceCloser = null;
+                                }
+                                for ($blank = 0; $blank < 2; $blank++) {
+                                    $this->context->hardReferenceSeparators[count($kept)] = true;
+                                    $this->context->markdownSourceLines[count($kept)] = $i;
+                                    $kept[] = $quotePrefix;
+                                }
+                            }
                             $this->context->markdownSourceLines[count($kept)] = $i - count($continued);
                             $head = strpos($line, '[' . $definition[1] . ']:');
                             $kept[] = $continued === [] || $head === false

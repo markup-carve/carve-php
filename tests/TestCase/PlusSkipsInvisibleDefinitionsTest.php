@@ -62,15 +62,13 @@ HTML;
         self::assertSame((new CarveConverter())->convert($source), (new CarveConverter())->convert($formatted));
     }
 
-    public function testAReferenceDefinitionWithoutAPlusKeepsTheListBoundary(): void
+    public function testAReferenceDefinitionWithoutAPlusIsSkippedToo(): void
     {
         $source = "- a\n\n[r]: /u\n\n- b\n";
         $expected = <<<'HTML'
 <ul>
-  <li>a</li>
-</ul>
-<ul>
-  <li>b</li>
+  <li><p>a</p></li>
+  <li><p>b</p></li>
 </ul>
 HTML;
 
