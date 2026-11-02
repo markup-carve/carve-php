@@ -28,6 +28,11 @@ use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
  */
 final class ListBlockBuilder
 {
+    /**
+     * @var int
+     */
+    private const COMMENT_ROLES_CACHE_SIZE = 16;
+
     private WrappedAttributeRunScanner $wrappedAttributeScanner;
 
     /**
@@ -3105,9 +3110,12 @@ final class ListBlockBuilder
     }
 
     /**
-     * @var array{lines: array<string>, roles: array<int, string>}|null
+     * One entry per line set in use: a nested parse must not evict the outer list's roles,
+     * or every outer line recomputes them (PART 9 section 9 LINEAR TIME, carve-php#4456).
+     *
+     * @var array<int, array{lines: array<string>, roles: array<int, string>}>
      */
-    private ?array $commentRolesCache = null;
+    private array $commentRolesCache = [];
 
     /**
      * Comment role per line (PART 9 section 28): `line` for a `%%` line or a
@@ -3119,8 +3127,10 @@ final class ListBlockBuilder
      */
     private function commentRoles(array $lines): array
     {
-        if ($this->commentRolesCache !== null && $this->commentRolesCache['lines'] === $lines) {
-            return $this->commentRolesCache['roles'];
+        foreach ($this->commentRolesCache as $cached) {
+            if ($cached['lines'] === $lines) {
+                return $cached['roles'];
+            }
         }
         $widths = [];
         foreach ($lines as $j => $line) {
@@ -3149,7 +3159,10 @@ final class ListBlockBuilder
                 $roles[$j] = 'line';
             }
         }
-        $this->commentRolesCache = ['lines' => $lines, 'roles' => $roles];
+        if (count($this->commentRolesCache) >= self::COMMENT_ROLES_CACHE_SIZE) {
+            array_shift($this->commentRolesCache);
+        }
+        $this->commentRolesCache[] = ['lines' => $lines, 'roles' => $roles];
 
         return $roles;
     }

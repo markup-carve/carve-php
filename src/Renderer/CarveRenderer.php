@@ -1673,7 +1673,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $parentList = $item->getParent();
                         $separator = $parentList instanceof ListBlock && $parentList->isTight() ? "\n" : "\n\n";
                         $parts[array_key_last($parts)] .= $separator . $rendered;
-                    } elseif ($listSeparated && $parts !== [] && $descriptionBody) {
+                    } elseif ($listSeparated && $parts !== [] && $descriptionBody && !$block instanceof DefinitionList) {
                         // Each sibling list takes the next body column. Move
                         // item continuations and nested children with its opener.
                         $descriptionListOffset++;
@@ -2790,6 +2790,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // definition hoisted out of the item renders nothing and still sits
             // in the children.
             $previousEmitted = null;
+            $previousBeforeComments = null;
             // Whether a sub-list has already opened at this item's content
             // column - the condition under which a later bullet written there
             // joins it instead of opening below the paragraph above it. See
@@ -2835,10 +2836,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
                     continue;
                 }
+                if (!$previousEmitted instanceof Comment) {
+                    $previousBeforeComments = $previousEmitted;
+                }
                 if ($out !== '') {
                     $out .= "\n";
                 }
-                if (!$separated && $previousEmitted instanceof DefinitionList && $child instanceof DefinitionList) {
+                // A comment parts no siblings (carve#4716): the boundary is read past it.
+                $boundaryPeer = $previousEmitted instanceof Comment ? $previousBeforeComments : $previousEmitted;
+                if (!$separated && $boundaryPeer instanceof DefinitionList && $child instanceof DefinitionList) {
                     $out .= $this->listBoundary() . $rendered;
                     $previous = $child;
                     $previousEmitted = $child;
@@ -2860,7 +2866,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     continue;
                 }
                 if ($child instanceof ListBlock) {
-                    if (!$separated && $previousEmitted !== null && $this->adjacentBlocksMerge($previousEmitted, $child)) {
+                    if (!$separated && $boundaryPeer !== null && $this->adjacentBlocksMerge($boundaryPeer, $child)) {
                         $out .= $this->listBoundary() . $rendered;
                     } elseif (
                         !$separated
@@ -2970,7 +2976,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // closes the sub-list; a comment spells no paragraph for the
                 // blank to part, so the item stays tight and the HTML is
                 // unchanged (carve-php#1948).
-                if (!$separated && $previousEmitted instanceof ListBlock && $this->isALineComment($child)) {
+                if (
+                    !$separated
+                    && ($previousEmitted instanceof ListBlock || $previousEmitted instanceof DefinitionList)
+                    && $this->isALineComment($child)
+                ) {
                     // Before a paragraph that blank would loosen the list (PART 9 §17 L1b).
                     $after = $next;
                     for ($k = $index + 2; $after instanceof Comment; $k++) {

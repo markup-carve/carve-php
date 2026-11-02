@@ -547,8 +547,8 @@ final class BlockOwnershipWalk
             if (
                 $missed && !$plusFollower && $this->m['rest'] !== '' && !$afterSoftLeaf
                 && ($inner->kind !== 'fence' || $inner->family === 'code'
-                    || ($inner->family === 'comment' && $reached === 0 && $innerIndex === 2
-                        && in_array($this->frames[1]->kind, ['quote', 'dd', 'note'], true)
+                    || ($inner->family === 'comment' && $reached < $innerIndex - 1
+                        && in_array($this->frames[$innerIndex - 1]->kind, ['quote', 'dd', 'note'], true)
                         && $this->commentCloserBeforeBlank($at, $inner)))
                 && (!$this->frames[$topIndex]->para || ($termRefuses && $next?->kind !== 'item') || ($form->kind === 'leaf' && $form->interrupts
                     && (($this->isDefinition)($this->m['rest']) || $this->abbreviationMissesFrames($reached, $form))))
