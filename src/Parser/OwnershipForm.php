@@ -27,6 +27,7 @@ final class OwnershipForm
      * @param bool $task
      * @param bool $caption
      * @param bool $table
+     * @param bool $breakLine A marker-shaped line under a paragraph that renders as a spaced thematic break.
      */
     public function __construct(
         public readonly string $kind,
@@ -42,6 +43,7 @@ final class OwnershipForm
         public readonly bool $task = false,
         public readonly bool $caption = false,
         public readonly bool $table = false,
+        public readonly bool $breakLine = false,
     ) {
     }
 }
