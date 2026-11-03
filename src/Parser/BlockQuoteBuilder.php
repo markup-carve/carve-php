@@ -453,8 +453,10 @@ final class BlockQuoteBuilder
                     }
                     $this->trackAttachedParagraph($attached, $attachedRawLineMap, $lazyState, $lines, $codeCloserMemo);
                     $attachedParagraphOpen = $lazyState['paragraphOpen'];
-                    $innerLines[] = '';
-                    $innerLineMap[] = -1;
+                    if (!self::leavesFenceOpen($lazyState['mode'], $lazyState['hosts']['fence'] ?? null)) {
+                        $innerLines[] = '';
+                        $innerLineMap[] = -1;
+                    }
                 }
 
                 continue;
@@ -1096,13 +1098,14 @@ final class BlockQuoteBuilder
                     $this->trackAttachedParagraph($attachedInnerLines, $attachedLineMap, $lazyState, $lines, $codeCloserMemo);
                 }
                 // The last attached block can leave a paragraph open for O3.
-                if ($attached !== [] && !$lazyState['paragraphOpen']) {
+                // A blank inside a fence it left open would be payload, not a separator.
+                if ($attached !== [] && !$lazyState['paragraphOpen'] && !self::leavesFenceOpen($lazyState['mode'], $lazyState['hosts']['fence'] ?? null)) {
                     $innerLines[] = '';
                     $innerLineMap[] = -1;
                 }
                 $i = $end;
             }
-        } else {
+        } elseif (!self::leavesFenceOpen($lazyState['mode'], $lazyState['hosts']['fence'] ?? null)) {
             $innerLines[] = '';
             $innerLineMap[] = -1;
         }
@@ -2173,6 +2176,17 @@ final class BlockQuoteBuilder
 
             return;
         }
+    }
+
+    /**
+     * Whether the attached block left a code fence open, where a separator blank would be payload.
+     *
+     * @param \MarkupCarve\Carve\Parser\BlockQuoteLazyMode $mode
+     * @param array<string, mixed>|null $hostFence
+     */
+    private static function leavesFenceOpen(BlockQuoteLazyMode $mode, ?array $hostFence): bool
+    {
+        return $mode === BlockQuoteLazyMode::CodeFence || $hostFence !== null;
     }
 
     private function advanceTrailingState(TrailingBlockState $state, string $line, bool $atContentColumn = false): TrailingBlockState
