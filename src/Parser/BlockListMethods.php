@@ -23,6 +23,13 @@ trait BlockListMethods
     private ?array $invisibleDescriptionRun = null;
 
     /**
+     * The span a description or note lead opened: its line set, opener line and body column.
+     *
+     * @var array{lines: int, index: int, column: int, owner: int}|null
+     */
+    private ?array $itemLeadSpan = null;
+
+    /**
      * @param \MarkupCarve\Carve\Node\Block\ListBlock $list
      * @param array<string> $lines
      * @param int $i
@@ -847,10 +854,22 @@ trait BlockListMethods
      * @param string $line The collected line, already dedented.
      * @param array<string> $lines The raw line set, for the closer lookahead.
      * @param int $index The RAW index this line sits at.
+     * @param int|null $hostColumn The collector's content column: a line there that misses the body of a lead span opened at it ends that span.
      */
-    protected function advanceItemCommentFence(?int $openLength, string $line, array $lines, int $index): ?int
+    protected function advanceItemCommentFence(?int $openLength, string $line, array $lines, int $index, ?int $hostColumn = null): ?int
     {
         $info = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line);
+        $leadSpan = $this->itemLeadSpan;
+        $raw = $lines[$index] ?? $line;
+        if (
+            $openLength !== null && $leadSpan !== null && $leadSpan['column'] === $hostColumn
+            && $leadSpan['lines'] === count($lines) && $leadSpan['index'] < $index
+            && !IndentationHelper::isBlankLine($raw) && !str_starts_with(ltrim($raw, " \t"), '%%')
+            && IndentationHelper::getLeadingColumns($raw) < $leadSpan['owner']
+        ) {
+            // A line that misses the body ends the span (PART 0 S1, carve#4998).
+            $openLength = null;
+        }
         if ($openLength !== null) {
             // The walk opened a span here: a line that missed the open span's owner ended it (PART 0 S1).
             if ($info !== null && isset($this->state->source->fenceOpenerLines[$this->sourceLineFor($index)])) {
@@ -858,6 +877,16 @@ trait BlockListMethods
             }
 
             return $this->fencedBlockParser->isFencedCommentCloserAnyColumn($line, $openLength) ? null : $openLength;
+        }
+        $this->itemLeadSpan = null;
+        if ($info !== null && preg_match('/^(?:\[\^[^\]]+\]:|:) +(?=%)/', ltrim($raw, " \t"), $lead) === 1) {
+            $column = IndentationHelper::getLeadingColumns($raw);
+            $this->itemLeadSpan = [
+                'lines' => count($lines),
+                'index' => $index,
+                'column' => $column,
+                'owner' => $column + ($lead[0][0] === '[' ? BlockGrammar::FOOTNOTE_BODY_COLUMN : strlen($lead[0])),
+            ];
         }
 
         return $info === null ? null : $info['length'];

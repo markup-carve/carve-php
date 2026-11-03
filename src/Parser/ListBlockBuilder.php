@@ -57,7 +57,7 @@ final class ListBlockBuilder
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\FencedBlockParser $getFencedBlockParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\ListParser $getListParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\TableParser $getTableParser
-     * @param \Closure(int|null, string, array<string>, int): (?int) $advanceItemCommentFenceCallback
+     * @param \Closure(int|null, string, array<string>, int, int|null=): (?int) $advanceItemCommentFenceCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Block\ListBlock, array<string>, int, int, int, int): (?int) $attachListContinuationCallback
      * @param \Closure(array<string>, int): (int) $blockQuoteExtentThroughDefinitionCallback
      * @param \Closure(string): (?string) $blockQuoteLineContentCallback
@@ -1782,9 +1782,14 @@ final class ListBlockBuilder
                     $subMarkerComment = $markerContent;
                 }
             }
+            $openBeforeSub = $subOpenCommentLength;
             $subOpenCommentLength = $subTrailingState->hasLiteralDiv()
                 ? null
-                : $this->advanceItemCommentFence($subOpenCommentLength, $subMarkerComment ?? $subLine, $lines, $i);
+                : $this->advanceItemCommentFence($subOpenCommentLength, $subMarkerComment ?? $subLine, $lines, $i, $lineIndent >= $subIndent ? $subIndent : null);
+            // A line that missed a lead span's body ended it (PART 0 S1): it is no payload.
+            if ($openBeforeSub !== null && $subOpenCommentLength === null && !($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($subLine, $openBeforeSub)) {
+                $inSubCommentSpan = false;
+            }
             $subSpanClosedHere = $inSubCommentSpan && $subOpenCommentLength === null;
             $subLowSpanCloser = $subSpanClosedHere && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent;
             $subWasOpenParagraph = $subTrailingState->openParagraph;
@@ -2751,10 +2756,11 @@ final class ListBlockBuilder
      * @param string $line The collected line, already dedented.
      * @param array<string> $lines The raw line set, for the closer lookahead.
      * @param int $index The RAW index this line sits at.
+     * @param int|null $hostColumn
      */
-    private function advanceItemCommentFence(?int $openLength, string $line, array $lines, int $index): ?int
+    private function advanceItemCommentFence(?int $openLength, string $line, array $lines, int $index, ?int $hostColumn = null): ?int
     {
-        return ($this->advanceItemCommentFenceCallback)($openLength, $line, $lines, $index);
+        return ($this->advanceItemCommentFenceCallback)($openLength, $line, $lines, $index, $hostColumn);
     }
 
     private function advanceTrailingState(TrailingBlockState $state, string $line, bool $atContentColumn = false): TrailingBlockState
