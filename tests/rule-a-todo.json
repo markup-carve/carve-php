@@ -2326,22 +2326,6 @@
             "ticket": "carve#4863"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\ADefinitionTermPastAnOpenDescriptionColumnTest::testTwoFoldedMarkersKeepTheNestedSeparatorAligned",
-            "ticket": "carve-php#4243"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\ADefinitionTermPastAnOpenDescriptionColumnTest::testAParagraphAfterTwoFoldedMarkersReturnsToTheDescription",
-            "ticket": "carve-php#4243"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\ADefinitionTermPastAnOpenDescriptionColumnTest::testAnotherTermAtTheSameColumnStaysInTheNestedList with data set \"adjacent\"",
-            "ticket": "carve-php#4243"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\ADefinitionTermPastAnOpenDescriptionColumnTest::testAnotherTermAtTheSameColumnStaysInTheNestedList with data set \"blank\"",
-            "ticket": "carve-php#4243"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\TaskItemContinuationMarkerTest::testTaskItemMarkerShape with data set #523",
             "ticket": "carve-php#4243"
         },
