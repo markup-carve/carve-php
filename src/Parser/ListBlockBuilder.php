@@ -36,6 +36,11 @@ final class ListBlockBuilder
      */
     private const COMMENT_ROLES_CACHE_SIZE = 16;
 
+    /**
+     * @var string
+     */
+    private const SPAN_LEAD_MARKERS = '/^[ \t]*(?:(?:[-*]|[0-9]+[.)]|::?)[ \t]+)*/';
+
     private WrappedAttributeRunScanner $wrappedAttributeScanner;
 
     /**
@@ -437,9 +442,28 @@ final class ListBlockBuilder
             if (!$lastItemHadBlankAfter) {
                 $collected = array_values($subLines);
                 $lastBlank = null;
+                // A blank inside a span that closes later is payload, not a separator (carve#5030).
+                $span = null;
+                $lastRunAt = [];
                 foreach ($collected as $k => $subLine) {
+                    $lastRunAt[strspn(trim($subLine, " \t"), '%')] = $k;
+                }
+                foreach ($collected as $k => $subLine) {
+                    if ($span !== null) {
+                        if (strspn(trim($subLine, " \t"), '%') === $span) {
+                            $span = null;
+                        }
+
+                        continue;
+                    }
                     if (IndentationHelper::isBlankLine($subLine)) {
                         $lastBlank = $k;
+
+                        continue;
+                    }
+                    $run = strspn((string)preg_replace(self::SPAN_LEAD_MARKERS, '', $subLine), '%');
+                    if ($run >= 3 && ($lastRunAt[$run] ?? -1) > $k) {
+                        $span = $run;
                     }
                 }
                 $tail = $lastBlank === null ? [] : array_slice($collected, $lastBlank + 1);
@@ -499,21 +523,24 @@ final class ListBlockBuilder
             return false;
         }
         // Spans pair in parse order: an opener closes at the next line of its own run.
+        // A span opened after an item or description marker pairs too (carve#5030).
         $runs = [];
-        for ($k = $head + 1; $k < $at; $k++) {
+        $spanRuns = [];
+        for ($k = $head; $k < $at; $k++) {
             $runs[$k] = strspn(ltrim($lines[$k], " \t"), '%');
+            $spanRuns[$k] = strspn((string)preg_replace(self::SPAN_LEAD_MARKERS, '', $lines[$k]), '%');
         }
         $next = [];
         $seen = [];
-        for ($k = $at - 1; $k > $head; $k--) {
-            if ($runs[$k] >= 3) {
-                $next[$k] = $seen[$runs[$k]] ?? null;
-                $seen[$runs[$k]] = $k;
+        for ($k = $at - 1; $k >= $head; $k--) {
+            if ($spanRuns[$k] >= 3) {
+                $next[$k] = $seen[$spanRuns[$k]] ?? null;
+                $seen[$spanRuns[$k]] = $k;
             }
         }
         $inSpan = [];
-        for ($k = $head + 1; $k < $at; $k++) {
-            if ($runs[$k] >= 3 && $next[$k] !== null) {
+        for ($k = $head; $k < $at; $k++) {
+            if ($spanRuns[$k] >= 3 && $next[$k] !== null) {
                 for ($end = $next[$k]; $k <= $end; $k++) {
                     $inSpan[$k] = true;
                 }

@@ -247,17 +247,17 @@ class ACommentSpanOnADescriptionOrNoteMarkerLineClosesBelowItsColumnTest extends
                 </section>
                 HTML,
             ],
-            'a blank in a description span before a sibling loosens the list' => [
+            'a blank in a closed description span before a sibling keeps the list tight' => [
                 "- a\n  :: u\n  : %%%\n\n  %%%\n- c\n",
                 <<<'HTML'
                 <ul>
-                  <li><p>a</p>
+                  <li>a
                     <dl>
                       <dt>u</dt>
                       <dd></dd>
                     </dl>
                   </li>
-                  <li><p>c</p></li>
+                  <li>c</li>
                 </ul>
                 HTML,
             ],

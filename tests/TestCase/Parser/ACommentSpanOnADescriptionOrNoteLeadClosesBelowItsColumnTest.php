@@ -79,9 +79,9 @@ class ACommentSpanOnADescriptionOrNoteLeadClosesBelowItsColumnTest extends TestC
                 "- a\n  [^n]: %%%\n  zz\nc\n",
                 "<ul>\n  <li>a\n    zz\nc\n  </li>\n</ul>",
             ],
-            'a blank right before the closer still separates the items' => [
+            'a blank right before the closer is interior too' => [
                 "- a\n  :: u\n  : %%%\n\n  %%%\n- c\n",
-                "<ul>\n  <li><p>a</p>\n    <dl>\n      <dt>u</dt>\n      <dd></dd>\n    </dl>\n  </li>\n  <li><p>c</p></li>\n</ul>",
+                "<ul>\n  <li>a\n    <dl>\n      <dt>u</dt>\n      <dd></dd>\n    </dl>\n  </li>\n  <li>c</li>\n</ul>",
             ],
             'a blank before payload inside the span does not' => [
                 "- a\n  :: u\n  : %%%\n\n    n\n  %%%\n- c\n",
