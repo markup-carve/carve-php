@@ -3658,11 +3658,13 @@ class BlockParser
                 // before any extent is measured. The `+` is consumed
                 // either way, so the enclosing parse resumes on the
                 // line the marker did not take.
+                $isNoteSibling = static fn (string $a): bool => (bool)preg_match('/^\[\^[^\]]+\]:/', $a);
                 [$i, $attached, $attachedLineMap] = $this->continuationsMapper()->attachedFlushLeftBlock(
                     $lines,
                     $i,
-                    $count,
-                    static fn (string $a): bool => (bool)preg_match('/^\[\^[^\]]+\]:/', $a),
+                    // A sibling note right after the marker ends the block, though the walk skipped it as prelude.
+                    $i < $count && $isNoteSibling($lines[$i]) ? $i : $count,
+                    $isNoteSibling,
                     invisibleLineEndsParagraph: true,
                 );
                 if ($attached !== []) {
