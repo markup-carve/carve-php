@@ -1215,7 +1215,8 @@ final class DefinitionListBuilder
             $nestedItem = $b->bodyNestedState->nestedListSeen
                 && !$b->bodyNestedState->nestedIsQuote
                 && ($nestedColumn === $l->contColumn - $b->continuationColumn
-                    || $b->bodyFrames->hasListContentColumn($l->contColumn - $b->continuationColumn));
+                    || $b->bodyFrames->hasListContentColumn($l->contColumn - $b->continuationColumn)
+                    || $this->markerChainHoldsColumn($b, $l->contColumn - $b->continuationColumn));
         }
         $wrappedRun = ($l->contColumn === $b->continuationColumn || $nestedItem) && $b->bodyState->fence === null
             ? $this->wrappedAttributeScanner->length($b->lines, $b->i, $b->count)
@@ -1227,6 +1228,9 @@ final class DefinitionListBuilder
                     : ltrim($b->lines[$b->i], " \t");
                 $b->bodyMap[] = $this->sourceLineFor($b->i);
             }
+            // The run's closer entry opens no paragraph for a later line to fold into.
+            $b->lastOpenerKey = array_key_last($b->body);
+            $b->lastOpenerIsParagraph = false;
             if ($nestedItem) {
                 $b->nestedAttributeClosed = true;
             }
@@ -1235,6 +1239,47 @@ final class DefinitionListBuilder
         }
 
         return null;
+    }
+
+    /**
+     * Whether an inner item of the latest marker chain (`- - a`) is still open at `$column`.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param int $column
+     */
+    private function markerChainHoldsColumn(DescriptionBodyCollection $b, int $column): bool
+    {
+        if ($b->markerChainCursor > count($b->body)) {
+            $b->markerChainCursor = 0;
+            $b->markerChainColumns = [];
+            $b->markerChainFloor = PHP_INT_MAX;
+        }
+        // Incremental: each entry's first line is read once.
+        for ($n = count($b->body); $b->markerChainCursor < $n; $b->markerChainCursor++) {
+            $head = explode("\n", $b->body[$b->markerChainCursor] ?? '', 2)[0];
+            if (IndentationHelper::isBlankLine($head)) {
+                continue;
+            }
+            $indent = IndentationHelper::getLeadingColumns($head);
+            $content = ltrim($head, " \t");
+            $marker = ($this->getListParser)()->parseListItemMarker($content);
+            if ($marker === null) {
+                $b->markerChainFloor = min($b->markerChainFloor, $indent);
+
+                continue;
+            }
+            $b->markerChainColumns = [];
+            $b->markerChainFloor = PHP_INT_MAX;
+            $chainColumn = $indent;
+            for ($depth = 0; $marker !== null && $depth < 64; $depth++) {
+                $chainColumn += $this->continuations->listMarkerWidth($content, $marker);
+                $b->markerChainColumns[] = $chainColumn;
+                $content = ltrim($marker['content'], " \t");
+                $marker = ($this->getListParser)()->parseListItemMarker($content);
+            }
+        }
+
+        return $b->markerChainFloor >= $column && in_array($column, $b->markerChainColumns, true);
     }
 
     /**

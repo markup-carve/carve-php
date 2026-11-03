@@ -85,6 +85,20 @@ final class DescriptionBodyCollection
 
     public bool $nestedAttributeClosed = false;
 
+    public int $markerChainCursor = 0;
+
+    /**
+     * Content columns of the latest body entry's marker chain (`- - a`).
+     *
+     * @var array<int>
+     */
+    public array $markerChainColumns = [];
+
+    /**
+     * Lowest column of a non-marker line since that entry.
+     */
+    public int $markerChainFloor = PHP_INT_MAX;
+
     public bool $nestedLazyParagraph = false;
 
     public bool $retainedBelowComment = false;
