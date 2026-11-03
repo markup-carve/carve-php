@@ -1910,26 +1910,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MarkdownEscapingNarrowsOnTheLineTest::testATextHashIsDecidedByItsPosition with data set \"a closed heading trailing run\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MarkdownEscapingNarrowsOnTheLineTest::testATextHashIsDecidedByItsPosition with data set \"a paragraph continuation line\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MarkdownEscapingNarrowsOnTheLineTest::testATextHashIsDecidedByItsPosition with data set \"a run of six, the longest that opens one\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MarkdownEscapingNarrowsOnTheLineTest::testATextHashIsDecidedByItsPosition with data set \"only the first hash of the run\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MarkdownEscapingNarrowsOnTheLineTest::testATextHashIsDecidedByItsPosition with data set \"past a container prefix\"",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MarkdownRendererTest::testLiteralDescriptionLineInsideDefinitionListIsEscaped",
             "ticket": "carve-php#4244"
         },
