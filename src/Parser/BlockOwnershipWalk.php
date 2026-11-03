@@ -26,6 +26,11 @@ final class BlockOwnershipWalk
     /**
      * @var string
      */
+    private const THEMATIC_BREAK = '/^(-{3,}|\*{3,}|_{3,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/D';
+
+    /**
+     * @var string
+     */
     private const QUOTE = '/^>(?: ([^\r\n]*)|[ \t]*$)/D';
 
     /**
@@ -602,6 +607,9 @@ final class BlockOwnershipWalk
                 $this->frames[$t]->para = false;
                 $this->frames[$t]->last = 'block';
             } elseif ($form->kind === 'text') {
+                if (!$plusFollower) {
+                    $this->noteOpener($o, $form, $this->frames[$o]->col);
+                }
                 $owner = $this->frames[$o];
                 $this->lead($owner->para || !$closedColumn || $plusFollower
                     ? max($this->m['col'] - $owner->cut, $owner->canon)
@@ -1013,10 +1021,12 @@ final class BlockOwnershipWalk
             'colon' => 'colon fence',
             'fence' => $form->family === 'comment' ? null : ($form->lineBlock ? 'line block' : 'code fence'),
             'term' => 'definition term',
+            // A spaced break reads as a marker here, but renders as a thematic break (carve#5003).
+            'item' => preg_match(self::THEMATIC_BREAK, $rest) === 1 ? 'thematic break' : null,
+            'text' => $form->breakLine ? 'thematic break' : null,
             'leaf' => match (true) {
                 preg_match('/^#{1,6} +(?=.*[^ \t\n\r])/', $rest) === 1 => 'heading',
-                // carve-js does not report the spaced spellings yet (markup-carve/carve#5003).
-                preg_match('/^(-{3,}|\*{3,}|_{3,})[ \t]*$/D', $rest) === 1 => 'thematic break',
+                preg_match(self::THEMATIC_BREAK, $rest) === 1 => 'thematic break',
                 $form->table && $rest[0] === '|' => 'table row',
                 default => null,
             },
@@ -1173,7 +1183,7 @@ final class BlockOwnershipWalk
         if ($marker !== null) {
             // A term is not a paragraph a marker continues.
             if ($owner->para && !in_array($owner->kind, self::BODY_FRAMES, true)) {
-                return new OwnershipForm(kind: 'text', interrupts: false);
+                return new OwnershipForm(kind: 'text', interrupts: false, breakLine: preg_match(self::THEMATIC_BREAK, $rest) === 1);
             }
             $head = $this->listParser->markerHeadAt($rest);
             if ($head !== null) {
@@ -1206,7 +1216,7 @@ final class BlockOwnershipWalk
         }
         if (
             preg_match('/^(#{1,6}) +(?=.*[^ \t\n\r])(.*)$/D', $rest) === 1
-            || preg_match('/^(-{3,}|\*{3,}|_{3,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$/D', $rest) === 1
+            || preg_match(self::THEMATIC_BREAK, $rest) === 1
             || ($this->isDefinition)($rest)
             || (preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1)
             || ($rest[0] === '{' && (($this->isAttributeLine)($rest) || $this->opensWrappedAttribute($rest, $owner)))
