@@ -392,6 +392,22 @@ final class BlockOwnershipWalk
                 $missed = false;
                 $reached = $innerIndex;
             }
+            // So does one in a line block's open `%%%` span, where an exact-width run closes it (PART 9 §28, carve#4994).
+            if (
+                $missed && $inner->kind === 'fence' && $inner->lineBlock && $inner->span !== null && $inner->span[0] === '%'
+                && str_starts_with($this->m['rest'], '%%') && !$this->quoteBelow($reached)
+            ) {
+                if (preg_match('/^(%{3,})/', $this->m['rest'], $c) === 1 && strlen($c[1]) === strlen($inner->span)) {
+                    $this->frames[$innerIndex]->span = null;
+                }
+                // Written at the block's column, so the collectors read it inside the span.
+                $result[] = $this->out . str_repeat(' ', $inner->canon) . $this->m['rest'];
+                if ($this->trace !== null) {
+                    $this->emit($at, 'S1', $this->ownerPath(), 'CARVE-P0-005', 'payload', ['cell' => 'B-' . $inner->family . '-keep']);
+                }
+
+                continue;
+            }
             $this->reach = $reached;
             // A comment closer below its host's column still closes the span (PART 9 §28).
             if (
@@ -1844,6 +1860,17 @@ final class BlockOwnershipWalk
         }
 
         return $col;
+    }
+
+    private function quoteBelow(int $reached): bool
+    {
+        for ($k = $reached + 1, $n = count($this->frames); $k < $n; $k++) {
+            if ($this->frames[$k]->kind === 'quote') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function quoteDepth(int $below): int

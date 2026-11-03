@@ -1687,6 +1687,18 @@ final class BlockQuoteBuilder
         if (!$readsBlocks || $state['mode'] !== BlockQuoteLazyMode::Content) {
             return;
         }
+        // A span on a list marker line is that item's, closed by its run at any column (PART 9 §28, carve#5026).
+        $at = ($this->getListParser)()->markerWalkOffset($inner, IndentationHelper::pastLeadingWhitespace($inner));
+        $span = $at === null ? null : ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn(substr($inner, $at));
+        if ($span !== null) {
+            $state['mode'] = BlockQuoteLazyMode::CommentFence;
+            $state['commentLength'] = $span['length'];
+            $state['commentHosted'] = true;
+            $state['paragraphOpen'] = false;
+            $this->leadSpan = ['lines' => count($sourceLines), 'index' => $sourceIndex, 'owner' => $at];
+
+            return;
+        }
         // A span on a description or note lead is that body's, so it leaves no paragraph (carve#4998).
         $lead = ltrim($inner, " \t");
         $above = ltrim(ContainerPrefix::afterLeadingQuoteMarkers(ltrim($sourceLines[$sourceIndex - 1] ?? '', " \t")), " \t");
