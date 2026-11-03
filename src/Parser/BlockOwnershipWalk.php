@@ -536,7 +536,7 @@ final class BlockOwnershipWalk
             $lonePlus = $plusFollower ? ($this->frames[$reached + 1] ?? null) : null;
             if (
                 $lonePlus !== null && $reached === count($this->frames) - 2 && $form->kind === 'text' && $this->m['rest'] !== ''
-                && ($lonePlus->kind === 'item' || (($lonePlus->kind === 'dd' || $lonePlus->kind === 'note') && $lonePlus->plus === $at - 1))
+                && ($lonePlus->kind === 'item' || $lonePlus->kind === 'quote' || (($lonePlus->kind === 'dd' || $lonePlus->kind === 'note') && $lonePlus->plus === $at - 1))
                 && !self::isPlus($this->m['rest'])
             ) {
                 $this->lead($lonePlus->markerCanon);
