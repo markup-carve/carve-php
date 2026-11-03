@@ -84,7 +84,9 @@ final class FragileConstructLinter
     private function overindentedOpener(string $source, array $opener): LintWarning
     {
         $past = $opener['authoredColumn'] - $opener['contentColumn'];
-        $at = ($this->lineStarts[$opener['line'] - 1] ?? 0) + $opener['column'] - 1;
+        // The walk's columns do not count a BOM; the codepoint index does.
+        $bom = $opener['line'] === 1 && ($this->cps[0] ?? '') === "\u{FEFF}" ? 1 : 0;
+        $at = ($this->lineStarts[$opener['line'] - 1] ?? 0) + $opener['column'] - 1 + $bom;
         $start = $this->bytes[$at] ?? strlen($source);
 
         return new LintWarning(

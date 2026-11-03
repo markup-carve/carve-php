@@ -62,6 +62,14 @@ final class FragileConstructLinterTest extends TestCase
         self::assertSame([2, 2, 5, 10], [$warnings[0]->line, $warnings[0]->column, $warnings[0]->start, $warnings[0]->end]);
     }
 
+    public function testABomShiftsNeitherColumnNorRange(): void
+    {
+        $source = "\u{FEFF}  # h\n";
+        $warnings = $this->findings('block-opener-overindented', $source);
+
+        self::assertSame([1, 3, '#'], [$warnings[0]->line, $warnings[0]->column, substr($source, $warnings[0]->start, $warnings[0]->end - $warnings[0]->start)]);
+    }
+
     /**
      * @return array<\MarkupCarve\Carve\Lint\LintWarning>
      */
