@@ -737,27 +737,56 @@ trait BlockColonMethods
 
     private function nearestItemMarkerOpensDiv(int $sourceLine): bool
     {
-        for ($line = $sourceLine - 1; $line >= 0; $line--) {
-            $source = $this->state->source->sourceLines[$line] ?? '';
-            $source = preg_replace('/^(?:[ \t]*>[ \t]?)+/', '', $source) ?? $source;
-            $source = ltrim($source, " \t");
-            if ($this->listParser->parseListItemMarker($source) !== null) {
-                if (preg_match('/^(?:[-+*]|\d+[.)])[ \t]+:{3,}(?:[ \t]|$)/', $source) !== 1) {
-                    return false;
+        $source = $this->state->source;
+        if ($source->itemMarkerLineIndex === null) {
+            $index = [];
+            $nearest = -1;
+            $last = $source->sourceLines === [] ? -1 : max(array_keys($source->sourceLines));
+            for ($line = 0; $line <= $last; $line++) {
+                if ($this->listParser->parseListItemMarker($this->unquotedSourceLine($line, true)) !== null) {
+                    $nearest = $line;
                 }
-                for ($next = $line + 1; $next <= $sourceLine; $next++) {
-                    $body = $this->state->source->sourceLines[$next] ?? '';
-                    $body = preg_replace('/^(?:[ \t]*>[ \t]?)+/', '', $body) ?? $body;
-                    if (trim($body) !== '') {
-                        return ($this->fencedBlockParser->parseDivFenceOpener(ltrim($body, " \t"))['className'] ?? null) !== '|';
-                    }
-                }
-
-                return true;
+                $index[$line] = $nearest;
             }
+            $source->itemMarkerLineIndex = $index;
+        }
+        if ($sourceLine <= 0) {
+            return false;
+        }
+        $index = $source->itemMarkerLineIndex;
+        $line = $index === [] ? -1 : $index[min($sourceLine - 1, count($index) - 1)];
+        if ($line < 0) {
+            return false;
+        }
+        if (preg_match('/^(?:[-+*]|\d+[.)])[ \t]+:{3,}(?:[ \t]|$)/', $this->unquotedSourceLine($line, true)) !== 1) {
+            return false;
+        }
+        if (!array_key_exists($line, $source->firstBodyLineAfterMarker)) {
+            $body = PHP_INT_MAX;
+            $count = count($index);
+            for ($next = $line + 1; $next < $count; $next++) {
+                if (trim($this->unquotedSourceLine($next, false)) !== '') {
+                    $body = $next;
+
+                    break;
+                }
+            }
+            $source->firstBodyLineAfterMarker[$line] = $body;
+        }
+        $body = $source->firstBodyLineAfterMarker[$line];
+        if ($body > $sourceLine) {
+            return true;
         }
 
-        return false;
+        return ($this->fencedBlockParser->parseDivFenceOpener(ltrim($this->unquotedSourceLine($body, false), " \t"))['className'] ?? null) !== '|';
+    }
+
+    private function unquotedSourceLine(int $line, bool $trimmed): string
+    {
+        $text = $this->state->source->sourceLines[$line] ?? '';
+        $text = preg_replace('/^(?:[ \t]*>[ \t]?)+/', '', $text) ?? $text;
+
+        return $trimmed ? ltrim($text, " \t") : $text;
     }
 
     /**

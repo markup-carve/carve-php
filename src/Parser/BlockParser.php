@@ -788,6 +788,7 @@ class BlockParser
             $this->decisionTrace = $walk->trace;
         }
         $this->state->source->sourceLines = array_replace($this->state->source->sourceLines, $lines);
+        $this->state->source->resetItemMarkerIndex();
         $this->state->source->lazyLines = $walk->lazyLines;
         $this->state->source->attachedPreludeLines = $walk->attachedPreludeLines;
         $this->state->source->lineBlockLazyLines = $walk->lineBlockLazyLines;
@@ -944,6 +945,7 @@ class BlockParser
             foreach (array_keys($walk->refusedPlus) as $refused) {
                 $this->state->source->sourceLines[$refused] = str_replace($plusLetter, '+', $this->state->source->sourceLines[$refused]);
             }
+            $this->state->source->resetItemMarkerIndex();
         }
 
         return $document;
@@ -5959,6 +5961,7 @@ class BlockParser
     {
         $source = new SourceLines($input, $this->state->source->originalSource);
         $this->state->source->sourceLines = $source->lines;
+        $this->state->source->resetItemMarkerIndex();
         $this->state->source->authoredLines = $source->lines;
         $this->state->source->normalizedSource = $source->normalized;
         $this->state->source->hasTableDelimiter = str_contains($source->normalized, '|');
