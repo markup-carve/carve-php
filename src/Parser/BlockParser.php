@@ -4610,8 +4610,15 @@ class BlockParser
                     continue;
                 }
                 // A description or note marker line opens a body, so a span on it is owned there (carve-php#4508).
-                $opener = $lead !== null || $scan->atBlockStart ? $this->markerFreeContent($lead[0] ?? $line) : $line;
+                $column = IndentationHelper::getLeadingColumns($part);
+                $isMarker = $this->listParser->parseListItemMarker($line) !== null;
+                // A marker line at or past an earlier marker's column opens an item there, so its span opens too.
+                $nestedMarker = $isMarker && $scan->markerColumn !== null && $column >= $scan->markerColumn;
+                $opener = $lead !== null || $scan->atBlockStart || $nestedMarker ? $this->markerFreeContent($lead[0] ?? $line) : $line;
                 $scan->atBlockStart = false;
+                if ($isMarker) {
+                    $scan->markerColumn = $column;
+                }
                 $code = $this->fencedBlockParser->parseCodeFenceOpener($opener);
                 if ($code !== null) {
                     $scan->openCode = ['char' => $code['char'], 'length' => $code['length']];

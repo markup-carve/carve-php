@@ -32,6 +32,11 @@ final class CollectedCommentSpan
     public bool $atBlockStart = true;
 
     /**
+     * The column of the last scanned list marker line, whose item a deeper marker line nests in.
+     */
+    public ?int $markerColumn = null;
+
+    /**
      * The scanned nonblank lines as `[column, opens an entry]`, with increasing columns.
      *
      * @var array<int, array{0: int, 1: bool}>
