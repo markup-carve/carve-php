@@ -9,13 +9,6 @@
       ]
     },
     {
-      "ticket": "markup-carve/carve-php#4254",
-      "cause": "untriaged day-one drift in the ownership family",
-      "cases": [
-        "ownership-2c66125f9d1c"
-      ]
-    },
-    {
       "ticket": "markup-carve/carve-php#4328",
       "cause": "remaining differences of the + port; listed in the PR body",
       "cases": [
