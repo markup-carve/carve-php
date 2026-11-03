@@ -1287,7 +1287,11 @@ final class BlockContinuationScanner
             // paragraph, so without this the arm below would end the run on the
             // attached block's own first body line.
             if (($trailingState->fence !== null) || $trailingState->hasOpenDiv()) {
-                return false;
+                // In an attached list it sits in an item, so a line at column 0 is past it (PART 0 S3).
+                return $kind === BlockGrammar::ATTACHED_SPANNING . ':list'
+                    && !IndentationHelper::isBlankLine($line)
+                    && IndentationHelper::getLeadingColumns($line) === 0
+                    && ($trailingState->fence !== null || !$trailingState->openParagraph);
             }
             // PAST IT WHEN IT LEFT NOTHING OPEN. A completed table, a heading
             // and a thematic break leave no paragraph, so whatever is under

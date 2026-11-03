@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A quote's + adds no separator line inside a fence its attached item left open (CARVE-P9-067). Expected HTML is the spec model's.
+ * A quote's + adds no separator line inside a fence its attached item left open, and a column-0 line ends that item's fence or div (CARVE-P9-067, PART 0 S3). Expected HTML is the spec model's.
  */
 final class AQuotePlusAddsNoLineToAnOpenFenceTest extends TestCase
 {
@@ -26,6 +26,10 @@ final class AQuotePlusAddsNoLineToAnOpenFenceTest extends TestCase
         yield 'indented follower stays payload' => ["> +\n- ``` js\n>   q\n", "<blockquote>\n  <ul>\n    <li>\n      <pre><code class=\"language-js\">q\n</code></pre>\n    </li>\n  </ul>\n</blockquote>"];
         yield 'sibling item after the fence' => ["> +\n- ``` js\n> - q\n", "<blockquote>\n  <ul>\n    <li>\n      <pre><code class=\"language-js\"></code></pre>\n    </li>\n    <li>q</li>\n  </ul>\n</blockquote>"];
         yield 'paragraph item keeps its separator' => ["> +\n- x\n> q\n", "<blockquote>\n  <ul>\n    <li>x</li>\n  </ul>\n  <p>q</p>\n</blockquote>"];
+        yield 'fence on a later item line' => ["> t\n+\n- x\n  ```\n> b\n", "<blockquote>\n  <p>t</p>\n  <ul>\n    <li>x\n      <pre><code></code></pre>\n    </li>\n  </ul>\n  <p>b</p>\n</blockquote>"];
+        yield 'closed fence on the marker line' => ["> t\n+\n- ```\n  c\n  ```\n> b\n", "<blockquote>\n  <p>t</p>\n  <ul>\n    <li>\n      <pre><code>c\n</code></pre>\n    </li>\n  </ul>\n  <p>b</p>\n</blockquote>"];
+        yield 'div on the marker line' => ["> +\n- ::: note\n> q\n", "<blockquote>\n  <ul>\n    <li>\n      <aside class=\"admonition note\" aria-label=\"Note\">\n\n      </aside>\n    </li>\n  </ul>\n  <p>q</p>\n</blockquote>"];
+        yield 'bare fence still takes the quoted line' => ["> +\n``` js\n> q\n", "<blockquote>\n  <pre><code class=\"language-js\">&gt; q\n</code></pre>\n</blockquote>"];
     }
 
     #[DataProvider('documents')]
