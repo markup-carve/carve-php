@@ -302,7 +302,8 @@ final class TrailingBlockStateScanner
                 return $state;
             }
             if (($this->getFencedBlockParser)()->isDivFenceCloser(BlockGrammar::subjectFrom($line, $at, $end), $state->divFenceLength)) {
-                $state->inDiv = false;
+                // A div opened inside this one takes the first closer, so this div stays open (PART 9 §10).
+                $state->inDiv = $state->divDepth > 1;
                 $state->literalDiv = false;
                 // The closer is consumed HERE rather than by the bare-run branch
                 // below, so the depth has to come back down here too. Left
