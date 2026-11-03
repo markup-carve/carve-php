@@ -12,8 +12,7 @@
       "ticket": "markup-carve/carve-php#4328",
       "cause": "remaining differences of the + port; listed in the PR body",
       "cases": [
-        "lazy-68fe7c68d81d",
-        "roundtrip-615415506b26"
+        "lazy-68fe7c68d81d"
       ]
     }
   ]
