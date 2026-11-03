@@ -307,6 +307,7 @@ final class ListBlockBuilder
      * @param bool $lastItemHadBlankAfter
      * @param array<string, array<string, list<string>|string>|bool|int|string> $listInfo
      * @param int|null $unclosedFenceBase
+     * @param bool $separated
      *
      * @return array{int, bool, int|null}
      */
@@ -322,11 +323,14 @@ final class ListBlockBuilder
         bool $lastItemHadBlankAfter,
         array $listInfo,
         ?int $unclosedFenceBase,
+        bool $separated,
     ): array {
         $currentLine = $lines[$i];
         $wasListTight = $list->isTight();
         if (
-            !$this->indentedContinuationOpensBlock($lines, $i, $baseIndent, $lastItemContentIndent)
+            // Content straight after a `+`-attached block has no blank before it, so it loosens nothing (PART 9 §17 L1).
+            $separated
+            && !$this->indentedContinuationOpensBlock($lines, $i, $baseIndent, $lastItemContentIndent)
             && preg_match('/^\^[ ]+\S/', ltrim($currentLine, " \t")) !== 1
             && !$this->continuationReachesNestedListContent($lastItem, $currentIndent)
             // A blank below a lead that renders nothing keeps the list tight (PART 9 §17 L1b, carve#4639).
@@ -1109,6 +1113,7 @@ final class ListBlockBuilder
                         $lastItemHadBlankAfter,
                         $listInfo,
                         $unclosedFenceBase,
+                        $lastItemHadBlankAfter || $indentedListMarker,
                     );
                     $attachedBlockFollowedByItemContent = false;
 

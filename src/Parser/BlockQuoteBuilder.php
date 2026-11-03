@@ -1129,7 +1129,9 @@ final class BlockQuoteBuilder
             && $state['mode'] === BlockQuoteLazyMode::Content
             && $state['divDepth'] === 0
             && $state['colonClaims'] === []
-            && ($state['hosts']['kinds'] ?? []) === [];
+            && ($state['hosts']['kinds'] ?? []) === []
+            // A term holds inline content, not a paragraph, so no lazy line continues it.
+            && !($state['hosts']['termOpen'] ?? false);
     }
 
     /**
