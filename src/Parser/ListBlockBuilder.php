@@ -39,7 +39,7 @@ final class ListBlockBuilder
     /**
      * @var string
      */
-    private const SPAN_LEAD_MARKERS = '/^[ \t]*(?:(?:[-*]|[0-9]+[.)]|::?)[ \t]+)*/';
+    private const SPAN_LEAD_MARKERS = '/^[ \t]*(?:(?:[-*](?:[ \t]+\[[ xX_\/!>?-]\])?|[0-9]+[.)]|::?)[ \t]+)*/';
 
     private WrappedAttributeRunScanner $wrappedAttributeScanner;
 
@@ -1786,7 +1786,8 @@ final class ListBlockBuilder
             // A term or description below a collected term continues that description list too.
             $continuesCollectedList = ($subSawListMarker
                 && (($this->getListParser)()->parseListItemMarker($subContent) !== null
-                    || ($lineIndent === $subIndent && $this->commentParagraphBeforeMarker($lines, $i, $count, $subIndent))))
+                    || ($lineIndent === $subIndent && ($this->commentParagraphBeforeMarker($lines, $i, $count, $subIndent)
+                        || $this->invisibleRunBeforeMarker($lines, $i, $count, $subIndent)))))
                 || ($subSawTerm && ($opensTermOrDescription
                     || ($lineIndent === $subIndent && $this->invisibleRunReachesADescription($lines, $i, $count, $subIndent))));
             $subSawTerm = $subSawTerm
@@ -3151,6 +3152,47 @@ final class ListBlockBuilder
     }
 
     /**
+     * Whether a run of comments and list-transparent definitions at `$i` stands before a list marker at or past `$column`.
+     * The run reads as if it were not there, so the marker continues the collected list (carve#5031).
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     * @param int $column
+     */
+    private function invisibleRunBeforeMarker(array $lines, int $i, int $count, int $column): bool
+    {
+        // One answer per run: every line of it would otherwise rescan the rest.
+        $cached = $this->invisibleRunMarkerAnswer;
+        if ($cached !== null && $cached['lines'] === $lines && $cached['column'] === $column && $i > $cached['from'] && $i < $cached['to']) {
+            return $cached['answer'];
+        }
+        $roles = $this->commentRoles($lines);
+        $blanks = 0;
+        for ($b = $i - 1; $b >= 0 && IndentationHelper::isBlankLine($lines[$b]); $b--) {
+            $blanks++;
+        }
+        $k = $i;
+        $skipped = false;
+        while ($k < $count) {
+            if (IndentationHelper::isBlankLine($lines[$k]) && !isset($roles[$k])) {
+                $blanks++;
+            } elseif (isset($roles[$k]) || $this->isListTransparentDefinition(ltrim($lines[$k], " \t"))) {
+                $skipped = true;
+            } else {
+                break;
+            }
+            $k++;
+        }
+
+        $answer = $skipped && $blanks < 3 && $k < $count && IndentationHelper::getLeadingColumns($lines[$k]) >= $column
+            && ($this->getListParser)()->parseListItemMarker(ltrim($lines[$k], " \t")) !== null;
+        $this->invisibleRunMarkerAnswer = ['lines' => $lines, 'column' => $column, 'from' => $i, 'to' => $k, 'answer' => $answer];
+
+        return $answer;
+    }
+
+    /**
      * Whether an invisible run from `$i` is skipped into a description (carve#4716), short of three blanks (N1a).
      *
      * @param array<string> $lines
@@ -3208,6 +3250,11 @@ final class ListBlockBuilder
      * @var array{lines: array<string>, column: int, from: int, to: int, answer: bool}|null
      */
     private ?array $invisibleRunAnswer = null;
+
+    /**
+     * @var array{lines: array<string>, column: int, from: int, to: int, answer: bool}|null
+     */
+    private ?array $invisibleRunMarkerAnswer = null;
 
     private function isListTransparentDefinition(string $line): bool
     {
@@ -3454,9 +3501,17 @@ final class ListBlockBuilder
             }
         }
         $widths = [];
+        $leadWidths = [];
+        $lastAt = [];
         foreach ($lines as $j => $line) {
-            if (str_contains($line, '%%%') && preg_match('/^[ \t]*(%{3,})/', $line, $run) === 1) {
+            if (!str_contains($line, '%%%')) {
+                continue;
+            }
+            if (preg_match('/^[ \t]*(%{3,})/', $line, $run) === 1) {
                 $widths[$j] = strlen($run[1]);
+                $lastAt[$widths[$j]] = $j;
+            } elseif (preg_match('/^(%{3,})/', (string)preg_replace(self::SPAN_LEAD_MARKERS, '', $line), $run) === 1) {
+                $leadWidths[$j] = strlen($run[1]);
             }
         }
         $roles = [];
@@ -3470,6 +3525,9 @@ final class ListBlockBuilder
             } elseif (isset($widths[$j])) {
                 $roles[$j] = 'open';
                 $open = $widths[$j];
+            } elseif (isset($leadWidths[$j]) && ($lastAt[$leadWidths[$j]] ?? -1) > $j) {
+                // A span after an item marker pairs too (carve#5031); the marker line stays an item, not a comment.
+                $open = $leadWidths[$j];
             } elseif (str_contains($line, '%%') && preg_match('/^[ \t]*%%/', $line) === 1) {
                 $roles[$j] = 'line';
             }
