@@ -19,6 +19,13 @@ use MarkupCarve\Carve\Util\StringUtil;
 final class BlockQuoteBuilder
 {
     /**
+     * The span a quoted description or note lead opened: its line set, opener line and body column.
+     *
+     * @var array{lines: int, index: int, owner: int}|null
+     */
+    private ?array $leadSpan = null;
+
+    /**
      * @param \MarkupCarve\Carve\Parser\BlockParserState $state
      * @param \MarkupCarve\Carve\Parser\BlockSourceMapper $source
      * @param \MarkupCarve\Carve\Parser\BlockContinuationScanner $continuations
@@ -1646,6 +1653,62 @@ final class BlockQuoteBuilder
      * @param bool $nested
      */
     public function trackBlockQuoteLazyState(
+        string $content,
+        array &$state,
+        array $sourceLines,
+        int $sourceIndex,
+        array &$codeCloserMemo,
+        bool $nested = false,
+    ): void {
+        $inner = ContainerPrefix::afterLeadingQuoteMarkers($content);
+        $leadSpan = $this->leadSpan;
+        if (
+            $state['mode'] === BlockQuoteLazyMode::CommentFence && $leadSpan !== null
+            && $leadSpan['lines'] === count($sourceLines) && $leadSpan['index'] < $sourceIndex
+            && !IndentationHelper::isBlankLine($inner) && !str_starts_with(ltrim($inner, " \t"), '%%')
+            && IndentationHelper::getLeadingColumns($inner) < $leadSpan['owner']
+        ) {
+            // A line that misses the body ends the span (PART 0 S1).
+            $state['mode'] = BlockQuoteLazyMode::Content;
+        }
+        $readsBlocks = $state['mode'] === BlockQuoteLazyMode::Content;
+        $this->trackBlockQuoteLazyLine($content, $state, $sourceLines, $sourceIndex, $codeCloserMemo, $nested);
+        if ($state['mode'] !== BlockQuoteLazyMode::CommentFence) {
+            $this->leadSpan = null;
+        }
+        if (!$readsBlocks || $state['mode'] !== BlockQuoteLazyMode::Content) {
+            return;
+        }
+        // A span on a description or note lead is that body's, so it leaves no paragraph (carve#4998).
+        $lead = ltrim($inner, " \t");
+        $above = ltrim(ContainerPrefix::afterLeadingQuoteMarkers(ltrim($sourceLines[$sourceIndex - 1] ?? '', " \t")), " \t");
+        if (
+            preg_match('/^\[\^[^\]]+\]: +(?=(%{3,}))/', $lead, $match) !== 1
+            && (preg_match('/^: +(?=(%{3,}))/', $lead, $match) !== 1 || preg_match('/^::? /', $above) !== 1)
+        ) {
+            return;
+        }
+        $state['mode'] = BlockQuoteLazyMode::CommentFence;
+        $state['commentLength'] = strlen($match[1]);
+        $state['commentHosted'] = true;
+        $state['paragraphOpen'] = false;
+        $this->leadSpan = [
+            'lines' => count($sourceLines),
+            'index' => $sourceIndex,
+            'owner' => IndentationHelper::getLeadingColumns($inner) + ($lead[0] === '[' ? BlockGrammar::FOOTNOTE_BODY_COLUMN : strlen($match[0])),
+        ];
+    }
+
+    /**
+     * @param string $content Inner content line (after the "> " marker is stripped).
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,commentHosted:bool,paragraphOpen:bool,itemParagraph:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, inlineFenceJustClosed?:bool, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool,plainBeforeFence?:bool,sawFence?:bool}>,divDepth:int,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, initialMarkerColumn?:int, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, inlineFenceJustClosed?:bool, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool,plainBeforeFence?:bool,sawFence?:bool,descriptionColumn?:int,descriptionNoteFloor?:int,termOpen?:bool}} $state
+     *     Running state, mutated in place.
+     * @param array<string> $sourceLines
+     * @param int $sourceIndex
+     * @param array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool, inlineChecked:bool}> $codeCloserMemo
+     * @param bool $nested
+     */
+    private function trackBlockQuoteLazyLine(
         string $content,
         array &$state,
         array $sourceLines,

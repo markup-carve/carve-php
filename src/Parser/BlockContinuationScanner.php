@@ -82,7 +82,7 @@ final class BlockContinuationScanner
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\ListParser $getListParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\TableParser $getTableParser
      * @param \Closure(string, int, string, array<string>, int): string $advanceAttachedKindCallback
-     * @param \Closure(int|null, string, array<string>, int): ?int $advanceItemCommentFenceCallback
+     * @param \Closure(int|null, string, array<string>, int, int|null=): ?int $advanceItemCommentFenceCallback
      * @param \Closure(int|null, string): ?int $advanceItemDefinitionBodyCallback
      * @param \Closure(string, array<string>, int): ?int $commentFenceSpanEndCallback
      * @param \Closure(int): bool $continuationFollowerIsEligibleCallback
@@ -506,7 +506,7 @@ final class BlockContinuationScanner
             // it (carve-php#1866).
             $inCommentSpan = $openCommentLength !== null;
             if ($inCommentSpan || $trailingState->fence === null) {
-                $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $stripped, $lines, $i);
+                $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $stripped, $lines, $i, $contentIndent);
                 if (!$inCommentSpan) {
                     if ($openCommentLength !== null) {
                         $openCommentColumn = IndentationHelper::getLeadingColumns($stripped);
@@ -2995,9 +2995,14 @@ final class BlockContinuationScanner
                 $trackedContent = $markerContent;
             }
         }
+        $openBefore = $run->openCommentLength;
         $run->openCommentLength = $trailingState->hasLiteralDiv()
             ? null
-            : $this->advanceItemCommentFence($run->openCommentLength, $trackedContent, $lines, $i);
+            : $this->advanceItemCommentFence($run->openCommentLength, $trackedContent, $lines, $i, $contentIndent);
+        // A line that missed a lead span's body ended it (PART 0 S1): it is no payload.
+        if ($openBefore !== null && $run->openCommentLength === null && !($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($trackedContent, $openBefore)) {
+            $inCommentSpan = false;
+        }
         if (!$inCommentSpan && $run->openCommentLength !== null) {
             $run->spanFromMarkerLine = false;
         }
@@ -4988,10 +4993,11 @@ final class BlockContinuationScanner
      * @param string $line The collected line, already dedented.
      * @param array<string> $lines The raw line set, for the closer lookahead.
      * @param int $index The RAW index this line sits at.
+     * @param int|null $hostColumn
      */
-    private function advanceItemCommentFence(?int $openLength, string $line, array $lines, int $index): ?int
+    private function advanceItemCommentFence(?int $openLength, string $line, array $lines, int $index, ?int $hostColumn = null): ?int
     {
-        return ($this->advanceItemCommentFenceCallback)($openLength, $line, $lines, $index);
+        return ($this->advanceItemCommentFenceCallback)($openLength, $line, $lines, $index, $hostColumn);
     }
 
     /**
