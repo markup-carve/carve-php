@@ -918,16 +918,20 @@ final class BlockContinuationScanner
         $invisibleRun = [-1, false];
         // In a note or description a list marker ends an attached block that is no list (PART 0 S3, carve#4860).
         $markerEnds = $invisibleLineEndsParagraph && !$this->attachedLeadIsList($lines, $i, $count);
+        // The body column of the open description in the attached block, or null.
+        $bodyColumn = null;
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds): bool {
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn): bool {
                 if (
                     IndentationHelper::isBlankLine($line)
                     || $this->isContinuationMarker($line)
                     || ($attachedState->fence === null && $endsAtSibling !== null && $endsAtSibling($line))
                     || ($markerEnds && $attachedState->fence === null && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null)
+                    || ($bodyColumn !== null && $attachedKind === BlockGrammar::ATTACHED_SPANNING . ':definition'
+                        && $this->markerLeavesAttachedDescription($line, $bodyColumn, $attachedState))
                 ) {
                     return true;
                 }
@@ -946,6 +950,11 @@ final class BlockContinuationScanner
                 }
                 $attachedKind = $this->advanceAttachedKind($attachedKind, $pendingThrough, $line, $lines, $index);
                 $attachedState = $this->advanceTrailingState($attachedState, $line);
+                if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $line, $body) === 1) {
+                    $bodyColumn = 1 + strlen($body[1]);
+                } elseif (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $line) === 1) {
+                    $bodyColumn = null;
+                }
 
                 return false;
             },
@@ -954,6 +963,20 @@ final class BlockContinuationScanner
         );
 
         return [$i, $attached, $attachedRawLineMap];
+    }
+
+    /**
+     * Whether a list marker left of the open description's body column ends the attached description list, as it does at document level.
+     *
+     * @param string $line
+     * @param int $bodyColumn
+     * @param \MarkupCarve\Carve\Parser\TrailingBlockState $state
+     */
+    private function markerLeavesAttachedDescription(string $line, int $bodyColumn, TrailingBlockState $state): bool
+    {
+        return $state->fence === null && !$state->hasOpenDiv()
+            && IndentationHelper::getLeadingColumns($line) < $bodyColumn
+            && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null;
     }
 
     /**
