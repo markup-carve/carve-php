@@ -792,6 +792,20 @@ final class DefinitionListBuilder
                 return false;
             }
         }
+        // A payload line of a span open in the body is no block line: it keeps its columns past the body (PART 9 §28).
+        if (
+            !IndentationHelper::isBlankLine($l->contLine)
+            && $l->contColumn >= $b->continuationColumn
+            && $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan)
+            && $b->commentSpan->openComment !== null
+            && !($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($l->contLine, $b->commentSpan->openComment)
+        ) {
+            $b->body[] = IndentationHelper::stripLeadingColumns($l->contLine, $b->continuationColumn);
+            $b->bodyMap[] = $this->sourceLineFor($b->i);
+            $b->i++;
+
+            return true;
+        }
         $admitted = $this->descriptionLineReleased($b, $l) ?? $this->foldDescriptionLazyLine($b, $l);
         if ($admitted !== null) {
             return $admitted;
