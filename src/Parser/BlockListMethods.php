@@ -52,6 +52,29 @@ trait BlockListMethods
         return $next;
     }
 
+    /**
+     * Whether the line, or after a blank run the next line, stands at or past the attached description's body column. After a blank
+     * run the attachment no longer holds, so the next line must reach the item's content column too.
+     *
+     * @param array<string> $lines
+     * @param int $index
+     * @param int $count
+     * @param int $bodyColumn
+     * @param int $contentIndent
+     *
+     * @return array{0: int, 1: bool} The last index the verdict covers, and the verdict.
+     */
+    private function attachedDescriptionBodyRun(array $lines, int $index, int $count, int $bodyColumn, int $contentIndent): array
+    {
+        $next = $index;
+        while ($next < $count && IndentationHelper::isBlankLine($lines[$next])) {
+            $next++;
+        }
+        $column = $next > $index ? max($bodyColumn, $contentIndent) : $bodyColumn;
+
+        return [$next > $index ? $next - 1 : $index, $next < $count && IndentationHelper::getLeadingColumns($lines[$next], $column) >= $column];
+    }
+
     private function endsAttachedParagraph(string $line): bool
     {
         return (str_starts_with($line, '%%') && !str_starts_with($line, '%%%'))
@@ -1159,11 +1182,15 @@ trait BlockListMethods
         $fenceTakesRest = false;
         $fenceCloses = false;
         $blockColumn = null;
+        // The body column of the open description in an attached description list, or null.
+        $bodyColumn = null;
+        // The verdict for the blank run being read, once per run: [run end, reaches the body].
+        $blankRun = [-1, false];
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, &$leadFenceOpen, &$fenceTakesRest, &$blockColumn, &$fenceCloses, $lines, $count, $baseIndent, $contentIndent): bool {
+            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, &$leadFenceOpen, &$fenceTakesRest, &$blockColumn, &$fenceCloses, &$bodyColumn, &$blankRun, $lines, $count, $baseIndent, $contentIndent): bool {
                 // An unclosed attached fence takes the rest of its container when no blank line or closer follows.
                 if ($fenceTakesRest) {
                     return $blockColumn !== null && !IndentationHelper::isBlankLine($line)
@@ -1226,6 +1253,15 @@ trait BlockListMethods
                     && $this->tableParser->analyzeSeparatorRow(ltrim($lines[$index - 1], " \t")) !== null
                 ) {
                     return true;
+                }
+                // A line at the open description's body column is that description's content (PART 0 S2), past a blank too.
+                if ($bodyColumn !== null && $trailingState->fence === null && $index > $blankRun[0]) {
+                    $blankRun = $this->attachedDescriptionBodyRun($lines, $index, $count, $bodyColumn, $contentIndent ?? 0);
+                }
+                if ($bodyColumn !== null && $trailingState->fence === null && $blankRun[1]) {
+                    $trailingState = $this->advanceTrailingState($trailingState, IndentationHelper::stripLeadingColumns($line, $blockColumn ?? $baseIndent));
+
+                    return false;
                 }
                 if (
                     IndentationHelper::isBlankLine($line)
@@ -1315,6 +1351,13 @@ trait BlockListMethods
                 }
                 $fenceCloses = false;
                 $trailingState = $this->advanceTrailingState($trailingState, $content);
+                if ($attachedKind === self::ATTACHED_SPANNING . ':definition') {
+                    if (preg_match(self::DEFINITION_BODY_PATTERN, $content, $body) === 1) {
+                        $bodyColumn = ($blockColumn ?? $baseIndent) + 1 + strlen($body[1]);
+                    } elseif (preg_match(self::DEFINITION_TERM_LINE_PATTERN, $content) === 1) {
+                        $bodyColumn = null;
+                    }
+                }
 
                 return false;
             },
