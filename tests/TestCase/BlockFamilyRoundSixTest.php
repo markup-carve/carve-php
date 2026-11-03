@@ -332,7 +332,7 @@ JSON;
 
         yield 'n:footnote/desc-6729' => [
             "[r][] [^p] [^c] [^d]\n\n[^c]: :: t\n      : para\n        more\n %% c\ntail\n",
-            "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t\n: para\nmore\ntail</dt>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>",
+            "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<p>tail</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <dl>\n        <dt>t</dt>\n        <dd>para\nmore</dd>\n      </dl>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
         ];
     }
 
@@ -352,92 +352,92 @@ JSON;
     {
         yield 'r6_00' => [
             "1. para\n %% c\n```\n",
-            "<ol>\n<li>para\n<pre><code></code></pre>\n</li>\n</ol>",
+            "<ol>\n  <li>para</li>\n</ol>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_01' => [
             "1. para\n  %% c\n```\n",
-            "<ol>\n<li>para\n<pre><code></code></pre>\n</li>\n</ol>",
+            "<ol>\n  <li>para</li>\n</ol>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_02' => [
             "1. para\n %%%\n %%%\n```\n",
-            "<ol>\n<li>para\n<pre><code></code></pre>\n</li>\n</ol>",
+            "<ol>\n  <li>para</li>\n</ol>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_03' => [
             "1. para\n  %%%\n  %%%\n```\n",
-            "<ol>\n<li>para\n<pre><code></code></pre>\n</li>\n</ol>",
+            "<ol>\n  <li>para</li>\n</ol>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_04' => [
             "- para\n%% c\n```\n",
-            "<ul>\n<li>para\n<pre><code></code></pre>\n</li>\n</ul>",
+            "<ul>\n  <li>para</li>\n</ul>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_09' => [
             "- para\n %% c\n```\n",
-            "<ul>\n<li>para\n<pre><code></code></pre>\n</li>\n</ul>",
+            "<ul>\n  <li>para</li>\n</ul>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_10' => [
             "- para\n %%%\n %%%\n```\n",
-            "<ul>\n<li>para\n<pre><code></code></pre>\n</li>\n</ul>",
+            "<ul>\n  <li>para</li>\n</ul>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_11' => [
             "1. para\n%% c\n```\n",
-            "<ol>\n<li>para\n<pre><code></code></pre>\n</li>\n</ol>",
+            "<ol>\n  <li>para</li>\n</ol>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_21' => [
             "- > para\n%% c\n```\n",
-            "<ul>\n<li>\n<blockquote><p>para</p></blockquote>\n<pre><code></code></pre>\n</li>\n</ul>",
+            "<ul>\n  <li>\n    <blockquote><p>para</p></blockquote>\n  </li>\n</ul>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_22' => [
             "1. > para\n%% c\n```\n",
-            "<ol>\n<li>\n<blockquote><p>para</p></blockquote>\n<pre><code></code></pre>\n</li>\n</ol>",
+            "<ol>\n  <li>\n    <blockquote><p>para</p></blockquote>\n  </li>\n</ol>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_26' => [
             "- - para\n %% c\n```\n",
-            "<ul>\n<li>\n<ul>\n<li>para\n<pre><code></code></pre>\n</li>\n</ul>\n</li>\n</ul>",
+            "<ul>\n  <li>\n    <ul>\n      <li>para</li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_27' => [
             "- - para\n %%%\n %%%\n```\n",
-            "<ul>\n<li>\n<ul>\n<li>para\n<pre><code></code></pre>\n</li>\n</ul>\n</li>\n</ul>",
+            "<ul>\n  <li>\n    <ul>\n      <li>para</li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_29' => [
             "- ::: note\n  more\n %% c\n```\n",
-            "<ul>\n<li>\n<aside class=\"admonition note\" aria-label=\"Note\">\n<p>more</p>\n<pre><code></code></pre>\n</aside>\n</li>\n</ul>",
+            "<ul>\n  <li>\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>more</p>\n    </aside>\n  </li>\n</ul>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_30' => [
             "- ::: note\n  more\n %%%\n```\n",
-            "<ul>\n<li>\n<aside class=\"admonition note\" aria-label=\"Note\">\n<p>more</p>\n<pre><code></code></pre>\n</aside>\n</li>\n</ul>",
+            "<ul>\n  <li>\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>more</p>\n    </aside>\n  </li>\n</ul>",
         ];
 
         yield 'r6_31' => [
             "1. > para\n %% c\n```\n",
-            "<ol>\n<li>\n<blockquote><p>para</p></blockquote>\n<pre><code></code></pre>\n</li>\n</ol>",
+            "<ol>\n  <li>\n    <blockquote><p>para</p></blockquote>\n  </li>\n</ol>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_32' => [
             "1. > para\n %%%\n %%%\n```\n",
-            "<ol>\n<li>\n<blockquote><p>para</p></blockquote>\n<pre><code></code></pre>\n</li>\n</ol>",
+            "<ol>\n  <li>\n    <blockquote><p>para</p></blockquote>\n  </li>\n</ol>\n<pre><code></code></pre>",
         ];
 
         yield 'r6_33' => [
             "[r][] [^p] [^c] [^d]\n[^c]: 1. para\n %% c\n```\nx\n",
-            "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<p>x</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<ol>\n<li>para\n<pre><code></code></pre>\n</li>\n</ol>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>",
+            "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<pre><code>x\n</code></pre>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <ol>\n        <li>para</li>\n      </ol>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
         ];
 
         yield 'r6_34' => [
             "[r][] [^p] [^c] [^d]\n[^c]: 1. para\n %%%\n %%%\n```\n",
-            "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<ol>\n<li>para\n<pre><code></code></pre>\n</li>\n</ol>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>",
+            "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<pre><code></code></pre>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <ol>\n        <li>para</li>\n      </ol>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
         ];
     }
 

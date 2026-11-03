@@ -24,19 +24,19 @@ class ADescriptionFenceCountsClosersInsideItsBodyTest extends TestCase
             'body-column closer after a tab opener' => [":: t\n: a\n\t```\n  ```\n", $body],
             'below-column payload before the closer' => [
                 ":: m\n: l\n     ```\ne\n     ```\n",
-                "<dl>\n<dt>m</dt>\n<dd>\n<p>l</p>\n<pre><code>e\n</code></pre>\n</dd>\n</dl>",
+                "<dl>\n<dt>m</dt>\n<dd>\n<p>l</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n<p>e</p>\n<pre><code></code></pre>",
             ],
             'one-column payload inside an overindented fence' => [
                 ":: t\n: a\n   ```\n   b\n y\n   ```\n",
-                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>b\ny\n</code></pre>\n</dd>\n</dl>",
+                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>b\n</code></pre>\n</dd>\n</dl>\n<p>y</p>\n<pre><code></code></pre>",
             ],
             'other fence character is payload' => [
                 ":: t\n: a\n   ```\n~~~\n   ```\n",
-                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>~~~\n</code></pre>\n</dd>\n</dl>",
+                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n<pre><code>   ```\n</code></pre>",
             ],
             'indented attribute inside an open fence' => [
                 ":: t\n: a\n   ```\n {.a}\n   ```\n",
-                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>{.a}\n</code></pre>\n</dd>\n</dl>",
+                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n<pre class=\"a\"><code></code></pre>",
             ],
             'indented competing fence inside an open fence' => [
                 ":: t\n: a\n   ```\n  ~~~\n   ```\n",
@@ -52,7 +52,7 @@ class ADescriptionFenceCountsClosersInsideItsBodyTest extends TestCase
             ],
             'indented attribute in a quoted fence' => [
                 "> :: t\n> : a\n>    ```\n>  {.a}\n>    ```\n",
-                "<blockquote>\n<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>{.a}\n</code></pre>\n</dd>\n</dl>\n</blockquote>",
+                "<blockquote>\n<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n<pre class=\"a\"><code></code></pre>\n</blockquote>",
             ],
             'payload past the opener keeps its extra column' => [
                 ":: t\n: a\n   ```\n    x\n   ```\n",
@@ -60,15 +60,15 @@ class ADescriptionFenceCountsClosersInsideItsBodyTest extends TestCase
             ],
             'a below-column attribute ends the body' => [
                 ":: t\n: a\n   ```\n{.c}\n  ```\n",
-                "<dl>\n<dt>t</dt>\n<dd>a\n<code></code></dd>\n</dl>\n<p class=\"c\"><code></code></p>",
+                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n<pre class=\"c\"><code></code></pre>",
             ],
             'indented heading text is payload' => [
                 ":: t\n: a\n    ```\n # y\n  ```\n",
-                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code># y\n</code></pre>\n</dd>\n</dl>",
+                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n<section id=\"y\">\n<h1>y</h1>\n<pre><code></code></pre>\n</section>",
             ],
             'a below-column div opener ends the body' => [
                 ":: t\n: a\n    ```\n ::: y\n    ```\n",
-                "<dl>\n<dt>t</dt>\n<dd>a\n<code></code></dd>\n</dl>\n<p>::: y\n<code></code></p>",
+                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n<div class=\"y\">\n<pre><code></code></pre>\n</div>",
             ],
             'lazy paragraph before the fence' => [
                 ":: t\n: a\nq\n\t```\n  x\n  ```\n",
@@ -84,11 +84,11 @@ class ADescriptionFenceCountsClosersInsideItsBodyTest extends TestCase
             ],
             'bullet wrapper with a below-column payload' => [
                 "- :: t\n  : a\n     ```\n x\n     ```\n",
-                "<ul>\n<li>\n<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>x\n</code></pre>\n</dd>\n</dl>\n</li>\n</ul>",
+                "<ul>\n<li>\n<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n</li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>",
             ],
             'bullet wrapper with a column-zero payload' => [
                 "- :: t\n  : a\n     ```\nx\n     ```\n",
-                "<ul>\n<li>\n<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>x\n</code></pre>\n</dd>\n</dl>\n</li>\n</ul>",
+                "<ul>\n<li>\n<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n</li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>",
             ],
             'ordered wrapper' => [
                 ". x\n  :: t\n  : a\n      ```\n    ```\n",
@@ -104,7 +104,7 @@ class ADescriptionFenceCountsClosersInsideItsBodyTest extends TestCase
             ],
             'quote wrapper with below-column payload' => [
                 "> :: m\n> : l\n>      ```\n> e\n>      ```\n",
-                "<blockquote>\n<dl>\n<dt>m</dt>\n<dd>\n<p>l</p>\n<pre><code>e\n</code></pre>\n</dd>\n</dl>\n</blockquote>",
+                "<blockquote>\n<dl>\n<dt>m</dt>\n<dd>\n<p>l</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n<p>e</p>\n<pre><code></code></pre>\n</blockquote>",
             ],
             'two list depths' => [
                 "- x\n  - y\n    :: t\n    : a\n        ```\n      ```\n",

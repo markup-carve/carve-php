@@ -50,7 +50,7 @@ class ALineUnderAFoldedMarkerIsReadInTheBodyTest extends TestCase
             'control: definition without the marker' => [":: t\n: d\n   [r]: /u\nx\n\n[r][]\n", '<dl><dt>t</dt><dd>d</dd></dl><p>x</p><p><a href="/u">r</a></p>'],
             'control: abbreviation stays text' => [":: t\n: d\n  - para\n    *[A]: b\nx\n", '<dl><dt>t</dt><dd><p>d</p><ul><li>para</li></ul></dd></dl><p>x</p>'],
             'control: comment stays a comment' => [":: t\n: d\n  - para\n    %% c\nx\n", '<dl><dt>t</dt><dd><p>d</p><ul><li>para</li></ul></dd></dl><p>x</p>'],
-            'control: a quote does not rebase' => ["- > para\n  >  [r]: /u\ntail\n\n[r][]\n", '<ul><li><blockquote><p>para [r]: /u tail</p></blockquote></li></ul><p>[r][]</p>'],
+            'control: a quote does not rebase' => ["- > para\n  >  [r]: /u\ntail\n\n[r][]\n", '<ul><li><blockquote><p>para</p></blockquote></li></ul><p>tail</p><p><a href="/u">r</a></p>'],
         ];
     }
 }

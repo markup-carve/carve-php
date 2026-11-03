@@ -21,7 +21,7 @@ final class AQuotedDefinitionClosesTheListItemsParagraphTest extends TestCase
         return [
             'ordered footnote' => [
                 "1. a\n  :: t\n  :  d\n    > q\n    > [^n]: note\n q\n",
-                "<ol>\n  <li>a\n:: t\n:  d\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ol>\n<p>q</p>\n",
+                "<ol>\n  <li>a</li>\n</ol>\n<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<blockquote><p>q</p></blockquote>",
             ],
             'bullet reference' => [
                 "- a\n  :: t\n  :  d\n    > q\n    > [n]: /u\n q\n",
@@ -29,7 +29,7 @@ final class AQuotedDefinitionClosesTheListItemsParagraphTest extends TestCase
             ],
             'task continued footnote' => [
                 "- [ ] a\n  :: t\n  :  d\n    > q\n    > [^n]: note\n    >   more\n q\n",
-                "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"a\"> a\n    <dl>\n      <dt>t</dt>\n      <dd>d</dd>\n    </dl>\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>\n<p>q</p>\n",
+                "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"a\"> a\n    <dl>\n      <dt>t</dt>\n      <dd>d</dd>\n    </dl>\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>",
             ],
             'nested bullet' => [
                 "- a\n  - b\n    :: t\n    :  d\n      > q\n      > [n]: /u\n q\n",

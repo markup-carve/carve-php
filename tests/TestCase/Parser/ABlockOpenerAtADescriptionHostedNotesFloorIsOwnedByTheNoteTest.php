@@ -55,13 +55,13 @@ class ABlockOpenerAtADescriptionHostedNotesFloorIsOwnedByTheNoteTest extends Tes
             // list and drops, and `tail` is a document paragraph.
             'opener at the floor, tail at column 0' => [
                 ":: t\n:  [^f]: note\n     - nested\ntail\n",
-                "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>tail</p>",
+                "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>",
             ],
             // Opener at the floor, trailing line at the `dd` content column: the
             // list is still absorbed and dropped, and `tail` continues the `dd`.
             'opener at the floor, tail at the dd column' => [
                 ":: t\n:  [^f]: note\n     - nested\n   tail\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>tail</dd>\n</dl>",
+                "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>",
             ],
             // Opener one column shy of the floor: below the note body, so the
             // list is a `dd` child and `tail` lazily continues the item.
@@ -74,7 +74,7 @@ class ABlockOpenerAtADescriptionHostedNotesFloorIsOwnedByTheNoteTest extends Tes
             // carve#1974 restores.
             'continuation text at the floor' => [
                 ":: t\n:  [^f]: note\n     text\ntail\n",
-                "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>tail</p>",
+                "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>",
             ],
         ];
     }

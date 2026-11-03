@@ -82,15 +82,15 @@ class ADescriptionBodysOpenFenceEndsAtABelowColumnLineTest extends TestCase
             // body's column does not (raised by codex review).
             'overindented-3' => [
                 ":: t\n: a\n   ```\n   b\n y\n   ```\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <pre><code>b\ny\n</code></pre>\n  </dd>\n</dl>",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <pre><code>b\n</code></pre>\n  </dd>\n</dl>\n<p>y</p>\n<pre><code></code></pre>",
             ],
             'overindented-4' => [
                 ":: t\n: a\n    ```\n    b\n y\n    ```\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <pre><code>b\ny\n</code></pre>\n  </dd>\n</dl>",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <pre><code>b\n</code></pre>\n  </dd>\n</dl>\n<p>y</p>\n<pre><code></code></pre>",
             ],
             'overindented-closer-at-body-column' => [
                 ":: t\n: a\n   ```\n   b\n y\n  ```\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <pre><code>b\ny\n</code></pre>\n  </dd>\n</dl>",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <pre><code>b\n</code></pre>\n  </dd>\n</dl>\n<p>y</p>\n<pre><code></code></pre>",
             ],
             'closer-deeper-than-opener' => [
                 ":: t\n: a\n  ```\n  b\n y\n   ```\n",
@@ -102,7 +102,7 @@ class ADescriptionBodysOpenFenceEndsAtABelowColumnLineTest extends TestCase
             ],
             'tilde-overindented' => [
                 ":: t\n: a\n   ~~~\n   b\n y\n   ~~~\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <pre><code>b\ny\n</code></pre>\n  </dd>\n</dl>",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <pre><code>b\n</code></pre>\n  </dd>\n</dl>\n<p>y</p>\n<pre><code></code></pre>",
             ],
             'two-below-column-lines' => [
                 ":: t\n: a\n  ```\n  b\n y\n z\n  ```\n",

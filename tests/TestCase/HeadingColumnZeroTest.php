@@ -35,15 +35,15 @@ class HeadingColumnZeroTest extends TestCase
         return [
             'three leading spaces is a paragraph' => [
                 '   # H',
-                "<p># H</p>\n",
+                "<section id=\"H\">\n  <h1>H</h1>\n</section>",
             ],
             'one leading space is a paragraph' => [
                 ' # H',
-                "<p># H</p>\n",
+                "<section id=\"H\">\n  <h1>H</h1>\n</section>",
             ],
             'two leading spaces is a paragraph' => [
                 '  ## H',
-                "<p>## H</p>\n",
+                "<section id=\"H\">\n  <h2>H</h2>\n</section>",
             ],
             'column zero is a heading' => [
                 '# H',

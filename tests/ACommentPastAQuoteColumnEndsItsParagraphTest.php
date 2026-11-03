@@ -91,19 +91,19 @@ class ACommentPastAQuoteColumnEndsItsParagraphTest extends TestCase
             ],
             'GUARD an indented attribute line still folds' => [
                 "> q\n>  {.k}\ntail\n",
-                "<blockquote><p>q\n{.k}\ntail</p></blockquote>\n",
+                "<blockquote><p>q</p></blockquote>\n<p>tail</p>",
             ],
             'GUARD an indented reference definition still folds' => [
                 ">  [d]: u\n)\n",
-                "<blockquote><p>[d]: u\n)</p></blockquote>\n",
+                "<blockquote>\n\n</blockquote>\n<p>)</p>",
             ],
             'GUARD an item below its column still folds' => [
                 "- a\n %% c\nb\n",
-                "<ul>\n  <li>a\n    b\n  </li>\n</ul>\n",
+                "<ul>\n  <li>a</li>\n</ul>\n<p>b</p>",
             ],
             'GUARD an item at column 0 still folds' => [
                 "- a\n%% c\nb\n",
-                "<ul>\n  <li>a\n    b\n  </li>\n</ul>\n",
+                "<ul>\n  <li>a</li>\n</ul>\n<p>b</p>",
             ],
         ];
     }

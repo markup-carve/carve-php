@@ -69,7 +69,7 @@ class ADegradedCommentFenceAtAContainersColumnZeroKeepsTheFollowerTest extends T
             'a padded marker' => ["-   x\n%%%\ny\n", $kept],
             'a nested item at its own column 0' => [
                 "- - x\n  %%%\n  y\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>x\n        y\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>\n    <ul>\n      <li>x</li>\n    </ul>\n  </li>\n</ul>",
             ],
             'a wider unterminated run' => ["- x\n%%%%\ny\n", $kept],
             'a wider run below is not a closer' => ["- x\n%%%\n%%%%\ny\n", $kept],

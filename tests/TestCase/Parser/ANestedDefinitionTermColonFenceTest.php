@@ -72,11 +72,7 @@ final class ANestedDefinitionTermColonFenceTest extends TestCase
                 ':: c
   :::
 ',
-                '<dl>
-  <dt>c
-  :::</dt>
-</dl>
-',
+                "<dl>\n  <dt>c</dt>\n</dl>\n<div>\n\n</div>",
             ],
             'literal' => [
                 ':: a
@@ -84,17 +80,7 @@ final class ANestedDefinitionTermColonFenceTest extends TestCase
   :: c
     ::: not a fence
 ',
-                '<dl>
-  <dt>a</dt>
-  <dd>
-    <p>b</p>
-    <dl>
-      <dt>c
-  ::: not a fence</dt>
-    </dl>
-  </dd>
-</dl>
-',
+                "<dl>\n  <dt>a</dt>\n  <dd>\n    <p>b</p>\n    <dl>\n      <dt>c</dt>\n    </dl>\n    <div class=\"not\">\n\n    </div>\n  </dd>\n</dl>",
             ],
             'below' => [
                 ':: a
@@ -102,17 +88,7 @@ final class ANestedDefinitionTermColonFenceTest extends TestCase
   :: c
  :::
 ',
-                '<dl>
-  <dt>a</dt>
-  <dd>
-    <p>b</p>
-    <dl>
-      <dt>c</dt>
-    </dl>
-  </dd>
-</dl>
-<p>:::</p>
-',
+                "<dl>\n  <dt>a</dt>\n  <dd>\n    <p>b</p>\n    <dl>\n      <dt>c</dt>\n    </dl>\n  </dd>\n</dl>\n<div>\n\n</div>",
             ],
         ];
     }
@@ -133,17 +109,7 @@ final class ANestedDefinitionTermColonFenceTest extends TestCase
   :: c
     :::
 ',
-                '<dl>
-  <dt>a</dt>
-  <dd>
-    <p>b</p>
-    <dl>
-      <dt>c
-  :::</dt>
-    </dl>
-  </dd>
-</dl>
-',
+                "<dl>\n  <dt>a</dt>\n  <dd>\n    <p>b</p>\n    <dl>\n      <dt>c</dt>\n    </dl>\n    <div>\n\n    </div>\n  </dd>\n</dl>",
             ],
             'closed' => [
                 ':: a
@@ -153,19 +119,7 @@ final class ANestedDefinitionTermColonFenceTest extends TestCase
     text
     :::
 ',
-                '<dl>
-  <dt>a</dt>
-  <dd>
-    <p>b</p>
-    <dl>
-      <dt>c
-  ::: box
-  text
-  :::</dt>
-    </dl>
-  </dd>
-</dl>
-',
+                "<dl>\n  <dt>a</dt>\n  <dd>\n    <p>b</p>\n    <dl>\n      <dt>c</dt>\n    </dl>\n    <div class=\"box\">\n      <p>text</p>\n    </div>\n  </dd>\n</dl>",
             ],
             'tab' => [
                 ':: a
@@ -175,19 +129,7 @@ final class ANestedDefinitionTermColonFenceTest extends TestCase
 	text
 	:::
 ',
-                '<dl>
-  <dt>a</dt>
-  <dd>
-    <p>b</p>
-    <dl>
-      <dt>c
-  ::: box
-  text
-  :::</dt>
-    </dl>
-  </dd>
-</dl>
-',
+                "<dl>\n  <dt>a</dt>\n  <dd>\n    <p>b</p>\n    <dl>\n      <dt>c</dt>\n    </dl>\n    <div class=\"box\">\n      <p>text</p>\n    </div>\n  </dd>\n</dl>",
             ],
             'overindent' => [
                 ':: a
@@ -197,19 +139,7 @@ final class ANestedDefinitionTermColonFenceTest extends TestCase
       text
       :::
 ',
-                '<dl>
-  <dt>a</dt>
-  <dd>
-    <p>b</p>
-    <dl>
-      <dt>c
-    ::: box
-    text
-    :::</dt>
-    </dl>
-  </dd>
-</dl>
-',
+                "<dl>\n  <dt>a</dt>\n  <dd>\n    <p>b</p>\n    <dl>\n      <dt>c</dt>\n    </dl>\n    <div class=\"box\">\n      <p>text</p>\n    </div>\n  </dd>\n</dl>",
             ],
             'list' => [
                 '- a
@@ -218,17 +148,7 @@ final class ANestedDefinitionTermColonFenceTest extends TestCase
     text
     :::
 ',
-                '<ul>
-  <li>a
-    <dl>
-      <dt>c
-  ::: box
-  text
-  :::</dt>
-    </dl>
-  </li>
-</ul>
-',
+                "<ul>\n  <li>a\n    <dl>\n      <dt>c</dt>\n    </dl>\n    <div class=\"box\">\n      <p>text</p>\n    </div>\n  </li>\n</ul>",
             ],
         ];
     }

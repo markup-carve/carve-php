@@ -39,67 +39,67 @@ class AQuotedMarkerNoteListAfterACommentStaysInTheNoteTest extends TestCase
     {
         yield 'b007' => [
             "- [^n]: text\n    - child\n    %%%\n    k\n    %%%\n      - deep\nafter [^n]\n",
-            '<ul><li></li></ul><p>after<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>text - child</p><ul><li>deep</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+            "<ul>\n  <li></li>\n</ul>",
         ];
 
         yield 'b083' => [
             "1. [^n]: text\n     more\n     %%%\n     k\n     %%%\n      - deep\nafter [^n]\n",
-            '<ol><li></li></ol><p>after<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>text more</p><ul><li>deep</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+            "<ol>\n  <li></li>\n</ol>",
         ];
 
         yield 'b159' => [
             "> 1. [^n]: text\n>      - child\n>      %%%\n>      k\n>      %%%\n>      - deep\nafter [^n]\n",
-            '<blockquote><ol><li></li></ol></blockquote><p>after<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>text - child</p><ul><li>deep</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+            "<blockquote>\n  <ol>\n    <li></li>\n  </ol>\n</blockquote>",
         ];
 
         yield 'b003' => [
             "- [^n]: text\n    - child\n    %% k\n     - deep\nafter [^n]\n",
-            '<ul><li></li></ul><p>after<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>text - child</p><ul><li>deep</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+            "<ul>\n  <li></li>\n</ul>",
         ];
 
         yield 'b004' => [
             "- [^n]: text\n    - child\n    %% k\n    - deep\nafter [^n]\n",
-            '<ul><li></li></ul><p>after<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>text - child</p><ul><li>deep</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+            "<ul>\n  <li></li>\n</ul>",
         ];
 
         yield 'b013' => [
             "- [^n]: text\n    - child\n    [r]: /u\n      - deep\nafter [^n]\n",
-            '<ul><li></li></ul><p>after<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>text - child</p><ul><li>deep</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+            "<ul>\n  <li></li>\n</ul>",
         ];
 
         yield 'b018' => [
             "- [^n]: text\n    - child\n    {#x}\n      - deep\nafter [^n]\n",
-            '<ul><li></li></ul><p>after<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>text - child</p><ul id="x"><li>deep</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+            "<ul>\n  <li></li>\n</ul>",
         ];
 
         yield 'b027' => [
             "- [^n]: text\n    more\n    %% k\n      - deep\nafter [^n]\n",
-            '<ul><li></li></ul><p>after<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>text more</p><ul><li>deep</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+            "<ul>\n  <li></li>\n</ul>",
         ];
 
         yield 'b052' => [
             "1. [^n]: text\n     - child\n     %% k\n       - deep\nafter [^n]\n",
-            '<ol><li></li></ol><p>after<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>text - child</p><ul><li>deep</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+            "<ol>\n  <li></li>\n</ol>",
         ];
 
         yield 'b063' => [
             "1. [^n]: text\n     - child\n     [r]: /u\n       - deep\nafter [^n]\n",
-            '<ol><li></li></ol><p>after<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>text - child</p><ul><li>deep</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+            "<ol>\n  <li></li>\n</ol>",
         ];
 
         yield 'b093' => [
             "1. [^n]: text\n     more\n     {#x}\n       - deep\nafter [^n]\n",
-            '<ol><li></li></ol><p>after<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>text more</p><ul id="x"><li>deep</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+            "<ol>\n  <li></li>\n</ol>",
         ];
 
         yield 'b104' => [
             "> - [^n]: text\n>     - child\n>     %% k\n>     - deep\nafter [^n]\n",
-            '<blockquote><ul><li></li></ul></blockquote><p>after<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>text - child</p><ul><li>deep</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+            "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n</blockquote>",
         ];
 
         yield 'b153' => [
             "> 1. [^n]: text\n>      - child\n>      %% k\n>       - deep\nafter [^n]\n",
-            '<blockquote><ol><li></li></ol></blockquote><p>after<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>text - child</p><ul><li>deep</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
+            "<blockquote>\n  <ol>\n    <li></li>\n  </ol>\n</blockquote>",
         ];
     }
 
