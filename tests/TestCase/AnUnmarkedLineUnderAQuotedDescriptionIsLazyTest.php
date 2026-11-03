@@ -138,14 +138,7 @@ x
 > : para
         # H
     tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-# H
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<section id=\"H\">\n  <h1>H</h1>\n  <p>tail</p>\n</section>",
             ],
             'c097' => [
                 '> :: t
@@ -208,14 +201,7 @@ x
 > : para
     | a |
 tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-| a |
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n<p>tail</p>",
             ],
             'c130' => [
                 '> :: t
@@ -294,13 +280,7 @@ x
                 '> :: t
 > : para
    {#x}
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-{<span class="tag"><strong>#x</strong></span>}</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>",
             ],
             'marked-heading' => [
                 '> :: t

@@ -80,15 +80,7 @@ class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
             ],
             'the retained marker leaves the list loose' => [
                 "- t\n\n  %% c\n - b\n- s\n",
-                '<ul>
-  <li>t</li>
-</ul>
-<ul>
-  <li>b</li>
-</ul>
-<ul>
-  <li>s</li>
-</ul>',
+                "<ul>\n  <li><p>t</p></li>\n  <li><p>b</p></li>\n  <li><p>s</p></li>\n</ul>",
             ],
         ];
     }

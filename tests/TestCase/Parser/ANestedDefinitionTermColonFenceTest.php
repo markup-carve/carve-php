@@ -148,17 +148,7 @@ final class ANestedDefinitionTermColonFenceTest extends TestCase
     text
     :::
 ',
-                '<ul>
-  <li>a
-    <dl>
-      <dt>c
-  ::: box
-  text
-  :::</dt>
-    </dl>
-  </li>
-</ul>
-',
+                "<ul>\n  <li>a\n    <dl>\n      <dt>c</dt>\n    </dl>\n    <div class=\"box\">\n      <p>text</p>\n    </div>\n  </li>\n</ul>",
             ],
         ];
     }

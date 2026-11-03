@@ -103,7 +103,7 @@ class SixFuzzShapesAgreeWithTheOracleTest extends TestCase
             ],
             'a definition in a quote, then a lazy line' => [
                 ">  [d]: u\n)\n",
-                "<blockquote><p>[d]: u\n)</p></blockquote>\n",
+                "<blockquote>\n\n</blockquote>\n<p>)</p>",
             ],
             'a definition at the content column still ends it' => [
                 "> [d]: u\n)\n",

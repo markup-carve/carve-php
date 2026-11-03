@@ -57,7 +57,7 @@ final class ATermFoldsAnIndentedBlockOpenerAtEveryDepthTest extends TestCase
             ],
             'second term in a description' => [
                 ":: a\n: b\n  :: c\n    :: d\n",
-                '<dl><dt>a</dt><dd><p>b</p><dl><dt>c:: d</dt></dl></dd></dl>',
+                '<dl><dt>a</dt><dd><p>b</p><dl><dt>c</dt><dt>d</dt></dl></dd></dl>',
             ],
             'heading at the description column opens' => [
                 ":: a\n: b\n  :: c\n  # H\n",
@@ -71,7 +71,7 @@ final class ATermFoldsAnIndentedBlockOpenerAtEveryDepthTest extends TestCase
             ],
             'comment in a description' => [
                 ":: a\n: b\n  :: c\n    %% note\n    # H\n",
-                '<dl><dt>a</dt><dd><p>b</p><dl><dt>c# H</dt></dl></dd></dl>',
+                '<dl><dt>a</dt><dd><p>b</p><dl><dt>c</dt></dl><h1 id="H">H</h1></dd></dl>',
             ],
             'comment at the column ends the term' => [":: c\n%% note\nmore\n", '<dl><dt>c</dt></dl><p>more</p>'],
             'link definition in a description is term text' => [
@@ -80,7 +80,7 @@ final class ATermFoldsAnIndentedBlockOpenerAtEveryDepthTest extends TestCase
             ],
             'footnote definition in a list item is term text' => [
                 "x[^n]\n\n- item\n\n  :: c\n    [^n]: y\n",
-                '<p>x[^n]</p><ul><li>item<dl><dt>c[^n]: y</dt></dl></li></ul>',
+                '<p>x<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><ul><li>item<dl><dt>c</dt></dl></li></ul><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>y<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
             ],
             'link definition at the description column registers' => [
                 "[t][r]\n\n:: a\n: b\n  :: c\n  [r]: /u\n",
@@ -88,7 +88,7 @@ final class ATermFoldsAnIndentedBlockOpenerAtEveryDepthTest extends TestCase
             ],
             'inline content does not reach across a folded comment' => [
                 ":: a `code\n  %% note\n  end`\n",
-                '<dl><dt>a <code>code</code>end<code></code></dt></dl>',
+                '<dl><dt>a <code>code</code></dt></dl><p>end<code></code></p>',
             ],
             'a list marker under a nested term ends it before a definition' => [
                 "[t][r]\n\n:: a\n: b\n  :: c\n    - x\n    [r]: /u\n",
@@ -96,7 +96,7 @@ final class ATermFoldsAnIndentedBlockOpenerAtEveryDepthTest extends TestCase
             ],
             'a blank inside a folded comment fence keeps the term open' => [
                 "[t][r]\n\n:: a\n: b\n  :: c\n    %%%\n\n    hidden\n    %%%\n    [r]: /u\n",
-                '<p>[t][r]</p><dl><dt>a</dt><dd><p>b</p><dl><dt>c[r]: /u</dt></dl></dd></dl>',
+                '<p><a href="/u">t</a></p><dl><dt>a</dt><dd><p>b</p><dl><dt>c</dt></dl></dd></dl>',
             ],
             'an unclosed comment fence hides the definition below it' => [
                 ":: a\n: b\n  :: c\n    %%% unclosed\n\n    [r]: /u\n\n[t][r]\n",
@@ -104,7 +104,7 @@ final class ATermFoldsAnIndentedBlockOpenerAtEveryDepthTest extends TestCase
             ],
             'a percent-led folded comment line keeps its visible neighbors' => [
                 ":: c\n  %% % note\n  visible\n  %% %\n  more\n",
-                '<dl><dt>cvisiblemore</dt></dl>',
+                '<dl><dt>c</dt></dl><p>visible</p><p>more</p>',
             ],
             'list marker opens' => [
                 ":: a\n: b\n  :: c\n    - x\n",

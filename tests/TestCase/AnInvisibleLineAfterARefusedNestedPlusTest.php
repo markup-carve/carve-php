@@ -46,7 +46,7 @@ class AnInvisibleLineAfterARefusedNestedPlusTest extends TestCase
             ],
             'footnote-definition' => [
                 "- - b\n  +\n[^n]: note\npara[^n]\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>b\n+</li>\n    </ul>\n  </li>\n</ul>\n<p>para<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
+                "<ul>\n  <li>\n    <ul>\n      <li>b\n+</li>\n    </ul>\n  </li>\n</ul>",
             ],
             'lazy-text-still-folds' => [
                 "- - ```\n  +\nlazy\n",

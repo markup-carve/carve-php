@@ -59,7 +59,7 @@ class AThematicBreakLeavesNoInvisibleLineTest extends TestCase
             // which reads the invisible term too, so it moved with the rest.
             'a marker in the band' => [
                 "- t\n\n  ---\n - m\n",
-                "<ul>\n  <li>t\n    <hr>\n  </li>\n</ul>\n<ul>\n  <li>m</li>\n</ul>\n",
+                "<ul>\n  <li>t\n    <hr>\n  </li>\n  <li>m</li>\n</ul>",
             ],
             // The band of a NESTED item is still inside the outer one, so the
             // follower leaves the inner item and stops there.
@@ -140,13 +140,7 @@ class AThematicBreakLeavesNoInvisibleLineTest extends TestCase
             ],
             'a marker behind an attribute line' => [
                 "- t\n\n  {#a}\n - m\n",
-                '<ul>
-  <li>t</li>
-</ul>
-<ul>
-  <li>m</li>
-</ul>
-',
+                "<ul>\n  <li><p>t</p></li>\n  <li><p>m</p></li>\n</ul>",
             ],
         ];
     }

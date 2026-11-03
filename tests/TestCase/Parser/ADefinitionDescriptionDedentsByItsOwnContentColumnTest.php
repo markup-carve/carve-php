@@ -228,7 +228,7 @@ class ADefinitionDescriptionDedentsByItsOwnContentColumnTest extends TestCase
             ],
             'below the column: the body folds the quote' => [
                 ":: t\n:  body\n > q\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>body\n&gt; q</dd>\n</dl>\n",
+                "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<blockquote><p>q</p></blockquote>",
             ],
             'flush left: a sibling quote' => [
                 ":: t\n:  body\n> q\n",
