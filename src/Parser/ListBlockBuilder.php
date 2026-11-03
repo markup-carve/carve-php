@@ -181,7 +181,13 @@ final class ListBlockBuilder
             return false;
         }
         $j = $i - 1;
-        while ($j >= 0 && (IndentationHelper::isBlankLine($lines[$j]) || IndentationHelper::getLeadingColumns($lines[$j]) > $baseIndent)) {
+        // A `%%%` run below the column is the closer of the item's span (PART 9 §28), still item content.
+        while (
+            $j >= 0
+            && (IndentationHelper::isBlankLine($lines[$j])
+                || IndentationHelper::getLeadingColumns($lines[$j]) > $baseIndent
+                || preg_match('/^[ \t]*%{3,}/', $lines[$j]) === 1)
+        ) {
             $j--;
         }
         $lead = $j >= 0 ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$j], " \t")) : null;
