@@ -66,7 +66,12 @@ class Image extends InlineNode
             return null;
         }
 
-        return $split;
+        return [
+            'block' => $split['block'],
+            'blockOrder' => $split['blockOrder'],
+            'own' => $split['own'],
+            'ownOrder' => $split['ownOrder'],
+        ];
     }
 
     public function setResolvedEmptyReference(bool $resolved): void
