@@ -218,6 +218,7 @@ final class BlockQuoteBuilder
         $blockQuote = new BlockQuote();
         $quoteSourceLine = $this->sourceLineFor($start);
         $quoteOpeningColumn = $this->quoteOpeningColumn($line, $quoteSourceLine);
+        $quoteSpanColumn = $this->quoteOpeningColumn($line, $quoteSourceLine, forSpan: true);
 
         // Save and clear pending attributes - they apply to the blockquote, not inner content
         $quoteAttributes = $this->state->session->pendingAttributes;
@@ -604,7 +605,7 @@ final class BlockQuoteBuilder
             array_pop($innerLines);
             array_pop($innerLineMap);
         }
-        $blockQuote->setPos($this->wholeLinesSpan($start, $i - 1, $quoteOpeningColumn));
+        $blockQuote->setPos($this->wholeLinesSpan($start, $i - 1, $quoteSpanColumn));
         $parts[] = [$innerLines, $innerLineMap];
         foreach ($parts as [$partLines, $partLineMap]) {
             $this->parseBlocks($blockQuote, $partLines, 0, $partLineMap);
@@ -699,18 +700,24 @@ final class BlockQuoteBuilder
         );
     }
 
-    private function quoteOpeningColumn(string $line, int $quoteSourceLine): int
+    /**
+     * @param string $line
+     * @param int $quoteSourceLine
+     * @param bool $forSpan Include the authored content column, which only position tracking records; structure must not read it.
+     */
+    private function quoteOpeningColumn(string $line, int $quoteSourceLine, bool $forSpan = false): int
     {
         $sourceTail = rtrim($this->state->source->sourceLines[$quoteSourceLine] ?? '', " \t");
         $lineTail = rtrim(explode("\n", $line, 2)[0], " \t");
         $markerTail = ltrim($lineTail, " \t");
+        $authored = $forSpan ? $this->state->frame->currentContentColumns[$quoteSourceLine] ?? 0 : 0;
         $quoteOpeningColumn = str_ends_with($sourceTail, $markerTail)
             ? strlen($sourceTail) - strlen($markerTail)
-            : ($this->state->frame->currentContentColumns[$quoteSourceLine] ?? 0);
+            : $authored;
 
         return max(
             $quoteOpeningColumn,
-            $this->state->frame->currentContentColumns[$quoteSourceLine] ?? 0,
+            $authored,
             strlen($sourceTail) - strlen(ltrim($sourceTail, " \t")),
         );
     }
