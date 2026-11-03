@@ -955,29 +955,16 @@ class BlockParser
         $replaced = false;
         foreach ($children as $index => $child) {
             if ($child instanceof Paragraph) {
-                $image = BlockImagePromotion::loneImage($child);
                 $child->setBlockImage(!($node instanceof LineBlock) && BlockImagePromotion::isBlockImage($child));
-                if (
-                    $image instanceof Image
-                    && !($node instanceof LineBlock)
-                    && count($child->getChildren()) === 1
-                    && !($node instanceof ListItem && $node->isTask())
-                ) {
-                    if ($child->getAttributeEntries() !== []) {
-                        $image->mergeLeadingAttributes($child->getAttributeEntries(), $child->getAttributeOrder());
-                        $image->setRenderHint('blockAttributesMerged', '1');
-                        foreach (array_keys($child->getAttributeEntries()) as $key) {
-                            $child->removeAttribute((string)$key);
-                        }
-                    }
-                    // The AST vocabulary states it in the `image` node's own
-                    // description: "Also valid in BLOCK position: a lone image
-                    // paragraph is a block-level image." carve-js and carve-rs
-                    // publish the image; this engine published the paragraph
-                    // and unwrapped it again in the HTML renderer, so the
-                    // output matched while the tree did not - which no HTML
-                    // gate can see (#633).
-                    $image->setPos($image->getPos() ?? $child->getPos());
+                // The AST vocabulary states it in the `image` node's own
+                // description: "Also valid in BLOCK position: a lone image
+                // paragraph is a block-level image." carve-js and carve-rs
+                // publish the image; this engine published the paragraph
+                // and unwrapped it again in the HTML renderer, so the
+                // output matched while the tree did not - which no HTML
+                // gate can see (#633).
+                $image = BlockImagePromotion::lift($child, $node);
+                if ($image !== null) {
                     $children[$index] = $image;
                     $replaced = true;
 

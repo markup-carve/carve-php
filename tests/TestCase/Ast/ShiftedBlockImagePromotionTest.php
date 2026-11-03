@@ -32,9 +32,10 @@ final class ShiftedBlockImagePromotionTest extends TestCase
         $paragraph = $wire['children'][0];
         self::assertSame('paragraph', $paragraph['type']);
         self::assertTrue($paragraph['blockImage']);
-        self::assertArrayNotHasKey('attrs', $paragraph);
+        self::assertSame(['outer'], $paragraph['attrs']['classes']);
+        self::assertSame(['k' => 'one'], $paragraph['attrs']['keyValues']);
         self::assertSame('image', $paragraph['children'][0]['type']);
-        self::assertSame(['outer', 'inner'], $paragraph['children'][0]['attrs']['classes']);
+        self::assertSame(['inner'], $paragraph['children'][0]['attrs']['classes']);
         self::assertSame(['k' => 'two'], $paragraph['children'][0]['attrs']['keyValues']);
     }
 }

@@ -21,6 +21,7 @@ use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
+use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
@@ -207,6 +208,24 @@ class ProseMirrorRenderer
             }
 
             return $section;
+        }
+
+        // A promoted image's attribute line crosses on a paragraph around it,
+        // the shape of the AST (CARVE-P12-043).
+        if ($node instanceof Image && $node->getBlockAttributeSplit() !== null) {
+            $split = $node->getBlockAttributeSplit();
+            $line = new Paragraph();
+            $line->setAttributesWithOrder($split['block'], $split['blockOrder']);
+            $image = clone $node;
+            foreach (array_keys($image->getAttributeEntries()) as $key) {
+                $image->removeAttribute((string)$key);
+            }
+            $image->setAttributeOrder([]);
+            $image->setAttributesWithOrder($split['own'], $split['ownOrder']);
+            $wrapper = ['type' => 'paragraph', 'attrs' => $this->attributesFor($line)];
+            $wrapper['content'] = $this->renderInlines([$image], []);
+
+            return $wrapper;
         }
 
         $name = $this->proseMirrorName($node);

@@ -76,6 +76,7 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\HeadingReferenceCollector;
 use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use ReflectionClass;
 use ReflectionNamedType;
 use RuntimeException;
@@ -341,7 +342,24 @@ class ProseMirrorToCarve
             }
         }
 
+        self::markAttributedBlockImages($carveDocument);
+        BlockImagePromotion::liftAttributed($carveDocument);
+
         return $carveDocument;
+    }
+
+    /**
+     * An attributed paragraph around a lone image is how the renderer sends a
+     * promoted image's attribute line.
+     */
+    private static function markAttributedBlockImages(Node $node): void
+    {
+        foreach ($node->getChildren() as $child) {
+            if (!$node instanceof LineBlock && $child instanceof Paragraph && $child->getAttributeEntries() !== [] && BlockImagePromotion::isBlockImage($child)) {
+                $child->setBlockImage(true);
+            }
+            self::markAttributedBlockImages($child);
+        }
     }
 
     /**

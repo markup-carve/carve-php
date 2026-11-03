@@ -104,9 +104,9 @@ class ReferenceImageAttributeLineSubtractionTest extends TestCase
 
     public function testADirectImageStillWritesItsAttributesInline(): void
     {
-        // Unchanged by this: a direct image has no `rawRef`, so it never reaches
-        // the subtraction and keeps appending its attributes inline.
-        $this->assertSame("![a](/u){#f}\n", $this->fmt("{#f}\n![a](/u)\n"));
+        // A direct image has no `rawRef`, so it never reaches the subtraction.
+        // Its attribute line stays a line (markup-carve/carve#5039, ruling A).
+        $this->assertSame("{#f}\n![a](/u)\n", $this->fmt("{#f}\n![a](/u)\n"));
     }
 
     public function testACaptionedReferenceImageIsUnchanged(): void

@@ -107,12 +107,13 @@ class CarveWriterDefinitionAttributesTest extends TestCase
         $this->assertSame($this->html($source), $this->html($formatted));
     }
 
-    public function testTheLineIsDroppedWhenTheReferenceAlreadyStatesEveryClass(): void
+    public function testTheLineStaysWhenTheReferenceAlreadyStatesEveryClass(): void
     {
+        // The attribute line is the paragraph's own (markup-carve/carve#5039, ruling A).
         $source = "{.trail}\n![a][r]{.trail}\n\n[r]: /u\n";
         $formatted = $this->fmt($source);
 
-        $this->assertStringNotContainsString("{.trail}\n![a][r]", $formatted);
+        $this->assertSame($source, $formatted);
         $this->assertSame($this->html($source), $this->html($formatted));
     }
 
