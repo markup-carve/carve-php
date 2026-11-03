@@ -5154,12 +5154,17 @@ final class BlockContinuationScanner
     private function noteChildContentColumn(array $itemLines, int $contentIndent, bool $afterBlank): int
     {
         $count = count($itemLines);
+        $lastLine = $itemLines[$count - 1] ?? '';
+        for ($back = $count - 1; $back > 0 && IndentationHelper::isBlankLine($lastLine); $back--) {
+            $lastLine = $itemLines[$back - 1];
+        }
         $lead = (string)preg_replace(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, '$2', $itemLines[0] ?? '');
         // A marker under the note's paragraph opens a list too (PART 0 S3, carve#4860).
         if (
             !($this->isCommentLineOrFence($lead) || $this->isBlockElementStart($lead) || $this->startsNewBlock($lead))
             && !$afterBlank
-            && ($count < 2 || ($this->getListParser)()->parseListItemMarker(ltrim($itemLines[$count - 1], " \t")) === null)
+            && ($count < 2 || (($this->getListParser)()->parseListItemMarker(ltrim($lastLine, " \t")) === null
+                && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($lastLine, " \t")) !== 1))
         ) {
             return PHP_INT_MAX;
         }
@@ -5169,18 +5174,19 @@ final class BlockContinuationScanner
                 ? $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN + strlen($match[1]) + strlen($match[2])
                 : PHP_INT_MAX;
         }
-        $last = ltrim($itemLines[$count - 1], " \t");
+        $last = ltrim($lastLine, " \t");
         $leadTerm = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $lead) === 1;
         if (
             ($this->getListParser)()->parseListItemMarker($last) === null
-            && !($leadTerm && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $last) === 1)
+            // A description opened in the note keeps the fence at its content column too.
+            && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $last) !== 1
         ) {
             // A term keeps the fence below it as its own text.
             return !$afterBlank && $leadTerm
                 ? $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
                 : PHP_INT_MAX;
         }
-        if (preg_match('/^([ \t]*)(\S+)( +)/', $itemLines[$count - 1], $match) !== 1) {
+        if (preg_match('/^([ \t]*)(\S+)( +)/', $lastLine, $match) !== 1) {
             return PHP_INT_MAX;
         }
 
