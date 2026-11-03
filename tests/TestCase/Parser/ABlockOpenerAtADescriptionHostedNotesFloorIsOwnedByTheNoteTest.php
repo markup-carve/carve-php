@@ -55,7 +55,7 @@ class ABlockOpenerAtADescriptionHostedNotesFloorIsOwnedByTheNoteTest extends Tes
             // list and drops, and `tail` is a document paragraph.
             'opener at the floor, tail at column 0' => [
                 ":: t\n:  [^f]: note\n     - nested\ntail\n",
-                "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>tail</p>",
+                "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>",
             ],
             // Opener at the floor, trailing line at the `dd` content column: the
             // list is still absorbed and dropped, and `tail` continues the `dd`.

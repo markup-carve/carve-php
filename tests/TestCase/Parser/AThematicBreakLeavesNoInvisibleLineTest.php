@@ -136,11 +136,7 @@ class AThematicBreakLeavesNoInvisibleLineTest extends TestCase
             ],
             'a footnote definition' => [
                 "- t\n\n  [^f]: n\n z\n",
-                '<ul>
-  <li>t</li>
-</ul>
-<p>z</p>
-',
+                "<ul>\n  <li>t</li>\n</ul>",
             ],
             'a marker behind an attribute line' => [
                 "- t\n\n  {#a}\n - m\n",

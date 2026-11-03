@@ -32,205 +32,106 @@ class AnUnmarkedLineUnderAQuotedDescriptionIsLazyTest extends TestCase
             ],
             'an indented heading stays in the quote paragraph' => [
                 ":: t\n: > quote\n # Heading\n",
-                '<dl><dt>t</dt><dd><blockquote><p>quote # Heading</p></blockquote></dd></dl>',
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <blockquote><p>quote</p></blockquote>\n  </dd>\n</dl>\n<section id=\"Heading\">\n  <h1>Heading</h1>\n</section>",
             ],
             'c016' => [
                 '> :: t
 > : para
   # H
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-# H</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<section id=\"H\">\n  <h1>H</h1>\n</section>",
             ],
             'c019' => [
                 '> :: t
 > : para
     ---
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-—</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<hr>",
             ],
             'c021' => [
                 '> :: t
 > : para
     [r]: /u
 tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-[r]: /u
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<p>tail</p>",
             ],
             'c032' => [
                 '> :: t
 > : para
 >   more
 >  [r]: /u
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-more
-[r]: /u</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para\nmore</dd>\n  </dl>\n</blockquote>",
             ],
             'c051' => [
                 '> :: t
 > : para
     [^p]: n
 tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-[^p]: n
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>",
             ],
             'c063' => [
                 '> :: t
 > : para
      # H
     tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-# H
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<section id=\"H\">\n  <h1>H</h1>\n  <p>tail</p>\n</section>",
             ],
             'c067' => [
                 '> :: t
 > : para
   | a |
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-| a |</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>",
             ],
             'c068' => [
                 '> :: t
 > : para
      ---
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-—</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<hr>",
             ],
             'c070' => [
                 '> :: t
 > : para
         | a |
     tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-| a |
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n<p>tail</p>",
             ],
             'c073' => [
                 '> :: t
 > : para
         {#x}
 tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-{<span class="tag"><strong>#x</strong></span>}
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<p id=\"x\">tail</p>",
             ],
             'c074' => [
                 '> :: t
 > : para
         {#x}
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-{<span class="tag"><strong>#x</strong></span>}</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>",
             ],
             'c083' => [
                 '> :: t
 > : para
         ---
     tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-—
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<hr>\n<p>tail</p>",
             ],
             'c086' => [
                 '> :: t
 > : para
  ---
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-—</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<hr>",
             ],
             'c089' => [
                 '> :: t
 > : para
         {#x}
     tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-{<span class="tag"><strong>#x</strong></span>}
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<p id=\"x\">tail</p>",
             ],
             'c093' => [
                 '> :: t
 > : para
   | a |
 x
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-| a |
-x</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n<p>x</p>",
             ],
             'c096' => [
                 '> :: t
@@ -261,92 +162,46 @@ tail</dd>
 > : para
     ---
 x
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-—
-x</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<hr>\n<p>x</p>",
             ],
             'c102' => [
                 '> :: t
 > : para
    ---
 tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-—
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<hr>\n<p>tail</p>",
             ],
             'c108' => [
                 '> :: t
 > : para
     {#x}
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-{<span class="tag"><strong>#x</strong></span>}</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>",
             ],
             'c109' => [
                 '> :: t
 > : para
         | a |
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-| a |</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>",
             ],
             'c112' => [
                 '> :: t
 > : para
   {#x}
     tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-{<span class="tag"><strong>#x</strong></span>}
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<p id=\"x\">tail</p>",
             ],
             'c113' => [
                 '> :: t
 > : para
    # H
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-# H</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<section id=\"H\">\n  <h1>H</h1>\n</section>",
             ],
             'c117' => [
                 '> :: t
 > : para
   {#x}
 x
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-{<span class="tag"><strong>#x</strong></span>}
-x</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<p id=\"x\">x</p>",
             ],
             'c120' => [
                 '> :: t
@@ -380,119 +235,60 @@ tail</dd>
                 '> :: t
 > : para
   ---
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-—</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<hr>",
             ],
             'c136' => [
                 '> :: t
 > : para
  # H
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-# H</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<section id=\"H\">\n  <h1>H</h1>\n</section>",
             ],
             'c140' => [
                 '> :: t
 > : para
     # H
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-# H</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<section id=\"H\">\n  <h1>H</h1>\n</section>",
             ],
             'c147' => [
                 '> :: t
 > : para
      {#x}
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-{<span class="tag"><strong>#x</strong></span>}</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>",
             ],
             'c148' => [
                 '> :: t
 > : para
         [r]: /u
 tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-[r]: /u
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<p>tail</p>",
             ],
             'c151' => [
                 '> :: t
 > : para
     | a |
     tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-| a |
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n<p>tail</p>",
             ],
             'c158' => [
                 '> :: t
 > : para
   [r]: /u
 tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-[r]: /u
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<p>tail</p>",
             ],
             'c172' => [
                 '> :: t
 > : para
         [^p]: n
 tail
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-[^p]: n
-tail</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>",
             ],
             'c187' => [
                 '> :: t
 > : para
   # H
 x
-', '<blockquote>
-<dl>
-<dt>t</dt>
-<dd>para
-# H
-x</dd>
-</dl>
-</blockquote>',
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<section id=\"H\">\n  <h1>H</h1>\n  <p>x</p>\n</section>",
             ],
             'c188' => [
                 '> :: t

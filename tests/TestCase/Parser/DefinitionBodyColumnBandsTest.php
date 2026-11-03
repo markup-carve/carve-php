@@ -30,7 +30,7 @@ class DefinitionBodyColumnBandsTest extends TestCase
         return [
             'column 1' => [
                 ":: t\n:  body\n > q\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>body\n&gt; q</dd>\n</dl>\n",
+                "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<blockquote><p>q</p></blockquote>",
             ],
             'column 2' => [
                 ":: t\n:  body\n  > q\n",

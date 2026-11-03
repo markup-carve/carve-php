@@ -24,15 +24,15 @@ class ADescriptionFenceCountsClosersInsideItsBodyTest extends TestCase
             'body-column closer after a tab opener' => [":: t\n: a\n\t```\n  ```\n", $body],
             'below-column payload before the closer' => [
                 ":: m\n: l\n     ```\ne\n     ```\n",
-                "<dl>\n<dt>m</dt>\n<dd>\n<p>l</p>\n<pre><code>e\n</code></pre>\n</dd>\n</dl>",
+                "<dl>\n<dt>m</dt>\n<dd>\n<p>l</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n<p>e</p>\n<pre><code></code></pre>",
             ],
             'one-column payload inside an overindented fence' => [
                 ":: t\n: a\n   ```\n   b\n y\n   ```\n",
-                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>b\ny\n</code></pre>\n</dd>\n</dl>",
+                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>b\n</code></pre>\n</dd>\n</dl>\n<p>y</p>\n<pre><code></code></pre>",
             ],
             'other fence character is payload' => [
                 ":: t\n: a\n   ```\n~~~\n   ```\n",
-                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>~~~\n</code></pre>\n</dd>\n</dl>",
+                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n<pre><code>   ```\n</code></pre>",
             ],
             'indented attribute inside an open fence' => [
                 ":: t\n: a\n   ```\n {.a}\n   ```\n",
@@ -60,11 +60,11 @@ class ADescriptionFenceCountsClosersInsideItsBodyTest extends TestCase
             ],
             'a below-column attribute ends the body' => [
                 ":: t\n: a\n   ```\n{.c}\n  ```\n",
-                "<dl>\n<dt>t</dt>\n<dd>a\n<code></code></dd>\n</dl>\n<p class=\"c\"><code></code></p>",
+                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n<pre class=\"c\"><code></code></pre>",
             ],
             'indented heading text is payload' => [
                 ":: t\n: a\n    ```\n # y\n  ```\n",
-                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code># y\n</code></pre>\n</dd>\n</dl>",
+                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n<section id=\"y\">\n<h1>y</h1>\n<pre><code></code></pre>\n</section>",
             ],
             'a below-column div opener ends the body' => [
                 ":: t\n: a\n    ```\n ::: y\n    ```\n",

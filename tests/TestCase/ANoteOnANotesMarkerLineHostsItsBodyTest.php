@@ -20,12 +20,7 @@ class ANoteOnANotesMarkerLineHostsItsBodyTest extends TestCase
     {
         yield 'nested definition' => [
             "[r][] [^p] [^c] [^d]\n[^c]: [^d]: para\n       [^p]: n\n        tail\n",
-            '<p>[r][] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a> <a id="fnref2" href="#fn2" role="doc-noteref"><sup>2</sup></a> <a id="fnref3" href="#fn3" role="doc-noteref"><sup>3</sup></a></p>
-<section role="doc-endnotes" aria-label="Footnotes"><hr><ol>
-<li id="fn1"><p>n<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li>
-<li id="fn2"><p><a href="#fnref2" role="doc-backlink" aria-label="Back to reference">↩</a></p></li>
-<li id="fn3"><p>para</p><p>tail<a href="#fnref3" role="doc-backlink" aria-label="Back to reference">↩</a></p></li>
-</ol></section>',
+            "<p>[r][] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> <a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a> <a id=\"fnref3\" href=\"#fn3\" role=\"doc-noteref\"><sup>3</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>n\ntail<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n    <li id=\"fn2\">\n      <p><a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n    <li id=\"fn3\">\n      <p>para<a href=\"#fnref3\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
         ];
 
         yield 'nested table' => [

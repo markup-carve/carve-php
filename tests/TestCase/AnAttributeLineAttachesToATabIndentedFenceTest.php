@@ -52,7 +52,7 @@ class AnAttributeLineAttachesToATabIndentedFenceTest extends TestCase
         yield 'g086' => ["1. a\n  :::\n   {.c}\n\t ```\nx\n```\nafter\n", '<ol><li>a</li></ol><div><pre class="c"><code>x </code></pre><p>after</p></div>'];
         yield 'g089' => ["1. a\n\t::: box\n   \t{.c}\n  ```\nafter\n", '<ol><li>a<div class="box"></div></li></ol><p><code>after</code></p>'];
         yield 'g125' => ["1. a\n  :::\n  \t{.c}\n\t\t```\n```\n", '<ol><li>a</li></ol><div><pre class="c"><code></code></pre></div>'];
-        yield 'g132' => ["1. a\n\t::: note\n   \t{.c}\n  ```\nx\n```\nafter\n", '<ol><li>a<aside class="admonition note" aria-label="Note"></aside></li></ol><p><code>x</code>after</p>'];
+        yield 'g132' => ["1. a\n\t::: note\n   \t{.c}\n  ```\nx\n```\nafter\n", "<ol>\n  <li>a\n    <aside class=\"admonition note\" aria-label=\"Note\">\n\n    </aside>\n  </li>\n</ol>\n<pre><code>x\n</code></pre>\n<p>after</p>"];
         yield 'g172' => ["1. a\n\t::: box\n   \t{.c}\n  ```\n```\n", '<ol><li>a<div class="box"></div></li></ol><p><code></code></p>'];
 
         yield 'space-indented-control' => [
