@@ -1693,7 +1693,11 @@ final class BlockQuoteBuilder
         $at = $state['paragraphOpen'] && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $above) !== 1
             ? null
             : ($this->getListParser)()->markerWalkOffset($inner, IndentationHelper::pastLeadingWhitespace($inner));
-        $span = $at === null ? null : ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn(substr($inner, $at));
+        // The block parser reads a run after a tab-separated marker as item text, so the tracker does too.
+        $raw = $sourceLines[$sourceIndex] ?? '';
+        $span = $at === null || str_contains(substr($raw, 0, (int)strpos($raw, '%')), "\t")
+            ? null
+            : ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn(substr($inner, $at));
         if ($span !== null) {
             $state['mode'] = BlockQuoteLazyMode::CommentFence;
             $state['commentLength'] = $span['length'];
