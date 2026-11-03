@@ -456,6 +456,8 @@ final class BlockOwnershipWalk
 
                 continue;
             }
+            // A line leaving a line block's open `%%%` span keeps the opener base (carve#4994).
+            $leftLineBlockSpan = $inner->kind === 'fence' && $inner->lineBlock && $inner->span !== null && $inner->span[0] === '%';
             if ($inner->kind === 'fence' && !($inner->lineBlock && $inner->para && $this->m['rest'] !== '')) {
                 array_pop($this->frames);
             }
@@ -624,7 +626,7 @@ final class BlockOwnershipWalk
                     $this->noteOpener($o, $form, $this->frames[$o]->col);
                 }
                 $this->lead($this->frames[$o]->canon, $form->kind === 'term' || $form->kind === 'dd');
-                $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon);
+                $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon, inHost: !$leftLineBlockSpan);
             }
             $this->sibling = null;
             $result[] = $this->out . $this->src;
@@ -878,7 +880,7 @@ final class BlockOwnershipWalk
         return $path;
     }
 
-    private function apply(int $owner, int $col, OwnershipForm $form, int $canon, ?int $reader = null): void
+    private function apply(int $owner, int $col, OwnershipForm $form, int $canon, ?int $reader = null, bool $inHost = false): void
     {
         $reader ??= $this->frames[$owner]->reader ?? $this->frames[$owner]->canon;
         $this->frames[$owner]->para = $form->caption;
@@ -899,7 +901,8 @@ final class BlockOwnershipWalk
                 $form->kind,
                 $o->col,
                 $o->canon,
-                $col - $canon,
+                // A comment payload is host-relative; the opener's indentation sets no base (CARVE-P9-060).
+                $form->family === 'comment' && $inHost ? $o->col - $o->canon : $col - $canon,
                 closes: $form->closes,
                 run: $form->run,
                 lineBlock: $form->lineBlock,
@@ -998,7 +1001,7 @@ final class BlockOwnershipWalk
             $col = $this->m['col'];
             $this->noteOpener($frame, $form, 0);
             $this->lead(0);
-            $this->apply($frame, $col, $form, 0);
+            $this->apply($frame, $col, $form, 0, inHost: true);
 
             return;
         }

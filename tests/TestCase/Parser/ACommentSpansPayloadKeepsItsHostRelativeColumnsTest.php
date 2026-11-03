@@ -180,10 +180,46 @@ class ACommentSpansPayloadKeepsItsHostRelativeColumnsTest extends TestCase
     public function testAControlADegradedOpenerOwnsNoPayload(): void
     {
         // Since carve#4907 the opener opens a span: `a` is its payload and `b` misses the item (PART 0 S1).
+        // The payload keeps its columns past the item's (carve#4988).
         $source = "- head\n\n    %%%\n    a\nb\ntail\n";
         $html = (new CarveConverter())->convert($source);
 
-        $this->assertSame(['a'], $this->payloads($source));
+        $this->assertSame(['  a'], $this->payloads($source));
         $this->assertSame("<ul>\n  <li>head</li>\n</ul>\n<p>b\ntail</p>", trim($html));
+    }
+
+    /**
+     * A span that ends its item reads at document level and keeps every leading column (carve#4995).
+     *
+     * @return array<string, array{string, array<string>}>
+     */
+    public static function documentLevelSpansBelowAnItem(): array
+    {
+        return [
+            'corpus 187' => ["- a\n %%% n\n x\n %%%\n tail\n", ["n\n x"]],
+            'payload one past the opener' => ["- a\n %%%%\n  x\n %%%%\n tail\n", ['  x']],
+            'payload two past the opener' => ["- a\n %%%%\n   x\n %%%%\n tail\n", ['   x']],
+            'nested item' => ["- a\n  - b\n %%%\n # h\n %%%\n", [' # h']],
+        ];
+    }
+
+    /**
+     * @param string $source
+     * @param array<string> $payloads
+     */
+    #[DataProvider('documentLevelSpansBelowAnItem')]
+    public function testADocumentLevelSpanBelowAnItemKeepsEveryColumn(string $source, array $payloads): void
+    {
+        $this->assertSame($payloads, $this->payloads($source));
+    }
+
+    /**
+     * An opener past its host's column sets no payload base (carve#4988, corpus 508-4).
+     */
+    public function testAnOpenerPastTheHostColumnSetsNoPayloadBase(): void
+    {
+        $source = "- head\n\n    %%%\n    a\n%%%\n    %%%\n    b\n    %%%\n\n  tail\n";
+
+        $this->assertSame(['  a', '  b'], $this->payloads($source));
     }
 }
