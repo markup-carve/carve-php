@@ -20,9 +20,21 @@ final class CollectedCommentSpan
     public ?int $openComment = null;
 
     /**
+     * The content column of the body a description or note lead opened the span in.
+     */
+    public ?int $openOwner = null;
+
+    /**
      * @var array{char: string, length: int}|null
      */
     public ?array $openCode = null;
 
     public bool $atBlockStart = true;
+
+    /**
+     * The scanned nonblank lines as `[column, opens an entry]`, with increasing columns.
+     *
+     * @var array<int, array{0: int, 1: bool}>
+     */
+    public array $entryColumns = [];
 }

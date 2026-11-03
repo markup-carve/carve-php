@@ -3578,6 +3578,23 @@ class BlockParser
             $nextLine = $admission['line'];
             if (IndentationHelper::isBlankLine($nextLine)) {
                 $retainedBelowComment = false;
+                // A blank inside a live span is payload; a comment line below the column still closes it (PART 9 §28).
+                $look = $i;
+                while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
+                    $look++;
+                }
+                if (
+                    isset($lines[$look])
+                    && str_starts_with(ltrim($lines[$look], " \t"), '%%')
+                    && $this->collectedLinesLeaveACommentSpanOpen($bodyLines, $commentSpan)
+                ) {
+                    for (; $i < $look; $i++) {
+                        $bodyLines[] = '';
+                        $bodyLineMap[] = $this->sourceLineFor($i);
+                    }
+
+                    continue;
+                }
                 // A BLANK RUN continues the footnote when the body resumes
                 // after it. Must mirror the body-collection logic so a line is
                 // never skipped here without being collected there (grammar
@@ -4560,9 +4577,20 @@ class BlockParser
             }
             foreach (explode("\n", $chunk) as $part) {
                 $line = ltrim($part, " \t");
+                $lead = $this->scannedBodyLead($scan, $part, $line);
+                // A line that misses the body owning the span ends it (PART 0 S1).
+                if (
+                    $scan->openComment !== null && $scan->openOwner !== null && $line !== '' && !str_starts_with($line, '%%')
+                    && IndentationHelper::getLeadingColumns($part) < $scan->openOwner
+                ) {
+                    $scan->openComment = null;
+                    $scan->openOwner = null;
+                    $scan->atBlockStart = true;
+                }
                 if ($scan->openComment !== null) {
                     if ($this->fencedBlockParser->isFencedCommentCloser($line, $scan->openComment)) {
                         $scan->openComment = null;
+                        $scan->openOwner = null;
                         $scan->atBlockStart = true;
                     }
 
@@ -4581,7 +4609,8 @@ class BlockParser
 
                     continue;
                 }
-                $opener = $scan->atBlockStart ? $this->markerFreeContent($line) : $line;
+                // A description or note marker line opens a body, so a span on it is owned there (carve-php#4508).
+                $opener = $lead !== null || $scan->atBlockStart ? $this->markerFreeContent($lead[0] ?? $line) : $line;
                 $scan->atBlockStart = false;
                 $code = $this->fencedBlockParser->parseCodeFenceOpener($opener);
                 if ($code !== null) {
@@ -4592,6 +4621,7 @@ class BlockParser
                 $comment = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($opener);
                 if ($comment !== null) {
                     $scan->openComment = $comment['length'];
+                    $scan->openOwner = $lead[1] ?? null;
                 }
             }
             $scan->tailLength = strlen($raw);
@@ -4599,6 +4629,41 @@ class BlockParser
         }
 
         return $scan->openComment !== null;
+    }
+
+    /**
+     * The content after a `[^n]: ` note lead, or after a `: ` description lead with an entry above
+     * at its column, on one scanned line, with the body's column; null when it has neither.
+     *
+     * @param \MarkupCarve\Carve\Parser\CollectedCommentSpan $scan
+     * @param string $part The line as collected.
+     * @param string $line The line without its indentation.
+     *
+     * @return array{0: string, 1: int}|null
+     */
+    private function scannedBodyLead(CollectedCommentSpan $scan, string $part, string $line): ?array
+    {
+        if ($line === '') {
+            return null;
+        }
+        $column = IndentationHelper::getLeadingColumns($part);
+        // Nonblank lines above, by column: the nearest one at or left of a column is the last kept.
+        while ($scan->entryColumns !== [] && end($scan->entryColumns)[0] > $column) {
+            array_pop($scan->entryColumns);
+        }
+        $above = end($scan->entryColumns);
+        if ($above !== false && $above[0] === $column) {
+            array_pop($scan->entryColumns);
+        }
+        $scan->entryColumns[] = [$column, preg_match('/^::? /', $line) === 1];
+        if (preg_match('/^\[\^[^\]]+\]: +/', $line, $m) === 1 && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $line) === 1) {
+            return [ltrim(substr($line, strlen($m[0])), " \t"), $column + self::FOOTNOTE_BODY_COLUMN];
+        }
+        if ($above !== false && $above[0] === $column && $above[1] && preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $line, $m) === 1) {
+            return [ltrim(substr($line, strlen($m[0])), " \t"), $column + strlen($m[0])];
+        }
+
+        return null;
     }
 
     /**

@@ -513,8 +513,8 @@ final class ListBlockBuilder
         $k = $at - 1;
         $skipped = false;
         while ($k > $head && !IndentationHelper::isBlankLine($lines[$k])) {
-            $visible = !isset($inSpan[$k]) && $runs[$k] !== 2
-                && ($runs[$k] >= 3 || !($this->isInvisibleSiblingLineCallback)(ltrim($lines[$k], " \t")));
+            $visible = !isset($inSpan[$k]) && $runs[$k] < 2
+                && !($this->isInvisibleSiblingLineCallback)(ltrim($lines[$k], " \t"));
             if ($visible) {
                 return false;
             }
@@ -1771,7 +1771,7 @@ final class ListBlockBuilder
             $inSubCommentSpan = $subOpenCommentLength !== null;
             $subMarkerComment = null;
             if (!$inSubCommentSpan && $subTrailingState->fence === null && $lineIndent >= $subIndent) {
-                $markerContent = $this->markerFreeContent(ltrim($subLine, " \t"));
+                $markerContent = $this->continuations->spanHostFreeContent($subLine, $lines, $i);
                 if ($this->markerCommentSpanFits($markerContent, $subLine, $lines, $i)) {
                     $subMarkerComment = $markerContent;
                 }
@@ -2012,14 +2012,6 @@ final class ListBlockBuilder
 
                     break;
                 }
-                // After a blank line, content dropping back to base indent
-                // starts a new block outside the list - let parent handle it.
-                if ($sawBlankLine) {
-                    $lastItemHadBlankAfter = true;
-                    $brokeForParentContent = true;
-
-                    break;
-                }
                 // A COMMENT INSIDE A SPAN THE COLLECTED LINES
                 // ALREADY HOLD IS NOT A BLOCK START
                 // (markup-carve/carve#2488). Section 28 pairs the
@@ -2044,9 +2036,19 @@ final class ListBlockBuilder
                         $subTrailingState->openParagraph = false;
                         $subTrailingState->afterComment = true;
                     }
+                    // A blank inside the span was payload (PART 0 S1).
+                    $sawBlankLine = false;
                     $i++;
 
                     continue;
+                }
+                // After a blank line, content dropping back to base indent
+                // starts a new block outside the list - let parent handle it.
+                if ($sawBlankLine) {
+                    $lastItemHadBlankAfter = true;
+                    $brokeForParentContent = true;
+
+                    break;
                 }
                 // Content at base indent that's not a matching list marker
                 // Check if it's a block element - if so, end list content collection
@@ -2110,7 +2112,8 @@ final class ListBlockBuilder
                 // markup-carve/carve#2527 the span's PAYLOAD had
                 // reopened the paragraph, and the lazy-text path
                 // below carried the closer in by accident.
-                if ($subSpanClosedHere && $subLines !== []) {
+                // A comment line inside the open span is its payload at any column (PART 9 §28).
+                if (($subSpanClosedHere || ($inSubCommentSpan && str_starts_with($trimmedLine, '%%'))) && $subLines !== []) {
                     $subLines[] = $this->keptCommentDelimiter($subLine);
                     $subLineMap[] = $this->sourceLineFor($i);
                     $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
