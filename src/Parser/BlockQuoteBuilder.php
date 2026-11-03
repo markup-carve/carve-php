@@ -453,7 +453,7 @@ final class BlockQuoteBuilder
                     }
                     $this->trackAttachedParagraph($attached, $attachedRawLineMap, $lazyState, $lines, $codeCloserMemo);
                     $attachedParagraphOpen = $lazyState['paragraphOpen'];
-                    if (!self::leavesFenceOpen($lazyState['mode'], $lazyState['hosts']['fence'] ?? null)) {
+                    if (!$this->leavesFenceOpen($attached, $attachedRawLineMap, $lines)) {
                         $innerLines[] = '';
                         $innerLineMap[] = -1;
                     }
@@ -1099,13 +1099,13 @@ final class BlockQuoteBuilder
                 }
                 // The last attached block can leave a paragraph open for O3.
                 // A blank inside a fence it left open would be payload, not a separator.
-                if ($attached !== [] && !$lazyState['paragraphOpen'] && !self::leavesFenceOpen($lazyState['mode'], $lazyState['hosts']['fence'] ?? null)) {
+                if ($attached !== [] && !$lazyState['paragraphOpen'] && !$this->leavesFenceOpen($attachedInnerLines, $attachedLineMap, $lines)) {
                     $innerLines[] = '';
                     $innerLineMap[] = -1;
                 }
                 $i = $end;
             }
-        } elseif (!self::leavesFenceOpen($lazyState['mode'], $lazyState['hosts']['fence'] ?? null)) {
+        } elseif (!$this->leavesFenceOpen($innerLines, $rawLineMap, $lines)) {
             $innerLines[] = '';
             $innerLineMap[] = -1;
         }
@@ -2179,14 +2179,19 @@ final class BlockQuoteBuilder
     }
 
     /**
-     * Whether the attached block left a code fence open, where a separator blank would be payload.
+     * Whether the attached block, read on its own, leaves a code fence open, where a separator blank would be payload.
      *
-     * @param \MarkupCarve\Carve\Parser\BlockQuoteLazyMode $mode
-     * @param array<string, mixed>|null $hostFence
+     * @param array<string> $attached
+     * @param array<int, int> $lineMap
+     * @param array<string> $lines
      */
-    private static function leavesFenceOpen(BlockQuoteLazyMode $mode, ?array $hostFence): bool
+    private function leavesFenceOpen(array $attached, array $lineMap, array $lines): bool
     {
-        return $mode === BlockQuoteLazyMode::CodeFence || $hostFence !== null;
+        $state = self::initialBlockQuoteLazyState();
+        $memo = [];
+        $this->trackAttachedParagraph($attached, $lineMap, $state, $lines, $memo);
+
+        return $state['mode'] === BlockQuoteLazyMode::CodeFence || ($state['hosts']['fence'] ?? null) !== null;
     }
 
     private function advanceTrailingState(TrailingBlockState $state, string $line, bool $atContentColumn = false): TrailingBlockState
