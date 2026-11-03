@@ -2310,14 +2310,6 @@
             "ticket": "carve#4863"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\TaskItemContinuationMarkerTest::testTaskItemMarkerShape with data set #523",
-            "ticket": "carve-php#4243"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\TaskItemContinuationMarkerTest::testTaskItemMarkerShape with data set #811",
-            "ticket": "carve-php#4243"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AMarkerNoteKeepsItsCodeAndReleasesTheLineBelowTest::testOwnership with data set \"closer-nested-closer-760\"",
             "ticket": "carve-php#4243"
         },
