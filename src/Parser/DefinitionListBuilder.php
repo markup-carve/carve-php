@@ -2503,6 +2503,10 @@ final class DefinitionListBuilder
                 ];
             }
         }
+        // Source columns past the frame's: a description inside an item sits in a rebased frame.
+        $frameOffset = max(0, IndentationHelper::getLeadingColumns(
+            $this->state->source->sourceLines[$this->sourceLineFor($b->definitionStart)] ?? '',
+        ) - IndentationHelper::getLeadingColumns($b->lines[$b->definitionStart] ?? ''));
         // 01-layout.ebnf keeps payload columns when rebasing an eligible opener.
         $normalizedFence = null;
         foreach ($b->body as $bodyIndex => $entry) {
@@ -2577,8 +2581,8 @@ final class DefinitionListBuilder
             // Keep the delimiter's residual column through the body rebase.
             if (
                 preg_match('/^%{3,}$/', $entry) === 1
-                && IndentationHelper::getLeadingColumns($source) > 0
-                && IndentationHelper::getLeadingColumns($source) !== $b->continuationColumn
+                && IndentationHelper::getLeadingColumns($source) - $frameOffset > 0
+                && IndentationHelper::getLeadingColumns($source) - $frameOffset !== $b->continuationColumn
             ) {
                 $b->body[$bodyIndex] = ' ' . $entry;
             }
