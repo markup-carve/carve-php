@@ -31,6 +31,20 @@ final class BlockSourceState
     public array $sourceLines = [];
 
     /**
+     * Nearest list-marker line at or before each source line (-1 for none), built lazily from `$sourceLines`.
+     *
+     * @var array<int, int>|null
+     */
+    public ?array $itemMarkerLineIndex = null;
+
+    /**
+     * First non-blank line after a marker line, keyed by the marker line.
+     *
+     * @var array<int, int>
+     */
+    public array $firstBodyLineAfterMarker = [];
+
+    /**
      * Top-level lines as authored, before the ownership walk moved them;
      * span sites measure against these.
      *
@@ -127,4 +141,10 @@ final class BlockSourceState
      * @var bool
      */
     public bool $trackSourceLines = false;
+
+    public function resetItemMarkerIndex(): void
+    {
+        $this->itemMarkerLineIndex = null;
+        $this->firstBodyLineAfterMarker = [];
+    }
 }
