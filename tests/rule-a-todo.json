@@ -1578,10 +1578,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CollectedCommentSpanTest::testCollectorsDoNotRecheckEveryEarlierCommentLine",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CommentFencePrePassTest::testAMarkerLineThatOpensNoItemStillOpensItsComment",
             "ticket": "carve-php#4244"
         },
@@ -4254,10 +4250,6 @@
             "ticket": "carve-php#4243"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"930-a-line-that-misses-a-nested-host-ends-it-when-a-comment-closer-lies-ahead-5\"",
-            "ticket": "carve-php#4508"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter-4\"",
             "ticket": "carve#4907"
         },
@@ -4266,16 +4258,8 @@
             "ticket": "carve#4907"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"930-a-line-that-misses-a-nested-host-ends-it-when-a-comment-closer-lies-ahead-5\"",
-            "ticket": "carve-php#4508"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter-4\"",
             "ticket": "carve#4907"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"930-a-line-that-misses-a-nested-host-ends-it-when-a-comment-closer-lies-ahead-5\"",
-            "ticket": "carve-php#4508"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testThePartElevenOneCCeilingIsNoLongerReached",

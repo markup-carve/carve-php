@@ -1125,13 +1125,72 @@ final class BlockContinuationScanner
     public function markerCommentSpanFits(string $content, string $line, array $lines, int $index): bool
     {
         $info = ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn($content);
-        if ($info === null || $this->lastCommentFenceIndex($lines, $info['length']) <= $index) {
+        if ($info === null) {
+            return false;
+        }
+        // A span on a description or note lead opens whether or not a closer follows (carve#4907).
+        if ($this->bodyLeadLength($line, $lines, $index) !== null) {
+            return true;
+        }
+        if ($this->lastCommentFenceIndex($lines, $info['length']) <= $index) {
             return false;
         }
 
         // An exact-width closer ahead matches the span even past a line that misses the item;
         // that line ends the span and the item under PART 0 S1 (carve#4770, ruled B).
         return ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null;
+    }
+
+    /**
+     * The content of a line with a description or note lead and every list marker walked off.
+     *
+     * @param string $line
+     * @param array<string> $lines
+     * @param int $index
+     */
+    public function spanHostFreeContent(string $line, array $lines, int $index): string
+    {
+        $content = ltrim($line, " \t");
+        $lead = $this->bodyLeadLength($lines[$index] ?? $line, $lines, $index);
+        if ($lead !== null) {
+            $content = ltrim(substr($content, $lead), " \t");
+        }
+
+        return $this->markerFreeContent($content);
+    }
+
+    /**
+     * The width of a `[^n]: ` note lead, or of a `: ` description lead with an entry above
+     * at its column, on raw line `$index`; null when it has neither (carve-php#4508).
+     *
+     * @param string $line
+     * @param array<string> $lines
+     * @param int $index
+     */
+    private function bodyLeadLength(string $line, array $lines, int $index): ?int
+    {
+        $content = ltrim($line, " \t");
+        if (preg_match('/^\[\^[^\]]+\]: +/', $content, $m) === 1 && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $content) === 1) {
+            return strlen($m[0]);
+        }
+        if (preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $content, $m) !== 1) {
+            return null;
+        }
+        $column = IndentationHelper::getLeadingColumns($line);
+        for ($k = $index - 1; $k >= 0; $k--) {
+            $above = $lines[$k] ?? '';
+            if (IndentationHelper::isBlankLine($above)) {
+                continue;
+            }
+            $aboveColumn = IndentationHelper::getLeadingColumns($above);
+            if ($aboveColumn > $column) {
+                continue;
+            }
+
+            return $aboveColumn === $column && preg_match('/^::? /', ltrim($above, " \t")) === 1 ? strlen($m[0]) : null;
+        }
+
+        return null;
     }
 
     /**
@@ -2126,8 +2185,8 @@ final class BlockContinuationScanner
 
         if (
             !$isBlockQuoteLazyLine
-            && !($run->openCommentLength !== null
-                && ($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($nextTrimmed, $run->openCommentLength))
+            // A comment line is column-exempt inside an open span: a closer or payload (PART 9 §28).
+            && !($run->openCommentLength !== null && str_starts_with($nextTrimmed, '%%'))
             && ($this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
                 || $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
         ) {
@@ -2931,7 +2990,7 @@ final class BlockContinuationScanner
         $inCommentSpan = $run->openCommentLength !== null;
         $trackedContent = $contentLine;
         if (!$inCommentSpan && $trailingState->fence === null) {
-            $markerContent = $this->markerFreeContent(ltrim($contentLine, " \t"));
+            $markerContent = $this->spanHostFreeContent($contentLine, $lines, $i);
             if ($this->markerCommentSpanFits($markerContent, $lines[$i], $lines, $i)) {
                 $trackedContent = $markerContent;
             }

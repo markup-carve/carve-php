@@ -15,6 +15,15 @@
         "lazy-68fe7c68d81d",
         "roundtrip-615415506b26"
       ]
+    },
+    {
+      "ticket": "markup-carve/carve#4996",
+      "cause": "the pinned pack predates the carve#5002 model fix; the pack at carve main matches this engine",
+      "cases": [
+        "ownership-8760a6163bbb",
+        "roundtrip-bdfff9a16d1b",
+        "roundtrip-f7b4d30bf6dc"
+      ]
     }
   ]
 }

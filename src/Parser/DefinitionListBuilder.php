@@ -1328,13 +1328,12 @@ final class DefinitionListBuilder
             for ($k = count($b->body); $b->bodyStateCursor < $k; $b->bodyStateCursor++) {
                 $b->bodyState = $this->advanceTrailingStateWithFenceLookahead($b->bodyState, $b->body[$b->bodyStateCursor], $b->body, $b->bodyStateCursor, true);
             }
-            $bodySpan = new CollectedCommentSpan();
-            $closesBodySpan = $this->linesLeaveACommentSpanOpen($b->body, $bodySpan);
+            $closesBodySpan = $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan);
+            $bodySpan = $b->commentSpan;
             if ($b->bodyState->openParagraph || $b->retainedBelowComment) {
                 $holder = new Document();
-                // The open span's exact-width closer ends that span; it opens no span of its own.
+                // Inside the open span a comment line is its closer or its payload; it opens no span of its own.
                 $consumed = $bodySpan->openComment !== null
-                    && ($this->getFencedBlockParser)()->isFencedCommentCloser($commentText, $bodySpan->openComment)
                     ? 1
                     : ($this->tryParseFencedComment($holder, $b->lines, $b->i)
                         ?? $this->tryParseComment($holder, $b->lines, $b->i) ?? 1);
@@ -2078,6 +2077,20 @@ final class DefinitionListBuilder
             // is unreachable through a blank line while reachable
             // without one.
             $afterIndent = $after === null ? 0 : IndentationHelper::getLeadingColumns($after, $b->continuationColumn);
+            // A blank inside a live span is payload; a comment line below the column still closes it (PART 9 §28).
+            if (
+                $after !== null
+                && $afterIndent < $b->continuationColumn
+                && str_starts_with(ltrim($after, " \t"), '%%')
+                && $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan)
+            ) {
+                for (; $b->i < $look; $b->i++) {
+                    $b->body[] = '';
+                    $b->bodyMap[] = $this->sourceLineFor($b->i);
+                }
+
+                return true;
+            }
             if ($after !== null && !IndentationHelper::isBlankLine($after) && $afterIndent >= $b->continuationColumn) {
                 $afterColumn = IndentationHelper::getLeadingColumns($after);
                 $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
