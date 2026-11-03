@@ -337,12 +337,14 @@ final class ListBodyRebaser
      * container left open, so a block opener written between two open content
      * columns registers against the one it reaches.
      *
+     * @param array<string> $lines
      * @param array<int, true>|null $eligible
      * @param int $index
      * @param int $base
      * @param string $line
      */
     private function authoredBaseReachesEnclosingColumn(
+        array $lines,
         ?array $eligible,
         int $index,
         int $base,
@@ -352,10 +354,7 @@ final class ListBodyRebaser
             return false;
         }
 
-        return ($this->lineOpensBlockForLoosenessCallback)(
-            IndentationHelper::stripLeadingColumns($line, $base),
-            true,
-        );
+        return $this->opensAuthoredBlock($lines, $index, IndentationHelper::stripLeadingColumns($line, $base));
     }
 
     /**
@@ -558,7 +557,7 @@ final class ListBodyRebaser
                 $local = IndentationHelper::stripLeadingColumns($line, $column);
                 if (
                     ($this->getListParser)()->parseListItemMarker($local) === null
-                    && ($this->lineOpensBlockForLoosenessCallback)($local, true)
+                    && $this->opensAuthoredBlock($lines, $index, $local)
                 ) {
                     $parentCandidate = true;
 
@@ -598,7 +597,7 @@ final class ListBodyRebaser
                 !$probeAfterBlank
                 && $probeNestedColumns !== []
                 && $base < end($probeNestedColumns)
-                && !$this->authoredBaseReachesEnclosingColumn($eligible, $index, $base, $line)
+                && !$this->authoredBaseReachesEnclosingColumn($lines, $eligible, $index, $base, $line)
             ) {
                 continue;
             }
@@ -656,7 +655,7 @@ final class ListBodyRebaser
             if (
                 ($eligible === null || isset($eligible[$index]))
                 && $base > 0
-                && ($this->lineOpensBlockForLoosenessCallback)($local, true)
+                && $this->opensAuthoredBlock($lines, $index, $local)
             ) {
                 return true;
             }
@@ -1308,6 +1307,41 @@ final class ListBodyRebaser
     }
 
     /**
+     * Whether `$opener`, line `$index` of `$lines`, opens a block an authored base can carry.
+     *
+     * @param array<string> $lines
+     * @param int $index
+     * @param string $opener
+     */
+    private function opensAuthoredBlock(array $lines, int $index, string $opener): bool
+    {
+        return ($this->lineOpensBlockForLoosenessCallback)($opener, true)
+            || $this->wrappedAttributeRunEnd($lines, $index, count($lines), $opener) !== null;
+    }
+
+    /**
+     * Last line of a wrapped attribute opened at `$start`, or null for none.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $count
+     * @param string $opener
+     */
+    private function wrappedAttributeRunEnd(array $lines, int $start, int $count, string $opener): ?int
+    {
+        if (!str_starts_with($opener, '{') || ($this->isBlockAttributeLineCallback)($opener)) {
+            return null;
+        }
+        $probe = [$opener];
+        for ($at = $start + 1; $at < $count && !IndentationHelper::isBlankLine($lines[$at]); $at++) {
+            $probe[] = ltrim($lines[$at], " \t");
+        }
+        $length = ($this->wrappedBlockAttributeLengthCallback)($probe, 0);
+
+        return is_int($length) && $length > 1 ? $start + $length - 1 : null;
+    }
+
+    /**
      * Apply an authored block base after a container's minimum content column
      * has been stripped. Item calls exclude sublists because their residual
      * indentation is another list level; definition and footnote bodies include
@@ -1444,7 +1478,7 @@ final class ListBodyRebaser
                 !$afterBlank
                 && $nestedColumns !== []
                 && $base < end($nestedColumns)
-                && !$this->authoredBaseReachesEnclosingColumn($eligible, $i, $base, $line)
+                && !$this->authoredBaseReachesEnclosingColumn($lines, $eligible, $i, $base, $line)
             ) {
                 continue;
             }
@@ -1641,8 +1675,19 @@ final class ListBodyRebaser
 
                 continue;
             }
+            // A wrapped attribute is one construct: it rebases whole, as its one-line form does (carve#3421).
+            $wrappedEnd = $this->wrappedAttributeRunEnd($lines, $i, $count, $opener);
+            if ($wrappedEnd !== null) {
+                for ($j = $i; $j <= $wrappedEnd; $j++) {
+                    $lines[$j] = IndentationHelper::stripLeadingColumns($lines[$j], $base);
+                }
+                $i = $wrappedEnd;
+                $afterBlank = false;
+
+                continue;
+            }
             if (
-                !($this->lineOpensBlockForLoosenessCallback)($opener, true)
+                !$this->opensAuthoredBlock($lines, $i, $opener)
                 || (!$includeSublists && !$shiftedOwner && ($this->getListParser)()->parseListItemMarker($opener) !== null)
             ) {
                 $afterBlank = false;
