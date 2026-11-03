@@ -357,6 +357,16 @@ class BlockParser
     }
 
     /**
+     * Block openers PART 0 S3 opened past their owner's content column, for `block-opener-overindented`.
+     *
+     * @return array<int, array{line: int, column: int, kind: string, owner: string, contentColumn: int, authoredColumn: int}>
+     */
+    public function getOverindentedOpeners(): array
+    {
+        return $this->state->source->overindentedOpeners;
+    }
+
+    /**
      * @return list<array{line: int, column: int, host: string, reason: string}>
      */
     public function getRefusedContinuationMarkers(): array
@@ -786,6 +796,7 @@ class BlockParser
         $this->state->source->frontmatter = $walk->frontmatter;
         $this->state->source->plusHosts = $walk->plusHosts;
         $this->state->source->refusedPlus = $walk->refusedPlus;
+        $this->state->source->overindentedOpeners = $walk->overindented;
         // Spans are verified against the source text, so it spells a refused `+` as the readers see it.
         $authoredSource = $this->state->source->originalSource;
         $authoredPlusLines = $this->state->source->authoredLines;

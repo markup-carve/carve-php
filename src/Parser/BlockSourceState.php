@@ -93,6 +93,13 @@ final class BlockSourceState
     public array $refusedPlus = [];
 
     /**
+     * Every block opener the ownership walk read past a non-item owner's content column.
+     *
+     * @var array<int, array{line: int, column: int, kind: string, owner: string, contentColumn: int, authoredColumn: int}>
+     */
+    public array $overindentedOpeners = [];
+
+    /**
      * Normalized input used to verify computed spans.
      */
     public string $normalizedSource = '';
