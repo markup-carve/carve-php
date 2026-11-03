@@ -1,0 +1,74 @@
+[
+  {
+    "source": "> - ::: |\n>   x\n>   %%%\n> c\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x<br>\nc</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "source": "> - ::: |\n>   x\n> c\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x<br>\nc</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "source": "> - ::: |\n>   x\n> c\n* tail\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x<br>\nc</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "source": "> - ::: |\n>   x\n> c\n1. tail\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x<br>\nc</p></div></li></ul></blockquote><ol><li>tail</li></ol>"
+  },
+  {
+    "source": "> - ::: |\n>   x\n> c\n> d\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x<br>\nc<br>\nd</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "source": "> - ::: |\n>   x\n> c\nd\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x<br>\nc<br>\nd</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "source": "> - ::: |\n>   x\n>  c\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x<br>\nc</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "source": "> - ::: |\n>   x\n>   %%%\n>   s\n>   %%%\n> c\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x<br>\nc</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "source": "> - a\n>   ::: |\n>   x\n> c\n- tail\n",
+    "html": "<blockquote><ul><li>a\n      <div class=\"line-block\"><p>x<br>\nc</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "source": "> - - ::: |\n>     x\n> c\n- tail\n",
+    "html": "<blockquote><ul><li><ul><li><div class=\"line-block\"><p>x<br>\nc</p></div></li></ul></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "source": "> > - ::: |\n> >   x\n> > c\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x<br>\nc</p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "source": "> 1. ::: |\n>    x\n> c\n- tail\n",
+    "html": "<blockquote><ol><li><div class=\"line-block\"><p>x<br>\nc</p></div></li></ol></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "source": "> - ::: |\n>   x\n> c\nzz\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x<br>\nc<br>\nzz</p></div></li></ul></blockquote>"
+  },
+  {
+    "source": "> - ::: |\n>   x\n> c\n> - tail\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x<br>\nc</p></div></li><li>tail</li></ul></blockquote>"
+  },
+  {
+    "source": "> - ::: |\n>   x\n> c\n>   - tail\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x<br>\nc<br>\n- tail</p></div></li></ul></blockquote>"
+  },
+  {
+    "source": "> - ::: |\n>   x\n> - tail\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li>tail</li></ul></blockquote>"
+  },
+  {
+    "source": "> - ::: |\n>   %%%\n> c\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"></div></li></ul><p>c\n- tail</p></blockquote>"
+  },
+  {
+    "source": "- ::: |\n  x\nc\n- tail\n",
+    "html": "<ul><li><div class=\"line-block\"><p>x<br>\nc</p></div></li><li>tail</li></ul>"
+  }
+]
