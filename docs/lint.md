@@ -87,6 +87,11 @@ the auto-numbered `.` marker.
 
 `DescriptionSeparatorBelowContentColumnLinter` reports a `:` or `::` below the column of the definition list above (`description-separator-below-content-column`) and names the column needed to continue that list.
 
+`FragileConstructLinter` reports two spellings that parse, but not the way they look (markup-carve/carve#3992):
+
+- `block-opener-overindented`: a heading, thematic break, table, block quote, code or line-block fence, colon fence or definition term indented past the content column of the document, a quote, a description, a footnote body or a colon block. It still opens there, so `  # h` is a heading. Remove the indentation, or escape the opener to keep the line as text. A table reports once, list markers are not reported, and inside a list item `list-item-block-overindented` reports instead.
+- `emphasis-marker-before-attributes`: a bare `*`, `/`, `_`, `~` or `=` glued to a valid attribute block when the marker closes no span, so both stay text (`a*{.x} b*`), or when the span it closes holds another literal same marker, so `*a *b*{.x}` styles all of `a *b`. Brace the span you mean or escape the marker. Plain `*a*{.x}` is not reported.
+
 `ReferencesPlacementLinter` reports a `::: references` marker inside a
 container when citations are enabled. The marker renders as an ordinary div
 there; the generated list stays at document level. A top-level marker places

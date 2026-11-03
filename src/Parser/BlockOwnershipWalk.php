@@ -95,6 +95,13 @@ final class BlockOwnershipWalk
     public array $refusedPlus = [];
 
     /**
+     * Every block opener S3 read past a non-item owner's content column (carve#3992).
+     *
+     * @var array<int, array{line: int, column: int, kind: string, owner: string, contentColumn: int, authoredColumn: int}>
+     */
+    public array $overindented = [];
+
+    /**
      * The host of every lone `+` the one attach rule accepted, keyed by line index.
      *
      * @var array<int, array{kind: string, column: int, depth: int, content: int, first: bool, list: int|null, note: int|null}>
@@ -228,6 +235,7 @@ final class BlockOwnershipWalk
         $this->lineBlockLazyLines = [];
         $this->fenceOpenerLines = [];
         $this->refusedPlus = [];
+        $this->overindented = [];
         $this->plusHosts = [];
         $this->ddSiblingOwner = null;
         $this->skipped = null;
@@ -604,6 +612,9 @@ final class BlockOwnershipWalk
                 $this->frames[$o]->para = true;
                 $this->frames[$o]->last = 'para';
             } else {
+                if (!$plusFollower) {
+                    $this->noteOpener($o, $form, $this->frames[$o]->col);
+                }
                 $this->lead($this->frames[$o]->canon, $form->kind === 'term' || $form->kind === 'dd');
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon);
             }
@@ -977,6 +988,7 @@ final class BlockOwnershipWalk
         }
         if ($this->frames[$frame]->kind === 'quote') {
             $col = $this->m['col'];
+            $this->noteOpener($frame, $form, 0);
             $this->lead(0);
             $this->apply($frame, $col, $form, 0);
 
@@ -987,6 +999,45 @@ final class BlockOwnershipWalk
         $this->lead($shift);
         $f = $this->frames[$frame];
         $this->apply($frame, $col, $form, $canon + $shift, $f->kind === 'note' ? $f->reader : $f->reader + $canon + $shift - $f->canon);
+    }
+
+    /**
+     * An opener past a non-item owner's content column. List items and markers have their own lint rules.
+     */
+    private function noteOpener(int $owner, OwnershipForm $form, int $contentColumn): void
+    {
+        $frame = $this->frames[$owner];
+        $rest = $this->m['rest'];
+        $kind = match ($form->kind) {
+            'quote' => 'block quote',
+            'colon' => 'colon fence',
+            'fence' => $form->family === 'comment' ? null : ($form->lineBlock ? 'line block' : 'code fence'),
+            'term' => 'definition term',
+            'leaf' => match (true) {
+                preg_match('/^#{1,6} +(?=.*[^ \t\n\r])/', $rest) === 1 => 'heading',
+                // carve-js does not report the spaced spellings yet (markup-carve/carve#5003).
+                preg_match('/^(-{3,}|\*{3,}|_{3,})[ \t]*$/D', $rest) === 1 => 'thematic break',
+                $form->table && $rest[0] === '|' => 'table row',
+                default => null,
+            },
+            default => null,
+        };
+        // A table reports once, on its first row.
+        if ($kind === null || ($kind === 'table row' && $frame->tableLine === $this->at - 1)) {
+            return;
+        }
+        if ($frame->kind === 'item' || $frame->kind === 'fence' || $this->m['col'] <= $contentColumn) {
+            return;
+        }
+        $line = $this->lines[$this->at];
+        $this->overindented[] = [
+            'line' => $this->at + 1,
+            'column' => mb_strlen(substr($line, 0, strlen($line) - strlen($rest)), 'UTF-8') + 1,
+            'kind' => $kind,
+            'owner' => $frame->kind,
+            'contentColumn' => $contentColumn,
+            'authoredColumn' => $this->m['col'],
+        ];
     }
 
     private function lead(int $target, bool $spaces = false): void
