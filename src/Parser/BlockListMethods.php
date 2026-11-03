@@ -1353,7 +1353,7 @@ trait BlockListMethods
                 $trailingState = $this->advanceTrailingState($trailingState, $content);
                 if ($attachedKind === self::ATTACHED_SPANNING . ':definition') {
                     if (preg_match(self::DEFINITION_BODY_PATTERN, $content, $body) === 1) {
-                        $bodyColumn = ($blockColumn ?? $baseIndent) + 1 + strlen($body[1]);
+                        $bodyColumn = $blockColumn + 1 + strlen($body[1]);
                     } elseif (preg_match(self::DEFINITION_TERM_LINE_PATTERN, $content) === 1) {
                         $bodyColumn = null;
                     }
