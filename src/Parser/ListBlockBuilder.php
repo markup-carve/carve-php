@@ -752,15 +752,19 @@ final class ListBlockBuilder
     ): array {
         $itemSource = $this->state->source->sourceLines[$sourceLine] ?? '';
         $marker = ltrim($listLine, " \t");
-        $authoredLine = $this->state->source->authoredLines[$sourceLine] ?? $itemSource;
         $markerColumn = $laterItem
             ? $this->resolveMarkerColumn($sourceLine, $itemLine)
-            : (str_ends_with($authoredLine, $marker)
-                ? strlen($authoredLine) - strlen($marker)
+            : (str_ends_with($itemSource, $marker)
+                ? strlen($itemSource) - strlen($marker)
                 : $listOpeningColumn);
+        $authoredLine = $this->state->source->authoredLines[$sourceLine] ?? $itemSource;
+        $authoredMarker = ltrim($itemLine, " \t");
+        $spanMarkerColumn = str_ends_with($authoredLine, $authoredMarker)
+            ? strlen($authoredLine) - strlen($authoredMarker)
+            : $markerColumn;
         // The item begins at its own authored marker, which can be to the
         // right of the list's frame when the list is indented.
-        $openingColumn = $parent instanceof Document ? $markerColumn : $listOpeningColumn;
+        $openingColumn = $parent instanceof Document ? $spanMarkerColumn : $listOpeningColumn;
         if (!$parent instanceof Document && $laterItem) {
             $prefix = substr($itemSource, 0, $markerColumn);
             $openingColumn = str_contains($prefix, "\t")

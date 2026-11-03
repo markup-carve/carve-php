@@ -21,7 +21,6 @@ use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
-use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
@@ -312,15 +311,6 @@ final class BlockSourceMapper
             if ($last === null || $span->endOffset > $last->endOffset) {
                 $last = $span;
             }
-        }
-
-        // The document root has no source position. Definitions collected out
-        // of a container can appear after its body in the tree while retaining
-        // their earlier authored positions.
-        if ($node instanceof Document) {
-            $node->setPos(null);
-
-            return null;
         }
 
         $own = $node->getPos();
