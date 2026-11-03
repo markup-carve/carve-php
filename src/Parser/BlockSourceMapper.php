@@ -314,6 +314,15 @@ final class BlockSourceMapper
             }
         }
 
+        // The document root has no source position. Definitions collected out
+        // of a container can appear after its body in the tree while retaining
+        // their earlier authored positions.
+        if ($node instanceof Document) {
+            $node->setPos(null);
+
+            return null;
+        }
+
         $own = $node->getPos();
         $allChildrenPlaced = count($node->getChildren()) === count(array_filter(
             $node->getChildren(),
@@ -374,25 +383,6 @@ final class BlockSourceMapper
                     endColumn: $own->startColumn + $width,
                     startOffset: $own->startOffset,
                     endOffset: $own->startOffset + $width,
-                );
-                $node->setPos($own);
-            }
-        }
-        if (
-            $node instanceof ListItem
-            && $own !== null
-            && $node->getParent() instanceof ListBlock
-            && $node->getParent()->getParent() instanceof Document
-        ) {
-            $lineStart = $this->state->source->lineStartOffsets[$own->startLine - 1] ?? null;
-            if ($lineStart !== null) {
-                $own = new SourceSpan(
-                    startLine: $own->startLine,
-                    endLine: $own->endLine,
-                    startColumn: 1,
-                    endColumn: $own->endColumn,
-                    startOffset: $this->state->source->positionIndex?->codepointAt($lineStart) ?? $own->startOffset,
-                    endOffset: $own->endOffset,
                 );
                 $node->setPos($own);
             }
