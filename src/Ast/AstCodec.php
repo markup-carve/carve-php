@@ -248,6 +248,8 @@ class AstCodec
      */
     private const BASE_PROPERTIES = [
         'resolvedEmptyReference',
+        // Published as the block-image paragraph's own `attrs` instead.
+        'blockAttributeSplit',
         'parent',
         'children',
         'attributes',
@@ -771,6 +773,10 @@ class AstCodec
         // without this an ingested lone-image paragraph rendered `<p><img></p>`
         // where the same document parsed from source rendered a bare `<img>`.
         BlockImagePromotion::promoteWhereAbsent($node);
+        // The HTML importer's writer keeps the authored attribute line.
+        if (!$this->decodeImporterHints) {
+            BlockImagePromotion::liftAttributed($node);
+        }
 
         return $node;
     }
@@ -2041,6 +2047,14 @@ class AstCodec
             $paragraph = ['type' => 'paragraph', 'blockImage' => true];
             if (isset($encoded['pos'])) {
                 $paragraph['pos'] = $encoded['pos'];
+            }
+            $split = $node->getBlockAttributeSplit();
+            if ($split !== null) {
+                $paragraph['attrs'] = self::attrsToWire($split['block'], $split['blockOrder']);
+                unset($encoded['attrs']);
+                if ($split['own'] !== []) {
+                    $encoded['attrs'] = self::attrsToWire($split['own'], $split['ownOrder']);
+                }
             }
             $paragraph['children'] = [$encoded];
 

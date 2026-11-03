@@ -2039,6 +2039,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // source - so it was dropped, and an `#id` on a captionless
             // `![a][r]` was lost outright (carve-php#831). Written back as the
             // line it came from, which is where carve-js and carve-rs keep it.
+            $node instanceof Image && $node->getBlockAttributeSplit() !== null => $this->renderSplitBlockImage($node),
             $node instanceof Image && $this->referenceImageAttributeLine($node) !== '' => $this->referenceImageAttributeLine($node) . "\n" . $this->renderImage($node),
             // A LONE image is a block node, not a paragraph wrapping one (the
             // `image` node's own description in the AST vocabulary).
@@ -5749,6 +5750,26 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return [];
+    }
+
+    /**
+     * A promoted image keeps its attribute line apart, as the AST does
+     * (CARVE-P12-043): merging it into the image changed the re-parsed tree.
+     */
+    protected function renderSplitBlockImage(Image $node): string
+    {
+        $split = $node->getBlockAttributeSplit();
+        if ($split === null) {
+            return $this->renderImage($node);
+        }
+        $image = clone $node;
+        foreach (array_keys($image->getAttributeEntries()) as $key) {
+            $image->removeAttribute((string)$key);
+        }
+        $image->setAttributeOrder([]);
+        $image->setAttributesWithOrder($split['own'], $split['ownOrder']);
+
+        return $this->renderAttrList($split['block'], $split['blockOrder']) . "\n" . $this->renderImage($image);
     }
 
     protected function renderImage(Image $node): string
