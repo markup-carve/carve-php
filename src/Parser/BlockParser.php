@@ -3893,7 +3893,8 @@ class BlockParser
                 continue;
             }
             $physical = $lineMap[$index] ?? -1;
-            $authored = $this->state->source->authoredLines[$physical] ?? null;
+            // The document pass may have moved a line between two chain columns to the outer one.
+            $authored = $this->state->source->sourceLines[$physical] ?? $this->state->source->authoredLines[$physical] ?? null;
             if ($authored === null) {
                 continue;
             }
