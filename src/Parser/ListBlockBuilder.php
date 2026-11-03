@@ -1265,6 +1265,8 @@ final class ListBlockBuilder
                 && (($this->getListParser)()->parseListItemMarker($itemContent) !== null || str_starts_with($itemContent, '>'))
                 && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])
                 && $this->continuationMarkerHasIndentedFollower($i, $count, $lines) === false
+                // A follower at the item's content column is item content; the item reads its `+` like a document would.
+                && IndentationHelper::getLeadingColumns($lines[$i], $lastItemAttachColumn) < $lastItemAttachColumn
             ) {
                 [$i, $attached, $attachedLineMap] = $this->followerKeepsQuoteDepth($listItemSourceLine, $i)
                     ? $this->collectListContinuationBlock($lines, $i, $count, $baseIndent)
@@ -1694,9 +1696,13 @@ final class ListBlockBuilder
             // A marker-shaped payload line cannot attach a block outside the
             // open fence. Its closer is still read in this stream.
             // A `> +` on its own line takes its follower at the quote's column, so that line stays item content.
+            // So does a `- > +` whose follower reaches that item's content column.
             if (
                 $firstBlockOwner !== null && $subTrailingState->fence === null && !$this->continuationMarkerHasIndentedFollower($i, $count, $lines)
-                && ($firstBlockOwner['kind'] !== 'quote' || !str_starts_with(ltrim($lines[$i - 1] ?? '', " \t"), '>'))
+                && ($firstBlockOwner['kind'] !== 'quote' || (
+                    !str_starts_with(ltrim($lines[$i - 1] ?? '', " \t"), '>')
+                    && !$this->followerReachesQuoteItemContent($lines[$i - 1] ?? '', $subLine)
+                ))
             ) {
                 [$end, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i, $count, $baseIndent);
                 foreach ($attached as $at => $attachedLine) {
@@ -3588,6 +3594,25 @@ final class ListBlockBuilder
         $body = ContainerPrefix::stripQuoteMarkers($source);
 
         return ContinuationMarkerClassifier::columnAt($source, strlen($source) - strlen($body) + strspn($body, " \t"));
+    }
+
+    /**
+     * Whether $marker is a list marker line whose content opens a quote and
+     * $follower reaches that item's content column.
+     *
+     * @param string $marker
+     * @param string $follower
+     */
+    private function followerReachesQuoteItemContent(string $marker, string $follower): bool
+    {
+        $trimmed = ltrim($marker, " \t");
+        $info = ($this->getListParser)()->parseListItemMarker($trimmed);
+        if ($info === null || !str_starts_with(ltrim((string)$info['content'], " \t"), '>')) {
+            return false;
+        }
+        $column = IndentationHelper::getLeadingColumns($marker) + $this->listMarkerWidth($trimmed, $info);
+
+        return IndentationHelper::getLeadingColumns($follower, $column) >= $column;
     }
 
     /**
