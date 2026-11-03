@@ -254,18 +254,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\DefinitionListSourceColumnsTest::testSiblingMarkerReturnsToTheSurvivingItem with data set \"list item\"",
-            "ticket": "carve-php#4243"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\DefinitionListSourceColumnsTest::testSiblingMarkerReturnsToTheSurvivingItem with data set \"nested quote\"",
-            "ticket": "carve-php#4243"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\DefinitionListSourceColumnsTest::testSiblingMarkerReturnsToTheSurvivingItem with data set \"shifted term\"",
-            "ticket": "carve-php#4243"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\DefinitionOnEmptiedMarkerLineTest::testDefinitionIsRestoredOnItsMarkerLine with data set \"footnote definition\"",
             "ticket": "carve-php#4244"
         },
@@ -1790,28 +1778,12 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\LiteralCommentDedentOwnershipTest::testCommentClosersStayWithinTheLiteralOwner",
-            "ticket": "carve-php#4243"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\NestedFenceBlankOwnershipTest::testNestedFenceOwnsOnlyBlanksAtItsContentColumn with data set \"invisible definition leaves a separator\"",
             "ticket": "carve-php#4244"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\QuotedDescendantLiteralSpansTest::testPairedSpansShieldPayloadClosersWithoutOpeningUnmatchedRuns",
             "ticket": "carve-php#4242"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\QuotedLazyMarkerOwnershipTest::testLazyMarkersKeepTheQuoteParagraphOwner",
-            "ticket": "carve-php#4243"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\QuotedLiteralCommentOwnershipTest::testPairedLiteralCommentsPreserveTheirRealCloser",
-            "ticket": "carve-php#4243"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\QuotedLiteralDedentTest::testLiteralDedentsPreserveTheFollowingBlockOwner",
-            "ticket": "carve-php#4243"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\RaisedColonMarkersTest::testBulletOrderedAndTaskMarkersFold",
@@ -1904,10 +1876,6 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\PostBlankContentColumnTest::testTableBelowContentColumnOfIndentedOrderedItemFoldsLazy",
             "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\QuotedListLazyHeadingTest::testIndentedHeadingShapeStaysInQuotedParagraph",
-            "ticket": "carve-php#4243"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\QuotedParagraphOverindentedDefinitionTest::testExpectedHtml",

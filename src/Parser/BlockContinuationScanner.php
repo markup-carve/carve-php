@@ -429,7 +429,7 @@ final class BlockContinuationScanner
                 // paragraph rather than the fence body.
                 $folded = str_starts_with($nextTrimmed, BlockGrammar::LAZY_FRAME)
                     ? $nextTrimmed
-                    : ($walkKeepsDivTerm || (($this->leadBottomOpensFenceCallback)((string)($itemLines[0] ?? '')) && !$nestedLeadParagraphOpen)
+                    : ($walkKeepsDivTerm || $lineBlockLazy || ($trailingState->openParagraph && $trailingState->hasLiteralDiv()) || (($this->leadBottomOpensFenceCallback)((string)($itemLines[0] ?? '')) && !$nestedLeadParagraphOpen)
                         ? BlockGrammar::LAZY_FRAME . $nextTrimmed
                         : ' ' . $nextTrimmed);
                 $itemLines[] = $folded;

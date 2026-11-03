@@ -197,6 +197,17 @@ final class LineBlockBuilder
 
                 continue;
             }
+            // A `%%` line that missed the line block's owner ends the verse and leaves no line (CARVE-P0-005).
+            if ($lazy[$index] && str_starts_with($contentLine, '%%')) {
+                $comment = $this->verseCommentLines([[$contentLine, $lineNumber]])[0];
+                if ($stanza !== []) {
+                    $after[count($stanza) - 1][] = $comment;
+                } else {
+                    $leading[] = $comment;
+                }
+
+                continue;
+            }
             if (IndentationHelper::isBlankLine($contentLine)) {
                 $this->appendStanzaWithBlockComments($lineBlock, $stanza, $before, $after);
                 $stanza = [];
