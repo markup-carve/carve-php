@@ -1223,6 +1223,12 @@ final class BlockQuoteBuilder
             $heldColon !== null && $heldColon['literal']
             && $column < ($heldColon['base'] ?? $heldColon['column'])
         ) {
+            // A lazy line the walk folded into the stanza closes nothing, so the item stays for the next marker (PART 0 S4).
+            if (isset($this->state->source->lineBlockLazyLines[$this->sourceLineFor($index)])) {
+                $state['paragraphOpen'] = true;
+
+                return true;
+            }
             array_pop($state['colonClaims']);
             $state['paragraphOpen'] = false;
             $comment = ($this->getFencedBlockParser)()->parseFencedCommentOpener($text);
