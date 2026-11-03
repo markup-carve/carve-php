@@ -1263,6 +1263,16 @@ trait BlockListMethods
                 ) {
                     return true;
                 }
+                // A list marker left of the item's content column is no lazy quote text; it leaves the item.
+                if (
+                    $trailingState->quoteParagraph
+                    && $contentIndent !== null
+                    && $lineIndent > $baseIndent
+                    && IndentationHelper::getLeadingColumns($line, $contentIndent) < $contentIndent
+                    && $this->listParser->parseListItemMarker($trimmed) !== null
+                ) {
+                    return true;
+                }
                 // A definition or line comment ended the attached paragraph, so a line below the column has nothing to fold into.
                 if (
                     $attachedKind === self::ATTACHED_PARAGRAPH
