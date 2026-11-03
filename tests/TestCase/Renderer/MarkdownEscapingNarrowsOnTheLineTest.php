@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -314,16 +318,28 @@ class MarkdownEscapingNarrowsOnTheLineTest extends TestCase
     public static function textHashProvider(): array
     {
         return [
-            'a paragraph continuation line' => ["a\n   # heading", "a\n\\# heading"],
+            'a paragraph continuation line' => ["a\n   # heading", "a\n\n# heading"],
             'a lone hash the line ends on' => ["a\n   #", "a\n\\#"],
-            'only the first hash of the run' => ["a\n   ## b", "a\n\\## b"],
-            'a closed heading trailing run' => ["a\n   ### b ###", "a\n\\### b ###"],
-            'a run of six, the longest that opens one' => ["a\n   ###### b", "a\n\\###### b"],
+            'only the first hash of the run' => ["a\n   ## b", "a\n\n## b"],
+            'a closed heading trailing run' => ["a\n   ### b ###", "a\n\n### b \\###"],
+            'a run of six, the longest that opens one' => ["a\n   ###### b", "a\n\n###### b"],
             'a run of seven, which opens none' => ["a\n   ####### b", "a\n####### b"],
             'mid-line' => ['a # b', 'a # b'],
             'a run no space closes' => ["a\n   #b", "a\n#b"],
-            'past a container prefix' => ["> a\n>    # b", "> a\n> \\# b"],
+            'past a container prefix' => ["> a\n>    # b", "> a\n>\n> # b"],
         ];
+    }
+
+    public function testAParagraphTextNodeEscapesAHeadingRun(): void
+    {
+        foreach (['# heading', '## b', '### b ###', '###### b'] as $line) {
+            $paragraph = new Paragraph();
+            $paragraph->setChildren([new Text("a\n{$line}")]);
+            $document = new Document();
+            $document->setChildren([$paragraph]);
+
+            $this->assertSame("a\n\\{$line}\n", (new MarkdownRenderer())->render($document));
+        }
     }
 
     /**
