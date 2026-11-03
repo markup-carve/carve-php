@@ -21,7 +21,6 @@ use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
-use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
@@ -374,25 +373,6 @@ final class BlockSourceMapper
                     endColumn: $own->startColumn + $width,
                     startOffset: $own->startOffset,
                     endOffset: $own->startOffset + $width,
-                );
-                $node->setPos($own);
-            }
-        }
-        if (
-            $node instanceof ListItem
-            && $own !== null
-            && $node->getParent() instanceof ListBlock
-            && $node->getParent()->getParent() instanceof Document
-        ) {
-            $lineStart = $this->state->source->lineStartOffsets[$own->startLine - 1] ?? null;
-            if ($lineStart !== null) {
-                $own = new SourceSpan(
-                    startLine: $own->startLine,
-                    endLine: $own->endLine,
-                    startColumn: 1,
-                    endColumn: $own->endColumn,
-                    startOffset: $this->state->source->positionIndex?->codepointAt($lineStart) ?? $own->startOffset,
-                    endOffset: $own->endOffset,
                 );
                 $node->setPos($own);
             }

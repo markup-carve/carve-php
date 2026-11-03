@@ -929,6 +929,11 @@ class BlockParser
         }
         $invisibleDefinitions = [];
         $this->placeSiblingSkippedAbbreviations($document);
+        if ($this->state->source->trackPositions && $this->state->session->siblingSkippedAbbreviations !== []) {
+            // These nodes are added after definition ordering; include their
+            // authored positions in the root's span as well.
+            $this->deriveContainerSpans($document);
+        }
         foreach ($walk->skippedAbbreviations as [$term, $expansion]) {
             $invisibleDefinitions[] = ['abbr' => $term, 'expansion' => $expansion];
         }
