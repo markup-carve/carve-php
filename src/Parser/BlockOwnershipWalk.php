@@ -333,6 +333,17 @@ final class BlockOwnershipWalk
                     $refusedHost = $k;
                 }
                 if ($f->kind === 'quote') {
+                    // An own-line `+` at a descendant quote's marker column reaches that quote without the quote markers between.
+                    if (self::isPlus($this->m['rest']) && $this->descendantQuoteTakesPlus($k, $at, self::docColumn($lines[$at], $this->m['rest']))) {
+                        $child = $this->frames[$k + 1];
+                        $this->out .= str_repeat(' ', $f->markerCanon) . '> ';
+                        $this->src = str_repeat(' ', max(0, self::docColumn($lines[$at], $this->m['rest']) - (($child->docMarker ?? 0) - ($child->markerCol ?? 0))))
+                            . $this->m['rest'];
+                        $this->m = self::indentCols($this->src);
+                        $reached = $k;
+
+                        continue;
+                    }
                     if (preg_match(self::QUOTE, $this->m['rest'], $q) !== 1) {
                         break;
                     }
@@ -1376,6 +1387,29 @@ final class BlockOwnershipWalk
         }
 
         return $result;
+    }
+
+    /**
+     * Whether a quote nested in frame k has its marker at the column and takes the line after the `+`.
+     *
+     * @param int $k
+     * @param int $at
+     * @param int $column
+     */
+    private function descendantQuoteTakesPlus(int $k, int $at, int $column): bool
+    {
+        $frameCount = count($this->frames);
+        if ($k + 1 >= $frameCount || $this->frames[$k + 1]->markerCol === null || $this->frames[$k + 1]->docMarker === null) {
+            return false;
+        }
+        for ($c = $k + 1; $c < $frameCount; $c++) {
+            $child = $this->frames[$c];
+            if ($child->kind === 'quote' && $child->docMarker === $column && $this->attachesAt('quote', $at, $column, $c)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
