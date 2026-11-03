@@ -3534,10 +3534,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-2723\"",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testPostFenceDivMarkerKeepsItsPublishedOwnership",
             "ticket": "carve-php#4244"
         },
@@ -4039,10 +4035,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-17658\"",
-            "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceAdmissionRegressionsTest::testFenceAdmissionPreservesParagraphAndPayload with data set \"preservation-18082\"",
             "ticket": "carve-php#4308"
         },
         {
