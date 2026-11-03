@@ -1253,6 +1253,16 @@ trait BlockListMethods
                 ) {
                     return true;
                 }
+                // A list marker at the item's content column opens the item's nested list, as it does after the item's own text.
+                if (
+                    $attachedKind === self::ATTACHED_PARAGRAPH
+                    && $contentIndent !== null
+                    && $trailingState->fence === null
+                    && IndentationHelper::getLeadingColumns($line, $contentIndent) >= $contentIndent
+                    && $this->listParser->parseListItemMarker($trimmed) !== null
+                ) {
+                    return true;
+                }
                 // A definition or line comment ended the attached paragraph, so a line below the column has nothing to fold into.
                 if (
                     $attachedKind === self::ATTACHED_PARAGRAPH
