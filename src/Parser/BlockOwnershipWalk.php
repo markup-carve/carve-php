@@ -450,6 +450,10 @@ final class BlockOwnershipWalk
                         && ($comment ? strlen($c[1]) === strlen($span) : strlen($c[1]) >= strlen($span))
                     ) {
                         $this->frames[$innerIndex]->span = null;
+                        // A fence-shaped verse run is stanza text, so a lazy line folds after its closer (PART 0 S4).
+                        if (!$comment && $inner->lineBlock) {
+                            $this->frames[$innerIndex]->para = true;
+                        }
                     }
                 } elseif ($rest !== '' && $inner->closes !== null && ($inner->closes)($rest, $this->m['col'])) {
                     array_pop($this->frames);

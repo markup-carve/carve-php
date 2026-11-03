@@ -18,9 +18,9 @@ final class DefinitionListSourceColumnsTest extends TestCase
     public static function siblingMarkerSources(): array
     {
         return [
-            'list item' => ["- a\n  :: outer\n  :  detail\n     :: inner\n      > quote\n   - sibling\n", "<dt>inner\n &gt; quote</dt>\n        </dl>\n      </dd>\n    </dl>\n    <ul>"],
-            'nested quote' => ["> - a\n>   :: outer\n>   :  detail\n>      :: inner\n>       > quote\n>    - sibling\n", "<dt>inner\n &gt; quote</dt>\n          </dl>\n        </dd>\n      </dl>\n      <ul>"],
-            'shifted term' => ["- a\n    :: outer\n    :  detail\n       :: inner\n        > quote\n   - sibling\n", "<dt>inner\n &gt; quote</dt>\n        </dl>\n      </dd>\n    </dl>\n    <ul>"],
+            'list item' => ["- a\n  :: outer\n  :  detail\n     :: inner\n      > quote\n   - sibling\n", "<dt>inner</dt>\n        </dl>\n        <blockquote><p>quote</p></blockquote>\n      </dd>\n    </dl>\n    <ul>"],
+            'nested quote' => ["> - a\n>   :: outer\n>   :  detail\n>      :: inner\n>       > quote\n>    - sibling\n", "<dt>inner</dt>\n          </dl>\n          <blockquote><p>quote</p></blockquote>\n        </dd>\n      </dl>\n      <ul>"],
+            'shifted term' => ["- a\n    :: outer\n    :  detail\n       :: inner\n        > quote\n   - sibling\n", "<dt>inner</dt>\n        </dl>\n        <blockquote><p>quote</p></blockquote>\n      </dd>\n    </dl>\n    <ul>"],
         ];
     }
 

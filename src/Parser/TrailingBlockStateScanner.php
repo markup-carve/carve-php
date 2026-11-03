@@ -356,8 +356,11 @@ final class TrailingBlockStateScanner
                 return $state;
             }
 
-            if (($this->getFencedBlockParser)()->parseDivFenceOpener(BlockGrammar::subjectFrom($line, $at, $end)) !== null) {
+            $nestedOpener = ($this->getFencedBlockParser)()->parseDivFenceOpener(BlockGrammar::subjectFrom($line, $at, $end));
+            if ($nestedOpener !== null) {
                 $state->divDepth++;
+                // A line block holds no div, so its closer returns to a non-literal parent.
+                $state->literalDiv = $nestedOpener['className'] === '|';
                 $state->openParagraph = false;
 
                 return $state;

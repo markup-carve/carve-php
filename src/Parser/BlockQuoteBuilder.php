@@ -559,7 +559,9 @@ final class BlockQuoteBuilder
                     || !(($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
                         && ($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['base'] ?? 0) > 0))
                 && ($attachedParagraphOpen || !$this->lastQuotedLineBlockClosed($innerLines))
-                && ((($lazyState['hosts']['inlineFenceJustClosed'] ?? false) && !$this->markerLineDiv($innerLines))
+                // A comment line is never lazy verse: missing the quote, it ends it (CARVE-P0-005).
+                && ((($lazyState['hosts']['inlineFenceJustClosed'] ?? false) && !$this->markerLineDiv($innerLines)
+                        && !str_starts_with(ltrim($currentLine, " \t"), '%%'))
                     || $this->quotedNestedLineBlockOpen($innerLines, $nestedLineBlock)
                     || !$this->endsBlockQuote($currentLine, $lazyState['paragraphOpen'], $lines, $i))
             ) {
@@ -571,6 +573,8 @@ final class BlockQuoteBuilder
                 if ($unquotedAttributeTail) {
                     $lazyState['attrRun'] = null;
                 }
+                $literalLineBlock = ($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
+                    || $this->quotedNestedLineBlockOpen($innerLines, $nestedLineBlock);
                 $lazyState['colonClaims'] = array_values(array_filter($lazyState['colonClaims'], static fn (array $claim): bool => $claim['body']));
                 // Lazy continuation only extends an OPEN paragraph (djot rule).
                 // A non-">" line inside an open code fence/comment, or after a
@@ -588,8 +592,6 @@ final class BlockQuoteBuilder
                 $frameLazyLine = $unquotedAttributeTail
                     || ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
                     || preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1;
-                $literalLineBlock = ($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
-                    || $this->quotedNestedLineBlockOpen($innerLines, $nestedLineBlock);
                 $innerLines[] = $frameLazyLine
                     ? BlockGrammar::LAZY_FRAME . ltrim($currentLine, " \t")
                     : ($literalLineBlock ? ltrim($currentLine, " \t") : $currentLine);
