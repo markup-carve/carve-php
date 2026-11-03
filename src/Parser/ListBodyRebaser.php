@@ -1333,8 +1333,15 @@ final class ListBodyRebaser
             return null;
         }
         $probe = [$opener];
+        // Bounded to the run's own lines, as WrappedAttributeRunScanner reads them.
         for ($at = $start + 1; $at < $count && !IndentationHelper::isBlankLine($lines[$at]); $at++) {
+            if (WrappedBlockAttributeScanner::opensInsideBlock($lines[$at])) {
+                break;
+            }
             $probe[] = ltrim($lines[$at], " \t");
+            if (!WrappedBlockAttributeScanner::endsInsideBlock($lines[$at], true)) {
+                break;
+            }
         }
         $length = ($this->wrappedBlockAttributeLengthCallback)($probe, 0);
 
