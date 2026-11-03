@@ -2473,11 +2473,11 @@ final class ListBlockBuilder
                 continue;
             }
             $leadColumn = $this->containerContentColumn($lines[0], 0);
-            // A below-column attribute is paragraph text in the nested list.
+            // A below-column attribute is paragraph text in the nested list;
+            // one at its content column is the nested item's, aligned by that item's parse.
             if (
                 $leadColumn !== null
                 && IndentationHelper::getLeadingColumns($lines[$i]) > 0
-                && IndentationHelper::getLeadingColumns($lines[$i]) < $leadColumn
             ) {
                 continue;
             }
