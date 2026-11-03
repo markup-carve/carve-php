@@ -4080,6 +4080,66 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"marker-colon-always-opens/556-a-closed-block-leaves-no-frame-for-the-line-below-14\"",
             "ticket": "carve#4907"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 187-a-comment-fence-is-a-comment-at-any-column-too\"",
+            "ticket": "carve#4995"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"187-a-comment-fence-is-a-comment-at-any-column-too\"",
+            "ticket": "carve#4995"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"187-a-comment-fence-is-a-comment-at-any-column-too\"",
+            "ticket": "carve#4995"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 192-a-comment-fence-under-a-nested-item-does-not-close-it-either\"",
+            "ticket": "carve#4995"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"192-a-comment-fence-under-a-nested-item-does-not-close-it-either\"",
+            "ticket": "carve#4995"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"192-a-comment-fence-under-a-nested-item-does-not-close-it-either\"",
+            "ticket": "carve#4995"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 418-an-invisible-fenced-block-is-not-a-list-paragraph\"",
+            "ticket": "carve#4988"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"418-an-invisible-fenced-block-is-not-a-list-paragraph\"",
+            "ticket": "carve#4988"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"418-an-invisible-fenced-block-is-not-a-list-paragraph\"",
+            "ticket": "carve#4988"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter\"",
+            "ticket": "carve#4988"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter\"",
+            "ticket": "carve#4988"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter\"",
+            "ticket": "carve#4988"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter-2\"",
+            "ticket": "carve#4988"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter-2\"",
+            "ticket": "carve#4988"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter-2\"",
+            "ticket": "carve#4988"
         }
     ]
 }
