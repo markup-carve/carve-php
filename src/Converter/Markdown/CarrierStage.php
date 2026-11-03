@@ -991,7 +991,13 @@ final class CarrierStage
                     continue;
                 }
             }
-            $emptyCloser = $item['kind'] === 'close' && $item['text'] === '' && trim($item['lead']) === '';
+            // A closer behind quote markers stands for the quote's blank line.
+            $emptyCloser = $item['kind'] === 'close' && $item['text'] === '' && trim($item['lead'], " \t>") === '';
+            if ($emptyCloser && trim($item['lead']) !== '') {
+                $spelled[] = rtrim($item['lead']);
+
+                continue;
+            }
             // The space classifyBareFencePayloads gave a bare opener is not
             // source, and a payload spanning lines continues behind the
             // lead's continuation (CARVE-P11-063).
