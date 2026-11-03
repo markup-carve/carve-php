@@ -2294,10 +2294,6 @@
             "ticket": "carve-php#4328"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\RoundtripMarkdownReferenceAndMarkerEdgesTest::testAPayloadSpanningLinesIsReadBehindABlockQuote",
-            "ticket": "carve-php#4254"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\DefinitionTermFloorTextTest::testFloorTextKeepsTheTermOpen with data set \"term-wrapped-attribute-item-True-div\"",
             "ticket": "carve#4863"
         },

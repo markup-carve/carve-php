@@ -991,6 +991,15 @@ final class CarrierStage
                     continue;
                 }
             }
+            // A closer behind quote markers stands for the blank line after it.
+            if (
+                $item['kind'] === 'close' && $item['text'] === '' && trim($item['lead']) !== ''
+                && trim($item['lead'], " \t>") === '' && ($items[$at + 1]['text'] ?? null) === ''
+            ) {
+                $emptyCloser = false;
+
+                continue;
+            }
             $emptyCloser = $item['kind'] === 'close' && $item['text'] === '' && trim($item['lead']) === '';
             // The space classifyBareFencePayloads gave a bare opener is not
             // source, and a payload spanning lines continues behind the
