@@ -44,6 +44,14 @@ final class AQuotedSpanAfterAHostedSpansCloserLeavesTheFollowerOutsideTest exten
                 "> - %%%\n> %%%\n> x\nt\n",
                 "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n  <p>x\nt</p>\n</blockquote>",
             ],
+            'a marker in an open paragraph is text' => [
+                "> text\n> - %%%\n> %%%\n> %%%\n> x\nt\n",
+                "<blockquote>\n  <p>text\n-</p>\n  <p>x\nt</p>\n</blockquote>",
+            ],
+            'a marker after a term opens an item' => [
+                "> :: d\n> - %%%\n> %%%\n> %%%\n> x\nt\n",
+                "<blockquote>\n  <dl>\n    <dt>d</dt>\n  </dl>\n  <ul>\n    <li></li>\n  </ul>\n</blockquote>\n<p>t</p>",
+            ],
         ];
     }
 
