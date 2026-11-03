@@ -974,6 +974,8 @@ final class BlockContinuationScanner
                 || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) === 1
                 || preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/', $line) === 1
                 || $this->isCommentLineOrFence($line)
+                // The walk has read the line as part of the skipped prelude, a note's whole body included.
+                || isset($this->state->source->attachedPreludeLines[$this->sourceLineFor($k)])
                 // A note's lazy text is part of it.
                 || ($afterNote && ($this->getListParser)()->parseListItemMarker($line) === null)
             ) {
