@@ -1687,9 +1687,28 @@ final class BlockQuoteBuilder
         if (!$readsBlocks || $state['mode'] !== BlockQuoteLazyMode::Content) {
             return;
         }
+        // A span on a list marker line is that item's, closed by its run at any column (PART 9 §28, carve#5026).
+        // A marker in an open paragraph is text; a term above leaves none.
+        $above = ltrim(ContainerPrefix::afterLeadingQuoteMarkers(ltrim($sourceLines[$sourceIndex - 1] ?? '', " \t")), " \t");
+        $at = $state['paragraphOpen'] && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $above) !== 1
+            ? null
+            : ($this->getListParser)()->markerWalkOffset($inner, IndentationHelper::pastLeadingWhitespace($inner));
+        // The block parser reads a run after a tab-separated marker as item text, so the tracker does too.
+        $raw = $sourceLines[$sourceIndex] ?? '';
+        $span = $at === null || str_contains(substr($raw, 0, (int)strpos($raw, '%')), "\t")
+            ? null
+            : ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn(substr($inner, $at));
+        if ($span !== null) {
+            $state['mode'] = BlockQuoteLazyMode::CommentFence;
+            $state['commentLength'] = $span['length'];
+            $state['commentHosted'] = true;
+            $state['paragraphOpen'] = false;
+            $this->leadSpan = ['lines' => count($sourceLines), 'index' => $sourceIndex, 'owner' => $at];
+
+            return;
+        }
         // A span on a description or note lead is that body's, so it leaves no paragraph (carve#4998).
         $lead = ltrim($inner, " \t");
-        $above = ltrim(ContainerPrefix::afterLeadingQuoteMarkers(ltrim($sourceLines[$sourceIndex - 1] ?? '', " \t")), " \t");
         if (
             preg_match('/^\[\^[^\]]+\]: +(?=(%{3,}))/', $lead, $match) !== 1
             && (preg_match('/^: +(?=(%{3,}))/', $lead, $match) !== 1 || preg_match('/^::? /', $above) !== 1)
