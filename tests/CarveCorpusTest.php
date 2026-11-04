@@ -52,6 +52,7 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-deprecated-cell-alignment-prefix-reads-as-its-braced-run',
         'a-line-after-a-comment-block-in-a-line-block-reads-the-stanza-without-it',
         'a-braced-comment-before-a-flag-opener-counts-as-nothing',
         'a-list-marker-opens-a-list-in-every-marker-body',
@@ -1710,24 +1711,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '659-table-spans-keep-alignment-defaults-in-physical-columns-2' => [
-            'reason' => 'carve#5094: a header cell holding only `<` or `^` is a header-kind placeholder',
-            'html' => "<table>\n  <tbody>\n    <tr><td colspan=\"2\">a</td></tr>\n    <tr><td>b</td><th scope=\"row\"></th></tr>\n  </tbody>\n</table>\n",
-        ],
-        '659-table-spans-keep-alignment-defaults-in-physical-columns-20' => [
-            'reason' => 'carve#5094: a header cell holding only `<` or `^` is a header-kind placeholder',
-            'html' => "<table>\n  <thead>\n    <tr><th scope=\"col\"></th></tr>\n  </thead>\n</table>\n",
-        ],
-        '952-native-head-rows-with-span-placeholders-6' => [
-            'reason' => 'carve#5094: the glued `|=^ |` of the pinned row is data content',
-            'html' => "<table>\n  <tbody>\n    <tr><td>=^</td></tr>\n    <tr><td>x</td></tr>\n  </tbody>\n</table>\n",
-        ],
-        '952-native-head-rows-with-span-placeholders-4' => [
-            'reason' => 'carve#5094: a header cell holding only `<` or `^` is a header-kind placeholder',
-            'html' => "<table>\n  <thead>\n    <tr><th scope=\"col\"></th></tr>\n  </thead>\n</table>\n",
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 

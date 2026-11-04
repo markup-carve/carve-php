@@ -241,12 +241,12 @@ CRV;
         $this->assertContains('551-a-link-destination-is-opaque-to-the-bracket-scan.crv', $acceptedFiles);
         $this->assertContains('551-a-link-destination-is-opaque-to-the-bracket-scan-2.crv', $acceptedFiles);
         $this->assertContains('551-a-link-destination-is-opaque-to-the-bracket-scan-3.crv', $acceptedFiles);
-        // Corpus 551 adds three accepted link documents; CARVE-P9-082 makes
-        // 589-32 a table the fast path takes.
+        // Corpus 551 adds three accepted link documents; 589-32 has a native
+        // header row since carve#4980 and falls back.
         // Corpus 617-3 is an unmarked CSV fence, so it remains ordinary code.
         // Rows 588-3 and 588-4 now fall back because their lines end in plus.
         // Corpus 673 adds one accepted link-title-padding document.
-        $this->assertSame(75, $accepted, 'A fast-path routing change needs explicit review.');
+        $this->assertSame(74, $accepted, 'A fast-path routing change needs explicit review.');
     }
 
     public function testAmbiguousOrStatefulDocumentsFallBackBeforePublishingOutput(): void

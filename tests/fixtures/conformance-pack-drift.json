@@ -2,30 +2,6 @@
   "comment": "Conformance pack cases this engine renders differently from the spec model, one entry per cause with its open ticket. See tests/ConformancePackTest.php.",
   "entries": [
     {
-      "ticket": "markup-carve/carve-php#4574",
-      "cause": "carve#5015 port: the blank before a child block is owned by a descendant in the model",
-      "cases": [
-        "fences-36b9dbadcbb3",
-        "notes-246d1f499031"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve#5111",
-      "cause": "the model folds an opener into the paragraph after a refused plus; this engine interrupts it",
-      "cases": [
-        "fences-be8043b3def8",
-        "ownership-028a847df024",
-        "ownership-bab956633134"
-      ]
-    },
-    {
-      "ticket": "markup-carve/carve#5113",
-      "cause": "the model keeps a list tight across a blank after a fence a refused plus ended; this engine loosens it",
-      "cases": [
-        "fences-7b1ba5bdbbb8"
-      ]
-    },
-    {
       "ticket": "markup-carve/carve#5132",
       "cause": "a > + after a quote-attached paragraph: the model erases it at the end of input; this engine keeps it a letter",
       "cases": [
@@ -33,13 +9,10 @@
       ]
     },
     {
-      "ticket": "markup-carve/carve#5112",
-      "cause": "the model drops the + of a lazy marker line folded into a quote paragraph; this engine keeps it",
+      "ticket": "markup-carve/carve-php#4581",
+      "cause": "a paragraph after a consumed + in a quoted item folds the next quote line; the model opens a quote",
       "cases": [
-        "lazy-2a902ab538f4",
-        "lazy-71f25e5b05ea",
-        "lazy-ad52b9352573",
-        "ownership-aca67afd18a5"
+        "lazy-408e39e5714b"
       ]
     }
   ]
