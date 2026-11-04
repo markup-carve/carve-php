@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Parser;
 
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
+use MarkupCarve\Carve\Exception\ParseWarning;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
@@ -307,6 +308,18 @@ trait TransparentLineErasure
         $line = static fn (int $oneBased): int => isset($map[$oneBased - 1]) ? $map[$oneBased - 1] + 1 : $oneBased;
         $session = $this->state->session;
         $session->unattachedBlockAttributes = array_map($remap, $session->unattachedBlockAttributes);
+        // An erased definition reports its encoded line, `-(line + 1)` plus one.
+        $session->warnings = array_map(static fn (ParseWarning $warning): ParseWarning => $warning->getFile() !== null ? $warning : new ParseWarning(
+            $warning->getMessage(),
+            $warning->getLine() <= 0 ? 1 - $warning->getLine() : $line($warning->getLine()),
+            $warning->getColumn(),
+            $warning->getCategory(),
+            $warning->getSuggestion(),
+            null,
+            $warning->getDetail(),
+            $warning->getRule(),
+            $warning->getIncludedBy(),
+        ), $session->warnings);
         foreach ($session->unclosedCodeFences as $k => $fence) {
             $session->unclosedCodeFences[$k]['line'] = $line($fence['line']);
             $session->unclosedCodeFences[$k]['endLine'] = $line($fence['endLine']);
