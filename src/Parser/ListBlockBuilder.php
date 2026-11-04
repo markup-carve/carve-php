@@ -2131,6 +2131,12 @@ final class ListBlockBuilder
                         || $this->startsNewBlock($trimmedLine, $lines, $i)
                         || ($this->isBlockAttributeLineCallback)($trimmedLine)
                         || ($this->startsWrappedBlockAttributesCallback)($trimmedLine, $lines, $i)
+                        // A note with a body closes the item below its column (CARVE-P9-052); a one-line note is invisible.
+                        || (
+                            preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmedLine) === 1
+                            && isset($lines[$i + 1]) && !IndentationHelper::isBlankLine($lines[$i + 1])
+                            && IndentationHelper::getLeadingColumns($lines[$i + 1]) > IndentationHelper::getLeadingColumns($subLine)
+                        )
                     )
                 ) {
                     break;
