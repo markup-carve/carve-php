@@ -41,31 +41,31 @@ class AThematicBreakLeavesNoInvisibleLineTest extends TestCase
         return [
             'a hyphen rule' => [
                 "- t\n\n  ---\n z\n",
-                "<ul>\n  <li>t\n    <hr>\n  </li>\n</ul>\n<p>z</p>\n",
+                "<ul>\n  <li><p>t</p>\n    <hr>\n  </li>\n</ul>\n<p>z</p>\n",
             ],
             'an asterisk rule' => [
                 "- t\n\n  ***\n z\n",
-                "<ul>\n  <li>t\n    <hr>\n  </li>\n</ul>\n<p>z</p>\n",
+                "<ul>\n  <li><p>t</p>\n    <hr>\n  </li>\n</ul>\n<p>z</p>\n",
             ],
             'an underscore rule' => [
                 "- t\n\n  ___\n z\n",
-                "<ul>\n  <li>t\n    <hr>\n  </li>\n</ul>\n<p>z</p>\n",
+                "<ul>\n  <li><p>t</p>\n    <hr>\n  </li>\n</ul>\n<p>z</p>\n",
             ],
             'a deeper band under a wide marker' => [
                 "10. t\n\n    ---\n  z\n",
-                "<ol start=\"10\">\n  <li>t\n    <hr>\n  </li>\n</ol>\n<p>z</p>\n",
+                "<ol start=\"10\">\n  <li><p>t</p>\n    <hr>\n  </li>\n</ol>\n<p>z</p>\n",
             ],
             // A marker reaches the item through the OTHER arm of the same gate,
             // which reads the invisible term too, so it moved with the rest.
             'a marker in the band' => [
                 "- t\n\n  ---\n - m\n",
-                "<ul>\n  <li>t\n    <hr>\n  </li>\n  <li>m</li>\n</ul>",
+                "<ul>\n  <li><p>t</p>\n    <hr>\n  </li>\n  <li><p>m</p></li>\n</ul>",
             ],
             // The band of a NESTED item is still inside the outer one, so the
             // follower leaves the inner item and stops there.
             "a nested item's rule, where the outer item holds the band" => [
                 "- a\n  - t\n\n    ---\n   z\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>t\n        <hr>\n      </li>\n    </ul>\n    z\n  </li>\n</ul>\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li><p>t</p>\n        <hr>\n      </li>\n    </ul>\n    z\n  </li>\n</ul>\n",
             ],
         ];
     }
@@ -81,11 +81,11 @@ class AThematicBreakLeavesNoInvisibleLineTest extends TestCase
         return [
             'the content column, where the line is the item\'s own' => [
                 "- t\n\n  ---\n  z\n",
-                "<ul>\n  <li>t\n    <hr>\n    z\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>t</p>\n    <hr>\n    <p>z</p>\n  </li>\n</ul>\n",
             ],
             'a marker at the content column' => [
                 "- t\n\n  ---\n  - m\n",
-                "<ul>\n  <li>t\n    <hr>\n    <ul>\n      <li>m</li>\n    </ul>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>t</p>\n    <hr>\n    <ul>\n      <li>m</li>\n    </ul>\n  </li>\n</ul>\n",
             ],
             'no blank line after the marker' => [
                 "- t\n  ---\n z\n",
@@ -93,7 +93,7 @@ class AThematicBreakLeavesNoInvisibleLineTest extends TestCase
             ],
             'a second blank, which closes the collected stream' => [
                 "- t\n\n  ---\n\n z\n",
-                "<ul>\n  <li>t\n    <hr>\n  </li>\n</ul>\n<p>z</p>\n",
+                "<ul>\n  <li><p>t</p>\n    <hr>\n  </li>\n</ul>\n<p>z</p>\n",
             ],
         ];
     }

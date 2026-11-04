@@ -26,8 +26,8 @@ class CompactListBlocksTest extends TestCase
     public function testBlankBeforeSubBlockStaysTight(): void
     {
         $html = $this->converter->convert("- item\n\n  > note\n- next");
-        $this->assertStringContainsString("<li>item\n    <blockquote><p>note</p></blockquote>", $html);
-        $this->assertStringNotContainsString('<li><p>item</p>', $html);
+        $this->assertStringContainsString("<li><p>item</p>\n    <blockquote><p>note</p></blockquote>", $html);
+        $this->assertStringNotContainsString("<li>item\n", $html);
     }
 
     public function testSecondProseParagraphStillLoosens(): void

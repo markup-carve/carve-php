@@ -42,7 +42,7 @@
   {
     "id": "hosted-container-openers/566-an-opener-past-a-hosted-container-s-column-opens-there-5",
     "source": "- outer\n  - para\n\n  ---\n    ```\n",
-    "html": "<ul>\n  <li>outer\n    <ul>\n      <li>para</li>\n    </ul>\n    <hr>\n    <pre><code></code></pre>\n  </li>\n</ul>\n"
+    "html": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li>para</li>\n    </ul>\n    <hr>\n    <pre><code></code></pre>\n  </li>\n</ul>\n"
   },
   {
     "id": "hosted-container-openers/566-an-opener-past-a-hosted-container-s-column-opens-there",

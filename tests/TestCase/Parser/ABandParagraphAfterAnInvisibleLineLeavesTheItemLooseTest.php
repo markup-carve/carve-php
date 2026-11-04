@@ -159,7 +159,7 @@ class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
      */
     public function testABandColumnMarkerStaysTextInsideTheItem(): void
     {
-        $expected = "<ul>\n  <li>t\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n  <li>s</li>\n</ul>";
+        $expected = "<ul>\n  <li><p>t</p>\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n  <li><p>s</p></li>\n</ul>";
 
         // The content-column spelling is the control: it read this way before.
         $this->assertSame($expected, $this->html("- t\n\n  %% c\n  - b\n- s\n"));

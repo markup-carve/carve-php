@@ -50,7 +50,7 @@ class AMarkdownOnlyOneInterruptsAnItemParagraphTest extends TestCase
     {
         return [
             'a 1 still opens one' => ["- a\n  1. b\n", "- a\n  1. b\n"],
-            'after a blank' => ["- a\n\n  2. b\n", "{loose}\n- a\n\n  2. b\n"],
+            'after a blank' => ["- a\n\n  2. b\n", "- a\n\n  2. b\n"],
             'the paragraph belongs to a deeper item' => ["- a\n  - b\n  2. c\n", "- a\n  - b\n  2. c\n"],
             'a sibling of an open list' => ["1. a\n   1. b\n   2. c\n", "1. a\n   1. b\n   2. c\n"],
         ];

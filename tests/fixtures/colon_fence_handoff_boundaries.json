@@ -262,12 +262,12 @@
   {
     "id": "opaque-boundary-p1-preD.minus",
     "source": "> - a\n>\n>   ::: box\n>   - ::: |\n>     :::\n>    ```\n- tail\n",
-    "html": "<blockquote><ul><li>a\n      <div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><p>a</p><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "opaque-boundary-p1-preDn.minus",
     "source": "> > - a\n> >\n> >   ::: box\n> >   - ::: |\n> >     :::\n> >    ```\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "opaque-boundary-p1-preJ.lazy",

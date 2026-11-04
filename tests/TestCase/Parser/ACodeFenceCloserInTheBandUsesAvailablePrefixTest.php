@@ -106,7 +106,7 @@ class ACodeFenceCloserInTheBandUsesAvailablePrefixTest extends TestCase
             ],
             'M8 item opener 6 closer 8 past the base' => [
                 "- item\n\n      ```\n      a\n        ```\n\n  tail\n",
-                "<ul>\n  <li>item\n    <pre><code>a\n  ```\n\ntail\n</code></pre>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>item</p>\n    <pre><code>a\n  ```\n\ntail\n</code></pre>\n  </li>\n</ul>\n",
             ],
             'M14 footnote body opener 6 closer 8 past the base' => [
                 "x[^1]\n\n[^1]: note\n\n      ```\n      a\n        ```\n\n  tail\n",
@@ -118,20 +118,20 @@ class ACodeFenceCloserInTheBandUsesAvailablePrefixTest extends TestCase
             ],
             'M25 item opener 6 unterminated' => [
                 "- item\n\n      ```\n      a\n\n  tail\n",
-                "<ul>\n  <li>item\n    <pre><code>a\n\ntail\n</code></pre>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>item</p>\n    <pre><code>a\n\ntail\n</code></pre>\n  </li>\n</ul>\n",
             ],
             'G7 item opener 6 a payload line at 4 in the band' => [
                 "- item\n\n      ```\n      a\n    z\n      b\n      ```\n",
                 // Measured from the opener's authored base (CARVE-P0-004).
-                "<ul>\n  <li>item\n    <pre><code>a\nz\nb\n</code></pre>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>item</p>\n    <pre><code>a\nz\nb\n</code></pre>\n  </li>\n</ul>\n",
             ],
             'G9 item opener 6 a payload line at the content column' => [
                 "- item\n\n      ```\n      a\n  z\n      b\n      ```\n",
-                "<ul>\n  <li>item\n    <pre><code>a\nz\nb\n</code></pre>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>item</p>\n    <pre><code>a\nz\nb\n</code></pre>\n  </li>\n</ul>\n",
             ],
             'G8 item opener 6 a whitespace-only line at 4' => [
                 "- item\n\n      ```\n      a\n    \n      b\n      ```\n",
-                "<ul>\n  <li>item\n    <pre><code>a\n\nb\n</code></pre>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>item</p>\n    <pre><code>a\n\nb\n</code></pre>\n  </li>\n</ul>\n",
             ],
         ];
     }

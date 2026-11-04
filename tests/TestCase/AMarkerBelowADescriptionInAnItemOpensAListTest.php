@@ -24,11 +24,11 @@ class AMarkerBelowADescriptionInAnItemOpensAListTest extends TestCase
         return [
             'after a blank' => [
                 "- o\n\n  :: t\n  : x\n  - y\n",
-                "<ul>\n  <li>o\n    $dl\n    <ul>\n      <li>y</li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li><p>o</p>\n    $dl\n    <ul>\n      <li>y</li>\n    </ul>\n  </li>\n</ul>",
             ],
             'ordered marker' => [
                 "- o\n\n  :: t\n  : x\n  1. y\n",
-                "<ul>\n  <li>o\n    $dl\n    <ol>\n      <li>y</li>\n    </ol>\n  </li>\n</ul>",
+                "<ul>\n  <li><p>o</p>\n    $dl\n    <ol>\n      <li>y</li>\n    </ol>\n  </li>\n</ul>",
             ],
             'without a blank, unchanged' => [
                 "- o\n  :: t\n  : x\n  - y\n",
@@ -36,7 +36,7 @@ class AMarkerBelowADescriptionInAnItemOpensAListTest extends TestCase
             ],
             'plain text stays lazy' => [
                 "- o\n\n  :: t\n  : x\n  z\n",
-                "<ul>\n  <li>o\n    <dl>\n      <dt>t</dt>\n      <dd>x\nz</dd>\n    </dl>\n  </li>\n</ul>",
+                "<ul>\n  <li><p>o</p>\n    <dl>\n      <dt>t</dt>\n      <dd>x\nz</dd>\n    </dl>\n  </li>\n</ul>",
             ],
             'a quote host still folds' => [
                 "- > :: t\n  > : d\n  > - z\n",

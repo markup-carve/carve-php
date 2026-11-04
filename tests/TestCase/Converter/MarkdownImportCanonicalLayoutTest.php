@@ -26,8 +26,8 @@ final class MarkdownImportCanonicalLayoutTest extends TestCase
         yield 'quoted fence followed by indented code' => ["> ~~~\n> body\n> ~~~\n    code\n", "> ```\n> body\n> ```\n\n```\ncode\n```\n"];
         yield 'padded list with continuation' => [" -    one\n\n      two\n", "- one\n\n  two\n"];
         yield 'padded list with incidental continuation indent' => ["1.  first\n\n       second\n", "1. first\n\n   second\n"];
-        yield 'blank indented code payload' => ["- Foo\n\n      bar\n\n\n      baz\n", "{loose}\n- Foo\n\n  ```\n  bar\n\n\n  baz\n  ```\n"];
-        yield 'indented code payload with spaces' => ["- Foo\n\n      bar\n        \n      baz\n", "{loose}\n- Foo\n\n  ```\n  bar\n    \n  baz\n  ```\n"];
+        yield 'blank indented code payload' => ["- Foo\n\n      bar\n\n\n      baz\n", "- Foo\n\n  ```\n  bar\n\n\n  baz\n  ```\n"];
+        yield 'indented code payload with spaces' => ["- Foo\n\n      bar\n        \n      baz\n", "- Foo\n\n  ```\n  bar\n    \n  baz\n  ```\n"];
         yield 'lazy quote inside quoted item' => ["> 1. > Blockquote\ncontinued here.\n", "> 1. > Blockquote\n>    > continued here.\n"];
         yield 'explicit tail after lazy quoted item' => ["> - > inner\ncontinued\n> tail\n", "> - > inner\n>   > continued\n>   > tail\n"];
         yield 'quoted heading closes its lazy paragraph' => ["> - > # h\n>   b\n", "> - > # h\n>   b\n"];

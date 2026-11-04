@@ -58,7 +58,7 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
     {
         $html = (new CarveConverter())->convert("- a\n\n  *[A]: a\n  - b\n");
 
-        $this->assertStringContainsString("<li>a\n", $html);
+        $this->assertStringContainsString("<li><p>a</p>\n", $html);
         $this->assertStringNotContainsString('*[A]', $html);
     }
 
@@ -71,7 +71,7 @@ class AbbreviationLineInAnItemIsParagraphTextTest extends TestCase
     {
         $html = (new CarveConverter())->convert("- a\n\n  *[A]: a\n  - b\n- c\n");
 
-        $this->assertStringContainsString('<li>c</li>', $html);
+        $this->assertStringContainsString('<li><p>c</p></li>', $html);
     }
 
     /**

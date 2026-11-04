@@ -66,7 +66,7 @@ class QuoteAndFootnoteFirstBlockTest extends TestCase
 
         yield 'item quote leaves a column-zero table outside' => [
             "- a\n\n  > +\n| t |\n",
-            "<ul>\n  <li>a\n    <blockquote><p>+</p></blockquote>\n  </li>\n</ul>\n<table>\n  <tbody>\n"
+            "<ul>\n  <li><p>a</p>\n    <blockquote><p>+</p></blockquote>\n  </li>\n</ul>\n<table>\n  <tbody>\n"
             . "    <tr><td>t</td></tr>\n  </tbody>\n</table>",
         ];
 

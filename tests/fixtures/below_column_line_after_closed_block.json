@@ -1357,7 +1357,7 @@
   {
     "id": "heading-heading-resume-112",
     "source": "- a\n\n  # h\n  ~~~\n  code\n  ~~~\nafter\n",
-    "html": "<ul><li>a<h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "heading-heading-resume-132",
@@ -1367,12 +1367,12 @@
   {
     "id": "heading-heading-resume-152",
     "source": "- a\n\n  ## h\n\n  ~~~\n  code\n  ~~~\nafter\n",
-    "html": "<ul><li>a<h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "heading-heading-resume-172",
     "source": "- a\n  # h\n  # second\n\n  ```\n  code\n  ```\nafter\n",
-    "html": "<ul><li>a<h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "heading-heading-resume-192",
@@ -1407,12 +1407,12 @@
   {
     "id": "heading-heading-resume-312",
     "source": "- a\n  ```\n  first\n  ```\n\n  # h\n\n  ~~~\n  code\n  ~~~\nafter\n",
-    "html": "<ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "heading-heading-resume-332",
     "source": "- a\n  ```\n  first\n  ```\n  ## h\n\n  ```\n  code\n  ```\nafter\n",
-    "html": "<ul><li>a<pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "heading-heading-resume-352",
@@ -1422,7 +1422,7 @@
   {
     "id": "heading-heading-resume-372",
     "source": "- a\n  ```\n  first\n  ```\n\n  # h\n  # second\n  ```\n  code\n  ```\nafter\n",
-    "html": "<ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><pre><code>first</code></pre><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "heading-heading-resume-394",
@@ -1452,12 +1452,12 @@
   {
     "id": "heading-heading-resume-504",
     "source": "> - a\n> \n>   # h\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a<h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "heading-heading-resume-524",
     "source": "> - a\n>   ## h\n> \n>   ```\n>   code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a<h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "heading-heading-resume-544",
@@ -1467,7 +1467,7 @@
   {
     "id": "heading-heading-resume-564",
     "source": "> - a\n> \n>   # h\n>   # second\n>   ```\n>   code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a<h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "heading-heading-resume-584",
@@ -1497,7 +1497,7 @@
   {
     "id": "heading-heading-resume-684",
     "source": "> - a\n>   ```\n>   first\n>   ```\n>   # h\n> \n>   ```\n>   code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "heading-heading-resume-704",
@@ -1507,17 +1507,17 @@
   {
     "id": "heading-heading-resume-724",
     "source": "> - a\n>   ```\n>   first\n>   ```\n> \n>   ## h\n>   ```\n>   code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a<pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "heading-heading-resume-744",
     "source": "> - a\n>   ```\n>   first\n>   ```\n>   # h\n>   # second\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>first</code></pre><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "heading-heading-resume-764",
     "source": "> - a\n>   ```\n>   first\n>   ```\n> \n>   # h\n>   # second\n> \n>   ```\n>   code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>first</code></pre><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "heading-heading-resume-787",
@@ -1542,7 +1542,7 @@
   {
     "id": "heading-heading-resume-876",
     "source": "> > - a\n> >   # h\n> > \n> >   ```\n> >   code\n> >   ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a<h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "heading-heading-resume-896",
@@ -1552,17 +1552,17 @@
   {
     "id": "heading-heading-resume-916",
     "source": "> > - a\n> > \n> >   ## h\n> >   ```\n> >   code\n> >   ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a<h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "heading-heading-resume-936",
     "source": "> > - a\n> >   # h\n> >   # second\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a<h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "heading-heading-resume-956",
     "source": "> > - a\n> > \n> >   # h\n> >   # second\n> > \n> >   ```\n> >   code\n> >   ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a<h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "heading-heading-resume-976",
@@ -1592,12 +1592,12 @@
   {
     "id": "heading-heading-resume-1076",
     "source": "> > - a\n> >   ```\n> >   first\n> >   ```\n> > \n> >   # h\n> >   ```\n> >   code\n> >   ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "heading-heading-resume-1096",
     "source": "> > - a\n> >   ```\n> >   first\n> >   ```\n> >   ## h\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "heading-heading-without-resumed-code-0",
@@ -1612,12 +1612,12 @@
   {
     "id": "heading-heading-without-resumed-code-2",
     "source": "- a\n\n  # h\nafter\n",
-    "html": "<ul><li>a<h1 id=\"h\">h</h1></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><h1 id=\"h\">h</h1></li></ul><p>after</p>"
   },
   {
     "id": "heading-heading-without-resumed-code-3",
     "source": "- a\n\n  # h\n\nafter\n",
-    "html": "<ul><li>a<h1 id=\"h\">h</h1></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><h1 id=\"h\">h</h1></li></ul><p>after</p>"
   },
   {
     "id": "heading-heading-without-resumed-code-4",
@@ -1632,12 +1632,12 @@
   {
     "id": "heading-heading-without-resumed-code-6",
     "source": "> - a\n> \n>   # h\n> after\n",
-    "html": "<blockquote><ul><li>a<h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "heading-heading-without-resumed-code-7",
     "source": "> - a\n> \n>   # h\n> \n> after\n",
-    "html": "<blockquote><ul><li>a<h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "heading-heading-without-resumed-code-8",
@@ -1652,12 +1652,12 @@
   {
     "id": "heading-heading-without-resumed-code-10",
     "source": "> > - a\n> > \n> >   # h\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a<h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "heading-heading-without-resumed-code-11",
     "source": "> > - a\n> > \n> >   # h\n> > \n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a<h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "heading-heading-direct-0",
@@ -2657,7 +2657,7 @@
   {
     "id": "resume-ordinary-closed-code-q0-`-blanktrue",
     "source": "- a\n\n  ```\n  code\n  ```\nafter\n",
-    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "resume-ordinary-closed-code-q0-~-blankfalse",
@@ -2667,7 +2667,7 @@
   {
     "id": "resume-ordinary-closed-code-q0-~-blanktrue",
     "source": "- a\n\n  ~~~\n  code\n  ~~~\nafter\n",
-    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "resume-ordinary-closed-code-q1-`-blankfalse",
@@ -2677,7 +2677,7 @@
   {
     "id": "resume-ordinary-closed-code-q1-`-blanktrue",
     "source": "> - a\n> \n>   ```\n>   code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "resume-ordinary-closed-code-q1-~-blankfalse",
@@ -2687,7 +2687,7 @@
   {
     "id": "resume-ordinary-closed-code-q1-~-blanktrue",
     "source": "> - a\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "resume-ordinary-closed-code-q2-`-blankfalse",
@@ -2697,7 +2697,7 @@
   {
     "id": "resume-ordinary-closed-code-q2-`-blanktrue",
     "source": "> > - a\n> > \n> >   ```\n> >   code\n> >   ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "resume-ordinary-closed-code-q2-~-blankfalse",
@@ -2707,7 +2707,7 @@
   {
     "id": "resume-ordinary-closed-code-q2-~-blanktrue",
     "source": "> > - a\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
   },
   {
     "id": "resume-preservation-156",
@@ -2742,32 +2742,32 @@
   {
     "id": "resume-preservation-162",
     "source": "- a\n\n  ```\n  code\n  ```\n---\n",
-    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><hr>"
+    "html": "<ul><li><p>a</p><pre><code>code</code></pre></li></ul><hr>"
   },
   {
     "id": "resume-preservation-163",
     "source": "- a\n\n  ```\n  code\n  ```\n| a |\n| - |\n",
-    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table>"
+    "html": "<ul><li><p>a</p><pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table>"
   },
   {
     "id": "resume-preservation-164",
     "source": "- a\n\n  ```\n  code\n  ```\n[r]: /u\n\n[r][]\n",
-    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p>"
+    "html": "<ul><li><p>a</p><pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p>"
   },
   {
     "id": "resume-preservation-165",
     "source": "- a\n\n  ```\n  code\n  ```\n- sibling\n",
-    "html": "<ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul>"
+    "html": "<ul><li><p>a</p><pre><code>code</code></pre></li><li><p>sibling</p></li></ul>"
   },
   {
     "id": "resume-preservation-166",
     "source": "- a\n\n  ```\n  code\n  ```\n:: t\n: body\n",
-    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl>"
+    "html": "<ul><li><p>a</p><pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl>"
   },
   {
     "id": "resume-preservation-167",
     "source": "- a\n\n  ```\n  code\n  ```\n  ```\n  unclosed\n",
-    "html": "<ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul>"
+    "html": "<ul><li><p>a</p><pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul>"
   },
   {
     "id": "resume-preservation-168",
@@ -2872,32 +2872,32 @@
   {
     "id": "resume-preservation-188",
     "source": "- a\n\n  ~~~\n  code\n  ~~~\n---\n",
-    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><hr>"
+    "html": "<ul><li><p>a</p><pre><code>code</code></pre></li></ul><hr>"
   },
   {
     "id": "resume-preservation-189",
     "source": "- a\n\n  ~~~\n  code\n  ~~~\n| a |\n| - |\n",
-    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table>"
+    "html": "<ul><li><p>a</p><pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table>"
   },
   {
     "id": "resume-preservation-190",
     "source": "- a\n\n  ~~~\n  code\n  ~~~\n[r]: /u\n\n[r][]\n",
-    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p>"
+    "html": "<ul><li><p>a</p><pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p>"
   },
   {
     "id": "resume-preservation-191",
     "source": "- a\n\n  ~~~\n  code\n  ~~~\n- sibling\n",
-    "html": "<ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul>"
+    "html": "<ul><li><p>a</p><pre><code>code</code></pre></li><li><p>sibling</p></li></ul>"
   },
   {
     "id": "resume-preservation-192",
     "source": "- a\n\n  ~~~\n  code\n  ~~~\n:: t\n: body\n",
-    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl>"
+    "html": "<ul><li><p>a</p><pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl>"
   },
   {
     "id": "resume-preservation-193",
     "source": "- a\n\n  ~~~\n  code\n  ~~~\n  ```\n  unclosed\n",
-    "html": "<ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul>"
+    "html": "<ul><li><p>a</p><pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul>"
   },
   {
     "id": "resume-preservation-194",
@@ -2992,32 +2992,32 @@
   {
     "id": "resume-preservation-212",
     "source": "> - a\n> \n>   ```\n>   code\n>   ```\n> ---\n",
-    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><hr></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><hr></blockquote>"
   },
   {
     "id": "resume-preservation-213",
     "source": "> - a\n> \n>   ```\n>   code\n>   ```\n> | a |\n> | - |\n",
-    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote>"
   },
   {
     "id": "resume-preservation-214",
     "source": "> - a\n> \n>   ```\n>   code\n>   ```\n> [r]: /u\n> \n> [r][]\n",
-    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote>"
   },
   {
     "id": "resume-preservation-215",
     "source": "> - a\n> \n>   ```\n>   code\n>   ```\n> - sibling\n",
-    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>code</code></pre></li><li><p>sibling</p></li></ul></blockquote>"
   },
   {
     "id": "resume-preservation-216",
     "source": "> - a\n> \n>   ```\n>   code\n>   ```\n> :: t\n> : body\n",
-    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote>"
   },
   {
     "id": "resume-preservation-217",
     "source": "> - a\n> \n>   ```\n>   code\n>   ```\n>   ```\n>   unclosed\n",
-    "html": "<blockquote><ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote>"
   },
   {
     "id": "resume-preservation-218",
@@ -3122,32 +3122,32 @@
   {
     "id": "resume-preservation-238",
     "source": "> - a\n> \n>   ~~~\n>   code\n>   ~~~\n> ---\n",
-    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><hr></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><hr></blockquote>"
   },
   {
     "id": "resume-preservation-239",
     "source": "> - a\n> \n>   ~~~\n>   code\n>   ~~~\n> | a |\n> | - |\n",
-    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote>"
   },
   {
     "id": "resume-preservation-240",
     "source": "> - a\n> \n>   ~~~\n>   code\n>   ~~~\n> [r]: /u\n> \n> [r][]\n",
-    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote>"
   },
   {
     "id": "resume-preservation-241",
     "source": "> - a\n> \n>   ~~~\n>   code\n>   ~~~\n> - sibling\n",
-    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>code</code></pre></li><li><p>sibling</p></li></ul></blockquote>"
   },
   {
     "id": "resume-preservation-242",
     "source": "> - a\n> \n>   ~~~\n>   code\n>   ~~~\n> :: t\n> : body\n",
-    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote>"
   },
   {
     "id": "resume-preservation-243",
     "source": "> - a\n> \n>   ~~~\n>   code\n>   ~~~\n>   ```\n>   unclosed\n",
-    "html": "<blockquote><ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><p>a</p><pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote>"
   },
   {
     "id": "resume-preservation-244",
@@ -3242,32 +3242,32 @@
   {
     "id": "resume-preservation-262",
     "source": "> > - a\n> > \n> >   ```\n> >   code\n> >   ```\n> > ---\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><hr></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><hr></blockquote></blockquote>"
   },
   {
     "id": "resume-preservation-263",
     "source": "> > - a\n> > \n> >   ```\n> >   code\n> >   ```\n> > | a |\n> > | - |\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote></blockquote>"
   },
   {
     "id": "resume-preservation-264",
     "source": "> > - a\n> > \n> >   ```\n> >   code\n> >   ```\n> > [r]: /u\n> > \n> > [r][]\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote></blockquote>"
   },
   {
     "id": "resume-preservation-265",
     "source": "> > - a\n> > \n> >   ```\n> >   code\n> >   ```\n> > - sibling\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>code</code></pre></li><li><p>sibling</p></li></ul></blockquote></blockquote>"
   },
   {
     "id": "resume-preservation-266",
     "source": "> > - a\n> > \n> >   ```\n> >   code\n> >   ```\n> > :: t\n> > : body\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote></blockquote>"
   },
   {
     "id": "resume-preservation-267",
     "source": "> > - a\n> > \n> >   ```\n> >   code\n> >   ```\n> >   ```\n> >   unclosed\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote></blockquote>"
   },
   {
     "id": "resume-preservation-268",
@@ -3372,32 +3372,32 @@
   {
     "id": "resume-preservation-288",
     "source": "> > - a\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > ---\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><hr></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><hr></blockquote></blockquote>"
   },
   {
     "id": "resume-preservation-289",
     "source": "> > - a\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > | a |\n> > | - |\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote></blockquote>"
   },
   {
     "id": "resume-preservation-290",
     "source": "> > - a\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > [r]: /u\n> > \n> > [r][]\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote></blockquote>"
   },
   {
     "id": "resume-preservation-291",
     "source": "> > - a\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > - sibling\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>code</code></pre></li><li><p>sibling</p></li></ul></blockquote></blockquote>"
   },
   {
     "id": "resume-preservation-292",
     "source": "> > - a\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > :: t\n> > : body\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote></blockquote>"
   },
   {
     "id": "resume-preservation-293",
     "source": "> > - a\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> >   ```\n> >   unclosed\n",
-    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote></blockquote>"
   },
   {
     "id": "resume-preservation-294",
@@ -3642,7 +3642,7 @@
   {
     "id": "resume-review-boundary-6",
     "source": "- a\n    ```\n- b\n\n  ~~~\n  code\n  ~~~\nafter\n",
-    "html": "<ul><li>a<pre><code></code></pre></li><li>b<pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><pre><code></code></pre></li><li><p>b</p><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "resume-review-boundary-7",
@@ -3797,7 +3797,7 @@
   {
     "id": "resume-review-boundary-47",
     "source": "- a\n    ```\n    x\n    ```\n\n  ~~~\n  code\n  ~~~\nafter\n",
-    "html": "<ul><li>a<pre><code>x</code></pre><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><pre><code>x</code></pre><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "resume-review-resume-2",
@@ -3822,7 +3822,7 @@
   {
     "id": "resume-review-resume-54",
     "source": "- a\n\n    ~~~~\n\n  ~~~\n  code\n  ~~~\nafter\n",
-    "html": "<ul><li>a<pre><code>~~~ code ~~~</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><pre><code>~~~ code ~~~</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "resume-review-resume-56",

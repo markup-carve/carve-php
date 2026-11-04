@@ -15,7 +15,7 @@ class ContinuationMarkerRuling3482Test extends TestCase
     {
         yield 'refused marker after a fence closer stays in the item' => [
             "- a\n\n  ```\n+\n+\n\ntail\n",
-            "<ul>\n  <li>a\n    <pre><code></code></pre>\n    +\n  </li>\n</ul>\n<p>tail</p>",
+            "<ul>\n  <li><p>a</p>\n    <pre><code></code></pre>\n    <p>+</p>\n  </li>\n</ul>\n<p>tail</p>",
         ];
 
         yield 'glued plus after quote prefix is text' => [

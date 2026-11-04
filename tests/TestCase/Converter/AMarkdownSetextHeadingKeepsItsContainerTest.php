@@ -23,15 +23,15 @@ class AMarkdownSetextHeadingKeepsItsContainerTest extends TestCase
     public static function shapes(): array
     {
         return [
-            'an h2 after a blank in an item' => ["- a\n\n  b\n  ---\n", "{loose}\n- a\n\n  ## b\n"],
-            'an h1 after a blank in an item' => ["- a\n\n  b\n  ===\n", "{loose}\n- a\n\n  # b\n"],
-            'a two-line heading after a blank in an item' => ["- a\n\n  b\n  c\n  ---\n", "{loose}\n- a\n\n  ## b c\n"],
+            'an h2 after a blank in an item' => ["- a\n\n  b\n  ---\n", "- a\n\n  ## b\n"],
+            'an h1 after a blank in an item' => ["- a\n\n  b\n  ===\n", "- a\n\n  # b\n"],
+            'a two-line heading after a blank in an item' => ["- a\n\n  b\n  c\n  ---\n", "- a\n\n  ## b c\n"],
             'a two-line heading at the top level' => ["b\nc\n---\n", "## b c\n"],
             'a two-line heading in a quote' => ["> b\n> c\n> ===\n", "> # b c\n"],
             'an ordered marker that interrupts nothing' => ["foo\n2. bar\n---\n", "## foo 2. bar\n"],
             'the same as a lazy line in a quote' => ["> foo\n2. bar\n> ---\n", "> ## foo 2. bar\n"],
             'an indented continuation' => ["foo\n    bar\n---\n", "## foo bar\n"],
-            'an indented continuation in an item' => ["- a\n\n  b\n      c\n  ---\n", "{loose}\n- a\n\n  ## b c\n"],
+            'an indented continuation in an item' => ["- a\n\n  b\n      c\n  ---\n", "- a\n\n  ## b c\n"],
             'an indented continuation in a quote' => ["> foo\n>     bar\n> ---\n", "> ## foo bar\n"],
             'a lazy line in a quoted heading' => ["> foo\nbar\n> ---\n", "> ## foo bar\n"],
             'a heading on a quoted item line' => ["> - b\n>   ---\n", "> - ## b\n"],
@@ -80,7 +80,7 @@ class AMarkdownSetextHeadingKeepsItsContainerTest extends TestCase
     {
         $imported = (new MarkdownToCarve())->convert("> - a\n>\n>   b\n>   ---\n");
 
-        $this->assertSame("> {loose}\n> - a\n>\n>   ## b\n", $imported);
+        $this->assertSame("> - a\n>\n>   ## b\n", $imported);
         $this->assertSame(
             (new CarveConverter())->convert("> {loose}\n> - a\n>\n>   ## b\n"),
             (new CarveConverter())->convert($imported),

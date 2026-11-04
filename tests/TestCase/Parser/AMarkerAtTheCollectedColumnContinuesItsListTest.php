@@ -28,7 +28,7 @@ class AMarkerAtTheCollectedColumnContinuesItsListTest extends TestCase
             ],
             'a loose outer item too' => [
                 "- a\n\n  - b\n\n    - c\n\n  - d\n",
-                '<ul><li>a<ul><li><p>b</p><ul><li>c</li></ul></li><li><p>d</p></li></ul></li></ul>',
+                '<ul><li><p>a</p><ul><li><p>b</p><ul><li>c</li></ul></li><li><p>d</p></li></ul></li></ul>',
             ],
             'an ordered list at the inner level' => [
                 "- a\n  1. b\n\n     - c\n\n  2. d\n",
@@ -47,7 +47,7 @@ class AMarkerAtTheCollectedColumnContinuesItsListTest extends TestCase
             // paragraph, not a list item, and still goes to the parent.
             'prose at the collected column' => [
                 "- a\n  - b\n\n    - c\n\n  text\n",
-                '<ul><li><p>a</p><ul><li>b<ul><li>c</li></ul></li></ul><p>text</p></li></ul>',
+                '<ul><li><p>a</p><ul><li><p>b</p><ul><li>c</li></ul></li></ul><p>text</p></li></ul>',
             ],
         ];
     }

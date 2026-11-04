@@ -83,7 +83,7 @@ class AMarkerOnAQuoteLazyContinuationIsTextTest extends TestCase
             // second spelling and needed the same guard.
             'reached after a blank line' => [
                 "- x\n\n  > q\n  - s\ntail\n",
-                '<ul> <li>x <blockquote><p>q</p></blockquote> <ul> <li>s tail</li> </ul> </li> </ul>',
+                '<ul> <li><p>x</p> <blockquote><p>q</p></blockquote> <ul> <li>s tail</li> </ul> </li> </ul>',
             ],
         ];
     }

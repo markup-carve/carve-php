@@ -32,7 +32,7 @@
     {
         "ticket": "carve#4179",
         "source": "- x\n\n  :: t\n  : +\n  after\n  : b\n",
-        "html": "<ul>\n  <li>x\n    <dl>\n      <dt>t</dt>\n      <dd>after</dd>\n      <dd>b</dd>\n    </dl>\n  </li>\n</ul>"
+        "html": "<ul>\n  <li><p>x</p>\n    <dl>\n      <dt>t</dt>\n      <dd>after</dd>\n      <dd>b</dd>\n    </dl>\n  </li>\n</ul>"
     },
     {
         "ticket": "carve#4212",

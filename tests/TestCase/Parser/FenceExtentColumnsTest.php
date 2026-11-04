@@ -65,7 +65,7 @@ class FenceExtentColumnsTest extends TestCase
                     $source = "- item\n\n{$indent}{$opener}\n{$indent}a\n" . str_repeat("\n", $blanks);
                     $payload = 'a' . str_repeat("\n", $blanks);
                     $block = $raw ? $payload . "\n" : "<pre><code>{$payload}\n</code></pre>\n";
-                    $expected = "<ul>\n  <li>item\n    {$block}  </li>\n</ul>\n";
+                    $expected = "<ul>\n  <li><p>item</p>\n    {$block}  </li>\n</ul>\n";
                     $key = "{$opener} base +{$extra} blanks {$blanks}";
 
                     yield "item {$key}" => [$source, $expected];
@@ -74,7 +74,7 @@ class FenceExtentColumnsTest extends TestCase
                         static fn (string $line): string => '> ' . $line,
                         explode("\n", substr($source, 0, -1)),
                     )) . "\n";
-                    $quotedExpected = "<blockquote>\n  <ul>\n    <li>item\n      {$block}    </li>\n  </ul>\n</blockquote>\n";
+                    $quotedExpected = "<blockquote>\n  <ul>\n    <li><p>item</p>\n      {$block}    </li>\n  </ul>\n</blockquote>\n";
 
                     yield "quoted item {$key}" => [$quoted, $quotedExpected];
                 }
@@ -89,7 +89,7 @@ class FenceExtentColumnsTest extends TestCase
             $block = str_ends_with($opener, '=html')
                 ? "- payload\n\n"
                 : "<pre><code>- payload\n\n</code></pre>\n";
-            $expected = "<ul>\n  <li>item\n    {$block}  </li>\n</ul>\n";
+            $expected = "<ul>\n  <li><p>item</p>\n    {$block}  </li>\n</ul>\n";
 
             $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source), $opener);
         }
@@ -98,7 +98,7 @@ class FenceExtentColumnsTest extends TestCase
     public function testBlankAfterAClosedFenceIsOutsideThePayload(): void
     {
         $source = "- item\n\n  ```\n  a\n  ```\n\n";
-        $expected = "<ul>\n  <li>item\n    <pre><code>a\n</code></pre>\n  </li>\n</ul>\n";
+        $expected = "<ul>\n  <li><p>item</p>\n    <pre><code>a\n</code></pre>\n  </li>\n</ul>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
@@ -168,19 +168,19 @@ class FenceExtentColumnsTest extends TestCase
             ],
             'item fence after sublist ```' => [
                 "- item\n  - sub\n\n  ```\n  a\n\n",
-                "<ul>\n  <li>item\n    <ul>\n      <li>sub</li>\n    </ul>\n    <pre><code>a\n\n</code></pre>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>item</p>\n    <ul>\n      <li>sub</li>\n    </ul>\n    <pre><code>a\n\n</code></pre>\n  </li>\n</ul>\n",
             ],
             'item fence after sublist ~~~' => [
                 "- item\n  - sub\n\n  ~~~\n  a\n\n",
-                "<ul>\n  <li>item\n    <ul>\n      <li>sub</li>\n    </ul>\n    <pre><code>a\n\n</code></pre>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>item</p>\n    <ul>\n      <li>sub</li>\n    </ul>\n    <pre><code>a\n\n</code></pre>\n  </li>\n</ul>\n",
             ],
             'item fence after sublist ```=html' => [
                 "- item\n  - sub\n\n  ```=html\n  a\n\n",
-                "<ul>\n  <li>item\n    <ul>\n      <li>sub</li>\n    </ul>\n    a\n\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>item</p>\n    <ul>\n      <li>sub</li>\n    </ul>\n    a\n\n  </li>\n</ul>\n",
             ],
             'item fence after sublist ~~~=html' => [
                 "- item\n  - sub\n\n  ~~~=html\n  a\n\n",
-                "<ul>\n  <li>item\n    <ul>\n      <li>sub</li>\n    </ul>\n    a\n\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>item</p>\n    <ul>\n      <li>sub</li>\n    </ul>\n    a\n\n  </li>\n</ul>\n",
             ],
             'item fence after sublist and paragraph ```' => [
                 "- item\n  - sub\n\n  paragraph\n\n  ```\n  a\n\n",
@@ -200,19 +200,19 @@ class FenceExtentColumnsTest extends TestCase
             ],
             'nested fence boundary ```' => [
                 "- a\n  - b\n\n    ```\n    a\n\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>a\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li><p>b</p>\n        <pre><code>a\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
             ],
             'nested fence boundary ~~~' => [
                 "- a\n  - b\n\n    ~~~\n    a\n\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>a\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li><p>b</p>\n        <pre><code>a\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
             ],
             'nested fence boundary ```=html' => [
                 "- a\n  - b\n\n    ```=html\n    a\n\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        a\n\n      </li>\n    </ul>\n  </li>\n</ul>\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li><p>b</p>\n        a\n\n      </li>\n    </ul>\n  </li>\n</ul>\n",
             ],
             'nested fence boundary ~~~=html' => [
                 "- a\n  - b\n\n    ~~~=html\n    a\n\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        a\n\n      </li>\n    </ul>\n  </li>\n</ul>\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li><p>b</p>\n        a\n\n      </li>\n    </ul>\n  </li>\n</ul>\n",
             ],
         ];
     }

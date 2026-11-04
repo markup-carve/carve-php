@@ -167,7 +167,7 @@ class NestedHtmlIndentScanTest extends TestCase
         return [
             'code block with a blank line in a nested item' => [
                 "- a\n\n  - b\n\n    ```\n    x\n\n      y\n    ```\n\n  - c\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li><p>b</p>\n        <pre><code>x\n\n  y\n</code></pre>\n      </li>\n"
+                "<ul>\n  <li><p>a</p>\n    <ul>\n      <li><p>b</p>\n        <pre><code>x\n\n  y\n</code></pre>\n      </li>\n"
                 . "      <li><p>c</p></li>\n    </ul>\n  </li>\n</ul>\n",
             ],
             'multi-line alt text in a nested item' => [

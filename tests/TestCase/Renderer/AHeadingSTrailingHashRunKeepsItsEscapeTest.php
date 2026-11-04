@@ -35,7 +35,7 @@ class AHeadingSTrailingHashRunKeepsItsEscapeTest extends TestCase
             // interrupts a paragraph, so CARVE-P11-047 writes no separator.
             'a heading in a quoted bullet' => [
                 "> - a\n>\n>   ### b ###\n",
-                "> - a\n>   ### b \\###\n",
+                "> - a\n>\n>   ### b \\###\n",
             ],
             'a tab opens the run' => ["# a\t##\n", "# a\t\\##\n"],
             'the run is the whole heading' => ["# ##\n", "# \\##\n"],

@@ -12,12 +12,12 @@ class AMarkdownThematicBreakKeepsItsTightListTest extends TestCase
     public function testThematicBreakAfterNestedListNeedsNoBlank(): void
     {
         $source = "- outer\n  - para\n\n  ---\n    ```\n";
-        self::assertSame("- outer\n  - para\n  ---\n  ```\n  ```\n", CarveConverter::markdown()->convert($source));
+        self::assertSame("- outer\n\n  - para\n  ---\n\n  ```\n  ```\n", CarveConverter::markdown()->convert($source));
     }
 
     public function testThematicBreakAfterParagraphUsesAnInterruptingMarker(): void
     {
         $source = "- a\n- b\n\n  ---\n- c\n";
-        self::assertStringContainsString("- b\n  ***\n", CarveConverter::markdown()->convert($source));
+        self::assertStringContainsString("- b\n\n  ---\n", CarveConverter::markdown()->convert($source));
     }
 }

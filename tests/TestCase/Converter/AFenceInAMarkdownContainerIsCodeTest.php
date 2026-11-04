@@ -39,7 +39,7 @@ class AFenceInAMarkdownContainerIsCodeTest extends TestCase
             'five spaces after a marker open no fence' => ["-     ```\n      x", "- ````\n  ```\n  x\n  ````"],
             'an ordered item fence with info' => ["1. ```js\n   x", "1. ```js\n   x\n   ```"],
             'an item fence ended by a dedented line' => ["- ```\n  code\n\n*after*", "- ```\n  code\n\n  ```\n\n/after/"],
-            'an indented item fence ended by a dedented line' => ["- a\n\n  ```\n  code\n*b*", "{loose}\n- a\n\n  ```\n  code\n  ```\n\n/b/"],
+            'an indented item fence ended by a dedented line' => ["- a\n\n  ```\n  code\n*b*", "- a\n\n  ```\n  code\n  ```\n\n/b/"],
         ];
     }
 

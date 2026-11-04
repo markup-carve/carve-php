@@ -2473,28 +2473,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
-     * Whether a sub-list written at the item's content column needs a blank line
-     * above it to open at all.
-     */
-    protected function needsABlankLineAbove(
-        ?Node $previousEmitted,
-        bool $previousAtMarkerColumn,
-        bool $aSubListAlreadyOpened,
-    ): bool {
-        if ($previousAtMarkerColumn) {
-            return true;
-        }
-        if ($previousEmitted === null) {
-            return false;
-        }
-        if ($previousEmitted instanceof BlockQuote) {
-            return true;
-        }
-
-        return $aSubListAlreadyOpened && $this->leavesAParagraphOpen($previousEmitted);
-    }
-
-    /**
      * Whether a list's items hold a paragraph that a loose list would wrap.
      */
     protected function listShowsLooseness(?Node $list): bool
@@ -2859,11 +2837,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // in the children.
             $previousEmitted = null;
             $previousBeforeComments = null;
-            // Whether a sub-list has already opened at this item's content
-            // column - the condition under which a later bullet written there
-            // joins it instead of opening below the paragraph above it. See
-            // needsABlankLineAbove().
-            $aSubListAlreadyOpened = false;
             $movedMarker = null;
             foreach ($children as $index => $child) {
                 $next = $children[$index + 1] ?? null;
@@ -2945,10 +2918,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($child instanceof ListBlock) {
                     if (!$separated && $boundaryPeer !== null && $this->adjacentBlocksMerge($boundaryPeer, $child)) {
                         $out .= $this->listBoundary() . $rendered;
-                    } elseif (
-                        !$separated
-                        && $this->needsABlankLineAbove($previousEmitted, $atMarkerColumn, $aSubListAlreadyOpened)
-                    ) {
+                    } elseif (!$separated && $atMarkerColumn) {
+                        // A tight item writes no other blank above a sub-list: it would loosen the item (PART 9 §17 L1).
                         $out .= "\n" . $rendered;
                     } else {
                         $out .= $rendered;
@@ -2957,7 +2928,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     // read against the list rather than against whatever stood
                     // at column 0 above it.
                     $atMarkerColumn = false;
-                    $aSubListAlreadyOpened = true;
                     $previous = $child;
                     $previousEmitted = $child;
 
@@ -2968,19 +2938,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $lastItem = $lastItems === [] ? null : $lastItems[array_key_last($lastItems)];
                     if ($lastItem instanceof ListItem && $lastItem->getChildren() === [] && !$child instanceof Paragraph) {
                         $out .= self::indentLines($rendered, 1);
-                        $previous = $child;
-                        $previousEmitted = $child;
-                        $atMarkerColumn = false;
-
-                        continue;
-                    }
-                    if (
-                        $this->quoteHostDepth > 0 && !$child instanceof Paragraph
-                        && !$child instanceof CodeBlock
-                        && !$child instanceof Div && !$child instanceof Figure
-                        && !($child instanceof Comment && !$child->isDelimited())
-                    ) {
-                        $out .= "\n" . $rendered;
                         $previous = $child;
                         $previousEmitted = $child;
                         $atMarkerColumn = false;
@@ -3064,7 +3021,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     && ($previousEmitted instanceof ListBlock || $previousEmitted instanceof DefinitionList)
                     && $this->isALineComment($child)
                 ) {
-                    // Before a paragraph that blank would loosen the list (PART 9 §17 L1b).
+                    // Before any visible block that blank would loosen the list (PART 9 §17 L1, carve#5015).
                     $after = $next;
                     for ($k = $index + 2; $after instanceof Comment; $k++) {
                         $after = $children[$k] ?? null;
@@ -3073,7 +3030,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $previousEnd = $previousEmitted->getPos()?->endLine;
                     $commentStart = $child->getPos()?->startLine;
                     $authoredGap = $previousEnd === null || $commentStart === null || $commentStart > $previousEnd + 1;
-                    if (!$after instanceof Paragraph && ($authoredGap || !$this->listShowsLooseness($node->getParent()))) {
+                    if ($after === null && ($authoredGap || !$this->listShowsLooseness($node->getParent()))) {
                         $out .= "\n";
                     }
                 }
@@ -6418,7 +6375,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if (!$isLoose || $itemCount === 0) {
             return false;
         }
-        // A BLANK LINE BETWEEN ITEMS ALWAYS LOOSENS (§17 L2), and both writers
+        // A BLANK LINE BETWEEN ITEMS ALWAYS LOOSENS (§17 L1), and both writers
         // emit one between every pair of a loose list's items, so two or more
         // items already spell it. A FAST PATH, not a rule: the re-parse below
         // reaches the same answer.
@@ -6460,11 +6417,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // ONE ITEM has no "between items" for a blank line to stand in, so
             // the only spelling left is one the item's own content produces -
             // and whether it does is the PARSER's question, not a shape this
-            // writer can read off the tree. §17's looseness rules (L1, L2, L6)
+            // writer can read off the tree. §17's looseness rules (L1 and L6)
             // decide it together, so a second copy of them here would answer
-            // differently the day any of them moves: a lead container holding a
-            // blank line re-reads LOOSE, while the same blank line before a
-            // fence does not.
+            // differently the day any of them moves.
             //
             // The procedure itself is {@see self::looseKeyIsNeededForBody()},
             // which the HTML importer's writer calls too.

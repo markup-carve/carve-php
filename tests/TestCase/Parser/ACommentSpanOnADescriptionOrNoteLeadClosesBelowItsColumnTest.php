@@ -49,7 +49,7 @@ class ACommentSpanOnADescriptionOrNoteLeadClosesBelowItsColumnTest extends TestC
             ],
             'a description after a blank in the item' => [
                 "- a\n\n  :: u\n  : %%%\n%%%\nc\n",
-                "<ul>\n  <li>a\n    <dl>\n      <dt>u</dt>\n      <dd></dd>\n    </dl>\n  </li>\n</ul>\n<p>c</p>",
+                "<ul>\n  <li><p>a</p>\n    <dl>\n      <dt>u</dt>\n      <dd></dd>\n    </dl>\n  </li>\n</ul>\n<p>c</p>",
             ],
             'a closed pair after the item stays one document comment' => [
                 "- a\n  :: u\n  : %%%\n    n\n    %%%\n  zz\n\n%%%\nc\n%%%\n",
@@ -93,7 +93,7 @@ class ACommentSpanOnADescriptionOrNoteLeadClosesBelowItsColumnTest extends TestC
             ],
             'control: a span inside a code fence opens nothing' => [
                 "- head\n\n    ```\n    %%%\n    ```\n%%%\ntail\n",
-                "<ul>\n  <li>head\n    <pre><code>%%%\n</code></pre>\n  </li>\n</ul>",
+                "<ul>\n  <li><p>head</p>\n    <pre><code>%%%\n</code></pre>\n  </li>\n</ul>",
             ],
         ];
     }

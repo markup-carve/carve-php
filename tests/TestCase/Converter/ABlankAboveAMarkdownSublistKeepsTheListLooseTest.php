@@ -26,22 +26,22 @@ class ABlankAboveAMarkdownSublistKeepsTheListLooseTest extends TestCase
         return [
             'a blank above the sublist of a single item' => [
                 "- a\n\n  - b\n  - c",
-                "{loose}\n- a\n\n  - b\n  - c",
+                "- a\n\n  - b\n  - c",
                 '<ul><li><p>a</p><ul><li>b</li><li>c</li></ul></li></ul>',
             ],
             'an ordered parent' => [
                 "1. a\n\n   - b\n   - c",
-                "{loose}\n1. a\n\n   - b\n   - c",
+                "1. a\n\n   - b\n   - c",
                 '<ol><li><p>a</p><ul><li>b</li><li>c</li></ul></li></ol>',
             ],
             'a loose middle list two levels down' => [
                 "- x\n  - a\n\n    - b\n    - c",
-                "- x\n  {loose}\n  - a\n\n    - b\n    - c",
+                "- x\n  - a\n\n    - b\n    - c",
                 '<ul><li>x<ul><li><p>a</p><ul><li>b</li><li>c</li></ul></li></ul></li></ul>',
             ],
             'a paragraph continued above the blank' => [
                 "- a\n  more\n\n  - b",
-                "{loose}\n- a\n  more\n\n  - b",
+                "- a\n  more\n\n  - b",
                 "<ul><li><p>a\nmore</p><ul><li>b</li></ul></li></ul>",
             ],
             'a single item already loose by a blank between its paragraphs' => [
@@ -99,7 +99,7 @@ class ABlankAboveAMarkdownSublistKeepsTheListLooseTest extends TestCase
             ],
             'a list after an adjacent list of another marker' => [
                 "- a\n* b\n\n  - c",
-                "- a\n\n{loose}\n* b\n\n  - c",
+                "- a\n\n* b\n\n  - c",
                 '<ul><li>a</li></ul><ul><li><p>b</p><ul><li>c</li></ul></li></ul>',
             ],
         ];

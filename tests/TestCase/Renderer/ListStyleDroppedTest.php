@@ -217,6 +217,7 @@ class ListStyleDroppedTest extends TestCase
         $markdown = (new CarveConverter(renderer: $renderer))->convert($source);
         $imported = (new MarkdownToCarve())->convert($markdown);
 
-        self::assertSame($source, $imported);
+        // Since carve#5015 the blank before the sublist loosens these sources, so the spelling may change; the rendering may not (as carve-js asserts).
+        self::assertSame((new CarveConverter())->convert($source), (new CarveConverter())->convert($imported));
     }
 }

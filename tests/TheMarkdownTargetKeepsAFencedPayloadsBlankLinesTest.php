@@ -50,7 +50,7 @@ class TheMarkdownTargetKeepsAFencedPayloadsBlankLinesTest extends TestCase
             'three blank payload lines' => ["```\n\n\n\n```\n", "```\n\n\n\n```\n"],
             'a blank run between two payload lines' => ["```\na\n\n\nb\n```\n", "```\na\n\n\nb\n```\n"],
             'a payload under a language' => ["``` mermaid\na\n\n\nb\n```\n", "```mermaid\na\n\n\nb\n```\n"],
-            'a payload inside a list item' => ["- x\n\n  ```\n\n\n  ```\n", "- x\n  ```\n\n\n  ```\n"],
+            'a payload inside a list item' => ["- x\n\n  ```\n\n\n  ```\n", "- x\n\n  ```\n\n\n  ```\n"],
             // The blanks are written as bare markers here, so they were never
             // blank lines to the collapse and this row never moved.
             'a payload inside a block quote' => ["> ```\n>\n>\n> ```\n", "> ```\n>\n>\n> ```\n"],

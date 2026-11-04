@@ -193,7 +193,7 @@ class NoWhitespaceOnlyLineTest extends TestCase
         $source = "1. one\n\n    > q\n";
         $out = CarveConverter::toCarve($source);
 
-        $this->assertSame("1. one\n   > q\n", $out);
+        $this->assertSame("1. one\n\n   > q\n", $out);
         $this->assertSame([], $this->offendingLines('inline', $out));
         $converter = new CarveConverter();
         $this->assertSame($converter->convert($source), $converter->convert($out));

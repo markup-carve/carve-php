@@ -513,11 +513,11 @@
   },
   {
     "source": "> - a\n>\n>     ::: box\n>     x\n>   :::\n- tail\n",
-    "html": "<blockquote><ul><li>a\n      <div class=\"box\"><p>x</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><p>a</p><div class=\"box\"><p>x</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "source": "> - a\n>\n>     ::: |\n>     x\n>   :::\n- tail\n",
-    "html": "<blockquote><ul><li>a\n      <div class=\"line-block\"><p>x</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><p>a</p><div class=\"line-block\"><p>x</p></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "source": "> - a\n>   - ::: box\n>     body\n> - next\n>     :::\n- tail\n",

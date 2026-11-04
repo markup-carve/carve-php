@@ -120,7 +120,7 @@ class AnImportedItemsBareTextLeadStaysTightTest extends TestCase
         return [
             'the lead itself is a paragraph' => [
                 '<ul><li><p>a</p><h1>H</h1></li></ul>',
-                "{loose}\n- a\n\n  # H\n",
+                "- a\n\n  # H\n",
             ],
             'a paragraph below the lead' => [
                 '<ul><li>a<h1>H</h1><p>p</p></li></ul>',
@@ -223,11 +223,17 @@ class AnImportedItemsBareTextLeadStaysTightTest extends TestCase
 
         $withGap = $lines[0] . "\n\n" . implode("\n", array_slice($lines, 1)) . "\n";
 
+        // Since carve#5015 the blank loosens the item, so only the `<p>` wrapping may differ.
         $this->assertSame(
-            $converter->convert($withGap),
-            $converter->convert($imported),
+            self::withoutParagraphTags($converter->convert($withGap)),
+            self::withoutParagraphTags($converter->convert($imported)),
             'the written spelling must render what the blank-line spelling renders',
         );
+    }
+
+    private static function withoutParagraphTags(string $html): string
+    {
+        return (string)preg_replace('#</?p>#', '', $html);
     }
 
     /**
@@ -288,6 +294,8 @@ class AnImportedItemsBareTextLeadStaysTightTest extends TestCase
         $withGap = $lines[0] . "\n\n" . implode("\n", array_slice($lines, 1)) . "\n";
 
         $this->assertNotSame($withGap, $loosened, 'the two spellings must differ, or this proves nothing');
-        $this->assertSame($converter->convert($withGap), $converter->convert($loosened));
+        // Since carve#5015 the blank loosens the item: the spellings differ only by the `<p>` wrapping.
+        $this->assertNotSame($converter->convert($withGap), $converter->convert($loosened));
+        $this->assertSame(self::withoutParagraphTags($converter->convert($withGap)), self::withoutParagraphTags($converter->convert($loosened)));
     }
 }

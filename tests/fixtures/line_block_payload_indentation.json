@@ -92,7 +92,7 @@
   {
     "id": "paired-runs-shield-after-paragraph",
     "source": "- a\n\n  ::: |\n    ```\n  :::\n    ```\n  :::\n",
-    "html": "<ul><li>a\n    <div class=\"line-block\"><p>&nbsp;&nbsp;<code>\n:::\n&nbsp;&nbsp;</code></p></div></li></ul>"
+    "html": "<ul><li><p>a</p><div class=\"line-block\"><p>&nbsp;&nbsp;<code>\n:::\n&nbsp;&nbsp;</code></p></div></li></ul>"
   },
   {
     "id": "at-column-opener-indented-run-control",

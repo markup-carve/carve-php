@@ -1678,7 +1678,7 @@
   {
     "id": "pending-term-boundary-27",
     "source": "- :: term\n  plain\n\n      ```\n      code\n      ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt></dl>\n    plain\n    <pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt></dl><p>plain</p><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -1686,7 +1686,7 @@
   {
     "id": "pending-term-boundary-28",
     "source": "- :: term\n  plain\n\n      ~~~\n      code\n      ~~~\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt></dl>\n    plain\n    <pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt></dl><p>plain</p><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -1694,7 +1694,7 @@
   {
     "id": "pending-term-boundary-29",
     "source": "- :: term\n  plain\n\n      ```=txt\n      code\n      ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt></dl>\n    plain\n  </li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt></dl><p>plain</p></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -1832,7 +1832,7 @@
   {
     "id": "pending-term-boundary-51",
     "source": "- :: term\n  - child\n\n      ```\n      code\n      ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><ul><li>child\n        <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt></dl><ul><li><p>child</p><pre><code>code\n</code></pre></li></ul></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -1840,7 +1840,7 @@
   {
     "id": "pending-term-boundary-52",
     "source": "- :: term\n  - child\n\n      ~~~\n      code\n      ~~~\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><ul><li>child\n        <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt></dl><ul><li><p>child</p><pre><code>code\n</code></pre></li></ul></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -1848,7 +1848,7 @@
   {
     "id": "pending-term-boundary-53",
     "source": "- :: term\n  - child\n\n      ```=txt\n      code\n      ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><ul><li>child</li></ul></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt></dl><ul><li><p>child</p></li></ul></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -1994,7 +1994,7 @@
   {
     "id": "pending-term-boundary-81",
     "source": "> - :: term\n>   plain\n> \n>       ```\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      plain\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><p>plain</p><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2002,7 +2002,7 @@
   {
     "id": "pending-term-boundary-82",
     "source": "> - :: term\n>   plain\n> \n>       ~~~\n>       code\n>       ~~~\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      plain\n      <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><p>plain</p><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2010,7 +2010,7 @@
   {
     "id": "pending-term-boundary-83",
     "source": "> - :: term\n>   plain\n> \n>       ```=txt\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      plain\n    </li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><p>plain</p></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -2148,7 +2148,7 @@
   {
     "id": "pending-term-boundary-105",
     "source": "> - :: term\n>   - child\n> \n>       ```\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><ul><li>child\n          <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><ul><li><p>child</p><pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2156,7 +2156,7 @@
   {
     "id": "pending-term-boundary-106",
     "source": "> - :: term\n>   - child\n> \n>       ~~~\n>       code\n>       ~~~\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><ul><li>child\n          <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><ul><li><p>child</p><pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2164,7 +2164,7 @@
   {
     "id": "pending-term-boundary-107",
     "source": "> - :: term\n>   - child\n> \n>       ```=txt\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><ul><li>child</li></ul></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><ul><li><p>child</p></li></ul></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -2310,7 +2310,7 @@
   {
     "id": "pending-term-boundary-135",
     "source": "> > - :: term\n> >   plain\n> > \n> >       ```\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        plain\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><p>plain</p><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2318,7 +2318,7 @@
   {
     "id": "pending-term-boundary-136",
     "source": "> > - :: term\n> >   plain\n> > \n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        plain\n        <pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><p>plain</p><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2326,7 +2326,7 @@
   {
     "id": "pending-term-boundary-137",
     "source": "> > - :: term\n> >   plain\n> > \n> >       ```=txt\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        plain\n      </li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><p>plain</p></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -2464,7 +2464,7 @@
   {
     "id": "pending-term-boundary-159",
     "source": "> > - :: term\n> >   - child\n> > \n> >       ```\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><ul><li>child\n            <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><ul><li><p>child</p><pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2472,7 +2472,7 @@
   {
     "id": "pending-term-boundary-160",
     "source": "> > - :: term\n> >   - child\n> > \n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><ul><li>child\n            <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><ul><li><p>child</p><pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2480,7 +2480,7 @@
   {
     "id": "pending-term-boundary-161",
     "source": "> > - :: term\n> >   - child\n> > \n> >       ```=txt\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><ul><li>child</li></ul></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><ul><li><p>child</p></li></ul></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
@@ -2628,7 +2628,7 @@
   {
     "id": "pending-term-static-review-18",
     "source": "- :: term\n    - child\n\n      ```\n      code\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><ul><li>child\n        <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt></dl><ul><li><p>child</p><pre><code>code\n</code></pre></li></ul></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -2636,7 +2636,7 @@
   {
     "id": "pending-term-static-review-19",
     "source": "- :: term\n    - child\n\n      ```\n      code\n      ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt></dl><ul><li>child\n        <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt></dl><ul><li><p>child</p><pre><code>code\n</code></pre></li></ul></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -2660,7 +2660,7 @@
   {
     "id": "pending-term-static-review-22",
     "source": "- paragraph\n  :: term\n\n      ```\n      code\nafter\n",
-    "html": "<ul><li>paragraph\n    <dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li><p>paragraph</p><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -2668,7 +2668,7 @@
   {
     "id": "pending-term-static-review-23",
     "source": "- paragraph\n  :: term\n\n      ```\n      code\n      ```\nafter\n",
-    "html": "<ul><li>paragraph\n    <dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li><p>paragraph</p><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -2866,7 +2866,7 @@
   {
     "id": "pending-term-static-review-50",
     "source": "> - :: term\n>     - child\n> \n>       ```\n>       code\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><ul><li>child\n          <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><ul><li><p>child</p><pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2874,7 +2874,7 @@
   {
     "id": "pending-term-static-review-51",
     "source": "> - :: term\n>     - child\n> \n>       ```\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><ul><li>child\n          <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><ul><li><p>child</p><pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2898,7 +2898,7 @@
   {
     "id": "pending-term-static-review-54",
     "source": "> - paragraph\n>   :: term\n> \n>       ```\n>       code\n> after\n",
-    "html": "<blockquote><ul><li>paragraph\n      <dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><p>paragraph</p><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2906,7 +2906,7 @@
   {
     "id": "pending-term-static-review-55",
     "source": "> - paragraph\n>   :: term\n> \n>       ```\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li>paragraph\n      <dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><p>paragraph</p><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -3104,7 +3104,7 @@
   {
     "id": "pending-term-static-review-82",
     "source": "> > - :: term\n> >     - child\n> > \n> >       ```\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><ul><li>child\n            <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><ul><li><p>child</p><pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -3112,7 +3112,7 @@
   {
     "id": "pending-term-static-review-83",
     "source": "> > - :: term\n> >     - child\n> > \n> >       ```\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><ul><li>child\n            <pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><ul><li><p>child</p><pre><code>code\n</code></pre></li></ul></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -3136,7 +3136,7 @@
   {
     "id": "pending-term-static-review-86",
     "source": "> > - paragraph\n> >   :: term\n> > \n> >       ```\n> >       code\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>paragraph\n        <dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><p>paragraph</p><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -3144,7 +3144,7 @@
   {
     "id": "pending-term-static-review-87",
     "source": "> > - paragraph\n> >   :: term\n> > \n> >       ```\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>paragraph\n        <dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><p>paragraph</p><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]

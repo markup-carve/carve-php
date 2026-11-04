@@ -362,7 +362,7 @@ class AConsumedLooseBooleanSpellsTheLoosenessNoBlankLineCanTest extends TestCase
     public function testTheWriterSpellsItWhereTheItemsOwnBlankLineWouldNotLoosen(): void
     {
         $source = "{loose}\n- a\n\n  ```\n  code\n  ```\n";
-        $this->assertStringContainsString('{loose}', $this->fmt($source));
+        $this->assertSame("- a\n\n  ```\n  code\n  ```\n", $this->fmt($source));
         $this->assertSame($this->html($source), $this->html($this->fmt($source)));
     }
 

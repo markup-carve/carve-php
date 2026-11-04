@@ -44,7 +44,7 @@ final class ADescriptionContinuationWritesAtItsBodyColumnTest extends TestCase
     public function testClosedDescriptionHeadingLeavesTheNextItemLineAtItsContentColumn(): void
     {
         $source = "- intro\n\n  :: term\n  :  definition\n      # H\n  tail\n";
-        $expected = "- intro\n  :: term\n  : definition\n\n    # H\n  tail\n";
+        $expected = "- intro\n\n  :: term\n  : definition\n\n    # H\n\n  tail\n";
         self::assertSame($expected, CarveConverter::toCarve($source));
         self::assertSame($expected, CarveConverter::toCarve($expected));
     }

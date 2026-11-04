@@ -93,7 +93,7 @@ class AnAttributeBlockReachesANestedListTest extends TestCase
         $result = $this->converter->convert("- a\n\n  {.x}\n  - b\n");
 
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <ul class=\"x\">\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>a</p>\n    <ul class=\"x\">\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n"),
             $result,
         );
     }
@@ -214,7 +214,10 @@ class AnAttributeBlockReachesANestedListTest extends TestCase
         // tight, and attributing that sub-block does not change it.
         $result = $this->converter->convert("- a\n\n  {.x}\n  - b\n- c\n");
 
-        $this->assertStringNotContainsString('<p>', $result);
+        $this->assertSame(
+            "<ul>\n  <li><p>a</p>\n    <ul class=\"x\">\n      <li>b</li>\n    </ul>\n  </li>\n  <li><p>c</p></li>\n</ul>",
+            $result,
+        );
         $this->assertStringContainsString('<ul class="x">', $result);
     }
 

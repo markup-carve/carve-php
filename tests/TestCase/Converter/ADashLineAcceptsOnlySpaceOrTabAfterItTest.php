@@ -90,7 +90,7 @@ class ADashLineAcceptsOnlySpaceOrTabAfterItTest extends TestCase
             'tilde fence closer' => ["~~~\nx\n~~~\f\ny\n~~~\n", "```\nx\n~~~\f\ny\n```\n", "<pre><code>x\n~~~\f\ny\n</code></pre>\n"],
             'fence closer in a list item' => [
                 "- a\n\n  ```\n  x\n  ```\x0B\n  y\n  ```\n",
-                "{loose}\n- a\n\n  ````\n  x\n  ```\x0B\n  y\n  ````\n",
+                "- a\n\n  ````\n  x\n  ```\x0B\n  y\n  ````\n",
                 "<ul>\n  <li><p>a</p>\n    <pre><code>x\n```\x0B\ny\n</code></pre>\n  </li>\n</ul>\n",
             ],
             'bullet marker under a paragraph' => ["p\n-\x0Ba\n", "p\n-\x0Ba\n", "<p>p\n-\x0Ba</p>\n"],

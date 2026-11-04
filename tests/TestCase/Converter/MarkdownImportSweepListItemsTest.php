@@ -48,7 +48,7 @@ class MarkdownImportSweepListItemsTest extends TestCase
             ],
             'a bare marker in a quote an item opens is an empty item' => [
                 " - >*\n\n   -\n",
-                "{loose}\n- > * {empty}\n\n  - {empty}\n",
+                "- > * {empty}\n\n  - {empty}\n",
                 "<ul>\n  <li>\n    <blockquote>\n      <ul>\n        <li></li>\n      </ul>\n    </blockquote>\n    <ul>\n      <li></li>\n    </ul>\n  </li>\n</ul>",
             ],
             'a bare marker after an item marker is an empty item' => [

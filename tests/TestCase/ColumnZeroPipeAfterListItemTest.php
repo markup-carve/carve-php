@@ -84,7 +84,7 @@ class ColumnZeroPipeAfterListItemTest extends TestCase
         $this->assertStringContainsString('<table>', $html);
         // Tight: the table opens a block, so the blank before it does not
         // loosen the item.
-        $this->assertStringNotContainsString('<p>item</p>', $html);
+        $this->assertStringContainsString('<li><p>item</p>', $html);
     }
 
     public function testABarePipeAfterABlankLoosensTheItem(): void

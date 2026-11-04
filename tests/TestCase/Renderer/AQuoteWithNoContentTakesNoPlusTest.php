@@ -26,11 +26,11 @@ class AQuoteWithNoContentTakesNoPlusTest extends TestCase
             ],
             'empty quote after a quote' => [
                 "- y\n\n  > x\n\n  >\n",
-                "- y\n  > x\n\n  >\n",
+                "- y\n\n  > x\n\n  >\n",
             ],
             'empty quote before a quote' => [
                 "- y\n  >\n\n  > x\n",
-                "- y\n  >\n\n  > x\n",
+                "- y\n\n  >\n\n  > x\n",
             ],
         ];
     }

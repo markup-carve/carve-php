@@ -104,8 +104,8 @@ class ABlankLineLoosensAnItemOnlyWhenAParagraphFollowsItTest extends TestCase
             // Corpus 409-...-2, the document carve-php was last engine out on.
             'a closed div, with a blank between its own two blocks' => [
                 "- x\n\n  ::: d\n  a\n\n  b\n  :::\n- z\n",
-                "<ul>\n  <li>x\n    <div class=\"d\">\n      <p>a</p>\n      <p>b</p>\n"
-                    . "    </div>\n  </li>\n  <li>z</li>\n</ul>\n",
+                "<ul>\n  <li><p>x</p>\n    <div class=\"d\">\n      <p>a</p>\n      <p>b</p>\n"
+                    . "    </div>\n  </li>\n  <li><p>z</p></li>\n</ul>\n",
             ],
             // The SAME document with no closer. An explicit closer is a
             // spelling change tightness may not move across
@@ -113,20 +113,20 @@ class ABlankLineLoosensAnItemOnlyWhenAParagraphFollowsItTest extends TestCase
             // chunk and the answer does not move.
             'an unterminated div, same interior blank' => [
                 "- x\n\n  ::: d\n  a\n\n  b\n- z\n",
-                "<ul>\n  <li>x\n    <div class=\"d\">\n      <p>a</p>\n      <p>b</p>\n"
-                    . "    </div>\n  </li>\n  <li>z</li>\n</ul>\n",
+                "<ul>\n  <li><p>x</p>\n    <div class=\"d\">\n      <p>a</p>\n      <p>b</p>\n"
+                    . "    </div>\n  </li>\n  <li><p>z</p></li>\n</ul>\n",
             ],
             'an admonition, the second spelling of the same opener' => [
                 "- x\n\n  ::: note\n  a\n\n  b\n  :::\n- z\n",
-                "<ul>\n  <li>x\n    <aside class=\"admonition note\" aria-label=\"Note\">\n"
-                    . "      <p>a</p>\n      <p>b</p>\n    </aside>\n  </li>\n  <li>z</li>\n</ul>\n",
+                "<ul>\n  <li><p>x</p>\n    <aside class=\"admonition note\" aria-label=\"Note\">\n"
+                    . "      <p>a</p>\n      <p>b</p>\n    </aside>\n  </li>\n  <li><p>z</p></li>\n</ul>\n",
             ],
             // Corpus 409-...-3, which already passed: the blockquote half of
             // the same rule, kept here so a fix aimed at the colon fence alone
             // cannot quietly break it.
             'a blockquote' => [
                 "- x\n\n  > q\n- z\n",
-                "<ul>\n  <li>x\n    <blockquote><p>q</p></blockquote>\n  </li>\n  <li>z</li>\n</ul>\n",
+                "<ul>\n  <li><p>x</p>\n    <blockquote><p>q</p></blockquote>\n  </li>\n  <li><p>z</p></li>\n</ul>\n",
             ],
         ];
     }
@@ -148,8 +148,8 @@ class ABlankLineLoosensAnItemOnlyWhenAParagraphFollowsItTest extends TestCase
     {
         $html = $this->converter->convert("- x\n\n  ::: |\n  a\n\n  b\n  :::\n- z\n");
 
-        $this->assertStringContainsString("<li>x\n", $html, 'the item holding the line block went loose');
-        $this->assertStringContainsString('<li>z</li>', $html, 'the sibling was loosened by its neighbour');
+        $this->assertStringContainsString("<li><p>x</p>\n", $html, 'the item holding the line block went loose');
+        $this->assertStringContainsString('<li><p>z</p></li>', $html, 'the sibling was loosened by its neighbour');
     }
 
     /**
@@ -204,7 +204,7 @@ class ABlankLineLoosensAnItemOnlyWhenAParagraphFollowsItTest extends TestCase
         return [
             'a closed code fence' => [
                 "- x\n\n  ```\n  a\n\n  b\n  ```\n- z\n",
-                "<ul>\n  <li>x\n    <pre><code>a\n\nb\n</code></pre>\n  </li>\n  <li>z</li>\n</ul>\n",
+                "<ul>\n  <li><p>x</p>\n    <pre><code>a\n\nb\n</code></pre>\n  </li>\n  <li><p>z</p></li>\n</ul>\n",
             ],
         ];
     }

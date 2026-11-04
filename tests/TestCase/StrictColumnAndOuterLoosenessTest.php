@@ -97,7 +97,7 @@ class StrictColumnAndOuterLoosenessTest extends TestCase
         // the nested content column) attaches to the OUTER item, which owns the
         // blank -> the outer item is loose (its first paragraph is wrapped).
         $this->assertHtml(
-            "<ul>\n  <li>a\n    <ul>\n      <li>b</li>\n    </ul>\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>",
+            "<ul>\n  <li><p>a</p>\n    <ul>\n      <li>b</li>\n    </ul>\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>",
             "- a\n  - b\n\n   > q\n",
         );
     }
@@ -139,7 +139,7 @@ class StrictColumnAndOuterLoosenessTest extends TestCase
         // Corpus 142: `> q` at column 4 is the nested content column, so it
         // attaches to the nested item `b`; neither list goes loose.
         $this->assertHtml(
-            "<ul>\n  <li>a\n    <ul>\n      <li>b\n"
+            "<ul>\n  <li>a\n    <ul>\n      <li><p>b</p>\n"
                 . "        <blockquote><p>q</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>",
             "- a\n  - b\n\n    > q\n",
         );
