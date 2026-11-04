@@ -6354,6 +6354,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($this->inTerm && preg_match($marker, $written)) {
             throw new SourceUnspellableException($nodeType, 'a block marker on a continuation line ends the definition term');
         }
+        // Rule A: a term is the one line after `::`; nothing continues it.
+        if ($this->inTerm && str_contains($written, "\n")) {
+            throw new SourceUnspellableException($nodeType, 'a definition term holds one line, so a line break in the value ends it');
+        }
         if ($this->inLineBlock > 0) {
             return $written;
         }
