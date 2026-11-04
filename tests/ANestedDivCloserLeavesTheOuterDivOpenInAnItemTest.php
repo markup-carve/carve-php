@@ -15,7 +15,7 @@ final class ANestedDivCloserLeavesTheOuterDivOpenInAnItemTest extends TestCase
      */
     public static function provideShapes(): array
     {
-        $open = "<ul>\n  <li>head\n    <div class=\"box\">\n      <p>a</p>\n      <aside class=\"admonition note\" aria-label=\"Note\">\n        <p>b</p>\n      </aside>\n      <p>tail</p>\n    </div>\n  </li>\n</ul>";
+        $open = "<ul>\n  <li><p>head</p>\n    <div class=\"box\">\n      <p>a</p>\n      <aside class=\"admonition note\" aria-label=\"Note\">\n        <p>b</p>\n      </aside>\n      <p>tail</p>\n    </div>\n  </li>\n</ul>";
 
         return [
             'note opened left of the box, after a blank' => [

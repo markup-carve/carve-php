@@ -12,7 +12,7 @@ class QuotedDedentedFenceLayoutTest extends TestCase
     public function testNestedFenceCloserMeetsTheNextBlockInATightQuotedItem(): void
     {
         $source = "> - outer\n>   - head\n>\n>     ```\n>     a\n>   ```\n>\n>   tail\n";
-        $expected = "> - outer\n>   - head\n>     ```\n>     a\n>     ```\n>   ```\n>\n>   tail\n>   ```\n";
+        $expected = "> - outer\n>   - head\n>\n>     ```\n>     a\n>     ```\n>   ```\n>\n>   tail\n>   ```\n";
 
         self::assertSame($expected, CarveConverter::toCarve($source));
         self::assertSame($expected, CarveConverter::toCarve($expected));

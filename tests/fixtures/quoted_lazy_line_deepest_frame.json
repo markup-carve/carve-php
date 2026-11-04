@@ -22,7 +22,7 @@
   {
     "id": "nested-paragraph-after-blank",
     "source": "> - a\n>\n>   - child\n- next\n",
-    "html": "<blockquote><ul><li>a\n      <ul><li>child</li></ul></li></ul></blockquote><ul><li>next</li></ul>"
+    "html": "<blockquote><ul><li><p>a</p><ul><li>child</li></ul></li></ul></blockquote><ul><li>next</li></ul>"
   },
   {
     "id": "nested-paragraph-second-line",

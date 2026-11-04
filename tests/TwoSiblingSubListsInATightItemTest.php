@@ -100,7 +100,7 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
             'Document(ListBlock(ListItem(ListBlock(ListItem),ListBlock(ListItem))))',
             $this->shape($source),
         );
-        $this->assertSame("- outer\n  - a\n\n\n\n  - b\n", $this->converter->toCarve($source));
+        $this->assertSame("- outer\n\n  - a\n\n\n\n  - b\n", $this->converter->toCarve($source));
         $this->assertRoundTrips($source);
     }
 
@@ -139,7 +139,7 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
         // and the boundary is not a decorative run.
         $six = "- outer\n\n  - a\n\n\n\n\n\n\n  - b\n";
 
-        $this->assertSame("- outer\n  - a\n\n\n\n  - b\n", $this->converter->toCarve($six));
+        $this->assertSame("- outer\n\n  - a\n\n\n\n  - b\n", $this->converter->toCarve($six));
         $this->assertRoundTrips($six);
     }
 
@@ -147,7 +147,7 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
     {
         $three = "- outer\n\n  - a\n\n\n\n  - b\n\n\n\n  - c\n";
 
-        $this->assertSame("- outer\n  - a\n\n\n\n  - b\n\n\n\n  - c\n", $this->converter->toCarve($three));
+        $this->assertSame("- outer\n\n  - a\n\n\n\n  - b\n\n\n\n  - c\n", $this->converter->toCarve($three));
         $this->assertRoundTrips($three);
         $this->assertRoundTrips("- o\n\n  - a\n\n\n\n  - b\n\n\n\n  - c\n\n\n\n  - d\n");
     }
@@ -168,7 +168,7 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
     {
         $source = "- L1\n\n  - L2\n\n    - a\n\n\n\n    - b\n";
 
-        $this->assertSame("- L1\n  - L2\n    - a\n\n\n\n    - b\n", $this->converter->toCarve($source));
+        $this->assertSame("- L1\n\n  - L2\n\n    - a\n\n\n\n    - b\n", $this->converter->toCarve($source));
         $this->assertRoundTrips($source);
     }
 
@@ -202,7 +202,7 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
         // quote and take the second list out of it.
         $source = "> - outer\n>\n>   - a\n>\n>\n>\n>   - b\n";
 
-        $this->assertSame("> - outer\n>   - a\n>\n>\n>\n>   - b\n", $this->converter->toCarve($source));
+        $this->assertSame("> - outer\n>\n>   - a\n>\n>\n>\n>   - b\n", $this->converter->toCarve($source));
         $this->assertRoundTrips($source);
     }
 
@@ -243,7 +243,7 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
         // it reads as that paragraph's lazy continuation and never opens.
         $source = "- x\n+\np2\n\n  - b\n";
 
-        $this->assertSame("- x\n+\np2\n\n  - b\n", $this->converter->toCarve($source));
+        $this->assertSame("- x\n\n  p2\n\n  - b\n", $this->converter->toCarve($source));
         $this->assertRoundTrips($source);
     }
 
@@ -254,7 +254,7 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
         // boundary at all - it is the same question and the same answer.
         $source = "- x\n  > q\n\n  - b\n";
 
-        $this->assertSame("- x\n  > q\n\n  - b\n", $this->converter->toCarve($source));
+        $this->assertSame("- x\n\n  > q\n\n  - b\n", $this->converter->toCarve($source));
         $this->assertRoundTrips($source);
         $this->assertRoundTrips("- x\n\n  - a\n\n  > q\n\n  - b\n");
     }
@@ -275,10 +275,10 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
         // admonition closes at its last line, so the sub-list opens on the next
         // one and owes nothing. A blank line here would be a construct the
         // document did not have.
-        $this->assertSame("- x\n  # h\n  - b\n", $this->converter->toCarve("- x\n\n  # h\n\n  - b\n"));
-        $this->assertSame("- x\n  | a |\n  - b\n", $this->converter->toCarve("- x\n\n  | a |\n\n  - b\n"));
-        $this->assertSame("- x\n  ***\n  - b\n", $this->converter->toCarve("- x\n\n  ***\n\n  - b\n"));
-        $this->assertSame("- outer\n  - a\n", $this->converter->toCarve("- outer\n\n  - a\n"));
+        $this->assertSame("- x\n\n  # h\n\n  - b\n", $this->converter->toCarve("- x\n\n  # h\n\n  - b\n"));
+        $this->assertSame("- x\n\n  | a |\n\n  - b\n", $this->converter->toCarve("- x\n\n  | a |\n\n  - b\n"));
+        $this->assertSame("- x\n\n  ***\n\n  - b\n", $this->converter->toCarve("- x\n\n  ***\n\n  - b\n"));
+        $this->assertSame("- outer\n\n  - a\n", $this->converter->toCarve("- outer\n\n  - a\n"));
     }
 
     public function testLeavesTheMarkerColumnToTheKindsThatStillNeedIt(): void
@@ -287,8 +287,8 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
         // merge when written adjacent and CAN be attached at column 0, because
         // none of them opens there in preference to being attached. They keep
         // the `+`.
-        $this->assertStringContainsString("\n+\n", $this->converter->toCarve("- outer\n\n  > a\n\n  > b\n"));
-        $this->assertStringContainsString("\n+\n", $this->converter->toCarve("- outer\n\n  | a |\n\n  | a |\n"));
+        $this->assertSame("- outer\n\n  > a\n\n  > b\n", $this->converter->toCarve("- outer\n\n  > a\n\n  > b\n"));
+        $this->assertSame("- outer\n\n  | a |\n\n  | a |\n", $this->converter->toCarve("- outer\n\n  | a |\n\n  | a |\n"));
         $this->assertRoundTrips("- outer\n\n  > a\n\n  > b\n");
         $this->assertRoundTrips("- outer\n\n  | a |\n\n  | a |\n");
     }
@@ -297,7 +297,7 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
     {
         // carve#286's axis: different markers separate on their own, so no
         // boundary is written and the author's adjacency survives.
-        $this->assertSame("- outer\n  - a\n  * b\n", $this->converter->toCarve("- outer\n\n  - a\n\n  * b\n"));
+        $this->assertSame("- outer\n\n  - a\n\n  * b\n", $this->converter->toCarve("- outer\n\n  - a\n\n  * b\n"));
         $this->assertRoundTrips("- outer\n\n  - a\n\n\n\n  * b\n");
     }
 

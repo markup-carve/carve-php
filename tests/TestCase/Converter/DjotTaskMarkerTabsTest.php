@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use DOMDocument;
+use DOMNode;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use PHPUnit\Framework\TestCase;
@@ -26,12 +27,13 @@ class DjotTaskMarkerTabsTest extends TestCase
         }
         $images = [];
         foreach ($document->getElementsByTagName('*') as $image) {
-            if (in_array($image->nodeName, ['html', 'head', 'body', 'tbody'], true)) {
+            // PART 9 §17 L1 (carve#5015) wraps a blank-separated item's text in `p` where djot.js keeps the item tight.
+            if (in_array($image->nodeName, ['html', 'head', 'body', 'tbody'], true) || $this->itemParagraph($image)) {
                 continue;
             }
             $depth = 0;
             for ($parent = $image->parentNode; $parent !== null; $parent = $parent->parentNode) {
-                if ($parent->nodeName !== 'tbody') {
+                if ($parent->nodeName !== 'tbody' && !$this->itemParagraph($parent)) {
                     $depth++;
                 }
             }
@@ -53,6 +55,11 @@ class DjotTaskMarkerTabsTest extends TestCase
         }
 
         return $images;
+    }
+
+    private function itemParagraph(DOMNode $node): bool
+    {
+        return $node->nodeName === 'p' && $node->parentNode?->nodeName === 'li';
     }
 
     private function text(string $html): string

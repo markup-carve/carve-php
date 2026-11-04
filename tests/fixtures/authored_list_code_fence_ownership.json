@@ -1690,7 +1690,7 @@
   {
     "id": "tab-adjacent-2",
     "source": "- a\n  \t```\n  \tone\n  \t```\n\n  \t~~~\n  \ttwo\n  \t~~~\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre><pre><code>two\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li><p>a</p><pre><code>one\n</code></pre><pre><code>two\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "one\n",
       "two\n"
@@ -1699,7 +1699,7 @@
   {
     "id": "tab-adjacent-3",
     "source": "- a\n\t\t```\n\t\tone\n\t\t```\n\n\t\t~~~\n\t\ttwo\n\t\t~~~\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>one\n</code></pre><pre><code>two\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li><p>a</p><pre><code>one\n</code></pre><pre><code>two\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
       "one\n",
       "two\n"
@@ -1762,7 +1762,7 @@
   {
     "id": "tab-adjacent-10",
     "source": "> - a\n>   \t```\n>   \tone\n>   \t```\n> \n>   \t~~~\n>   \ttwo\n>   \t~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre><pre><code>two\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><p>a</p><pre><code>one\n</code></pre><pre><code>two\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "one\n",
       "two\n"
@@ -1771,7 +1771,7 @@
   {
     "id": "tab-adjacent-11",
     "source": "> - a\n> \t\t```\n> \t\tone\n> \t\t```\n> \n> \t\t~~~\n> \t\ttwo\n> \t\t~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>one\n</code></pre><pre><code>two\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><p>a</p><pre><code>one\n</code></pre><pre><code>two\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "one\n",
       "two\n"
@@ -1834,7 +1834,7 @@
   {
     "id": "tab-adjacent-18",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >   \t```\n> > \n> >   \t~~~\n> >   \ttwo\n> >   \t~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre><pre><code>two\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>one\n</code></pre><pre><code>two\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "one\n",
       "two\n"
@@ -1843,7 +1843,7 @@
   {
     "id": "tab-adjacent-19",
     "source": "> > - a\n> > \t\t```\n> > \t\tone\n> > \t\t```\n> > \n> > \t\t~~~\n> > \t\ttwo\n> > \t\t~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n</code></pre><pre><code>two\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><p>a</p><pre><code>one\n</code></pre><pre><code>two\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "one\n",
       "two\n"

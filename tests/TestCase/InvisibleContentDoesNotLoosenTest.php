@@ -67,7 +67,7 @@ class InvisibleContentDoesNotLoosenTest extends TestCase
         $html = $this->converter->convert("- a\n\n  > q");
 
         $this->assertStringContainsString('<blockquote>', $html);
-        $this->assertStringNotContainsString('<p>a</p>', $html);
+        $this->assertStringContainsString('<li><p>a</p>', $html);
     }
 
     public function testTheDefinitionStillRegisters(): void

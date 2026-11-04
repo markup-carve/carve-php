@@ -257,7 +257,7 @@ class WhitespaceIsSpaceAndTabOnlyTest extends TestCase
         // gate the container paths reach, and it is the only observable
         // consequence of that copy.
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>p\n    <h1 id=\"s\">" . self::VT . "</h1>\n  </li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>p</p>\n    <h1 id=\"s\">" . self::VT . "</h1>\n  </li>\n</ul>\n"),
             $this->converter->convert("- p\n\n  # " . self::VT . "\n"),
         );
     }

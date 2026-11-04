@@ -31,7 +31,7 @@ class ADroppedRawBlockTakesNoLineInTheContainerThatHoldsItTest extends TestCase
         return [
             'list item' => [
                 "- a\n\n  ```=latex\n  \\x\n  ```\n",
-                "<ul>\n  <li>a</li>\n</ul>\n",
+                "<ul>\n  <li><p>a</p></li>\n</ul>\n",
             ],
             'the item holds nothing else' => [
                 "- ```=latex\n  \\x\n  ```\n",
@@ -39,11 +39,11 @@ class ADroppedRawBlockTakesNoLineInTheContainerThatHoldsItTest extends TestCase
             ],
             'nested item' => [
                 "- a\n\n  - b\n\n    ```=latex\n    \\x\n    ```\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>a</p>\n    <ul>\n      <li><p>b</p></li>\n    </ul>\n  </li>\n</ul>\n",
             ],
             'item inside a block quote' => [
                 "> - a\n>\n>   ```=latex\n>   \\x\n>   ```\n",
-                "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n",
+                "<blockquote>\n  <ul>\n    <li><p>a</p></li>\n  </ul>\n</blockquote>\n",
             ],
             'between two paragraphs of an item' => [
                 "- a\n\n  ```=latex\n  \\x\n  ```\n\n  c\n",
@@ -69,7 +69,7 @@ class ADroppedRawBlockTakesNoLineInTheContainerThatHoldsItTest extends TestCase
             // The control: a format the target DOES match takes its line.
             'a matching format still takes its line' => [
                 "- a\n\n  ```=html\n  <x>\n  ```\n",
-                "<ul>\n  <li>a\n    <x>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>a</p>\n    <x>\n  </li>\n</ul>\n",
             ],
         ];
     }

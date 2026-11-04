@@ -146,7 +146,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testAPostBlankFenceEndsAtAColumnZeroLine(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>a</p>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>\n"),
             $this->converter->convert("- a\n\n  ```\nx\n```\n"),
         );
     }
@@ -159,7 +159,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testAPostBlankFenceEndsAtAnIntermediateColumnLine(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>a</p>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>x</p>\n<pre><code></code></pre>\n"),
             $this->converter->convert("- a\n\n  ```\n x\n ```\n"),
         );
     }
@@ -172,7 +172,7 @@ class MarkerLineCodeFenceBelowColumnTest extends TestCase
     public function testAClosedPostBlankFenceAlreadyEndedTheItem(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>x</p>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>a</p>\n    <pre><code>b\n</code></pre>\n  </li>\n</ul>\n<p>x</p>\n"),
             $this->converter->convert("- a\n\n  ```\n  b\n  ```\nx\n"),
         );
     }

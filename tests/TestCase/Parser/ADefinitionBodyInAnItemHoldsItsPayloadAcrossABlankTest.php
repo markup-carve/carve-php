@@ -102,13 +102,13 @@ class ADefinitionBodyInAnItemHoldsItsPayloadAcrossABlankTest extends TestCase
     {
         yield 'one-space separator, quote one column short' => [
             "- intro\n  :: term\n  : definition\n\n   > quote\n",
-            "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n    </dl>\n"
+            "<ul>\n  <li><p>intro</p>\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n    </dl>\n"
                 . "    <blockquote><p>quote</p></blockquote>\n  </li>\n</ul>\n",
         ];
 
         yield 'two-space separator, quote one column short of ITS column' => [
             "- intro\n  :: term\n  :  definition\n\n    > quote\n",
-            "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n    </dl>\n"
+            "<ul>\n  <li><p>intro</p>\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n    </dl>\n"
                 . "    <blockquote><p>quote</p></blockquote>\n  </li>\n</ul>\n",
         ];
 
@@ -116,7 +116,7 @@ class ADefinitionBodyInAnItemHoldsItsPayloadAcrossABlankTest extends TestCase
         // not quietly widen what the body claims.
         yield 'two blank lines above a payload one column short' => [
             "- intro\n  :: term\n  : definition\n\n\n   > quote\n",
-            "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n    </dl>\n"
+            "<ul>\n  <li><p>intro</p>\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n    </dl>\n"
                 . "    <blockquote><p>quote</p></blockquote>\n  </li>\n</ul>\n",
         ];
 
@@ -156,7 +156,7 @@ class ADefinitionBodyInAnItemHoldsItsPayloadAcrossABlankTest extends TestCase
         // second PARAGRAPH, and `:: term` opens a block. The `tail` cases above
         // are the other half of that predicate and do loosen.
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>\n        <p>definition</p>\n"
+            preg_replace('/\n\z/', '', "<ul>\n  <li><p>intro</p>\n    <dl>\n      <dt>term</dt>\n      <dd>\n        <p>definition</p>\n"
                 . "        <blockquote><p>quote</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>\n"),
             $this->html("- intro\n\n  :: term\n  : definition\n\n    > quote\n"),
         );

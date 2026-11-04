@@ -13,7 +13,7 @@ class AnEmptyUnclosedCodeBlockKeepsItsFencePairTest extends TestCase
     {
         $source = "- outer\n  - para\n\n  ---\n    ```\n";
         $formatted = CarveConverter::toCarve($source);
-        self::assertSame("- outer\n  - para\n  ***\n  ```\n  ```\n", $formatted);
+        self::assertSame("- outer\n\n  - para\n\n  ***\n\n  ```\n  ```\n", $formatted);
         self::assertSame((new CarveConverter())->convert($source), (new CarveConverter())->convert($formatted));
         self::assertSame($formatted, CarveConverter::toCarve($formatted));
         self::assertStringContainsString("  ```\n  ```", CarveConverter::markdown()->convert($source));

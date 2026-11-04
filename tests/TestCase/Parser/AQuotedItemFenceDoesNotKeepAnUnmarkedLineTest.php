@@ -32,7 +32,7 @@ class AQuotedItemFenceDoesNotKeepAnUnmarkedLineTest extends TestCase
                     for ($i = 0; $i < $depth; $i++) {
                         $expected .= str_repeat('  ', $i) . "<blockquote>\n";
                     }
-                    $expected .= "{$indent}<ul>\n{$indent}  <li>a\n{$indent}    {$block}"
+                    $expected .= "{$indent}<ul>\n{$indent}  <li><p>a</p>\n{$indent}    {$block}"
                         . "{$indent}  </li>\n{$indent}</ul>\n";
                     for ($i = $depth - 1; $i >= 0; $i--) {
                         $expected .= str_repeat('  ', $i) . "</blockquote>\n";
@@ -74,7 +74,7 @@ class AQuotedItemFenceDoesNotKeepAnUnmarkedLineTest extends TestCase
     public function testACloserPastTheOpenerRemainsPayload(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<blockquote>\n  <ul>\n    <li>a\n      <pre><code>payload\n ```\nparagraph\n</code></pre>\n"
+            preg_replace('/\n\z/', '', "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <pre><code>payload\n ```\nparagraph\n</code></pre>\n"
                 . "    </li>\n  </ul>\n</blockquote>\n<p>flush</p>\n"),
             (new CarveConverter())->convert(
                 "> - a\n>\n>     ```\n>     payload\n>      ```\n>   paragraph\nflush\n",
@@ -117,7 +117,7 @@ class AQuotedItemFenceDoesNotKeepAnUnmarkedLineTest extends TestCase
     {
         $source = "> - a\n>\n>     ```\n>   payload\nflush\n";
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<blockquote>\n  <ul>\n    <li>a\n      <pre><code>payload\n</code></pre>\n"
+            preg_replace('/\n\z/', '', "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <pre><code>payload\n</code></pre>\n"
                 . "    </li>\n  </ul>\n</blockquote>\n<p>flush</p>\n"),
             (new CarveConverter())->convert($source),
         );

@@ -75,7 +75,6 @@ final class ListBlockBuilder
      * @param \Closure(array<string>): (bool) $contentRendersNothingCallback
      * @param \Closure(int, int, array<string>): (bool) $continuationMarkerHasIndentedFollowerCallback
      * @param \Closure(array<string>, int, int, int, bool): (?int) $footnoteBodyResumesAfterCallback
-     * @param \Closure(array<string>, int, int, int): (bool) $indentedContinuationOpensBlockCallback
      * @param \Closure(string, array<string>|null, int|null): (bool) $isBlockElementStartCallback
      * @param \Closure(string, int): (bool) $isCommentLineOrFenceCallback
      * @param \Closure(string): (bool) $isFoldableInvisibleLineCallback
@@ -114,7 +113,6 @@ final class ListBlockBuilder
         private Closure $contentRendersNothingCallback,
         private Closure $continuationMarkerHasIndentedFollowerCallback,
         private Closure $footnoteBodyResumesAfterCallback,
-        private Closure $indentedContinuationOpensBlockCallback,
         private Closure $isBlockElementStartCallback,
         private Closure $isCommentLineOrFenceCallback,
         private Closure $isFoldableInvisibleLineCallback,
@@ -333,16 +331,22 @@ final class ListBlockBuilder
     ): array {
         $currentLine = $lines[$i];
         $wasListTight = $list->isTight();
+        $blankLoosened = false;
         if (
             // Content straight after a `+`-attached block has no blank before it, so it loosens nothing (PART 9 §17 L1).
             $separated
-            && !$this->indentedContinuationOpensBlock($lines, $i, $baseIndent, $lastItemContentIndent)
             && preg_match('/^\^[ ]+\S/', ltrim($currentLine, " \t")) !== 1
             && !$this->continuationReachesNestedListContent($lastItem, $currentIndent)
             // A blank below a lead that renders nothing keeps the list tight (PART 9 §17 L1b, carve#4639).
             && ($this->rendersSomething($lastItem) || !$this->blankFollowsLead($lines, $i, $baseIndent))
+            // A blank an open fence in a child list holds as payload stays that list's before a block (PART 9 §17 L1).
+            && !(
+                isset($this->state->session->unclosedFencePayloadLines[$this->sourceLineFor($i - 1)])
+                && $this->isBlockElementStart(ltrim($currentLine, " \t"), $lines, $i)
+            )
         ) {
             $list->setTight(false);
+            $blankLoosened = true;
         }
 
         $hardDefinitionBoundary = $this->hasHardListBoundary($lines, 0, $i, $lastItemContentIndent);
@@ -395,7 +399,12 @@ final class ListBlockBuilder
                     $list->setTight(false);
                 }
             }
-            $before = $this->mergeAdjacentDefinitionLists($lastItem, $children, $before, $hardDefinitionBoundary);
+            $merged = $this->mergeAdjacentDefinitionLists($lastItem, $children, $before, $hardDefinitionBoundary);
+            // A blank between two description entries is the description list's own (PART 9 §17 L1).
+            if ($merged < $before && $blankLoosened && !$this->state->session->itemHasParsedBlankBeforeParagraph($lastItem)) {
+                $list->setTight($wasListTight);
+            }
+            $before = $merged;
             $visibleContinuation = array_filter(
                 array_slice($lastItem->getChildren(), $before),
                 static fn (Node $child): bool => !self::rendersNothing($child),
@@ -1152,7 +1161,7 @@ final class ListBlockBuilder
                         $lastItemHadBlankAfter,
                         $listInfo,
                         $unclosedFenceBase,
-                        $lastItemHadBlankAfter || $indentedListMarker,
+                        $lastItemHadBlankAfter,
                     );
                     $attachedBlockFollowedByItemContent = false;
 
@@ -1521,7 +1530,7 @@ final class ListBlockBuilder
             if ($list->isTight() && $this->foldedBlankLoosensList($itemLines, $itemLineMap, $listItem)) {
                 $list->setTight(false);
             }
-            // A refused directive ends at its own line, so what follows is a second paragraph (§17 L2, carve#4619).
+            // A refused directive ends at its own line, so what follows is a second paragraph (§17 L1, carve#4619).
             if (IncludeDirectiveSyntax::codeIncludeLine($itemInfo['content']) !== null && $this->holdsAdjacentParagraphs($listItem)) {
                 $list->setTight(false);
             }
@@ -2223,7 +2232,7 @@ final class ListBlockBuilder
                         $subTrailingState->openParagraph
                         // AN INVISIBLE LINE CLOSES NO BLOCK, so the
                         // marker behind one still reaches the item -
-                        // §17 L2 and the content-column branch say so
+                        // §17 L1 and the content-column branch say so
                         // for the same document two columns over,
                         // where this already nested (corpus 517,
                         // document 5). ONLY a marker: measured
@@ -3057,21 +3066,6 @@ final class ListBlockBuilder
         bool $allowContinuationMarker,
     ): ?int {
         return ($this->footnoteBodyResumesAfterCallback)($lines, $blank, $count, $bodyColumn, $allowContinuationMarker);
-    }
-
-    /**
-     * @param array<string> $lines
-     * @param int $i
-     * @param int $baseIndent The item's marker column.
-     * @param int $contentIndent
-     */
-    private function indentedContinuationOpensBlock(
-        array $lines,
-        int $i,
-        int $baseIndent,
-        int $contentIndent,
-    ): bool {
-        return ($this->indentedContinuationOpensBlockCallback)($lines, $i, $baseIndent, $contentIndent);
     }
 
     /**

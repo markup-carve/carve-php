@@ -29,7 +29,7 @@ class AMarkdownHtmlBlockKeepsItsLinesTest extends TestCase
             'a tab-indented line' => ["<div>\n\ttabbed\n</div>\n", "```=html\n<div>\n\ttabbed\n</div>\n```\n"],
             'a comment' => ["<!--\n    indented\n-->\n", "%%%\nindented\n%%%\n"],
             'in a quote' => ["> <div>\n>     code\n> </div>\n", "> ```=html\n> <div>\n>     code\n> </div>\n> ```\n"],
-            'in a list item' => ["- a\n\n  <div>\n      code\n  </div>\n", "{loose}\n- a\n\n  ```=html\n  <div>\n      code\n  </div>\n  ```\n"],
+            'in a list item' => ["- a\n\n  <div>\n      code\n  </div>\n", "- a\n\n  ```=html\n  <div>\n      code\n  </div>\n  ```\n"],
             'a whitespace-only line' => ["<script>\n    \n</script>\n", "```=html\n<script>\n    \n</script>\n```\n"],
             'an unclosed comment at the end' => ["# h\n<!--\n\tx\n", "# h\n\n```=html\n<!--\n\tx\n```\n"],
         ];
@@ -60,7 +60,7 @@ class AMarkdownHtmlBlockKeepsItsLinesTest extends TestCase
     public function testALineLeavingTheItemEndsTheBlock(): void
     {
         $this->assertSame(
-            "{loose}\n- a\n\n  ```=html\n  <div>\n  x\n  ```\n\ntext\n",
+            "- a\n\n  ```=html\n  <div>\n  x\n  ```\n\ntext\n",
             (new MarkdownToCarve())->convert("- a\n\n  <div>\n  x\ntext\n"),
         );
     }

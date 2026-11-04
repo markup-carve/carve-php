@@ -221,7 +221,7 @@ class ACommentSpanClosersColumnDoesNotSplitTheSpanTest extends TestCase
             $rows['delimiter at column ' . $column] = [
                 "- head\n\n    ```\n    %%%\n    ```\n" . str_repeat(' ', $column) . "%%%\ntail\n",
                 // Below the item's column the opener holds `tail`; from it on, `tail` ends the span (carve#4907).
-                "<ul>\n  <li>head\n    <pre><code>%%%\n</code></pre>\n  </li>\n</ul>" . ($column < 2 ? '' : "\n<p>tail</p>"),
+                "<ul>\n  <li><p>head</p>\n    <pre><code>%%%\n</code></pre>\n  </li>\n</ul>" . ($column < 2 ? '' : "\n<p>tail</p>"),
             ];
         }
 

@@ -43,7 +43,7 @@ class AnEmptyFencedPayloadIsWrittenBackAsNoLineTest extends TestCase
             'code, a text line' => ["```\nq\n```\n", "```\nq\n```\n"],
             'code, a text line then a blank' => ["```\nq\n\n```\n", "```\nq\n\n```\n"],
             'code, no payload line with a language' => ["``` php\n```\n", "```php\n```\n"],
-            'code, no payload line inside an item' => ["- a\n\n  ```\n  ```\n", "- a\n  ```\n  ```\n"],
+            'code, no payload line inside an item' => ["- a\n\n  ```\n  ```\n", "- a\n\n  ```\n  ```\n"],
             // An unclosed opener that collected no line has no payload at all.
             'code, unclosed opener' => ["```\n", "```\n```\n"],
             // Corpus 521 and its siblings: the raw-block half.
@@ -52,7 +52,7 @@ class AnEmptyFencedPayloadIsWrittenBackAsNoLineTest extends TestCase
             'raw, two blank payload lines' => ["```=html\n\n\n```\n", "```=html\n\n\n```\n"],
             'raw, a text line' => ["```=html\n<b>q</b>\n```\n", "```=html\n<b>q</b>\n```\n"],
             'raw, no payload line inside a quote' => ["> a\n>\n> ```=html\n> ```\n", "> a\n>\n> ```=html\n> ```\n"],
-            'raw, no payload line inside an item' => ["- a\n\n  ```=html\n  ```\n", "- a\n  ```=html\n  ```\n"],
+            'raw, no payload line inside an item' => ["- a\n\n  ```=html\n  ```\n", "- a\n\n  ```=html\n  ```\n"],
             'raw, no payload line inside a div' => ["::: n\n```=html\n```\n:::\n", "::: n\n```=html\n```\n:::\n"],
         ];
     }

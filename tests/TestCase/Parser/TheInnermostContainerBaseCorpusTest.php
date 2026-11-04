@@ -44,7 +44,7 @@ final class TheInnermostContainerBaseCorpusTest extends TestCase
             ],
             '422-a-recognized-opener-in-a-body-needs-no-blank-line-above-it-8' => [
                 "- intro\n\n  :: term\n  :  definition\n   > quote\n",
-                "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n    </dl>\n    <blockquote><p>quote</p></blockquote>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>intro</p>\n    <dl>\n      <dt>term</dt>\n      <dd>definition</dd>\n    </dl>\n    <blockquote><p>quote</p></blockquote>\n  </li>\n</ul>\n",
             ],
             '422-a-recognized-opener-in-a-body-needs-no-blank-line-above-it-9' => [
                 "[^n]: intro\n\n   :: term\n   :  definition\n    > quote\n\nsee[^n]\n",
@@ -52,11 +52,11 @@ final class TheInnermostContainerBaseCorpusTest extends TestCase
             ],
             '423-one-authored-base-rule-reaches-a-definition-nested-in-a-list-item-2' => [
                 "[^n]: intro\n\n  - item\n\n    > quote\n\nsee[^n]\n",
-                "<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro</p>\n      <ul>\n        <li>item\n          <blockquote><p>quote</p></blockquote>\n        </li>\n      </ul>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>\n",
+                "<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro</p>\n      <ul>\n        <li><p>item</p>\n          <blockquote><p>quote</p></blockquote>\n        </li>\n      </ul>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>\n",
             ],
             '423-one-authored-base-rule-reaches-a-definition-nested-in-a-list-item' => [
                 "- intro\n\n   :: term\n   :  definition\n\n      > quote\n",
-                "<ul>\n  <li>intro\n    <dl>\n      <dt>term</dt>\n      <dd>\n        <p>definition</p>\n        <blockquote><p>quote</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>intro</p>\n    <dl>\n      <dt>term</dt>\n      <dd>\n        <p>definition</p>\n        <blockquote><p>quote</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>\n",
             ],
         ];
     }

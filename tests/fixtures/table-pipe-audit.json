@@ -6070,7 +6070,7 @@
     "name": "djot-js-lists-326",
     "source": "1. one\n\n 1. two\n",
     "contains": [
-      "<li>one",
+      "<li><p>one",
       "<li>two</li>"
     ],
     "excludes": [
@@ -6082,8 +6082,8 @@
     "name": "djot-js-lists-29",
     "source": "- one\n\n - two\n\n  - three\n",
     "contains": [
-      "<li>one",
-      "<li>two",
+      "<li><p>one",
+      "<li><p>two</p>",
       "<li>three</li>"
     ],
     "excludes": [
@@ -6135,10 +6135,10 @@
     "name": "djot-js-lists-160",
     "source": "- a\n  - b\n\n  - c\n- d\n",
     "contains": [
-      "<li>a",
+      "<li><p>a",
       "- b",
       "<li>c</li>",
-      "<li>d</li>"
+      "<li><p>d</p></li>"
     ],
     "excludes": [
       "<li><p>b</p></li>",

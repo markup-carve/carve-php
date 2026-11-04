@@ -248,14 +248,14 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // Two tabs reach column 8, four past it, so this is code - dedented by
         // the container's columns plus the one step, not by one literal tab.
         $this->assertSame(
-            "{loose}\n- item\n\n" . self::COLUMN_2 . "```\n"
+            "- item\n\n" . self::COLUMN_2 . "```\n"
                 . self::COLUMN_4 . "indented code\n" . self::COLUMN_2 . "```\n",
             $this->converter->convert("- item\n\n" . self::TAB . self::TAB . "indented code\n"),
         );
 
         // Mixed spaces and tabs reach column 6, exactly four past it.
         $this->assertSame(
-            "{loose}\n- item\n\n" . self::COLUMN_2 . "```\n"
+            "- item\n\n" . self::COLUMN_2 . "```\n"
                 . self::COLUMN_2 . "code\n" . self::COLUMN_2 . "```\n",
             $this->converter->convert("- item\n\n" . self::COLUMN_2 . self::TAB . self::COLUMN_2 . "code\n"),
         );
@@ -401,7 +401,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         $out = $this->converter->convert($markdown);
 
         $this->assertSame(
-            "- outer\n" . self::COLUMN_2 . "{loose}\n" . self::COLUMN_2 . "- inner\n\n"
+            "- outer\n" . self::COLUMN_2 . "- inner\n\n"
                 . self::rawBlock('<footer>x</footer>', self::COLUMN_4),
             $out,
         );
@@ -429,7 +429,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
             $this->converter->convert("1. item\n\n     more prose\n"),
         );
         $this->assertSame(
-            "- a\n" . self::COLUMN_2 . "- b\n" . self::COLUMN_4 . "{loose}\n" . self::COLUMN_4 . "- c\n\n"
+            "- a\n" . self::COLUMN_2 . "- b\n" . self::COLUMN_4 . "- c\n\n"
                 . self::rawBlock('<footer>x</footer>', '      '),
             $this->converter->convert(
                 "- a\n" . self::COLUMN_2 . "- b\n" . self::COLUMN_4 . "- c\n\n      <footer>x</footer>\n",
@@ -442,11 +442,11 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // Genuine indented code - four columns past the item's content column -
         // still becomes a fence, but at the item's column, not at 0.
         $this->assertSame(
-            "{loose}\n- item\n\n" . self::COLUMN_2 . "```\n" . self::COLUMN_2 . "indented code\n" . self::COLUMN_2 . "```\n",
+            "- item\n\n" . self::COLUMN_2 . "```\n" . self::COLUMN_2 . "indented code\n" . self::COLUMN_2 . "```\n",
             $this->converter->convert("- item\n\n      indented code\n"),
         );
         $this->assertSame(
-            "- outer\n" . self::COLUMN_2 . "{loose}\n" . self::COLUMN_2 . "- inner\n\n"
+            "- outer\n" . self::COLUMN_2 . "- inner\n\n"
                 . self::COLUMN_4 . "```\n" . self::COLUMN_4 . "indented code\n" . self::COLUMN_4 . "```\n",
             $this->converter->convert("- outer\n" . self::COLUMN_2 . "- inner\n\n        indented code\n"),
         );
@@ -524,7 +524,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
             ],
             [
                 "> - item\n>\n>   <footer>x</footer>\n",
-                "> {loose}\n> - item\n>\n" . self::rawBlock('<footer>x</footer>', '>   '),
+                "> - item\n>\n" . self::rawBlock('<footer>x</footer>', '>   '),
             ],
         ];
         foreach ($pairs as [$markdown, $expected]) {
@@ -533,9 +533,9 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
 
         foreach (
             [
-                ["- item\n\n" . self::COLUMN_2 . "<footer>x</footer>\n", "{loose}\n- item\n\n" . self::rawBlock('<footer>x</footer>', self::COLUMN_2)],
-                ["1. item\n\n   <footer>x</footer>\n", "{loose}\n1. item\n\n" . self::rawBlock('<footer>x</footer>', '   ')],
-                ["  - item\n\n" . self::COLUMN_4 . "<footer>x</footer>\n", "{loose}\n- item\n\n" . self::rawBlock('<footer>x</footer>', self::COLUMN_2)],
+                ["- item\n\n" . self::COLUMN_2 . "<footer>x</footer>\n", "- item\n\n" . self::rawBlock('<footer>x</footer>', self::COLUMN_2)],
+                ["1. item\n\n   <footer>x</footer>\n", "1. item\n\n" . self::rawBlock('<footer>x</footer>', '   ')],
+                ["  - item\n\n" . self::COLUMN_4 . "<footer>x</footer>\n", "- item\n\n" . self::rawBlock('<footer>x</footer>', self::COLUMN_2)],
                 ["<footer>standalone</footer>\n", self::rawBlock('<footer>standalone</footer>')],
             ] as [$markdown, $expected]
         ) {

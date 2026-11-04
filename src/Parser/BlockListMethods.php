@@ -83,59 +83,6 @@ trait BlockListMethods
     }
 
     /**
-     * @param array<string> $lines
-     * @param int $i
-     * @param int $baseIndent The item's marker column.
-     * @param int $contentIndent
-     */
-    private function indentedContinuationOpensBlock(
-        array $lines,
-        int $i,
-        int $baseIndent,
-        int $contentIndent,
-    ): bool {
-        $line = IndentationHelper::stripLeadingColumns($lines[$i], $contentIndent);
-        $trimmed = ltrim($line, " \t");
-        if (
-            $trimmed !== $line
-            && $this->listParser->parseListItemMarker($trimmed) === null
-            && $this->lineOpensBlockForLooseness($trimmed)
-        ) {
-            $line = $trimmed;
-        }
-
-        // A paragraph of only comments is invisible as a `%%` line is (carve#4799).
-        $commentParagraphEnd = $this->commentOnlyParagraphEnd($lines, $i, true);
-        if ($commentParagraphEnd !== -1) {
-            $next = $this->firstVisibleLineAfterInvisible($lines, $commentParagraphEnd - 1, $baseIndent, $contentIndent);
-
-            return $next === null || $this->lineOpensBlockForLooseness($next);
-        }
-        if (!$this->lineOpensBlockForLooseness($line)) {
-            return false;
-        }
-
-        // Invisible lines do not separate two paragraphs. A `%%%` span is one of
-        // them, and the scan starts past its CLOSER: its payload is still not
-        // mistaken for the second paragraph, and the paragraph behind the closer
-        // now reaches the question (corpus 517, document 4). An opener with no
-        // closer has no line behind it - every line below is payload - so the
-        // scan starts past the end and the list stays tight, which is what the
-        // oracle reads for that shape at either column.
-        if ($this->isInvisibleOrAttributeLine($line)) {
-            $commentFence = $this->fencedBlockParser->parseFencedCommentOpener($line);
-            $from = $commentFence === null
-                ? $i
-                : $this->commentSpanEndForLooseness($lines, $i, $commentFence['length'], $baseIndent, $contentIndent);
-            $next = $this->firstVisibleLineAfterInvisible($lines, $from, $baseIndent, $contentIndent);
-
-            return $next === null || $this->lineOpensBlockForLooseness($next);
-        }
-
-        return true;
-    }
-
-    /**
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start

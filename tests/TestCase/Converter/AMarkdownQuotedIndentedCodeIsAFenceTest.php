@@ -93,7 +93,7 @@ class AMarkdownQuotedIndentedCodeIsAFenceTest extends TestCase
     {
         $imported = (new MarkdownToCarve())->convert($markdown);
 
-        $this->assertSame("> {loose}\n> - a\n>\n>   ```\n>   code\n>   ```\n", $imported);
+        $this->assertSame("> - a\n>\n>   ```\n>   code\n>   ```\n", $imported);
         $this->assertSame($imported, CarveConverter::toCarve($imported));
     }
 }

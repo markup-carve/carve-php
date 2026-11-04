@@ -20,6 +20,6 @@ class EachListItemStartsAFreshMarkdownListRunTest extends TestCase
     {
         $source = "- x\n  - a\n\n\n\n  - b\n";
 
-        $this->assertSame("- x\n  - a\n  * b\n", CarveConverter::markdown()->convert($source));
+        $this->assertSame("- x\n\n  - a\n  * b\n", CarveConverter::markdown()->convert($source));
     }
 }

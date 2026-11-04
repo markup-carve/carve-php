@@ -54,7 +54,7 @@ final class ListItemAuthoredBlockBaseTest extends TestCase
     public function testTheDescendantItemKeepsOwnership(): void
     {
         $html = (new CarveConverter())->convert("- - item\n\n    # exact\n");
-        self::assertMatchesRegularExpression('/<ul>.*<ul>.*<li>item\s*<h1/s', $html);
+        self::assertMatchesRegularExpression('/<ul>.*<ul>.*<li><p>item<\/p>\s*<h1/s', $html);
     }
 
     public function testABlockBelowTheDescendantReturnsToTheParent(): void
@@ -82,7 +82,7 @@ final class ListItemAuthoredBlockBaseTest extends TestCase
     {
         $html = (new CarveConverter())->convert("- x\n\n   :: term\n   more\n   :  def\n");
         // A term is one line (carve#4861): the wrapped line and the separator are item text.
-        self::assertStringContainsString("<dt>term</dt>\n    </dl>\n    more\n:  def", $html);
+        self::assertStringContainsString("<dt>term</dt>\n    </dl>\n    <p>more\n:  def</p>", $html);
     }
 
     public function testExactAndOverIndentedImageHaveTheSameLooseReading(): void

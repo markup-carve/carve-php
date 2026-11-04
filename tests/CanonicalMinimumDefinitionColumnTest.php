@@ -13,7 +13,7 @@ final class CanonicalMinimumDefinitionColumnTest extends TestCase
     public function testARecognizedDefinitionAtOrPastTheItemColumnWritesAtTheMinimum(): void
     {
         $source = "- intro\n\n   :: term\n   :  definition\n\n      > quote\n";
-        $expected = "- intro\n  :: term\n  : definition\n\n    > quote\n";
+        $expected = "- intro\n\n  :: term\n  : definition\n\n    > quote\n";
         $document = (new CarveConverter())->parse($source);
 
         self::assertSame($expected, (new CarveRenderer())->render($document));

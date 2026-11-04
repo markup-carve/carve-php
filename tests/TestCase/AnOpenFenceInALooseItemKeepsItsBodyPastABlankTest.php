@@ -19,14 +19,14 @@ class AnOpenFenceInALooseItemKeepsItsBodyPastABlankTest extends TestCase
      */
     public static function containerProvider(): array
     {
-        $code = "<ul>\n  <li>a\n    <pre><code>x\n    i\n\ny\n</code></pre>\n  </li>\n</ul>";
+        $code = "<ul>\n  <li><p>a</p>\n    <pre><code>x\n    i\n\ny\n</code></pre>\n  </li>\n</ul>";
 
         return [
             'backtick fence' => ["- a\n\n  ```\n  x\n      i\n\n  y\n  ```\n", $code],
             'tilde fence' => ["- a\n\n  ~~~\n  x\n      i\n\n  y\n  ~~~\n", $code],
             'colon div' => [
                 "- a\n\n  :::\n  x\n\n      i\n\n  y\n  :::\n",
-                "<ul>\n  <li>a\n    <div>\n      <p>x</p>\n      <p>i</p>\n      <p>y</p>\n    </div>\n  </li>\n</ul>",
+                "<ul>\n  <li><p>a</p>\n    <div>\n      <p>x</p>\n      <p>i</p>\n      <p>y</p>\n    </div>\n  </li>\n</ul>",
             ],
         ];
     }

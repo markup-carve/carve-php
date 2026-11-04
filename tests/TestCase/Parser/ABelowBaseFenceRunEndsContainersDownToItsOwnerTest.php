@@ -253,43 +253,43 @@ class ABelowBaseFenceRunEndsContainersDownToItsOwnerTest extends TestCase
         return [
             'depth 2, run at column 0' => [
                 "- a\n  - b\n\n    ```\n    p\n```\n\n    tail\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n    tail\n</code></pre>",
+                "<ul>\n  <li>a\n    <ul>\n      <li><p>b</p>\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n    tail\n</code></pre>",
             ],
             'depth 2, run at column 1' => [
                 "- a\n  - b\n\n    ```\n    p\n ```\n\n    tail\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n   tail\n</code></pre>",
+                "<ul>\n  <li>a\n    <ul>\n      <li><p>b</p>\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n   tail\n</code></pre>",
             ],
             'depth 2, run at column 2' => [
                 "- a\n  - b\n\n    ```\n    p\n  ```\n\n    tail\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n    <pre><code>\n  tail\n</code></pre>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li><p>b</p>\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n    <pre><code>\n  tail\n</code></pre>\n  </li>\n</ul>",
             ],
             'depth 2, run at column 3' => [
                 "- a\n  - b\n\n    ```\n    p\n   ```\n\n    tail\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n    <pre><code>\n tail\n</code></pre>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li><p>b</p>\n        <pre><code>p\n</code></pre>\n      </li>\n    </ul>\n    <pre><code>\n tail\n</code></pre>\n  </li>\n</ul>",
             ],
             'depth 3, run at column 0' => [
                 "- a\n  - b\n    - c\n\n      ```\n      p\n```\n\n      tail\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n      tail\n</code></pre>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li><p>c</p>\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n      tail\n</code></pre>",
             ],
             'depth 3, run at column 1' => [
                 "- a\n  - b\n    - c\n\n      ```\n      p\n ```\n\n      tail\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n     tail\n</code></pre>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li><p>c</p>\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n     tail\n</code></pre>",
             ],
             'depth 3, run at column 2' => [
                 "- a\n  - b\n    - c\n\n      ```\n      p\n  ```\n\n      tail\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n    <pre><code>\n    tail\n</code></pre>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li><p>c</p>\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n    <pre><code>\n    tail\n</code></pre>\n  </li>\n</ul>",
             ],
             'depth 3, run at column 3' => [
                 "- a\n  - b\n    - c\n\n      ```\n      p\n   ```\n\n      tail\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n    <pre><code>\n   tail\n</code></pre>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li><p>c</p>\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n    <pre><code>\n   tail\n</code></pre>\n  </li>\n</ul>",
             ],
             'depth 3, run at column 4' => [
                 "- a\n  - b\n    - c\n\n      ```\n      p\n    ```\n\n      tail\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n        <pre><code>\n  tail\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li><p>c</p>\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n        <pre><code>\n  tail\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
             ],
             'depth 3, run at column 5' => [
                 "- a\n  - b\n    - c\n\n      ```\n      p\n     ```\n\n      tail\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>c\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n        <pre><code>\n tail\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li><p>c</p>\n            <pre><code>p\n</code></pre>\n          </li>\n        </ul>\n        <pre><code>\n tail\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
             ],
         ];
     }

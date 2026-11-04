@@ -24,7 +24,7 @@ final class MarkdownQuotedCodeInListTest extends TestCase
         $markdown = "- a\n\n  >     code\n";
         $carve = (new MarkdownToCarve())->convert($markdown);
 
-        self::assertSame("{loose}\n- a\n\n  > ```\n  > code\n  > ```\n", $carve);
+        self::assertSame("- a\n\n  > ```\n  > code\n  > ```\n", $carve);
         self::assertStringContainsString("<pre><code>code\n</code></pre>", (new CarveConverter())->convert($carve));
     }
 

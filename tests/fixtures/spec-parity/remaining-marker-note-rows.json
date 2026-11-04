@@ -2,12 +2,12 @@
   {
     "id": "empty nested note marker and fence/nested-marker-note-closer/nested-51",
     "source": "- [^a]: text\n    - child\n    [^b]: \n\n      - c2\n    ~~~\n    code\nafter [^a] [^b]\n",
-    "html": "<ul>\n  <li></li>\n</ul>\n<p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text</p>\n      <ul>\n        <li>child\n[^b]:\n          <ul>\n            <li>c2</li>\n          </ul>\n        </li>\n      </ul>\n      <pre><code>code\n</code></pre>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<ul>\n  <li></li>\n</ul>\n<p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text</p>\n      <ul>\n        <li><p>child\n[^b]:</p>\n          <ul>\n            <li>c2</li>\n          </ul>\n        </li>\n      </ul>\n      <pre><code>code\n</code></pre>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "id": "empty nested note marker and fence/nested-marker-note-closer/nested-59",
     "source": "- [^a]: text\n    - child\n    [^b]: \n\n      - c2\n        ~~~\n        code\nafter [^a] [^b]\n",
-    "html": "<ul>\n  <li></li>\n</ul>\n<p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text</p>\n      <ul>\n        <li>child\n[^b]:\n          <ul>\n            <li>c2\n              <pre><code>code\n</code></pre>\n            </li>\n          </ul>\n        </li>\n      </ul>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<ul>\n  <li></li>\n</ul>\n<p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text</p>\n      <ul>\n        <li><p>child\n[^b]:</p>\n          <ul>\n            <li>c2\n              <pre><code>code\n</code></pre>\n            </li>\n          </ul>\n        </li>\n      </ul>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "id": "empty nested note marker and fence/nested-marker-note-closer/nested-147",
@@ -37,12 +37,12 @@
   {
     "id": "empty nested note marker and fence/nested-marker-note-closer/nested-243",
     "source": "> - [^a]: text\n>     - child\n>     [^b]: \n> \n>       - c2\n>     ~~~\n>     code\n> after [^a] [^b]\n> ",
-    "html": "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n  <p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n</blockquote>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text</p>\n      <ul>\n        <li>child\n[^b]:\n          <ul>\n            <li>c2</li>\n          </ul>\n        </li>\n      </ul>\n      <pre><code>code\n</code></pre>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n  <p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n</blockquote>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text</p>\n      <ul>\n        <li><p>child\n[^b]:</p>\n          <ul>\n            <li>c2</li>\n          </ul>\n        </li>\n      </ul>\n      <pre><code>code\n</code></pre>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "id": "empty nested note marker and fence/nested-marker-note-closer/nested-251",
     "source": "> - [^a]: text\n>     - child\n>     [^b]: \n> \n>       - c2\n>         ~~~\n>         code\n> after [^a] [^b]\n> ",
-    "html": "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n  <p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n</blockquote>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text</p>\n      <ul>\n        <li>child\n[^b]:\n          <ul>\n            <li>c2\n              <pre><code>code\n</code></pre>\n            </li>\n          </ul>\n        </li>\n      </ul>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n  <p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n</blockquote>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text</p>\n      <ul>\n        <li><p>child\n[^b]:</p>\n          <ul>\n            <li>c2\n              <pre><code>code\n</code></pre>\n            </li>\n          </ul>\n        </li>\n      </ul>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "id": "empty nested note marker and fence/nested-marker-note-closer/nested-339",
@@ -137,12 +137,12 @@
   {
     "id": "nested quote paragraph retention/nested-marker-note-closer/generic-390",
     "source": "- a\n    more\n    b\n\n      > q\n        ~~~\n        code\n        ~~~\nafter\n",
-    "html": "<ul>\n  <li>a\nmore\nb\n    <blockquote><p>q</p></blockquote>\n    <pre><code>code\n</code></pre>\n  </li>\n</ul>\n<p>after</p>"
+    "html": "<ul>\n  <li><p>a\nmore\nb</p>\n    <blockquote><p>q</p></blockquote>\n    <pre><code>code\n</code></pre>\n  </li>\n</ul>\n<p>after</p>"
   },
   {
     "id": "nested quote paragraph retention/nested-marker-note-closer/generic-392",
     "source": "- a\n    more\n    :: b\n\n      > q\n        ~~~\n        code\n        ~~~\nafter\n",
-    "html": "<ul>\n  <li>a\nmore\n    <dl>\n      <dt>b</dt>\n    </dl>\n    <blockquote><p>q</p></blockquote>\n    <pre><code>code\n</code></pre>\n  </li>\n</ul>\n<p>after</p>"
+    "html": "<ul>\n  <li><p>a\nmore</p>\n    <dl>\n      <dt>b</dt>\n    </dl>\n    <blockquote><p>q</p></blockquote>\n    <pre><code>code\n</code></pre>\n  </li>\n</ul>\n<p>after</p>"
   },
   {
     "id": "nested quote paragraph retention/nested-marker-note-closer/generic-960",
@@ -152,12 +152,12 @@
   {
     "id": "nested quote paragraph retention/nested-marker-note-closer/generic-966",
     "source": "> - a\n>     more\n>     b\n> \n>       > q\n>         ~~~\n>         code\n>         ~~~\n> after\n> ",
-    "html": "<blockquote>\n  <ul>\n    <li>a\nmore\nb\n      <blockquote><p>q</p></blockquote>\n      <pre><code>code\n</code></pre>\n    </li>\n  </ul>\n  <p>after</p>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li><p>a\nmore\nb</p>\n      <blockquote><p>q</p></blockquote>\n      <pre><code>code\n</code></pre>\n    </li>\n  </ul>\n  <p>after</p>\n</blockquote>"
   },
   {
     "id": "nested quote paragraph retention/nested-marker-note-closer/generic-968",
     "source": "> - a\n>     more\n>     :: b\n> \n>       > q\n>         ~~~\n>         code\n>         ~~~\n> after\n> ",
-    "html": "<blockquote>\n  <ul>\n    <li>a\nmore\n      <dl>\n        <dt>b</dt>\n      </dl>\n      <blockquote><p>q</p></blockquote>\n      <pre><code>code\n</code></pre>\n    </li>\n  </ul>\n  <p>after</p>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li><p>a\nmore</p>\n      <dl>\n        <dt>b</dt>\n      </dl>\n      <blockquote><p>q</p></blockquote>\n      <pre><code>code\n</code></pre>\n    </li>\n  </ul>\n  <p>after</p>\n</blockquote>"
   },
   {
     "id": "quoted nested list paragraph retention/nested-marker-note-closer/generic-579",

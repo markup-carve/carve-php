@@ -22,15 +22,15 @@ class ACommentKeepsTheBoundaryBetweenSiblingListsInAnItemTest extends TestCase
         return [
             'nested lists' => [
                 "- o\n  - a\n\n\n\n  %% c\n\n  - b\n",
-                "- o\n  - a\n\n  %% c\n\n\n\n  - b\n",
+                "- o\n\n  - a\n\n  %% c\n\n\n\n  - b\n",
             ],
             'nested lists, short run' => [
                 "- o\n  - a\n\n\n  %% c\n\n  - b\n",
-                "- o\n  - a\n\n  %% c\n\n\n\n  - b\n",
+                "- o\n\n  - a\n\n  %% c\n\n\n\n  - b\n",
             ],
             'description lists' => [
                 "- o\n\n  :: t\n  : x\n\n  %% c\n\n\n  :: u\n  : v\n",
-                "- o\n  :: t\n  : x\n\n  %% c\n\n\n\n  :: u\n  : v\n",
+                "- o\n\n  :: t\n  : x\n\n  %% c\n\n\n\n  :: u\n  : v\n",
             ],
             'description lists in a description body' => [
                 ":: t0\n: d\n  :: t\n  : x\n\n\n\n  %% c\n  :: u\n  : v\n",

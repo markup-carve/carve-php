@@ -2,12 +2,12 @@
   {
     "id": "shifted-1-```-None",
     "source": "> - b\n>\n>   :::\n>     ::: |\n>     ```\n>   :::\n>   para\n>   ```\nlazy\n",
-    "html": "<blockquote><ul><li>b\n      <div><div class=\"line-block\"><p><code>\n:::\npara\n</code><br>\nlazy</p></div></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><p>b</p><div><div class=\"line-block\"><p><code>\n:::\npara\n</code><br>\nlazy</p></div></div></li></ul></blockquote>"
   },
   {
     "id": "shifted-1-```-box",
     "source": "> - b\n>\n>   ::: box\n>     ::: |\n>     ```\n>   :::\n>   para\n>   ```\nlazy\n",
-    "html": "<blockquote><ul><li>b\n      <div class=\"box\"><div class=\"line-block\"><p><code>\n:::\npara\n</code><br>\nlazy</p></div></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><p>b</p><div class=\"box\"><div class=\"line-block\"><p><code>\n:::\npara\n</code><br>\nlazy</p></div></div></li></ul></blockquote>"
   },
   {
     "id": "desc-code-1-```",
@@ -22,12 +22,12 @@
   {
     "id": "shifted-1-~~~-None",
     "source": "> - b\n>\n>   :::\n>     ::: |\n>     ~~~\n>   :::\n>   para\n>   ~~~\nlazy\n",
-    "html": "<blockquote><ul><li>b\n      <div><div class=\"line-block\"><p>~~~<br>\n:::<br>\npara<br>\n~~~<br>\nlazy</p></div></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><p>b</p><div><div class=\"line-block\"><p>~~~<br>\n:::<br>\npara<br>\n~~~<br>\nlazy</p></div></div></li></ul></blockquote>"
   },
   {
     "id": "shifted-1-~~~-box",
     "source": "> - b\n>\n>   ::: box\n>     ::: |\n>     ~~~\n>   :::\n>   para\n>   ~~~\nlazy\n",
-    "html": "<blockquote><ul><li>b\n      <div class=\"box\"><div class=\"line-block\"><p>~~~<br>\n:::<br>\npara<br>\n~~~<br>\nlazy</p></div></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><p>b</p><div class=\"box\"><div class=\"line-block\"><p>~~~<br>\n:::<br>\npara<br>\n~~~<br>\nlazy</p></div></div></li></ul></blockquote>"
   },
   {
     "id": "desc-code-1-~~~",
@@ -47,12 +47,12 @@
   {
     "id": "shifted-2-```-None",
     "source": "> > - b\n> >\n> >   :::\n> >     ::: |\n> >     ```\n> >   :::\n> >   para\n> >   ```\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li>b\n        <div><div class=\"line-block\"><p><code>\n:::\npara\n</code><br>\nlazy</p></div></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>b</p><div><div class=\"line-block\"><p><code>\n:::\npara\n</code><br>\nlazy</p></div></div></li></ul></blockquote></blockquote>"
   },
   {
     "id": "shifted-2-```-box",
     "source": "> > - b\n> >\n> >   ::: box\n> >     ::: |\n> >     ```\n> >   :::\n> >   para\n> >   ```\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li>b\n        <div class=\"box\"><div class=\"line-block\"><p><code>\n:::\npara\n</code><br>\nlazy</p></div></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>b</p><div class=\"box\"><div class=\"line-block\"><p><code>\n:::\npara\n</code><br>\nlazy</p></div></div></li></ul></blockquote></blockquote>"
   },
   {
     "id": "desc-code-2-```",
@@ -67,12 +67,12 @@
   {
     "id": "shifted-2-~~~-None",
     "source": "> > - b\n> >\n> >   :::\n> >     ::: |\n> >     ~~~\n> >   :::\n> >   para\n> >   ~~~\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li>b\n        <div><div class=\"line-block\"><p>~~~<br>\n:::<br>\npara<br>\n~~~<br>\nlazy</p></div></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>b</p><div><div class=\"line-block\"><p>~~~<br>\n:::<br>\npara<br>\n~~~<br>\nlazy</p></div></div></li></ul></blockquote></blockquote>"
   },
   {
     "id": "shifted-2-~~~-box",
     "source": "> > - b\n> >\n> >   ::: box\n> >     ::: |\n> >     ~~~\n> >   :::\n> >   para\n> >   ~~~\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li>b\n        <div class=\"box\"><div class=\"line-block\"><p>~~~<br>\n:::<br>\npara<br>\n~~~<br>\nlazy</p></div></div></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><p>b</p><div class=\"box\"><div class=\"line-block\"><p>~~~<br>\n:::<br>\npara<br>\n~~~<br>\nlazy</p></div></div></li></ul></blockquote></blockquote>"
   },
   {
     "id": "desc-code-2-~~~",
@@ -167,7 +167,7 @@
   {
     "id": "M8 far closer, tail item",
     "source": "- ::: |\n  ```\n  :::\n  p\n- tail\n\n  ```\n",
-    "html": "<ul><li><div class=\"line-block\"><p><code></code></p></div>\n    p\n  </li><li>tail\n    <pre><code></code></pre></li></ul>"
+    "html": "<ul><li><div class=\"line-block\"><p><code></code></p></div><p>p</p></li><li><p>tail</p><pre><code></code></pre></li></ul>"
   },
   {
     "id": "M9 far closer, no tail",

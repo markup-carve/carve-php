@@ -17,8 +17,7 @@ final class MarkdownListPaddingFixedPointTest extends TestCase
                 '1.  foo
 
     - bar
-', '{loose}
-1. foo
+', '1. foo
 
    - bar
 ', '<ol>
@@ -37,8 +36,7 @@ final class MarkdownListPaddingFixedPointTest extends TestCase
         indented code
 
     > A block quote.
-', '{loose}
-1. A paragraph
+', '1. A paragraph
    with two lines.
 
    ```
@@ -94,8 +92,7 @@ with two lines.</p>
                 '  10.  foo
 
            bar
-', '{loose}
-10. foo
+', '10. foo
 
     ```
     bar
@@ -128,8 +125,7 @@ bar
          indented code
 
      > A block quote.
-', '{loose}
-1. A paragraph
+', '1. A paragraph
    with two lines.
 
    ```
@@ -154,8 +150,7 @@ with two lines.</p>
           indented code
 
       > A block quote.
-', '{loose}
-1. A paragraph
+', '1. A paragraph
    with two lines.
 
    ```
@@ -180,8 +175,7 @@ with two lines.</p>
            indented code
 
        > A block quote.
-', '{loose}
-1. A paragraph
+', '1. A paragraph
    with two lines.
 
    ```
@@ -206,8 +200,7 @@ with two lines.
           indented code
 
       > A block quote.
-', '{loose}
-1. A paragraph
+', '1. A paragraph
    with two lines.
 
    ```

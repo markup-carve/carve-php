@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 class ACommentAtTheItemColumnLeavesNoParagraphClaimTest extends TestCase
 {
+    use RuleATodo;
+
     public function testCorpusUsesTheCommentExceptionReading(): void
     {
         foreach ([1, 2, 3, 4] as $row) {

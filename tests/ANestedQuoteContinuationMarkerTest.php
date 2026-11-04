@@ -81,7 +81,7 @@ final class ANestedQuoteContinuationMarkerTest extends TestCase
     public function testFirstBlockPlusDoesNotAttachListInsideListItem(): void
     {
         $source = "- x\n\n  > +\n  - a\n";
-        $expected = "<ul>\n  <li>x\n    <blockquote>\n      <ul>\n        <li>a</li>\n      </ul>\n    </blockquote>\n  </li>\n</ul>\n";
+        $expected = "<ul>\n  <li><p>x</p>\n    <blockquote>\n      <ul>\n        <li>a</li>\n      </ul>\n    </blockquote>\n  </li>\n</ul>\n";
 
         self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert($source));
     }

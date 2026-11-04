@@ -104,7 +104,7 @@ class AMarkerAtAnEnclosingItemsContentColumnFoldsIntoTheQuoteTest extends TestCa
     public function testABlankLineStillOpensAnItem(): void
     {
         $this->assertSame(
-            '<ul> <li>a <blockquote> <ul> <li>x</li> </ul> </blockquote> <ul> <li>m</li> </ul> </li> </ul>',
+            '<ul> <li><p>a</p> <blockquote> <ul> <li>x</li> </ul> </blockquote> <ul> <li>m</li> </ul> </li> </ul>',
             $this->html("- a\n  > - x\n\n  - m\n"),
         );
     }

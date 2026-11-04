@@ -7,11 +7,14 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class ListStyleDroppedTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, string, string}>
      */
@@ -217,6 +220,7 @@ class ListStyleDroppedTest extends TestCase
         $markdown = (new CarveConverter(renderer: $renderer))->convert($source);
         $imported = (new MarkdownToCarve())->convert($markdown);
 
-        self::assertSame($source, $imported);
+        // Since carve#5015 the blank before the sublist loosens these sources, so the spelling may change; the rendering may not (as carve-js asserts).
+        self::assertSame((new CarveConverter())->convert($source), (new CarveConverter())->convert($imported));
     }
 }

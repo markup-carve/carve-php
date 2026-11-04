@@ -30,7 +30,7 @@ class MarkdownHtmlIndentTest extends TestCase
         foreach (
             [
                 [">  <div>\n>  x", "> ```=html\n>  <div>\n>  x\n> ```"],
-                ["- a\n\n   <div>\n   x", "{loose}\n- a\n\n  ```=html\n   <div>\n   x\n  ```"],
+                ["- a\n\n   <div>\n   x", "- a\n\n  ```=html\n   <div>\n   x\n  ```"],
             ] as [$source, $expected]
         ) {
             $converted = (new MarkdownToCarve())->convert($source);

@@ -121,6 +121,6 @@ class ATaskItemSCheckboxIsNotPartOfItsMarkerTest extends TestCase
     public function testWritesTheCorpusNestedQuoteAtTheContentColumn(): void
     {
         // 144-nested-item-looseness-does-not-propagate-to-the-outer-item-3
-        $this->assertWrites("- [ ] a\n  - b\n    > q\n", "- [ ] a\n  - b\n\n    > q\n");
+        $this->assertWrites("- [ ] a\n  - b\n\n    > q\n", "- [ ] a\n  - b\n\n    > q\n");
     }
 }

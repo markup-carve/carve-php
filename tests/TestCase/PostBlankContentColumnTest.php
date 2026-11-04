@@ -55,7 +55,7 @@ class PostBlankContentColumnTest extends TestCase
         // Three columns in, above the content column: the heading marker is no
         // longer a block opener, it folds as lazy paragraph text (loose item).
         $this->assertHtml(
-            "<ul>\n  <li>one\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
+            "<ul>\n  <li><p>one</p>\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
             "- one\n\n   # h\n",
         );
     }
@@ -74,7 +74,7 @@ class PostBlankContentColumnTest extends TestCase
     {
         // At the content column the block opener nests, as before.
         $this->assertHtml(
-            "<ul>\n  <li>one\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>",
+            "<ul>\n  <li><p>one</p>\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>",
             "- one\n\n  > q\n",
         );
     }
@@ -148,7 +148,7 @@ class PostBlankContentColumnTest extends TestCase
         // guarded so `<code>\nc\n</code>` stays flush, matching carve-js.
         // (Regression: the renderer was padding nested verbatim content.)
         $this->assertHtml(
-            "<ul>\n  <li>one\n    <pre><code>c\n</code></pre>\n  </li>\n</ul>",
+            "<ul>\n  <li><p>one</p>\n    <pre><code>c\n</code></pre>\n  </li>\n</ul>",
             "- one\n\n   ```\n   c\n   ```\n",
         );
     }

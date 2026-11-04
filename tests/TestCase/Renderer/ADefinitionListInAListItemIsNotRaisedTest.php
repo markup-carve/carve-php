@@ -45,7 +45,7 @@ class ADefinitionListInAListItemIsNotRaisedTest extends TestCase
         // The corpus document. The payload is a quote, which is exactly the
         // "structural" shape the retired predicate keyed on.
         $source = "- intro\n\n   :: term\n   :  definition\n\n      > quote\n";
-        $this->assertSame("- intro\n  :: term\n  : definition\n\n    > quote\n", $this->fmt($source));
+        $this->assertSame("- intro\n\n  :: term\n  : definition\n\n    > quote\n", $this->fmt($source));
     }
 
     public function testNarrowsEvenWhenTheSourceIsAlreadyCanonical(): void
@@ -55,7 +55,7 @@ class ADefinitionListInAListItemIsNotRaisedTest extends TestCase
         // test above and fail this one - it raised this input to 3 as well.
         // (The blank line above `::` is what normalizes away, not the column.)
         $source = "- intro\n\n  :: term\n  : definition\n\n    > quote\n";
-        $this->assertSame("- intro\n  :: term\n  : definition\n\n    > quote\n", $this->fmt($source));
+        $this->assertSame("- intro\n\n  :: term\n  : definition\n\n    > quote\n", $this->fmt($source));
     }
 
     public function testIsIdempotentAndPreservesTheHtml(): void

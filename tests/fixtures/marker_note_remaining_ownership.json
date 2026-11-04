@@ -292,7 +292,7 @@
   {
     "id": "nested-marker-note-closer/generic-426",
     "source": "- a\n    more\n    b\n\n      :: t\n        ~~~\n        code\n        ~~~\nafter\n",
-    "html": "<ul><li>a more b<dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a more b</p><dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer/generic-626",
@@ -362,7 +362,7 @@
   {
     "id": "nested-marker-note-closer/generic-1002",
     "source": "> - a\n>     more\n>     b\n> \n>       :: t\n>         ~~~\n>         code\n>         ~~~\n> after\n> ",
-    "html": "<blockquote><ul><li>a more b<dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li><p>a more b</p><dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "task-reference-0",
@@ -387,12 +387,12 @@
   {
     "id": "term-boundary-6",
     "source": "- a\n    :: term\n\n      ~~~\n      code\n      ~~~\nafter\n",
-    "html": "<ul><li>a<dl><dt>term</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><dl><dt>term</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "term-boundary-7",
     "source": "- a\n    :: term\n\n      ```\n      code\n      ```\nafter\n",
-    "html": "<ul><li>a<dl><dt>term</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li><p>a</p><dl><dt>term</dt></dl><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "term-boundary-8",

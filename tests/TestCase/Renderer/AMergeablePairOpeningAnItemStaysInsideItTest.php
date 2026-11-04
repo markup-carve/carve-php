@@ -82,7 +82,7 @@ final class AMergeablePairOpeningAnItemStaysInsideItTest extends TestCase
      */
     public function testTheFirstHalfStaysOnTheMarkerLine(): void
     {
-        self::assertSame("- > d\n+\n> q\n\na\n", (new CarveConverter())->toCarve("- > d\n\n  > q\n\na\n"));
+        self::assertSame("- > d\n\n  > q\n\na\n", (new CarveConverter())->toCarve("- > d\n\n  > q\n\na\n"));
     }
 
     /**

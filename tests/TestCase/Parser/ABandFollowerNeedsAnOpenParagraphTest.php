@@ -40,34 +40,34 @@ class ABandFollowerNeedsAnOpenParagraphTest extends TestCase
         return [
             'a closed code fence' => [
                 "- t\n\n  ```\n  q\n  ```\n z\n",
-                "<ul>\n  <li>t\n    <pre><code>q\n</code></pre>\n  </li>\n</ul>\n<p>z</p>\n",
+                "<ul>\n  <li><p>t</p>\n    <pre><code>q\n</code></pre>\n  </li>\n</ul>\n<p>z</p>\n",
             ],
             // The payload does not matter: a comment run inside verbatim content
             // is not read as a comment.
             'a closed fence holding a comment run' => [
                 "- t\n\n  ```\n  %%%\n  ```\n z\n",
-                "<ul>\n  <li>t\n    <pre><code>%%%\n</code></pre>\n  </li>\n</ul>\n<p>z</p>\n",
+                "<ul>\n  <li><p>t</p>\n    <pre><code>%%%\n</code></pre>\n  </li>\n</ul>\n<p>z</p>\n",
             ],
             'a closed raw block' => [
                 "- t\n\n  ```=html\n  q\n  ```\n z\n",
-                "<ul>\n  <li>t\n    q\n  </li>\n</ul>\n<p>z</p>\n",
+                "<ul>\n  <li><p>t</p>\n    q\n  </li>\n</ul>\n<p>z</p>\n",
             ],
             'a closed colon fence' => [
                 "- t\n\n  ::: n\n  q\n  :::\n z\n",
-                "<ul>\n  <li>t\n    <div class=\"n\">\n      <p>q</p>\n    </div>\n  </li>\n</ul>\n<p>z</p>\n",
+                "<ul>\n  <li><p>t</p>\n    <div class=\"n\">\n      <p>q</p>\n    </div>\n  </li>\n</ul>\n<p>z</p>\n",
             ],
             'a heading' => [
                 "- t\n\n  # h\n z\n",
-                "<ul>\n  <li>t\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>\n<p>z</p>\n",
+                "<ul>\n  <li><p>t</p>\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>\n<p>z</p>\n",
             ],
             'a table' => [
                 "- t\n\n  | a |\n  | - |\n z\n",
-                "<ul>\n  <li>t\n    <table>\n      <thead>\n        <tr><th scope=\"col\">a</th></tr>\n      </thead>\n"
+                "<ul>\n  <li><p>t</p>\n    <table>\n      <thead>\n        <tr><th scope=\"col\">a</th></tr>\n      </thead>\n"
                     . "    </table>\n  </li>\n</ul>\n<p>z</p>\n",
             ],
             'a deeper band under a wide marker' => [
                 "10. t\n\n    ```\n    q\n    ```\n  z\n",
-                "<ol start=\"10\">\n  <li>t\n    <pre><code>q\n</code></pre>\n  </li>\n</ol>\n<p>z</p>\n",
+                "<ol start=\"10\">\n  <li><p>t</p>\n    <pre><code>q\n</code></pre>\n  </li>\n</ol>\n<p>z</p>\n",
             ],
         ];
     }
@@ -87,11 +87,11 @@ class ABandFollowerNeedsAnOpenParagraphTest extends TestCase
             ],
             'a quote' => [
                 "- t\n\n  > q\n z\n",
-                "<ul>\n  <li>t\n    <blockquote><p>q\nz</p></blockquote>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>t</p>\n    <blockquote><p>q\nz</p></blockquote>\n  </li>\n</ul>\n",
             ],
             'a nested list' => [
                 "- t\n\n  - q\n z\n",
-                "<ul>\n  <li>t\n    <ul>\n      <li>q\nz</li>\n    </ul>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>t</p>\n    <ul>\n      <li>q\nz</li>\n    </ul>\n  </li>\n</ul>\n",
             ],
             'a comment line' => [
                 "- t\n\n  %% c\n z\n",
@@ -113,7 +113,7 @@ class ABandFollowerNeedsAnOpenParagraphTest extends TestCase
             // follower leaves the inner item and stops there.
             "a nested item's fence, where the outer item holds the band" => [
                 "- a\n  - t\n\n    ```\n    q\n    ```\n   z\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>t\n        <pre><code>q\n</code></pre>\n      </li>\n    </ul>\n"
+                "<ul>\n  <li>a\n    <ul>\n      <li><p>t</p>\n        <pre><code>q\n</code></pre>\n      </li>\n    </ul>\n"
                     . "    z\n  </li>\n</ul>\n",
             ],
         ];
@@ -131,7 +131,7 @@ class ABandFollowerNeedsAnOpenParagraphTest extends TestCase
         return [
             'the band column, written at the content column instead' => [
                 "- t\n\n  ```\n  q\n  ```\n  z\n",
-                "<ul>\n  <li>t\n    <pre><code>q\n</code></pre>\n    z\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>t</p>\n    <pre><code>q\n</code></pre>\n    <p>z</p>\n  </li>\n</ul>\n",
             ],
             'the blank line after the marker' => [
                 "- t\n  ```\n  q\n  ```\n z\n",
@@ -139,7 +139,7 @@ class ABandFollowerNeedsAnOpenParagraphTest extends TestCase
             ],
             'a second blank, which closes the collected stream' => [
                 "- t\n\n  ```\n  q\n  ```\n\n z\n",
-                "<ul>\n  <li>t\n    <pre><code>q\n</code></pre>\n  </li>\n</ul>\n<p>z</p>\n",
+                "<ul>\n  <li><p>t</p>\n    <pre><code>q\n</code></pre>\n  </li>\n</ul>\n<p>z</p>\n",
             ],
         ];
     }

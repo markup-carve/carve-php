@@ -167,6 +167,13 @@ final class BlockParseSession
     public array $unclosedCodeFences = [];
 
     /**
+     * Source lines an unclosed code fence holds as payload.
+     *
+     * @var array<int, true>
+     */
+    public array $unclosedFencePayloadLines = [];
+
+    /**
      * The opener line and `>` offsets of quotes a stacked `+` nests, handed from collection to span assignment.
      *
      * @var array{0: int, 1: array<int>}|null

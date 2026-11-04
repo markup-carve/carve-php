@@ -67,9 +67,9 @@ class TheMarkdownTargetKeepsAListSTightnessTest extends TestCase
     {
         $source = "- a\n  > - x\n\n  - m\n";
 
-        $this->assertSame("- a\n  > - x\n  - m\n", $this->write($source));
-        $this->assertTrue($this->tightInSource($source));
-        $this->assertTrue($this->readsBackTight($source));
+        $this->assertSame("- a\n\n  > - x\n\n  - m\n", $this->write($source));
+        $this->assertFalse($this->tightInSource($source));
+        $this->assertFalse($this->readsBackTight($source));
     }
 
     public function testAFlatLooseListReadsBackLoose(): void
@@ -97,7 +97,7 @@ class TheMarkdownTargetKeepsAListSTightnessTest extends TestCase
 
         $written = $this->write($source);
         $this->assertSame("- a\n\n  3. b\n", $written);
-        $this->assertSame("{loose}\n- a\n\n  3. b\n", $this->reader->convert($written));
+        $this->assertSame("- a\n\n  3. b\n", $this->reader->convert($written));
         // The control: the same output without the blank comes back as text.
         $this->assertSame("- a\n  3\\. b\n", $this->reader->convert("- a\n  3. b\n"));
     }
@@ -119,7 +119,7 @@ class TheMarkdownTargetKeepsAListSTightnessTest extends TestCase
 
         $written = $this->write($source);
         $this->assertSame("- a\n\n  -\n", $written);
-        $this->assertSame("{loose}\n- a\n\n  - {empty}\n", $this->reader->convert($written));
+        $this->assertSame("- a\n\n  - {empty}\n", $this->reader->convert($written));
         // The control: the same output without the blank folds the item's text
         // into a heading.
         $this->assertSame("- ## a\n", $this->reader->convert("- a\n  -\n"));
@@ -160,8 +160,8 @@ class TheMarkdownTargetKeepsAListSTightnessTest extends TestCase
         $source = "- intro\n  > q\n\n  # h\n";
 
         $written = $this->write($source);
-        $this->assertSame("- intro\n  > q\n  # h\n", $written);
-        $this->assertTrue($this->readsBackTight($source));
+        $this->assertSame("- intro\n\n  > q\n\n  # h\n", $written);
+        $this->assertFalse($this->readsBackTight($source));
         $this->assertSame(
             [Paragraph::class, BlockQuote::class, Heading::class],
             $this->blocksInTheFirstItem($written),

@@ -122,12 +122,12 @@
   {
     "id": "nested-marker-note-closer-generic-9",
     "source": "- a\n    - child\n    b\n\n      - c2\n    ~~~\n    code\nafter\n",
-    "html": "<ul><li>a<ul><li>child b<ul><li>c2</li></ul></li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li><p>child b</p><ul><li>c2</li></ul></li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-10",
     "source": "- a\n    - child\n    - b\n\n      - c2\n    ~~~\n    code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li><li>b<ul><li>c2</li></ul></li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li><p>child</p></li><li><p>b</p><ul><li>c2</li></ul></li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-15",
@@ -142,12 +142,12 @@
   {
     "id": "nested-marker-note-closer-generic-21",
     "source": "- a\n    - child\n    b\n\n      - c2\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li>a<ul><li>child b<ul><li>c2</li></ul><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li><p>child b</p><ul><li>c2</li></ul><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-22",
     "source": "- a\n    - child\n    - b\n\n      - c2\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li><li>b<ul><li>c2</li></ul><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li><p>child</p></li><li><p>b</p><ul><li>c2</li></ul><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-27",
@@ -162,12 +162,12 @@
   {
     "id": "nested-marker-note-closer-generic-33",
     "source": "- a\n    - child\n    b\n\n      - c2\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a<ul><li>child b<ul><li>c2<pre><code>code</code></pre></li></ul></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li><p>child b</p><ul><li>c2<pre><code>code</code></pre></li></ul></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-34",
     "source": "- a\n    - child\n    - b\n\n      - c2\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li><li>b<ul><li>c2<pre><code>code</code></pre></li></ul></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li><p>child</p></li><li><p>b</p><ul><li>c2<pre><code>code</code></pre></li></ul></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-45",
@@ -202,37 +202,37 @@
   {
     "id": "nested-marker-note-closer-generic-82",
     "source": "- a\n    - child\n    - b\n\n      > q\n    ~~~\n    code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li><li>b<blockquote><p>q</p></blockquote></li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li><p>child</p></li><li><p>b</p><blockquote><p>q</p></blockquote></li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-93",
     "source": "- a\n    - child\n    b\n\n      > q\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li>a<ul><li>child b<blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li><p>child b</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-94",
     "source": "- a\n    - child\n    - b\n\n      > q\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li><li>b<blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li><p>child</p></li><li><p>b</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-105",
     "source": "- a\n    - child\n    b\n\n      > q\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a<ul><li>child b<blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li><p>child b</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-106",
     "source": "- a\n    - child\n    - b\n\n      > q\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li><li>b<blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li><p>child</p></li><li><p>b</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-141",
     "source": "- a\n    - child\n    b\n\n      :: t\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a<ul><li>child b<dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li><p>child b</p><dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-142",
     "source": "- a\n    - child\n    - b\n\n      :: t\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a<ul><li>child</li><li>b<dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a<ul><li><p>child</p></li><li><p>b</p><dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-292",
@@ -242,7 +242,7 @@
   {
     "id": "nested-marker-note-closer-generic-298",
     "source": "- a\n    more\n    - b\n\n      - c2\n    ~~~\n    code\nafter\n",
-    "html": "<ul><li>a more<ul><li>b<ul><li>c2</li></ul></li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a more<ul><li><p>b</p><ul><li>c2</li></ul></li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-304",
@@ -252,7 +252,7 @@
   {
     "id": "nested-marker-note-closer-generic-310",
     "source": "- a\n    more\n    - b\n\n      - c2\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li>a more<ul><li>b<ul><li>c2</li></ul><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a more<ul><li><p>b</p><ul><li>c2</li></ul><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-316",
@@ -262,7 +262,7 @@
   {
     "id": "nested-marker-note-closer-generic-322",
     "source": "- a\n    more\n    - b\n\n      - c2\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a more<ul><li>b<ul><li>c2<pre><code>code</code></pre></li></ul></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a more<ul><li><p>b</p><ul><li>c2<pre><code>code</code></pre></li></ul></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-334",
@@ -282,32 +282,32 @@
   {
     "id": "nested-marker-note-closer-generic-370",
     "source": "- a\n    more\n    - b\n\n      > q\n    ~~~\n    code\nafter\n",
-    "html": "<ul><li>a more<ul><li>b<blockquote><p>q</p></blockquote></li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>a more<ul><li><p>b</p><blockquote><p>q</p></blockquote></li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-382",
     "source": "- a\n    more\n    - b\n\n      > q\n      ~~~\n      code\nafter\n",
-    "html": "<ul><li>a more<ul><li>b<blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a more<ul><li><p>b</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-394",
     "source": "- a\n    more\n    - b\n\n      > q\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a more<ul><li>b<blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a more<ul><li><p>b</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-430",
     "source": "- a\n    more\n    - b\n\n      :: t\n        ~~~\n        code\nafter\n",
-    "html": "<ul><li>a more<ul><li>b<dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+    "html": "<ul><li>a more<ul><li><p>b</p><dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "nested-marker-note-closer-generic-585",
     "source": "> - a\n>     - child\n>     b\n> \n>       - c2\n>     ~~~\n>     code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child b<ul><li>c2</li></ul></li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li><p>child b</p><ul><li>c2</li></ul></li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-586",
     "source": "> - a\n>     - child\n>     - b\n> \n>       - c2\n>     ~~~\n>     code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<ul><li>c2</li></ul></li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li><p>child</p></li><li><p>b</p><ul><li>c2</li></ul></li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-591",
@@ -322,12 +322,12 @@
   {
     "id": "nested-marker-note-closer-generic-597",
     "source": "> - a\n>     - child\n>     b\n> \n>       - c2\n>       ~~~\n>       code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child b<ul><li>c2</li></ul><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li><p>child b</p><ul><li>c2</li></ul><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-598",
     "source": "> - a\n>     - child\n>     - b\n> \n>       - c2\n>       ~~~\n>       code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<ul><li>c2</li></ul><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li><p>child</p></li><li><p>b</p><ul><li>c2</li></ul><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-603",
@@ -342,12 +342,12 @@
   {
     "id": "nested-marker-note-closer-generic-609",
     "source": "> - a\n>     - child\n>     b\n> \n>       - c2\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child b<ul><li>c2<pre><code>code</code></pre></li></ul></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li><p>child b</p><ul><li>c2<pre><code>code</code></pre></li></ul></li></ul></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-610",
     "source": "> - a\n>     - child\n>     - b\n> \n>       - c2\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<ul><li>c2<pre><code>code</code></pre></li></ul></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li><p>child</p></li><li><p>b</p><ul><li>c2<pre><code>code</code></pre></li></ul></li></ul></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-621",
@@ -382,42 +382,42 @@
   {
     "id": "nested-marker-note-closer-generic-658",
     "source": "> - a\n>     - child\n>     - b\n> \n>       > q\n>     ~~~\n>     code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<blockquote><p>q</p></blockquote></li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li><p>child</p></li><li><p>b</p><blockquote><p>q</p></blockquote></li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-669",
     "source": "> - a\n>     - child\n>     b\n> \n>       > q\n>       ~~~\n>       code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child b<blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li><p>child b</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-670",
     "source": "> - a\n>     - child\n>     - b\n> \n>       > q\n>       ~~~\n>       code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li><p>child</p></li><li><p>b</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-681",
     "source": "> - a\n>     - child\n>     b\n> \n>       > q\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child b<blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li><p>child b</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-682",
     "source": "> - a\n>     - child\n>     - b\n> \n>       > q\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li><p>child</p></li><li><p>b</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-717",
     "source": "> - a\n>     - child\n>     b\n> \n>       :: t\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child b<dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li><p>child b</p><dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-718",
     "source": "> - a\n>     - child\n>     - b\n> \n>       :: t\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a<ul><li><p>child</p></li><li><p>b</p><dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-874",
     "source": "> - a\n>     more\n>     - b\n> \n>       - c2\n>     ~~~\n>     code\n> after\n> ",
-    "html": "<blockquote><ul><li>a more<ul><li>b<ul><li>c2</li></ul></li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a more<ul><li><p>b</p><ul><li>c2</li></ul></li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-880",
@@ -427,7 +427,7 @@
   {
     "id": "nested-marker-note-closer-generic-886",
     "source": "> - a\n>     more\n>     - b\n> \n>       - c2\n>       ~~~\n>       code\n> after\n> ",
-    "html": "<blockquote><ul><li>a more<ul><li>b<ul><li>c2</li></ul><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a more<ul><li><p>b</p><ul><li>c2</li></ul><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-892",
@@ -437,7 +437,7 @@
   {
     "id": "nested-marker-note-closer-generic-898",
     "source": "> - a\n>     more\n>     - b\n> \n>       - c2\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a more<ul><li>b<ul><li>c2<pre><code>code</code></pre></li></ul></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a more<ul><li><p>b</p><ul><li>c2<pre><code>code</code></pre></li></ul></li></ul></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-910",
@@ -457,21 +457,21 @@
   {
     "id": "nested-marker-note-closer-generic-946",
     "source": "> - a\n>     more\n>     - b\n> \n>       > q\n>     ~~~\n>     code\n> after\n> ",
-    "html": "<blockquote><ul><li>a more<ul><li>b<blockquote><p>q</p></blockquote></li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a more<ul><li><p>b</p><blockquote><p>q</p></blockquote></li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-958",
     "source": "> - a\n>     more\n>     - b\n> \n>       > q\n>       ~~~\n>       code\n> after\n> ",
-    "html": "<blockquote><ul><li>a more<ul><li>b<blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a more<ul><li><p>b</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-970",
     "source": "> - a\n>     more\n>     - b\n> \n>       > q\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a more<ul><li>b<blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a more<ul><li><p>b</p><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
   },
   {
     "id": "nested-marker-note-closer-generic-1006",
     "source": "> - a\n>     more\n>     - b\n> \n>       :: t\n>         ~~~\n>         code\n> after\n> ",
-    "html": "<blockquote><ul><li>a more<ul><li>b<dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+    "html": "<blockquote><ul><li>a more<ul><li><p>b</p><dl><dt>t</dt></dl><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
   }
 ]

@@ -50,7 +50,7 @@ class TheWalkReadsFencesAndTermsAsTheSpecModelTest extends TestCase
             ],
             'a closer past the opener is payload' => [
                 "- item\n\n    ```\n    a\n      ```\n      \n    b\n    ```\n",
-                "<ul><li>item\n    <pre><code>a\n  ```\n  \nb\n</code></pre></li></ul>",
+                "<ul><li><p>item</p><pre><code>a\n  ```\n  \nb\n</code></pre></li></ul>",
             ],
             'a closer past the opener is payload in a doubly quoted item' => [
                 "> > - a\n> >     ~~~\n> >       ~~~\n> >       ```\n> >   ```\n> >   ~~~\nafter\n",

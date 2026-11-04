@@ -217,12 +217,12 @@ class ACommentSpanOnADescriptionOrNoteMarkerLineClosesBelowItsColumnTest extends
                 "- a\n\n  :: u\n  : %%%%\n %%%\n  c\n",
                 <<<'HTML'
                 <ul>
-                  <li>a
+                  <li><p>a</p>
                     <dl>
                       <dt>u</dt>
                       <dd></dd>
                     </dl>
-                    c
+                    <p>c</p>
                   </li>
                 </ul>
                 HTML,

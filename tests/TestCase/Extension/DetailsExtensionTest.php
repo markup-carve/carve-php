@@ -216,7 +216,7 @@ class DetailsExtensionTest extends TestCase
 
         $expected = implode("\n", [
             '<ul>',
-            '  <li>item',
+            '  <li><p>item</p>',
             '    <details>',
             '      <summary>d</summary>',
             '      <p>inner</p>',

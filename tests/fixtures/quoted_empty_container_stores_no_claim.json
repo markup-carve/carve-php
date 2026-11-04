@@ -7,7 +7,7 @@
   {
     "id": "shift-nested-bare-2-True",
     "source": ">   - a\n> - b\n>     - c\n>\n>   :::\n1. lazy\n",
-    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li>c</li></ul><div></div></li></ul></blockquote><ol><li>lazy</li></ol>"
+    "html": "<blockquote><ul><li><p>a</p></li><li><p>b</p><ul><li>c</li></ul><div></div></li></ul></blockquote><ol><li>lazy</li></ol>"
   },
   {
     "id": "shift-nested-bare-4-False",
@@ -17,7 +17,7 @@
   {
     "id": "shift-nested-bare-4-True",
     "source": ">   - a\n> - b\n>     - c\n>\n>     :::\n1. lazy\n",
-    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li>c</li></ul><div></div></li></ul></blockquote><ol><li>lazy</li></ol>"
+    "html": "<blockquote><ul><li><p>a</p></li><li><p>b</p><ul><li>c</li></ul><div></div></li></ul></blockquote><ol><li>lazy</li></ol>"
   },
   {
     "id": "shift-nested-bare-6-False",
@@ -27,7 +27,7 @@
   {
     "id": "shift-nested-bare-6-True",
     "source": ">   - a\n> - b\n>     - c\n>\n>       :::\n1. lazy\n",
-    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li>c\n          <div></div></li></ul></li></ul></blockquote><ol><li>lazy</li></ol>"
+    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li><p>c</p><div></div></li></ul></li></ul></blockquote><ol><li>lazy</li></ol>"
   },
   {
     "id": "shift-nested-bare-8-False",
@@ -37,6 +37,6 @@
   {
     "id": "shift-nested-bare-8-True",
     "source": ">   - a\n> - b\n>     - c\n>\n>         :::\n1. lazy\n",
-    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li>c\n          <div></div></li></ul></li></ul></blockquote><ol><li>lazy</li></ol>"
+    "html": "<blockquote><ul><li>a</li><li>b\n      <ul><li><p>c</p><div></div></li></ul></li></ul></blockquote><ol><li>lazy</li></ol>"
   }
 ]

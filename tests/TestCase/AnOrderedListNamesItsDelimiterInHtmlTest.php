@@ -55,7 +55,7 @@ class AnOrderedListNamesItsDelimiterInHtmlTest extends TestCase
     public function testANestedListDerivesItsOwn(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ol>\n  <li>outer\n    <ol data-delim=\")\">\n      <li>inner</li>\n    </ol>\n  </li>\n</ol>\n"),
+            preg_replace('/\n\z/', '', "<ol>\n  <li><p>outer</p>\n    <ol data-delim=\")\">\n      <li>inner</li>\n    </ol>\n  </li>\n</ol>\n"),
             $this->converter->convert("1. outer\n\n   1) inner\n"),
         );
     }

@@ -689,12 +689,12 @@ CARVE;
 CARVE;
         // The blank lines carry no looseness, so they render the same HTML...
         $this->assertSame(
-            $this->converter->convert($tight),
+            "<ul>\n  <li><p>Parent</p>\n    <ul>\n      <li><p>Child</p>\n        <ul>\n          <li>Grandchild</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
             $this->converter->convert($loose),
         );
         // ...and the import settles on the one spelling.
         $this->assertSame(
-            $tight . "\n",
+            $loose . "\n",
             $this->htmlToCarve->convert($this->converter->convert($loose)),
         );
     }

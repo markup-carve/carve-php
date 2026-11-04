@@ -21,6 +21,7 @@ use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -385,6 +386,9 @@ class BlockParser
             $next = null;
         }
         $reason = $next === null ? 'document' : (trim($next) === '+' ? 'continuation' : 'container');
+        for ($payload = $line + 1; $payload <= $endLine - 2; $payload++) {
+            $this->state->session->unclosedFencePayloadLines[$payload] = true;
+        }
         $this->state->session->unclosedCodeFences[] = [
             'line' => $line + 1,
             'column' => $column === false ? 1 : mb_strlen(substr($source, 0, $column), 'UTF-8') + 1,
@@ -1973,6 +1977,7 @@ class BlockParser
         $visibleScanFrom = 0;
         $blankFollowerColumn = null;
         $blankFollowerLine = null;
+        $blankSourceLine = null;
         $blankRun = 0;
         $atDocument = $topLevel && $parent instanceof Document;
         $startedChildren = 0;
@@ -1988,7 +1993,7 @@ class BlockParser
                 $this->defineSkippedAbbreviationsBefore($sourceLine);
             }
             if ($childrenBeforeBlank !== null && self::hasVisibleChildFrom($parent, $visibleScanFrom)) {
-                $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn, $blankFollowerLine);
+                $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn, $blankFollowerLine, $blankSourceLine);
                 $childrenBeforeBlank = null;
                 $blankFollowerColumn = null;
                 $blankFollowerLine = null;
@@ -2001,6 +2006,7 @@ class BlockParser
                 if ($parent instanceof ListItem && $childrenBeforeBlank === null && $parent->hasChildren()) {
                     $childrenBeforeBlank = count($parent->getChildren());
                     $visibleScanFrom = $childrenBeforeBlank;
+                    $blankSourceLine = $this->sourceLineFor($i);
                 }
                 $i++;
 
@@ -2127,6 +2133,7 @@ class BlockParser
                 ) {
                     $childrenBeforeBlank = count($parent->getChildren());
                     $visibleScanFrom = $childrenBeforeBlank;
+                    $blankSourceLine = $this->sourceLineFor($i + $consumed - 1);
                 }
                 $i += $consumed;
 
@@ -2190,12 +2197,13 @@ class BlockParser
             ) {
                 $childrenBeforeBlank = count($parent->getChildren());
                 $visibleScanFrom = $childrenBeforeBlank;
+                $blankSourceLine = $this->sourceLineFor($i + $consumed - 1);
             }
             $i += $consumed;
             CycleCollection::checkpoint();
         }
         if ($childrenBeforeBlank !== null) {
-            $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn, $blankFollowerLine);
+            $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn, $blankFollowerLine, $blankSourceLine);
         }
         if ($atDocument) {
             $this->recordDocumentChildStarts($parent, $startedChildren, $startedLine);
@@ -2250,12 +2258,22 @@ class BlockParser
         int $childrenBeforeBlank,
         ?int $followerColumn,
         ?string $followerLine,
+        ?int $blankSourceLine,
     ): void {
         if (!$parent instanceof ListItem) {
             return;
         }
         $children = $parent->getChildren();
         $next = $children[$childrenBeforeBlank] ?? null;
+        // A blank an open fence in a child list carries stays that list's before a block (PART 9 §17 L1).
+        if (
+            $blankSourceLine !== null && $blankSourceLine >= 0
+            && !$next instanceof Paragraph
+            && ($children[$childrenBeforeBlank - 1] ?? null) instanceof ListBlock
+            && isset($this->state->session->unclosedFencePayloadLines[$blankSourceLine])
+        ) {
+            return;
+        }
         if ($next instanceof Paragraph && $followerColumn !== null) {
             $nextFence = $this->state->session->foldedFenceColumn($next);
             $itemContentColumn = $this->state->session->listItemContentColumn($parent);
@@ -2310,7 +2328,10 @@ class BlockParser
             }
         }
         for ($index = $childrenBeforeBlank, $count = count($children); $index < $count; $index++) {
-            if ($children[$index] instanceof Paragraph && !$children[$index]->rendersNothing()) {
+            if (
+                !self::rendersNothing($children[$index])
+                && !$children[$index] instanceof AbbreviationDefinition && !$children[$index] instanceof LinkReferenceDefinition
+            ) {
                 $this->state->session->recordParsedBlankBeforeParagraph($parent);
 
                 return;
@@ -6123,7 +6144,6 @@ class BlockParser
             contentRendersNothingCallback: $this->contentRendersNothing(...),
             continuationMarkerHasIndentedFollowerCallback: $this->continuationMarkerHasIndentedFollower(...),
             footnoteBodyResumesAfterCallback: $this->footnoteBodyResumesAfter(...),
-            indentedContinuationOpensBlockCallback: $this->indentedContinuationOpensBlock(...),
             isBlockElementStartCallback: $this->isBlockElementStart(...),
             isCommentLineOrFenceCallback: $this->isCommentLineOrFence(...),
             isFoldableInvisibleLineCallback: $this->isFoldableInvisibleLine(...),

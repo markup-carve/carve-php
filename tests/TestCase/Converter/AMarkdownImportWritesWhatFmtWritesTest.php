@@ -39,7 +39,7 @@ class AMarkdownImportWritesWhatFmtWritesTest extends TestCase
             'a definition-shaped lazy line in an item quote' => ["- > a\n[x]: <>\n", "- > a\n  > \\[x]: <>\n"],
             'a nested quote under a quote item' => ["> - a\n> > b\n", "> - a\n>\n> > b\n"],
             'a loose list of three' => ["1. a\n\n2. b\n3. c\n", "1. a\n\n2. b\n\n3. c\n"],
-            'a one-item list parted by a fence' => ["- a\n\n  ```\n  x\n  ```\n", "{loose}\n- a\n\n  ```\n  x\n  ```\n"],
+            'a one-item list parted by a fence' => ["- a\n\n  ```\n  x\n  ```\n", "- a\n\n  ```\n  x\n  ```\n"],
             'a setext heading in an item' => ["- a\n  ===\n", "- # a\n"],
             'a pipe table on an item line with rows' => ["- a | b\n  --- | ---\n  1 | 2\n", "- |= a |= b |\n  | 1 | 2 |\n"],
             'indented code on an ordered item line' => ["1.      x\n        y\n", "1. ```\n    x\n    y\n   ```\n"],

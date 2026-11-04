@@ -50,7 +50,7 @@ class AnEmptyCodePayloadRendersNoCharactersTest extends TestCase
             'no payload line, closer ends the file' => ["```\n```", "<pre><code></code></pre>\n"],
             'no payload line, inside an item' => [
                 "- a\n\n  ```\n  ```\n",
-                "<ul>\n  <li>a\n    <pre><code></code></pre>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>a</p>\n    <pre><code></code></pre>\n  </li>\n</ul>\n",
             ],
             // An unclosed opener collects the lines below it and no more.
             'unclosed, nothing after the opener' => ["```\n", "<pre><code></code></pre>\n"],

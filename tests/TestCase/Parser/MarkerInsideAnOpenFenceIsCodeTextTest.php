@@ -59,7 +59,7 @@ class MarkerInsideAnOpenFenceIsCodeTextTest extends TestCase
     public function testAMarkerInAFenceOpenedAfterABlankIsCodeText(): void
     {
         $source = "- a\n\n  " . $this->fence() . "\n  - x\n  " . $this->fence() . "\n";
-        $expected = "<ul>\n  <li>a\n    <pre><code>- x\n</code></pre>\n  </li>\n</ul>\n";
+        $expected = "<ul>\n  <li><p>a</p>\n    <pre><code>- x\n</code></pre>\n  </li>\n</ul>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->html($source));
     }

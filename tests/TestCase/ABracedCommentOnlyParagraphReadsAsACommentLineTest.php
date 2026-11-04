@@ -33,11 +33,11 @@ class ABracedCommentOnlyParagraphReadsAsACommentLineTest extends TestCase
             ],
             'after a blank in an item it keeps the item tight' => [
                 "- p\n\n  {% c %}\n  - b\n",
-                "<ul>\n  <li>p\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li><p>p</p>\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>",
             ],
             'a marker in an item ends it' => [
                 "- p\n\n  - a\n\n  {% c %}\n  - b\n",
-                "<ul>\n  <li>p\n    <ul>\n      <li><p>a</p></li>\n      <li><p>b</p></li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li><p>p</p>\n    <ul>\n      <li><p>a</p></li>\n      <li><p>b</p></li>\n    </ul>\n  </li>\n</ul>",
             ],
             'a nested list continues past it' => [
                 "- a\n  - a2\n    - a3\n\n  {% c %}\n\n    - b\n",

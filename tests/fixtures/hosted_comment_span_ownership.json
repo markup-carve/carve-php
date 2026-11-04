@@ -62,12 +62,12 @@
   {
     "id": "box-comment-h1",
     "source": "- a\n\n  ::: box\n  %%%\nc\n  %%%\n",
-    "html": "<ul><li>a\n    <div class=\"box\"></div></li></ul><p>c</p>"
+    "html": "<ul><li><p>a</p><div class=\"box\"></div></li></ul><p>c</p>"
   },
   {
     "id": "box-comment-h2",
     "source": "- a\n\n  ::: box\n  x\n  %% k\nc\n",
-    "html": "<ul><li>a\n    <div class=\"box\"><p>x</p></div></li></ul><p>c</p>"
+    "html": "<ul><li><p>a</p><div class=\"box\"><p>x</p></div></li></ul><p>c</p>"
   },
   {
     "id": "box-comment-h3",
@@ -87,27 +87,27 @@
   {
     "id": "box-closed-block-i1-heading",
     "source": "- a\n\n  ::: box\n  # h\nc\n",
-    "html": "<ul><li>a\n    <div class=\"box\"><h1 id=\"h\">h</h1></div></li></ul><p>c</p>"
+    "html": "<ul><li><p>a</p><div class=\"box\"><h1 id=\"h\">h</h1></div></li></ul><p>c</p>"
   },
   {
     "id": "box-closed-block-i2-hr",
     "source": "- a\n\n  ::: box\n  ---\nc\n",
-    "html": "<ul><li>a\n    <div class=\"box\"><hr></div></li></ul><p>c</p>"
+    "html": "<ul><li><p>a</p><div class=\"box\"><hr></div></li></ul><p>c</p>"
   },
   {
     "id": "box-closed-block-i3-code",
     "source": "- a\n\n  ::: box\n  ```\n  k\n  ```\nc\n",
-    "html": "<ul><li>a\n    <div class=\"box\"><pre><code>k\n</code></pre></div></li></ul><p>c</p>"
+    "html": "<ul><li><p>a</p><div class=\"box\"><pre><code>k\n</code></pre></div></li></ul><p>c</p>"
   },
   {
     "id": "box-closed-block-i4-comment",
     "source": "- a\n\n  ::: box\n  %% k\nc\n",
-    "html": "<ul><li>a\n    <div class=\"box\"></div></li></ul><p>c</p>"
+    "html": "<ul><li><p>a</p><div class=\"box\"></div></li></ul><p>c</p>"
   },
   {
     "id": "box-closed-block-i5-empty",
     "source": "- a\n\n  ::: box\nc\n",
-    "html": "<ul><li>a\n    <div class=\"box\"></div></li></ul><p>c</p>"
+    "html": "<ul><li><p>a</p><div class=\"box\"></div></li></ul><p>c</p>"
   },
   {
     "id": "box-closed-block-i6-lead-heading",
@@ -122,12 +122,12 @@
   {
     "id": "box-closed-block-i10-comment-first",
     "source": "- a\n\n  ::: box\n  x\n\n  %% k\nc\n",
-    "html": "<ul><li>a\n    <div class=\"box\"><p>x</p></div></li></ul><p>c</p>"
+    "html": "<ul><li><p>a</p><div class=\"box\"><p>x</p></div></li></ul><p>c</p>"
   },
   {
     "id": "box-closed-block-i11-table",
     "source": "- a\n\n  ::: box\n  | a |\nc\n",
-    "html": "<ul><li>a\n    <div class=\"box\"><table><tbody><tr><td>a</td></tr></tbody></table></div></li></ul><p>c</p>"
+    "html": "<ul><li><p>a</p><div class=\"box\"><table><tbody><tr><td>a</td></tr></tbody></table></div></li></ul><p>c</p>"
   },
   {
     "id": "span-payload-j1",
@@ -197,12 +197,12 @@
   {
     "id": "below-column-comment-I",
     "source": "- a\n\n  ::: box\n  # h\n%% j\n  x\n",
-    "html": "<ul><li>a\n    <div class=\"box\"><h1 id=\"h\">h</h1><p>x</p></div></li></ul>"
+    "html": "<ul><li><p>a</p><div class=\"box\"><h1 id=\"h\">h</h1><p>x</p></div></li></ul>"
   },
   {
     "id": "below-column-comment-J",
     "source": "- a\n\n  ::: box\n  %% k\n%% j\n  x\n",
-    "html": "<ul><li>a\n    <div class=\"box\"><p>x</p></div></li></ul>"
+    "html": "<ul><li><p>a</p><div class=\"box\"><p>x</p></div></li></ul>"
   },
   {
     "id": "opener-column-m2",

@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -15,6 +16,8 @@ use PHPUnit\Framework\TestCase;
  */
 class MarkdownImportSweepListItemsTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, string, string}>
      */
@@ -48,7 +51,7 @@ class MarkdownImportSweepListItemsTest extends TestCase
             ],
             'a bare marker in a quote an item opens is an empty item' => [
                 " - >*\n\n   -\n",
-                "{loose}\n- > * {empty}\n\n  - {empty}\n",
+                "- > * {empty}\n\n  - {empty}\n",
                 "<ul>\n  <li>\n    <blockquote>\n      <ul>\n        <li></li>\n      </ul>\n    </blockquote>\n    <ul>\n      <li></li>\n    </ul>\n  </li>\n</ul>",
             ],
             'a bare marker after an item marker is an empty item' => [

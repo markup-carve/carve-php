@@ -4,326 +4,326 @@
     {
       "name": "plain/```/empty/0",
       "source": "- a\n\n  ```=html\n```\n",
-      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<pre><code></code></pre>\n",
-      "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<pre><code></code></pre>",
-      "imported": "- a\n\n```\n```\n",
-      "formatted": "- a\n  ```=html\n  ```\n\n```\n```\n",
-      "formattedHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<pre><code></code></pre>\n"
+      "phpHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<pre><code></code></pre>\n",
+      "oracleHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<pre><code></code></pre>",
+      "imported": "{loose}\n- a\n\n```\n```\n",
+      "formatted": "- a\n\n  ```=html\n  ```\n\n```\n```\n",
+      "formattedHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<pre><code></code></pre>\n"
     },
     {
       "name": "plain/```/empty/2",
       "source": "- a\n\n  ```=html\n  ```\n",
-      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n",
-      "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>",
-      "imported": "- a\n",
-      "formatted": "- a\n  ```=html\n  ```\n",
-      "formattedHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n"
+      "phpHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n",
+      "oracleHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>",
+      "imported": "{loose}\n- a\n",
+      "formatted": "- a\n\n  ```=html\n  ```\n",
+      "formattedHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n"
     },
     {
       "name": "plain/```/below/0",
       "source": "- a\n\n  ```=html\n <b>payload</b>\n```\n",
-      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n",
-      "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>",
-      "imported": "- a\n\n<b>payload</b>\n\n```\n```\n",
-      "formatted": "- a\n  ```=html\n  ```\n\n<b>payload</b>\n\n```\n```\n",
-      "formattedHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n"
+      "phpHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n",
+      "oracleHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>",
+      "imported": "{loose}\n- a\n\n<b>payload</b>\n\n```\n```\n",
+      "formatted": "- a\n\n  ```=html\n  ```\n\n<b>payload</b>\n\n```\n```\n",
+      "formattedHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n"
     },
     {
       "name": "plain/```/below/2",
       "source": "- a\n\n  ```=html\n <b>payload</b>\n  ```\n",
-      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n",
-      "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>",
-      "imported": "- a\n\n<b>payload</b>\n\n```\n```\n",
-      "formatted": "- a\n  ```=html\n  ```\n\n<b>payload</b>\n\n```\n```\n",
-      "formattedHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n"
+      "phpHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n",
+      "oracleHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>",
+      "imported": "{loose}\n- a\n\n<b>payload</b>\n\n```\n```\n",
+      "formatted": "- a\n\n  ```=html\n  ```\n\n<b>payload</b>\n\n```\n```\n",
+      "formattedHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n"
     },
     {
       "name": "plain/```/at/0",
       "source": "- a\n\n  ```=html\n  <b>payload</b>\n```\n",
-      "phpHtml": "<ul>\n  <li>a\n    <b>payload</b>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
-      "oracleHtml": "<ul>\n  <li>a\n    <b>payload</b>\n  </li>\n</ul>\n<pre><code></code></pre>",
-      "imported": "- a *payload*\n\n```\n```\n",
-      "formatted": "- a\n  ```=html\n  <b>payload</b>\n  ```\n\n```\n```\n",
-      "formattedHtml": "<ul>\n  <li>a\n    <b>payload</b>\n  </li>\n</ul>\n<pre><code></code></pre>\n"
+      "phpHtml": "<ul>\n  <li><p>a</p>\n    <b>payload</b>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
+      "oracleHtml": "<ul>\n  <li><p>a</p>\n    <b>payload</b>\n  </li>\n</ul>\n<pre><code></code></pre>",
+      "imported": "- a\n\n  *payload*\n\n```\n```\n",
+      "formatted": "- a\n\n  ```=html\n  <b>payload</b>\n  ```\n\n```\n```\n",
+      "formattedHtml": "<ul>\n  <li><p>a</p>\n    <b>payload</b>\n  </li>\n</ul>\n<pre><code></code></pre>\n"
     },
     {
       "name": "plain/```/at/2",
       "source": "- a\n\n  ```=html\n  <b>payload</b>\n  ```\n",
-      "phpHtml": "<ul>\n  <li>a\n    <b>payload</b>\n  </li>\n</ul>\n",
-      "oracleHtml": "<ul>\n  <li>a\n    <b>payload</b>\n  </li>\n</ul>",
-      "imported": "- a *payload*\n",
-      "formatted": "- a\n  ```=html\n  <b>payload</b>\n  ```\n",
-      "formattedHtml": "<ul>\n  <li>a\n    <b>payload</b>\n  </li>\n</ul>\n"
+      "phpHtml": "<ul>\n  <li><p>a</p>\n    <b>payload</b>\n  </li>\n</ul>\n",
+      "oracleHtml": "<ul>\n  <li><p>a</p>\n    <b>payload</b>\n  </li>\n</ul>",
+      "imported": "- a\n\n  *payload*\n",
+      "formatted": "- a\n\n  ```=html\n  <b>payload</b>\n  ```\n",
+      "formattedHtml": "<ul>\n  <li><p>a</p>\n    <b>payload</b>\n  </li>\n</ul>\n"
     },
     {
       "name": "plain/~~~/empty/0",
       "source": "- a\n\n  ~~~=html\n~~~\n",
-      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<pre><code></code></pre>\n",
-      "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<pre><code></code></pre>",
-      "imported": "- a\n\n```\n```\n",
-      "formatted": "- a\n  ```=html\n  ```\n\n```\n```\n",
-      "formattedHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<pre><code></code></pre>\n"
+      "phpHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<pre><code></code></pre>\n",
+      "oracleHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<pre><code></code></pre>",
+      "imported": "{loose}\n- a\n\n```\n```\n",
+      "formatted": "- a\n\n  ```=html\n  ```\n\n```\n```\n",
+      "formattedHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<pre><code></code></pre>\n"
     },
     {
       "name": "plain/~~~/empty/2",
       "source": "- a\n\n  ~~~=html\n  ~~~\n",
-      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n",
-      "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>",
-      "imported": "- a\n",
-      "formatted": "- a\n  ```=html\n  ```\n",
-      "formattedHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n"
+      "phpHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n",
+      "oracleHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>",
+      "imported": "{loose}\n- a\n",
+      "formatted": "- a\n\n  ```=html\n  ```\n",
+      "formattedHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n"
     },
     {
       "name": "plain/~~~/below/0",
       "source": "- a\n\n  ~~~=html\n <b>payload</b>\n~~~\n",
-      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n",
-      "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>",
-      "imported": "- a\n\n<b>payload</b>\n\n```\n```\n",
-      "formatted": "- a\n  ```=html\n  ```\n\n<b>payload</b>\n\n```\n```\n",
-      "formattedHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n"
+      "phpHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n",
+      "oracleHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>",
+      "imported": "{loose}\n- a\n\n<b>payload</b>\n\n```\n```\n",
+      "formatted": "- a\n\n  ```=html\n  ```\n\n<b>payload</b>\n\n```\n```\n",
+      "formattedHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n"
     },
     {
       "name": "plain/~~~/below/2",
       "source": "- a\n\n  ~~~=html\n <b>payload</b>\n  ~~~\n",
-      "phpHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n",
-      "oracleHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>",
-      "imported": "- a\n\n<b>payload</b>\n\n```\n```\n",
-      "formatted": "- a\n  ```=html\n  ```\n\n<b>payload</b>\n\n```\n```\n",
-      "formattedHtml": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n"
+      "phpHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n",
+      "oracleHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>",
+      "imported": "{loose}\n- a\n\n<b>payload</b>\n\n```\n```\n",
+      "formatted": "- a\n\n  ```=html\n  ```\n\n<b>payload</b>\n\n```\n```\n",
+      "formattedHtml": "<ul>\n  <li><p>a</p>\n    \n  </li>\n</ul>\n<p>&lt;b&gt;payload&lt;/b&gt;</p>\n<pre><code></code></pre>\n"
     },
     {
       "name": "plain/~~~/at/0",
       "source": "- a\n\n  ~~~=html\n  <b>payload</b>\n~~~\n",
-      "phpHtml": "<ul>\n  <li>a\n    <b>payload</b>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
-      "oracleHtml": "<ul>\n  <li>a\n    <b>payload</b>\n  </li>\n</ul>\n<pre><code></code></pre>",
-      "imported": "- a *payload*\n\n```\n```\n",
-      "formatted": "- a\n  ```=html\n  <b>payload</b>\n  ```\n\n```\n```\n",
-      "formattedHtml": "<ul>\n  <li>a\n    <b>payload</b>\n  </li>\n</ul>\n<pre><code></code></pre>\n"
+      "phpHtml": "<ul>\n  <li><p>a</p>\n    <b>payload</b>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
+      "oracleHtml": "<ul>\n  <li><p>a</p>\n    <b>payload</b>\n  </li>\n</ul>\n<pre><code></code></pre>",
+      "imported": "- a\n\n  *payload*\n\n```\n```\n",
+      "formatted": "- a\n\n  ```=html\n  <b>payload</b>\n  ```\n\n```\n```\n",
+      "formattedHtml": "<ul>\n  <li><p>a</p>\n    <b>payload</b>\n  </li>\n</ul>\n<pre><code></code></pre>\n"
     },
     {
       "name": "plain/~~~/at/2",
       "source": "- a\n\n  ~~~=html\n  <b>payload</b>\n  ~~~\n",
-      "phpHtml": "<ul>\n  <li>a\n    <b>payload</b>\n  </li>\n</ul>\n",
-      "oracleHtml": "<ul>\n  <li>a\n    <b>payload</b>\n  </li>\n</ul>",
-      "imported": "- a *payload*\n",
-      "formatted": "- a\n  ```=html\n  <b>payload</b>\n  ```\n",
-      "formattedHtml": "<ul>\n  <li>a\n    <b>payload</b>\n  </li>\n</ul>\n"
+      "phpHtml": "<ul>\n  <li><p>a</p>\n    <b>payload</b>\n  </li>\n</ul>\n",
+      "oracleHtml": "<ul>\n  <li><p>a</p>\n    <b>payload</b>\n  </li>\n</ul>",
+      "imported": "- a\n\n  *payload*\n",
+      "formatted": "- a\n\n  ```=html\n  <b>payload</b>\n  ```\n",
+      "formattedHtml": "<ul>\n  <li><p>a</p>\n    <b>payload</b>\n  </li>\n</ul>\n"
     },
     {
       "name": "nested/```/empty/0",
       "source": "- outer\n\n  - a\n\n    ```=html\n```\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
-      "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
-      "imported": "- outer\n  - a\n\n```\n```\n",
-      "formatted": "- outer\n  - a\n    ```=html\n    ```\n\n```\n```\n",
-      "formattedHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n"
+      "phpHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
+      "oracleHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
+      "imported": "- outer\n\n  {loose}\n  - a\n\n```\n```\n",
+      "formatted": "- outer\n\n  - a\n\n    ```=html\n    ```\n\n```\n```\n",
+      "formattedHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n"
     },
     {
       "name": "nested/```/empty/4",
       "source": "- outer\n\n  - a\n\n    ```=html\n    ```\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n",
-      "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>",
-      "imported": "- outer\n  - a\n",
-      "formatted": "- outer\n  - a\n    ```=html\n    ```\n",
-      "formattedHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n"
+      "phpHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n",
+      "oracleHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n  </li>\n</ul>",
+      "imported": "- outer\n\n  {loose}\n  - a\n",
+      "formatted": "- outer\n\n  - a\n\n    ```=html\n    ```\n",
+      "formattedHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n"
     },
     {
       "name": "nested/```/below/0",
       "source": "- outer\n\n  - a\n\n    ```=html\n   <b>payload</b>\n```\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n  </li>\n</ul>\n<pre><code></code></pre>\n",
-      "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n  </li>\n</ul>\n<pre><code></code></pre>",
-      "imported": "- outer\n  - a\n+\n<b>payload</b>\n\n```\n```\n",
-      "formatted": "- outer\n  - a\n    ```=html\n    ```\n  <b>payload</b>\n\n```\n```\n",
-      "formattedHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n  </li>\n</ul>\n<pre><code></code></pre>\n"
+      "phpHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n    <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
+      "oracleHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n    <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  </li>\n</ul>\n<pre><code></code></pre>",
+      "imported": "- outer\n\n  {loose}\n  - a\n\n  <b>payload</b>\n\n```\n```\n",
+      "formatted": "- outer\n\n  - a\n\n    ```=html\n    ```\n\n  <b>payload</b>\n\n```\n```\n",
+      "formattedHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n    <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  </li>\n</ul>\n<pre><code></code></pre>\n"
     },
     {
       "name": "nested/```/below/4",
       "source": "- outer\n\n  - a\n\n    ```=html\n   <b>payload</b>\n    ```\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n    <pre><code></code></pre>\n  </li>\n</ul>\n",
-      "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n    <pre><code></code></pre>\n  </li>\n</ul>",
-      "imported": "- outer\n  - a\n+\n<b>payload</b>\n+\n```\n```\n",
-      "formatted": "- outer\n  - a\n    ```=html\n    ```\n  <b>payload</b>\n  ```\n  ```\n",
-      "formattedHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n    <pre><code></code></pre>\n  </li>\n</ul>\n"
+      "phpHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n    <p>&lt;b&gt;payload&lt;/b&gt;</p>\n    <pre><code></code></pre>\n  </li>\n</ul>\n",
+      "oracleHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n    <p>&lt;b&gt;payload&lt;/b&gt;</p>\n    <pre><code></code></pre>\n  </li>\n</ul>",
+      "imported": "- outer\n\n  {loose}\n  - a\n\n  <b>payload</b>\n\n  ```\n  ```\n",
+      "formatted": "- outer\n\n  - a\n\n    ```=html\n    ```\n\n  <b>payload</b>\n\n  ```\n  ```\n",
+      "formattedHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n    <p>&lt;b&gt;payload&lt;/b&gt;</p>\n    <pre><code></code></pre>\n  </li>\n</ul>\n"
     },
     {
       "name": "nested/```/at/0",
       "source": "- outer\n\n  - a\n\n    ```=html\n    <b>payload</b>\n```\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
-      "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
-      "imported": "- outer\n  - a *payload*\n\n```\n```\n",
-      "formatted": "- outer\n  - a\n    ```=html\n    <b>payload</b>\n    ```\n\n```\n```\n",
-      "formattedHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n"
+      "phpHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
+      "oracleHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
+      "imported": "- outer\n\n  - a\n\n    *payload*\n\n```\n```\n",
+      "formatted": "- outer\n\n  - a\n\n    ```=html\n    <b>payload</b>\n    ```\n\n```\n```\n",
+      "formattedHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n"
     },
     {
       "name": "nested/```/at/4",
       "source": "- outer\n\n  - a\n\n    ```=html\n    <b>payload</b>\n    ```\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
-      "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>",
-      "imported": "- outer\n  - a *payload*\n",
-      "formatted": "- outer\n  - a\n    ```=html\n    <b>payload</b>\n    ```\n",
-      "formattedHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n"
+      "phpHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
+      "oracleHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>",
+      "imported": "- outer\n\n  - a\n\n    *payload*\n",
+      "formatted": "- outer\n\n  - a\n\n    ```=html\n    <b>payload</b>\n    ```\n",
+      "formattedHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n"
     },
     {
       "name": "nested/~~~/empty/0",
       "source": "- outer\n\n  - a\n\n    ~~~=html\n~~~\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
-      "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
-      "imported": "- outer\n  - a\n\n```\n```\n",
-      "formatted": "- outer\n  - a\n    ```=html\n    ```\n\n```\n```\n",
-      "formattedHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n"
+      "phpHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
+      "oracleHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
+      "imported": "- outer\n\n  {loose}\n  - a\n\n```\n```\n",
+      "formatted": "- outer\n\n  - a\n\n    ```=html\n    ```\n\n```\n```\n",
+      "formattedHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n"
     },
     {
       "name": "nested/~~~/empty/4",
       "source": "- outer\n\n  - a\n\n    ~~~=html\n    ~~~\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n",
-      "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>",
-      "imported": "- outer\n  - a\n",
-      "formatted": "- outer\n  - a\n    ```=html\n    ```\n",
-      "formattedHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n"
+      "phpHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n",
+      "oracleHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n  </li>\n</ul>",
+      "imported": "- outer\n\n  {loose}\n  - a\n",
+      "formatted": "- outer\n\n  - a\n\n    ```=html\n    ```\n",
+      "formattedHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n  </li>\n</ul>\n"
     },
     {
       "name": "nested/~~~/below/0",
       "source": "- outer\n\n  - a\n\n    ~~~=html\n   <b>payload</b>\n~~~\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n  </li>\n</ul>\n<pre><code></code></pre>\n",
-      "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n  </li>\n</ul>\n<pre><code></code></pre>",
-      "imported": "- outer\n  - a\n+\n<b>payload</b>\n\n```\n```\n",
-      "formatted": "- outer\n  - a\n    ```=html\n    ```\n  <b>payload</b>\n\n```\n```\n",
-      "formattedHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n  </li>\n</ul>\n<pre><code></code></pre>\n"
+      "phpHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n    <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
+      "oracleHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n    <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  </li>\n</ul>\n<pre><code></code></pre>",
+      "imported": "- outer\n\n  {loose}\n  - a\n\n  <b>payload</b>\n\n```\n```\n",
+      "formatted": "- outer\n\n  - a\n\n    ```=html\n    ```\n\n  <b>payload</b>\n\n```\n```\n",
+      "formattedHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n    <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  </li>\n</ul>\n<pre><code></code></pre>\n"
     },
     {
       "name": "nested/~~~/below/4",
       "source": "- outer\n\n  - a\n\n    ~~~=html\n   <b>payload</b>\n    ~~~\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n    <pre><code></code></pre>\n  </li>\n</ul>\n",
-      "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n    <pre><code></code></pre>\n  </li>\n</ul>",
-      "imported": "- outer\n  - a\n+\n<b>payload</b>\n+\n```\n```\n",
-      "formatted": "- outer\n  - a\n    ```=html\n    ```\n  <b>payload</b>\n  ```\n  ```\n",
-      "formattedHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        \n      </li>\n    </ul>\n    &lt;b&gt;payload&lt;/b&gt;\n    <pre><code></code></pre>\n  </li>\n</ul>\n"
+      "phpHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n    <p>&lt;b&gt;payload&lt;/b&gt;</p>\n    <pre><code></code></pre>\n  </li>\n</ul>\n",
+      "oracleHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n    <p>&lt;b&gt;payload&lt;/b&gt;</p>\n    <pre><code></code></pre>\n  </li>\n</ul>",
+      "imported": "- outer\n\n  {loose}\n  - a\n\n  <b>payload</b>\n\n  ```\n  ```\n",
+      "formatted": "- outer\n\n  - a\n\n    ```=html\n    ```\n\n  <b>payload</b>\n\n  ```\n  ```\n",
+      "formattedHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        \n      </li>\n    </ul>\n    <p>&lt;b&gt;payload&lt;/b&gt;</p>\n    <pre><code></code></pre>\n  </li>\n</ul>\n"
     },
     {
       "name": "nested/~~~/at/0",
       "source": "- outer\n\n  - a\n\n    ~~~=html\n    <b>payload</b>\n~~~\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
-      "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
-      "imported": "- outer\n  - a *payload*\n\n```\n```\n",
-      "formatted": "- outer\n  - a\n    ```=html\n    <b>payload</b>\n    ```\n\n```\n```\n",
-      "formattedHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n"
+      "phpHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n",
+      "oracleHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>",
+      "imported": "- outer\n\n  - a\n\n    *payload*\n\n```\n```\n",
+      "formatted": "- outer\n\n  - a\n\n    ```=html\n    <b>payload</b>\n    ```\n\n```\n```\n",
+      "formattedHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>\n"
     },
     {
       "name": "nested/~~~/at/4",
       "source": "- outer\n\n  - a\n\n    ~~~=html\n    <b>payload</b>\n    ~~~\n",
-      "phpHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
-      "oracleHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>",
-      "imported": "- outer\n  - a *payload*\n",
-      "formatted": "- outer\n  - a\n    ```=html\n    <b>payload</b>\n    ```\n",
-      "formattedHtml": "<ul>\n  <li>outer\n    <ul>\n      <li>a\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n"
+      "phpHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
+      "oracleHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>",
+      "imported": "- outer\n\n  - a\n\n    *payload*\n",
+      "formatted": "- outer\n\n  - a\n\n    ```=html\n    <b>payload</b>\n    ```\n",
+      "formattedHtml": "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li><p>a</p>\n        <b>payload</b>\n      </li>\n    </ul>\n  </li>\n</ul>\n"
     },
     {
       "name": "quoted/```/empty/0",
       "source": "> - a\n>\n>   ```=html\n> ```\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n",
-      "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>",
-      "imported": "> - a\n>\n> ```\n> ```\n",
-      "formatted": "> - a\n>   ```=html\n>   ```\n>\n> ```\n> ```\n",
-      "formattedHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n"
+      "phpHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n",
+      "oracleHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>",
+      "imported": "> {loose}\n> - a\n>\n> ```\n> ```\n",
+      "formatted": "> - a\n>\n>   ```=html\n>   ```\n>\n> ```\n> ```\n",
+      "formattedHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n"
     },
     {
       "name": "quoted/```/empty/2",
       "source": "> - a\n>\n>   ```=html\n>   ```\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n</blockquote>\n",
-      "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n</blockquote>",
-      "imported": "> - a\n",
-      "formatted": "> - a\n>   ```=html\n>   ```\n",
-      "formattedHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n</blockquote>\n"
+      "phpHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n</blockquote>\n",
+      "oracleHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n</blockquote>",
+      "imported": "> {loose}\n> - a\n",
+      "formatted": "> - a\n>\n>   ```=html\n>   ```\n",
+      "formattedHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n</blockquote>\n"
     },
     {
       "name": "quoted/```/below/0",
       "source": "> - a\n>\n>   ```=html\n>  <b>payload</b>\n> ```\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n",
-      "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>",
-      "imported": "> - a\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
-      "formatted": "> - a\n>   ```=html\n>   ```\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
-      "formattedHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n"
+      "phpHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n",
+      "oracleHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>",
+      "imported": "> {loose}\n> - a\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
+      "formatted": "> - a\n>\n>   ```=html\n>   ```\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
+      "formattedHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n"
     },
     {
       "name": "quoted/```/below/2",
       "source": "> - a\n>\n>   ```=html\n>  <b>payload</b>\n>   ```\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n",
-      "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>",
-      "imported": "> - a\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
-      "formatted": "> - a\n>   ```=html\n>   ```\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
-      "formattedHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n"
+      "phpHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n",
+      "oracleHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>",
+      "imported": "> {loose}\n> - a\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
+      "formatted": "> - a\n>\n>   ```=html\n>   ```\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
+      "formattedHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n"
     },
     {
       "name": "quoted/```/at/0",
       "source": "> - a\n>\n>   ```=html\n>   <b>payload</b>\n> ```\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      <b>payload</b>\n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n",
-      "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      <b>payload</b>\n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>",
-      "imported": "> - a *payload*\n>\n> ```\n> ```\n",
-      "formatted": "> - a\n>   ```=html\n>   <b>payload</b>\n>   ```\n>\n> ```\n> ```\n",
-      "formattedHtml": "<blockquote>\n  <ul>\n    <li>a\n      <b>payload</b>\n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n"
+      "phpHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <b>payload</b>\n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n",
+      "oracleHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <b>payload</b>\n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>",
+      "imported": "> - a\n>\n>   *payload*\n>\n> ```\n> ```\n",
+      "formatted": "> - a\n>\n>   ```=html\n>   <b>payload</b>\n>   ```\n>\n> ```\n> ```\n",
+      "formattedHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <b>payload</b>\n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n"
     },
     {
       "name": "quoted/```/at/2",
       "source": "> - a\n>\n>   ```=html\n>   <b>payload</b>\n>   ```\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      <b>payload</b>\n    </li>\n  </ul>\n</blockquote>\n",
-      "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      <b>payload</b>\n    </li>\n  </ul>\n</blockquote>",
-      "imported": "> - a *payload*\n",
-      "formatted": "> - a\n>   ```=html\n>   <b>payload</b>\n>   ```\n",
-      "formattedHtml": "<blockquote>\n  <ul>\n    <li>a\n      <b>payload</b>\n    </li>\n  </ul>\n</blockquote>\n"
+      "phpHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <b>payload</b>\n    </li>\n  </ul>\n</blockquote>\n",
+      "oracleHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <b>payload</b>\n    </li>\n  </ul>\n</blockquote>",
+      "imported": "> - a\n>\n>   *payload*\n",
+      "formatted": "> - a\n>\n>   ```=html\n>   <b>payload</b>\n>   ```\n",
+      "formattedHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <b>payload</b>\n    </li>\n  </ul>\n</blockquote>\n"
     },
     {
       "name": "quoted/~~~/empty/0",
       "source": "> - a\n>\n>   ~~~=html\n> ~~~\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n",
-      "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>",
-      "imported": "> - a\n>\n> ```\n> ```\n",
-      "formatted": "> - a\n>   ```=html\n>   ```\n>\n> ```\n> ```\n",
-      "formattedHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n"
+      "phpHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n",
+      "oracleHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>",
+      "imported": "> {loose}\n> - a\n>\n> ```\n> ```\n",
+      "formatted": "> - a\n>\n>   ```=html\n>   ```\n>\n> ```\n> ```\n",
+      "formattedHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n"
     },
     {
       "name": "quoted/~~~/empty/2",
       "source": "> - a\n>\n>   ~~~=html\n>   ~~~\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n</blockquote>\n",
-      "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n</blockquote>",
-      "imported": "> - a\n",
-      "formatted": "> - a\n>   ```=html\n>   ```\n",
-      "formattedHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n</blockquote>\n"
+      "phpHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n</blockquote>\n",
+      "oracleHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n</blockquote>",
+      "imported": "> {loose}\n> - a\n",
+      "formatted": "> - a\n>\n>   ```=html\n>   ```\n",
+      "formattedHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n</blockquote>\n"
     },
     {
       "name": "quoted/~~~/below/0",
       "source": "> - a\n>\n>   ~~~=html\n>  <b>payload</b>\n> ~~~\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n",
-      "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>",
-      "imported": "> - a\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
-      "formatted": "> - a\n>   ```=html\n>   ```\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
-      "formattedHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n"
+      "phpHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n",
+      "oracleHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>",
+      "imported": "> {loose}\n> - a\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
+      "formatted": "> - a\n>\n>   ```=html\n>   ```\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
+      "formattedHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n"
     },
     {
       "name": "quoted/~~~/below/2",
       "source": "> - a\n>\n>   ~~~=html\n>  <b>payload</b>\n>   ~~~\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n",
-      "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>",
-      "imported": "> - a\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
-      "formatted": "> - a\n>   ```=html\n>   ```\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
-      "formattedHtml": "<blockquote>\n  <ul>\n    <li>a\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n"
+      "phpHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n",
+      "oracleHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>",
+      "imported": "> {loose}\n> - a\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
+      "formatted": "> - a\n>\n>   ```=html\n>   ```\n>\n> <b>payload</b>\n>\n> ```\n> ```\n",
+      "formattedHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      \n    </li>\n  </ul>\n  <p>&lt;b&gt;payload&lt;/b&gt;</p>\n  <pre><code></code></pre>\n</blockquote>\n"
     },
     {
       "name": "quoted/~~~/at/0",
       "source": "> - a\n>\n>   ~~~=html\n>   <b>payload</b>\n> ~~~\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      <b>payload</b>\n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n",
-      "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      <b>payload</b>\n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>",
-      "imported": "> - a *payload*\n>\n> ```\n> ```\n",
-      "formatted": "> - a\n>   ```=html\n>   <b>payload</b>\n>   ```\n>\n> ```\n> ```\n",
-      "formattedHtml": "<blockquote>\n  <ul>\n    <li>a\n      <b>payload</b>\n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n"
+      "phpHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <b>payload</b>\n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n",
+      "oracleHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <b>payload</b>\n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>",
+      "imported": "> - a\n>\n>   *payload*\n>\n> ```\n> ```\n",
+      "formatted": "> - a\n>\n>   ```=html\n>   <b>payload</b>\n>   ```\n>\n> ```\n> ```\n",
+      "formattedHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <b>payload</b>\n    </li>\n  </ul>\n  <pre><code></code></pre>\n</blockquote>\n"
     },
     {
       "name": "quoted/~~~/at/2",
       "source": "> - a\n>\n>   ~~~=html\n>   <b>payload</b>\n>   ~~~\n",
-      "phpHtml": "<blockquote>\n  <ul>\n    <li>a\n      <b>payload</b>\n    </li>\n  </ul>\n</blockquote>\n",
-      "oracleHtml": "<blockquote>\n  <ul>\n    <li>a\n      <b>payload</b>\n    </li>\n  </ul>\n</blockquote>",
-      "imported": "> - a *payload*\n",
-      "formatted": "> - a\n>   ```=html\n>   <b>payload</b>\n>   ```\n",
-      "formattedHtml": "<blockquote>\n  <ul>\n    <li>a\n      <b>payload</b>\n    </li>\n  </ul>\n</blockquote>\n"
+      "phpHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <b>payload</b>\n    </li>\n  </ul>\n</blockquote>\n",
+      "oracleHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <b>payload</b>\n    </li>\n  </ul>\n</blockquote>",
+      "imported": "> - a\n>\n>   *payload*\n",
+      "formatted": "> - a\n>\n>   ```=html\n>   <b>payload</b>\n>   ```\n",
+      "formattedHtml": "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <b>payload</b>\n    </li>\n  </ul>\n</blockquote>\n"
     }
   ]
 }
