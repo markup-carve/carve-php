@@ -38,6 +38,7 @@ final class OwnershipFrame
      * @param int|null $opened
      * @param int|null $written
      * @param bool $task
+     * @param int $c5Shift
      */
     public function __construct(
         public string $kind,
@@ -63,6 +64,7 @@ final class OwnershipFrame
         public ?int $opened = null,
         public ?int $written = null,
         public bool $task = false,
+        public int $c5Shift = 0,
     ) {
     }
 }
