@@ -542,7 +542,7 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
     public function testTheWrappedAttributeFormFoldsInBothHosts(string $body, int $column): void
     {
         $pad = str_repeat(' ', $column);
-        $html = $this->converter->convert(":: t\n:  " . $body . "\n" . $pad . "{.k\n" . $pad . ".b}\ntail");
+        $html = $this->converter->convert(":: t\n:  " . $body . "\n" . $pad . "{.k\n" . $pad . " .b}\ntail");
 
         $expected = $body === 'a'
             ? "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p class=\"k b\">tail</p>"

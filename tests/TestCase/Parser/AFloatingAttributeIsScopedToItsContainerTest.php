@@ -85,7 +85,7 @@ class AFloatingAttributeIsScopedToItsContainerTest extends TestCase
      */
     public function testAWrappedAttributeBlockInterruptsAParagraph(): void
     {
-        $html = $this->html("d\n{.k\n#x}\ntail\n");
+        $html = $this->html("d\n{.k\n #x}\ntail\n");
 
         $this->assertSame(preg_replace('/\n\z/', '', "<p>d</p>\n<p class=\"k\" id=\"x\">tail</p>\n"), $html);
     }
@@ -118,7 +118,7 @@ class AFloatingAttributeIsScopedToItsContainerTest extends TestCase
      */
     public function testAWrappedAttributeAtAQuoteEndDoesNotReachTheLineBelow(): void
     {
-        $html = $this->html("> q\n> {.k\n> #x}\ntail\n");
+        $html = $this->html("> q\n> {.k\n>  #x}\ntail\n");
 
         $this->assertSame(preg_replace('/\n\z/', '', "<blockquote><p>q</p></blockquote>\n<p>tail</p>\n"), $html, $html);
     }
@@ -131,7 +131,7 @@ class AFloatingAttributeIsScopedToItsContainerTest extends TestCase
      */
     public function testAWrappedAttributeEndsAQuoteAtEveryDepth(): void
     {
-        $html = $this->html("> > q\n> > {.k\n> > #x}\ntail\n");
+        $html = $this->html("> > q\n> > {.k\n> >  #x}\ntail\n");
 
         $this->assertSame(
             preg_replace('/\n\z/', '', "<blockquote>\n  <blockquote><p>q</p></blockquote>\n</blockquote>\n<p>tail</p>\n"),

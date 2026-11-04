@@ -13,7 +13,7 @@ class WrappedMarkerAttributeContinuationTest extends TestCase
     {
         $this->assertSame(
             preg_replace('/\n\z/', '', "<ul>\n  <li></li>\n</ul>\n<p>tail</p>\n"),
-            (new CarveConverter())->convert("- {.a\n  .b}\ntail\n"),
+            (new CarveConverter())->convert("- {.a\n   .b}\ntail\n"),
         );
     }
 
@@ -21,7 +21,7 @@ class WrappedMarkerAttributeContinuationTest extends TestCase
     {
         $this->assertSame(
             preg_replace('/\n\z/', '', "<ul>\n  <li>prose</li>\n</ul>\n<p>tail</p>\n"),
-            (new CarveConverter())->convert("- prose\n  {.a\n  .b}\ntail\n"),
+            (new CarveConverter())->convert("- prose\n  {.a\n   .b}\ntail\n"),
         );
     }
 

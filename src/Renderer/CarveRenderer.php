@@ -1995,7 +1995,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $attributeNode = clone $node;
             $this->addTableSourceMetadata($attributeNode, $node);
         }
-        $attrs = $this->renderAttrs($attributeNode);
+        // A wrapped attribute line continues one column past its `{` (CARVE-P2-035).
+        $attrs = str_replace("\n", "\n ", $this->renderAttrs($attributeNode));
         $withAttrs = static fn (string $body): string => $attrs === '' ? $body : $attrs . "\n" . $body;
         // PART 9 §17 L7: the writer spells looseness with `{loose}` ONLY where
         // the blank-line spelling cannot.
@@ -4371,6 +4372,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $content = $node->getContent();
         if ($node->isDelimited()) {
+            // At block position a continuation passes the opening `{` (CARVE-P2-035).
+            $parent = $node->getParent();
+            if ($parent instanceof Paragraph ? ($parent->getChildren()[0] ?? null) === $node : !$parent instanceof InlineNode) {
+                $content = (string)preg_replace('/\n(?=[^\n])/', "\n ", $content);
+            }
+
             return '{%' . (str_starts_with($content, "\n") ? '' : ' ')
                 . $content . ' %}';
         }
@@ -4585,6 +4592,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 }
                 $nodes = $visible;
             }
+            $nodes = self::withRefusedBraceRunsVerbatim($nodes);
             $out = '';
             $count = count($nodes);
             $captionCanOpen = $this->paragraphStartsAfterCaptionHost && $this->inlineDepth === 1;
@@ -7104,6 +7112,87 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function collectBracketMarks(array $nodes, string &$flat, array &$marks): bool
     {
         return $this->plannerService()->collectBracketMarks($nodes, $flat, $marks);
+    }
+
+    /**
+     * Write each refused wrapped attribute run as it reads: its shallow continuation keeps it refused on reparse.
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     *
+     * @return array<\MarkupCarve\Carve\Node\Node>
+     */
+    private static function withRefusedBraceRunsVerbatim(array $nodes): array
+    {
+        $nodes = array_values($nodes);
+        $count = count($nodes);
+        $result = [];
+        for ($i = 0; $i < $count; $i++) {
+            $node = $nodes[$i];
+            if (
+                !$node instanceof Text || !str_starts_with($node->getContent(), '{')
+                || ($i > 0 && !$nodes[$i - 1] instanceof SoftBreak) || !($nodes[$i + 1] ?? null) instanceof SoftBreak
+            ) {
+                $result[] = $node;
+
+                continue;
+            }
+            $lines = [$node->getContent()];
+            for ($j = $i; ($nodes[$j + 1] ?? null) instanceof SoftBreak && ($nodes[$j + 2] ?? null) instanceof Text; $j += 2) {
+                $lines[] = $nodes[$j + 2]->getContent();
+            }
+            $end = self::refusedBraceTextEnd(implode("\n", $lines));
+            if ($end === 0) {
+                $result[] = $node;
+
+                continue;
+            }
+            $run = substr(implode("\n", $lines), 0, $end);
+            $result[] = new RawText($run);
+            $i += 2 * substr_count($run, "\n");
+        }
+
+        return $result;
+    }
+
+    /**
+     * The end of a wrapped brace run that opens this text with a continuation at its `{` column, or 0 (CARVE-P2-035).
+     *
+     * Braced comments are left to the escape probe: an accepted one would vanish.
+     */
+    private static function refusedBraceTextEnd(string $value): int
+    {
+        if (!str_starts_with($value, '{') || str_starts_with($value, '{%') || !str_contains($value, "\n")) {
+            return 0;
+        }
+        $depth = 0;
+        $refused = false;
+        $lineStart = true;
+        $length = strlen($value);
+        for ($at = 0; $at < $length; $at++) {
+            $char = $value[$at];
+            if ($lineStart && $at > 0 && $char !== ' ' && $char !== "\t") {
+                $refused = true;
+            }
+            $lineStart = $char === "\n";
+            $depth += $char === '{' ? 1 : ($char === '}' ? -1 : 0);
+            if ($depth > 0) {
+                continue;
+            }
+            $next = $at + 1;
+            while ($next < $length && ($value[$next] === ' ' || $value[$next] === "\t")) {
+                $next++;
+            }
+            // A glued block continues the run; anything else on the closing line makes it prose.
+            if ($next < $length && $value[$next] === '{') {
+                $at = $next - 1;
+
+                continue;
+            }
+
+            return $refused && ($next === $length || $value[$next] === "\n") ? $at + 1 : 0;
+        }
+
+        return 0;
     }
 
     /**

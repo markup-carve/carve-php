@@ -13,10 +13,11 @@ final class WrappedBlockAttributeScanner
      * @param array<string> $lines
      * @param \MarkupCarve\Carve\Parser\InlineParser $inlineParser
      * @param int $start
+     * @param int $openerColumn Source column of the first line's byte zero.
      *
      * @return array{payload: string, length: int}|null
      */
-    public static function scan(array $lines, int $start, InlineParser $inlineParser): ?array
+    public static function scan(array $lines, int $start, InlineParser $inlineParser, int $openerColumn = 0): ?array
     {
         $line = $lines[$start] ?? '';
         if (!str_starts_with($line, '{')) {
@@ -42,7 +43,8 @@ final class WrappedBlockAttributeScanner
                     return null;
                 }
             } else {
-                $wrapped = self::wrappedBlock($lines, $at, $pos, $count, $inlineParser);
+                $column = self::columnAt($line, $pos, $at === $start ? $openerColumn : 0);
+                $wrapped = self::wrappedBlock($lines, $at, $pos, $column, $count, $inlineParser);
                 if ($wrapped === null) {
                     return null;
                 }
@@ -70,12 +72,13 @@ final class WrappedBlockAttributeScanner
      * @param array<string> $lines
      * @param int $at
      * @param int $pos
+     * @param int $column Source column of the opening `{`.
      * @param int $count
      * @param \MarkupCarve\Carve\Parser\InlineParser $inlineParser
      *
      * @return array{string, int, int}|null The block's payload, its last line and its closing brace.
      */
-    private static function wrappedBlock(array $lines, int $at, int $pos, int $count, InlineParser $inlineParser): ?array
+    private static function wrappedBlock(array $lines, int $at, int $pos, int $column, int $count, InlineParser $inlineParser): ?array
     {
         $attrContent = substr($lines[$at], $pos + 1);
         if (str_starts_with($attrContent, "\t")) {
@@ -87,6 +90,10 @@ final class WrappedBlockAttributeScanner
                 return null;
             }
             $nextLine = $lines[$i];
+            // Every continuation, a lone closer included, passes the opening `{` (CARVE-P2-035).
+            if (IndentationHelper::getLeadingColumns($nextLine) <= $column) {
+                return null;
+            }
             $close = self::findSingleLineAttributeBlockEnd($nextLine, -1);
             if ($close !== null) {
                 $part = trim($attrContent . ' ' . substr($nextLine, 0, $close));
@@ -108,6 +115,19 @@ final class WrappedBlockAttributeScanner
         }
 
         return null;
+    }
+
+    /**
+     * The source column of byte $pos on a line whose byte zero sits at $base.
+     */
+    public static function columnAt(string $line, int $pos, int $base = 0): int
+    {
+        $column = $base;
+        for ($k = 0; $k < $pos; $k++) {
+            $column = $line[$k] === "\t" ? intdiv($column, 4) * 4 + 4 : $column + 1;
+        }
+
+        return $column;
     }
 
     /**

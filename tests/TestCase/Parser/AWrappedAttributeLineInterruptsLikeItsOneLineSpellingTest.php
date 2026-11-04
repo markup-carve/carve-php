@@ -20,12 +20,12 @@ final class AWrappedAttributeLineInterruptsLikeItsOneLineSpellingTest extends Te
     public static function provider(): array
     {
         return [
-            'after an item, before a fence' => ["- a\n{.c\n}\n~~~\ny\n~~~\n", "- a\n{.c}\n~~~\ny\n~~~\n"],
-            'after an item, before a paragraph' => ["- a\n{.c\n}\npara\n", "- a\n{.c}\npara\n"],
+            'after an item, before a fence' => ["- a\n{.c\n }\n~~~\ny\n~~~\n", "- a\n{.c}\n~~~\ny\n~~~\n"],
+            'after an item, before a paragraph' => ["- a\n{.c\n }\npara\n", "- a\n{.c}\npara\n"],
             'indented closer' => ["- a\n{.c\n  }\npara\n", "- a\n{.c}\npara\n"],
-            'two classes' => ["- a\n{.c\n.d}\npara\n", "- a\n{.c .d}\npara\n"],
-            'after a quote' => ["> a\n{.c\n}\npara\n", "> a\n{.c}\npara\n"],
-            'after a refused nested plus' => ["- - ```\n  +\n{.c\n}\n~~~\ny\n~~~\n", "- - ```\n  +\n{.c}\n~~~\ny\n~~~\n"],
+            'two classes' => ["- a\n{.c\n .d}\npara\n", "- a\n{.c .d}\npara\n"],
+            'after a quote' => ["> a\n{.c\n }\npara\n", "> a\n{.c}\npara\n"],
+            'after a refused nested plus' => ["- - ```\n  +\n{.c\n }\n~~~\ny\n~~~\n", "- - ```\n  +\n{.c}\n~~~\ny\n~~~\n"],
         ];
     }
 
@@ -39,7 +39,7 @@ final class AWrappedAttributeLineInterruptsLikeItsOneLineSpellingTest extends Te
     {
         $this->assertSame(
             "<ul>\n  <li>a\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n<p class=\"c\">para</p>",
-            trim((new CarveConverter())->convert("- a\n  - b\n{.c\n}\npara\n")),
+            trim((new CarveConverter())->convert("- a\n  - b\n{.c\n }\npara\n")),
         );
     }
 
@@ -47,7 +47,7 @@ final class AWrappedAttributeLineInterruptsLikeItsOneLineSpellingTest extends Te
     {
         $this->assertSame(
             "<ul>\n  <li>a\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n<ul class=\"c\">\n  <li>d</li>\n</ul>",
-            trim((new CarveConverter())->convert("- a\n  - b\n{.c\n}\n- d\n")),
+            trim((new CarveConverter())->convert("- a\n  - b\n{.c\n }\n- d\n")),
         );
     }
 
@@ -55,7 +55,7 @@ final class AWrappedAttributeLineInterruptsLikeItsOneLineSpellingTest extends Te
     {
         $this->assertSame(
             "<ul>\n  <li>a</li>\n</ul>\n<pre class=\"c\"><code>y\n</code></pre>",
-            trim((new CarveConverter())->convert("- a\n{.c\n}\n~~~\ny\n~~~\n")),
+            trim((new CarveConverter())->convert("- a\n{.c\n }\n~~~\ny\n~~~\n")),
         );
     }
 

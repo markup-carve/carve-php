@@ -171,7 +171,7 @@ class AContinuationMarkerAttachesOneBlockTest extends TestCase
      */
     public function testAWrappedAttributeBlockStaysWithTheBlockItAttributes(): void
     {
-        $html = $this->html("- +\n{.a\n.b}\n# H\n");
+        $html = $this->html("- +\n{.a\n .b}\n# H\n");
 
         $this->assertSame(
             preg_replace('/\n\z/', '', "<ul>\n"

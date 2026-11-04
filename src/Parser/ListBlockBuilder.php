@@ -291,7 +291,7 @@ final class ListBlockBuilder
     private function rendersSomething(ListItem $item): bool
     {
         foreach ($item->getChildren() as $child) {
-            if (!self::rendersNothing($child)) {
+            if (!self::rendersNothing($child) && !$this->state->session->isRefusedCommentParagraph($child)) {
                 return true;
             }
         }
@@ -407,7 +407,7 @@ final class ListBlockBuilder
             $before = $merged;
             $visibleContinuation = array_filter(
                 array_slice($lastItem->getChildren(), $before),
-                static fn (Node $child): bool => !self::rendersNothing($child),
+                fn (Node $child): bool => !self::rendersNothing($child) && !$this->state->session->isRefusedCommentParagraph($child),
             );
             $firstSubLine = current(array_filter($subLines, static fn (string $l): bool => !IndentationHelper::isBlankLine($l)));
             if ($visibleContinuation === []) {

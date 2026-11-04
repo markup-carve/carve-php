@@ -15,12 +15,12 @@ final class WrappedAttributeNestedMarkerReleaseTest extends TestCase
      */
     public static function nestedMarkers(): iterable
     {
-        yield 'one nested item' => ["- - a\n  {c\n}\nx\n", "</ul>\n<p>x</p>"];
-        yield 'two nested items' => ["- - - a\n  {c\n}\nx\n", "</ul>\n<p>x</p>"];
-        yield 'attribute between item columns' => ["- - a\n   {c\n}\nx\n", "</ul>\n<p>x</p>"];
-        yield 'attribute at the nested item column' => ["- - a\n    {c\n}\nx\n", "</ul>\n<p>x</p>"];
-        yield 'outer item in a quote' => ["> - - a\n>   {c\n> }\nx\n", "</blockquote>\n<p>x</p>"];
-        yield 'attribute between quoted item columns' => ["> - - a\n>    {c\n> }\nx\n", "</blockquote>\n<p>x</p>"];
+        yield 'one nested item' => ["- - a\n  {c\n   }\nx\n", "</ul>\n<p>x</p>"];
+        yield 'two nested items' => ["- - - a\n  {c\n   }\nx\n", "</ul>\n<p>x</p>"];
+        yield 'attribute between item columns' => ["- - a\n   {c\n    }\nx\n", "</ul>\n<p>x</p>"];
+        yield 'attribute at the nested item column' => ["- - a\n    {c\n     }\nx\n", "</ul>\n<p>x</p>"];
+        yield 'outer item in a quote' => ["> - - a\n>   {c\n>    }\nx\n", "</blockquote>\n<p>x</p>"];
+        yield 'attribute between quoted item columns' => ["> - - a\n>    {c\n>     }\nx\n", "</blockquote>\n<p>x</p>"];
     }
 
     #[DataProvider('nestedMarkers')]

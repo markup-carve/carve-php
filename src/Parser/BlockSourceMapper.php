@@ -196,8 +196,9 @@ final class BlockSourceMapper
      *   marker's width is a lower bound on where the text can sit in the raw
      *   line (a container prefix only pushes it further right), so searching
      *   from it can never skip the real occurrence.
+     * @param array<int, true> $literalLines Lines the content holds escaped (a refused brace run).
      */
-    public function foldedLinesMap(array $contentLines, int $firstLineSearchFrom = 0): ?SourceMap
+    public function foldedLinesMap(array $contentLines, int $firstLineSearchFrom = 0, array $literalLines = []): ?SourceMap
     {
         if (!$this->state->source->trackPositions || $contentLines === []) {
             return null;
@@ -224,7 +225,24 @@ final class BlockSourceMapper
                 // once. Falling back to the nested column produced spans that
                 // pointed at unrelated bytes; skipping the segment means the
                 // affected nodes get no position, which is the correct answer.
-                $textOffset += $length + 1;
+                $textOffset += (isset($literalLines[$index - 1]) ? strlen(RefusedBraceRun::escape($lineText)) : $length) + 1;
+
+                continue;
+            }
+            if (isset($literalLines[$index - 1])) {
+                // The content holds this line escaped: each inserted backslash maps onto the byte it escapes.
+                for ($k = 0; $k < $length; $k++) {
+                    $escaped = preg_match('/[!-\/:-@\[-`{-~]/', $lineText[$k]) === 1;
+                    if ($lineStart !== null) {
+                        if ($escaped) {
+                            $map->add($textOffset, $lineStart + $sourceColumn + $k, 1, $sourceLine + 1, $sourceColumn + $k + 1);
+                        }
+                        $map->add($textOffset + ($escaped ? 1 : 0), $lineStart + $sourceColumn + $k, 1, $sourceLine + 1, $sourceColumn + $k + 1);
+                        $any = true;
+                    }
+                    $textOffset += $escaped ? 2 : 1;
+                }
+                $textOffset++;
 
                 continue;
             }

@@ -18,7 +18,7 @@ class UnattachedBlockAttributeLinterTest extends TestCase
         $cases = [
             ["{.a}\n", 1, 1, '{.a}'],
             ["é😀\r\n\r\n> {.a}\r\n", 3, 3, '{.a}'],
-            ["- {.a\n  .b}\ntail\n", 1, 3, "{.a\n  .b}"],
+            ["- {.a\n   .b}\ntail\n", 1, 3, "{.a\n   .b}"],
             ["::: note\n{.a}\n:::\n", 2, 1, '{.a}'],
             [":: term\n: {.a}\n", 2, 3, '{.a}'],
             ["note[^n]\n\n[^n]: {.a}\n", 3, 7, '{.a}'],

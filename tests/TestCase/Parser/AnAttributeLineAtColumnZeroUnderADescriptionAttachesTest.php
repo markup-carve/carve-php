@@ -89,7 +89,7 @@ class AnAttributeLineAtColumnZeroUnderADescriptionAttachesTest extends TestCase
      */
     public function testTheWrappedFormAttachesAtDocumentLevelToo(): void
     {
-        $html = $this->html(":: t\n:  d\n{.k\n.j}\ntail\n");
+        $html = $this->html(":: t\n:  d\n{.k\n .j}\ntail\n");
 
         $this->assertSame(
             "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p class=\"k j\">tail</p>",
