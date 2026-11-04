@@ -29,7 +29,6 @@ final class AListHostedNoteContinuationRetainsItsSourceAndVisibilityTest extends
   <hr>
   <ol>
     <li id="fn1">
-      <p>+</p>
       <h1 id="h">h</h1>
       <p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
     </li>

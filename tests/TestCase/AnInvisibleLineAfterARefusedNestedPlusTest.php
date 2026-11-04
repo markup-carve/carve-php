@@ -30,31 +30,31 @@ class AnInvisibleLineAfterARefusedNestedPlusTest extends TestCase
         return [
             'attribute-before-fence' => [
                 "- - ```\n  +\n{.c}\n~~~\ny\n~~~\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    +\n  </li>\n</ul>\n<pre class=\"c\"><code>y\n</code></pre>",
+                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre class=\"c\"><code>y\n</code></pre>",
             ],
             'attribute-after-paragraph-plus' => [
                 "- - b\n  +\n{.c}\npara\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>b\n+</li>\n    </ul>\n  </li>\n</ul>\n<p class=\"c\">para</p>",
+                "<ul>\n  <li>\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n<p class=\"c\">para</p>",
             ],
             'attribute-after-blank-plus' => [
                 "- - b\n\n  +\n{.c}\npara\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>b</li>\n    </ul>\n    <p>+</p>\n  </li>\n</ul>\n<p class=\"c\">para</p>",
+                "<ul>\n  <li>\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n<p class=\"c\">para</p>",
             ],
             'reference-definition' => [
                 "- - ```\n  +\n[r]: /u\npara [x][r]\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    +\n  </li>\n</ul>\n<p>para <a href=\"/u\">x</a></p>",
+                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>para <a href=\"/u\">x</a></p>",
             ],
             'footnote-definition' => [
                 "- - b\n  +\n[^n]: note\npara[^n]\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>b\n+</li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>",
             ],
             'lazy-text-still-folds' => [
                 "- - ```\n  +\nlazy\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    +\nlazy\n  </li>\n</ul>",
+                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>lazy</p>",
             ],
             'comment-still-folds' => [
                 "- - ```\n  +\n%% c\npara\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    +\n  </li>\n</ul>\n<p>para</p>",
+                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>para</p>",
             ],
         ];
     }

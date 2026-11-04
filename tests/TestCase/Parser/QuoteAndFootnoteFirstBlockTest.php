@@ -25,9 +25,9 @@ class QuoteAndFootnoteFirstBlockTest extends TestCase
         yield 'nested quote releases line after fence' => ["> > +\n```\nx\n```\nlazy\n", "</code></pre>\n<p>lazy</p>"];
         yield 'quoted continuation keeps plus as text' => ["> +\n> more\n", "<blockquote>\n  <blockquote><p>more</p></blockquote>\n</blockquote>"];
         yield 'nested quoted continuation takes the inner form' => ["> > +\n> more\n", "<blockquote>\n  <blockquote><p>more</p></blockquote>\n</blockquote>"];
-        yield 'bare quote keeps plus' => ["> +\n", '<blockquote><p>+</p></blockquote>'];
-        yield 'quote before blank keeps plus' => ["> +\n\nafter\n", '<blockquote><p>+</p></blockquote>'];
-        yield 'bare note keeps plus' => ["see[^a]\n\n[^a]: +\n", '<p>+<a href='];
+        yield 'bare quote keeps plus' => ["> +\n", "<blockquote>\n\n</blockquote>"];
+        yield 'quote before blank keeps plus' => ["> +\n\nafter\n", "<blockquote>\n\n</blockquote>"];
+        yield 'bare note keeps plus' => ["see[^a]\n\n[^a]: +\n", '<p><a href='];
     }
 
     #[DataProvider('cases')]
@@ -66,7 +66,7 @@ class QuoteAndFootnoteFirstBlockTest extends TestCase
 
         yield 'item quote leaves a column-zero table outside' => [
             "- a\n\n  > +\n| t |\n",
-            "<ul>\n  <li><p>a</p>\n    <blockquote><p>+</p></blockquote>\n  </li>\n</ul>\n<table>\n  <tbody>\n"
+            "<ul>\n  <li><p>a</p>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n<table>\n  <tbody>\n"
             . "    <tr><td>t</td></tr>\n  </tbody>\n</table>",
         ];
 

@@ -21,7 +21,8 @@ final class FootnoteLazyContinuationTest extends TestCase
             $html = (new CarveConverter())->convert($source);
             self::assertStringNotContainsString('<p>+</p>', $html);
             self::assertStringContainsString('role="doc-endnotes"', $html);
-            self::assertStringContainsString("+\n", $html);
+            // A refused marker renders nothing (carve#5013).
+            self::assertStringNotContainsString('+', $html);
         }
     }
 
@@ -30,6 +31,6 @@ final class FootnoteLazyContinuationTest extends TestCase
         $source = "x[^a]\n\n[^a]: note\n+\n\npara\n";
         $html = (new CarveConverter())->convert($source);
         self::assertStringContainsString('<p>para</p>', $html);
-        self::assertStringContainsString("note\n+", $html);
+        self::assertStringContainsString('<p>note<a href', $html);
     }
 }

@@ -15,9 +15,9 @@ final class LazyDescriptionConsecutivePlusTest extends TestCase
      */
     public static function cases(): iterable
     {
-        yield 'second plus is paragraph' => [":: m\n: f\nl\n+\n+\n", "<p>f\nl</p>\n    <p>+</p>"];
+        yield 'second plus is paragraph' => [":: m\n: f\nl\n+\n+\n", "<dd>f\nl</dd>"];
         yield 'plus attaches text' => [":: m\n: f\nl\n+\nq\n", "<p>f\nl</p>\n    <p>q</p>"];
-        yield 'terminal plus stays lazy' => [":: m\n: f\nl\n+\n", "<dd>f\nl\n+</dd>"];
+        yield 'terminal plus stays lazy' => [":: m\n: f\nl\n+\n", "<dd>f\nl</dd>"];
     }
 
     #[DataProvider('cases')]

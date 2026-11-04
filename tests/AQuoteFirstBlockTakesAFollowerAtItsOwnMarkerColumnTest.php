@@ -18,10 +18,10 @@ final class AQuoteFirstBlockTakesAFollowerAtItsOwnMarkerColumnTest extends TestC
      */
     public static function documents(): iterable
     {
-        yield 'quoted ordered item, stacked quote, follower at the inner quote column (#4209)' => ["> 1. > > +\n>      s\n", "<blockquote>\n  <ol>\n    <li>\n      <blockquote>\n        <blockquote><p>+\ns</p></blockquote>\n      </blockquote>\n    </li>\n  </ol>\n</blockquote>"];
-        yield 'quoted bullet item, stacked quote, follower at the inner quote column' => ["> - > > +\n>     s\n", "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <blockquote><p>+\ns</p></blockquote>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>"];
-        yield 'stacked quotes, follower at the inner quote column' => ["> > +\n  s\n", "<blockquote>\n  <blockquote><p>+\ns</p></blockquote>\n</blockquote>"];
-        yield 'stacked quotes, follower at an intervening column stays text' => ["> > +\n s\n", "<blockquote>\n  <blockquote><p>+\ns</p></blockquote>\n</blockquote>"];
+        yield 'quoted ordered item, stacked quote, follower at the inner quote column (#4209)' => ["> 1. > > +\n>      s\n", "<blockquote>\n  <ol>\n    <li>\n      <blockquote>\n        <blockquote>\n\n        </blockquote>\n      </blockquote>\n      s\n    </li>\n  </ol>\n</blockquote>"];
+        yield 'quoted bullet item, stacked quote, follower at the inner quote column' => ["> - > > +\n>     s\n", "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <blockquote>\n\n        </blockquote>\n      </blockquote>\n      s\n    </li>\n  </ul>\n</blockquote>"];
+        yield 'stacked quotes, follower at the inner quote column' => ["> > +\n  s\n", "<blockquote>\n  <blockquote>\n\n  </blockquote>\n</blockquote>\n<p>s</p>"];
+        yield 'stacked quotes, follower at an intervening column stays text' => ["> > +\n s\n", "<blockquote>\n  <blockquote>\n\n  </blockquote>\n</blockquote>\n<p>s</p>"];
     }
 
     #[DataProvider('documents')]

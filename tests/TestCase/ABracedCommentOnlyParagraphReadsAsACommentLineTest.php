@@ -53,7 +53,7 @@ class ABracedCommentOnlyParagraphReadsAsACommentLineTest extends TestCase
             ],
             'a plus refused past it' => [
                 "- +\n{% c %}\n\n# H\n",
-                "<ul>\n  <li>+\n</li>\n</ul>\n<section id=\"H\">\n  <h1>H</h1>\n</section>",
+                "<ul>\n  <li></li>\n</ul>\n<section id=\"H\">\n  <h1>H</h1>\n</section>",
             ],
             'a quote of only comments hosts no caption' => [
                 "> {% c %}\n^ cap\n",

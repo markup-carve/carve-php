@@ -19,7 +19,7 @@ class ARuledContainerBoundariesRemainStableTest extends TestCase
     public static function examples(): iterable
     {
         yield '3638 note item' => [". d\n   [^n]: e\n     - a\n", "<ol>\n<li>d</li>\n</ol>"];
-        yield '3653 refused marker after list' => ["- outer\n  - first\n  - second\n+\n  paragraph\n", "<ul>\n<li>outer\n<ul>\n<li>first</li>\n<li>second\n+\nparagraph</li>\n</ul>\n</li>\n</ul>"];
+        yield '3653 refused marker after list' => ["- outer\n  - first\n  - second\n+\n  paragraph\n", "<ul>\n<li>outer\n<ul>\n<li>first</li>\n<li>second</li>\n</ul>\n</li>\n</ul>\n<p>paragraph</p>"];
         yield '3653 refused marker in quote' => ["> quote\n  ```\n+\n  ```\nnext\n", "<blockquote><p>quote</p></blockquote>\n<pre><code>+\n</code></pre>\n<p>next</p>"];
         yield '3653 marker in fence' => ["- outer\n  - inner\n  ```\n  +\n  ```\nnext\n", "<ul>\n<li>outer\n<ul>\n<li>inner</li>\n</ul>\n<pre><code>+\n</code></pre>\n</li>\n</ul>\n<p>next</p>"];
         yield '3653 quoted marker is fence payload' => ["- outer\n  - inner\n  ```\n  > +\n  ```\nnext\n", "<ul>\n<li>outer\n<ul>\n<li>inner</li>\n</ul>\n<pre><code>&gt; +\n</code></pre>\n</li>\n</ul>\n<p>next</p>"];
@@ -28,7 +28,7 @@ class ARuledContainerBoundariesRemainStableTest extends TestCase
         yield '3653 intermediate fence opens before nested reparse' => ["- outer\n  - inner\n ```\n  +\n  ```\nnext\n", "<ul>\n<li>outer\n<ul>\n<li>inner</li>\n</ul>\n</li>\n</ul>\n<pre><code> +\n ```\nnext\n</code></pre>"];
         yield '625 outside tilde closer opens a fence below the list' => ["- outer\n  - head\n     ~~~\n     a\n ~~~\n\n    tail\n", "<ul>\n<li>outer\n<ul>\n<li>head\n<pre><code>a\n</code></pre>\n</li>\n</ul>\n</li>\n</ul>\n<pre><code>\n   tail\n</code></pre>"];
         yield '625 outside backtick closer opens a fence below the list' => ["- outer\n  - head\n     ```\n     a\n ```\n\n  tail\n", "<ul>\n<li>outer\n<ul>\n<li>head\n<pre><code>a\n</code></pre>\n</li>\n</ul>\n</li>\n</ul>\n<pre><code>\n tail\n</code></pre>"];
-        yield '3654 quoted marker' => [":: term\n: body\n  > +\nnext\n", "<dl>\n<dt>term</dt>\n<dd>\n<p>body</p>\n<blockquote><p>+\nnext</p></blockquote>\n</dd>\n</dl>"];
+        yield '3654 quoted marker' => [":: term\n: body\n  > +\nnext\n", "<dl>\n<dt>term</dt>\n<dd>\n<p>body</p>\n<blockquote>\n</blockquote>\n</dd>\n</dl>\n<p>next</p>"];
     }
 
     #[DataProvider('examples')]

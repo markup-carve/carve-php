@@ -35,7 +35,7 @@ class ARefusedNotePlusIsFramedLazyInTheNoteTest extends TestCase
             ],
             'a refused plus before an indented heading' => [
                 "[^f]: a\n+\n # h\nsee [^f]\n",
-                "<section id=\"h\"><h1>h</h1><p>see <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></section><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>a\n+<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>",
+                '<section id="h"><h1>h</h1><p>see <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p></section><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>a<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
             ],
             'a refused plus after a two-line note' => [
                 "[^f]: a\n  b\n+\n [r]:\n.\n",
@@ -43,7 +43,7 @@ class ARefusedNotePlusIsFramedLazyInTheNoteTest extends TestCase
             ],
             'a refused plus after a note term' => [
                 "[^f]: :: t\n+\n > q\n.\n",
-                "<p>+</p><blockquote><p>q\n.</p></blockquote>",
+                "<blockquote><p>q\n.</p></blockquote>",
             ],
             'a refused plus in a quoted note' => [
                 "> [^f]: a\n> +\n>  > q\n> .\n",
@@ -51,7 +51,7 @@ class ARefusedNotePlusIsFramedLazyInTheNoteTest extends TestCase
             ],
             'a refused plus before a blank stays a refused marker' => [
                 "x[^a]\n\n[^a]: note\n+\n\npara\n",
-                "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><p>para</p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note\n+<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>",
+                '<p>x<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><p>para</p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>note<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>',
             ],
         ];
     }

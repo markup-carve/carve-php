@@ -111,6 +111,7 @@ final class FenceAndContinuationLinter
                 'left' => 'a block left of its column',
                 'right' => 'a block right of its column',
                 'unclaimed' => 'a block no open container claims',
+                'claimed' => 'a block an earlier + already claims',
                 default => 'no open container at its column',
             };
             $remedy = match ($marker['reason']) {
@@ -120,6 +121,7 @@ final class FenceAndContinuationLinter
                 'closer' => 'Write a block before the closer, or delete the +.',
                 'left', 'right' => 'Align the next block with the +, or delete the +.',
                 'unclaimed' => 'Delete the +, or write it inside the paragraph text.',
+                'claimed' => 'Delete the +.',
                 default => 'Move the + to a container marker column, or write it as text.',
             };
             $lead = $marker['reason'] === 'wrong-column'
@@ -135,7 +137,7 @@ final class FenceAndContinuationLinter
                     $lead,
                     $following,
                     $marker['host'],
-                    sprintf('It remains text in the %s.', $marker['host']),
+                    $marker['reason'] === 'wrong-column' ? sprintf('It remains text in the %s.', $marker['host']) : 'It renders nothing.',
                     $remedy,
                 ),
             );

@@ -16,7 +16,7 @@ final class AStackedQuotePlusRefusesAFollowerAtTheItemColumnTest extends TestCas
     public function testTheFollowerAtTheItemColumnFoldsIntoTheRefusedPlus(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote><p>+\nb</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>",
+            "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n\n        </blockquote>\n      </li>\n    </ul>\n    b\n  </li>\n</ul>",
             trim((new CarveConverter())->convert("- - > +\n  b\n")),
         );
     }
@@ -24,7 +24,7 @@ final class AStackedQuotePlusRefusesAFollowerAtTheItemColumnTest extends TestCas
     public function testAColumnZeroFollowerAttaches(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote><p>+\nb</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>",
+            "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n\n        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>b</p>",
             trim((new CarveConverter())->convert("- - > +\nb\n")),
         );
     }

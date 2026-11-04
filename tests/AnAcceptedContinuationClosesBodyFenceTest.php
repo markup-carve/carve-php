@@ -74,7 +74,7 @@ HTML
     public function testARefusedMarkerDoesNotAttachABlock(): void
     {
         $source = ":: t\n: ```\n+\n";
-        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n<p>+</p>";
+        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <pre><code></code></pre>\n  </dd>\n</dl>";
 
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }

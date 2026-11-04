@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * A first-block `- +` at a list item's content column, below a description in
  * that item, opens an empty item: the marker ends the description rather than
- * continuing it lazily. The `+` of a `- +` is refused and stays text (carve#4396).
+ * continuing it lazily. The `+` of a `- +` is a continuation marker; refused, it renders nothing.
  */
 class AMarkerAtAnItemsColumnEndsTheDescriptionAboveTest extends TestCase
 {
@@ -23,9 +23,9 @@ class AMarkerAtAnItemsColumnEndsTheDescriptionAboveTest extends TestCase
         $dl = "<ul>\n<li>x\n<dl>\n<dt>t</dt>\n<dd>d</dd>\n</dl>\n<ul>\n";
 
         return [
-            'nothing attached' => ["- x\n  :: t\n  : d\n  - +\n", $dl . "<li>+</li>\n</ul>\n</li>\n</ul>"],
-            'a block attached' => ["- x\n  :: t\n  : d\n  - +\n    y\n", $dl . "<li>+\ny</li>\n</ul>\n</li>\n</ul>"],
-            'another bullet' => ["- x\n  :: t\n  : d\n  * +\n", $dl . "<li>+</li>\n</ul>\n</li>\n</ul>"],
+            'nothing attached' => ["- x\n  :: t\n  : d\n  - +\n", $dl . "<li></li>\n</ul>\n</li>\n</ul>"],
+            'a block attached' => ["- x\n  :: t\n  : d\n  - +\n    y\n", $dl . "<li>y</li>\n</ul>\n</li>\n</ul>"],
+            'another bullet' => ["- x\n  :: t\n  : d\n  * +\n", $dl . "<li></li>\n</ul>\n</li>\n</ul>"],
         ];
     }
 

@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * carve-php#4238: a quote's first-block `+` reads its follower at the raw column, before
  * rule A moves the line. Off column 0, the opener line's column and the owning quote's
- * column it is refused and reads like a letter (CARVE-P9-067, carve#3421).
+ * column it is refused and renders nothing (CARVE-P9-067, carve#3421, carve#5013).
  */
 class AQuoteFirstBlockPlusRefusesAFollowerAtAnInterveningRawColumnTest extends TestCase
 {
@@ -21,10 +21,10 @@ class AQuoteFirstBlockPlusRefusesAFollowerAtAnInterveningRawColumnTest extends T
     public static function documents(): array
     {
         return [
-            'heading at column 1' => ["> +\n # h\n", '<blockquote><p>+</p></blockquote><section id="h"><h1>h</h1></section>'],
-            'table at column 1' => ["> +\n | a |\n", '<blockquote><p>+</p></blockquote><table><tbody><tr><td>a</td></tr></tbody></table>'],
-            'quoted follower at column 1' => ["> > +\n > q\n", "<blockquote><blockquote><p>+\nq</p></blockquote></blockquote>"],
-            'item-hosted heading at column 3' => ["- > +\n   # h\n", '<ul><li><blockquote><p>+</p></blockquote><h1 id="h">h</h1></li></ul>'],
+            'heading at column 1' => ["> +\n # h\n", '<blockquote></blockquote><section id="h"><h1>h</h1></section>'],
+            'table at column 1' => ["> +\n | a |\n", '<blockquote></blockquote><table><tbody><tr><td>a</td></tr></tbody></table>'],
+            'quoted follower at column 1' => ["> > +\n > q\n", '<blockquote><blockquote></blockquote><p>q</p></blockquote>'],
+            'item-hosted heading at column 3' => ["- > +\n   # h\n", '<ul><li><blockquote></blockquote><h1 id="h">h</h1></li></ul>'],
         ];
     }
 
@@ -62,8 +62,8 @@ class AQuoteFirstBlockPlusRefusesAFollowerAtAnInterveningRawColumnTest extends T
                         foreach (['q', '# h', '| a |', '***', '::: note', '{.c}'] as $block) {
                             $follower = str_repeat(' ', $col) . str_repeat('> ', $depth) . $block;
                             $doc = static fn (string $end): string => implode("\n", [...$pre, substr($opener, 0, -1) . $end, $follower]) . "\n";
-                            $letter = $converter->convert($doc('z'));
-                            $this->assertSame(substr_replace($letter, '+', (int)strpos($letter, 'z'), 1), $converter->convert($doc('+')), $doc('+'));
+                            // A refused marker renders nothing (carve#5013): the document reads as if the `+` were absent.
+                            $this->assertSame($converter->convert($doc('')), $converter->convert($doc('+')), $doc('+'));
                             $count++;
                         }
                     }

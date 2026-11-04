@@ -439,7 +439,7 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
         // An opener with no closer opens no comment block (PART 9 section 28),
         // so `a` is ordinary item text rather than a hidden body, and the blank
         // still ends the attachment.
-        $this->assertSame('<ul><li>x +</li></ul>', $this->html("- x\n+\n%%%\na\n\nb\n"));
+        $this->assertSame('<ul><li>x</li></ul>', $this->html("- x\n+\n%%%\na\n\nb\n"));
     }
 
     /**
@@ -497,7 +497,7 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
      */
     public function testAContinuationMarkerAtEndOfInputAttachesNothing(): void
     {
-        $this->assertSame('<ul><li>x +</li></ul>', $this->html("- x\n+\n"));
+        $this->assertSame('<ul><li>x</li></ul>', $this->html("- x\n+\n"));
     }
 
     // ------------------------------------------------------------------ controls

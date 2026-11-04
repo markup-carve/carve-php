@@ -28,7 +28,7 @@ HTML;
             $source = "- +\n$definition\n- b\n";
             $expected = <<<'HTML'
 <ul>
-  <li>+</li>
+  <li></li>
   <li>b</li>
 </ul>
 HTML;
@@ -42,7 +42,7 @@ HTML;
         $source = "- +\n{.x}\n- b\n";
         $expected = <<<'HTML'
 <ul>
-  <li>+</li>
+  <li></li>
 </ul>
 <ul class="x">
   <li>b</li>
@@ -80,7 +80,7 @@ HTML;
         $source = "- +\n*[A]: b\n\n- c\n";
         $expected = <<<'HTML'
 <ul>
-  <li><p>+</p></li>
+  <li></li>
   <li><p>c</p></li>
 </ul>
 HTML;

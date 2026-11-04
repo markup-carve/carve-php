@@ -15,10 +15,10 @@ final class FirstBlockConsecutivePlusTest extends TestCase
      */
     public static function cases(): iterable
     {
-        yield 'second plus is content at end' => ["- +\n+\n", "<ul>\n  <li>+</li>\n</ul>"];
+        yield 'second plus is content at end' => ["- +\n+\n", "<ul>\n  <li></li>\n</ul>"];
         yield 'second plus attaches follower' => ["- +\n+\ntext\n", "<ul>\n  <li>text</li>\n</ul>"];
-        yield 'third plus stays content' => ["- +\n+\n+\n", "<ul>\n  <li>+</li>\n</ul>"];
-        yield 'sibling after content' => ["- +\n+\n- b\n", "<ul>\n  <li>+</li>\n  <li>b</li>\n</ul>"];
+        yield 'third plus stays content' => ["- +\n+\n+\n", "<ul>\n  <li></li>\n</ul>"];
+        yield 'sibling after content' => ["- +\n+\n- b\n", "<ul>\n  <li></li>\n  <li>b</li>\n</ul>"];
     }
 
     #[DataProvider('cases')]

@@ -24,7 +24,7 @@ class ALazyLineKeepsAnItemsDescriptionOpenPastABlankTest extends TestCase
         $end = "</dd>\n</dl>\n</li>\n</ul>";
 
         return [
-            'a lone plus' => ["- x\n  :: t\n  : d\n  +\n\n    y\n", $item . "<p>d\n+</p>\n<p>y</p>\n" . $end],
+            'a lone plus' => ["- x\n  :: t\n  : d\n  +\n\n    y\n", $item . "<p>d</p>\n<p>y</p>\n" . $end],
             'plain text' => ["- x\n  :: t\n  : d\n  z\n\n    y\n", $item . "<p>d\nz</p>\n<p>y</p>\n" . $end],
             'a wider separator' => ["- x\n  :: t\n  :  d\n  z\n\n     y\n", $item . "<p>d\nz</p>\n<p>y</p>\n" . $end],
             'after a body line' => ["- x\n  :: t\n  : d\n    more\n  z\n\n    y\n", $item . "<p>d\nmore\nz</p>\n<p>y</p>\n" . $end],

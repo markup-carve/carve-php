@@ -25,7 +25,7 @@ final class NestedQuoteAfterEmptySiblingItemTest extends TestCase
         $html = (new CarveConverter())->convert("- +\n- > - +\n");
 
         self::assertSame(
-            "<ul>\n  <li>+</li>\n  <li>\n    <blockquote>\n      <ul>\n        <li>+</li>\n      </ul>\n    </blockquote>\n  </li>\n</ul>",
+            "<ul>\n  <li></li>\n  <li>\n    <blockquote>\n      <ul>\n        <li></li>\n      </ul>\n    </blockquote>\n  </li>\n</ul>",
             $html,
         );
     }

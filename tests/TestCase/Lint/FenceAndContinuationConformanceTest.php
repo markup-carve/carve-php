@@ -56,7 +56,7 @@ final class FenceAndContinuationConformanceTest extends TestCase
                     $rule . ': ' . $vector['name'],
                 );
                 foreach ($expected as $i => $finding) {
-                    foreach ($finding['includes'] as $phrase) {
+                    foreach ($finding['includes'] ?? [] as $phrase) {
                         self::assertStringContainsString($phrase, $actual[$i]->message, $rule . ': ' . $vector['name']);
                     }
                 }

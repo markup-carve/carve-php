@@ -15,11 +15,11 @@ use PHPUnit\Framework\TestCase;
  * been a comment". In the FIRST-BLOCK form - `: +` for a description, `- +`
  * for a list item - no paragraph is open, so the `+` genuinely IS a marker and
  * the clause reads its payload's column. A payload at any column other than 0
- * refuses the marker, and the `+` then reads like a letter (carve#4396).
+ * refuses the marker, and the refused marker renders nothing (carve#5013).
  *
  * WHY A RELATION AND NOT A PAIR OF GOLDENS. The clause states that a refused
- * `+` and a letter give one answer. So the band below asserts the marker
- * spelling EQUALS its letter control, and the column-0 rows assert the
+ * `+` and a comment give one answer. So the band below asserts the marker
+ * spelling EQUALS its comment control, and the column-0 rows assert the
  * attached reading, without which a form that refused everything would
  * satisfy all the rest.
  *
@@ -72,11 +72,11 @@ class AnEmptyBodyClaimsNoLineBelowColumnZeroTest extends TestCase
     #[DataProvider('refusedBandProvider')]
     public function testTheMarkerEndsTheBodyExactlyWhereItsCommentDoes(string $container, int $col): void
     {
-        $letter = str_replace('+', 'z', $this->marker($container, $col));
+        // A refused marker renders nothing (carve#5013), so it reads like the comment spelling.
         $this->assertSame(
-            str_replace('z', '+', $this->html($letter)),
+            $this->html($this->comment($container, $col)),
             $this->html($this->marker($container, $col)),
-            "{$container} at payload column {$col}: the refused marker must read like a letter",
+            "{$container} at payload column {$col}: the refused marker must read like a comment",
         );
     }
 
@@ -84,14 +84,14 @@ class AnEmptyBodyClaimsNoLineBelowColumnZeroTest extends TestCase
     {
         // The relation above is satisfied by any answer both spellings share,
         // so it cannot say WHICH answer. These pin the oracle's.
-        $dd = "<dl>\n  <dt>t</dt>\n  <dd>+\nflush</dd>\n</dl>";
+        $dd = "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>flush</p>";
         $commented = "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>flush</p>";
         foreach ([1, 2] as $col) {
             $this->assertSame($dd, $this->html($this->marker('description', $col)));
             $this->assertSame($commented, $this->html($this->comment('description', $col)));
         }
 
-        $this->assertSame("<ul>\n  <li>+\nflush</li>\n</ul>", $this->html($this->marker('item', 1)));
+        $this->assertSame("<ul>\n  <li></li>\n</ul>\n<p>flush</p>", $this->html($this->marker('item', 1)));
         $this->assertSame("<ul>\n  <li></li>\n</ul>\n<p>flush</p>", $this->html($this->comment('item', 1)));
     }
 
@@ -100,11 +100,11 @@ class AnEmptyBodyClaimsNoLineBelowColumnZeroTest extends TestCase
         // The other end of the band. A change that refused everything would
         // pass the rows above and break these.
         $dd = "<dl>\n  <dt>t</dt>\n  <dd>flush</dd>\n</dl>";
-        $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>+\nflush</dd>\n</dl>", $this->html($this->marker('description', 3)));
+        $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>flush</dd>\n</dl>", $this->html($this->marker('description', 3)));
         $this->assertSame($dd, $this->html($this->comment('description', 3)));
 
         $li = "<ul>\n  <li>flush</li>\n</ul>";
-        $this->assertSame("<ul>\n  <li>+\nflush</li>\n</ul>", $this->html($this->marker('item', 2)));
+        $this->assertSame("<ul>\n  <li>flush</li>\n</ul>", $this->html($this->marker('item', 2)));
         $this->assertSame($li, $this->html($this->comment('item', 2)));
     }
 

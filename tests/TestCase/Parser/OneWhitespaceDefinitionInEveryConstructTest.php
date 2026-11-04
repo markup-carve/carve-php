@@ -211,13 +211,13 @@ class OneWhitespaceDefinitionInEveryConstructTest extends TestCase
     }
 
     /**
-     * A refused marker stays literal with any trailing space or tab run.
+     * A refused marker renders nothing with any trailing space or tab run.
      */
     public function testTheRefusedMarkerKeepsATrailingWhitespaceRunLiteral(): void
     {
         foreach (['', ' ', "\t", " \t "] as $run) {
             $this->assertStringContainsString(
-                '<p>+</p> <p>b</p>',
+                '<li><p>a</p> <p>b</p> </li>',
                 $this->html("- a\n\n+" . $run . "\n\n  b\n"),
                 'run: ' . json_encode($run),
             );
