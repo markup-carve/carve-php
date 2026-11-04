@@ -50,7 +50,7 @@ class SeparatorWidthsFidelityAndBudgetTest extends TestCase
 
     public function testAnUncoveredHeaderRetainsItsNativeAlignment(): void
     {
-        $source = "| a |> b |\n|---|\n| x | y |\n";
+        $source = "| a |{>} b |\n|---|\n| x | y |\n";
         $parser = new BlockParser();
         $document = $parser->parse($source);
         $written = (new CarveRenderer())->setPreserveTableSeparators(true)->render($document);

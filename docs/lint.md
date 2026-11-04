@@ -427,6 +427,7 @@ author knows which reading was meant, so this pass reports rather than rewrites.
 | rule | what it catches |
 |---|---|
 | `table-marker-run-padding` | a table cell with a kind marker, alignment run, or attribute block that lacks the space ending its marker run |
+| `deprecated-cell-alignment` | a table cell spelled with a 0.1.13 alignment prefix such as `=>` or `?v`; `carve fmt` moves the symbols into the cell's braces (`={>}`, `{?v}`) |
 
 ```php
 use MarkupCarve\Carve\Lint\RetiredSpellingLinter;
@@ -465,6 +466,12 @@ readings parse, so the message names both spellings and the author picks.
 `|{#x}< content |` to `|<{#x} content |` adds `text-align: left` and removes a
 literal `<`, so a formatter doing it in the default path would break
 `toHtml(fmt(x)) == toHtml(x)` on a document that renders correctly today.
+
+The 0.1.13 prefix itself still reads the same until 0.2.0, but alignment now
+leads the cell's attribute block (carve#5091): `|{< #x} content |` is the
+canonical spelling of `|<{#x} content |`, and `carve fmt` writes it.
+`deprecated-cell-alignment` reports the old prefix; the fix is lossless, so
+`fmt` applies it.
 
 A space in front of the sigil is unaffected: `|{#x} < content |` was content
 under both orders, so nothing was reinterpreted. So is a block that already sits

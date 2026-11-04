@@ -102,11 +102,11 @@ class RetiredSpellingLintTest extends TestCase
     public static function unaffectedProvider(): array
     {
         return [
-            // The T10 spelling itself. Reporting it would report the migration
-            // target as the problem.
-            'the block after the marker' => ["|<{#x} content |\n"],
+            // The T10 spelling itself (carve#5091 D3: alignment leads the
+            // block). Reporting it would report the migration target.
+            'the block after the marker' => ["|{< #x} content |\n"],
             'the block after a kind marker' => ["|={.total} Total |\n"],
-            'the block after both markers' => ["|=~{#score} Score |\n"],
+            'the block after both markers' => ["|={~ #score} Score |\n"],
             // A space in front of the sigil made it content under BOTH orders
             // (T4), so nothing was reinterpreted and there is nothing to pick.
             'a space before the sigil' => ["|{#x} < content |\n"],

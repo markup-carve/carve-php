@@ -1,0 +1,144 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\TestCase;
+
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Lint\DocumentLinter;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * carve#5091 (D3: alignment symbols lead the cell's attribute block) and
+ * carve#4980 stage 1 (native head rows for span placeholders), checked against
+ * carve main ahead of the spec pin.
+ */
+final class TableAlignmentInTheAttributeBlockTest extends TestCase
+{
+    private const FIXTURE = __DIR__ . '/../fixtures/table-syntax-ahead-of-pin-5091.json';
+
+    private const PINNED_CORPUS = __DIR__ . '/../spec/tests/corpus/';
+
+    /**
+     * @return array<string, array{string, string, string|null}>
+     */
+    public static function aheadOfPinRows(): array
+    {
+        $data = json_decode((string)file_get_contents(self::FIXTURE), true, 512, JSON_THROW_ON_ERROR);
+        $rows = [];
+        foreach ($data['rows'] as $row) {
+            $rows[$row['slug']] = [$row['source'], $row['html'], $row['fmt'] ?? null];
+        }
+
+        return $rows;
+    }
+
+    #[DataProvider('aheadOfPinRows')]
+    public function testACarveMainRowRendersAndFormats(string $source, string $html, ?string $fmt): void
+    {
+        $this->assertSame(self::normalize($html), self::normalize((new CarveConverter())->convert($source)));
+        if ($fmt !== null) {
+            $this->assertSame($fmt, CarveConverter::toCarve($source));
+        }
+    }
+
+    public function testNoRowIsAlreadyAtThePin(): void
+    {
+        $stale = [];
+        foreach (self::aheadOfPinRows() as $slug => [$source]) {
+            if (@file_get_contents(self::PINNED_CORPUS . $slug . '.crv') === $source) {
+                $stale[] = $slug;
+            }
+        }
+
+        $this->assertSame([], $stale, 'The pin carries these rows now: delete them from the fixture');
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function readings(): array
+    {
+        return [
+            'glued run before ordinary attributes' => ["|{>^ .num} 12.50 |\n", '<td class="num" style="text-align: right; vertical-align: top;">12.50</td>'],
+            'a spaced pair is literal' => ["|{> ^} x |\n", '<td>{&gt; ^} x</td>'],
+            'a third symbol is literal' => ["|{>^~} x |\n", '<td>{&gt;^~} x</td>'],
+            'a lone ? is literal' => ["|{?} x |\n", '<td>{?} x</td>'],
+            'an alignment-only placeholder keeps its span' => ["|= a |{<} < |\n| 1 | 2 |\n", '<td style="text-align: left;">2</td>'],
+            'an ordinary attribute makes the glyph literal' => ["|{.x} < |\n", '<td class="x">&lt;</td>'],
+            'a header-kind placeholder heads its table' => ["|= ^ |\n| x |\n", "<thead>\n    <tr><th scope=\"col\"></th></tr>"],
+            'an orphan takes its head row kind' => ["| ^ |= a |\n| 1 | 2 |\n", '<tr><th scope="col"></th><th scope="col">a</th></tr>'],
+            'the released empty left header' => ["|=< |\n| x |\n", '<th scope="col" style="text-align: left;"></th>'],
+            'a glued =^ is data' => ["|=^ |\n", '<td>=^</td>'],
+            'an appended data cell keeps the row in the body' => ["| < |= a |\n+ | | c |\n", '<tr><td></td><th scope="row">a</th><td>c</td></tr>'],
+        ];
+    }
+
+    #[DataProvider('readings')]
+    public function testTheCellReading(string $source, string $fragment): void
+    {
+        $this->assertStringContainsString($fragment, (new CarveConverter())->convert($source));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function writes(): array
+    {
+        return [
+            'a deprecated prefix moves into braces' => ["|=> Price |\n| 12 |\n", "|={>} Price |\n| 12 |\n"],
+            'symbols lead ordinary attributes' => ["|>{.num} 9 |\n", "|{> .num} 9 |\n"],
+            'a separator-promoted orphan keeps its kind' => ["| ^ | a |\n|---|---|\n| 1 | 2 |\n", "|= ^ |= a |\n| 1 | 2 |\n"],
+            'an all-placeholder head row' => ["| < |\n|---|\n| x |\n", "|= < |\n| x |\n"],
+            'a covered default stays on its placeholder' => ["| A | < |\n|---|:--|\n| 1 | 2 |\n", "|= A |={<} < |\n| 1 | 2 |\n"],
+            'a literal header glyph is escaped' => ["|= \\< |\n| x |\n", "|= \\< |\n| x |\n"],
+            'a literal glyph after an alignment block is escaped' => ["|{?^} \\< |\n", "|{?^} \\< |\n"],
+            'an empty aligned body cell keeps its block' => ["|{<} |\n", "|{<} |\n"],
+        ];
+    }
+
+    #[DataProvider('writes')]
+    public function testTheCanonicalWriter(string $source, string $expected): void
+    {
+        $once = CarveConverter::toCarve($source);
+        $this->assertSame($expected, $once);
+        $this->assertSame($once, CarveConverter::toCarve($once));
+        $this->assertSame((new CarveConverter())->convert($source), (new CarveConverter())->convert($once));
+    }
+
+    public function testTheSharedLintVectors(): void
+    {
+        $data = json_decode((string)file_get_contents(__DIR__ . '/../Fixture/lint-rule-vectors/deprecated-cell-alignment.json'), true, 512, JSON_THROW_ON_ERROR);
+        foreach ($data['vectors'] as $vector) {
+            $warnings = array_values(array_filter(
+                (new DocumentLinter())->lint($vector['source']),
+                static fn ($warning): bool => $warning->rule === $data['rule'],
+            ));
+            $expected = $vector['expected']['findings'];
+            $this->assertSame(
+                array_map(static fn (array $finding): array => [$finding['line'], $finding['column']], $expected),
+                array_map(static fn ($warning): array => [$warning->line, $warning->column], $warnings),
+                $vector['name'],
+            );
+            foreach ($expected as $index => $finding) {
+                foreach ($finding['includes'] as $fragment) {
+                    $this->assertStringContainsString($fragment, $warnings[$index]->message, $vector['name']);
+                }
+            }
+        }
+    }
+
+    public function testTheFmtFixBytes(): void
+    {
+        $data = json_decode((string)file_get_contents(__DIR__ . '/../Fixture/lint-rule-vectors/table-alignment-fmt-fix.json'), true, 512, JSON_THROW_ON_ERROR);
+        foreach ($data['vectors'] as $vector) {
+            $this->assertSame($vector['fixed'], CarveConverter::toCarve($vector['source']), $vector['name']);
+        }
+    }
+
+    private static function normalize(string $html): string
+    {
+        return trim((string)preg_replace('/>\s+</', '><', (string)preg_replace('/\s+/', ' ', $html)));
+    }
+}

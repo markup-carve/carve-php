@@ -23,7 +23,7 @@ class AHeadRowSpanIsWrittenNativelyTest extends TestCase
     {
         $carve = (new CarveConverter())->toCarve("| A | < | B |\n|---|---|:--|\n| 1 | 2 | 3 |\n");
 
-        self::assertSame("|= A | < |=< B |\n| 1 | 2 | 3 |\n", $carve);
+        self::assertSame("|= A |= < |={<} B |\n| 1 | 2 | 3 |\n", $carve);
     }
 
     public function testAnAlignedCoveredPlaceholderKeepsTheSeparator(): void
@@ -32,7 +32,7 @@ class AHeadRowSpanIsWrittenNativelyTest extends TestCase
         $source = "| A | < |\n|---|:--|\n| 1 | 2 |\n";
         $carve = $converter->toCarve($source);
 
-        self::assertSame("| A | < |\n|---|:---|\n| 1 | 2 |\n", $carve);
+        self::assertSame("|= A |={<} < |\n| 1 | 2 |\n", $carve);
         self::assertSame($converter->convert($source), $converter->convert($carve));
     }
 
@@ -42,7 +42,7 @@ class AHeadRowSpanIsWrittenNativelyTest extends TestCase
         $html = $converter->convert("|=> Wide|<|=~ Last|\n|a|b|c|\n");
         $imported = (new HtmlToCarve())->convert($html);
 
-        self::assertSame("|=> Wide | < |=~ Last |\n| a | b | c |\n", $imported);
+        self::assertSame("|={>} Wide | < |={~} Last |\n| a | b | c |\n", $imported);
         self::assertSame($html, $converter->convert($imported));
     }
 
@@ -82,7 +82,7 @@ class AHeadRowSpanIsWrittenNativelyTest extends TestCase
                     }
                     $once = $converter->toCarve($source);
                     $label = 'variant ' . $count . ': ' . json_encode($source);
-                    self::assertSame($ruled, preg_match(self::SEPARATOR_ROW, $once) === 1, $label);
+                    self::assertSame(false, preg_match(self::SEPARATOR_ROW, $once) === 1, $label);
                     self::assertSame($converter->convert($source), $converter->convert($once), $label);
                     self::assertSame($once, $converter->toCarve($once), $label);
                     $count++;

@@ -23,9 +23,9 @@ class ATrailingHeaderSpanWritesTheNativeFormTest extends TestCase
      */
     public function testTheWriterKeepsTheNativeFormForATrailingColspanHeader(): void
     {
-        $carve = (new CarveConverter())->toCarve("|= Engine |= Timing | < |\n| carve-js | 12ms | ok |\n");
+        $carve = (new CarveConverter())->toCarve("|= Engine |= Timing |= < |\n| carve-js | 12ms | ok |\n");
 
-        self::assertSame("|= Engine |= Timing | < |\n| carve-js | 12ms | ok |\n", $carve);
+        self::assertSame("|= Engine |= Timing |= < |\n| carve-js | 12ms | ok |\n", $carve);
     }
 
     /**
@@ -35,7 +35,7 @@ class ATrailingHeaderSpanWritesTheNativeFormTest extends TestCase
     {
         $carve = (new CarveConverter())->toCarve("| Engine | Timing | < |\n|---|---|---|\n| carve-js | 12ms | ok |\n");
 
-        self::assertSame("|= Engine |= Timing | < |\n| carve-js | 12ms | ok |\n", $carve);
+        self::assertSame("|= Engine |= Timing |= < |\n| carve-js | 12ms | ok |\n", $carve);
     }
 
     public function testTheImporterWritesATrailingColspanHeaderAsNative(): void
@@ -63,20 +63,20 @@ class ATrailingHeaderSpanWritesTheNativeFormTest extends TestCase
     {
         $carve = (new CarveConverter())->toCarve("| < | b |\n|---|---|\n| c | d |\n");
 
-        self::assertSame("| < | b |\n|---|---|\n| c | d |\n", $carve);
+        self::assertSame("|= < |= b |\n| c | d |\n", $carve);
     }
 
     public function testARealCellAfterAHeaderSpanWritesNativeCells(): void
     {
         $carve = (new CarveConverter())->toCarve("| H | < | < | K |\n|---|---|---|---|\n| p | q | s | t |\n");
 
-        self::assertSame("|= H | < | < |= K |\n| p | q | s | t |\n", $carve);
+        self::assertSame("|= H |= < |= < |= K |\n| p | q | s | t |\n", $carve);
     }
 
     public function testATrailingRowspanHeaderKeepsTheDelimiterRow(): void
     {
         $carve = (new CarveConverter())->toCarve("| A | ^ |\n|---|---|\n| x | y |\n");
 
-        self::assertStringContainsString('|---|---|', $carve);
+        self::assertSame("|= A |= ^ |\n| x | y |\n", $carve);
     }
 }

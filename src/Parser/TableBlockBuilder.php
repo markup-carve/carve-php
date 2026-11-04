@@ -326,6 +326,7 @@ final class TableBlockBuilder
             // WAS empty and this defaulted correctly. `$examinedAny` restores
             // that: no examined cell means this is never a Carve header row.
             $examinedAny = false;
+            $sawHeader = false;
             foreach ($processedCells as $cellData) {
                 if (isset($consumedColumnSet[$cellData['gridColumn']]) || isset($appendedCells[$cellData['gridColumn']])) {
                     // A placeholder consumed by another cell's span was never
@@ -335,15 +336,21 @@ final class TableBlockBuilder
                 }
                 $examinedAny = true;
                 $content = $cellData['content'];
-                // An empty span cell (a `<`/`^` that became its own slot) is
-                // never a `|=` header cell. A cell carrying an attribute block
-                // now can be: PART 9 §5 T10 puts the block AFTER the marker
-                // run, so `|={.total} Total |` is a header cell and the row it
-                // sits in is a Carve all-header row. The marker the split
-                // already stripped is what decides it.
+                // T9: an orphan placeholder takes its row's kind, and a
+                // header-kind one (`|= ^ |`) is a header cell itself.
+                if ($cellData['isEmpty']) {
+                    $sawHeader = $sawHeader || str_starts_with($cellData['marker'], '=');
+
+                    continue;
+                }
+                $sawHeader = true;
+                // A cell carrying an attribute block can be a header cell:
+                // PART 9 §5 T10 puts the block AFTER the marker run, so
+                // `|={.total} Total |` is a header cell and the row it sits in
+                // is a Carve all-header row. The marker the split already
+                // stripped is what decides it.
                 if (
-                    $cellData['isEmpty']
-                    || ($cellData['attributes'] !== ''
+                    ($cellData['attributes'] !== '' || $cellData['marker'] !== ''
                         ? !str_starts_with($cellData['marker'], '=')
                         : !(str_starts_with($content, '=')
                             && ($this->getTableParser)()->cellMarkerRunLength($content) > 0))
@@ -353,9 +360,14 @@ final class TableBlockBuilder
                     break;
                 }
             }
-            if (!$examinedAny) {
+            if (!$examinedAny || !$sawHeader) {
                 $isHeaderRow = false;
             }
+            // A cell a `+` line appends takes the kind every cell of the row
+            // line has, a `<` read as the cell it extends (T5, T6); a data one
+            // keeps the row out of the head-row run (T9).
+            $appendedHeader = $appendedCells === [] || $this->rowLineIsAllHeaders($processedCells, $appendedCells);
+            $isHeaderRow = $isHeaderRow && $appendedHeader;
 
             // Parse regular row
             $row = new TableRow($isHeaderRow);
@@ -393,14 +405,7 @@ final class TableBlockBuilder
                     // column's alignment -- the Carve header marker first, then the
                     // GFM separator alignment -- so an empty span cell lines up with
                     // the real cells in its column (carve-js parity).
-                    $alignment = $columnAligns[$col]
-                        ?? $alignments[$col]
-                        ?? TableCell::ALIGN_DEFAULT;
-                    // The alignment here is the COLUMN's, taken so the empty
-                    // cell lines up; the cell carries no marker of its own, so
-                    // it is not explicit.
-                    $cell = new TableCell(false, $alignment, 1, $colspan, null, false);
-                    $cell->setSpanMarker($cellData['spanMarker']);
+                    $cell = $this->placeholderCell($cellData, $isHeaderRow, $colspan, $columnAligns, $columnValigns, $alignments);
                     // The marker character occupies a real slice of this line,
                     // so the cell gets a position the same way an ordinary cell
                     // does (carve-php#510).
@@ -425,7 +430,7 @@ final class TableBlockBuilder
                 }
 
                 if (isset($appendedCells[$col])) {
-                    $cell = $this->appendedCell($cellData, $appendedCells[$col], $isHeaderRow, $columnAligns[$col] ?? $alignments[$col] ?? TableCell::ALIGN_DEFAULT, $baseLineForRow, $cellWraps[$col] ?? []);
+                    $cell = $this->appendedCell($cellData, $appendedCells[$col], $appendedHeader, $columnAligns[$col] ?? $alignments[$col] ?? TableCell::ALIGN_DEFAULT, $baseLineForRow, $cellWraps[$col] ?? []);
                     $row->appendChild($cell);
                     $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
 
@@ -441,7 +446,7 @@ final class TableBlockBuilder
                 // block (PART 9 §5 T10), never from what follows it: everything
                 // after the block is content, which is what keeps the `<` in
                 // `|{#x}< content |` literal and the `=` in `|{#x}=R|` text.
-                $attributed = $cellData['attributes'] !== '';
+                $attributed = $cellData['attributes'] !== '' || $cellData['marker'] !== '';
                 $marker = $this->callParseTableCellMarker($attributed ? $cellData['marker'] : $cellData['content'], $attributed);
                 if ($attributed) {
                     $marker['content'] = $cellData['content'];
@@ -635,6 +640,77 @@ final class TableBlockBuilder
     }
 
     /**
+     * A placeholder cell. An alignment-only block (`|{<} < |`) is its own and,
+     * in a head row, sets its column's default.
+     *
+     * @param array{marker: string, gridColumn: int, spanMarker: string|null} $cellData
+     * @param bool $isHeaderRow
+     * @param int<1, max>|int $colspan
+     * @param array<int, string|null> $columnAligns
+     * @param array<int, string|null> $columnValigns
+     * @param array<int, string> $alignments
+     */
+    private function placeholderCell(
+        array $cellData,
+        bool $isHeaderRow,
+        int $colspan,
+        array &$columnAligns,
+        array &$columnValigns,
+        array $alignments,
+    ): TableCell {
+        $col = $cellData['gridColumn'];
+        $own = $this->callParseTableCellMarker($cellData['marker'], true);
+        if ($isHeaderRow && $own['align'] !== null) {
+            $columnAligns[$col] = $own['align'];
+        }
+        if ($isHeaderRow && $own['valign'] !== null) {
+            $columnValigns[$col] = $own['valign'];
+        }
+        $alignment = $own['align'] ?? $columnAligns[$col] ?? $alignments[$col] ?? TableCell::ALIGN_DEFAULT;
+        $cell = new TableCell($own['header'], $alignment, 1, $colspan, null, $own['align'] !== null);
+        if ($own['valign'] !== null) {
+            $cell->setVerticalAlignment($own['valign']);
+        } elseif (isset($columnValigns[$col])) {
+            $cell->setVerticalAlignment($columnValigns[$col], false);
+        }
+        $cell->setSpanMarker($cellData['spanMarker']);
+
+        return $cell;
+    }
+
+    /**
+     * Whether every cell of the row line is a header cell, a `<` read as the
+     * cell it extends (T5): the kind a cell a `+` line appends takes (T6).
+     *
+     * @param array<array{content: string, attributes: string, marker: string, gridColumn: int, spanMarker: string|null}> $processedCells
+     * @param array<int, mixed> $appendedCells
+     */
+    private function rowLineIsAllHeaders(array $processedCells, array $appendedCells): bool
+    {
+        $previous = false;
+        foreach ($processedCells as $cellData) {
+            if (isset($appendedCells[$cellData['gridColumn']])) {
+                continue;
+            }
+            if ($cellData['spanMarker'] !== null) {
+                $previous = $cellData['spanMarker'] === '<' && $cellData['gridColumn'] > 0
+                    ? $previous
+                    : str_starts_with($cellData['marker'], '=');
+            } else {
+                $content = $cellData['content'];
+                $previous = $cellData['attributes'] !== '' || $cellData['marker'] !== ''
+                    ? str_starts_with($cellData['marker'], '=')
+                    : str_starts_with($content, '=') && ($this->getTableParser)()->cellMarkerRunLength($content) > 0;
+            }
+            if (!$previous) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * @param \MarkupCarve\Carve\Node\Block\Table $table
      * @param array<int, string> $delimiterAlignments
      */
@@ -659,7 +735,7 @@ final class TableBlockBuilder
                 continue;
             }
             foreach ($row->getChildren() as $column => $cell) {
-                if (!$cell instanceof TableCell || !$cell->isHeader()) {
+                if (!$cell instanceof TableCell || (!$cell->isHeader() && $cell->getSpanMarker() === null)) {
                     continue;
                 }
                 if ($cell->hasExplicitAlignment()) {
@@ -933,7 +1009,7 @@ final class TableBlockBuilder
             $cells[] = [
                 'content' => $isEmpty ? '' : $cellData['content'],
                 'attributes' => $isEmpty ? '' : $cellData['attributes'],
-                'marker' => $isEmpty ? '' : $cellData['marker'],
+                'marker' => $cellData['marker'],
                 'colspan' => max(1, $width),
                 'gridColumn' => $col,
                 'isEmpty' => $isEmpty,

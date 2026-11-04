@@ -197,7 +197,7 @@ class AHeaderCellKeepsItsVerticalAlignmentTest extends TestCase
 
         // The importer already wrote a correct run; reading it back is the half
         // that was broken.
-        $this->assertStringContainsString('|?^ L ', $carve);
+        $this->assertStringContainsString('|{?^} L ', $carve);
         $this->assertStringContainsString('vertical-align: top;">L</th>', $this->html($carve));
     }
 

@@ -2254,18 +2254,6 @@
             "ticket": "carve-php#4573"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"319-cell-attributes-bind-after-the-kind-and-alignment-markers-2\"",
-            "ticket": "carve#5091"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"319-cell-attributes-bind-after-the-kind-and-alignment-markers-3\"",
-            "ticket": "carve#5091"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"319-cell-attributes-bind-after-the-kind-and-alignment-markers-6\"",
-            "ticket": "carve#5091"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-2\"",
             "ticket": "carve#5013"
         },
@@ -2286,27 +2274,11 @@
             "ticket": "carve#5013"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"659-table-spans-keep-alignment-defaults-in-physical-columns-4\"",
-            "ticket": "carve#4980"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"814-a-span-marker-with-no-origin-keeps-its-column-s-alignment-2\"",
-            "ticket": "carve#4980"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"929-a-refused-plus-is-escaped-when-the-block-below-would-attach-5\"",
             "ticket": "carve#5013"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"952-native-head-rows-with-span-placeholders-2\"",
-            "ticket": "carve#4980"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"952-native-head-rows-with-span-placeholders-6\"",
-            "ticket": "carve#4980"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"952-native-head-rows-with-span-placeholders-9\"",
             "ticket": "carve#4980"
         },
         {
@@ -2314,28 +2286,8 @@
             "ticket": "carve#4980"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"814-a-span-marker-with-no-origin-keeps-its-column-s-alignment-2\"",
-            "ticket": "carve#4980"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"952-native-head-rows-with-span-placeholders-9\"",
             "ticket": "carve#4980"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 319-cell-attributes-bind-after-the-kind-and-alignment-markers-3\"",
-            "ticket": "carve#5091"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 319-cell-attributes-bind-after-the-kind-and-alignment-markers-2\"",
-            "ticket": "carve#5091"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 319-cell-attributes-bind-after-the-kind-and-alignment-markers-3\"",
-            "ticket": "carve#5091"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 319-cell-attributes-bind-after-the-kind-and-alignment-markers-6\"",
-            "ticket": "carve#5091"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-2\"",
@@ -2358,27 +2310,11 @@
             "ticket": "carve#5013"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 659-table-spans-keep-alignment-defaults-in-physical-columns-4\"",
-            "ticket": "carve#4980"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 814-a-span-marker-with-no-origin-keeps-its-column-s-alignment-2\"",
-            "ticket": "carve#4980"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 929-a-refused-plus-is-escaped-when-the-block-below-would-attach-5\"",
             "ticket": "carve#5013"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 952-native-head-rows-with-span-placeholders-2\"",
-            "ticket": "carve#4980"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 952-native-head-rows-with-span-placeholders-6\"",
-            "ticket": "carve#4980"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 952-native-head-rows-with-span-placeholders-9\"",
             "ticket": "carve#4980"
         },
         {
@@ -2392,10 +2328,6 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\ACommentAtTheItemColumnLeavesNoParagraphClaimTest::testCorpusUsesTheCommentExceptionReading",
             "ticket": "carve#5012"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\TableAlignmentFixturesTest::testFixture with data set \"attributes spans and empty cells\"",
-            "ticket": "carve#5091"
         }
     ]
 }

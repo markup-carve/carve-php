@@ -405,7 +405,7 @@ class CliTest extends TestCase
      */
     public function testLintSparesTheMigrationTarget(): void
     {
-        $result = $this->runCliInput(['lint'], "|<{#x} content |\n");
+        $result = $this->runCliInput(['lint'], "|{< #x} content |\n");
 
         $this->assertSame(0, $result['exit']);
         $this->assertSame('', $result['out']);

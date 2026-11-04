@@ -3679,8 +3679,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // the decoder refuses it. Inventing a row from the header instead would
         // be the padding `CARVE-P11-066` forbids, wearing a presence claim
         // nobody wrote.
-        $forceDelimiter = (!$unspellableSeparator && $node->getRenderHint("\0carve-delimiter-row") === '1')
-            || $columnWidths !== [];
+        $forceDelimiter = $columnWidths !== [];
         $headerRow = isset($tableRows[0]) && ($tableRows[0]->isHeader() || $forceDelimiter);
         // This parser resolves a cell's alignment at parse time, so a body cell
         // carries the column's alignment even when the author only wrote it on
@@ -3715,22 +3714,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 }
             }
         }
-        // A colspan cell is always written plain (`| < |`) and absorbs into the
-        // `|=` header on its left. Only two head-row shapes have no native
-        // spelling that keeps the tree, so only they get a generated separator
-        // (carve#4974 ruling A): a placeholder with no origin in the row (any
-        // `^`, or a `<` in column 0), and a placeholder carrying an alignment.
+        // The canonical writer never writes a separator row (PART 11 §6h);
+        // only a recorded one survives, under source preservation.
         $needsDelimiter = $forceDelimiter;
-        if ($headerRow && !$needsDelimiter) {
-            foreach ($firstRowCells as $index => $cell) {
-                $marker = $cell->getSpanMarker();
-                if ($marker === '^' || ($marker === '<' && ($index === 0 || $cell->getAlignment() !== TableCell::ALIGN_DEFAULT))) {
-                    $needsDelimiter = true;
-
-                    break;
-                }
-            }
-        }
         // The `+` lines each row is followed by, one slot per cell (CARVE-P12-069).
         $continuations = [];
         foreach ($tableRows as $rowIndex => $row) {
@@ -3749,7 +3735,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // In the delimiter form the promoted row is written as ordinary
                 // data cells - the row after it is what makes them headers.
                 $markHeader = !($needsDelimiter && $rowIndex === 0);
-                $inherited = ($needsDelimiter && $rowIndex === 0 && ($columnWidths === [] || $column < count($columnWidths)))
+                $inherited = ($needsDelimiter && $rowIndex === 0 && $column < count($columnWidths))
                     || ($headerRow
                         && $rowIndex > 0
                         && !$cell->hasExplicitAlignment()
@@ -4194,7 +4180,17 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // has no marker run for it to bind after (PART 9 §5 T10); the space
         // goes between it and the span marker.
         if ($cell->getSpanMarker() !== null) {
-            return $this->padCell($attrs, $cell->getSpanMarker());
+            // A placeholder keeps its kind and its own alignment-only block (PART 11 §6h).
+            $kind = $cell->isHeader() && $markHeader ? '=' : '';
+            if ($attrs !== '') {
+                return $this->padCell($kind . $attrs, $cell->getSpanMarker());
+            }
+            $symbols = $this->alignmentSymbols(
+                $cell->hasExplicitAlignment() && !$inheritedAlign ? $this->alignMarker($cell->getAlignment()) : '',
+                $cell->hasExplicitVerticalAlignment() && !$inheritedValign ? $cell->getVerticalAlignment() : TableCell::VALIGN_DEFAULT,
+            );
+
+            return $this->padCell($kind . ($symbols === '' ? '' : '{' . $symbols . '}'), $cell->getSpanMarker());
         }
         $align = $inheritedAlign ? '' : $this->alignMarker($cell->getAlignment());
         $valign = $inheritedValign ? '' : match ($cell->getVerticalAlignment()) {
@@ -4204,13 +4200,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             default => '',
         };
         $inheritHorizontal = $align === '' && $valign !== '' ? '?' : '';
-        // MARKER RUN FIRST, BLOCK LAST (PART 9 §5 T10). Writing the block ahead
-        // of the `=` produced `|{#x}=R|`, which every reader takes as a DATA
-        // cell whose content starts with `=`, so a `<th id="x">R</th>` came back
-        // as `<td id="x">=R</td>` and PART 11 §1 failed on it. This order is
-        // meaning-preserving instead: `|={#x} R |` parses back to the node that
-        // was written.
-        $prefix = ($cell->isHeader() && $markHeader ? '=' : '') . $align . $inheritHorizontal . $valign . $attrs;
+        // KIND FIRST, THEN ONE BLOCK LED BY THE ALIGNMENT SYMBOLS (PART 9 §5
+        // T10, carve#5091 D3). Writing the block ahead of the `=` produced
+        // `|{#x}=R|`, which every reader takes as a DATA cell whose content
+        // starts with `=`.
+        $prefix = ($cell->isHeader() && $markHeader ? '=' : '') . $this->cellBlock($align . $inheritHorizontal . $valign, $attrs);
 
         $inlines = $cell->hasBlockContent()
             ? TableCellBlockFlattener::flatten($cell, keepHardBreaks: true, collectCarveFields: $this->conversionDiagnosticMaximum !== null)->getChildren()
@@ -4230,22 +4224,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $this->flattenedTableCell = $previousFlattenedCell;
         }
 
-        if (trim($content, ' ') === '') {
-            if ($align === '<' && !($cell->isHeader() && $markHeader)) {
-                $align = '';
-                if ($cell->isHeader()) {
-                    $this->recordUnspellableField($cell, 'align', 'An empty cell cannot spell a left alignment marker');
-                }
-            }
-            if ($valign === '^') {
-                $valign = '';
-                if ($cell->isHeader()) {
-                    $this->recordUnspellableField($cell, 'valign', 'An empty cell cannot spell a top alignment marker');
-                }
-            }
-            $inheritHorizontal = $align === '' && $valign !== '' ? '?' : '';
-            $prefix = ($cell->isHeader() && $markHeader ? '=' : '') . $align . $inheritHorizontal . $valign . $attrs;
-        } elseif (($content === '<' || $content === '^') && $prefix === '') {
+        if (($content === '<' || $content === '^') && $attrs === '') {
+            // A lone glyph after `=` or an alignment-only block re-reads as a placeholder.
             $content = '\\' . $content;
         }
 
@@ -7050,6 +7030,31 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * The sigil for an alignment, read off the parser's own set so the writer
      * and the reader cannot drift.
      */
+    protected function alignmentSymbols(string $horizontal, string $vertical): string
+    {
+        $valign = match ($vertical) {
+            TableCell::VALIGN_TOP => '^',
+            TableCell::VALIGN_MIDDLE => '~',
+            TableCell::VALIGN_BOTTOM => 'v',
+            default => '',
+        };
+
+        return ($horizontal === '' && $valign !== '' ? '?' : $horizontal) . $valign;
+    }
+
+    /**
+     * One cell attribute block: alignment symbols first, then the rendered
+     * `{...}` attributes (PART 9 §5 T10).
+     */
+    protected function cellBlock(string $symbols, string $attrs): string
+    {
+        if ($symbols === '') {
+            return $attrs;
+        }
+
+        return '{' . $symbols . ($attrs === '' ? '}' : ' ' . substr($attrs, 1));
+    }
+
     protected function alignMarker(string $align): string
     {
         $marker = array_search($align, BlockParser::TABLE_ALIGNMENT_MARKERS, true);

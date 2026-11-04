@@ -55,7 +55,7 @@ class ASpanPlaceholderDoesNotDecideTheRowHeaderTest extends TestCase
                     'rows' => [
                         [
                             'type' => 'table_row',
-                            'cells' => [['type' => 'table_cell', 'header' => true, 'span' => 'rowspan', 'children' => []]],
+                            'cells' => [['type' => 'table_cell', 'header' => false, 'span' => 'rowspan', 'children' => []]],
                         ],
                     ],
                 ],
@@ -65,5 +65,31 @@ class ASpanPlaceholderDoesNotDecideTheRowHeaderTest extends TestCase
 
         $this->assertInstanceOf(TableRow::class, $row);
         $this->assertFalse($row->isHeader());
+    }
+
+    /**
+     * A header-kind placeholder (`|= ^ |`) is a header cell itself, so it heads its table (carve#4980 T9).
+     */
+    public function testAHeaderKindPlaceholderHeadsItsTable(): void
+    {
+        $document = (new AstCodec())->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+                    'type' => 'table',
+                    'rows' => [
+                        [
+                            'type' => 'table_row',
+                            'cells' => [['type' => 'table_cell', 'header' => true, 'span' => 'rowspan', 'children' => []]],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        $row = $document->getChildren()[0]->getChildren()[0];
+
+        $this->assertInstanceOf(TableRow::class, $row);
+        $this->assertTrue($row->isHeader());
     }
 }

@@ -46,7 +46,7 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
     public function testACellAlignmentMapsInEveryMode(): void
     {
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
-            $this->assertSame("|> a | b |\n", $this->imported(self::CELL, $mode), $mode);
+            $this->assertSame("|{>} a | b |\n", $this->imported(self::CELL, $mode), $mode);
             $this->assertSame([], $this->codes(self::CELL, $mode), $mode);
         }
     }
@@ -56,14 +56,14 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
         foreach (['top' => '?^', 'middle' => '?~', 'bottom' => '?v'] as $value => $run) {
             $html = '<table><tr><td style="vertical-align:' . $value . '">a</td><td>b</td></tr></table>';
 
-            $this->assertSame('|' . $run . " a | b |\n", $this->imported($html, 'semantic'), $value);
+            $this->assertSame('|{' . $run . "} a | b |\n", $this->imported($html, 'semantic'), $value);
             $this->assertSame([], $this->codes($html, 'semantic'), $value);
         }
     }
 
     public function testBothAxesTakeOneRun(): void
     {
-        $this->assertSame("|<^ a |\n", $this->imported($this->cell('text-align:left;vertical-align:top'), 'semantic'));
+        $this->assertSame("|{<^} a |\n", $this->imported($this->cell('text-align:left;vertical-align:top'), 'semantic'));
     }
 
     /**
@@ -100,11 +100,11 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
         $converter = new CarveConverter();
         foreach (
             [
-                "|> a | b |\n",
-                "|?^ a | b |\n",
-                "|<^ a |\n",
-                "|=> h |\n| a |\n",
-                "| a | b |\n| c |> d |\n",
+                "|{>} a | b |\n",
+                "|{?^} a | b |\n",
+                "|{<^} a |\n",
+                "|={>} h |\n| a |\n",
+                "| a | b |\n| c |{>} d |\n",
             ] as $source
         ) {
             $first = $converter->convert($source);
@@ -198,15 +198,15 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
     {
         $shared = '<table><thead><tr><th style="text-align:right">h</th></tr></thead>'
             . '<tbody><tr><td style="text-align:right">a</td></tr></tbody></table>';
-        $this->assertSame("|=> h |\n| a |\n", $this->imported($shared, 'semantic'));
+        $this->assertSame("|={>} h |\n| a |\n", $this->imported($shared, 'semantic'));
 
         $differing = '<table><thead><tr><th style="text-align:right">h</th></tr></thead>'
             . '<tbody><tr><td style="text-align:left">a</td></tr></tbody></table>';
-        $this->assertSame("|=> h |\n|< a |\n", $this->imported($differing, 'semantic'));
+        $this->assertSame("|={>} h |\n|{<} a |\n", $this->imported($differing, 'semantic'));
 
         $headless = '<table><thead><tr><th>h</th></tr></thead>'
             . '<tbody><tr><td style="text-align:right">a</td></tr></tbody></table>';
-        $this->assertSame("|= h |\n|> a |\n", $this->imported($headless, 'semantic'));
+        $this->assertSame("|= h |\n|{>} a |\n", $this->imported($headless, 'semantic'));
     }
 
     public function testSafeStillReconstructsAColumnMarkerFromTheCss(): void
@@ -214,7 +214,7 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
         $html = '<table><thead><tr><th style="text-align:right">h</th></tr></thead>'
             . '<tbody><tr><td>a</td></tr></tbody></table>';
 
-        $this->assertSame("|=> h |\n| a |\n", $this->imported($html, 'safe'));
+        $this->assertSame("|={>} h |\n| a |\n", $this->imported($html, 'safe'));
         $this->assertSame([], $this->codes($html, 'safe'));
     }
 
@@ -232,12 +232,12 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
                 '<table><tr><td align="right" style="text-align:left">a</td></tr></table>',
             ] as $html
         ) {
-            $this->assertSame("|< a |\n", $this->imported($html, 'semantic'), $html);
+            $this->assertSame("|{<} a |\n", $this->imported($html, 'semantic'), $html);
             $this->assertSame(['attribute-dropped'], $this->codes($html, 'semantic'), $html);
         }
 
         $vertical = '<table><tr><td style="vertical-align:top" valign="bottom">a</td></tr></table>';
-        $this->assertSame("|?^ a |\n", $this->imported($vertical, 'semantic'));
+        $this->assertSame("|{?^} a |\n", $this->imported($vertical, 'semantic'));
         $this->assertSame(['attribute-dropped'], $this->codes($vertical, 'semantic'));
     }
 
@@ -249,7 +249,7 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
     {
         $html = '<table><tr><td style="TEXT-ALIGN: RIGHT">a</td></tr></table>';
 
-        $this->assertSame("|> a |\n", $this->imported($html, 'semantic'));
+        $this->assertSame("|{>} a |\n", $this->imported($html, 'semantic'));
         $this->assertSame([], $this->codes($html, 'semantic'));
     }
 
@@ -260,7 +260,7 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
     {
         $html = '<table><tr><td style="text-align:right;color:red">a</td></tr></table>';
 
-        $this->assertSame("|> a |\n", $this->imported($html, 'semantic'));
+        $this->assertSame("|{>} a |\n", $this->imported($html, 'semantic'));
         $this->assertSame(['style-unmapped'], $this->codes($html, 'semantic'));
     }
 
@@ -303,7 +303,7 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
     public function testAMalformedDeclarationDoesNotStopTheOnesBesideIt(): void
     {
         foreach (['nonsense;text-align:right', ':red;text-align:right'] as $style) {
-            $this->assertSame("|> a |\n", $this->imported($this->cell($style), 'semantic'), $style);
+            $this->assertSame("|{>} a |\n", $this->imported($this->cell($style), 'semantic'), $style);
             $this->assertSame([], $this->codes($this->cell($style), 'semantic'), $style);
         }
     }
@@ -318,7 +318,7 @@ class ACellAlignmentImportsAsTheNativeMarkerTest extends TestCase
         $html = '<table><tr></tr><tr><th style="text-align:right">h</th></tr>'
             . '<tr><td style="text-align:right">a</td></tr></table>';
 
-        $this->assertSame("|=> h |\n| a |\n", $this->imported($html, 'semantic'));
+        $this->assertSame("|={>} h |\n| a |\n", $this->imported($html, 'semantic'));
         $this->assertSame([], $this->codes($html, 'semantic'));
     }
 }

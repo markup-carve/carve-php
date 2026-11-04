@@ -48,6 +48,11 @@ class RetiredSpellingLinter
     public const RULE_TABLE_MARKER_RUN_PADDING = 'table-marker-run-padding';
 
     /**
+     * @var string
+     */
+    public const RULE_DEPRECATED_CELL_ALIGNMENT = 'deprecated-cell-alignment';
+
+    /**
      * The alignment each retired sigil used to mean, named for the message.
      *
      * Keyed off the parser's own marker set so a fourth sigil cannot be added
@@ -84,14 +89,54 @@ class RetiredSpellingLinter
     private function collect(Node $node, string $source, ?array $byteAt, array &$warnings): void
     {
         if ($node instanceof TableCell) {
-            $warning = $this->retiredOrder($node, $source, $byteAt);
-            if ($warning !== null) {
-                $warnings[] = $warning;
+            foreach ([$this->retiredOrder($node, $source, $byteAt), $this->deprecatedAlignment($node, $source, $byteAt)] as $warning) {
+                if ($warning !== null) {
+                    $warnings[] = $warning;
+                }
             }
         }
         foreach ($node->getChildren() as $child) {
             $this->collect($child, $source, $byteAt, $warnings);
         }
+    }
+
+    /**
+     * The 0.1.13 alignment prefix (`|=> x |`, `|?v x |`), still read until
+     * 0.2.0; `carve fmt` moves its symbols into the cell's braces (carve#5091).
+     *
+     * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
+     * @param string $source
+     * @param array<int, int>|null $byteAt
+     */
+    private function deprecatedAlignment(TableCell $cell, string $source, ?array $byteAt): ?LintWarning
+    {
+        $pos = $cell->getPos();
+        if ($pos === null || $cell->getSpanMarker() !== null) {
+            return null;
+        }
+        $length = strlen($source);
+        $start = SourceOffsets::toByte($pos->startOffset, $byteAt, $length);
+        $raw = substr($source, $start, SourceOffsets::toByte($pos->endOffset, $byteAt, $length) - $start);
+        $parser = new TableParser();
+        $scan = $parser->scanCellMarkerRun($raw);
+        $kind = ($raw[0] ?? '') === '=' ? 1 : 0;
+        if ($parser->bracedAlignment($raw) !== null || $scan === null || !$scan['terminated'] || $scan['runEnd'] <= $kind) {
+            return null;
+        }
+        $run = substr($raw, $kind, $scan['runEnd'] - $kind);
+
+        return new LintWarning(
+            line: $pos->startLine,
+            column: $pos->startColumn + $kind,
+            rule: self::RULE_DEPRECATED_CELL_ALIGNMENT,
+            message: sprintf(
+                'The cell alignment prefix `%s` is deprecated and removed in 0.2.0; write it inside the cell\'s braces as `{%s}`. `carve fmt` rewrites it.',
+                $run,
+                $run,
+            ),
+            start: $start + $kind,
+            end: $start + $scan['runEnd'],
+        );
     }
 
     /**

@@ -14,7 +14,7 @@ class HeadRowAlignmentRoundTripTest extends TestCase
 {
     public function testProseMirrorKeepsTheLastHeaderRowsColumnAlignment(): void
     {
-        $source = "|=> a |\n|=< b |\n| 1 |\n";
+        $source = "|={>} a |\n|={<} b |\n| 1 |\n";
         $document = (new CarveConverter())->parse($source);
         $proseMirror = (new ProseMirrorRenderer())->render($document);
         $back = (new ProseMirrorToCarve())->convert($proseMirror);
@@ -25,7 +25,7 @@ class HeadRowAlignmentRoundTripTest extends TestCase
 
     public function testAstDecodeKeepsAnInheritedHeaderAlignmentUnauthored(): void
     {
-        $source = "|=> a |\n|= b |\n| 1 |\n";
+        $source = "|={>} a |\n|= b |\n| 1 |\n";
         $codec = new AstCodec();
         $encoded = $codec->encode((new CarveConverter())->parse($source));
         $headerCell = $encoded['children'][0]['rows'][1]['cells'][0];
@@ -38,7 +38,7 @@ class HeadRowAlignmentRoundTripTest extends TestCase
 
     public function testBodyCellInheritsTheLastHeadRowMarkerWithoutAnAuthoredField(): void
     {
-        $source = "|=> a |\n|=< b |\n| 1 |\n";
+        $source = "|={>} a |\n|={<} b |\n| 1 |\n";
         $codec = new AstCodec();
         $encoded = $codec->encode((new CarveConverter())->parse($source));
         $bodyCell = $encoded['children'][0]['rows'][2]['cells'][0];
@@ -51,7 +51,7 @@ class HeadRowAlignmentRoundTripTest extends TestCase
 
     public function testRowHeaderAfterBodyKeepsItsInheritedAlignment(): void
     {
-        $source = "|=> a |\n| 1 |\n|= b |\n| 2 |\n";
+        $source = "|={>} a |\n| 1 |\n|= b |\n| 2 |\n";
         $codec = new AstCodec();
         $back = $codec->decode($codec->encode((new CarveConverter())->parse($source)));
 
@@ -61,7 +61,7 @@ class HeadRowAlignmentRoundTripTest extends TestCase
 
     public function testInheritedVerticalAlignmentSurvivesBothExits(): void
     {
-        $source = "|=>^ a |\n|= b |\n| 1 |\n";
+        $source = "|={>^} a |\n|= b |\n| 1 |\n";
         $document = (new CarveConverter())->parse($source);
         $codec = new AstCodec();
         $astBack = $codec->decode($codec->encode($document));
@@ -76,7 +76,7 @@ class HeadRowAlignmentRoundTripTest extends TestCase
 
     public function testTwoColumnsKeepSeparateInheritedHeadRowAlignments(): void
     {
-        $source = "|=> a |=< x |\n|= b |= y |\n| 1 | 2 |\n";
+        $source = "|={>} a |={<} x |\n|= b |= y |\n| 1 | 2 |\n";
         $document = (new CarveConverter())->parse($source);
         $codec = new AstCodec();
         $astBack = $codec->decode($codec->encode($document));
@@ -91,7 +91,7 @@ class HeadRowAlignmentRoundTripTest extends TestCase
 
     public function testVerticalOnlyHeadRowAlignmentReachesTheBody(): void
     {
-        $source = "|=?^ a |\n|= b |\n| 1 |\n";
+        $source = "|={?^} a |\n|= b |\n| 1 |\n";
         $document = (new CarveConverter())->parse($source);
         $codec = new AstCodec();
         $astBack = $codec->decode($codec->encode($document));
@@ -107,13 +107,13 @@ class HeadRowAlignmentRoundTripTest extends TestCase
     public function testAstDecodeUsesFinalHeadDefaults(): void
     {
         $cases = [
-            "|A|B|\n|---|---|\n|=< C|= D|\n|c|d|\n",
-            "{header-rows=1}\n|=> A|= B|\n|=< C|= D|\n|c|d|\n",
-            "{header-rows=0}\n|=> A|= B|\n|c|d|\n",
+            "|A|B|\n|---|---|\n|={<} C|= D|\n|c|d|\n",
+            "{header-rows=1}\n|={>} A|= B|\n|={<} C|= D|\n|c|d|\n",
+            "{header-rows=0}\n|={>} A|= B|\n|c|d|\n",
             "{header-rows=0}\n|A|B|\n|:--|--:|\n|c|d|\n",
             "{aligns=right,center}\n|= A|= B|\n|c|d|\n",
             "{aligns=right,center}\n|A|B|\n|---|---|\n|c|d|\n",
-            "{header-rows=3}\n|=>^ A|= B|\n|a|b|\n|=<v C|= D|\n|c|d|\n",
+            "{header-rows=3}\n|={>^} A|= B|\n|a|b|\n|={<v} C|= D|\n|c|d|\n",
         ];
 
         $converter = new CarveConverter();

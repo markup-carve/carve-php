@@ -748,7 +748,8 @@ class ProseMirrorToCarve
                 }
             }
 
-            $isHeaderRow = $row->isHeader();
+            // A placeholder is header-kind only where a separator promoted the row (PART 11 §6h).
+            $isHeaderRow = $row->isHeader() && ($table->getSeparatorWidths() !== null || isset($this->separatorAligns[$table]));
             $newCells = [];
             $logicalCol = 0;
 
