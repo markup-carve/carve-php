@@ -83,6 +83,7 @@ class TableColumnLinterTest extends TestCase
         self::assertSame(['1:2 table-column-overlap'], $rules($linter->lint("{aligns=\"left\"}\n|={>} H |\n| a |\n")));
         self::assertSame(['1:2 table-column-overlap'], $rules($linter->lint("{valigns=\"top\"}\n|={<v} H |\n| a |\n")));
         self::assertSame([], $rules($linter->lint("{valigns=\"top\"}\n|={>} H |\n| a |\n")));
+        self::assertSame([], $rules($linter->lint("{aligns=\"left\"}\n| a |\n|={>} H |\n")));
         self::assertSame(['1:2 table-marker-run-padding', '2:2 table-marker-run-padding'], $rules($linter->lint("|=a |\n|={.x}value |\n")));
         self::assertSame(['1:2 table-marker-run-padding'], $rules($linter->lint("|={>}x |\n")));
         self::assertSame(['1:2 table-marker-run-padding'], $rules($linter->lint("|{>}x |\n")));

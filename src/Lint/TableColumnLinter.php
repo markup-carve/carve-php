@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Lint;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\BlockParser;
@@ -114,14 +116,31 @@ class TableColumnLinter
     }
 
     /**
+     * Only the leading header rows (the table head) are column markers; a
+     * header cell in a later row is a row header and aligns only itself.
+     *
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array{aligns: bool, valigns: bool} $axes
      */
     private function collectHeaderAxes(Node $node, array &$axes): void
     {
-        if ($node instanceof TableCell && $node->isHeader()) {
-            $axes['aligns'] = $axes['aligns'] || $node->hasExplicitAlignment();
-            $axes['valigns'] = $axes['valigns'] || $node->hasExplicitVerticalAlignment();
+        if ($node instanceof Table) {
+            foreach ($node->getChildren() as $row) {
+                if (!$row instanceof TableRow) {
+                    continue;
+                }
+                if (!$row->isHeader()) {
+                    break;
+                }
+                foreach ($row->getChildren() as $cell) {
+                    if ($cell instanceof TableCell) {
+                        $axes['aligns'] = $axes['aligns'] || $cell->hasExplicitAlignment();
+                        $axes['valigns'] = $axes['valigns'] || $cell->hasExplicitVerticalAlignment();
+                    }
+                }
+            }
+
+            return;
         }
         foreach ($node->getChildren() as $child) {
             $this->collectHeaderAxes($child, $axes);
