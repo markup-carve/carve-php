@@ -13,6 +13,7 @@ use PHPUnit\Framework\TestCase;
  * is a note line (CARVE-P0-005), a sibling description takes its own first-block
  * `+` (CARVE-P9-016), and a term on an item's marker line takes a description
  * past a blank.
+ * carve#5012 erases the note comment now, so `more` continues its paragraph.
  */
 final class DescriptionAndNoteBodiesKeepTheirLinesTest extends TestCase
 {
@@ -21,7 +22,7 @@ final class DescriptionAndNoteBodiesKeepTheirLinesTest extends TestCase
      */
     public static function cases(): array
     {
-        $note = "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text</p>\n      <p>more<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>";
+        $note = "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text\nmore<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>";
 
         return [
             'comment in an item note' => [

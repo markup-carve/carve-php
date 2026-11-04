@@ -32,7 +32,7 @@
   {
     "id": "owner134-8",
     "source": "> - ::: |\n>   x\n> %% note\n> - not a marker\n>   :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li>not a marker\n      <div></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li><p>not a marker</p><div></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-9",
@@ -92,7 +92,7 @@
   {
     "id": "owner134-22",
     "source": "> - :::: |\n>   x\n> %% note\n> - not a marker\n>   ::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li>not a marker\n      <div></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li><p>not a marker</p><div></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-23",
@@ -152,7 +152,7 @@
   {
     "id": "owner134-36",
     "source": "> - ::::: |\n>   x\n> %% note\n> - not a marker\n>   :::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li>not a marker\n      <div></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li><p>not a marker</p><div></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-37",
@@ -212,7 +212,7 @@
   {
     "id": "owner134-50",
     "source": "> > - ::: |\n> >   x\n> > %% note\n> > - not a marker\n> >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li>not a marker\n        <div></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li><p>not a marker</p><div></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-51",
@@ -272,7 +272,7 @@
   {
     "id": "owner134-64",
     "source": "> > - :::: |\n> >   x\n> > %% note\n> > - not a marker\n> >   ::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li>not a marker\n        <div></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li><p>not a marker</p><div></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-65",
@@ -332,7 +332,7 @@
   {
     "id": "owner134-78",
     "source": "> > - ::::: |\n> >   x\n> > %% note\n> > - not a marker\n> >   :::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li>not a marker\n        <div></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li><p>not a marker</p><div></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-79",
@@ -392,7 +392,7 @@
   {
     "id": "owner134-92",
     "source": "> > > - ::: |\n> > >   x\n> > > %% note\n> > > - not a marker\n> > >   :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li>not a marker\n          <div></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li><p>not a marker</p><div></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-93",
@@ -452,7 +452,7 @@
   {
     "id": "owner134-106",
     "source": "> > > - :::: |\n> > >   x\n> > > %% note\n> > > - not a marker\n> > >   ::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li>not a marker\n          <div></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li><p>not a marker</p><div></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-107",
@@ -512,7 +512,7 @@
   {
     "id": "owner134-120",
     "source": "> > > - ::::: |\n> > >   x\n> > > %% note\n> > > - not a marker\n> > >   :::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li>not a marker\n          <div></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"line-block\"><p>x</p></div></li><li><p>not a marker</p><div></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "owner134-121",

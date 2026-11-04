@@ -12,6 +12,7 @@ use PHPUnit\Framework\TestCase;
  * A comment the author wrote right below a sub-list is written at the item's
  * content column with no blank above it: a blank followed only by invisible
  * lines and then a sibling marker loosens the list (PART 9 §17 L1c).
+ * carve#5012 erases the `%%` line; the quoted row now renders loose, as the spec model does.
  */
 final class ACommentAfterASubListAddsNoBlankTest extends TestCase
 {
@@ -40,8 +41,8 @@ final class ACommentAfterASubListAddsNoBlankTest extends TestCase
 
         yield 'quoted list' => [
             "> - a\n>   * b\n> %% c\n> - s\n",
-            "> - a\n>   * b\n>   %% c\n> - s\n",
-            "<blockquote>\n  <ul>\n    <li>a\n      <ul>\n        <li>b</li>\n      </ul>\n    </li>\n    <li>s</li>\n  </ul>\n</blockquote>",
+            "> - a\n>   * b\n> %% c\n> - s\n",
+            "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <ul>\n        <li>b</li>\n      </ul>\n    </li>\n    <li><p>s</p></li>\n  </ul>\n</blockquote>",
         ];
 
         yield 'quoted list, comment fence' => [

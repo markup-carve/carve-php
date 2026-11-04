@@ -153,16 +153,14 @@ class BelowColumnDefinitionFoldsTest extends TestCase
         // spec, carve-js and carve-rs.
         $html = $this->converter->convert("- a\n   %% c\ntail");
 
-        $this->assertSame("<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>", trim($html));
+        // carve#5012 erases the comment line now, so `tail` folds into the item.
+        $this->assertSame("<ul>\n  <li>a\ntail</li>\n</ul>", trim($html));
     }
 
     public function testALazyCommentDoesNotEraseTheInvisibleBlockBeforeIt(): void
     {
         $html = $this->converter->convert("- a\n  %% c\n %% d\n b");
 
-        $this->assertSame('<ul>
-  <li>a</li>
-</ul>
-<p>b</p>', trim($html));
+        $this->assertSame("<ul>\n  <li>a\nb</li>\n</ul>", trim($html));
     }
 }

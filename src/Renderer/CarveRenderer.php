@@ -88,6 +88,7 @@ use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Parser\ReferenceDefinitionExtractor;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
+use MarkupCarve\Carve\Parser\TransparentPlacement;
 use MarkupCarve\Carve\Parser\Utility\CommentFlank;
 use MarkupCarve\Carve\Renderer\Utility\CarveFieldDiagnostic;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
@@ -604,7 +605,40 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     public function render(Document $document): string
     {
-        return $this->withoutIdlePlusEscapes($this->renderDocument($document));
+        if (!TransparentPlacement::placeFromPositions($document)) {
+            return $this->withoutIdlePlusEscapes($this->renderDocument($document));
+        }
+        // A line erased inside a paragraph is written there, not as the sibling the tree holds (carve#5012).
+        $detached = [];
+        $this->detachPlacedNodes($document, $detached);
+        try {
+            return $this->withoutIdlePlusEscapes($this->renderDocument($document));
+        } finally {
+            foreach ($detached as [$parent, $children]) {
+                $parent->setChildren($children);
+            }
+        }
+    }
+
+    /**
+     * @param array<int, array{0: \MarkupCarve\Carve\Node\Node, 1: array<\MarkupCarve\Carve\Node\Node>}> $detached
+     */
+    private function detachPlacedNodes(Node $parent, array &$detached, int $depth = 0): void
+    {
+        $children = $parent->getChildren();
+        $kept = array_values(array_filter($children, static fn (Node $child): bool => !TransparentPlacement::isPlaced($child)));
+        if (count($kept) !== count($children)) {
+            $detached[] = [$parent, $children];
+            $parent->setChildren($kept);
+        }
+        if ($depth >= BlockParser::MAX_NESTING_DEPTH * 4) {
+            return;
+        }
+        foreach ($kept as $child) {
+            if ($child instanceof BlockNode || $child instanceof Document) {
+                $this->detachPlacedNodes($child, $detached, $depth + 1);
+            }
+        }
     }
 
     /**
@@ -2141,6 +2175,22 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->paragraphStartsAfterCaptionHost = $canUsePreviousCaptionSlot && $this->afterCaptionHost;
         try {
             $body = $this->guardThematicBreakLines($this->renderInlines($node->getChildren()));
+            $placed = TransparentPlacement::inParagraph($node);
+            if ($placed !== []) {
+                $lines = explode("\n", $body);
+                // Last first, so each splice leaves the earlier positions in place.
+                foreach (array_reverse($placed) as [$after, $erased]) {
+                    $written = match (true) {
+                        $erased instanceof Comment => $this->renderComment($erased),
+                        $erased instanceof AbbreviationDefinition => $this->renderAbbreviationDefinition($erased),
+                        default => null,
+                    };
+                    if ($written !== null && !str_contains($written, "\n")) {
+                        array_splice($lines, min($after, count($lines)), 0, [$written]);
+                    }
+                }
+                $body = implode("\n", $lines);
+            }
 
             return $this->inLineBlock > 0 ? self::spellEmptyVerseLines($body) : $body;
         } finally {

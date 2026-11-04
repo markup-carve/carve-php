@@ -62,7 +62,8 @@ class CaptionStopsAtInvisibleLineTest extends TestCase
     {
         $html = (new CarveConverter())->convert("| a | b |\n[a]: /u\n^ cap\n");
 
-        $this->assertStringNotContainsString('<caption>', $html);
-        $this->assertStringContainsString('<p>^ cap</p>', $html);
+        // carve#5012 erases the definition line, so the caption attaches now.
+        $this->assertStringContainsString('<caption>cap</caption>', $html);
+        $this->assertStringNotContainsString('<p>^ cap</p>', $html);
     }
 }

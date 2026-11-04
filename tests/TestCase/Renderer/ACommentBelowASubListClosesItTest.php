@@ -50,14 +50,15 @@ final class ACommentBelowASubListClosesItTest extends TestCase
     /**
      * Controls: a comment that no list can re-own keeps its joined spelling.
      * They fail loudly if the separator is ever widened past a sub-list above.
+     * carve#5012 erases the comment, so the writer now puts a lone one at column 0.
      */
     public static function controls(): iterable
     {
         yield 'top level' => ["d\n\n%% q\n\na\n", "d\n\n%% q\n\na\n"];
-        yield 'single-level item' => ["- d\n\n  %% q\n\na\n", "- d\n  %% q\n\na\n"];
-        yield 'below a quote' => ["- > d\n\n  %% q\n\na\n", "- > d\n  %% q\n\na\n"];
-        yield 'below a definition list' => ["- d\n  : e\n\n  %% q\n\na\n", "- d\n  : e\n  %% q\n\na\n"];
-        yield 'below another comment' => ["- %% d\n\n  %% q\n\na\n", "- %% d\n  %% q\n\na\n"];
+        yield 'single-level item' => ["- d\n\n  %% q\n\na\n", "- d\n\n%% q\n\na\n"];
+        yield 'below a quote' => ["- > d\n\n  %% q\n\na\n", "- > d\n\n%% q\n\na\n"];
+        yield 'below a definition list' => ["- d\n  : e\n\n  %% q\n\na\n", "- d\n  : e\n\n%% q\n\na\n"];
+        yield 'below another comment' => ["- %% d\n\n  %% q\n\na\n", "- %% d\n\n%% q\n\na\n"];
         yield 'comment fence below a sub-list' => [
             "- - d\n\n  %%%\n  q\n  %%%\n\na\n",
             "- - d\n  %%%\n  q\n  %%%\n\na\n",
@@ -73,7 +74,7 @@ final class ACommentBelowASubListClosesItTest extends TestCase
     public function testTheTicketsShapeNoLongerDeepensOnTheSecondPass(): void
     {
         $first = CarveConverter::toCarve("- - d\n\n  %% q\na\n");
-        self::assertSame("- - d\n\n  %% q\n\na\n", $first);
+        self::assertSame("- - d\n\n%% q\n\na\n", $first);
         self::assertSame($first, CarveConverter::toCarve($first));
     }
 }

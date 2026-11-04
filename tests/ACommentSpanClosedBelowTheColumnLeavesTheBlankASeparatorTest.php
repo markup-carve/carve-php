@@ -111,7 +111,7 @@ class ACommentSpanClosedBelowTheColumnLeavesTheBlankASeparatorTest extends TestC
             ],
             'the line-comment spelling is untouched' => [
                 "- head\n  %%\n  a\n\n  tail\n",
-                "<ul>\n  <li><p>head</p>\n    <p>a</p>\n    <p>tail</p>\n  </li>\n</ul>\n",
+                "<ul>\n  <li><p>head\na</p>\n    <p>tail</p>\n  </li>\n</ul>\n",
             ],
         ];
     }

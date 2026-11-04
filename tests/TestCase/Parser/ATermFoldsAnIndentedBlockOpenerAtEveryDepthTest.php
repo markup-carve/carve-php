@@ -104,7 +104,7 @@ final class ATermFoldsAnIndentedBlockOpenerAtEveryDepthTest extends TestCase
             ],
             'a percent-led folded comment line keeps its visible neighbors' => [
                 ":: c\n  %% % note\n  visible\n  %% %\n  more\n",
-                '<dl><dt>c</dt></dl><p>visible</p><p>more</p>',
+                '<dl><dt>c</dt></dl><p>visiblemore</p>',
             ],
             'list marker opens' => [
                 ":: a\n: b\n  :: c\n    - x\n",

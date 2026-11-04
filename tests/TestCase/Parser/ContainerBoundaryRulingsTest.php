@@ -127,12 +127,15 @@ class ContainerBoundaryRulingsTest extends TestCase
     {
         $item = "<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>\n";
         $description = "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>tail</p>\n";
+        // carve#5012 erases a line comment or link definition, so `tail` folds in.
+        $erasedItem = "<ul>\n  <li>a\ntail</li>\n</ul>\n";
+        $erasedDescription = "<dl>\n  <dt>t</dt>\n  <dd>a\ntail</dd>\n</dl>\n";
 
         return [
-            'reference definition in an item' => ["- a\n  [r]: /u\ntail\n", $item],
+            'reference definition in an item' => ["- a\n  [r]: /u\ntail\n", $erasedItem],
             'footnote definition in an item' => ["- a\n  [^f]: t\ntail\n", $item],
-            'reference definition in a description' => [":: t\n:  a\n   [r]: /u\ntail\n", $description],
-            'comment in a description' => [":: t\n:  a\n   %% c\ntail\n", $description],
+            'reference definition in a description' => [":: t\n:  a\n   [r]: /u\ntail\n", $erasedDescription],
+            'comment in a description' => [":: t\n:  a\n   %% c\ntail\n", $erasedDescription],
             // Not pinned by the corpus: #1350 is stated about a container's
             // content column rather than about descriptions, and nothing points
             // the other way. The LIST spelling of this one still folds and is

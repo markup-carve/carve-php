@@ -55,8 +55,9 @@ class CollectedDefinitionsKeepTheirSourceOrderTest extends TestCase
         $source = "- a\n  [r]: /u\n more\ntail\n";
         foreach ([CarveConverter::markdown(), CarveConverter::plainText(), CarveConverter::ansi()] as $converter) {
             $output = $converter->convert($source);
+            // carve#5012 erases the line into the item paragraph, so it follows that block.
             self::assertLessThan(strpos($output, '[r]: /u'), strpos($output, 'a'));
-            self::assertLessThan(strpos($output, 'more'), strpos($output, '[r]: /u'));
+            self::assertLessThan(strpos($output, '[r]: /u'), strpos($output, 'tail'));
         }
     }
 

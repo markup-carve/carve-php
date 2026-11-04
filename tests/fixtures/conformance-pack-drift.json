@@ -53,7 +53,6 @@
         "ownership-0b450abbd040",
         "ownership-10c8fc3adeee",
         "ownership-266d5057957e",
-        "ownership-31acd5ea699a",
         "ownership-37fd29b88b03",
         "ownership-58b25b47d0e5",
         "ownership-5df1554573c9",
@@ -95,7 +94,18 @@
         "roundtrip-8f1e5dfcd91c",
         "roundtrip-cb6e2b31afa6",
         "roundtrip-d70e5c5d8856",
-        "roundtrip-f51f03ce5fc1"
+        "roundtrip-f51f03ce5fc1",
+        "attributes-07a7918beade",
+        "attributes-171a77d355b8",
+        "attributes-5f581a25e810",
+        "attributes-6ce87167db05",
+        "attributes-e061437121ec",
+        "attributes-e89680d3e23b",
+        "inline-942c657582d4",
+        "notes-286faf6563b8",
+        "notes-98722f631198",
+        "roundtrip-99bc675a1be9",
+        "roundtrip-b3218e6e6166"
       ]
     },
     {
@@ -132,6 +142,23 @@
         "lazy-5e5b39627ed0",
         "ownership-028a847df024",
         "ownership-bab956633134"
+      ]
+    },
+    {
+      "ticket": "markup-carve/carve-php#4572",
+      "cause": "a + with nothing to attach stays as literal text; carve#5012 erasure reaches it",
+      "cases": [
+        "notes-d9f24ac422f4",
+        "ownership-119dbf924b70",
+        "ownership-487ec1ba757b",
+        "ownership-e7b3820fbdf8"
+      ]
+    },
+    {
+      "ticket": "markup-carve/carve-php#4575",
+      "cause": "a blank before a later block child leaves the item tight; carve#5012 erasure reaches it",
+      "cases": [
+        "ownership-31acd5ea699a"
       ]
     }
   ]

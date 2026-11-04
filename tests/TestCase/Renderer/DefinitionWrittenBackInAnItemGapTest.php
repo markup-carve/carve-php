@@ -47,8 +47,9 @@ class DefinitionWrittenBackInAnItemGapTest extends TestCase
 
     public function testALinkReferenceDefinitionIsWrittenBackOnItsOwnLine(): void
     {
+        // carve#5012 erases a link definition line, so it no longer splits the item and is hoisted.
         $source = "- a\n  [r]: /u\n  more\n\nsee [t][r]\n";
-        $this->assertSame($source, $this->fmt($source));
+        $this->assertSame("- a\n  more\n\nsee [t][r]\n\n[r]: /u\n", $this->fmt($source));
         $this->assertSame($this->html($source), $this->html($this->fmt($source)));
     }
 

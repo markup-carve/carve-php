@@ -12,6 +12,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * A `%%` comment at COLUMN 0 under a definition description ENDS the body
  * (markup-carve/carve-php#1802).
+ * carve#5012 erases the comment line now, so `tail` folds into the body.
  *
  * It renders nothing, so it leaves no paragraph open, so it ends the body -
  * exactly the ruling markup-carve/carve#1809 gave the other four invisible
@@ -53,7 +54,7 @@ class AColumnZeroCommentEndsADescriptionBodyTest extends TestCase
     public function testTheBodyEndsAtTheComment(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>",
+            "<dl>\n  <dt>t</dt>\n  <dd>d\ntail</dd>\n</dl>",
             $this->html(":: t\n:  d\n%% c\ntail\n"),
         );
     }

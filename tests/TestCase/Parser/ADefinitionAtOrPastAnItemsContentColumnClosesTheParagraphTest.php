@@ -19,6 +19,8 @@ use PHPUnit\Framework\TestCase;
  * written there is a definition - and it interrupts the open paragraph rather
  * than folding a flush-left line in (carve-php#1868).
  *
+ * carve#5012 erases a one-line definition or `%%` comment at or past the column now, so `tail` continues the item.
+ *
  * carve-php#1866 moved the COMMENT to that reading and could not carry this:
  * only the comment branch of the trailing-block tracker reads the caller's
  * column flag, while a definition is classified from the line's own bytes with
@@ -74,7 +76,7 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
         $this->assertSame(
             $folds
                 ? "<ul>\n  <li>a\n[r]: /url\ntail</li>\n</ul>"
-                : "<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>",
+                : "<ul>\n  <li>a\ntail</li>\n</ul>",
             trim($html),
         );
     }
@@ -114,7 +116,7 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
         $html = $this->converter->convert("- a\n   [r]: /url\ntail\n\nSee [r][].");
 
         $this->assertSame(
-            "<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>\n<p>See <a href=\"/url\">r</a>.</p>",
+            "<ul>\n  <li>a\ntail</li>\n</ul>\n<p>See <a href=\"/url\">r</a>.</p>",
             trim($html),
         );
     }
@@ -130,7 +132,7 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
      */
     public static function markerLeadBandProvider(): array
     {
-        $ended = "<ul>\n  <li>\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $ended = "<ul>\n  <li>\n    <ul>\n      <li>a\ntail</li>\n    </ul>\n  </li>\n</ul>";
         $folded = "<ul>\n  <li>\n    <ul>\n      <li>a\n[r]: /url\ntail</li>\n    </ul>\n  </li>\n</ul>";
 
         return [
@@ -168,7 +170,7 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
      */
     public static function subListBandProvider(): array
     {
-        $ended = "<ul>\n  <li>a\n    <ul>\n      <li>x</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $ended = "<ul>\n  <li>a\n    <ul>\n      <li>x\ntail</li>\n    </ul>\n  </li>\n</ul>";
         $folded = "<ul>\n  <li>a\n    <ul>\n      <li>x\n[r]: /url\ntail</li>\n    </ul>\n  </li>\n</ul>";
 
         return [
@@ -220,7 +222,7 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
         $this->assertSame(
             $folds
                 ? "<ul>\n  <li>a\n    tail\n  </li>\n</ul>"
-                : "<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>",
+                : "<ul>\n  <li>a\ntail</li>\n</ul>",
             trim($html),
         );
     }
@@ -245,7 +247,7 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
      */
     public static function descriptionHostProvider(): array
     {
-        $ended = "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>tail</p>";
+        $ended = "<dl>\n  <dt>t</dt>\n  <dd>a\ntail</dd>\n</dl>";
         $folded = "<dl>\n  <dt>t</dt>\n  <dd>a\n[r]: /url\ntail</dd>\n</dl>";
 
         return [

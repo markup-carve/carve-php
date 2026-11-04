@@ -74,7 +74,8 @@ class InlineCommentTest extends TestCase
 
     public function testIndentedCommentLineInterruptsParagraph(): void
     {
-        $this->assertSame("<p>x</p>\n<p>y</p>", $this->html("x\n  %% c\ny"));
+        // carve#5012 erases the comment line, so the paragraph continues.
+        $this->assertSame("<p>x\ny</p>", $this->html("x\n  %% c\ny"));
     }
 
     public function testLineCommentConsumesBareEmphasisClosers(): void

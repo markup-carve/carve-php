@@ -9,9 +9,18 @@ use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
+use MarkupCarve\Carve\Node\Block\DefinitionDescription;
+use MarkupCarve\Carve\Node\Block\DefinitionList;
+use MarkupCarve\Carve\Node\Block\DefinitionTerm;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
@@ -88,39 +97,8 @@ trait TransparentLineErasure
         $positions = $this->state->source->trackPositions;
         $this->state->source->trackPositions = true;
         try {
-            $authored = $this->parseDocumentCore($input, false);
-            $references = $this->state->session->references;
-            $lines = new SourceLines($input, $input);
-
-            $injection = ['references' => [], 'abbreviations' => []];
-            foreach ($references as $key => $definition) {
-                if (isset($erased[$definition->line])) {
-                    $injection['references'][(string)$key] = new ReferenceDefinition(
-                        $definition->url,
-                        $definition->attributes,
-                        -$definition->line - 1,
-                        $definition->title,
-                        false,
-                        $definition->rawLabel,
-                    );
-                }
-            }
-            $restored = [];
-            $definitionSpans = [];
-            $this->collectTransparentNodes($authored, $erased, $restored, $definitionSpans);
-            foreach ($restored as $node) {
-                if ($node instanceof AbbreviationDefinition) {
-                    $injection['abbreviations'][$node->getPos()->startLine - 1] = [$node->getAbbr(), $node->getExpansion()];
-                }
-            }
-            foreach ($erased as $index => $_) {
-                $rest = rtrim((string)preg_replace('/^(?:[ \t]*>[ ]?)*[ \t]*/', '', $lines->lines[$index]), " \t");
-                if (preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $rest, $m) === 1 && !isset($injection['abbreviations'][$index])) {
-                    $injection['abbreviations'][$index] = [$m[1], rtrim($m[2], " \t")];
-                }
-            }
-            ksort($injection['abbreviations']);
-
+            $lines = new SourceLines(str_starts_with($input, "\u{FEFF}") ? substr($input, 3) : $input, $input);
+            [$restored, $injection, $definitionSpans] = $this->erasedLineNodes($input, $lines, $erased);
             [$visible, $map] = $this->transparentVisibleSource($input, $lines, $erased);
             $this->transparentInjection = $injection;
             $this->traceNext = $traced;
@@ -144,21 +122,48 @@ trait TransparentLineErasure
                     }
                 }
             }
+            $nested = [];
+            $hoisted = [];
             foreach ($restored as $node) {
                 // An abbreviation definition hoists to the document, as a container's does (carve#4865).
-                $this->insertTransparentNode($document, $node, $node->getPos()->startLine, $node instanceof AbbreviationDefinition ? null : 0);
+                if ($node instanceof AbbreviationDefinition) {
+                    $hoisted[] = [$node->getPos()->startLine, $node];
+                } else {
+                    $nested[] = [$node->getPos()->startLine, $node];
+                }
             }
+            $this->insertTransparentNodes($document, $this->placeByOwner($document, $nested, $erased));
+            $this->insertTransparentNodes($document, $hoisted, null);
             $this->orderCollectedDefinitions($document);
             if ($this->state->session->abbreviations !== []) {
+                $notInTree = $document->getAbbreviationDefinitionsNotInTree();
                 $document->setAbbreviationDefinitions($this->state->session->abbreviationDefinitionsInSourceOrder());
+                $document->setInvisibleAbbreviationDefinitions($notInTree);
+                $document->setAbbreviationsBeforeBody($this->erasedAbbreviationsBeforeBody($lines->lines, $injection['abbreviations'], $map));
             }
         } finally {
             $this->state->source->trackPositions = $positions;
         }
         if (!$positions) {
             $this->dropTransparentPositions($document);
+            // Without positions the collected definitions keep their append order, notes first.
+            $children = $document->getChildren();
+            $slots = [];
+            $collected = [];
+            foreach ($children as $index => $child) {
+                if ($child instanceof Footnote || $child instanceof LinkReferenceDefinition) {
+                    $slots[] = $index;
+                    $collected[] = [$child instanceof Footnote ? 0 : 1, count($collected), $child];
+                }
+            }
+            sort($collected);
+            foreach ($slots as $k => $index) {
+                $children[$index] = $collected[$k][2];
+            }
+            $document->setChildren($children);
         }
         $document->setSourceLength($sourceLength);
+        TransparentPlacement::markErased($document);
 
         return $document;
     }
@@ -204,7 +209,7 @@ trait TransparentLineErasure
     private function transparentRemapper(string $input, SourceLines $lines, string $visible, array $map): \Closure
     {
         $originalStarts = self::codepointLineStarts($input, $lines->byteLineStarts);
-        $visibleLines = new SourceLines($visible, $visible);
+        $visibleLines = new SourceLines(str_starts_with($visible, "\u{FEFF}") ? substr($visible, 3) : $visible, $visible);
         $visibleStarts = self::codepointLineStarts($visible, $visibleLines->byteLineStarts);
         $originalEnd = mb_strlen($input, 'UTF-8');
         $visibleEnd = mb_strlen($visible, 'UTF-8');
@@ -348,86 +353,257 @@ trait TransparentLineErasure
     }
 
     /**
-     * The comment and abbreviation nodes the authored parse made for erased
-     * lines, and the extents of erased link definitions.
+     * The comment and abbreviation nodes, the definitions to register and the
+     * definition extents of the erased lines, built from the lines themselves.
      *
      * @param array<int, array{owner: string, comment: bool}> $erased
-     * @param array<int, \MarkupCarve\Carve\Node\Node> $restored
-     * @param array<int, \MarkupCarve\Carve\Ast\SourceSpan> $definitionSpans
+     *
+     * @return array{0: array<int, \MarkupCarve\Carve\Node\Node>, 1: array{references: array<string, \MarkupCarve\Carve\Parser\ReferenceDefinition>, abbreviations: array<int, array{0: string, 1: string}>}, 2: array<int, \MarkupCarve\Carve\Ast\SourceSpan>}
      */
-    private function collectTransparentNodes(Node $node, array $erased, array &$restored, array &$definitionSpans, int $depth = 0): void
+    private function erasedLineNodes(string $input, SourceLines $lines, array $erased): array
     {
-        foreach ($node->getChildren() as $child) {
-            $pos = $child->getPos();
-            if ($pos !== null && $pos->startLine === $pos->endLine && isset($erased[$pos->startLine - 1])) {
-                if ($child instanceof Comment && $child->getFenceLength() === null && !$child->isDelimited()) {
-                    $restored[$pos->startLine - 1] = $child;
-
-                    continue;
+        $starts = self::codepointLineStarts($input, $lines->byteLineStarts);
+        $bom = str_starts_with($input, "\u{FEFF}") ? 1 : 0;
+        $restored = [];
+        $injection = ['references' => [], 'abbreviations' => []];
+        $spans = [];
+        foreach ($erased as $index => $info) {
+            $line = $lines->lines[$index];
+            preg_match('/^(?:[ \t]*>[ ]?)*[ \t]*/', $line, $prefix);
+            $rest = substr($line, strlen($prefix[0]));
+            $lead = $index === 0 ? $bom : 0;
+            $startColumn = mb_strlen($prefix[0], 'UTF-8') + 1 + $lead;
+            $endColumn = mb_strlen($line, 'UTF-8') + 1 + $lead;
+            $base = $starts[$index] - $lead;
+            $span = new SourceSpan($index + 1, $index + 1, $startColumn, $endColumn, $base + $startColumn - 1, $base + $endColumn - 1);
+            if ($info['comment']) {
+                $content = substr($rest, 2);
+                if ($content !== '' && $content[0] === ' ') {
+                    $content = substr($content, 1);
                 }
-                if ($child instanceof AbbreviationDefinition) {
-                    $restored[$pos->startLine - 1] = $child;
+                $node = new Comment(rtrim($content, " \t"));
+                $node->setPos($span);
+                $restored[$index] = $node;
 
-                    continue;
-                }
-                if ($child instanceof LinkReferenceDefinition) {
-                    $definitionSpans[$pos->startLine - 1] = $pos;
-
-                    continue;
-                }
+                continue;
             }
-            if ($depth < self::MAX_NESTING_DEPTH * 4) {
-                $this->collectTransparentNodes($child, $erased, $restored, $definitionSpans, $depth + 1);
+            $rest = rtrim($rest, " \t");
+            if (preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $rest, $m) === 1) {
+                $node = new AbbreviationDefinition($m[1], rtrim($m[2], " \t"));
+                $node->setPos(new SourceSpan($index + 1, $index + 1, 1 + $lead, $endColumn, $base + $lead, $base + $endColumn - 1));
+                $restored[$index] = $node;
+                $injection['abbreviations'][$index] = [$m[1], rtrim($m[2], " \t")];
+
+                continue;
+            }
+            $definition = $this->referenceDefinitionExtractor->matchDefinitionLine($rest);
+            if ($definition !== null) {
+                $injection['references'][LabelKey::normalize($definition['label'])] = new ReferenceDefinition(
+                    $definition['url'],
+                    $definition['attrs'],
+                    -$index - 1,
+                    $definition['title'],
+                    false,
+                    $definition['label'],
+                );
+                $spans[$index] = $span;
             }
         }
-        if ($depth === 0) {
-            ksort($restored);
+
+        return [$restored, $injection, $spans];
+    }
+
+    /**
+     * PART 11 §10a: whether an abbreviation definition comes before the first body line.
+     *
+     * @param array<int, string> $lines
+     * @param array<int, array{0: string, 1: string}> $erasedAbbreviations
+     * @param array<int, int> $map
+     */
+    private function erasedAbbreviationsBeforeBody(array $lines, array $erasedAbbreviations, array $map): bool
+    {
+        $abbreviations = $erasedAbbreviations;
+        foreach (array_keys($this->state->session->discoveredAbbreviationLines) as $visible) {
+            $abbreviations[$map[$visible] ?? $visible] = true;
+        }
+        if ($abbreviations === []) {
+            return false;
+        }
+        $first = min(array_keys($abbreviations));
+        foreach ($lines as $index => $line) {
+            if (trim($line, " \t") === '' || isset($abbreviations[$index])) {
+                continue;
+            }
+
+            return $first < $index;
+        }
+
+        return true;
+    }
+
+    /**
+     * Put restored nodes in the deepest block container whose extent holds
+     * their line, after the last child that starts before it. One merge pass
+     * per container, so the cost stays linear in the tree.
+     *
+     * @param array<int, array{0: int, 1: \MarkupCarve\Carve\Node\Node}> $nodes Line and node, in source order.
+     * @param int|null $depth Null keeps every node at this container's level.
+     */
+    private function insertTransparentNodes(Node $container, array $nodes, ?int $depth = 0): void
+    {
+        if ($nodes === []) {
+            return;
+        }
+        $children = $container->getChildren();
+        $descends = $depth !== null && $depth < self::MAX_NESTING_DEPTH * 4;
+        $list = ($container instanceof ListBlock || $container instanceof DefinitionList) && $descends;
+        $out = [];
+        $next = 0;
+        $count = count($nodes);
+        foreach ($children as $k => $child) {
+            $pos = $child->getPos();
+            if ($pos === null) {
+                $out[] = $child;
+
+                continue;
+            }
+            $before = [];
+            while ($next < $count && $nodes[$next][0] < $pos->startLine) {
+                $before[] = $nodes[$next++];
+            }
+            if ($before !== [] && $list) {
+                // A line between two items stays in the item above it.
+                $this->insertTransparentNodes(self::holderNear($children, $k - 1), $before, $depth + 1);
+            } else {
+                foreach ($before as [, $node]) {
+                    $out[] = $node;
+                }
+            }
+            $inside = [];
+            while ($next < $count && $nodes[$next][0] <= $pos->endLine) {
+                $inside[] = $nodes[$next++];
+            }
+            $out[] = $child;
+            if ($inside === []) {
+                continue;
+            }
+            if ($list && !$child instanceof ListItem && !$child instanceof DefinitionDescription) {
+                $this->insertTransparentNodes(self::holderNear($children, $k), $inside, $depth + 1);
+
+                continue;
+            }
+            if ($descends && !self::isTransparentLeaf($child)
+                && ($child instanceof ListBlock || $child instanceof BlockQuote || $child->getChildren() !== [])) {
+                $this->insertTransparentNodes($child, $inside, $depth + 1);
+
+                continue;
+            }
+            foreach ($inside as [, $node]) {
+                $out[] = $node;
+            }
+        }
+        $rest = array_slice($nodes, $next);
+        if ($rest !== [] && $list && $children !== []) {
+            $this->insertTransparentNodes(self::holderNear($children, count($children) - 1), $rest, $depth + 1);
+        } else {
+            foreach ($rest as [, $node]) {
+                $out[] = $node;
+            }
+        }
+        $container->setChildren($out);
+        // A container holds the lines it took in (PART 12 §4: no span escapes its parent).
+        $span = $container->getPos();
+        $first = $nodes[0][1]->getPos();
+        $last = $nodes[$count - 1][1]->getPos();
+        if ($span !== null && $first !== null && $last !== null) {
+            $start = $first->startOffset < $span->startOffset ? $first : $span;
+            $end = $last->endOffset > $span->endOffset ? $last : $span;
+            $container->setPos(new SourceSpan($start->startLine, $end->endLine, $start->startColumn, $end->endColumn, $start->startOffset, $end->endOffset, $span->file));
         }
     }
 
     /**
-     * Put a restored node in the deepest block container whose extent holds
-     * its line, after the last child that starts before it.
+     * Put each node whose walk owner is a container in that container, the one
+     * the ownership walk named; return the rest. A quoted line whose content was
+     * erased can lie past the quote's visible extent and still be the quote's.
+     *
+     * @param array<int, array{0: int, 1: \MarkupCarve\Carve\Node\Node}> $nodes
+     * @param array<int, array{owner: string, comment: bool}> $erased
+     *
+     * @return array<int, array{0: int, 1: \MarkupCarve\Carve\Node\Node}>
      */
-    private function insertTransparentNode(Node $container, Node $node, int $line, ?int $depth = 0): void
+    private function placeByOwner(Document $document, array $nodes, array $erased): array
     {
-        $children = $container->getChildren();
-        $at = count($children);
-        foreach ($children as $k => $child) {
-            $pos = $child->getPos();
-            if ($pos === null) {
-                continue;
-            }
-            if ($pos->startLine > $line) {
-                $at = $k;
-
-                break;
-            }
-            if ($pos->endLine < $line || $depth === null || $depth >= self::MAX_NESTING_DEPTH * 4 || self::isTransparentLeaf($child)) {
-                continue;
-            }
-            if ($child instanceof ListBlock || $child instanceof BlockQuote || $child->getChildren() !== []) {
-                $this->insertTransparentNode($child, $node, $line, $depth + 1);
-
-                return;
+        $kinds = ['quote' => BlockQuote::class, 'item' => ListItem::class, 'footnote' => Footnote::class, 'div' => Div::class, 'dd' => DefinitionDescription::class];
+        $index = [];
+        $stack = [[$document, 0]];
+        $order = [];
+        while ($stack !== []) {
+            [$node, $depth] = array_pop($stack);
+            $order[] = $node;
+            if ($depth < self::MAX_NESTING_DEPTH * 4) {
+                foreach (array_reverse($node->getChildren()) as $child) {
+                    $stack[] = [$child, $depth + 1];
+                }
             }
         }
-        if ($container instanceof ListBlock && $depth !== null) {
-            $previous = $children[$at - 1] ?? $children[0] ?? null;
-            if ($previous !== null) {
-                $this->insertTransparentNode($previous, $node, $line, $depth + 1);
-
-                return;
+        foreach ($order as $node) {
+            $pos = $node->getPos();
+            foreach ($kinds as $kind => $class) {
+                if ($pos !== null && $node instanceof $class) {
+                    $index[$kind . ':' . $pos->startLine][] = $node;
+                }
             }
         }
-        array_splice($children, $at, 0, [$node]);
-        $container->setChildren($children);
+        $rest = [];
+        $targets = [];
+        foreach ($nodes as $entry) {
+            $segments = explode('/', $erased[$entry[0] - 1]['owner'] ?? 'doc');
+            $last = (string)end($segments);
+            $nth = count(array_keys($segments, $last, true));
+            $target = $index[$last][$nth - 1] ?? null;
+            if ($target === null) {
+                $rest[] = $entry;
+
+                continue;
+            }
+            $targets[spl_object_id($target)] ??= [$target, []];
+            $targets[spl_object_id($target)][1][] = $entry;
+        }
+        foreach ($targets as [$target, $entries]) {
+            $this->insertTransparentNodes($target, $entries, 1);
+        }
+
+        return $rest;
+    }
+
+    /**
+     * The item or description at or above `$k`, else the first one below it.
+     *
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $children
+     */
+    private static function holderNear(array $children, int $k): Node
+    {
+        $holds = static fn (Node $node): bool => $node instanceof ListItem || $node instanceof DefinitionDescription;
+        for ($i = min($k, count($children) - 1); $i >= 0; $i--) {
+            if ($holds($children[$i])) {
+                return $children[$i];
+            }
+        }
+        foreach ($children as $child) {
+            if ($holds($child)) {
+                return $child;
+            }
+        }
+
+        return $children[max(0, $k)];
     }
 
     private static function isTransparentLeaf(Node $node): bool
     {
         return $node instanceof Paragraph || $node instanceof Heading || $node instanceof CodeBlock
-            || $node instanceof Table || $node instanceof Comment;
+            || $node instanceof Table || $node instanceof Comment || $node instanceof Figure
+            || $node instanceof FigureGroup || $node instanceof LineBlock || $node instanceof DefinitionTerm;
     }
 
     private function dropTransparentPositions(Node $node, int $depth = 0): void

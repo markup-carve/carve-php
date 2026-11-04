@@ -35,7 +35,7 @@ final class InvisibleLinesBetweenSiblingsAreSkippedTest extends TestCase
             'reference and blanks between items' => ["- a\n\n[r]: /u\n\n- b\n", "<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>"],
             'comment after a blank' => ["- a\n\n%% c\n- b\n", "<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>"],
             'three blanks across the run stay a boundary' => ["- a\n\n\n\n[r]: /u\n- b\n", "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>"],
-            'abbreviation in a quote' => ["> - a\n> *[A]: b\n> - b\n", "<blockquote>\n  <ul>\n    <li>a</li>\n    <li>b</li>\n  </ul>\n</blockquote>"],
+            'abbreviation in a quote' => ["> - a\n> *[A]: b\n> - b\n", "<blockquote>\n  <ul>\n    <li><p>a</p></li>\n    <li><p>b</p></li>\n  </ul>\n</blockquote>"],
             'comment after a term' => [":: t\n%% c\n: d\n", self::DESCRIPTION],
             'reference after a term' => [":: t\n[r]: /u\n: d\n", self::DESCRIPTION],
             'abbreviation after a term' => [":: t\n*[A]: b\n: d\n", self::DESCRIPTION],

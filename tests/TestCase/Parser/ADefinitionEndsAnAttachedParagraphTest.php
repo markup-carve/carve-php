@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Expected output is the spec model's at carve main 5a82756e (carve-php#4243).
+ * carve#5012 erases a line comment or link definition, so it no longer ends the paragraph.
  */
 final class ADefinitionEndsAnAttachedParagraphTest extends TestCase
 {
@@ -37,17 +38,17 @@ final class ADefinitionEndsAnAttachedParagraphTest extends TestCase
 
         yield 'a definition ends an attached paragraph' => [
             "- a\n+\ntext\n[r]: /u\nmore\n",
-            "<ul>\n  <li>a\n    text\n  </li>\n</ul>\n<p>more</p>",
+            "<ul>\n  <li>a\n    text\nmore\n  </li>\n</ul>",
         ];
 
         yield 'an indented definition ends an attached paragraph' => [
             "100. +\nfirst\n+\ntext\n [r]: /u\nmore\n",
-            "<ol start=\"100\">\n  <li>first\n    text\n  </li>\n</ol>\n<p>more</p>",
+            "<ol start=\"100\">\n  <li>first\n    text\nmore\n  </li>\n</ol>",
         ];
 
         yield 'a line comment ends an attached paragraph' => [
             "- a\n+\ntext\n%% c\nmore\n",
-            "<ul>\n  <li>a\n    text\n  </li>\n</ul>\n<p>more</p>",
+            "<ul>\n  <li>a\n    text\nmore\n  </li>\n</ul>",
         ];
 
         yield 'in a quote' => [

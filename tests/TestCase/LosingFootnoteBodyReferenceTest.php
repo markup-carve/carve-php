@@ -14,6 +14,7 @@ class LosingFootnoteBodyReferenceTest extends TestCase
     {
         $render = static fn (string $source): string => (new HtmlRenderer())->render((new BlockParser())->parse($source));
 
-        self::assertSame("<ul>\n  <li>a</li>\n</ul>\n<p><a href=\"/url\">r</a></p>\n", $render("- a\n  [^f]: t\n[^f]: a\n     [r]: /url\n[r][]"));
+        // carve#5012 erases `[r]: /url`, so `[r][]` continues the losing footnote body.
+        self::assertSame("<ul>\n  <li>a</li>\n</ul>\n", $render("- a\n  [^f]: t\n[^f]: a\n     [r]: /url\n[r][]"));
     }
 }

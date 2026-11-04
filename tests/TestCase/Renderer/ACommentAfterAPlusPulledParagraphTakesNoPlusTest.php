@@ -11,6 +11,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * A `+` before a comment is refused and publishes as text, so the writer puts
  * the comment at the item's content column (corpus row 930, carve#4770).
+ * carve#5012 erases a `%%` line comment, so that one is now written at column 0.
  */
 class ACommentAfterAPlusPulledParagraphTakesNoPlusTest extends TestCase
 {
@@ -26,7 +27,7 @@ class ACommentAfterAPlusPulledParagraphTakesNoPlusTest extends TestCase
             ],
             'line comment after a pulled paragraph' => [
                 ". a\n  . b\n    n\n+\nzz\n%% c\n",
-                ". a\n  . b\n    n\n+\nzz\n  %% c\n",
+                ". a\n  . b\n    n\n+\nzz\n\n%% c\n",
             ],
         ];
     }
