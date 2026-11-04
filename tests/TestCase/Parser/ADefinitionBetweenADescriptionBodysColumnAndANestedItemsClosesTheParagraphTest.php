@@ -213,7 +213,7 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
      * ONE COLUMN SHALLOWER THE BODY OWNS IT, so the item ends there and the
      * line below at the item's old column is the body's paragraph. The pair
      * with the row above is the whole nested-column rule, stated on the bytes.
- * carve#5012 erases the definition line now, so `b` continues the item's paragraph.
+     * carve#5012 erases the definition line now, so `b` continues the item's paragraph.
      *
      * Matches carve-js; the executable spec folds the whole run.
      */

@@ -4,21 +4,22 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser;
 
+use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
-use MarkupCarve\Carve\Node\Block\Footnote;
-use MarkupCarve\Carve\Node\Block\Heading;
-use MarkupCarve\Carve\Node\Block\LineBlock;
-use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\FigureGroup;
+use MarkupCarve\Carve\Node\Block\Footnote;
+use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -35,8 +36,14 @@ use MarkupCarve\Carve\Node\Node;
  */
 trait TransparentLineErasure
 {
+    /**
+     * @var string
+     */
     private const TRANSPARENT_QUOTE_PREFIX = '/^(?:[ \t]*>[ ]?)+/';
 
+    /**
+     * @var string
+     */
     private const TRANSPARENT_REGION_MARKER = '/^%%[ \t]*#(?:end)?region(?![A-Za-z0-9_])/';
 
     /**
@@ -50,6 +57,7 @@ trait TransparentLineErasure
      * Authored line indexes the ownership walk leaves to an erasable leaf.
      *
      * @param array<int, string> $lines
+     * @param string $input
      *
      * @return array<int, array{owner: string, comment: bool}>
      */
@@ -61,8 +69,10 @@ trait TransparentLineErasure
         $walk = $this->newOwnershipWalk();
         $walk->trace = [];
         $walk->own($lines, PlusLetter::for($input));
+        /** @var array<int, array<string, int|string|null>> $trace */
+        $trace = $walk->trace;
         $erased = [];
-        foreach ($walk->trace as $record) {
+        foreach ($trace as $record) {
             if ($record['form'] !== 'leaf' || $record['step'] !== 'S5') {
                 continue;
             }
@@ -88,7 +98,9 @@ trait TransparentLineErasure
     }
 
     /**
+     * @param string $input
      * @param array<int, array{owner: string, comment: bool}> $erased
+     * @param int $sourceLength
      */
     private function parseTransparentDocument(string $input, array $erased, int $sourceLength): Document
     {
@@ -124,16 +136,17 @@ trait TransparentLineErasure
             }
             $nested = [];
             $hoisted = [];
-            foreach ($restored as $node) {
+            foreach ($restored as $index => $node) {
                 // An abbreviation definition hoists to the document, as a container's does (carve#4865).
                 if ($node instanceof AbbreviationDefinition) {
-                    $hoisted[] = [$node->getPos()->startLine, $node];
+                    $hoisted[] = [$index + 1, $node];
                 } else {
-                    $nested[] = [$node->getPos()->startLine, $node];
+                    $nested[] = [$index + 1, $node];
                 }
             }
             $this->insertTransparentNodes($document, $this->placeByOwner($document, $nested, $erased));
             $this->insertTransparentNodes($document, $hoisted, null);
+            $this->coverChildSpans($document);
             $this->orderCollectedDefinitions($document);
             if ($this->state->session->abbreviations !== []) {
                 $notInTree = $document->getAbbreviationDefinitionsNotInTree();
@@ -173,6 +186,8 @@ trait TransparentLineErasure
      * bare `>` prefix so it still ends a quoted paragraph. Every visible line
      * keeps its authored bytes and line ending.
      *
+     * @param string $input
+     * @param \MarkupCarve\Carve\Parser\SourceLines $lines
      * @param array<int, array{owner: string, comment: bool}> $erased
      *
      * @return array{0: string, 1: array<int, int>}
@@ -202,11 +217,14 @@ trait TransparentLineErasure
     }
 
     /**
+     * @param string $input
+     * @param \MarkupCarve\Carve\Parser\SourceLines $lines
+     * @param string $visible
      * @param array<int, int> $map
      *
      * @return \Closure(\MarkupCarve\Carve\Ast\SourceSpan): \MarkupCarve\Carve\Ast\SourceSpan
      */
-    private function transparentRemapper(string $input, SourceLines $lines, string $visible, array $map): \Closure
+    private function transparentRemapper(string $input, SourceLines $lines, string $visible, array $map): Closure
     {
         $originalStarts = self::codepointLineStarts($input, $lines->byteLineStarts);
         $visibleLines = new SourceLines(str_starts_with($visible, "\u{FEFF}") ? substr($visible, 3) : $visible, $visible);
@@ -234,6 +252,7 @@ trait TransparentLineErasure
     }
 
     /**
+     * @param string $source
      * @param array<int, int> $byteStarts
      *
      * @return array<int, int>
@@ -253,9 +272,11 @@ trait TransparentLineErasure
     }
 
     /**
+     * @param \MarkupCarve\Carve\Node\Node $node
      * @param \Closure(\MarkupCarve\Carve\Ast\SourceSpan): \MarkupCarve\Carve\Ast\SourceSpan $remap
+     * @param int $depth
      */
-    private function remapTransparentNode(Node $node, \Closure $remap, int $depth = 0): void
+    private function remapTransparentNode(Node $node, Closure $remap, int $depth = 0): void
     {
         $pos = $node->getPos();
         if ($pos !== null) {
@@ -281,7 +302,7 @@ trait TransparentLineErasure
      * @param \Closure(\MarkupCarve\Carve\Ast\SourceSpan): \MarkupCarve\Carve\Ast\SourceSpan $remap
      * @param array<int, int> $map
      */
-    private function remapTransparentState(\Closure $remap, array $map): void
+    private function remapTransparentState(Closure $remap, array $map): void
     {
         $line = static fn (int $oneBased): int => isset($map[$oneBased - 1]) ? $map[$oneBased - 1] + 1 : $oneBased;
         $session = $this->state->session;
@@ -356,6 +377,8 @@ trait TransparentLineErasure
      * The comment and abbreviation nodes, the definitions to register and the
      * definition extents of the erased lines, built from the lines themselves.
      *
+     * @param string $input
+     * @param \MarkupCarve\Carve\Parser\SourceLines $lines
      * @param array<int, array{owner: string, comment: bool}> $erased
      *
      * @return array{0: array<int, \MarkupCarve\Carve\Node\Node>, 1: array{references: array<string, \MarkupCarve\Carve\Parser\ReferenceDefinition>, abbreviations: array<int, array{0: string, 1: string}>}, 2: array<int, \MarkupCarve\Carve\Ast\SourceSpan>}
@@ -369,10 +392,10 @@ trait TransparentLineErasure
         $spans = [];
         foreach ($erased as $index => $info) {
             $line = $lines->lines[$index];
-            preg_match('/^(?:[ \t]*>[ ]?)*[ \t]*/', $line, $prefix);
-            $rest = substr($line, strlen($prefix[0]));
+            $prefix = preg_match('/^(?:[ \t]*>[ ]?)*[ \t]*/', $line, $m) === 1 ? $m[0] : '';
+            $rest = substr($line, strlen($prefix));
             $lead = $index === 0 ? $bom : 0;
-            $startColumn = mb_strlen($prefix[0], 'UTF-8') + 1 + $lead;
+            $startColumn = mb_strlen($prefix, 'UTF-8') + 1 + $lead;
             $endColumn = mb_strlen($line, 'UTF-8') + 1 + $lead;
             $base = $starts[$index] - $lead;
             $span = new SourceSpan($index + 1, $index + 1, $startColumn, $endColumn, $base + $startColumn - 1, $base + $endColumn - 1);
@@ -446,6 +469,7 @@ trait TransparentLineErasure
      * their line, after the last child that starts before it. One merge pass
      * per container, so the cost stays linear in the tree.
      *
+     * @param \MarkupCarve\Carve\Node\Node $container
      * @param array<int, array{0: int, 1: \MarkupCarve\Carve\Node\Node}> $nodes Line and node, in source order.
      * @param int|null $depth Null keeps every node at this container's level.
      */
@@ -492,8 +516,10 @@ trait TransparentLineErasure
 
                 continue;
             }
-            if ($descends && !self::isTransparentLeaf($child)
-                && ($child instanceof ListBlock || $child instanceof BlockQuote || $child->getChildren() !== [])) {
+            if (
+                $descends && !self::isTransparentLeaf($child)
+                && ($child instanceof ListBlock || $child instanceof BlockQuote || $child->getChildren() !== [])
+            ) {
                 $this->insertTransparentNodes($child, $inside, $depth + 1);
 
                 continue;
@@ -527,6 +553,7 @@ trait TransparentLineErasure
      * the ownership walk named; return the rest. A quoted line whose content was
      * erased can lie past the quote's visible extent and still be the quote's.
      *
+     * @param \MarkupCarve\Carve\Node\Document $document
      * @param array<int, array{0: int, 1: \MarkupCarve\Carve\Node\Node}> $nodes
      * @param array<int, array{owner: string, comment: bool}> $erased
      *
@@ -581,6 +608,7 @@ trait TransparentLineErasure
      * The item or description at or above `$k`, else the first one below it.
      *
      * @param array<int, \MarkupCarve\Carve\Node\Node> $children
+     * @param int $k
      */
     private static function holderNear(array $children, int $k): Node
     {
@@ -597,6 +625,35 @@ trait TransparentLineErasure
         }
 
         return $children[max(0, $k)];
+    }
+
+    /**
+     * Grow each container's span over its children, so a restored line never
+     * leaves an ancestor's extent (PART 12 §4).
+     */
+    private function coverChildSpans(Node $node, int $depth = 0): ?SourceSpan
+    {
+        $span = $node->getPos();
+        if ($depth >= self::MAX_NESTING_DEPTH * 4) {
+            return $span;
+        }
+        $first = $span;
+        $last = $span;
+        foreach ($node->getChildren() as $child) {
+            $inner = $this->coverChildSpans($child, $depth + 1);
+            if ($inner === null || $inner->file !== null) {
+                continue;
+            }
+            $first = $first === null || $inner->startOffset < $first->startOffset ? $inner : $first;
+            $last = $last === null || $inner->endOffset > $last->endOffset ? $inner : $last;
+        }
+        if ($span === null || $node instanceof Document || $first === null || $last === null || ($first === $span && $last === $span)) {
+            return $span;
+        }
+        $covered = new SourceSpan($first->startLine, $last->endLine, $first->startColumn, $last->endColumn, $first->startOffset, $last->endOffset, $span->file);
+        $node->setPos($covered);
+
+        return $covered;
     }
 
     private static function isTransparentLeaf(Node $node): bool

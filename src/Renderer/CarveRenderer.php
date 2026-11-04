@@ -86,9 +86,9 @@ use MarkupCarve\Carve\Parser\DelimitedTable;
 use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Parser\ReferenceDefinitionExtractor;
+use MarkupCarve\Carve\Parser\TransparentPlacement;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
-use MarkupCarve\Carve\Parser\TransparentPlacement;
 use MarkupCarve\Carve\Parser\Utility\CommentFlank;
 use MarkupCarve\Carve\Renderer\Utility\CarveFieldDiagnostic;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
@@ -605,15 +605,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     public function render(Document $document): string
     {
-        if (!TransparentPlacement::placeFromPositions($document)) {
+        $placement = TransparentPlacement::of($document);
+        if ($placement === null) {
             return $this->withoutIdlePlusEscapes($this->renderDocument($document));
         }
         // A line erased inside a paragraph is written there, not as the sibling the tree holds (carve#5012).
         $detached = [];
-        $this->detachPlacedNodes($document, $detached);
+        $this->detachPlacedNodes($document, $placement, $detached);
+        $outer = $this->transparentPlacement;
+        $this->transparentPlacement = $placement;
         try {
             return $this->withoutIdlePlusEscapes($this->renderDocument($document));
         } finally {
+            $this->transparentPlacement = $outer;
             foreach ($detached as [$parent, $children]) {
                 $parent->setChildren($children);
             }
@@ -621,12 +625,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Parser\TransparentPlacement $placement
      * @param array<int, array{0: \MarkupCarve\Carve\Node\Node, 1: array<\MarkupCarve\Carve\Node\Node>}> $detached
+     * @param int $depth
      */
-    private function detachPlacedNodes(Node $parent, array &$detached, int $depth = 0): void
+    private function detachPlacedNodes(Node $parent, TransparentPlacement $placement, array &$detached, int $depth = 0): void
     {
         $children = $parent->getChildren();
-        $kept = array_values(array_filter($children, static fn (Node $child): bool => !TransparentPlacement::isPlaced($child)));
+        $kept = array_values(array_filter($children, static fn (Node $child): bool => !$placement->isPlaced($child)));
         if (count($kept) !== count($children)) {
             $detached[] = [$parent, $children];
             $parent->setChildren($kept);
@@ -636,7 +643,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         foreach ($kept as $child) {
             if ($child instanceof BlockNode || $child instanceof Document) {
-                $this->detachPlacedNodes($child, $detached, $depth + 1);
+                $this->detachPlacedNodes($child, $placement, $detached, $depth + 1);
             }
         }
     }
@@ -1950,6 +1957,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected int $verseCommentFence = 3;
 
+    private ?TransparentPlacement $transparentPlacement = null;
+
     /**
      * Whether the block just written can host a caption, so a following `^ `
      * line would be read back as one (see hostsACaption()).
@@ -2175,7 +2184,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->paragraphStartsAfterCaptionHost = $canUsePreviousCaptionSlot && $this->afterCaptionHost;
         try {
             $body = $this->guardThematicBreakLines($this->renderInlines($node->getChildren()));
-            $placed = TransparentPlacement::inParagraph($node);
+            $placed = $this->transparentPlacement?->inParagraph($node) ?? [];
             if ($placed !== []) {
                 $lines = explode("\n", $body);
                 // Last first, so each splice leaves the earlier positions in place.

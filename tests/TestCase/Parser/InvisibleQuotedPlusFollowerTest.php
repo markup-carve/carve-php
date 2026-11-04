@@ -5,28 +5,37 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class InvisibleQuotedPlusFollowerTest extends TestCase
 {
+    use RuleATodo;
+
     /**
-     * @return array<string, array{string}>
+     * @var string
+     */
+    private const ERASED = "<blockquote>\n  <blockquote><p>a</p></blockquote>\n  <p>b</p>\n</blockquote>";
+
+    /**
+     * @return array<string, array{0: string, 1?: string}>
      */
     public static function invisibleFollowers(): array
     {
         return [
-            'line comment' => ['%% c'],
+            // carve#5012 erases the line, so `+` meets `b` outside the inner quote.
+            'line comment' => ['%% c', self::ERASED],
             'fenced comment' => ["%%% c\n > hidden\n > %%%"],
-            'reference definition' => ['[r]: /u'],
+            'reference definition' => ['[r]: /u', self::ERASED],
         ];
     }
 
     #[DataProvider('invisibleFollowers')]
-    public function testAcceptedPlusKeepsTheVisibleFollowerInItsNestedQuote(string $invisible): void
+    public function testAcceptedPlusKeepsTheVisibleFollowerInItsNestedQuote(string $invisible, ?string $erased = null): void
     {
         $source = "> > a\n > +\n > $invisible\n > b\n";
-        $expected = <<<'HTML'
+        $expected = $erased ?? <<<'HTML'
 <blockquote>
   <blockquote>
     <p>a</p>

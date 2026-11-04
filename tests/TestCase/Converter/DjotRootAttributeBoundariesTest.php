@@ -10,11 +10,14 @@ use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class DjotRootAttributeBoundariesTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return iterable<string, array{string, string, array<string, mixed>|null}>
      */

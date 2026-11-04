@@ -22,7 +22,7 @@ class ALineCommentBelowAHostColumnIsTheDocumentsTest extends TestCase
         return [
             'nested marker line' => ["- - a\n %% c\n\n b\n", "- - a\n\n%% c\n\nb\n"],
             'nested marker line, tight' => ["- - a\n %% c\n", "- - a\n\n%% c\n"],
-            'reaches only the outer item' => ["- - a\n  %% c\n", "- - a\n\n%% c\n"],
+            'reaches only the outer item' => ["- - a\n  %% c\n", "- - a\n\n  %% c\n"],
             'description body' => [":: t\n:  d\n  %% c\n", ":: t\n: d\n\n%% c\n"],
             'description with a line below' => [":: t\n: d\n %% c\n x\n", ":: t\n: d\n  %% c\n  x\n"],
         ];

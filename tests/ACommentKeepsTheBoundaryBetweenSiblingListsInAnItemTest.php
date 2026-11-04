@@ -38,7 +38,7 @@ class ACommentKeepsTheBoundaryBetweenSiblingListsInAnItemTest extends TestCase
             ],
             'comment closing an item after a description list' => [
                 "- o\n  :: t\n  : x\n\n  %% c\n",
-                "- o\n  :: t\n  : x\n\n%% c\n",
+                "- o\n  :: t\n  : x\n\n  %% c\n",
             ],
         ];
     }

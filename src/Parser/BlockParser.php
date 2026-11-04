@@ -758,6 +758,8 @@ class BlockParser
     }
 
     /**
+     * @param string $input
+     * @param bool $transparent
      * @param array<int, int>|null $lineMap Visible line index to authored line index, for the visible parse of an erased document.
      */
     private function parseDocumentCore(string $input, bool $transparent, ?array $lineMap = null): Document
