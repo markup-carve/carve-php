@@ -17,7 +17,7 @@ class TableSpanAlignmentDefaultsTest extends TestCase
 
     public function testHeaderCellSpanGlyphsStayLiteral(): void
     {
-        $html = (new CarveConverter())->convert("|a|= <|\n|b|= ^|\n");
+        $html = (new CarveConverter())->convert("|a|= \\<|\n|b|= \\^|\n");
         self::assertStringContainsString('<tr><td>a</td><th scope="row">&lt;</th></tr>', $html);
         self::assertStringContainsString('<tr><td>b</td><th scope="row">^</th></tr>', $html);
     }

@@ -126,7 +126,7 @@ class AHeaderMarkerIsNotGluedToAnAlignmentSigilTest extends TestCase
     public function testACellWhoseOwnAlignmentMarkerAlreadySpentTheScanIsPadded(): void
     {
         $source = "|=~ ~x~ |\n| y |\n";
-        $this->assertSame("|=~ ~x~ |\n| y |\n", $this->fmt($source));
+        $this->assertSame("|={~} ~x~ |\n| y |\n", $this->fmt($source));
         $this->assertRoundTrips($source);
     }
 }

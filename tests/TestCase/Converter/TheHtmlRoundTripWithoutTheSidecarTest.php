@@ -134,7 +134,7 @@ class TheHtmlRoundTripWithoutTheSidecarTest extends TestCase
             // the cell-marker one (markup-carve/carve#1344).
             'a table alignment row' => [
                 "| Left | Center | Right |\n|:--|:--:|--:|\n| L | C | R |\n",
-                "|=< Left |=~ Center |=> Right |\n| L | C | R |\n",
+                "|={<} Left |={~} Center |={>} Right |\n| L | C | R |\n",
             ],
             // Raw HTML is HTML once rendered, so it imports as what it MEANS.
             'a raw inline break' => [

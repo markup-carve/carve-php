@@ -33,7 +33,7 @@ class CanonicalNativeTableHeadersTest extends TestCase
     public static function tables(): iterable
     {
         yield 'plain' => ["| A | B |\n|---|---|\n| x | y |\n", "|= A |= B |\n| x | y |\n"];
-        yield 'all alignments' => ["| A | B | C | D |\n|---|:--|:-:|--:|\n| w | x | y | z |\n", "|= A |=< B |=~ C |=> D |\n| w | x | y | z |\n"];
+        yield 'all alignments' => ["| A | B | C | D |\n|---|:--|:-:|--:|\n| w | x | y | z |\n", "|= A |={<} B |={~} C |={>} D |\n| w | x | y | z |\n"];
         yield 'header only' => ["| A |\n|---|\n", "|= A |\n"];
         yield 'ragged body' => ["| A |\n|---|\n| x | y |\n", "|= A |\n| x | y |\n"];
     }

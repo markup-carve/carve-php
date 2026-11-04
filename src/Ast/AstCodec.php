@@ -2515,17 +2515,17 @@ class AstCodec
         }
 
         if ($node instanceof Table) {
-            // The reference has no row flag: a header row owns a cell that is
-            // not a placeholder, and every cell it owns is a header cell. A
-            // placeholder the T5 walk resolves belongs to the cell covering it,
-            // so it does not vote; a blocked one is a cell the row owns and
-            // votes with its own flag (carve#3047).
+            // The reference has no row flag: a header row owns a header cell,
+            // and every cell it owns is a header cell or an orphan placeholder,
+            // which takes the row's kind (T9). A placeholder the T5 walk
+            // resolves belongs to the cell covering it, so it does not vote
+            // (carve#3047).
             $rows = array_values(array_filter($node->getChildren(), static fn ($row): bool => $row instanceof TableRow));
             foreach (TableSpanGrid::resolve($node) as $index => $gridRow) {
                 $owned = array_filter($gridRow, static fn (array $entry): bool => !$entry['skip']);
-                $allHeaders = array_filter($owned, static fn (array $entry): bool => $entry['cell']->getSpanMarker() === null) !== [];
+                $allHeaders = array_filter($owned, static fn (array $entry): bool => $entry['cell']->isHeader()) !== [];
                 foreach ($owned as $entry) {
-                    if (!$entry['cell']->isHeader()) {
+                    if (!$entry['cell']->isHeader() && $entry['cell']->getSpanMarker() === null) {
                         $allHeaders = false;
 
                         break;
@@ -2549,7 +2549,7 @@ class AstCodec
             $vertical = [];
             foreach (array_slice($rows, 0, $headRows) as $row) {
                 foreach ($row->getChildren() as $column => $cell) {
-                    if (!$cell instanceof TableCell || !$cell->isHeader()) {
+                    if (!$cell instanceof TableCell || (!$cell->isHeader() && $cell->getSpanMarker() === null)) {
                         continue;
                     }
                     if ($cell->hasExplicitAlignment()) {
@@ -2611,7 +2611,7 @@ class AstCodec
             }
             foreach (array_slice($rows, 0, $headRows) as $candidate) {
                 foreach ($candidate->getChildren() as $column => $headerCell) {
-                    if ($headerCell instanceof TableCell && $headerCell->isHeader() && $headerCell->hasExplicitAlignment()) {
+                    if ($headerCell instanceof TableCell && ($headerCell->isHeader() || $headerCell->getSpanMarker() !== null) && $headerCell->hasExplicitAlignment()) {
                         $columns[$column] = $headerCell->getAlignment();
                     }
                 }

@@ -24,7 +24,8 @@ class TableAlignmentFixturesTest extends TestCase
         foreach ($cases as $case) {
             $aligned = match ($case['name']) {
                 'authored separator' => "|= A |= B |\n| x  | yy |\n",
-                'separator colons' => "|=< A |=> B   |\n| x   | right |\n",
+                'separator colons' => "|={<} A |={>} B |\n| x     | right |\n",
+                'attributes spans and empty cells' => "|={.total} Total |={>} Qty |\n| 長い           | 7       |\n| ^              | <       |\n|                |         |\n",
                 default => $case['aligned'],
             };
             $result[$case['name']] = [$case['canonical'], $aligned];

@@ -45,7 +45,7 @@ class TableSpanPaddingRulingTest extends TestCase
     public function testEmptyBodyAlignmentIsDropped(): void
     {
         [$document] = self::tableWithEmptyCell(false, false);
-        self::assertSame("| |\n", (new CarveRenderer())->render($document));
+        self::assertSame("|{<} |\n", (new CarveRenderer())->render($document));
     }
 
     public function testEmptyHeaderDefaultUsesExistingDelimiter(): void
@@ -53,7 +53,7 @@ class TableSpanPaddingRulingTest extends TestCase
         [$document] = self::tableWithEmptyCell(true, true);
         $writer = new CarveRenderer();
         $writer->beginConversionDiagnosticCollection();
-        self::assertSame("|=< |\n", $writer->render($document));
+        self::assertSame("|={<} |\n", $writer->render($document));
         self::assertSame([], $writer->finishConversionDiagnosticCollection()['diagnostics']);
     }
 
@@ -62,7 +62,7 @@ class TableSpanPaddingRulingTest extends TestCase
         [$document] = self::tableWithEmptyCell(true, false);
         $writer = new CarveRenderer();
         $writer->beginConversionDiagnosticCollection();
-        self::assertSame("|=< |\n", $writer->render($document));
+        self::assertSame("|={<} |\n", $writer->render($document));
         self::assertSame([], $writer->finishConversionDiagnosticCollection()['diagnostics']);
     }
 

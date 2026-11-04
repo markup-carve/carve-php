@@ -59,7 +59,10 @@ class ConverterCorpusTest extends TestCase
     /**
      * @var array<string, string>
      */
-    private const AHEAD_OF_PIN = [];
+    private const AHEAD_OF_PIN = [
+        // carve#5101: under carve#5091 D3 the empty left-aligned cell is spelled `|{<} |`.
+        '84-html-empty-aligned-body-cell' => "<table>\n  <tbody>\n    <tr><td style=\"text-align: left;\"></td><td></td></tr>\n  </tbody>\n</table>\n",
+    ];
 
     /**
      * @throws \RuntimeException

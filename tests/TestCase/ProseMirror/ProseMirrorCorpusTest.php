@@ -153,10 +153,13 @@ class ProseMirrorCorpusTest extends TestCase
      * and three line blocks after a verse span (939, carve#4956) join, while 856
      * and 910 leave. The pin to carve 3d7a9fff (the carve#5015 port) counts 13:
      * rows of rulings not ported here yet (carve#5012, carve#5013) join.
+     * carve#5091 adds two covered placeholders the bridge has no slot for (15):
+     * the header-kind `= <` of 659-2 and the alignment-only `{<} <` of 952-2
+     * come back bare; the HTML is the same.
      *
      * @var int
      */
-    private const MAXIMUM_COVERED_BUT_DIFFERING = 13;
+    private const MAXIMUM_COVERED_BUT_DIFFERING = 15;
 
     public function testTheCorpusSurvivesTheBridge(): void
     {

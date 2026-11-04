@@ -45,7 +45,12 @@ class HtmlImportReportTest extends TestCase
      *
      * @var array<string, array{reason: string, carve?: string, diagnostics?: list<string>, ast?: string}>
      */
-    private const AHEAD_OF_PIN = [];
+    private const AHEAD_OF_PIN = [
+        'cell-text-align-columns' => ['reason' => 'carve#5091 D3 (carve#5100): the writer spells alignment inside the cell braces', 'carve' => "|={<} V |={>} D |\n| a | b |\n"],
+        'cell-text-align-declarations' => ['reason' => 'carve#5091 D3 (carve#5100): the writer spells alignment inside the cell braces', 'carve' => "|{>} a |{<} b | c |{~} d |\n"],
+        'cell-text-align-overrides' => ['reason' => 'carve#5091 D3 (carve#5100): the writer spells alignment inside the cell braces', 'carve' => "|={>} V |\n|{~} a |\n|{<} b |\n"],
+        'cell-text-align-unmapped' => ['reason' => 'carve#5091 D3 (carve#5100): the writer spells alignment inside the cell braces', 'carve' => "|{~} a | b |\n"],
+    ];
 
     /**
      * The other side of the same window: a fixture the pin states and this

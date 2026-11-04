@@ -104,7 +104,7 @@ class ABlankTableRowIsWrittenAsARowTest extends TestCase
         return [
             'one filled cell' => [[self::row(self::cell('a'), self::cell(''))], "| a | |\n"],
             'a cell attribute' => [[self::row(self::cell('', ['attrs' => ['classes' => ['x']]])), self::row(self::cell('a'))], "|{.x} |\n| a |\n"],
-            'an alignment marker' => [[self::row(self::cell('', ['align' => 'right'])), self::row(self::cell('a'))], "|> |\n| a |\n"],
+            'an alignment marker' => [[self::row(self::cell('', ['align' => 'right'])), self::row(self::cell('a'))], "|{>} |\n| a |\n"],
             'a span marker' => [[self::row(self::cell('', ['span' => 'colspan'])), self::row(self::cell('a'))], "| < |\n| a |\n"],
         ];
     }

@@ -198,7 +198,7 @@ class CellAttributesBindAfterTheMarkersTest extends TestCase
         $this->assertStringContainsString('<td style="text-align: right; vertical-align: top;">top</td>', $html);
         $this->assertStringContainsString('<td style="text-align: right; vertical-align: middle;">middle</td>', $html);
         $this->assertStringContainsString('<td style="text-align: right; vertical-align: bottom;">bottom</td>', $html);
-        $this->assertStringContainsString('|?^ top |?~ middle |?v bottom |', $this->fmt($source));
+        $this->assertStringContainsString('|{?^} top |{?~} middle |{?v} bottom |', $this->fmt($source));
 
         foreach (
             [

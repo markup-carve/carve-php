@@ -48,7 +48,7 @@ class TableCellWriterParityTest extends TestCase
 
         yield 'body alignment and attributes' => [
             "|= Item |= Cost |\n| Pen |>{.num} 9 |\n",
-            "|= Item |= Cost |\n| Pen |>{.num} 9 |\n",
+            "|= Item |= Cost |\n| Pen |{> .num} 9 |\n",
         ];
     }
 

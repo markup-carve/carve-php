@@ -64,7 +64,7 @@ class TableParser
     {
         $line = $this->stripRowAttributes(rtrim($line, " \t"));
         foreach ($this->parseTableCellsWithAttributes($line) as $cell) {
-            if ($cell['attributes'] !== '') {
+            if ($cell['attributes'] !== '' || ($cell['marker'] !== '' && $cell['marker'] !== '=')) {
                 return false;
             }
             $runLength = $this->cellMarkerRunLength($cell['content']);
@@ -502,13 +502,27 @@ class TableParser
             // quote-aware (so a quoted `}` in a value is kept), and the WHOLE
             // payload must be valid attribute syntax (§15) -- otherwise the `{`
             // stays literal content.
+            $braced = $this->bracedAlignment($cellContent);
             $markerLength = $this->cellMarkerRunLength($cellContent);
             $blockEnd = $this->cellAttrBlockEnd($cellContent, $markerLength);
-            // PART 9 §5 T11: the block is part of the marker run, and the run
-            // ends at a space. Glued to the content it is not a block at all,
-            // so the braces reach the output - which is also what
-            // `cellMarkerRunLength()` decided about the markers ahead of it.
-            if ($blockEnd !== null && ($cellContent[$blockEnd] ?? '') === ' ') {
+            if (preg_match('/^=( +)[<^] *$/', $cellContent, $headerSpan) === 1) {
+                // A header-kind placeholder (`|= ^ |`, PART 9 §5 T4).
+                $marker = '=';
+                $content = substr($cellContent, 1 + strlen($headerSpan[1]));
+                $cellOffset += 1 + strlen($headerSpan[1]);
+            } elseif ($braced !== null) {
+                // D3: the alignment symbols lead the block; `marker` carries
+                // them as the 0.1.13 prefix did, so both spellings build one tree.
+                $attributes = $braced['attributes'];
+                $marker = $braced['marker'];
+                $rest = substr($cellContent, $braced['end']);
+                $content = ltrim($rest, ' ');
+                $cellOffset += $braced['end'] + (strlen($rest) - strlen($content));
+            } elseif ($blockEnd !== null && ($cellContent[$blockEnd] ?? '') === ' ') {
+                // PART 9 §5 T11: the block is part of the marker run, and the run
+                // ends at a space. Glued to the content it is not a block at all,
+                // so the braces reach the output - which is also what
+                // `cellMarkerRunLength()` decided about the markers ahead of it.
                 $attributes = substr($cellContent, $markerLength + 1, $blockEnd - $markerLength - 2);
                 $marker = substr($cellContent, 0, $markerLength);
                 $rest = substr($cellContent, $blockEnd);
@@ -656,6 +670,45 @@ class TableParser
             'blockEnd' => $blockEnd,
             'terminated' => ($cell[$afterBlock] ?? '') === ' ',
         ];
+    }
+
+    /**
+     * The D3 alignment block at the start of a cell (`{>^}`, `={~ .x}`): its
+     * symbols as a marker run, the ordinary attributes after them, and where
+     * the block ends. Null when the cell has none, or when the block is not
+     * followed by the space that ends a prefix (T11).
+     *
+     * @return array{marker: string, attributes: string, end: int}|null
+     */
+    public function bracedAlignment(string $cell): ?array
+    {
+        $kind = ($cell[0] ?? '') === '=' ? 1 : 0;
+        if (($cell[$kind] ?? '') !== '{') {
+            return null;
+        }
+        $close = $this->findCellAttrEnd(substr($cell, $kind));
+        if ($close === null) {
+            return null;
+        }
+        $end = $kind + $close + 1;
+        $payload = substr($cell, $kind + 1, $close - 1);
+        if (($cell[$end] ?? '') !== ' ' || preg_match('/^([<>~?])([\^~v])?(?= |$)/', $payload, $match) !== 1) {
+            return null;
+        }
+        $symbols = $match[0];
+        if ($symbols === '?') {
+            return null;
+        }
+        $tail = ltrim(substr($payload, strlen($symbols)), ' ');
+        if (
+            preg_match('/^[^\S ]/', $tail) === 1
+            || preg_match('/^[<>~?^v](?: |$)/', $tail) === 1
+            || ($tail !== '' && !AttributeParser::isValidInlinePayload($tail))
+        ) {
+            return null;
+        }
+
+        return ['marker' => substr($cell, 0, $kind) . $symbols, 'attributes' => $tail, 'end' => $end];
     }
 
     /**
