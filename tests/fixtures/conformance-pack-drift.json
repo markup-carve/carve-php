@@ -10,14 +10,26 @@
       ]
     },
     {
-      "ticket": "markup-carve/carve-php#4581",
-      "cause": "carve#5013 port: a refused marker's follower in these shapes still differs from the model",
+      "ticket": "markup-carve/carve#5111",
+      "cause": "the model folds an opener into the paragraph after a refused plus; this engine interrupts it",
       "cases": [
-        "fences-7b1ba5bdbbb8",
         "fences-be8043b3def8",
-        "lazy-5e5b39627ed0",
         "ownership-028a847df024",
         "ownership-bab956633134"
+      ]
+    },
+    {
+      "ticket": "markup-carve/carve#5113",
+      "cause": "the model keeps a list tight across a blank after a fence a refused plus ended; this engine loosens it",
+      "cases": [
+        "fences-7b1ba5bdbbb8"
+      ]
+    },
+    {
+      "ticket": "markup-carve/carve#5132",
+      "cause": "a > + after a quote-attached paragraph: the model erases it at the end of input; this engine keeps it a letter",
+      "cases": [
+        "lazy-5e5b39627ed0"
       ]
     },
     {
