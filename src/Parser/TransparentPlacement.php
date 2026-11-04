@@ -30,6 +30,11 @@ final class TransparentPlacement
     private static ?WeakMap $erased = null;
 
     /**
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Comment, int>|null
+     */
+    private static ?WeakMap $plusLines = null;
+
+    /**
      * @var \SplObjectStorage<\MarkupCarve\Carve\Node\Block\Paragraph, array<int, array{0: int, 1: \MarkupCarve\Carve\Node\Node}>>
      */
     private SplObjectStorage $inParagraph;
@@ -80,6 +85,24 @@ final class TransparentPlacement
     public static function hasErasedLines(Document $document): bool
     {
         return isset(self::$erased[$document]);
+    }
+
+    /**
+     * A consumed `+` is parsed as an empty comment line. Unlike an authored one
+     * it still parts the blocks around it, so the writer spells it as the `+`.
+     */
+    public static function markPlusLine(Comment $comment, int $column): void
+    {
+        self::$plusLines ??= new WeakMap();
+        self::$plusLines[$comment] = $column;
+    }
+
+    /**
+     * The 1-based source column of the `+` this comment stands for, or null.
+     */
+    public static function plusLineColumn(Node $node): ?int
+    {
+        return $node instanceof Comment ? self::$plusLines[$node] ?? null : null;
     }
 
     private function collect(Node $node, int $depth = 0): void

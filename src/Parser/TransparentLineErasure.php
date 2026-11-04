@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Parser;
 
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
+use MarkupCarve\Carve\Exception\ParseException;
 use MarkupCarve\Carve\Exception\ParseWarning;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
@@ -117,6 +118,10 @@ trait TransparentLineErasure
             $this->traceNext = $traced;
             try {
                 $document = $this->parseDocumentCore($visible, false, $map);
+            } catch (ParseException $exception) {
+                $authored = $map[$exception->getSourceLine() - $this->state->session->lineOffset - 1] ?? null;
+
+                throw $authored === null ? $exception : $exception->atLine($authored + $this->state->session->lineOffset + 1);
             } finally {
                 $this->transparentInjection = null;
             }

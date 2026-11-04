@@ -2986,6 +2986,11 @@ class BlockParser
             // markup-carve/carve#1928.
             $markerColumn = $this->commentMarkerColumn($sourceText, $line);
             $comment->setPos($this->spanForLineMap([$sourceLine], $markerColumn));
+            // The walk spells a consumed `+` as this line.
+            $authored = $this->state->source->authoredLines[$sourceLine] ?? '';
+            if (preg_match('/^(?:[ \t]*>[ ]?)*[ \t]*(?=\+)/', $authored, $plus) === 1) {
+                TransparentPlacement::markPlusLine($comment, mb_strlen($plus[0], 'UTF-8') + 1);
+            }
             $parent->appendChild($comment);
 
             return 1;

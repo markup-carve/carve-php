@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\ParseException;
 use MarkupCarve\Carve\Exception\ParseWarning;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -29,6 +30,7 @@ class WarningsAfterAnErasedLineReportAuthoredLinesTest extends TestCase
     }
 
     /**
+     * @param string $source
      * @param array<string> $expected
      */
     #[DataProvider('sources')]
@@ -41,5 +43,16 @@ class WarningsAfterAnErasedLineReportAuthoredLinesTest extends TestCase
             static fn (ParseWarning $warning): string => $warning->getLine() . ':' . $warning->getMessage(),
             $converter->getWarnings(),
         ));
+    }
+
+    public function testAStrictModeErrorNamesTheAuthoredLine(): void
+    {
+        try {
+            (new CarveConverter(strict: true))->convert("x\n%% c\n%% d\n```\n");
+            $this->fail('Expected a ParseException');
+        } catch (ParseException $exception) {
+            $this->assertSame(4, $exception->getSourceLine());
+            $this->assertSame('Unclosed code fence at line 4, column 1', $exception->getMessage());
+        }
     }
 }
