@@ -60,10 +60,11 @@ class AstCodecTest extends TestCase
 
     public function testThematicBreakMarkerSurvivesAstIngestAndWriting(): void
     {
-        $parsed = $this->codec->encode($this->converter->parse("---\n\n***\n\n___\n"));
-        $this->assertArrayNotHasKey('marker', $parsed['children'][0]);
-        $this->assertSame('*', $parsed['children'][1]['marker']);
-        $this->assertSame('_', $parsed['children'][2]['marker']);
+        // carve#5016: a first-line `---` opens frontmatter, so a paragraph leads.
+        $parsed = $this->codec->encode($this->converter->parse("x\n\n---\n\n***\n\n___\n"));
+        $this->assertArrayNotHasKey('marker', $parsed['children'][1]);
+        $this->assertSame('*', $parsed['children'][2]['marker']);
+        $this->assertSame('_', $parsed['children'][3]['marker']);
 
         $wire = [
             'type' => 'document',

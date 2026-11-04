@@ -1690,7 +1690,16 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '550-a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run' => [
+            'reason' => 'carve#5016: a first-line opener claims through its closer or EOF',
+            'html' => '',
+        ],
+        '854-an-indented-dash-line-neither-opens-nor-closes-frontmatter-2' => [
+            'reason' => 'carve#5016: a first-line opener claims through its closer or EOF',
+            'html' => '',
+        ],
+    ];
 
     protected CarveConverter $converter;
 

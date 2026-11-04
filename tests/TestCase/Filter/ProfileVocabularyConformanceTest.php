@@ -71,7 +71,7 @@ class ProfileVocabularyConformanceTest extends TestCase
             'table' => ["| a | b |\n|---|---|\n| 1 | 2 |\n", $block],
             'table_row' => ["| a | b |\n|---|---|\n| 1 | 2 |\n", $block],
             'table_cell' => ["| a | b |\n|---|---|\n| 1 | 2 |\n", $block],
-            'thematic_break' => ["---\n", $block],
+            'thematic_break' => ["***\n", $block],
             'div' => [":::\nbody\n:::\n", $block],
             'admonition' => ["::: note\nbody\n:::\n", $block],
             'raw_block' => ["```=html\n<b>x</b>\n```\n", $block],

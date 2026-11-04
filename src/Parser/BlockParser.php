@@ -2064,8 +2064,7 @@ class BlockParser
             // the `---` as a thematic break (which would route the body through
             // inline parsing and corrupt quotes/dashes/ellipses). Scoped to the
             // exact `---` opener so core-first still holds for every other line and
-            // every other thematic-break shape (***, ___, ----); a lone `---` with
-            // no closing fence is declined, leaving it a thematic break.
+            // every other thematic-break shape (***, ___, ----).
             if ($topLevel && !$parent->hasChildren() && preg_match('/^---[ \t]*$/', $line) === 1) {
                 $matchConsumed = $this->tryBlockMatchers($parent, $lines, $i);
                 if ($matchConsumed !== null) {

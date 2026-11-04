@@ -1645,12 +1645,12 @@ HTML;
         // Enable round-trip mode to preserve thematic break character
         $djotConverter->getHtmlRenderer()->setRoundTripMode(true);
 
-        // Test dash (default)
-        $djot = '---';
+        // Test dash (default); a paragraph leads because a first-line `---` opens frontmatter (carve#5016).
+        $djot = "x\n\n---";
         $html = $djotConverter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
         // PART 11 section 6 (carve#4973): a dash break carries no data-char, so it comes back canonical.
-        $this->assertSame('***', $back, 'Dash thematic break should come back as the canonical break');
+        $this->assertSame("x\n\n***", $back, 'Dash thematic break should come back as the canonical break');
 
         // Test asterisk (preserved via data-char)
         $djot = '***';

@@ -147,28 +147,20 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
                 }
                 $format = $matches[1] !== '' ? $matches[1] : $this->defaultFormat;
 
-                // Find closing ---
+                // The block runs through its first bare `---` closer or EOF (carve#5016).
                 $i = $start + 1;
                 $count = count($lines);
                 $contentLines = [];
-                $closed = false;
 
                 while ($i < $count) {
                     $line = $lines[$i];
-                    // Closing delimiter is just ---
                     if (preg_match('/^---[ \t]*$/', $line)) {
                         $i++;
-                        $closed = true;
 
                         break;
                     }
                     $contentLines[] = $line;
                     $i++;
-                }
-
-                // If no closing delimiter found, don't treat as frontmatter
-                if (!$closed) {
-                    return null;
                 }
 
                 $content = implode("\n", $contentLines);

@@ -108,7 +108,7 @@ DJOT;
         $this->assertNull($ext->getContent());
     }
 
-    public function testThematicBreakNotTreatedAsFrontmatter(): void
+    public function testALoneFirstLineDashRunOpensFrontmatterThroughEof(): void
     {
         $ext = new FrontmatterExtension();
         $converter = new CarveConverter();
@@ -122,9 +122,9 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        // Should be rendered as thematic break, not frontmatter
-        $this->assertFalse($ext->hasFrontmatter());
-        $this->assertStringContainsString('<hr', $html);
+        $this->assertTrue($ext->hasFrontmatter());
+        $this->assertSame("\n# Hello World", $ext->getContent());
+        $this->assertSame('', trim($html));
     }
 
     public function testFrontmatterOnlyAtDocumentStart(): void
@@ -407,27 +407,24 @@ DJOT;
         $this->assertStringNotContainsString('-- dashes', $html);
     }
 
-    public function testUnclosedFrontmatterNotParsed(): void
+    public function testUnclosedFrontmatterRunsThroughEof(): void
     {
         $ext = new FrontmatterExtension();
         $converter = new CarveConverter();
         $converter->addExtension($ext);
 
-        // Frontmatter without closing ---
         $djot = <<<'DJOT'
 ---yaml
 title: Missing Closer
 
-# This should be content, not frontmatter
+# Still metadata
 DJOT;
 
         $html = $converter->convert($djot);
 
-        // Should NOT be parsed as frontmatter since closing --- is missing
-        $this->assertFalse($ext->hasFrontmatter());
-
-        // Content should appear in output (as paragraph since ---yaml line isn't valid block)
-        $this->assertStringContainsString('title:', $html);
+        $this->assertTrue($ext->hasFrontmatter());
+        $this->assertSame("title: Missing Closer\n\n# Still metadata", $ext->getContent());
+        $this->assertSame('', trim($html));
     }
 
     public function testExtensionReuseAutoClearsState(): void

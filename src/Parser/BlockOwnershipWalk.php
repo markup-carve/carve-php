@@ -41,7 +41,7 @@ final class BlockOwnershipWalk
     /**
      * @var string
      */
-    private const FRONTMATTER_OPENER = '/^---(?:[ \t]*$|(?! *[^\S ])( (?! )|[A-Za-z0-9]+[ \t]*$))/D';
+    private const FRONTMATTER_OPENER = '/^---(?:[ \t]*$| ?[A-Za-z0-9]+[ \t]*$)/D';
 
     /**
      * @var array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>
@@ -250,22 +250,24 @@ final class BlockOwnershipWalk
         $afterPlus = false;
         $start = 0;
         $count = count($lines);
+        // A first-line opener claims through its first closer or EOF (carve#5016).
         if ($count > 0 && preg_match(self::FRONTMATTER_OPENER, $lines[0]) === 1) {
+            $start = $count;
             for ($k = 1; $k < $count; $k++) {
                 if (preg_match('/^---[ \t]*$/D', $lines[$k]) === 1) {
-                    for ($j = 0; $j <= $k; $j++) {
-                        $result[] = $lines[$j];
-                        // INPUT: frontmatter, before ownership.
-                        if ($this->trace !== null) {
-                            $this->emit($j, 'INPUT', 'doc', null, 'frontmatter');
-                        }
-                    }
                     $start = $k + 1;
-                    $this->frontmatter = true;
 
                     break;
                 }
             }
+            for ($j = 0; $j < $start; $j++) {
+                $result[] = $lines[$j];
+                // INPUT: frontmatter, before ownership.
+                if ($this->trace !== null) {
+                    $this->emit($j, 'INPUT', 'doc', null, 'frontmatter');
+                }
+            }
+            $this->frontmatter = true;
         }
         for ($at = $start; $at < $count; $at++) {
             if ($this->carrySkippedPrelude($at, $result)) {
