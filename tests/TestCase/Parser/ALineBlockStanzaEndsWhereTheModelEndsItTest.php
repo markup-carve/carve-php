@@ -11,6 +11,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * A `%%` line that misses a line block ends its stanza without adding a line,
  * and a lazy line folds into a stanza whose last verse line closed a fence-shaped run.
+ * carve#5012 erases the `%%` line now, so the next line continues the stanza.
  */
 final class ALineBlockStanzaEndsWhereTheModelEndsItTest extends TestCase
 {
@@ -22,7 +23,7 @@ final class ALineBlockStanzaEndsWhereTheModelEndsItTest extends TestCase
         return [
             'missed comment after an item line block' => [
                 "- ::: |\n  x\n%% c\n  y\n  :::\n",
-                '<ul><li><div class="line-block"><p>x</p></div></li></ul><p>y</p><div></div>',
+                "<ul><li><div class=\"line-block\"><p>x<br>\ny</p></div></li></ul>",
             ],
             'lazy line after a verse span' => [
                 "- ::: |\n  ```\n  :::\n  ```\nlazy\n",
@@ -38,7 +39,7 @@ final class ALineBlockStanzaEndsWhereTheModelEndsItTest extends TestCase
             ],
             'missed comment after a quoted verse span' => [
                 "> ::: |\n> ```\n> a\n> ```\n%% note\nlazy\n",
-                "<blockquote><div class=\"line-block\"><p><code>\na\n</code></p></div></blockquote><p>lazy</p>",
+                "<blockquote><div class=\"line-block\"><p><code>\na\n</code><br>\nlazy</p></div></blockquote>",
             ],
             'indented lazy line after a quoted verse span' => [
                 "> ::: |\n> ```\n> a\n> ```\n lazy\n",

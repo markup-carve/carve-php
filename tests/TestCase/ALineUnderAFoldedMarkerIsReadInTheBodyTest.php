@@ -13,7 +13,8 @@ use PHPUnit\Framework\TestCase;
  * A list-shaped line folded into a description or footnote body's paragraph
  * (PART 9 §10 I2) opens no item, so a line past the body's column is read in
  * the body: a definition registers (CARVE-P0-020) and a heading or attribute
- * line opens on its authored base (CARVE-P0-004).
+ * line opens on its authored base (CARVE-P0-004). Since carve#5012 a
+ * definition, abbreviation or comment line is erased, so the next line continues.
  */
 class ALineUnderAFoldedMarkerIsReadInTheBodyTest extends TestCase
 {
@@ -38,18 +39,18 @@ class ALineUnderAFoldedMarkerIsReadInTheBodyTest extends TestCase
         $notes = static fn (string $body): string => '<section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1">' . $body . '</li></ol></section>';
 
         return [
-            'bullet, definition' => [":: t\n: d\n  - para\n    [r]: /u\nx\n\n[r][]\n", '<dl><dt>t</dt><dd><p>d</p><ul><li>para</li></ul></dd></dl><p>x</p><p><a href="/u">r</a></p>'],
-            'ordered, definition' => [":: t\n: d\n  1. para\n     [r]: /u\nx\n\n[r][]\n", '<dl><dt>t</dt><dd><p>d</p><ol><li>para</li></ol></dd></dl><p>x</p><p><a href="/u">r</a></p>'],
-            'bullet, continuation, definition' => [":: t\n: d\n  - para\n    more\n    [r]: /u\nx\n\n[r][]\n", '<dl><dt>t</dt><dd><p>d</p><ul><li>para more</li></ul></dd></dl><p>x</p><p><a href="/u">r</a></p>'],
-            'bullet, definition, line at the column' => [":: t\n: d\n  - para\n    [r]: /u\n  more\n\n[r][]\n", '<dl><dt>t</dt><dd><p>d</p><ul><li>para</li></ul><p>more</p></dd></dl><p><a href="/u">r</a></p>'],
+            'bullet, definition' => [":: t\n: d\n  - para\n    [r]: /u\nx\n\n[r][]\n", '<dl><dt>t</dt><dd><p>d</p><ul><li>para x</li></ul></dd></dl><p><a href="/u">r</a></p>'],
+            'ordered, definition' => [":: t\n: d\n  1. para\n     [r]: /u\nx\n\n[r][]\n", '<dl><dt>t</dt><dd><p>d</p><ol><li>para x</li></ol></dd></dl><p><a href="/u">r</a></p>'],
+            'bullet, continuation, definition' => [":: t\n: d\n  - para\n    more\n    [r]: /u\nx\n\n[r][]\n", '<dl><dt>t</dt><dd><p>d</p><ul><li>para more x</li></ul></dd></dl><p><a href="/u">r</a></p>'],
+            'bullet, definition, line at the column' => [":: t\n: d\n  - para\n    [r]: /u\n  more\n\n[r][]\n", '<dl><dt>t</dt><dd><p>d</p><ul><li>para more</li></ul></dd></dl><p><a href="/u">r</a></p>'],
             'bullet, heading' => [":: t\n: d\n  - para\n    # H\nx\n", '<dl><dt>t</dt><dd><p>d</p><ul><li>para <h1 id="H">H</h1></li></ul></dd></dl><p>x</p>'],
             'bullet, attribute' => [":: t\n: d\n  - para\n    {#k}\nx\n", '<dl><dt>t</dt><dd><p>d</p><ul><li>para</li></ul></dd></dl><p>x</p>'],
-            'task, unclosed fences, definitions' => [":: term\n: para\n  - [ ] ~~~\n        ``` js\n       [r]: /in\n  +\n     [s]: /s\n\n[r][] [s][]\n", '<dl><dt>term</dt><dd><p>para</p><ul class="task-list"><li><input type="checkbox" disabled><pre><code> ``` js [r]: /in </code></pre></li></ul><p>[s]: /s</p></dd></dl><p>[r][] [s][]</p>'],
-            'note, bullet, definition' => ["[^n]: d\n  - para\n    [r]: /u\nx\n\n[r][] [^n]\n", '<p>x</p><p><a href="/u">r</a><a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>d</p><ul><li>para</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>'],
+            'task, unclosed fences, definitions' => [":: term\n: para\n  - [ ] ~~~\n        ``` js\n       [r]: /in\n  +\n     [s]: /s\n\n[r][] [s][]\n", '<dl><dt>term</dt><dd><p>para</p><ul class="task-list"><li><input type="checkbox" disabled><pre><code> ``` js [r]: /in </code></pre></li></ul></dd></dl><p>[r][] <a href="/s">s</a></p>'],
+            'note, bullet, definition' => ["[^n]: d\n  - para\n    [r]: /u\nx\n\n[r][] [^n]\n", '<p><a href="/u">r</a><a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>d</p><ul><li>para x</li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>'],
             'note, bullet, heading' => ["[^n]: d\n  - para\n    # H\nx\n\n[^n]\n", '<p>x</p><p><a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>d</p><ul><li>para <h1 id="H">H</h1></li></ul><p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>'],
-            'control: definition without the marker' => [":: t\n: d\n   [r]: /u\nx\n\n[r][]\n", '<dl><dt>t</dt><dd>d</dd></dl><p>x</p><p><a href="/u">r</a></p>'],
-            'control: abbreviation stays text' => [":: t\n: d\n  - para\n    *[A]: b\nx\n", '<dl><dt>t</dt><dd><p>d</p><ul><li>para</li></ul></dd></dl><p>x</p>'],
-            'control: comment stays a comment' => [":: t\n: d\n  - para\n    %% c\nx\n", '<dl><dt>t</dt><dd><p>d</p><ul><li>para</li></ul></dd></dl><p>x</p>'],
+            'control: definition without the marker' => [":: t\n: d\n   [r]: /u\nx\n\n[r][]\n", '<dl><dt>t</dt><dd>d x</dd></dl><p><a href="/u">r</a></p>'],
+            'control: abbreviation stays text' => [":: t\n: d\n  - para\n    *[A]: b\nx\n", '<dl><dt>t</dt><dd><p>d</p><ul><li>para x</li></ul></dd></dl>'],
+            'control: comment stays a comment' => [":: t\n: d\n  - para\n    %% c\nx\n", '<dl><dt>t</dt><dd><p>d</p><ul><li>para x</li></ul></dd></dl>'],
             'control: a quote does not rebase' => ["- > para\n  >  [r]: /u\ntail\n\n[r][]\n", '<ul><li><blockquote><p>para</p></blockquote></li></ul><p>tail</p><p><a href="/u">r</a></p>'],
         ];
     }

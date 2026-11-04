@@ -531,7 +531,7 @@
   {
     "id": "preservation-15594",
     "source": "- a\n\t ```=html\n%% c\n  \t```=html\n\t   ---\n\nafter\n",
-    "html": "<ul>\n  <li>a\n    \n  </li>\n</ul>\n   ---\n\nafter"
+    "html": "<ul>\n  <li>a\n    ```=html\n  ---\n\n  </li>\n</ul>\n<p>after</p>"
   },
   {
     "id": "preservation-15858",

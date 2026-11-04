@@ -24,7 +24,7 @@ final class AnInvisibleRunBeforeASiblingKeepsTheListTest extends TestCase
         yield 'a definition after the closer' => ["- %%%\n%%%\n[s]: /v\n- c\n", "<ul>\n  <li></li>\n  <li>c</li>\n</ul>"];
         yield 'a task box before the span' => ["- [ ] %%%\n\n%%%\n- [ ] c\n", "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> </li>\n  <li><input type=\"checkbox\" disabled aria-label=\"c\"> c</li>\n</ul>"];
         yield 'an ordered item' => ["1. %%%\n\n%%%\n%% z\n2. c\n", "<ol>\n  <li></li>\n  <li>c</li>\n</ol>"];
-        yield 'inside a block quote' => ["> - %%%\n>\n> %%%\n> %% z\n> - c\n", "<blockquote>\n  <ul>\n    <li></li>\n    <li>c</li>\n  </ul>\n</blockquote>"];
+        yield 'inside a block quote' => ["> - %%%\n>\n> %%%\n> %% z\n> - c\n", "<blockquote>\n  <ul>\n    <li></li>\n    <li><p>c</p></li>\n  </ul>\n</blockquote>"];
         yield 'a nested list after a blank and a comment' => ["- p\n  - a\n    b\n\n  %% z\n  - c\n", "<ul>\n  <li>p\n    <ul>\n      <li><p>a\nb</p></li>\n      <li><p>c</p></li>\n    </ul>\n  </li>\n</ul>"];
         yield 'a nested list after a blank and a definition' => ["- p\n  - a\n    b\n\n  [s]: /v\n  - c\n", "<ul>\n  <li>p\n    <ul>\n      <li><p>a\nb</p></li>\n      <li><p>c</p></li>\n    </ul>\n  </li>\n</ul>"];
         yield 'a nested list after a closed span and a comment' => ["- p\n  - %%%\n    %%%\n\n  %% z\n  - c\n", "<ul>\n  <li>p\n    <ul>\n      <li></li>\n      <li><p>c</p></li>\n    </ul>\n  </li>\n</ul>"];

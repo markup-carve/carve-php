@@ -19,6 +19,7 @@ use PHPUnit\Framework\TestCase;
  *    I5 puts the block-attribute line in the same set. Only the abbreviation was
  *    tested for here, so `> quote` / `%% c` / `more` kept `more` INSIDE the
  *    quote as a second paragraph.
+ *    carve#5012 now erases the comment and the link definition, so `more` folds.
  *
  * 2. A BLOCK-ATTRIBUTE LINE BELOW A LIST ITEM. §10 I5 again, with I6 applying
  *    the relation to "EVERY open paragraph". The line stayed in the item, below
@@ -45,7 +46,7 @@ class InvisibleLineEndsTheFoldTest extends TestCase
     public function testCommentLineEndsABlockQuotesLazyContinuation(): void
     {
         $this->assertSame(
-            "<blockquote><p>quote</p></blockquote>\n<p>more</p>",
+            "<blockquote><p>quote\nmore</p></blockquote>",
             trim($this->converter->convert("> quote\n%% c\nmore\n")),
         );
     }
@@ -63,7 +64,7 @@ class InvisibleLineEndsTheFoldTest extends TestCase
         // The one member of the set that already worked. It is asserted so the
         // change is a widening rather than a swap.
         $this->assertSame(
-            "<blockquote><p>quote</p></blockquote>\n<p>more</p>",
+            "<blockquote><p>quote\nmore</p></blockquote>",
             trim($this->converter->convert("> quote\n[r]: /u\nmore\n")),
         );
     }

@@ -13,6 +13,7 @@ use PHPUnit\Framework\TestCase;
  * Below a definition description's content column, reference and note lines
  * fold as paragraph text. The carve#4412 ruling makes an abbreviation line
  * that misses every frame a document-level definition instead.
+ * carve#5012 erases link and abbreviation definition lines, so `tail` folds into the body.
  *
  * This build ejected it to DOCUMENT level - or, for the attribute kind, dropped
  * it entirely - while folding the identical line one host over in a list item.
@@ -64,7 +65,7 @@ class AnInvisibleLineBelowADescriptionColumnFoldsAsTextTest extends TestCase
         // not move inside it.
         foreach ([' ', '  '] as $indent) {
             $expected = $line === '*[A]: a'
-                ? "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>"
+                ? "<dl>\n  <dt>t</dt>\n  <dd>d\ntail</dd>\n</dl>"
                 : $this->folds($line);
             $this->assertSame(
                 $expected,
@@ -167,7 +168,7 @@ class AnInvisibleLineBelowADescriptionColumnFoldsAsTextTest extends TestCase
     {
         $dd = "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n";
         $this->assertSame(
-            $dd . "<p>tail</p>\n" . '<p>See <a href="/u">text</a>.</p>',
+            "<dl>\n  <dt>t</dt>\n  <dd>d\ntail</dd>\n</dl>\n" . '<p>See <a href="/u">text</a>.</p>',
             $this->html(":: t\n:  d\n   [r]: /u\ntail\n\nSee [text][r].\n"),
         );
         $this->assertSame($dd . '<p>tail</p>', $this->html(":: t\n:  d\n   {.k}\ntail\n"));

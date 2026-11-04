@@ -63,6 +63,7 @@ class BlockParser
     use BlockBoundaryMethods;
     use BlockListMethods;
     use BlockColonMethods;
+    use TransparentLineErasure;
 
     private BlockParserState $state;
 
@@ -345,15 +346,7 @@ class BlockParser
      */
     public function letterPlusLinesOf(array $lines): array
     {
-        $walk = new BlockOwnershipWalk(
-            $this->listParser,
-            $this->fencedBlockParser,
-            $this->tableParser,
-            fn (string $line): bool => $this->isReferenceDefinitionLine($line),
-            fn (string $line): bool => $this->isBlockAttributeLine($line),
-            fn (array $run, int $column = 0): ?int => WrappedBlockAttributeScanner::scan($run, 0, $this->inlineParser, $column)['length'] ?? null,
-            $this->commentOnlyParagraphEnd(...),
-        );
+        $walk = $this->newOwnershipWalk();
         $walk->own($lines, PlusLetter::for(implode("\n", $lines)));
 
         return $walk->letterPlus;
@@ -721,6 +714,19 @@ class BlockParser
         }
     }
 
+    private function newOwnershipWalk(): BlockOwnershipWalk
+    {
+        return new BlockOwnershipWalk(
+            $this->listParser,
+            $this->fencedBlockParser,
+            $this->tableParser,
+            fn (string $line): bool => $this->isReferenceDefinitionLine($line),
+            fn (string $line): bool => $this->isBlockAttributeLine($line),
+            fn (array $run, int $column = 0): ?int => WrappedBlockAttributeScanner::scan($run, 0, $this->inlineParser, $column)['length'] ?? null,
+            $this->commentOnlyParagraphEnd(...),
+        );
+    }
+
     public function parse(string $input): Document
     {
         return CycleCollection::paused(fn () => $this->parseDocument($input));
@@ -748,6 +754,16 @@ class BlockParser
 
     private function parseDocument(string $input): Document
     {
+        return $this->parseDocumentCore($input, true);
+    }
+
+    /**
+     * @param string $input
+     * @param bool $transparent
+     * @param array<int, int>|null $lineMap Visible line index to authored line index, for the visible parse of an erased document.
+     */
+    private function parseDocumentCore(string $input, bool $transparent, ?array $lineMap = null): Document
+    {
         // Capture the original source byte length before any normalization so
         // renderers can size the abbreviation-expansion budget (DoS guard).
         $sourceLength = strlen($input);
@@ -773,15 +789,14 @@ class BlockParser
             $input = substr($input, 3);
         }
         $lines = $this->splitLines($input);
-        $walk = new BlockOwnershipWalk(
-            $this->listParser,
-            $this->fencedBlockParser,
-            $this->tableParser,
-            fn (string $line): bool => $this->isReferenceDefinitionLine($line),
-            fn (string $line): bool => $this->isBlockAttributeLine($line),
-            fn (array $run, int $column = 0): ?int => WrappedBlockAttributeScanner::scan($run, 0, $this->inlineParser, $column)['length'] ?? null,
-            $this->commentOnlyParagraphEnd(...),
-        );
+        if ($transparent) {
+            $erased = $this->transparentErasedLines($lines, $input);
+            if ($erased !== []) {
+                return $this->parseTransparentDocument($this->state->source->originalSource, $erased, $sourceLength);
+            }
+        }
+        $this->state->session->transparentLineMap = $lineMap;
+        $walk = $this->newOwnershipWalk();
         // Only the root document is traced; a parse re-entered from it is not.
         $walk->trace = $this->traceNext ? [] : null;
         $this->traceNext = false;
@@ -829,6 +844,7 @@ class BlockParser
         }
 
         $this->state->session->discoveringDefinitions = true;
+        $this->injectTransparentDefinitions();
 
         // Definitions are collected by this authoritative structural walk, and
         // forward inline references are resolved afterwards.
@@ -2970,6 +2986,11 @@ class BlockParser
             // markup-carve/carve#1928.
             $markerColumn = $this->commentMarkerColumn($sourceText, $line);
             $comment->setPos($this->spanForLineMap([$sourceLine], $markerColumn));
+            // The walk spells a consumed `+` as this line.
+            $authored = $this->state->source->authoredLines[$sourceLine] ?? '';
+            if (preg_match('/^(?:[ \t]*>[ ]?)*[ \t]*(?=\+)/', $authored, $plus) === 1) {
+                TransparentPlacement::markPlusLine($comment, mb_strlen($plus[0], 'UTF-8') + 1);
+            }
             $parent->appendChild($comment);
 
             return 1;
@@ -3982,7 +4003,7 @@ class BlockParser
             $key = LabelKey::normalize($definition['label']);
             // A note body parses after the document, so "last wins" reads source lines (R1).
             $known = $this->state->session->references[$key] ?? null;
-            if ($known === null || $known->line <= $sourceLine) {
+            if ($known === null || $this->state->session->lineOrder($known->line) <= $this->state->session->lineOrder($sourceLine)) {
                 $this->state->session->references[$key] = new ReferenceDefinition(
                     $definition['url'],
                     $definition['attrs'],

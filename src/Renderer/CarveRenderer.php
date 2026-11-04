@@ -86,6 +86,7 @@ use MarkupCarve\Carve\Parser\DelimitedTable;
 use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Parser\ReferenceDefinitionExtractor;
+use MarkupCarve\Carve\Parser\TransparentPlacement;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Parser\Utility\CommentFlank;
@@ -604,7 +605,47 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     public function render(Document $document): string
     {
-        return $this->withoutIdlePlusEscapes($this->renderDocument($document));
+        $placement = TransparentPlacement::of($document);
+        if ($placement === null) {
+            return $this->withoutIdlePlusEscapes($this->renderDocument($document));
+        }
+        // A line erased inside a paragraph is written there, not as the sibling the tree holds (carve#5012).
+        $detached = [];
+        $this->detachPlacedNodes($document, $placement, $detached);
+        $outer = $this->transparentPlacement;
+        $this->transparentPlacement = $placement;
+        try {
+            return $this->withoutIdlePlusEscapes($this->renderDocument($document));
+        } finally {
+            $this->transparentPlacement = $outer;
+            foreach ($detached as [$parent, $children]) {
+                $parent->setChildren($children);
+            }
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param \MarkupCarve\Carve\Parser\TransparentPlacement $placement
+     * @param array<int, array{0: \MarkupCarve\Carve\Node\Node, 1: array<\MarkupCarve\Carve\Node\Node>}> $detached
+     * @param int $depth
+     */
+    private function detachPlacedNodes(Node $parent, TransparentPlacement $placement, array &$detached, int $depth = 0): void
+    {
+        $children = $parent->getChildren();
+        $kept = array_values(array_filter($children, static fn (Node $child): bool => !$placement->isPlaced($child)));
+        if (count($kept) !== count($children)) {
+            $detached[] = [$parent, $children];
+            $parent->setChildren($kept);
+        }
+        if ($depth >= BlockParser::MAX_NESTING_DEPTH * 4) {
+            return;
+        }
+        foreach ($kept as $child) {
+            if ($child instanceof BlockNode || $child instanceof Document) {
+                $this->detachPlacedNodes($child, $placement, $detached, $depth + 1);
+            }
+        }
     }
 
     /**
@@ -1916,6 +1957,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected int $verseCommentFence = 3;
 
+    private ?TransparentPlacement $transparentPlacement = null;
+
     /**
      * Whether the block just written can host a caption, so a following `^ `
      * line would be read back as one (see hostsACaption()).
@@ -2083,7 +2126,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof FigureGroup => $withAttrs($this->renderFigureGroup($node)),
             $node instanceof Figure => $withAttrs($this->renderFigure($node)),
             $node instanceof RawBlock => $withAttrs($this->renderRawBlock($node)),
-            $node instanceof Comment => $this->renderComment($node),
+            $node instanceof Comment => $this->writesAPlus($node) ? $this->atMarkerColumn('+') : $this->renderComment($node),
             $node instanceof Footnote => isset($this->definitionsWrittenInPlace[spl_object_id($node)])
                 ? ''
                 : $this->renderFootnote($node),
@@ -2141,6 +2184,22 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->paragraphStartsAfterCaptionHost = $canUsePreviousCaptionSlot && $this->afterCaptionHost;
         try {
             $body = $this->guardThematicBreakLines($this->renderInlines($node->getChildren()));
+            $placed = $this->transparentPlacement?->inParagraph($node) ?? [];
+            if ($placed !== []) {
+                $lines = explode("\n", $body);
+                // Last first, so each splice leaves the earlier positions in place.
+                foreach (array_reverse($placed) as [$after, $erased]) {
+                    $written = match (true) {
+                        $erased instanceof Comment => $this->renderComment($erased),
+                        $erased instanceof AbbreviationDefinition => $this->renderAbbreviationDefinition($erased),
+                        default => null,
+                    };
+                    if ($written !== null && !str_contains($written, "\n")) {
+                        array_splice($lines, min($after, count($lines)), 0, [$written]);
+                    }
+                }
+                $body = implode("\n", $lines);
+            }
 
             return $this->inLineBlock > 0 ? self::spellEmptyVerseLines($body) : $body;
         } finally {
@@ -2724,6 +2783,33 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $block instanceof Comment || ($block instanceof Paragraph && $block->rendersNothing());
     }
 
+    /**
+     * A consumed `+` at its item's marker column is written back as that `+`:
+     * the empty comment the parser holds for it would be erased (carve#5012).
+     */
+    private function writesAPlus(Node $node): bool
+    {
+        $column = TransparentPlacement::plusLineColumn($node);
+        $item = $node->getParent();
+
+        return $column !== null && $item instanceof ListItem && $item->getPos()?->startColumn === $column
+            && ($item->getChildren()[0] ?? null) !== $node;
+    }
+
+    /**
+     * An erased comment line closes no paragraph (carve#5012), so the block below
+     * a comment run is read against the paragraph above the run.
+     */
+    private function commentRunLeavesAParagraphOpen(?Node $previousEmitted, ?Node $boundaryPeer, Node $child, bool $separated, string $rendered): bool
+    {
+        return !$separated
+            && self::partsNoSiblings($previousEmitted)
+            && !($previousEmitted !== null && $this->writesAPlus($previousEmitted))
+            && $this->openParagraphReachesDown($boundaryPeer)
+            && $this->foldsIntoAnOpenParagraph($child)
+            && !$this->opensWithAnAttributeLine($rendered);
+    }
+
     private function openParagraphReachesDown(?Node $block): bool
     {
         while ($block !== null) {
@@ -2884,6 +2970,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($out !== '') {
                     $out .= "\n";
                 }
+                if ($this->writesAPlus($child)) {
+                    $out .= $rendered;
+                    $previous = $child;
+                    $previousEmitted = $child;
+                    $atMarkerColumn = false;
+
+                    continue;
+                }
                 // A paragraph of only comments is no block start, so a blank keeps an open paragraph above from taking it (carve#4799).
                 if ($child instanceof Paragraph && $child->rendersNothing() && $previousEmitted !== null && $this->openParagraphReachesDown($previousEmitted)) {
                     $out .= "\n" . $rendered;
@@ -2973,8 +3067,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     // sibling - which by then IS on the marker line. Below any
                     // other child this adds nothing: the lookahead above has
                     // already latched $atMarkerColumn.
-                    || ($previousEmitted !== null && $this->adjacentBlocksMerge($previousEmitted, $child)
-                        && !$this->quoteWritesNoContent($previousEmitted) && !$this->quoteWritesNoContent($child))
+                    || ($boundaryPeer !== null && $this->adjacentBlocksMerge($boundaryPeer, $child)
+                        && !$this->quoteWritesNoContent($boundaryPeer) && !$this->quoteWritesNoContent($child))
                     || (
                         !$separated
                         && $this->openParagraphReachesDown($previousEmitted)
@@ -2982,9 +3076,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         && !$this->opensWithAnAttributeLine($rendered)
                     )
                     || $this->definitionTailNeedsJoin($previousEmitted, $child, $separated, $rendered)
+                    || $this->commentRunLeavesAParagraphOpen($previousEmitted, $boundaryPeer, $child, $separated, $rendered)
                 ) {
                     if ($this->listDepth > 1 || $this->indentedHostDepth > 0) {
-                        if ($previousEmitted instanceof Paragraph && $child instanceof Paragraph && !$separated) {
+                        if (($previousEmitted instanceof Paragraph || self::partsNoSiblings($previousEmitted) && $boundaryPeer instanceof Paragraph) && $child instanceof Paragraph && !$separated) {
                             $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($rendered);
                             $previous = $child;
                             $previousEmitted = $child;

@@ -51,7 +51,7 @@ class AnUnmarkedLineUnderAQuotedDescriptionIsLazyTest extends TestCase
 > : para
     [r]: /u
 tail
-', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<p>tail</p>",
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para\ntail</dd>\n  </dl>\n</blockquote>",
             ],
             'c032' => [
                 '> :: t
@@ -246,7 +246,7 @@ tail
 > : para
         [r]: /u
 tail
-', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<p>tail</p>",
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para\ntail</dd>\n  </dl>\n</blockquote>",
             ],
             'c151' => [
                 '> :: t
@@ -260,7 +260,7 @@ tail
 > : para
   [r]: /u
 tail
-', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para</dd>\n  </dl>\n</blockquote>\n<p>tail</p>",
+', "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>para\ntail</dd>\n  </dl>\n</blockquote>",
             ],
             'c172' => [
                 '> :: t

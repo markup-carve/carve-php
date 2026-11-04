@@ -8,10 +8,13 @@ use DOMDocument;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\Djot\TightDefinitionDescriptions;
 use MarkupCarve\Carve\Converter\DjotToCarve;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 class DjotDefinitionContainerOwnershipTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<int, array<string, string>>
      */

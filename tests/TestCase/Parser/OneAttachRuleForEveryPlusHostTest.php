@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Lint\DocumentLinter;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -15,6 +16,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class OneAttachRuleForEveryPlusHostTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, mixed>
      */

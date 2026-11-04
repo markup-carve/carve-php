@@ -23,6 +23,8 @@ use PHPUnit\Framework\TestCase;
  * body is left with none, so a flush-left line below it is a document-level
  * paragraph (carve-php#1872).
  *
+ * carve#5012 erases a one-line definition now, so the next line continues the item.
+ *
  * carve-php#1870 moved the body's own marker-line paragraph and could not carry
  * this. Its branch only ever CONTINUES that paragraph: a line at or past the
  * content column is pushed as its own body entry first, which is what arms the
@@ -63,6 +65,13 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
      */
     protected const ENDED = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>";
 
+    /**
+     * carve#5012 erases a one-line reference definition, so `tail` continues the item.
+     *
+     * @var string
+     */
+    protected const ERASED = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\ntail</li>\n    </ul>\n  </dd>\n</dl>";
+
     protected CarveConverter $converter;
 
     protected function setUp(): void
@@ -102,7 +111,7 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
     {
         $html = $this->converter->convert(":: t\n:  - a\n" . str_repeat(' ', $column) . "[r]: /url\ntail");
 
-        $this->assertSame(self::ENDED, trim($html));
+        $this->assertSame(self::ERASED, trim($html));
     }
 
     /**
@@ -143,7 +152,7 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
     {
         $html = $this->converter->convert(":: t\n: - a\n" . str_repeat(' ', $column) . "[r]: /url\ntail");
 
-        $this->assertSame(self::ENDED, trim($html));
+        $this->assertSame(self::ERASED, trim($html));
     }
 
     /**
@@ -160,7 +169,7 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
         $html = $this->converter->convert(":: t\n:  x\n\n   - a\n" . str_repeat(' ', $column) . "[r]: /url\ntail");
 
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <ul>\n      <li>a\ntail</li>\n    </ul>\n  </dd>\n</dl>",
             trim($html),
         );
     }
@@ -175,7 +184,7 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
         $html = $this->converter->convert(":: t\n:  - a\n    [r]: /url\ntail\n\nSee [r][].");
 
         $this->assertSame(
-            self::ENDED . "\n<p>See <a href=\"/url\">r</a>.</p>",
+            self::ERASED . "\n<p>See <a href=\"/url\">r</a>.</p>",
             trim($html),
         );
     }
@@ -195,7 +204,7 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
         $html = $this->converter->convert(":: t\n:  - a\n     [r]: /url\n     b");
 
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        b\n      </li>\n    </ul>\n  </dd>\n</dl>",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\nb</li>\n    </ul>\n  </dd>\n</dl>",
             trim($html),
         );
     }
@@ -204,6 +213,7 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
      * ONE COLUMN SHALLOWER THE BODY OWNS IT, so the item ends there and the
      * line below at the item's old column is the body's paragraph. The pair
      * with the row above is the whole nested-column rule, stated on the bytes.
+     * carve#5012 erases the definition line now, so `b` continues the item's paragraph.
      *
      * Matches carve-js; the executable spec folds the whole run.
      */
@@ -213,7 +223,7 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
 
         $this->assertSame(
             // The definition closes no item, so `b` reaches it (carve#4862).
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        b\n      </li>\n    </ul>\n  </dd>\n</dl>",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\nb</li>\n    </ul>\n  </dd>\n</dl>",
             trim($html),
         );
     }
@@ -353,7 +363,7 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
      */
     public static function itemHostProvider(): array
     {
-        $ended = "<ul>\n  <li>\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $ended = "<ul>\n  <li>\n    <ul>\n      <li>a\ntail</li>\n    </ul>\n  </li>\n</ul>";
 
         return [
             'column 0' => [0, $ended],

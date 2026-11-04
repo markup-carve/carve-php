@@ -64,6 +64,13 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
      */
     protected const ENDED = "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>tail</p>";
 
+    /**
+     * carve#5012 erases a one-line reference definition, so `tail` continues the body.
+     *
+     * @var string
+     */
+    protected const ERASED = "<dl>\n  <dt>t</dt>\n  <dd>a\ntail</dd>\n</dl>";
+
     protected CarveConverter $converter;
 
     protected function setUp(): void
@@ -107,7 +114,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
 
         $expected = $folds
             ? "<dl>\n  <dt>t</dt>\n  <dd>a\n[r]: /url\ntail</dd>\n</dl>"
-            : self::ENDED;
+            : self::ERASED;
         $this->assertSame($expected, trim($html));
     }
 
@@ -157,7 +164,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
 
         $expected = $folds
             ? "<dl>\n  <dt>t</dt>\n  <dd>a\n[r]: /url\ntail</dd>\n</dl>"
-            : self::ENDED;
+            : self::ERASED;
         $this->assertSame($expected, trim($html));
     }
 
@@ -173,7 +180,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
         $html = $this->converter->convert(":: t\n:  a\n    [r]: /url\ntail\n\nSee [r][].");
 
         $this->assertSame(
-            self::ENDED . "\n<p>See <a href=\"/url\">r</a>.</p>",
+            self::ERASED . "\n<p>See <a href=\"/url\">r</a>.</p>",
             trim($html),
         );
     }
@@ -269,7 +276,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
         $html = $this->converter->convert(":: t\n:  - a\n" . str_repeat(' ', $column) . "[r]: /url\ntail");
 
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\ntail</li>\n    </ul>\n  </dd>\n</dl>",
             trim($html),
         );
     }

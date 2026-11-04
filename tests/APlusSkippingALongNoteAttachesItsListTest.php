@@ -130,6 +130,7 @@ class APlusSkippingALongNoteAttachesItsListTest extends TestCase
             'an own-line plus above a comment and a note' => [
                 "[^a]: x\n+\n%% c\n[^n]: a\nb\nc\n> q\n\nsee[^n] [^a]\n",
                 <<<'HTML'
+                <blockquote><p>q</p></blockquote>
                 <p>see<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a> <a id="fnref2" href="#fn2" role="doc-noteref"><sup>2</sup></a></p>
                 <section role="doc-endnotes" aria-label="Footnotes">
                   <hr>
@@ -140,9 +141,7 @@ class APlusSkippingALongNoteAttachesItsListTest extends TestCase
                 c<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
                     </li>
                     <li id="fn2">
-                      <p>x</p>
-                      <blockquote><p>q</p></blockquote>
-                      <p><a href="#fnref2" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+                      <p>x<a href="#fnref2" role="doc-backlink" aria-label="Back to reference">↩</a></p>
                     </li>
                   </ol>
                 </section>

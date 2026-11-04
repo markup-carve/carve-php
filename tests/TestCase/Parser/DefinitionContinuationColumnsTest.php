@@ -79,13 +79,16 @@ class DefinitionContinuationColumnsTest extends TestCase
         }
     }
 
+    /**
+     * carve#5012 erases the abbreviation line now, so the item paragraph continues.
+     */
     public function testAnAbbreviationDefinitionClosesTheBelowContentColumnPathToo(): void
     {
         foreach ([['- a', 2], ['1. a', 3], ['. a', 2]] as [$head, $contentColumn]) {
             $html = $this->converter->convert(
                 $this->source($head, $contentColumn, '*[A]: expansion', 1),
             );
-            $this->assertFalse($this->tailIsInside($html), $html);
+            $this->assertTrue($this->tailIsInside($html), $html);
         }
     }
 }

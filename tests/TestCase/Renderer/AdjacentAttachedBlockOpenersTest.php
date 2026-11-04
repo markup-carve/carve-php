@@ -40,7 +40,8 @@ final class AdjacentAttachedBlockOpenersTest extends TestCase
         $converter = new CarveConverter();
         $source = "- x\n+\n- a\n+\n* b\n";
         $formatted = $converter->toCarve($source);
-        self::assertStringNotContainsString("\n+\n", $formatted);
+        // The two `+` lines are the author's, written back since carve#5012 erases `%%`; none is added before `* b`.
+        self::assertSame("- x\n+\n- a\n+\n\n* b\n", $formatted);
         self::assertSame($converter->convert($source), $converter->convert($formatted));
     }
 

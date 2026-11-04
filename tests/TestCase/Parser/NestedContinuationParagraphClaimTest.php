@@ -7,11 +7,14 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\LayoutWork;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class NestedContinuationParagraphClaimTest extends TestCase
 {
+    use RuleATodo;
+
     public function testAnOrdinaryLineReplacesTheBareContinuationLead(): void
     {
         $cases = json_decode(file_get_contents(__DIR__ . '/../../fixtures/nested-continuation-paragraph-claim.json'), true, 512, JSON_THROW_ON_ERROR);

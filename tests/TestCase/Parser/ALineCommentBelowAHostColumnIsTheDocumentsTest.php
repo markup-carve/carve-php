@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * CARVE-P11-079 (b), markup-carve/carve#4850.
+ * carve#5012 erases the comment, so the writer keeps one inside a paragraph at its line.
  */
 class ALineCommentBelowAHostColumnIsTheDocumentsTest extends TestCase
 {
@@ -23,7 +24,7 @@ class ALineCommentBelowAHostColumnIsTheDocumentsTest extends TestCase
             'nested marker line, tight' => ["- - a\n %% c\n", "- - a\n\n%% c\n"],
             'reaches only the outer item' => ["- - a\n  %% c\n", "- - a\n\n  %% c\n"],
             'description body' => [":: t\n:  d\n  %% c\n", ":: t\n: d\n\n%% c\n"],
-            'description with a line below' => [":: t\n: d\n %% c\n x\n", ":: t\n: d\n\n%% c\n\nx\n"],
+            'description with a line below' => [":: t\n: d\n %% c\n x\n", ":: t\n: d\n  %% c\n  x\n"],
         ];
     }
 

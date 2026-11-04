@@ -29,6 +29,9 @@ use PHPUnit\Framework\TestCase;
  * OR PAST the column they answer alike - a definition is a block there too, and
  * carve-php#1868 is where this engine caught up.
  *
+ * Ruled since (carve#5012): a one-line comment or definition is erased before
+ * layout at every column, so every row below now folds `tail` into the item.
+ *
  * Measured against the executable spec at markup-carve/carve `caec9ff`,
  * carve-js at `c552d9f` and carve-rs at `eb7091c`. Every row below states which
  * of the four readings it covers; a claim without a revision beside it is a
@@ -58,15 +61,14 @@ class ACommentAtOrPastAnItemsContentColumnClosesTheParagraphTest extends TestCas
      */
     public static function bareItemBandProvider(): array
     {
-        $folded = "<ul>\n  <li>a\n    tail\n  </li>\n</ul>";
-        $ended = "<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>";
+        $folded = "<ul>\n  <li>a\ntail</li>\n</ul>";
 
         return [
             'below, column 0' => [0, $folded],
             'below, column 1' => [1, $folded],
-            'at the column' => [2, $ended],
-            'one past the column' => [3, $ended],
-            'two past the column' => [4, $ended],
+            'at the column' => [2, $folded],
+            'one past the column' => [3, $folded],
+            'two past the column' => [4, $folded],
         ];
     }
 
@@ -96,17 +98,16 @@ class ACommentAtOrPastAnItemsContentColumnClosesTheParagraphTest extends TestCas
      */
     public static function subListBandProvider(): array
     {
-        $folded = "<ul>\n  <li>a\n    <ul>\n      <li>x\n        tail\n      </li>\n    </ul>\n  </li>\n</ul>";
-        $ended = "<ul>\n  <li>a\n    <ul>\n      <li>x</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $folded = "<ul>\n  <li>a\n    <ul>\n      <li>x\ntail</li>\n    </ul>\n  </li>\n</ul>";
 
         return [
             'below both columns, 0' => [0, $folded],
             'below both columns, 1' => [1, $folded],
-            'at the outer column' => [2, $ended],
-            'past the outer column' => [3, $ended],
-            'at the inner column' => [4, $ended],
-            'past the inner column' => [5, $ended],
-            'two past the inner column' => [6, $ended],
+            'at the outer column' => [2, $folded],
+            'past the outer column' => [3, $folded],
+            'at the inner column' => [4, $folded],
+            'past the inner column' => [5, $folded],
+            'two past the inner column' => [6, $folded],
         ];
     }
 
@@ -132,15 +133,14 @@ class ACommentAtOrPastAnItemsContentColumnClosesTheParagraphTest extends TestCas
      */
     public static function markerLeadBandProvider(): array
     {
-        $folded = "<ul>\n  <li>\n    <ul>\n      <li>a\n        tail\n      </li>\n    </ul>\n  </li>\n</ul>";
-        $ended = "<ul>\n  <li>\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $folded = "<ul>\n  <li>\n    <ul>\n      <li>a\ntail</li>\n    </ul>\n  </li>\n</ul>";
 
         return [
             'below the outer column, 0' => [0, $folded],
             'below the outer column, 1' => [1, $folded],
-            'at the outer column' => [2, $ended],
-            'past the outer column' => [3, $ended],
-            'at the inner column' => [4, $ended],
+            'at the outer column' => [2, $folded],
+            'past the outer column' => [3, $folded],
+            'at the inner column' => [4, $folded],
         ];
     }
 
@@ -190,7 +190,7 @@ class ACommentAtOrPastAnItemsContentColumnClosesTheParagraphTest extends TestCas
     {
         $html = $this->converter->convert("- a\n [r]: /url\ntail");
 
-        $this->assertSame("<ul>\n  <li>a\n[r]: /url\ntail</li>\n</ul>", trim($html));
+        $this->assertSame("<ul>\n  <li>a\ntail</li>\n</ul>", trim($html));
     }
 
     /**
@@ -201,7 +201,7 @@ class ACommentAtOrPastAnItemsContentColumnClosesTheParagraphTest extends TestCas
     {
         $html = $this->converter->convert("- a\n  [r]: /url\ntail");
 
-        $this->assertSame("<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>", trim($html));
+        $this->assertSame("<ul>\n  <li>a\ntail</li>\n</ul>", trim($html));
     }
 
     /**
@@ -230,6 +230,6 @@ class ACommentAtOrPastAnItemsContentColumnClosesTheParagraphTest extends TestCas
     {
         $html = $this->converter->convert("- a\n" . str_repeat(' ', $column) . "[r]: /url\ntail");
 
-        $this->assertSame("<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>", trim($html));
+        $this->assertSame("<ul>\n  <li>a\ntail</li>\n</ul>", trim($html));
     }
 }

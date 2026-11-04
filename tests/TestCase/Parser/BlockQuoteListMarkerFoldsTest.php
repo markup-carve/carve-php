@@ -121,8 +121,9 @@ class BlockQuoteListMarkerFoldsTest extends TestCase
         // quote, the line below it became the quote's SECOND paragraph - a line
         // of the author's prose attributed to a quotation they did not write it
         // in.
+        // carve#5012 erases the comment line now, so `more` is lazy quote prose.
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<blockquote><p>quoted</p></blockquote>\n<p>more</p>\n"),
+            "<blockquote><p>quoted\nmore</p></blockquote>",
             $this->converter->convert("> quoted\n%% c\nmore"),
         );
     }

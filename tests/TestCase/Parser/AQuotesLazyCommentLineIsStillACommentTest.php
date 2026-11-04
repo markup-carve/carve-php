@@ -105,6 +105,7 @@ class AQuotesLazyCommentLineIsStillACommentTest extends TestCase
      * The comment closes the paragraph, so nothing after it lazily continues
      * the quote - a following unmarked line is a document paragraph and a
      * following marked line opens a second quote.
+     * carve#5012 erases the comment line now, so the first two rows stay in one paragraph.
      *
      * @return array<string, array{0: string, 1: string}>
      */
@@ -113,11 +114,11 @@ class AQuotesLazyCommentLineIsStillACommentTest extends TestCase
         return [
             'an unmarked line' => [
                 "> x\n%% c\ny\n",
-                '<blockquote><p>x</p></blockquote> <p>y</p>',
+                '<blockquote><p>x y</p></blockquote>',
             ],
             'a marked line' => [
                 "> x\n%% c\n> y\n",
-                '<blockquote><p>x</p></blockquote> <blockquote><p>y</p></blockquote>',
+                '<blockquote><p>x y</p></blockquote>',
             ],
             'a line past a blank' => [
                 "> x\n%% c\n\ny\n",

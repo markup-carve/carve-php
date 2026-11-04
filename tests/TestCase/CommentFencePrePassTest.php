@@ -159,7 +159,8 @@ final class CommentFencePrePassTest extends TestCase
         $html = $this->html("- item\n  %%%\n  hidden\n\n[r]: /url\n\n%%%\n\n[r][]\n");
 
         // Since carve#4907 the column-0 `%%%` opens a span of its own and hides the reference.
-        $this->assertSame("<ul>\n  <li>item</li>\n</ul>", trim($html));
+        // Under carve#5012 the definition registers and the reference resolves.
+        $this->assertSame("<ul>\n  <li>item</li>\n</ul>\n<p><a href=\"/url\">r</a></p>", trim($html));
         $this->assertStringNotContainsString('[r]: /url', $html, 'and it must not leak as text');
     }
 

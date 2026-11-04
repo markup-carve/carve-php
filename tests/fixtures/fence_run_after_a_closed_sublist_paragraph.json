@@ -472,42 +472,42 @@
   {
     "id": "cc558-tick-pay-n-sym%-c4-end",
     "source": "- outer\n  - para\n    ```\n    code\n  %% c\n    ```\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul></li></ul>"
   },
   {
     "id": "cc558-tick-pay-n-sym%-c4-after",
     "source": "- outer\n  - para\n    ```\n    code\n  %% c\n    ```\nafter\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code></code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "cc558-tick-pay-n-sym%-c4-more",
     "source": "- outer\n  - para\n    ```\n    code\n  %% c\n    ```\n  more\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code>more</code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul>more</li></ul>"
   },
   {
     "id": "cc558-tick-pay-n-sym%-c4-next",
     "source": "- outer\n  - para\n    ```\n    code\n  %% c\n    ```\n- next\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul></li><li>next</li></ul>"
   },
   {
     "id": "cc558-tick-pay-n-sym%-c6-end",
     "source": "- outer\n  - para\n    ```\n    code\n  %% c\n      ```\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code ```</code></pre></li></ul></li></ul>"
   },
   {
     "id": "cc558-tick-pay-n-sym%-c6-after",
     "source": "- outer\n  - para\n    ```\n    code\n  %% c\n      ```\nafter\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code></code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code ```</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "cc558-tick-pay-n-sym%-c6-more",
     "source": "- outer\n  - para\n    ```\n    code\n  %% c\n      ```\n  more\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code>more</code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code ```</code></pre></li></ul>more</li></ul>"
   },
   {
     "id": "cc558-tick-pay-n-sym%-c6-next",
     "source": "- outer\n  - para\n    ```\n    code\n  %% c\n      ```\n- next\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code ```</code></pre></li></ul></li><li>next</li></ul>"
   },
   {
     "id": "cc558-tick-nopay-b-sym#-c2-end",
@@ -982,42 +982,42 @@
   {
     "id": "cc558-tick-nopay-n-sym%-c4-end",
     "source": "- outer\n  - para\n    ```\n  %% c\n    ```\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul></li></ul>"
   },
   {
     "id": "cc558-tick-nopay-n-sym%-c4-after",
     "source": "- outer\n  - para\n    ```\n  %% c\n    ```\nafter\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code></code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "cc558-tick-nopay-n-sym%-c4-more",
     "source": "- outer\n  - para\n    ```\n  %% c\n    ```\n  more\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code>more</code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul>more</li></ul>"
   },
   {
     "id": "cc558-tick-nopay-n-sym%-c4-next",
     "source": "- outer\n  - para\n    ```\n  %% c\n    ```\n- next\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul></li><li>next</li></ul>"
   },
   {
     "id": "cc558-tick-nopay-n-sym%-c6-end",
     "source": "- outer\n  - para\n    ```\n  %% c\n      ```\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>```</code></pre></li></ul></li></ul>"
   },
   {
     "id": "cc558-tick-nopay-n-sym%-c6-after",
     "source": "- outer\n  - para\n    ```\n  %% c\n      ```\nafter\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code></code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>```</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "cc558-tick-nopay-n-sym%-c6-more",
     "source": "- outer\n  - para\n    ```\n  %% c\n      ```\n  more\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code>more</code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>```</code></pre></li></ul>more</li></ul>"
   },
   {
     "id": "cc558-tick-nopay-n-sym%-c6-next",
     "source": "- outer\n  - para\n    ```\n  %% c\n      ```\n- next\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>```</code></pre></li></ul></li><li>next</li></ul>"
   },
   {
     "id": "cc558-tilde-pay-b-sym#-c2-end",
@@ -1492,42 +1492,42 @@
   {
     "id": "cc558-tilde-pay-n-sym%-c4-end",
     "source": "- outer\n  - para\n    ~~~\n    code\n  %% c\n    ~~~\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul></li></ul>"
   },
   {
     "id": "cc558-tilde-pay-n-sym%-c4-after",
     "source": "- outer\n  - para\n    ~~~\n    code\n  %% c\n    ~~~\nafter\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code></code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "cc558-tilde-pay-n-sym%-c4-more",
     "source": "- outer\n  - para\n    ~~~\n    code\n  %% c\n    ~~~\n  more\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code>more</code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul>more</li></ul>"
   },
   {
     "id": "cc558-tilde-pay-n-sym%-c4-next",
     "source": "- outer\n  - para\n    ~~~\n    code\n  %% c\n    ~~~\n- next\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul></li><li>next</li></ul>"
   },
   {
     "id": "cc558-tilde-pay-n-sym%-c6-end",
     "source": "- outer\n  - para\n    ~~~\n    code\n  %% c\n      ~~~\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code ~~~</code></pre></li></ul></li></ul>"
   },
   {
     "id": "cc558-tilde-pay-n-sym%-c6-after",
     "source": "- outer\n  - para\n    ~~~\n    code\n  %% c\n      ~~~\nafter\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code></code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code ~~~</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "cc558-tilde-pay-n-sym%-c6-more",
     "source": "- outer\n  - para\n    ~~~\n    code\n  %% c\n      ~~~\n  more\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code>more</code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code ~~~</code></pre></li></ul>more</li></ul>"
   },
   {
     "id": "cc558-tilde-pay-n-sym%-c6-next",
     "source": "- outer\n  - para\n    ~~~\n    code\n  %% c\n      ~~~\n- next\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>code ~~~</code></pre></li></ul></li><li>next</li></ul>"
   },
   {
     "id": "cc558-tilde-nopay-b-sym#-c2-end",
@@ -2002,41 +2002,41 @@
   {
     "id": "cc558-tilde-nopay-n-sym%-c4-end",
     "source": "- outer\n  - para\n    ~~~\n  %% c\n    ~~~\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul></li></ul>"
   },
   {
     "id": "cc558-tilde-nopay-n-sym%-c4-after",
     "source": "- outer\n  - para\n    ~~~\n  %% c\n    ~~~\nafter\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code></code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "cc558-tilde-nopay-n-sym%-c4-more",
     "source": "- outer\n  - para\n    ~~~\n  %% c\n    ~~~\n  more\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code>more</code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul>more</li></ul>"
   },
   {
     "id": "cc558-tilde-nopay-n-sym%-c4-next",
     "source": "- outer\n  - para\n    ~~~\n  %% c\n    ~~~\n- next\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul></li><li>next</li></ul>"
   },
   {
     "id": "cc558-tilde-nopay-n-sym%-c6-end",
     "source": "- outer\n  - para\n    ~~~\n  %% c\n      ~~~\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code></code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>~~~</code></pre></li></ul></li></ul>"
   },
   {
     "id": "cc558-tilde-nopay-n-sym%-c6-after",
     "source": "- outer\n  - para\n    ~~~\n  %% c\n      ~~~\nafter\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code></code></pre></li></ul><p>after</p>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>~~~</code></pre></li></ul></li></ul><p>after</p>"
   },
   {
     "id": "cc558-tilde-nopay-n-sym%-c6-more",
     "source": "- outer\n  - para\n    ~~~\n  %% c\n      ~~~\n  more\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code>more</code></pre></li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>~~~</code></pre></li></ul>more</li></ul>"
   },
   {
     "id": "cc558-tilde-nopay-n-sym%-c6-next",
     "source": "- outer\n  - para\n    ~~~\n  %% c\n      ~~~\n- next\n",
-    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><pre><code></code></pre></li><li>next</li></ul>"
+    "html": "<ul><li>outer<ul><li>para<pre><code>~~~</code></pre></li></ul></li><li>next</li></ul>"
   }
 ]

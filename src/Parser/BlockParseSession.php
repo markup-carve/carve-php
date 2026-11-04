@@ -423,11 +423,32 @@ final class BlockParseSession
     /**
      * The later source line wins, even when a footnote body is parsed after the document.
      */
+    /**
+     * Visible line index to authored line index while an erased document's
+     * visible stream is parsed (carve#5012).
+     *
+     * @var array<int, int>|null
+     */
+    public ?array $transparentLineMap = null;
+
+    /**
+     * The authored line a definition line stands for: a negative line is an
+     * erased one, `-(line + 1)`.
+     */
+    public function lineOrder(int $line): int
+    {
+        if ($line < 0) {
+            return -$line - 1;
+        }
+
+        return $this->transparentLineMap[$line] ?? $line;
+    }
+
     public function defineAbbreviation(string $term, string $expansion, int $line): void
     {
         $this->abbreviationDefinitions[] = ['abbr' => $term, 'expansion' => $expansion];
         $this->abbreviationDefinitionLines[] = $line;
-        if (($this->abbreviationLines[$term] ?? -1) > $line) {
+        if (isset($this->abbreviationLines[$term]) && $this->lineOrder($this->abbreviationLines[$term]) > $this->lineOrder($line)) {
             return;
         }
         $this->abbreviations[$term] = $expansion;
@@ -442,7 +463,7 @@ final class BlockParseSession
     public function abbreviationDefinitionsInSourceOrder(): array
     {
         $order = array_keys($this->abbreviationDefinitions);
-        usort($order, fn (int $a, int $b): int => ($this->abbreviationDefinitionLines[$a] ?? 0) <=> ($this->abbreviationDefinitionLines[$b] ?? 0) ?: $a <=> $b);
+        usort($order, fn (int $a, int $b): int => $this->lineOrder($this->abbreviationDefinitionLines[$a] ?? 0) <=> $this->lineOrder($this->abbreviationDefinitionLines[$b] ?? 0) ?: $a <=> $b);
 
         return array_map(fn (int $k): array => $this->abbreviationDefinitions[$k], $order);
     }

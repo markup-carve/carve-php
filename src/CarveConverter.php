@@ -28,8 +28,10 @@ use MarkupCarve\Carve\Extension\StaticRenderExtensionInterface;
 use MarkupCarve\Carve\Extension\WikilinksExtension;
 use MarkupCarve\Carve\Filter\ProfileFilter;
 use MarkupCarve\Carve\Lint\SourceLinter;
+use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\TransparentPlacement;
 use MarkupCarve\Carve\Performance\BorrowedExtensionPlan;
 use MarkupCarve\Carve\Performance\BorrowedHtmlLayout;
 use MarkupCarve\Carve\Performance\HtmlOutput;
@@ -55,6 +57,7 @@ use MarkupCarve\Carve\Renderer\StaticRenderExtensionsInterface;
 use MarkupCarve\Carve\Transform\RenderAwareTransformerInterface;
 use MarkupCarve\Carve\Transform\TransformerInterface;
 use MarkupCarve\Carve\Util\CycleCollection;
+use MarkupCarve\Carve\Util\StringUtil;
 use RuntimeException;
 use WeakMap;
 
@@ -197,7 +200,44 @@ class CarveConverter
             $renderer->setAlignTables($alignTables);
         }
 
-        return $renderer->render($converter->parse($source));
+        $document = $converter->parse($source);
+        $written = $renderer->render($document);
+        if (TransparentPlacement::hasErasedLines($document) && !self::readsBackErased($source, $written)) {
+            // No spelling the writer found keeps what the erased lines meant: keep the author's (carve#5012).
+            $authored = str_replace(["\r\n", "\r", "\0"], ["\n", "\n", "\u{FFFD}"], StringUtil::toValidUtf8($source));
+            if (str_starts_with($authored, "\u{FEFF}")) {
+                $authored = substr($authored, 3);
+            }
+
+            return str_ends_with($authored, "\n") ? $authored : $authored . "\n";
+        }
+
+        return $written;
+    }
+
+    /**
+     * Whether the written source renders the same and keeps the same comments as the authored one.
+     */
+    private static function readsBackErased(string $source, string $written): bool
+    {
+        $html = self::create();
+        $comments = static function (string $carve): array {
+            $found = [];
+            $stack = [(new BlockParser())->parse($carve)];
+            while ($stack !== []) {
+                $node = array_pop($stack);
+                if ($node instanceof Comment) {
+                    $found[] = $node->getContent();
+                }
+                foreach (array_reverse($node->getChildren()) as $child) {
+                    $stack[] = $child;
+                }
+            }
+
+            return $found;
+        };
+
+        return $html->convert($source) === $html->convert($written) && $comments($source) === $comments($written);
     }
 
     /**

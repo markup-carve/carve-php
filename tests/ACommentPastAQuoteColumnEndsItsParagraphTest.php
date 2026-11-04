@@ -99,11 +99,11 @@ class ACommentPastAQuoteColumnEndsItsParagraphTest extends TestCase
             ],
             'GUARD an item below its column still folds' => [
                 "- a\n %% c\nb\n",
-                "<ul>\n  <li>a</li>\n</ul>\n<p>b</p>",
+                "<ul>\n  <li>a\nb</li>\n</ul>",
             ],
             'GUARD an item at column 0 still folds' => [
                 "- a\n%% c\nb\n",
-                "<ul>\n  <li>a</li>\n</ul>\n<p>b</p>",
+                "<ul>\n  <li>a\nb</li>\n</ul>",
             ],
         ];
     }

@@ -12,6 +12,7 @@ use PHPUnit\Framework\TestCase;
  * A note's `+` the walk refuses is framed lazy in the note, as the spec model's
  * `ownLines()` frames it (carve-php#4242). Expectations are the spec model's
  * HTML at carve main `dd86f2eb`; the last row guards a blank follower.
+ * Under carve#5012 (definition lines erased) the two `[r]:` rows render nothing, as the spec model does.
  */
 class ARefusedNotePlusIsFramedLazyInTheNoteTest extends TestCase
 {
@@ -23,7 +24,7 @@ class ARefusedNotePlusIsFramedLazyInTheNoteTest extends TestCase
         return [
             'a refused plus keeps the line after it outside the note' => [
                 "[^f]: a\n+\n [r]:\n.\n",
-                '<p>.</p>',
+                '',
             ],
             'a refused plus before an indented quote' => [
                 "[^f]: a\n+\n > q\n.\n",
@@ -39,7 +40,7 @@ class ARefusedNotePlusIsFramedLazyInTheNoteTest extends TestCase
             ],
             'a refused plus after a two-line note' => [
                 "[^f]: a\n  b\n+\n [r]:\n.\n",
-                '<p>.</p>',
+                '',
             ],
             'a refused plus after a note term' => [
                 "[^f]: :: t\n+\n > q\n.\n",

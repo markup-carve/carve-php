@@ -34,7 +34,8 @@ class CommentErasedBlankRunEndsListTest extends TestCase
         $source = "- a\n\n  %% c\n\n\n- b\n";
         $html = CarveConverter::create()->convert($source);
 
-        self::assertSame(1, substr_count($html, '<ul>'));
-        self::assertStringContainsString('<li><p>a</p></li>', $html);
+        // carve#5012 erases the comment, leaving a three-blank run that splits the list.
+        self::assertSame(2, substr_count($html, '<ul>'));
+        self::assertStringContainsString('<li>a</li>', $html);
     }
 }
