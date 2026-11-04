@@ -13,6 +13,7 @@ use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\FigureGroup;
+use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -738,6 +739,7 @@ final class ListBlockBuilder
      * @param int $sourceLine
      * @param bool $laterItem
      * @param int|null $listOpeningColumn
+     * @param int|null $footnoteOwnerColumn
      *
      * @return array{int|null, int|null, string}
      */
@@ -749,6 +751,7 @@ final class ListBlockBuilder
         int $sourceLine,
         bool $laterItem,
         ?int $listOpeningColumn,
+        ?int $footnoteOwnerColumn,
     ): array {
         $itemSource = $this->state->source->sourceLines[$sourceLine] ?? '';
         $marker = ltrim($listLine, " \t");
@@ -757,21 +760,24 @@ final class ListBlockBuilder
             : (str_ends_with($itemSource, $marker)
                 ? strlen($itemSource) - strlen($marker)
                 : $listOpeningColumn);
-        $authoredLine = $this->state->source->authoredLines[$sourceLine] ?? $itemSource;
-        $authoredMarker = ltrim($itemLine, " \t");
-        $spanMarkerColumn = str_ends_with($authoredLine, $authoredMarker)
-            ? strlen($authoredLine) - strlen($authoredMarker)
-            : $markerColumn;
-        // The item begins at its own authored marker, which can be to the
-        // right of the list's frame when the list is indented.
-        $openingColumn = $parent instanceof Document ? $spanMarkerColumn : $listOpeningColumn;
+        // An item's leading indentation belongs to its span, starting at
+        // the list owner's content column (CARVE-P12-013).
+        $openingColumn = $listOpeningColumn;
         if (!$parent instanceof Document && $laterItem) {
             $prefix = substr($itemSource, 0, $markerColumn);
             $openingColumn = str_contains($prefix, "\t")
                 && $markerColumn <= $listOpeningColumn
                 && !str_contains($prefix, '>')
                 ? 0
-                : $this->resolveMarkerColumn($sourceLine, $itemLine);
+                : ($parent instanceof ListItem ? $listOpeningColumn : $this->resolveMarkerColumn($sourceLine, $itemLine));
+            if ($parent instanceof Footnote && $footnoteOwnerColumn !== null) {
+                $authoredLine = $this->state->source->authoredLines[$sourceLine] ?? '';
+                $authoredMarker = ltrim($itemLine, " \t");
+                $authoredMarkerColumn = str_ends_with($authoredLine, $authoredMarker)
+                    ? strlen($authoredLine) - strlen($authoredMarker)
+                    : strspn($authoredLine, " \t");
+                $openingColumn = $this->openingByteColumnAtVisual($authoredLine, $footnoteOwnerColumn, $authoredMarkerColumn);
+            }
         }
         if ($openingColumn === null) {
             $this->state->session->unplaceableNodeIds[spl_object_id($item)] = true;
@@ -866,9 +872,8 @@ final class ListBlockBuilder
         // Get the base indentation of this list
         $baseIndent = IndentationHelper::getLeadingColumns($line);
         $listSourceLine = $this->sourceLineFor($start);
-        $listOpeningColumn = $parent instanceof Document
-            ? 0
-            : $this->resolveMarkerColumn($listSourceLine, $line);
+        $footnoteOwnerColumn = $this->footnoteOwnerColumn($parent, $listSourceLine);
+        $listOpeningColumn = $this->listOpeningColumn($parent, $listSourceLine, $line);
         $listContentColumn = ($listOpeningColumn ?? $baseIndent)
             + $this->listMarkerWidth(ltrim($line, " \t"), $listInfo);
 
@@ -1236,6 +1241,7 @@ final class ListBlockBuilder
                 $listItemSourceLine,
                 $i !== $start,
                 $listOpeningColumn,
+                $footnoteOwnerColumn,
             );
             // Attributes from an abutting `{...}` block attach to the <li>.
             $this->applyListMarkerAttributes($listItem, $itemInfo);
@@ -1533,12 +1539,10 @@ final class ListBlockBuilder
             $list->setAttributesWithOrder($listAttributes, $listAttributeOrder);
         }
         $this->consumeLooseKey($list);
-        if (!$parent instanceof Document) {
-            if ($listOpeningColumn === null) {
-                $this->state->session->unplaceableNodeIds[spl_object_id($list)] = true;
-            } else {
-                $list->setPos($this->spanForLineMap([$listSourceLine], $listOpeningColumn));
-            }
+        if ($listOpeningColumn === null) {
+            $this->state->session->unplaceableNodeIds[spl_object_id($list)] = true;
+        } else {
+            $list->setPos($this->spanForLineMap([$listSourceLine], $listOpeningColumn));
         }
         $parent->appendChild($list);
         if ($parent instanceof ListItem) {
@@ -3976,6 +3980,74 @@ final class ListBlockBuilder
         }
 
         return $boundary;
+    }
+
+    private function openingByteColumnAtVisual(string $line, int $targetColumn, int $markerColumn): int
+    {
+        $opening = 0;
+        $visual = 0;
+        while ($opening < $markerColumn && $visual < $targetColumn) {
+            $next = $line[$opening] === "\t"
+                ? $visual + IndentationHelper::TAB_STOP - ($visual % IndentationHelper::TAB_STOP)
+                : $visual + 1;
+            if ($next > $targetColumn) {
+                break;
+            }
+            $visual = $next;
+            $opening++;
+        }
+
+        return $opening;
+    }
+
+    private function footnoteOwnerColumn(Node $parent, int $sourceLine): ?int
+    {
+        if (!$parent instanceof Footnote) {
+            return null;
+        }
+        $line = $this->state->source->authoredLines[$sourceLine] ?? '';
+        if (preg_match('/\[\^[^\]]+\]:[ \t]+/', $line, $marker, PREG_OFFSET_CAPTURE) !== 1) {
+            return null;
+        }
+
+        return $this->visualColumnAtByte($line, $marker[0][1]) + 2;
+    }
+
+    private function listOpeningColumn(Node $parent, int $sourceLine, string $line): ?int
+    {
+        $opening = $parent instanceof Document ? 0 : $this->resolveMarkerColumn($sourceLine, $line);
+        if (!$parent instanceof ListItem || $opening === null || $parent->getPos() === null) {
+            return $opening;
+        }
+        $ownerPos = $parent->getPos();
+        $ownerLine = $this->state->source->authoredLines[$ownerPos->startLine - 1] ?? '';
+        $ownerStart = strlen(mb_substr($ownerLine, 0, $ownerPos->startColumn - 1, 'UTF-8'));
+        if (preg_match('/^([ \t]*)([-*.]|[0-9]+[.)]|[A-Za-z]+[.)])(?:\{[^}]*\})?([ \t]+)/', substr($ownerLine, $ownerStart), $marker) !== 1) {
+            return $opening;
+        }
+        $contentEnd = $ownerStart + strlen($marker[1]) + strlen($marker[2]) + strlen($marker[3]);
+        $contentColumn = $this->visualColumnAtByte($ownerLine, $contentEnd);
+        $nestedLine = $this->state->source->authoredLines[$sourceLine] ?? '';
+        $nestedMarker = ltrim($line, " \t");
+        $markerColumn = str_ends_with($nestedLine, $nestedMarker)
+            ? strlen($nestedLine) - strlen($nestedMarker)
+            : strspn($nestedLine, " \t");
+
+        return $this->openingByteColumnAtVisual($nestedLine, $contentColumn, $markerColumn);
+    }
+
+    private function visualColumnAtByte(string $line, int $endByte): int
+    {
+        $column = 0;
+        for ($at = 0, $end = min($endByte, strlen($line)); $at < $end; $at++) {
+            if ($line[$at] === "\t") {
+                $column += IndentationHelper::TAB_STOP - ($column % IndentationHelper::TAB_STOP);
+            } elseif ((ord($line[$at]) & 0xc0) !== 0x80) {
+                $column++;
+            }
+        }
+
+        return $column;
     }
 
     private function sourceLineFor(int $index): int

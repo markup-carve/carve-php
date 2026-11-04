@@ -15,9 +15,9 @@ final class IndentedListMarkerSpanTest extends TestCase
      */
     public static function lists(): iterable
     {
-        yield 'different bullet contents' => ["  - alpha\n  - beta\n", ['- alpha', '- beta']];
-        yield 'different ordered contents' => ["  1. one\n  2. two\n", ['1. one', '2. two']];
-        yield 'tab-indented markers' => ["\t- alpha\n\t- beta\n", ['- alpha', '- beta']];
+        yield 'different bullet contents' => ["  - alpha\n  - beta\n", ['  - alpha', '  - beta']];
+        yield 'different ordered contents' => ["  1. one\n  2. two\n", ['  1. one', '  2. two']];
+        yield 'tab-indented markers' => ["\t- alpha\n\t- beta\n", ["\t- alpha", "\t- beta"]];
     }
 
     /**
@@ -25,7 +25,7 @@ final class IndentedListMarkerSpanTest extends TestCase
      * @param list<string> $expected
      */
     #[DataProvider('lists')]
-    public function testEachItemStartsAtItsAuthoredMarker(string $source, array $expected): void
+    public function testEachItemStartsAtItsOwnerContentColumn(string $source, array $expected): void
     {
         $document = (new BlockParser(trackPositions: true))->parse($source);
         $list = $document->getChildren()[0];
