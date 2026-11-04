@@ -2030,7 +2030,6 @@ class MarkdownToCarve
             && $this->indentWidth($lines[$i + 1]) < $contentCol
             && !preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])(?=[ \t]|$)/', $lines[$i + 1])
         ) {
-            $result[] = '';
             $nextColumn = $this->indentWidth($lines[$i + 1]);
             $listCols->popAbove($nextColumn);
             $listMarkers->end($nextColumn);
