@@ -886,6 +886,7 @@ class MarkdownToCarve
             }
             $tableWork->end();
 
+            $this->escapeHeldQuoteContinuation($lines, $i, $isBlockquote, $contentCol, $lazyQuote, $line);
             $itemQuoteEnd = $this->collectImportedItemQuote($line, $lines, $i, $isBlockquote, $contentCol, $lazyQuote, $prevLineType, $quoteState, $result);
             if ($itemQuoteEnd !== null) {
                 $i = $itemQuoteEnd;
@@ -3895,6 +3896,7 @@ class MarkdownToCarve
         QuoteRunState $state,
         array &$result,
     ): string {
+        $sourceText = $text;
         if (!$inRun) {
             $state->previous = null;
         }
@@ -4003,6 +4005,11 @@ class MarkdownToCarve
         } elseif ($continues && $list->openItemContentColumn() !== null) {
             $written = str_repeat(' ', $list->openItemContentColumn())
                 . $this->escapeBlockOpener(ltrim($text, " \t"));
+        } elseif ($continues && $farPastContent && $itemQuote === null) {
+            // Carve has no indented code, so the indent alone no longer keeps
+            // a heading or quote shape from opening a block.
+            $written = $this->escapeBlockOpener(ltrim($sourceText, " \t"));
+            $text = $written;
         } elseif (preg_match('/^([ \t]*)(?:[-*+]|\d+[.)])[ \t]/', $text) === 1 && !$continues) {
             $step = $list->write($text, CarveRenderer::prefersSingleImportedListPadding());
             $markerCol = $this->indentWidth($text);
@@ -4070,6 +4077,64 @@ class MarkdownToCarve
         }
 
         return $prefix . $written;
+    }
+
+    /**
+     * A line four or more columns into the open paragraph of a quote an item
+     * holds continues it: `$line` is rewritten at the quote's content with its
+     * block shape escaped. Left alone when a list inside the quote owns the
+     * paragraph.
+     *
+     * @param array<int, string> $lines
+     * @param int $index
+     * @param bool $isBlockquote
+     * @param int $contentCol
+     * @param array{prefix: string, col: int}|null $lazyQuote
+     * @param string $line
+     */
+    protected function escapeHeldQuoteContinuation(array $lines, int $index, bool $isBlockquote, int $contentCol, ?array $lazyQuote, string &$line): void
+    {
+        if (!$isBlockquote || $contentCol === 0) {
+            return;
+        }
+        $quoted = $this->normalizeBlockquoteMarkers($this->stripColumns($lines[$index], $contentCol));
+        if (
+            preg_match('/^((?:> )+)(.*)$/s', $quoted, $quote) !== 1
+            || $this->indentWidth($quote[2]) < 4
+            || !(($lazyQuote !== null && $lazyQuote['col'] === $contentCol && $lazyQuote['prefix'] === $quote[1])
+                || $this->heldQuoteParagraphIsOpen($lines, $index, $contentCol, $quote[1]))
+        ) {
+            return;
+        }
+        for ($before = $index - 1; $before >= 0; $before--) {
+            $previous = $lines[$before];
+            $quotedPrevious = $this->quotedText(substr($previous, min(strlen($previous), $contentCol)), $quote[1]);
+            if ($quotedPrevious !== null && preg_match('/^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)/', $quotedPrevious) === 1) {
+                return;
+            }
+            if ($quotedPrevious === null || $this->indentWidth($previous) < $contentCol) {
+                break;
+            }
+        }
+
+        $line = str_repeat(' ', $contentCol) . $quote[1] . $this->escapeBlockOpener(ltrim($quote[2], " \t"));
+    }
+
+    /**
+     * Whether the source line above leaves a paragraph open in the quote
+     * `$prefix` an item holds at `$contentCol`.
+     *
+     * @param array<int, string> $lines
+     * @param int $index
+     * @param int $contentCol
+     * @param string $prefix
+     */
+    protected function heldQuoteParagraphIsOpen(array $lines, int $index, int $contentCol, string $prefix): bool
+    {
+        $previous = $lines[$index - 1] ?? '';
+        $quotedPrevious = $this->quotedText(substr($previous, min(strlen($previous), $contentCol)), $prefix);
+
+        return $quotedPrevious !== null && $this->quoteParagraphIsOpen($quotedPrevious);
     }
 
     /**
@@ -5277,9 +5342,10 @@ class MarkdownToCarve
             return null;
         }
         [, $prefix, $body] = $match;
-        $paragraphOpen = $lazyQuote !== null
+        $paragraphOpen = ($lazyQuote !== null
             && $lazyQuote['col'] === $contentCol
-            && substr_count($prefix, '>') <= substr_count($lazyQuote['prefix'], '>');
+            && substr_count($prefix, '>') <= substr_count($lazyQuote['prefix'], '>'))
+            || ($itemLead === null && $this->heldQuoteParagraphIsOpen($lines, $start, $contentCol, $prefix));
         $fenced = preg_match('/^ {0,3}(?:`{3,}|~{3,})/', $body) === 1;
         if (!$fenced && ($paragraphOpen || $this->indentWidth($body) < 4)) {
             return null;
