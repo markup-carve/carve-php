@@ -8,7 +8,6 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
-use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\BlockParser;
 
@@ -82,7 +81,7 @@ class TableColumnLinter
                 if (preg_match('/\b' . $key . '=/', $line, $attribute, PREG_OFFSET_CAPTURE) !== 1) {
                     continue;
                 }
-                $markers ??= $this->headerMarkerAxes($lines, $lineIndex + 1);
+                $markers ??= $this->headMarkerAxes($lines, $lineIndex);
                 if ($markers[$key]) {
                     $offset = $attribute[0][1];
                     $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $offset, strlen($key), 'table-column-overlap', 'A column supplies the same alignment axis both in the table and in a table attribute; the in-table marker wins.');
@@ -94,57 +93,45 @@ class TableColumnLinter
     }
 
     /**
-     * Which alignment axes a header cell of the table starting at `$start`
-     * sets with an in-table marker, read from the parsed cells so the braced
-     * form (`|={>} H |`) counts like the deprecated prefix (`|=> H |`).
+     * Which alignment axes the head of the table the attribute line at
+     * `$attributeLine` carries sets with an in-table marker, read from the
+     * parsed cells so the braced form (`|={>} H |`) counts like the deprecated
+     * prefix (`|=> H |`). A header cell below the head is a row header and
+     * aligns only itself.
      *
      * @param list<string> $lines
-     * @param int $start
+     * @param int $attributeLine
      *
      * @return array{aligns: bool, valigns: bool}
      */
-    private function headerMarkerAxes(array $lines, int $start): array
+    private function headMarkerAxes(array $lines, int $attributeLine): array
     {
-        $rows = [];
-        for ($i = $start; isset($lines[$i]) && str_starts_with(ltrim($lines[$i]), '|'); $i++) {
+        $rows = [ltrim($lines[$attributeLine])];
+        for ($i = $attributeLine + 1; isset($lines[$i]) && str_starts_with(ltrim($lines[$i]), '|'); $i++) {
             $rows[] = ltrim($lines[$i]);
         }
         $axes = ['aligns' => false, 'valigns' => false];
-        $this->collectHeaderAxes((new CarveConverter())->parse(implode("\n", $rows) . "\n"), $axes);
-
-        return $axes;
-    }
-
-    /**
-     * Only the leading header rows (the table head) are column markers; a
-     * header cell in a later row is a row header and aligns only itself.
-     *
-     * @param \MarkupCarve\Carve\Node\Node $node
-     * @param array{aligns: bool, valigns: bool} $axes
-     */
-    private function collectHeaderAxes(Node $node, array &$axes): void
-    {
-        if ($node instanceof Table) {
-            foreach ($node->getChildren() as $row) {
-                if (!$row instanceof TableRow) {
-                    continue;
-                }
-                if (!$row->isHeader()) {
-                    break;
-                }
-                foreach ($row->getChildren() as $cell) {
-                    if ($cell instanceof TableCell) {
-                        $axes['aligns'] = $axes['aligns'] || $cell->hasExplicitAlignment();
-                        $axes['valigns'] = $axes['valigns'] || $cell->hasExplicitVerticalAlignment();
-                    }
+        $table = (new CarveConverter())->parse(implode("\n", $rows) . "\n")->getChildren()[0] ?? null;
+        if (!$table instanceof Table) {
+            return $axes;
+        }
+        $head = ($table->getRowGroups() ?? $table->statedRowGroups())['headRows'] ?? null;
+        foreach ($table->getChildren() as $row) {
+            if (!$row instanceof TableRow) {
+                continue;
+            }
+            if ($head === null ? !$row->isHeader() : $head-- <= 0) {
+                break;
+            }
+            foreach ($row->getChildren() as $cell) {
+                if ($cell instanceof TableCell) {
+                    $axes['aligns'] = $axes['aligns'] || $cell->hasExplicitAlignment();
+                    $axes['valigns'] = $axes['valigns'] || $cell->hasExplicitVerticalAlignment();
                 }
             }
+        }
 
-            return;
-        }
-        foreach ($node->getChildren() as $child) {
-            $this->collectHeaderAxes($child, $axes);
-        }
+        return $axes;
     }
 
     /**
