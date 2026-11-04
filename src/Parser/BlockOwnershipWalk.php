@@ -574,10 +574,7 @@ final class BlockOwnershipWalk
                 if ($this->frames[$topIndex]->lineBlock && $this->frames[$topIndex]->span !== null && $this->frames[$topIndex]->span[0] === '%') {
                     $this->frames[$topIndex]->span = null;
                 }
-                // The readers open a list at a folded marker (§10 I2), so a `+` there is decided too.
-                if ($form->kind === 'item') {
-                    $this->decideFoldedMarkerPlus($at, $reached + 1);
-                }
+                // A folded marker opens no item (§10 I2), so a `+` closing it is text (PART 0 S4, carve#5112).
                 // Past a missed note the line is framed lazy in the deepest container (carve#3926).
                 if ($missedNote && $this->frames[$topIndex]->plus !== $at - 1) {
                     $this->lead(0);
@@ -1820,35 +1817,6 @@ final class BlockOwnershipWalk
         $this->reach = $reach;
 
         return $oneBlock;
-    }
-
-    /**
-     * The `+` closing a marker chain on a line the walk folds stays for the readers only if it attaches.
-     */
-    private function decideFoldedMarkerPlus(int $at, int $hostIndex): void
-    {
-        $tail = $this->m['rest'];
-        $column = self::docColumn($this->lines[$at], $tail);
-        for ($guard = 0; $guard <= BlockGrammar::MAX_NESTING_DEPTH; $guard++) {
-            $head = $this->listParser->markerHeadAt($tail);
-            if ($head === null) {
-                return;
-            }
-            $body = (string)substr($tail, $head['content']);
-            $inner = self::indentCols($body);
-            $column = self::docColumn($this->lines[$at], $inner['rest']);
-            if (self::isPlus($inner['rest'])) {
-                $marker = $column - (strlen($tail) - strlen($inner['rest']));
-                if (!$this->attachesAt('item', $at, $marker, $hostIndex)) {
-                    $this->refusedPlus[$at] = $this->plusFinding($at, 'item', $marker, $hostIndex);
-                    $this->src = (string)substr($this->src, 0, strlen($this->src) - strlen($inner['rest'])) . '%%';
-                    $this->m = self::indentCols($this->src);
-                }
-
-                return;
-            }
-            $tail = $inner['rest'];
-        }
     }
 
     /**
