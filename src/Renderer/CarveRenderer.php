@@ -289,6 +289,21 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * @var string
      */
+    private const VERBATIM_LINE_OPENER = '/^(?:> +[^ ]|#{1,6} +[^ ]|%%|::(?!:) +[^ ]|\[\^[^\]\n]+\]: +[^ ]|\*\[[^\]\n]+\]: +[^ ])/';
+
+    /**
+     * @var string
+     */
+    private const VERBATIM_INNER_LINE_OPENER = '/^(?:>[ \t]*$|-$|:{3,}(?:[ \t]*$|[ \t]+[^ \t:])|`{3,}(?![`{])|~{3,}|\{(?![=}])[^\n]*\}[ \t]*$|\|.*\|[ \t]*$|(?:\*[ \t]*){3,}$|(?:-[ \t]*){3,}$|_{3,}[ \t]*$)/';
+
+    /**
+     * @var string
+     */
+    private const VERBATIM_MARKER_BODY_OPENER = '/^(?:-$|[-*.] +[^ ]|[0-9]+[.)] +[^ ])/';
+
+    /**
+     * @var string
+     */
     private const DEFINITION_SHAPED_LAST_LINE = '/\n[ \t]*\[[^\]\n^]+\]:[ \t][^\n]*\z/';
 
     private bool $inCaption = false;
@@ -5220,6 +5235,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->ensureWriterState();
         $siblings = ($node instanceof Code || $node instanceof Math) && $node->getAttributeEntries() === [] && $node->getParent() instanceof Paragraph ? $node->getParent()->getChildren() : [];
         $this->codeEndsItsParagraph = $siblings !== [] && end($siblings) === $node;
+        if ($node instanceof Code || $node instanceof Math || $node instanceof RawInline || $node instanceof LiteralInline) {
+            $this->refuseUnspellableVerbatimLines($node);
+        }
         $withAttrs = fn (string $body): string => $body . $this->renderAttrs($node);
         $this->pendingVerbatimCellWraps = $node instanceof Code || $node instanceof Math || $node instanceof RawInline ? $node->getCellWraps() : null;
         // An unresolved reference renders as the source the author
@@ -6221,6 +6239,69 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
             throw new SourceUnspellableException($nodeType, $exception->reason);
         }
+    }
+
+    /**
+     * A value line that opens a block in its host at every column has no spelling (CARVE-P11-078).
+     *
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
+     */
+    private function refuseUnspellableVerbatimLines(Code|Math|RawInline|LiteralInline $node): void
+    {
+        $lines = explode("\n", $node->getContent());
+        if (count($lines) < 2 || $this->inLineBlock > 0 || $this->inTerm) {
+            return;
+        }
+        $block = $node->getParent();
+        while ($block !== null && !$block instanceof BlockNode) {
+            $block = $block->getParent();
+        }
+        if (!$block instanceof Paragraph) {
+            return;
+        }
+        $host = $block->getParent();
+        $markerBody = $host instanceof ListItem || $host instanceof DefinitionDescription || $host instanceof Footnote;
+        $last = count($lines) - 1;
+        for ($i = 1; $i <= $last; $i++) {
+            $line = $lines[$i];
+            // The span's closer ends the last line, so it counts as content there.
+            $closed = $i === $last ? $line . '`' : $line;
+            if (
+                preg_match(self::VERBATIM_LINE_OPENER, $closed) === 1
+                || $i < $last && preg_match(self::VERBATIM_INNER_LINE_OPENER, $line) === 1
+                || str_starts_with($line, '[') && $this->verbatimLineIsADefinition($i < $last ? [$line] : [$line . '`', $line . ' `'])
+                || $markerBody && preg_match(self::VERBATIM_MARKER_BODY_OPENER, $closed) === 1
+            ) {
+                $nodeType = match (true) {
+                    $node instanceof Math => 'math',
+                    $node instanceof RawInline => 'raw_inline',
+                    $node instanceof LiteralInline => 'literal_inline',
+                    default => 'code',
+                };
+
+                throw new SourceUnspellableException(
+                    $nodeType,
+                    $host instanceof Footnote ? 'a block-marker continuation cannot stay inside a footnote body' : 'a line of the value opens a block in its host',
+                );
+            }
+        }
+    }
+
+    /**
+     * On the last line the closer follows, glued or padded; the line has a spelling if one of them is no definition.
+     *
+     * @param array<string> $spellings
+     */
+    private function verbatimLineIsADefinition(array $spellings): bool
+    {
+        $this->verbatimDefinitions ??= new ReferenceDefinitionExtractor(new InlineParser(new BlockParser()));
+        foreach ($spellings as $spelling) {
+            if ($this->verbatimDefinitions->matchDefinitionLine($spelling) === null) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function guardCodeLines(string $written, string $nodeType = 'code'): string
