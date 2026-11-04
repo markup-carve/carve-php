@@ -111,7 +111,7 @@ final class ListColumnLinter
     }
 
     /**
-     * A marker after a blank line, below the content column of the item above, starts a separate list.
+     * A marker below the content column of the item above, with only blank lines between, starts a separate list.
      *
      * @param list<array{first: int, last: int, base: int, content: int, quote: int, list: int, paragraphs: array<int, true>, textStarts: array<string, true>}> $items
      * @param array<int, array{0: string, 1: int}> $rows
@@ -126,15 +126,13 @@ final class ListColumnLinter
      */
     private function detached(array $items, array $rows, int $lineNumber, int $at, int $visual, int $column, int $lineOffset, string $marker): ?LintWarning
     {
-        if ($lineNumber < 2 || !$this->blank($rows[$lineNumber - 2][0] ?? '')) {
+        if ($lineNumber < 2) {
             return null;
         }
         $opened = null;
         foreach ($items as $item) {
             if ($item['first'] === $lineNumber && ($opened === null || $item['base'] < $opened['base'])) {
                 $opened = $item;
-            } elseif ($item['first'] < $lineNumber && $lineNumber <= $item['last']) {
-                return null;
             }
         }
         if ($opened === null) {
@@ -157,7 +155,8 @@ final class ListColumnLinter
         if ($host === null) {
             return null;
         }
-        $message = "This list marker starts at column {$visual} after a blank line, below the content column {$host['content']} of the list item above, so it starts a separate list instead of nesting. Indent it to column {$host['content']} to nest it under the item, or start it at column {$host['base']} to put it at the item's own level.";
+        $where = $this->blank($rows[$lineNumber - 2][0]) ? ' after a blank line' : '';
+        $message = "This list marker starts at column {$visual}{$where}, below the content column {$host['content']} of the list item above, so it starts a separate list instead of nesting. Indent it to column {$host['content']} to nest it under the item, or start it at column {$host['base']} to put it at the item's own level.";
         $lineOffsetAt = $lineOffset + $at;
 
         return new LintWarning($lineNumber, $column, 'list-marker-below-content-column', $message, $lineOffsetAt, $lineOffsetAt + strlen($marker));
