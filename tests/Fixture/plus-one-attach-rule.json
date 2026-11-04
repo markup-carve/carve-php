@@ -1,5 +1,5 @@
 {
- "provenance": "spec model at markup-carve/carve c17e949c",
+ "provenance": "spec model at markup-carve/carve c17e949c; the carve#5013 rows at 3d7a9fff",
  "attach": {
   "4409-list-after-marker-line": {
    "ticket": "4409",
@@ -9,12 +9,12 @@
   "4409-corpus-838": {
    "ticket": "4409",
    "source": ":: t\n: - +\np\n",
-   "html": "<dl><dt>t</dt><dd><ul><li>+ p</li></ul></dd></dl>"
+   "html": "<dl><dt>t</dt><dd><ul><li></li></ul></dd></dl><p>p</p>"
   },
   "4409-corpus-826-5": {
    "ticket": "4409",
    "source": "- a\n  * +\n[r]: /u\n  after\n",
-   "html": "<ul><li>a <ul><li>+</li></ul> after</li></ul>"
+   "html": "<ul><li>a <ul><li></li></ul> after</li></ul>"
   },
   "4409-sub1-note-list": {
    "ticket": "4409",
@@ -39,12 +39,12 @@
   "4409-sub3-item-over-sibling": {
    "ticket": "4409",
    "source": "- +\n- b\n",
-   "html": "<ul><li>+</li><li>b</li></ul>"
+   "html": "<ul><li></li><li>b</li></ul>"
   },
   "4409-sub4-item-content-column": {
    "ticket": "4409",
    "source": "- +\n  para\n",
-   "html": "<ul><li>+ para</li></ul>"
+   "html": "<ul><li>para</li></ul>"
   },
   "4409-separate-at-own-column": {
    "ticket": "4409",
@@ -54,7 +54,7 @@
   "4409-separate-off-column": {
    "ticket": "4409",
    "source": "- a\n+\n  para\n",
-   "html": "<ul><li>a + para</li></ul>"
+   "html": "<ul><li>a para</li></ul>"
   },
   "4409-separate-list-in-desc": {
    "ticket": "4409",
@@ -69,12 +69,12 @@
   "4409-separate-item-sibling-stays": {
    "ticket": "4409",
    "source": "- a\n+\n- b\n",
-   "html": "<ul><li>a +</li><li>b</li></ul>"
+   "html": "<ul><li>a</li><li>b</li></ul>"
   },
   "4396-quoted-note": {
    "ticket": "4396",
    "source": "> [^b]: +\npara\n\n[^b]\n",
-   "html": "<blockquote></blockquote><p><a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ para</p></li>"
+   "html": "<blockquote></blockquote><p><a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>para</p></li>"
   },
   "4408-para-then-shifted-sibling": {
    "ticket": "4408",
@@ -89,22 +89,22 @@
   "4408-refused-past-term": {
    "ticket": "4408",
    "source": ":: t\n : +\nl\n : b\n",
-   "html": "<dl><dt>t</dt><dd>+ l</dd><dd>b</dd></dl>"
+   "html": "<dl><dt>t</dt><dd></dd></dl><p>l : b</p>"
   },
   "4152-part1-stacked-column-zero": {
    "ticket": "4152",
    "source": "- - +\npara\n",
-   "html": "<ul><li><ul><li>+ para</li></ul></li></ul>"
+   "html": "<ul><li><ul><li></li></ul></li></ul><p>para</p>"
   },
   "4152-part2-note-content-column": {
    "ticket": "4152",
    "source": "[^a]: +\n  flush\n\nsee[^a]\n",
-   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ flush</p></li>"
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>flush</p></li>"
   },
   "4152-desc-past-content-column": {
    "ticket": "4152",
    "source": ":: t\n: +\n    flush\n",
-   "html": "<dl><dt>t</dt><dd>+ flush</dd></dl>"
+   "html": "<dl><dt>t</dt><dd>flush</dd></dl>"
   },
   "4152-corpus-643-list-in-note": {
    "ticket": "4152",
@@ -114,12 +114,12 @@
   "4097-heading-closes-quote": {
    "ticket": "4097",
    "source": "> [^b]: +\n# H\n\nr[^b]\n",
-   "html": "<blockquote></blockquote><section id=\"H\"><h1>H</h1><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p></section> NOTES: <li id=\"fn1\"><p>+</p></li>"
+   "html": "<blockquote></blockquote><section id=\"H\"><h1>H</h1><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p></section> NOTES: <li id=\"fn1\"></li>"
   },
   "4097-paragraph-folds": {
    "ticket": "4097",
    "source": "> [^b]: +\npara\n\nr[^b]\n",
-   "html": "<blockquote></blockquote><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ para</p></li>"
+   "html": "<blockquote></blockquote><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>para</p></li>"
   },
   "4097-marker-column-attaches": {
    "ticket": "4097",
@@ -154,27 +154,27 @@
   "4226-column-one-fence": {
    "ticket": "4226",
    "source": "- a\n  - +\n ```\nx\n```\n",
-   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><pre><code>x\n</code></pre>"
+   "html": "<ul><li>a <ul><li></li></ul></li></ul><pre><code>x\n</code></pre>"
   },
   "4226-column-one-quote": {
    "ticket": "4226",
    "source": "- a\n  - +\n > q\n",
-   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><blockquote><p>q</p></blockquote>"
+   "html": "<ul><li>a <ul><li></li></ul></li></ul><blockquote><p>q</p></blockquote>"
   },
   "4222-stacked-in-note": {
    "ticket": "4222",
    "source": "[^a]: - - +\n  para\ntail\n\nr[^a]\n",
-   "html": "<p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ul><li><ul><li>+ para tail</li></ul></li></ul></li>"
+   "html": "<p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ul><li><ul><li></li></ul></li></ul><p>para tail</p></li>"
   },
   "4356-description-host": {
    "ticket": "4356",
    "source": ":: t\n: - +\np\n",
-   "html": "<dl><dt>t</dt><dd><ul><li>+ p</li></ul></dd></dl>"
+   "html": "<dl><dt>t</dt><dd><ul><li></li></ul></dd></dl><p>p</p>"
   },
   "4356-note-host": {
    "ticket": "4356",
    "source": "[^n]: - +\np\n\nr[^n]\n",
-   "html": "<p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ul><li>+ p</li></ul></li>"
+   "html": "<p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ul><li>p</li></ul></li>"
   },
   "twin-item-paragraph-at-marker-column": {
    "ticket": "P9-067",
@@ -199,12 +199,12 @@
   "twin-item-paragraph-at-content-column": {
    "ticket": "P9-067",
    "source": "- +\n  para\n",
-   "html": "<ul><li>+ para</li></ul>"
+   "html": "<ul><li>para</li></ul>"
   },
   "twin-item-paragraph-at-column-one": {
    "ticket": "P9-067",
    "source": "- +\n para\n",
-   "html": "<ul><li>+ para</li></ul>"
+   "html": "<ul><li></li></ul><p>para</p>"
   },
   "twin-description-paragraph-at-marker-column": {
    "ticket": "P9-067",
@@ -229,12 +229,12 @@
   "twin-description-paragraph-at-content-column": {
    "ticket": "P9-067",
    "source": ":: t\n: +\n  para\n",
-   "html": "<dl><dt>t</dt><dd>+ para</dd></dl>"
+   "html": "<dl><dt>t</dt><dd>para</dd></dl>"
   },
   "twin-description-paragraph-at-column-one": {
    "ticket": "P9-067",
    "source": ":: t\n: +\n para\n",
-   "html": "<dl><dt>t</dt><dd>+ para</dd></dl>"
+   "html": "<dl><dt>t</dt><dd></dd></dl><p>para</p>"
   },
   "twin-description-list-at-marker-column": {
    "ticket": "P9-067",
@@ -264,12 +264,12 @@
   "twin-note-paragraph-at-content-column": {
    "ticket": "P9-067",
    "source": "[^a]: +\n  para\n\nsee[^a]\n",
-   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ para</p></li>"
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>para</p></li>"
   },
   "twin-note-paragraph-at-column-one": {
    "ticket": "P9-067",
    "source": "[^a]: +\n para\n\nsee[^a]\n",
-   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ para</p></li>"
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>para</p></li>"
   },
   "twin-note-list-at-marker-column": {
    "ticket": "P9-067",
@@ -299,12 +299,12 @@
   "twin-quote-paragraph-at-content-column": {
    "ticket": "P9-067",
    "source": "> +\n  para\n",
-   "html": "<blockquote><p>+ para</p></blockquote>"
+   "html": "<blockquote></blockquote><p>para</p>"
   },
   "twin-quote-paragraph-at-column-one": {
    "ticket": "P9-067",
    "source": "> +\n para\n",
-   "html": "<blockquote><p>+ para</p></blockquote>"
+   "html": "<blockquote></blockquote><p>para</p>"
   },
   "twin-quote-list-at-marker-column": {
    "ticket": "P9-067",
@@ -319,12 +319,12 @@
   "twin-nested-item-column-zero-refused": {
    "ticket": "P9-067",
    "source": "- a\n  - +\npara\n",
-   "html": "<ul><li>a <ul><li>+ para</li></ul></li></ul>"
+   "html": "<ul><li>a <ul><li></li></ul></li></ul><p>para</p>"
   },
   "twin-nested-item-column-one-refused": {
    "ticket": "P9-067",
    "source": "- a\n  - +\n para\n",
-   "html": "<ul><li>a <ul><li>+ para</li></ul></li></ul>"
+   "html": "<ul><li>a <ul><li></li></ul></li></ul><p>para</p>"
   },
   "twin-nested-description-at-marker-column": {
    "ticket": "P9-067",
@@ -334,12 +334,12 @@
   "twin-nested-description-column-zero-refused": {
    "ticket": "P9-067",
    "source": "- a\n  :: t\n  : +\npara\n",
-   "html": "<ul><li>a <dl><dt>t</dt><dd>+ para</dd></dl></li></ul>"
+   "html": "<ul><li>a <dl><dt>t</dt><dd></dd></dl></li></ul><p>para</p>"
   },
   "twin-nested-description-column-one-refused": {
    "ticket": "P9-067",
    "source": "- a\n  :: t\n  : +\n para\n",
-   "html": "<ul><li>a <dl><dt>t</dt><dd>+ para</dd></dl></li></ul>"
+   "html": "<ul><li>a <dl><dt>t</dt><dd></dd></dl></li></ul><p>para</p>"
   },
   "twin-nested-quote-at-marker-column": {
    "ticket": "P9-067",
@@ -349,12 +349,12 @@
   "twin-nested-quote-column-zero-refused": {
    "ticket": "P9-067",
    "source": "- a\n  > +\npara\n",
-   "html": "<ul><li>a <blockquote><p>+ para</p></blockquote></li></ul>"
+   "html": "<ul><li>a <blockquote></blockquote></li></ul><p>para</p>"
   },
   "twin-nested-quote-column-one-refused": {
    "ticket": "P9-067",
    "source": "- a\n  > +\n para\n",
-   "html": "<ul><li>a <blockquote><p>+ para</p></blockquote></li></ul>"
+   "html": "<ul><li>a <blockquote></blockquote></li></ul><p>para</p>"
   },
   "twin-nested-note-at-marker-column": {
    "ticket": "P9-067",
@@ -364,7 +364,7 @@
   "twin-nested-note-column-zero-refused": {
    "ticket": "P9-067",
    "source": "- a\n  [^n]: +\npara\n\nr[^n]\n",
-   "html": "<ul><li>a</li></ul><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ para</p></li>"
+   "html": "<ul><li>a</li></ul><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>para</p></li>"
   },
   "A-384-a-continuation-marker-attaches-only-a-flush-left-block-2": {
    "ticket": "A",
@@ -374,272 +374,272 @@
   "A-384-a-continuation-marker-attaches-only-a-flush-left-block-3": {
    "ticket": "A",
    "source": "* * +\n x\n",
-   "html": "<ul><li><ul><li>+ x</li></ul></li></ul>"
+   "html": "<ul><li><ul><li></li></ul></li></ul><p>x</p>"
   },
   "A-384-a-continuation-marker-attaches-only-a-flush-left-block-5": {
    "ticket": "A",
    "source": "- +\n  x\n",
-   "html": "<ul><li>+ x</li></ul>"
+   "html": "<ul><li>x</li></ul>"
   },
   "A-384-a-continuation-marker-attaches-only-a-flush-left-block": {
    "ticket": "A",
    "source": "* * +\nx\n",
-   "html": "<ul><li><ul><li>+ x</li></ul></li></ul>"
+   "html": "<ul><li><ul><li></li></ul></li></ul><p>x</p>"
   },
   "A-436-an-empty-description-body-claims-no-line-below-column-0-2": {
    "ticket": "A",
    "source": ":: t\n:  +\n flush\n",
-   "html": "<dl><dt>t</dt><dd>+ flush</dd></dl>"
+   "html": "<dl><dt>t</dt><dd></dd></dl><p>flush</p>"
   },
   "A-436-an-empty-description-body-claims-no-line-below-column-0-4": {
    "ticket": "A",
    "source": ":: t\n:  +\n  flush\n",
-   "html": "<dl><dt>t</dt><dd>+ flush</dd></dl>"
+   "html": "<dl><dt>t</dt><dd></dd></dl><p>flush</p>"
   },
   "A-436-an-empty-description-body-claims-no-line-below-column-0-7": {
    "ticket": "A",
    "source": "- +\n flush\n",
-   "html": "<ul><li>+ flush</li></ul>"
+   "html": "<ul><li></li></ul><p>flush</p>"
   },
   "A-437-a-leading-continuation-marker-in-a-footnote-body-or-a-quote-is-text-3": {
    "ticket": "A",
    "source": "[^a]: +\n  flush\n\nsee[^a]\n",
-   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ flush</p></li>"
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>flush</p></li>"
   },
   "A-588-a-block-quote-and-a-footnote-body-take-the-first-block-form-5": {
    "ticket": "A",
    "source": "> > +\n```\nx\n```\n",
-   "html": "<blockquote><blockquote><p>+</p></blockquote></blockquote><pre><code>x\n</code></pre>"
+   "html": "<blockquote><blockquote></blockquote></blockquote><pre><code>x\n</code></pre>"
   },
   "A-626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-5": {
    "ticket": "A",
    "source": "- - ```\n\n\n  +\ntail\n",
-   "html": "<ul><li><ul><li><pre><code>\n\n</code></pre></li></ul><p>+ tail</p></li></ul>"
+   "html": "<ul><li><ul><li><pre><code>\n\n</code></pre></li></ul></li></ul><p>tail</p>"
   },
   "A-626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-7": {
    "ticket": "A",
    "source": "- 1. ```\n\n\n  +\ntail\n",
-   "html": "<ul><li><ol><li><pre><code>\n\n</code></pre></li></ol><p>+ tail</p></li></ul>"
+   "html": "<ul><li><ol><li><pre><code>\n\n</code></pre></li></ol></li></ul><p>tail</p>"
   },
   "A-630-a-continuation-marker-stands-alone-at-column-zero-or-right-after-a-block-opener-10": {
    "ticket": "A",
    "source": "  > +\nq\n",
-   "html": "<blockquote><p>+ q</p></blockquote>"
+   "html": "<blockquote></blockquote><p>q</p>"
   },
   "A-630-a-continuation-marker-stands-alone-at-column-zero-or-right-after-a-block-opener-13": {
    "ticket": "A",
    "source": "- - +\npara\n",
-   "html": "<ul><li><ul><li>+ para</li></ul></li></ul>"
+   "html": "<ul><li><ul><li></li></ul></li></ul><p>para</p>"
   },
   "A-630-a-continuation-marker-stands-alone-at-column-zero-or-right-after-a-block-opener-16": {
    "ticket": "A",
    "source": "1. - +\npara\n",
-   "html": "<ol><li><ul><li>+ para</li></ul></li></ol>"
+   "html": "<ol><li><ul><li></li></ul></li></ol><p>para</p>"
   },
   "A-630-a-continuation-marker-stands-alone-at-column-zero-or-right-after-a-block-opener-18": {
    "ticket": "A",
    "source": "- a\n  - +\npara\n",
-   "html": "<ul><li>a <ul><li>+ para</li></ul></li></ul>"
+   "html": "<ul><li>a <ul><li></li></ul></li></ul><p>para</p>"
   },
   "A-631-a-task-item-takes-a-first-block-continuation-marker-after-its-checkbox-4": {
    "ticket": "A",
    "source": "- - [ ] +\n```\ncode\n```\n",
-   "html": "<ul><li><ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +</li></ul></li></ul><pre><code>code\n</code></pre>"
+   "html": "<ul><li><ul class=\"task-list\"><li><input type=\"checkbox\" disabled></li></ul></li></ul><pre><code>code\n</code></pre>"
   },
   "A-632-a-continuation-marker-uses-its-container-column-28": {
    "ticket": "A",
    "source": "- a\n  - +\n> b\n",
-   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><blockquote><p>b</p></blockquote>"
+   "html": "<ul><li>a <ul><li></li></ul></li></ul><blockquote><p>b</p></blockquote>"
   },
   "A-632-a-continuation-marker-uses-its-container-column-29": {
    "ticket": "A",
    "source": "- - +\n> q\n",
-   "html": "<ul><li><ul><li>+</li></ul></li></ul><blockquote><p>q</p></blockquote>"
+   "html": "<ul><li><ul><li></li></ul></li></ul><blockquote><p>q</p></blockquote>"
   },
   "A-632-a-continuation-marker-uses-its-container-column-30": {
    "ticket": "A",
    "source": "- - [ ] +\n> q\n",
-   "html": "<ul><li><ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +</li></ul></li></ul><blockquote><p>q</p></blockquote>"
+   "html": "<ul><li><ul class=\"task-list\"><li><input type=\"checkbox\" disabled></li></ul></li></ul><blockquote><p>q</p></blockquote>"
   },
   "A-632-a-continuation-marker-uses-its-container-column-33": {
    "ticket": "A",
    "source": "1. - +\n> q\n",
-   "html": "<ol><li><ul><li>+</li></ul></li></ol><blockquote><p>q</p></blockquote>"
+   "html": "<ol><li><ul><li></li></ul></li></ol><blockquote><p>q</p></blockquote>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-10": {
    "ticket": "A",
    "source": "- foo\n  - +\n    > b\n",
-   "html": "<ul><li>foo <ul><li>+ <blockquote><p>b</p></blockquote></li></ul></li></ul>"
+   "html": "<ul><li>foo <ul><li><blockquote><p>b</p></blockquote></li></ul></li></ul>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-11": {
    "ticket": "A",
    "source": "- foo\n  - [ ] +\n> b\n",
-   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +</li></ul></li></ul><blockquote><p>b</p></blockquote>"
+   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled></li></ul></li></ul><blockquote><p>b</p></blockquote>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-12": {
    "ticket": "A",
    "source": "- foo\n  - [ ] +\n > b\n",
-   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +</li></ul></li></ul><blockquote><p>b</p></blockquote>"
+   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled></li></ul></li></ul><blockquote><p>b</p></blockquote>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-14": {
    "ticket": "A",
    "source": "- foo\n  - [ ] +\n    > b\n",
-   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled> + <blockquote><p>b</p></blockquote></li></ul></li></ul>"
+   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled><blockquote><p>b</p></blockquote></li></ul></li></ul>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-15": {
    "ticket": "A",
    "source": "- foo\n  1. +\n> b\n",
-   "html": "<ul><li>foo <ol><li>+</li></ol></li></ul><blockquote><p>b</p></blockquote>"
+   "html": "<ul><li>foo <ol><li></li></ol></li></ul><blockquote><p>b</p></blockquote>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-16": {
    "ticket": "A",
    "source": "- foo\n  1. +\n > b\n",
-   "html": "<ul><li>foo <ol><li>+</li></ol></li></ul><blockquote><p>b</p></blockquote>"
+   "html": "<ul><li>foo <ol><li></li></ol></li></ul><blockquote><p>b</p></blockquote>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-18": {
    "ticket": "A",
    "source": "- foo\n  1. +\n    > b\n",
-   "html": "<ul><li>foo <ol><li>+</li></ol><blockquote><p>b</p></blockquote></li></ul>"
+   "html": "<ul><li>foo <ol><li></li></ol><blockquote><p>b</p></blockquote></li></ul>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-19": {
    "ticket": "A",
    "source": "- foo\n  - +\n```\nx\n```\n",
-   "html": "<ul><li>foo <ul><li>+</li></ul></li></ul><pre><code>x\n</code></pre>"
+   "html": "<ul><li>foo <ul><li></li></ul></li></ul><pre><code>x\n</code></pre>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-20": {
    "ticket": "A",
    "source": "- foo\n  - +\n ```\n x\n ```\n",
-   "html": "<ul><li>foo <ul><li>+</li></ul></li></ul><pre><code>x\n</code></pre>"
+   "html": "<ul><li>foo <ul><li></li></ul></li></ul><pre><code>x\n</code></pre>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-22": {
    "ticket": "A",
    "source": "- foo\n  - +\n    ```\n    x\n    ```\n",
-   "html": "<ul><li>foo <ul><li>+<pre><code>x\n</code></pre></li></ul></li></ul>"
+   "html": "<ul><li>foo <ul><li><pre><code>x\n</code></pre></li></ul></li></ul>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-23": {
    "ticket": "A",
    "source": "- foo\n  - [ ] +\n```\nx\n```\n",
-   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +</li></ul></li></ul><pre><code>x\n</code></pre>"
+   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled></li></ul></li></ul><pre><code>x\n</code></pre>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-24": {
    "ticket": "A",
    "source": "- foo\n  - [ ] +\n ```\n x\n ```\n",
-   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +</li></ul></li></ul><pre><code>x\n</code></pre>"
+   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled></li></ul></li></ul><pre><code>x\n</code></pre>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-26": {
    "ticket": "A",
    "source": "- foo\n  - [ ] +\n    ```\n    x\n    ```\n",
-   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +<pre><code>x\n</code></pre></li></ul></li></ul>"
+   "html": "<ul><li>foo <ul class=\"task-list\"><li><input type=\"checkbox\" disabled> <pre><code>x\n</code></pre></li></ul></li></ul>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-27": {
    "ticket": "A",
    "source": "- foo\n  1. +\n```\nx\n```\n",
-   "html": "<ul><li>foo <ol><li>+</li></ol></li></ul><pre><code>x\n</code></pre>"
+   "html": "<ul><li>foo <ol><li></li></ol></li></ul><pre><code>x\n</code></pre>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-28": {
    "ticket": "A",
    "source": "- foo\n  1. +\n ```\n x\n ```\n",
-   "html": "<ul><li>foo <ol><li>+</li></ol></li></ul><pre><code>x\n</code></pre>"
+   "html": "<ul><li>foo <ol><li></li></ol></li></ul><pre><code>x\n</code></pre>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-30": {
    "ticket": "A",
    "source": "- foo\n  1. +\n    ```\n    x\n    ```\n",
-   "html": "<ul><li>foo <ol><li>+</li></ol><pre><code>x\n</code></pre></li></ul>"
+   "html": "<ul><li>foo <ol><li></li></ol><pre><code>x\n</code></pre></li></ul>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-31": {
    "ticket": "A",
    "source": "- foo\n  - +\n  - x\n",
-   "html": "<ul><li>foo <ul><li>+</li><li>x</li></ul></li></ul>"
+   "html": "<ul><li>foo <ul><li></li><li>x</li></ul></li></ul>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-33": {
    "ticket": "A",
    "source": "- foo\n  - +\n  * x\n",
-   "html": "<ul><li>foo <ul><li>+</li></ul><ul><li>x</li></ul></li></ul>"
+   "html": "<ul><li>foo <ul><li></li></ul><ul><li>x</li></ul></li></ul>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-34": {
    "ticket": "A",
    "source": "- foo\n  - +\n  1. x\n",
-   "html": "<ul><li>foo <ul><li>+</li></ul><ol><li>x</li></ol></li></ul>"
+   "html": "<ul><li>foo <ul><li></li></ul><ol><li>x</li></ol></li></ul>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-35": {
    "ticket": "A",
    "source": "- foo\n  - +\n  - [ ] x\n",
-   "html": "<ul><li>foo <ul><li>+</li></ul><ul class=\"task-list\"><li><input type=\"checkbox\" disabled> x</li></ul></li></ul>"
+   "html": "<ul><li>foo <ul><li></li></ul><ul class=\"task-list\"><li><input type=\"checkbox\" disabled> x</li></ul></li></ul>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-36": {
    "ticket": "A",
    "source": "- foo\n  - +\n    - x\n",
-   "html": "<ul><li>foo <ul><li>+ <ul><li>x</li></ul></li></ul></li></ul>"
+   "html": "<ul><li>foo <ul><li><ul><li>x</li></ul></li></ul></li></ul>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-5": {
    "ticket": "A",
    "source": "- foo\n  - +\n> b\n",
-   "html": "<ul><li>foo <ul><li>+</li></ul></li></ul><blockquote><p>b</p></blockquote>"
+   "html": "<ul><li>foo <ul><li></li></ul></li></ul><blockquote><p>b</p></blockquote>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-6": {
    "ticket": "A",
    "source": "- foo\n  - +\n x\n",
-   "html": "<ul><li>foo <ul><li>+ x</li></ul></li></ul>"
+   "html": "<ul><li>foo <ul><li></li></ul></li></ul><p>x</p>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-7": {
    "ticket": "A",
    "source": "- foo\n  - +\n> b\n",
-   "html": "<ul><li>foo <ul><li>+</li></ul></li></ul><blockquote><p>b</p></blockquote>"
+   "html": "<ul><li>foo <ul><li></li></ul></li></ul><blockquote><p>b</p></blockquote>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns-8": {
    "ticket": "A",
    "source": "- foo\n  - +\n > b\n",
-   "html": "<ul><li>foo <ul><li>+</li></ul></li></ul><blockquote><p>b</p></blockquote>"
+   "html": "<ul><li>foo <ul><li></li></ul></li></ul><blockquote><p>b</p></blockquote>"
   },
   "A-633-a-first-block-marker-on-an-indented-opener-reads-two-columns": {
    "ticket": "A",
    "source": "- foo\n  - +\n- x\n",
-   "html": "<ul><li>foo <ul><li>+</li></ul></li><li>x</li></ul>"
+   "html": "<ul><li>foo <ul><li></li></ul></li><li>x</li></ul>"
   },
   "A-634-a-refused-continuation-plus-remains-text-23": {
    "ticket": "A",
    "source": "- +\n",
-   "html": "<ul><li>+</li></ul>"
+   "html": "<ul><li></li></ul>"
   },
   "A-634-a-refused-continuation-plus-remains-text-24": {
    "ticket": "A",
    "source": "- +\n\npara\n",
-   "html": "<ul><li>+</li></ul><p>para</p>"
+   "html": "<ul><li></li></ul><p>para</p>"
   },
   "A-634-a-refused-continuation-plus-remains-text-25": {
    "ticket": "A",
    "source": "- +\n- b\n",
-   "html": "<ul><li>+</li><li>b</li></ul>"
+   "html": "<ul><li></li><li>b</li></ul>"
   },
   "A-634-a-refused-continuation-plus-remains-text-26": {
    "ticket": "A",
    "source": "1. +\n",
-   "html": "<ol><li>+</li></ol>"
+   "html": "<ol><li></li></ol>"
   },
   "A-634-a-refused-continuation-plus-remains-text-27": {
    "ticket": "A",
    "source": "- [ ] +\n",
-   "html": "<ul class=\"task-list\"><li><input type=\"checkbox\" disabled> +</li></ul>"
+   "html": "<ul class=\"task-list\"><li><input type=\"checkbox\" disabled></li></ul>"
   },
   "A-634-a-refused-continuation-plus-remains-text-28": {
    "ticket": "A",
    "source": "- foo\n  - +\n  - b\n",
-   "html": "<ul><li>foo <ul><li>+</li><li>b</li></ul></li></ul>"
+   "html": "<ul><li>foo <ul><li></li><li>b</li></ul></li></ul>"
   },
   "A-634-a-refused-continuation-plus-remains-text-30": {
    "ticket": "A",
    "source": "> > +\nflush\n",
-   "html": "<blockquote><blockquote><p>+ flush</p></blockquote></blockquote>"
+   "html": "<blockquote><blockquote></blockquote></blockquote><p>flush</p>"
   },
   "A-634-a-refused-continuation-plus-remains-text-31": {
    "ticket": "A",
    "source": "- a\n  - - +\n  > b\n",
-   "html": "<ul><li>a <ul><li><ul><li>+</li></ul></li></ul><blockquote><p>b</p></blockquote></li></ul>"
+   "html": "<ul><li>a <ul><li><ul><li></li></ul></li></ul><blockquote><p>b</p></blockquote></li></ul>"
   },
   "A-634-a-refused-continuation-plus-remains-text-32": {
    "ticket": "A",
    "source": "- a\n  - - +\n> b\n",
-   "html": "<ul><li>a <ul><li><ul><li>+</li></ul></li></ul></li></ul><blockquote><p>b</p></blockquote>"
+   "html": "<ul><li>a <ul><li><ul><li></li></ul></li></ul></li></ul><blockquote><p>b</p></blockquote>"
   },
   "A-643-a-first-block-marker-does-not-pull-a-column-zero-list-into-a-note-or-description-2": {
    "ticket": "A",
@@ -654,17 +654,17 @@
   "A-646-a-quote-prefixed-plus-takes-one-space-after-each-quote-marker-and-attaches-a-quote-2": {
    "ticket": "A",
    "source": "> > +\nq\n",
-   "html": "<blockquote><blockquote><p>+ q</p></blockquote></blockquote>"
+   "html": "<blockquote><blockquote></blockquote></blockquote><p>q</p>"
   },
   "A-649-a-first-block-plus-refuses-a-follower-at-an-intervening-column-4": {
    "ticket": "A",
    "source": "> > +\n  > q\n",
-   "html": "<blockquote><blockquote><p>+ q</p></blockquote></blockquote>"
+   "html": "<blockquote><blockquote></blockquote><p>q</p></blockquote>"
   },
   "A-649-a-first-block-plus-refuses-a-follower-at-an-intervening-column-5": {
    "ticket": "A",
    "source": "- a\n  > > +\n    > q\n",
-   "html": "<ul><li>a <blockquote><blockquote><p>+ q</p></blockquote></blockquote></li></ul>"
+   "html": "<ul><li>a <blockquote><blockquote></blockquote><p>q</p></blockquote></li></ul>"
   },
   "A-651-a-stacked-first-block-plus-takes-a-follower-only-at-column-zero-or-its-line-s-column-2": {
    "ticket": "A",
@@ -679,47 +679,47 @@
   "A-728-a-first-block-item-takes-the-next-owned-block-2": {
    "ticket": "A",
    "source": "- +\n  x\n# h\n",
-   "html": "<ul><li>+ x</li></ul><section id=\"h\"><h1>h</h1></section>"
+   "html": "<ul><li>x</li></ul><section id=\"h\"><h1>h</h1></section>"
   },
   "A-728-a-first-block-item-takes-the-next-owned-block-3": {
    "ticket": "A",
    "source": "- +\n  x\n---\n",
-   "html": "<ul><li>+ x</li></ul><hr>"
+   "html": "<ul><li>x</li></ul><hr>"
   },
   "A-728-a-first-block-item-takes-the-next-owned-block-4": {
    "ticket": "A",
    "source": "- +\n\tx\n>\n",
-   "html": "<ul><li>+ x</li></ul><blockquote></blockquote>"
+   "html": "<ul><li>x</li></ul><blockquote></blockquote>"
   },
   "A-728-a-first-block-item-takes-the-next-owned-block": {
    "ticket": "A",
    "source": "- +\n  x\n>\n",
-   "html": "<ul><li>+ x</li></ul><blockquote></blockquote>"
+   "html": "<ul><li>x</li></ul><blockquote></blockquote>"
   },
   "A-734-a-nested-first-block-item-releases-the-next-root-block-2": {
    "ticket": "A",
    "source": "- - +\n    x\n# tail\n",
-   "html": "<ul><li><ul><li>+ x</li></ul></li></ul><section id=\"tail\"><h1>tail</h1></section>"
+   "html": "<ul><li><ul><li>x</li></ul></li></ul><section id=\"tail\"><h1>tail</h1></section>"
   },
   "A-734-a-nested-first-block-item-releases-the-next-root-block-3": {
    "ticket": "A",
    "source": "- - +\n    x\n---\n",
-   "html": "<ul><li><ul><li>+ x</li></ul></li></ul><hr>"
+   "html": "<ul><li><ul><li>x</li></ul></li></ul><hr>"
   },
   "A-734-a-nested-first-block-item-releases-the-next-root-block-4": {
    "ticket": "A",
    "source": "- - +\n    x\n::: note\ntail\n:::\n",
-   "html": "<ul><li><ul><li>+ x</li></ul></li></ul><aside class=\"admonition note\"><p>tail</p></aside>"
+   "html": "<ul><li><ul><li>x</li></ul></li></ul><aside class=\"admonition note\"><p>tail</p></aside>"
   },
   "A-734-a-nested-first-block-item-releases-the-next-root-block-5": {
    "ticket": "A",
    "source": "- - +\n    x\n:: tail\n:  definition\n",
-   "html": "<ul><li><ul><li>+ x</li></ul></li></ul><dl><dt>tail</dt><dd>definition</dd></dl>"
+   "html": "<ul><li><ul><li>x</li></ul></li></ul><dl><dt>tail</dt><dd>definition</dd></dl>"
   },
   "A-734-a-nested-first-block-item-releases-the-next-root-block": {
    "ticket": "A",
    "source": "- - +\n    x\n> tail\n",
-   "html": "<ul><li><ul><li>+ x</li></ul></li></ul><blockquote><p>tail</p></blockquote>"
+   "html": "<ul><li><ul><li>x</li></ul></li></ul><blockquote><p>tail</p></blockquote>"
   },
   "A-750-a-below-column-line-returns-to-its-definition-body": {
    "ticket": "A",
@@ -729,32 +729,32 @@
   "A-757-an-intervening-column-refuses-a-description-hosted-first-block": {
    "ticket": "A",
    "source": ":: t\n: - +\n # H\n",
-   "html": "<dl><dt>t</dt><dd><ul><li>+</li></ul></dd></dl><section id=\"H\"><h1>H</h1></section>"
+   "html": "<dl><dt>t</dt><dd><ul><li></li></ul></dd></dl><section id=\"H\"><h1>H</h1></section>"
   },
   "A-760-a-heading-inside-the-intervening-band-stays-description-text": {
    "ticket": "A",
    "source": ":: t\n: - +\n   # H\n",
-   "html": "<dl><dt>t</dt><dd><ul><li>+</li></ul><h1 id=\"H\">H</h1></dd></dl>"
+   "html": "<dl><dt>t</dt><dd><ul><li></li></ul><h1 id=\"H\">H</h1></dd></dl>"
   },
   "A-782-a-first-block-plus-hands-its-block-to-the-host-as-the-host-reads-it-10": {
    "ticket": "A",
    "source": "- +\n  ```\n  x\n- b\n",
-   "html": "<ul><li>+<pre><code>x\n</code></pre></li><li>b</li></ul>"
+   "html": "<ul><li><pre><code>x\n</code></pre></li><li>b</li></ul>"
   },
   "A-782-a-first-block-plus-hands-its-block-to-the-host-as-the-host-reads-it-12": {
    "ticket": "A",
    "source": "- +\n  {.x}\n  ```\n  x\n",
-   "html": "<ul><li>+<pre class=\"x\"><code>x\n</code></pre></li></ul>"
+   "html": "<ul><li><pre class=\"x\"><code>x\n</code></pre></li></ul>"
   },
   "A-782-a-first-block-plus-hands-its-block-to-the-host-as-the-host-reads-it-5": {
    "ticket": "A",
    "source": "- +\n  ```\n  x\n",
-   "html": "<ul><li>+<pre><code>x\n</code></pre></li></ul>"
+   "html": "<ul><li><pre><code>x\n</code></pre></li></ul>"
   },
   "A-782-a-first-block-plus-hands-its-block-to-the-host-as-the-host-reads-it-6": {
    "ticket": "A",
    "source": "- foo\n  - +\n    ```\n    x\n    ``\n",
-   "html": "<ul><li>foo <ul><li>+<pre><code>x\n``\n</code></pre></li></ul></li></ul>"
+   "html": "<ul><li>foo <ul><li><pre><code>x\n``\n</code></pre></li></ul></li></ul>"
   },
   "A-782-a-first-block-plus-hands-its-block-to-the-host-as-the-host-reads-it-7": {
    "ticket": "A",
@@ -764,27 +764,27 @@
   "A-782-a-first-block-plus-hands-its-block-to-the-host-as-the-host-reads-it-9": {
    "ticket": "A",
    "source": "- +\n  ```\n  x\n  ```\n  para\n",
-   "html": "<ul><li>+<pre><code>x\n</code></pre>para</li></ul>"
+   "html": "<ul><li><pre><code>x\n</code></pre>para</li></ul>"
   },
   "A-801-a-footnote-body-takes-its-first-block-at-its-body-column-2": {
    "ticket": "A",
    "source": "[^a]: +\n  - x\n  - y\n\nsee[^a]\n",
-   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+</p><ul><li>x</li><li>y</li></ul></li>"
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ul><li>x</li><li>y</li></ul></li>"
   },
   "A-801-a-footnote-body-takes-its-first-block-at-its-body-column-3": {
    "ticket": "A",
    "source": "[^a]: +\n\n  later\n\nsee[^a]\n",
-   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+</p><p>later</p></li>"
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>later</p></li>"
   },
   "A-801-a-footnote-body-takes-its-first-block-at-its-body-column-5": {
    "ticket": "A",
    "source": "- - +\npara\n",
-   "html": "<ul><li><ul><li>+ para</li></ul></li></ul>"
+   "html": "<ul><li><ul><li></li></ul></li></ul><p>para</p>"
   },
   "A-801-a-footnote-body-takes-its-first-block-at-its-body-column-6": {
    "ticket": "A",
    "source": ":: t\n: +\n    flush\n",
-   "html": "<dl><dt>t</dt><dd>+ flush</dd></dl>"
+   "html": "<dl><dt>t</dt><dd>flush</dd></dl>"
   },
   "A-801-a-footnote-body-takes-its-first-block-at-its-body-column-7": {
    "ticket": "A",
@@ -794,112 +794,112 @@
   "A-801-a-footnote-body-takes-its-first-block-at-its-body-column-8": {
    "ticket": "A",
    "source": "- [^q]: +\n    flush\n\nr[^q]\n",
-   "html": "<ul><li></li></ul><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ flush</p></li>"
+   "html": "<ul><li></li></ul><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>flush</p></li>"
   },
   "A-801-a-footnote-body-takes-its-first-block-at-its-body-column": {
    "ticket": "A",
    "source": "[^a]: +\n  flush\n\nsee[^a]\n",
-   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ flush</p></li>"
+   "html": "<p>see<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>flush</p></li>"
   },
   "A-802-an-unprefixed-line-does-not-reach-a-quoted-note-s-first-block-7": {
    "ticket": "A",
    "source": "> [^b]: +\n>   flush\n\nr[^b]\n",
-   "html": "<blockquote></blockquote><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>+ flush</p></li>"
+   "html": "<blockquote></blockquote><p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><p>flush</p></li>"
   },
   "A-806-a-description-body-in-an-item-takes-a-column-zero-block-after-its-first-block-plus-2": {
    "ticket": "A",
    "source": "- a\n  - b\n    :: t\n    : +\n```\nx\n```\n",
-   "html": "<ul><li>a <ul><li>b <dl><dt>t</dt><dd>+</dd></dl></li></ul></li></ul><pre><code>x\n</code></pre>"
+   "html": "<ul><li>a <ul><li>b <dl><dt>t</dt><dd></dd></dl></li></ul></li></ul><pre><code>x\n</code></pre>"
   },
   "A-806-a-description-body-in-an-item-takes-a-column-zero-block-after-its-first-block-plus-3": {
    "ticket": "A",
    "source": "1. a\n   :: t\n   : +\n> q\n",
-   "html": "<ol><li>a <dl><dt>t</dt><dd>+</dd></dl></li></ol><blockquote><p>q</p></blockquote>"
+   "html": "<ol><li>a <dl><dt>t</dt><dd></dd></dl></li></ol><blockquote><p>q</p></blockquote>"
   },
   "A-806-a-description-body-in-an-item-takes-a-column-zero-block-after-its-first-block-plus-4": {
    "ticket": "A",
    "source": "- a\n  :: t\n  : +\n# H\n",
-   "html": "<ul><li>a <dl><dt>t</dt><dd>+</dd></dl></li></ul><section id=\"H\"><h1>H</h1></section>"
+   "html": "<ul><li>a <dl><dt>t</dt><dd></dd></dl></li></ul><section id=\"H\"><h1>H</h1></section>"
   },
   "A-806-a-description-body-in-an-item-takes-a-column-zero-block-after-its-first-block-plus-5": {
    "ticket": "A",
    "source": "- a\n  :: t\n  : +\n```\nx\n\nsee\n",
-   "html": "<ul><li>a <dl><dt>t</dt><dd>+</dd></dl></li></ul><pre><code>x\n\nsee\n</code></pre>"
+   "html": "<ul><li>a <dl><dt>t</dt><dd></dd></dl></li></ul><pre><code>x\n\nsee\n</code></pre>"
   },
   "A-806-a-description-body-in-an-item-takes-a-column-zero-block-after-its-first-block-plus": {
    "ticket": "A",
    "source": "- a\n  :: t\n  : +\n```\nx\n```\n",
-   "html": "<ul><li>a <dl><dt>t</dt><dd>+</dd></dl></li></ul><pre><code>x\n</code></pre>"
+   "html": "<ul><li>a <dl><dt>t</dt><dd></dd></dl></li></ul><pre><code>x\n</code></pre>"
   },
   "A-806-a-marker-folds-into-the-paragraph-a-first-block-plus-took": {
    "ticket": "A",
    "source": "- +\n  b\n * w1\n",
-   "html": "<ul><li>+ b</li></ul><ul><li>w1</li></ul>"
+   "html": "<ul><li>b</li></ul><ul><li>w1</li></ul>"
   },
   "A-811-a-first-block-plus-does-not-take-the-closer-of-its-div-2": {
    "ticket": "A",
    "source": "::: d\n:: t\n: d\n  :: u\n  : +\n:::\nafter\n",
-   "html": "<div class=\"d\"><dl><dt>t</dt><dd><p>d</p><dl><dt>u</dt><dd>+</dd></dl></dd></dl></div><p>after</p>"
+   "html": "<div class=\"d\"><dl><dt>t</dt><dd><p>d</p><dl><dt>u</dt><dd></dd></dl></dd></dl></div><p>after</p>"
   },
   "A-811-a-first-block-plus-does-not-take-the-closer-of-its-div": {
    "ticket": "A",
    "source": "::: d\n- d\n  - +\n:::\nafter\n",
-   "html": "<div class=\"d\"><ul><li>d <ul><li>+</li></ul></li></ul></div><p>after</p>"
+   "html": "<div class=\"d\"><ul><li>d <ul><li></li></ul></li></ul></div><p>after</p>"
   },
   "A-811-a-lazy-line-after-a-narrower-list-in-a-note-folds-into-its-item": {
    "ticket": "A",
    "source": "[^a]: 1. +\n  - y\ntail\n\nr[^a]\n",
-   "html": "<p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ol><li>+</li></ol><ul><li>y tail</li></ul></li>"
+   "html": "<p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ol><li></li></ol><ul><li>y tail</li></ul></li>"
   },
   "A-815-a-line-below-an-empty-div-after-a-first-block-plus-is-not-lazy-4": {
    "ticket": "A",
    "source": "- +\n  ::: d\n  {.c}\nafter\n",
-   "html": "<ul><li>+ <div class=\"d\"></div></li></ul><p>after</p>"
+   "html": "<ul><li><div class=\"d\"></div></li></ul><p>after</p>"
   },
   "A-815-a-line-below-an-empty-div-after-a-first-block-plus-is-not-lazy": {
    "ticket": "A",
    "source": "::: d\n- d\n  - e\n    - +\n  :::\nafter\n",
-   "html": "<div class=\"d\"><ul><li>d <ul><li>e <ul><li>+</li></ul></li></ul><div></div></li></ul><p>after</p></div>"
+   "html": "<div class=\"d\"><ul><li>d <ul><li>e <ul><li></li></ul></li></ul><div></div></li></ul><p>after</p></div>"
   },
   "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus-2": {
    "ticket": "A",
    "source": "- +\n  %% c\nafter\n",
-   "html": "<ul><li>+</li></ul><p>after</p>"
+   "html": "<ul><li></li></ul><p>after</p>"
   },
   "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus-3": {
    "ticket": "A",
    "source": "- a\n  * +\n    [r]: /u\nafter\n",
-   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><p>after</p>"
+   "html": "<ul><li>a <ul><li></li></ul></li></ul><p>after</p>"
   },
   "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus-4": {
    "ticket": "A",
    "source": "- +\n  %% c\n  %% d\n```\nz\n```\n",
-   "html": "<ul><li>+</li></ul><pre><code>z\n</code></pre>"
+   "html": "<ul><li></li></ul><pre><code>z\n</code></pre>"
   },
   "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus-5": {
    "ticket": "A",
    "source": "- a\n  * +\n[r]: /u\n  after\n",
-   "html": "<ul><li>a <ul><li>+</li></ul> after</li></ul>"
+   "html": "<ul><li>a <ul><li></li></ul> after</li></ul>"
   },
   "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus-6": {
    "ticket": "A",
    "source": "- a\n  * +\n%% c\n  after\n",
-   "html": "<ul><li>a <ul><li>+</li></ul> after</li></ul>"
+   "html": "<ul><li>a <ul><li></li></ul> after</li></ul>"
   },
   "A-826-a-comment-or-link-definition-at-a-body-s-column-spends-its-first-block-plus": {
    "ticket": "A",
    "source": "- a\n  * +\n    %% c\nafter\n",
-   "html": "<ul><li>a <ul><li>+</li></ul></li></ul><p>after</p>"
+   "html": "<ul><li>a <ul><li></li></ul></li></ul><p>after</p>"
   },
   "A-838-an-item-on-a-body-s-marker-line-takes-a-column-zero-block-after-its-plus-2": {
    "ticket": "A",
    "source": "[^n]: - +\np\n\nr[^n]\n",
-   "html": "<p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ul><li>+ p</li></ul></li>"
+   "html": "<p>r<a id=\"fnref1\" href=\"#fn1\"><sup>1</sup></a></p> NOTES: <li id=\"fn1\"><ul><li>p</li></ul></li>"
   },
   "A-838-an-item-on-a-body-s-marker-line-takes-a-column-zero-block-after-its-plus": {
    "ticket": "A",
    "source": ":: t\n: - +\np\n",
-   "html": "<dl><dt>t</dt><dd><ul><li>+ p</li></ul></dd></dl>"
+   "html": "<dl><dt>t</dt><dd><ul><li></li></ul></dd></dl><p>p</p>"
   }
  },
  "refused": [

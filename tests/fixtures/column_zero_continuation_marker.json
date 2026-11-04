@@ -1,7 +1,7 @@
 [
   {
     "source": "- a\n  - b\n  +\npara",
-    "html": "<ul>\n  <li>a\n    <ul>\n      <li>b\n+\npara</li>\n    </ul>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n<p>para</p>"
   },
   {
     "source": "- a\n  - b\n+\npara",
@@ -21,7 +21,7 @@
   },
   {
     "source": "> > +\npara",
-    "html": "<blockquote>\n  <blockquote><p>+\npara</p></blockquote>\n</blockquote>"
+    "html": "<blockquote>\n  <blockquote>\n\n  </blockquote>\n</blockquote>\n<p>para</p>"
   },
   {
     "source": ">> +\npara",
@@ -57,35 +57,35 @@
   },
   {
     "source": "- a\n  > +\npara",
-    "html": "<ul>\n  <li>a\n    <blockquote><p>+\npara</p></blockquote>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>a\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n<p>para</p>"
   },
   {
     "source": "- a\n  - +\nflush",
-    "html": "<ul>\n  <li>a\n    <ul>\n      <li>+\nflush</li>\n    </ul>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li></li>\n    </ul>\n  </li>\n</ul>\n<p>flush</p>"
   },
   {
     "source": "- a\n  - > +\nflush",
-    "html": "<ul>\n  <li>a\n    <ul>\n      <li>\n        <blockquote><p>+\nflush</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>\n        <blockquote>\n\n        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>flush</p>"
   },
   {
     "source": "- > +\nflush",
-    "html": "<ul>\n  <li>\n    <blockquote><p>+\nflush</p></blockquote>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n<p>flush</p>"
   },
   {
     "source": "1. > +\nflush",
-    "html": "<ol>\n  <li>\n    <blockquote><p>+\nflush</p></blockquote>\n  </li>\n</ol>"
+    "html": "<ol>\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ol>\n<p>flush</p>"
   },
   {
     "source": "- > > +\nflush",
-    "html": "<ul>\n  <li>\n    <blockquote>\n      <blockquote><p>+\nflush</p></blockquote>\n    </blockquote>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <blockquote>\n      <blockquote>\n\n      </blockquote>\n    </blockquote>\n  </li>\n</ul>\n<p>flush</p>"
   },
   {
     "source": "- [ ] > +\nflush",
-    "html": "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <blockquote><p>+\nflush</p></blockquote>\n  </li>\n</ul>"
+    "html": "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n<p>flush</p>"
   },
   {
     "source": ":: t\n: > +\nflush",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <blockquote><p>+\nflush</p></blockquote>\n  </dd>\n</dl>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <blockquote>\n\n    </blockquote>\n  </dd>\n</dl>\n<p>flush</p>"
   },
   {
     "source": "- + \nflush",
@@ -93,30 +93,30 @@
   },
   {
     "source": "- - +\nflush",
-    "html": "<ul>\n  <li>\n    <ul>\n      <li>+\nflush</li>\n    </ul>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <ul>\n      <li></li>\n    </ul>\n  </li>\n</ul>\n<p>flush</p>"
   },
   {
     "source": "> - +\nflush",
-    "html": "<blockquote>\n  <ul>\n    <li>+\nflush</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n</blockquote>\n<p>flush</p>"
   },
   {
     "source": "1. - +\nflush",
-    "html": "<ol>\n  <li>\n    <ul>\n      <li>+\nflush</li>\n    </ul>\n  </li>\n</ol>"
+    "html": "<ol>\n  <li>\n    <ul>\n      <li></li>\n    </ul>\n  </li>\n</ol>\n<p>flush</p>"
   },
   {
     "source": "> - > +\n> flush",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>+\nflush</p></blockquote>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n\n      </blockquote>\n    </li>\n  </ul>\n  <p>flush</p>\n</blockquote>"
   },
   {
     "source": "a.  > +\nflush",
-    "html": "<ol type=\"a\">\n  <li>\n    <blockquote><p>+\nflush</p></blockquote>\n  </li>\n</ol>"
+    "html": "<ol type=\"a\">\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ol>\n<p>flush</p>"
   },
   {
     "source": "i.  > +\nflush",
-    "html": "<ol type=\"i\">\n  <li>\n    <blockquote><p>+\nflush</p></blockquote>\n  </li>\n</ol>"
+    "html": "<ol type=\"i\">\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ol>\n<p>flush</p>"
   },
   {
     "source": "A) > +\nflush",
-    "html": "<ol type=\"A\" data-delim=\")\">\n  <li>\n    <blockquote><p>+\nflush</p></blockquote>\n  </li>\n</ol>"
+    "html": "<ol type=\"A\" data-delim=\")\">\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ol>\n<p>flush</p>"
   }
 ]

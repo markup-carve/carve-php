@@ -12,7 +12,7 @@ final class AFirstBlockMarkerInASiblingListItemTest extends TestCase
     public function testSiblingItemOwnsAnEmptyFirstBlockMarker(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote><p>a</p></blockquote>\n  </li>\n  <li>+</li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote><p>a</p></blockquote>\n  </li>\n  <li></li>\n</ul>\n"),
             CarveConverter::create()->convert("- > a\n- +\n"),
         );
     }
@@ -20,7 +20,7 @@ final class AFirstBlockMarkerInASiblingListItemTest extends TestCase
     public function testUnownedShallowerMarkerStillFoldsIntoQuote(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote>\n      <blockquote><p>+</p></blockquote>\n    </blockquote>\n    <ul>\n      <li>s</li>\n    </ul>\n  </li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote>\n      <blockquote>\n\n      </blockquote>\n    </blockquote>\n    <ul>\n      <li>s</li>\n    </ul>\n  </li>\n</ul>\n"),
             CarveConverter::create()->convert("- > > +\n  - s\n"),
         );
     }

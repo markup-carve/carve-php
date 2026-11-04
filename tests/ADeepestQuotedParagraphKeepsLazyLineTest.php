@@ -18,19 +18,19 @@ final class ADeepestQuotedParagraphKeepsLazyLineTest extends TestCase
         return [
             'two quote levels' => [
                 "> > - > +\n> > - > +\n>  s\n",
-                "+\ns",
+                "  </blockquote>\n  <p>s</p>\n</blockquote>",
             ],
             'sibling list type and lazy list marker' => [
                 "> > 1. > +\n> > * > +\n>  - sibling\n",
-                '+',
+                "  </blockquote>\n  <ul>\n    <li>sibling</li>\n  </ul>\n</blockquote>",
             ],
             'list marker at the ancestor quote column' => [
                 "> > - > +\n> > - > +\n> - sibling\n",
-                '+',
+                "  </blockquote>\n  <ul>\n    <li>sibling</li>\n  </ul>\n</blockquote>",
             ],
             'three quote levels and an inline link' => [
                 "> > > - > +\n> > > 1. > +\n> >  some [link](x)\n",
-                "+\nsome <a href=\"x\">link</a>",
+                "    </blockquote>\n    <p>some <a href=\"x\">link</a></p>\n  </blockquote>\n</blockquote>",
             ],
         ];
     }
@@ -40,14 +40,16 @@ final class ADeepestQuotedParagraphKeepsLazyLineTest extends TestCase
     {
         $html = CarveConverter::create()->convert($source);
 
-        self::assertStringContainsString("<blockquote><p>$expected</p></blockquote>", $html);
+        // The refused markers render nothing (carve#5013), so the line is read in the quote it reaches.
+        self::assertStringEndsWith($expected, trim($html));
+        self::assertStringNotContainsString('+', $html);
     }
 
     public function testProseAtTheAncestorQuoteColumnIsAnAttachedBlock(): void
     {
         $html = CarveConverter::create()->convert("> > - > +\n> > - > +\n> s\n");
 
-        self::assertStringContainsString("<blockquote><p>+\ns</p></blockquote>", $html);
+        self::assertStringEndsWith("  </blockquote>\n  <p>s</p>\n</blockquote>", trim($html));
         self::assertStringNotContainsString('<blockquote><p>s</p></blockquote>', $html);
     }
 }

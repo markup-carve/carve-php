@@ -21,7 +21,7 @@ class ATaskSublistSiblingAfterAParagraphOpensAListTest extends TestCase
         return [
             'refused plus at the child column' => [
                 "- [ ] - x\n\n      +\n      - y\n",
-                "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>x</li>\n    </ul>\n    <p>+</p>\n    <ul>\n      <li>y</li>\n    </ul>\n  </li>\n</ul>\n",
+                "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li><p>x</p></li>\n      <li><p>y</p></li>\n    </ul>\n  </li>\n</ul>\n",
             ],
             'paragraph at the content column' => [
                 "- [ ] - x\n\n  p\n  - y\n",

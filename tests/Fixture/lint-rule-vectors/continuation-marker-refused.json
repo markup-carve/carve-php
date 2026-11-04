@@ -77,7 +77,7 @@
             "column": 3,
             "includes": [
               "blank line",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -94,7 +94,7 @@
             "column": 3,
             "includes": [
               "end of the document",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -327,7 +327,7 @@
             "column": 3,
             "includes": [
               "+",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -344,7 +344,7 @@
             "column": 4,
             "includes": [
               "+",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -361,7 +361,7 @@
             "column": 7,
             "includes": [
               "+",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -418,7 +418,7 @@
             "column": 7,
             "includes": [
               "end of the document",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -435,7 +435,7 @@
             "column": 7,
             "includes": [
               "blank line",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -452,7 +452,7 @@
             "column": 7,
             "includes": [
               "+",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -469,7 +469,7 @@
             "column": 3,
             "includes": [
               "end of the document",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -519,7 +519,7 @@
             "column": 3,
             "includes": [
               "blank line",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -536,7 +536,7 @@
             "column": 3,
             "includes": [
               "right of its column",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -553,7 +553,7 @@
             "column": 3,
             "includes": [
               "end of the document",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -570,7 +570,7 @@
             "column": 3,
             "includes": [
               "blank line",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -600,7 +600,7 @@
             "column": 3,
             "includes": [
               "right",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -625,7 +625,7 @@
             "column": 5,
             "includes": [
               "end of the document",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -658,7 +658,7 @@
             "column": 7,
             "includes": [
               "left of its column",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]
@@ -675,7 +675,7 @@
             "column": 7,
             "includes": [
               "left of its column",
-              "remains text"
+              "renders nothing"
             ]
           }
         ]

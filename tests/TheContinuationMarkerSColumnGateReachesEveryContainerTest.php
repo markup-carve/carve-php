@@ -95,12 +95,6 @@ class TheContinuationMarkerSColumnGateReachesEveryContainerTest extends TestCase
         $comment = str_replace('@', '%% c', $src);
 
         foreach ([$marker, $comment] as $source) {
-            if ($source === $marker && str_contains($src, '[^a]: intro')) {
-                self::assertStringContainsString('<p>intro + more', $this->html($source));
-                self::assertStringNotContainsString('<p>+ more</p>', $this->html($source));
-
-                continue;
-            }
             $expected = PinnedOracleHtml::forSource($source);
             $expected = (string)preg_replace('/\s+/', ' ', $expected);
             $expected = str_replace('> <', '><', $expected);
@@ -114,7 +108,7 @@ class TheContinuationMarkerSColumnGateReachesEveryContainerTest extends TestCase
         $src = "> intro\n>\n@\n  more\n";
 
         $this->assertSame(
-            '<blockquote><p>intro</p></blockquote><p>+ more</p>',
+            '<blockquote><p>intro</p></blockquote><p>more</p>',
             $this->html(str_replace('@', '+', $src)),
         );
     }

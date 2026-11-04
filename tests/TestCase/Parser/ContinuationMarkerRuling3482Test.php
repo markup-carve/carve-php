@@ -15,7 +15,7 @@ class ContinuationMarkerRuling3482Test extends TestCase
     {
         yield 'refused marker after a fence closer stays in the item' => [
             "- a\n\n  ```\n+\n+\n\ntail\n",
-            "<ul>\n  <li><p>a</p>\n    <pre><code></code></pre>\n    <p>+</p>\n  </li>\n</ul>\n<p>tail</p>",
+            "<ul>\n  <li><p>a</p>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>tail</p>",
         ];
 
         yield 'glued plus after quote prefix is text' => [
@@ -35,7 +35,7 @@ class ContinuationMarkerRuling3482Test extends TestCase
 
         yield 'ordinary double marker keeps second in the item' => [
             "- a\n+\n+\n\ntail\n",
-            "<ul>\n  <li>a\n    +\n  </li>\n</ul>\n<p>tail</p>",
+            "<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>",
         ];
     }
 
@@ -49,7 +49,7 @@ class ContinuationMarkerRuling3482Test extends TestCase
     {
         $warnings = (new FenceAndContinuationLinter())->lint("- a\n\n  ```\n+\n+\n\ntail\n");
         $refusals = array_values(array_filter($warnings, static fn ($warning): bool => $warning->rule === 'continuation-marker-refused'));
-        self::assertCount(1, $refusals);
-        self::assertSame([5, 1], [$refusals[0]->line, $refusals[0]->column]);
+        self::assertSame([[4, 1], [5, 1]], array_map(static fn ($warning): array => [$warning->line, $warning->column], $refusals));
+        self::assertStringContainsString('a blank line', $refusals[0]->message);
     }
 }

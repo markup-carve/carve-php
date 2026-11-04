@@ -23,7 +23,7 @@ class NestedFenceBlankOwnershipTest extends TestCase
         yield 'child content column without final LF' => ["- - ```\n  +\n\n    x", true];
         yield 'child content column after two blanks' => ["- - ```\n  +\n\n\n    x\n", true];
         yield 'before child content column' => ["- - ```\n  +\n\n   x\n", false];
-        yield 'outer content column' => ["- - ```\n\n\n  +\ntail\n", false];
+        yield 'outer content column' => ["- - ```\n\n\n  +\ntail\n", true];
         yield 'ordinary nested paragraph gap' => ["- - a\n\n  Body.\n", false];
         yield 'invisible definition leaves a separator' => ["- - body\n\n  [^g]: n\n   prose", false];
     }

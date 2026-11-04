@@ -608,7 +608,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
-     * PART 11 §2: a lone `+` the one attach rule would refuse is a plain letter, so it takes no escape.
+     * PART 11 §2: a lone `+` off every marker column is a plain letter, so it takes no escape.
      */
     private function withoutIdlePlusEscapes(string $carve): string
     {
@@ -626,7 +626,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($bare === []) {
             return $carve;
         }
-        $refused = ($this->rebaseProbe ??= new BlockParser())->refusedPlusLinesOf($lines);
+        $refused = ($this->rebaseProbe ??= new BlockParser())->letterPlusLinesOf($lines);
         foreach ($bare as $at => $line) {
             if (!array_key_exists($at, $refused)) {
                 $lines[$at] = $line;

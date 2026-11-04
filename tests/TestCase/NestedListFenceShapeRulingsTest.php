@@ -21,20 +21,20 @@ class NestedListFenceShapeRulingsTest extends TestCase
      */
     public static function cases(): array
     {
-        $plus = "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>x\n</code></pre>\n      </li>\n    </ul>\n    +\n  </li>\n</ul>\n<p>tail</p>";
-        $deepPlus = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code>x\n</code></pre>\n          </li>\n        </ul>\n        +\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
-        $deepAttach = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code>x\n</code></pre>\n          </li>\n        </ul>\n        +\ntail\n      </li>\n    </ul>\n  </li>\n</ul>";
-        $emptyPlus = "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    +\n  </li>\n</ul>\n<p>tail</p>";
+        $plus = "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>x\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $deepPlus = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code>x\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $deepAttach = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code>x\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $emptyPlus = "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
         // The column-0 run is a valid opener and runs to the end (carve#4032).
         $laterAttributePrefix = "<ul>\n  <li>outer\n    <ul>\n      <li>head\n        <pre><code>a\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>\n  tail\n";
         $laterAttributeSource = "- outer\n  - head\n     ```\n     a\n```\n\n  tail\n";
 
-        $div2 = "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"d\">\n\n        </div>\n      </li>\n    </ul>\n    +\ntail\n  </li>\n</ul>";
-        $div3 = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <div class=\"d\">\n\n            </div>\n          </li>\n        </ul>\n        +\ntail\n      </li>\n    </ul>\n  </li>\n</ul>";
-        $div2Content = "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"d\">\n          <p>x\n+\ntail</p>\n        </div>\n      </li>\n    </ul>\n  </li>\n</ul>";
-        $div3Content = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <div class=\"d\">\n              <p>x\n+\ntail</p>\n            </div>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>";
-        $div2ContentBlank = "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"d\">\n          <p>x</p>\n        </div>\n      </li>\n    </ul>\n    <p>+\ntail</p>\n  </li>\n</ul>";
-        $div3ContentBlank = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <div class=\"d\">\n              <p>x</p>\n            </div>\n          </li>\n        </ul>\n        <p>+\ntail</p>\n      </li>\n    </ul>\n  </li>\n</ul>";
+        $div2 = "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"d\">\n\n        </div>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $div3 = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <div class=\"d\">\n\n            </div>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $div2Content = "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"d\">\n          <p>x</p>\n        </div>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $div3Content = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <div class=\"d\">\n              <p>x</p>\n            </div>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $div2ContentBlank = "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"d\">\n          <p>x</p>\n        </div>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $div3ContentBlank = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <div class=\"d\">\n              <p>x</p>\n            </div>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
 
         return [
             'div-depth-two-empty' => ["- - ::: d\n  +\ntail", $div2],

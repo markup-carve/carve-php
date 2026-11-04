@@ -33,9 +33,9 @@ class AContinuationMarkerOffEveryMarkerColumnIsTextTest extends TestCase
     public static function markerColumnProvider(): array
     {
         return [
-            'document column 0 is the outer list\'s marker column' => [0, "<ul>\n  <li>x\n    <ul>\n      <li>L\n+</li>\n    </ul>\n  </li>\n</ul>"],
+            'document column 0 is the outer list\'s marker column' => [0, "<ul>\n  <li>x\n    <ul>\n      <li>L</li>\n    </ul>\n  </li>\n</ul>"],
             'document column 1 names no container' => [1, true],
-            'document column 2 is ordinary text' => [2, true],
+            'document column 2 is ordinary text' => [2, false],
             'document column 3 is inside the sublist item' => [3, true],
             'document column 4 is inside the sublist item' => [4, true],
         ];

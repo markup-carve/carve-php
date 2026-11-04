@@ -989,6 +989,8 @@ final class DefinitionListBuilder
             isset($this->state->session->blockQuoteLazySourceLines[$sourceLine])
             && $b->body !== []
             && !IndentationHelper::isBlankLine($l->contLine)
+            // A body that holds only a comment line has no paragraph to continue (carve#5013).
+            && !($b->body === ['%%'] && $b->detachedFootnote === null)
         ) {
             if (
                 $b->detachedFootnote !== null

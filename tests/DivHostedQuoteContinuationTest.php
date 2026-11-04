@@ -26,7 +26,7 @@ final class DivHostedQuoteContinuationTest extends TestCase
     public function testLastMarkerInHostedQuoteBecomesASeparateParagraph(string $kind, string $outer): void
     {
         $source = "::: {$kind}\n> q\n+\n+\n:::\n";
-        $expected = "<{$outer}>\n  <blockquote>\n    <p>q</p>\n    <p>+</p>\n  </blockquote>\n</" . explode(' ', $outer)[0] . '>';
+        $expected = "<{$outer}>\n  <blockquote><p>q</p></blockquote>\n</" . explode(' ', $outer)[0] . '>';
 
         self::assertSame($expected, CarveConverter::create()->convert($source));
     }
@@ -34,7 +34,7 @@ final class DivHostedQuoteContinuationTest extends TestCase
     public function testNestedDivCloserCannotAttachToTheQuote(): void
     {
         self::assertSame(
-            "<div class=\"outer\">\n  <aside class=\"admonition note\" aria-label=\"Note\">\n    <blockquote>\n      <p>q</p>\n      <p>+</p>\n    </blockquote>\n  </aside>\n</div>",
+            "<div class=\"outer\">\n  <aside class=\"admonition note\" aria-label=\"Note\">\n    <blockquote><p>q</p></blockquote>\n  </aside>\n</div>",
             CarveConverter::create()->convert(":::: outer\n::: note\n> q\n+\n+\n:::\n::::\n"),
         );
     }

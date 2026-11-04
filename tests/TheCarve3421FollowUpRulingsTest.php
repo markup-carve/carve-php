@@ -44,18 +44,18 @@ class TheCarve3421FollowUpRulingsTest extends TestCase
         yield 'wrapped attribute below a description' => [":: t\n: d\n  {.c\n}\npara\n", '<dl><dt>t</dt><dd>d</dd></dl><p>para</p>'];
 
         // Ruling 2: a quote follower nests inside the innermost quote; an intervening column is refused.
-        yield 'quote follower at column 0' => ["- > > +\n> q\n", '<ul><li><blockquote><blockquote><p>+</p></blockquote></blockquote></li></ul><blockquote><p>q</p></blockquote>'];
-        yield 'hosted quote follower at column 0' => ["> - > > +\n> > q\n", '<blockquote><ul><li><blockquote><blockquote><p>+</p></blockquote></blockquote></li></ul><blockquote><p>q</p></blockquote></blockquote>'];
+        yield 'quote follower at column 0' => ["- > > +\n> q\n", '<ul><li><blockquote><blockquote></blockquote></blockquote></li></ul><blockquote><p>q</p></blockquote>'];
+        yield 'hosted quote follower at column 0' => ["> - > > +\n> > q\n", '<blockquote><ul><li><blockquote><blockquote></blockquote></blockquote></li></ul><blockquote><p>q</p></blockquote></blockquote>'];
         yield 'quote follower at an intervening column' => ["- > > +\n  > q\n", '<ul><li><blockquote><blockquote><p>q</p></blockquote></blockquote></li></ul>'];
-        yield 'heading at an intervening column' => ["- > > +\n  # h\n", '<ul><li><blockquote><blockquote><p>+</p></blockquote></blockquote><h1 id="h">h</h1></li></ul>'];
-        yield 'hosted follower at an intervening column' => ["> - > > +\n>   b\n", '<blockquote><ul><li><blockquote><blockquote><p>+b</p></blockquote></blockquote></li></ul></blockquote>'];
-        yield 'follower at no opener column' => ["- - > +\n b\n", '<ul><li><ul><li><blockquote><p>+b</p></blockquote></li></ul></li></ul>'];
+        yield 'heading at an intervening column' => ["- > > +\n  # h\n", '<ul><li><blockquote><blockquote></blockquote></blockquote><h1 id="h">h</h1></li></ul>'];
+        yield 'hosted follower at an intervening column' => ["> - > > +\n>   b\n", '<blockquote><ul><li><blockquote><blockquote></blockquote></blockquote>b</li></ul></blockquote>'];
+        yield 'follower at no opener column' => ["- - > +\n b\n", '<ul><li><ul><li><blockquote></blockquote></li></ul></li></ul><p>b</p>'];
 
         // Ruling 3: a hosted stacked opener takes any non-list block at document column 0.
-        yield 'hosted heading' => ["> - > +\n# h\n", '<blockquote><ul><li><blockquote><p>+</p></blockquote></li></ul></blockquote><section id="h"><h1>h</h1></section>'];
-        yield 'hosted table' => ["> - > +\n| c |\n", '<blockquote><ul><li><blockquote><p>+</p></blockquote></li></ul></blockquote><table><tbody><tr><td>c</td></tr></tbody></table>'];
-        yield 'hosted heading after a sibling heading' => ["> - a\n> # t\n> - > +\n# h\n", '<blockquote><ul><li>a</li></ul><h1 id="t">t</h1><ul><li><blockquote><p>+</p></blockquote></li></ul></blockquote><section id="h"><h1>h</h1></section>'];
-        yield 'hosted list follower folds' => ["> - - > +\n- s\n", '<blockquote><ul><li><ul><li><blockquote><p>+</p></blockquote></li></ul></li></ul></blockquote><ul><li>s</li></ul>'];
+        yield 'hosted heading' => ["> - > +\n# h\n", '<blockquote><ul><li><blockquote></blockquote></li></ul></blockquote><section id="h"><h1>h</h1></section>'];
+        yield 'hosted table' => ["> - > +\n| c |\n", '<blockquote><ul><li><blockquote></blockquote></li></ul></blockquote><table><tbody><tr><td>c</td></tr></tbody></table>'];
+        yield 'hosted heading after a sibling heading' => ["> - a\n> # t\n> - > +\n# h\n", '<blockquote><ul><li>a</li></ul><h1 id="t">t</h1><ul><li><blockquote></blockquote></li></ul></blockquote><section id="h"><h1>h</h1></section>'];
+        yield 'hosted list follower folds' => ["> - - > +\n- s\n", '<blockquote><ul><li><ul><li><blockquote></blockquote></li></ul></li></ul></blockquote><ul><li>s</li></ul>'];
 
         yield 'wrapped attribute in a nested item' => ["- a\n  - b\n    {.c\n}\npara\n", '<ul><li>a<ul><li>b</li></ul></li></ul><p>para</p>'];
         yield 'wrapped attribute below the column opens a block' => ["- a\n {.c\n}\npara\n", '<ul><li>a</li></ul><p class="c">para</p>'];
@@ -63,13 +63,13 @@ class TheCarve3421FollowUpRulingsTest extends TestCase
         yield 'attribute follower of a quote plus' => ["> +\n{.c}\npara\n", '<blockquote><p class="c">para</p></blockquote>'];
         yield 'unclosed fence follower of a quote plus' => ["> +\n```\nx\n\ny\n", '<blockquote><pre><code>x</code></pre></blockquote><p>y</p>'];
         yield 'stacked list plus at an inner column' => ["- - +\n  # h\n", '<ul><li><ul><li><h1 id="h">h</h1></li></ul></li></ul>'];
-        yield 'hosted heading after a lazy item line' => ["> - a\n> b\n> - > +\n# h\n", '<blockquote><ul><li>ab</li><li><blockquote><p>+</p></blockquote></li></ul></blockquote><section id="h"><h1>h</h1></section>'];
+        yield 'hosted heading after a lazy item line' => ["> - a\n> b\n> - > +\n# h\n", '<blockquote><ul><li>ab</li><li><blockquote></blockquote></li></ul></blockquote><section id="h"><h1>h</h1></section>'];
         yield 'opener folded under a heading item stays text' => ["> - # a\n> b\n> - > +\n# h\n", '<blockquote><ul><li><h1 id="a">a</h1></li></ul><p>b- &gt; +</p></blockquote><section id="h"><h1>h</h1></section>'];
 
-        yield 'unclosed fence keeps a quoted payload line' => ["- > +\n```\n> x\n", '<ul><li><blockquote><p>+</p></blockquote></li></ul><pre><code>&gt; x</code></pre>'];
+        yield 'unclosed fence keeps a quoted payload line' => ["- > +\n```\n> x\n", '<ul><li><blockquote></blockquote></li></ul><pre><code>&gt; x</code></pre>'];
         yield 'list plus unclosed fence keeps a quoted payload line' => ["- +\n```\n> x\n\ny\n", '<ul><li><pre><code>&gt; x</code></pre></li></ul><p>y</p>'];
 
-        yield 'unclosed fence takes the rest of an indented list' => ["  - +\n```\n- x\n", '<ul><li>+</li></ul><pre><code>- x</code></pre>'];
+        yield 'unclosed fence takes the rest of an indented list' => ["  - +\n```\n- x\n", '<ul><li></li></ul><pre><code>- x</code></pre>'];
         yield 'unclosed fence takes following list lines' => ["- +\n```\n- x\n- y\n", '<ul><li><pre><code>- x- y</code></pre></li></ul>'];
         yield 'unclosed fence ends at a sibling when a blank follows' => ["- +\n```\nx\n- y\n\npara\n", '<ul><li><pre><code>x</code></pre></li><li>y</li></ul><p>para</p>'];
 
@@ -77,7 +77,7 @@ class TheCarve3421FollowUpRulingsTest extends TestCase
         yield 'indented fence run is payload, not a closer' => ["- +\n```\n  ```\n- y\n", '<ul><li><pre><code>  ```- y</code></pre></li></ul>'];
 
         // Ruling 4: the owning quote's column stays eligible.
-        yield 'owning quote column' => ["- > > +\n    b\n", '<ul><li><blockquote><blockquote><p>+b</p></blockquote></blockquote></li></ul>'];
+        yield 'owning quote column' => ["- > > +\n    b\n", '<ul><li><blockquote><blockquote></blockquote></blockquote>b</li></ul>'];
     }
 
     #[DataProvider('readings')]

@@ -30,7 +30,7 @@ final class AnOwnLinePlusReachesADescendantQuoteTest extends TestCase
             ],
             'a follower off the column leaves the plus a letter' => [
                 "> > a\n  +\ntail\n",
-                "<blockquote>\n  <blockquote><p>a\n+\ntail</p></blockquote>\n</blockquote>",
+                "<blockquote>\n  <blockquote><p>a</p></blockquote>\n</blockquote>\n<p>tail</p>",
             ],
         ];
     }

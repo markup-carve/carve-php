@@ -335,13 +335,13 @@ class BlockParser
     }
 
     /**
-     * Which lone `+` lines the one attach rule refuses, by index. Runs the ownership walk alone.
+     * Which lone `+` lines read as a plain letter, by index. Runs the ownership walk alone.
      *
      * @param array<int, string> $lines
      *
-     * @return array<int, array{line: int, column: int, host: string, reason: string}|null>
+     * @return array<int, true>
      */
-    public function refusedPlusLinesOf(array $lines): array
+    public function letterPlusLinesOf(array $lines): array
     {
         $walk = new BlockOwnershipWalk(
             $this->listParser,
@@ -354,7 +354,7 @@ class BlockParser
         );
         $walk->own($lines, PlusLetter::for(implode("\n", $lines)));
 
-        return $walk->refusedPlus;
+        return $walk->letterPlus;
     }
 
     /**
@@ -805,7 +805,7 @@ class BlockParser
         // Spans are verified against the source text, so it spells a refused `+` as the readers see it.
         $authoredSource = $this->state->source->originalSource;
         $authoredPlusLines = $this->state->source->authoredLines;
-        foreach (array_keys($walk->refusedPlus) as $refused) {
+        foreach (array_keys($walk->letterPlus) as $refused) {
             $start = $this->state->source->lineStartOffsets[$refused] ?? null;
             $plus = strrpos($authoredPlusLines[$refused] ?? '', '+');
             if ($start !== null && $plus !== false && strlen($plusLetter) === 1) {
@@ -947,11 +947,11 @@ class BlockParser
         // abbreviation-expansion budget (output-amplification DoS guard).
         $document->setSourceLength($sourceLength);
 
-        if ($walk->refusedPlus !== []) {
+        if ($walk->letterPlus !== []) {
             $this->state->source->originalSource = $authoredSource;
             $this->state->source->authoredLines = $authoredPlusLines;
             PlusLetter::restore($document, $plusLetter);
-            foreach (array_keys($walk->refusedPlus) as $refused) {
+            foreach (array_keys($walk->letterPlus) as $refused) {
                 $this->state->source->sourceLines[$refused] = str_replace($plusLetter, '+', $this->state->source->sourceLines[$refused]);
             }
             $this->state->source->resetItemMarkerIndex();

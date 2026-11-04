@@ -12,7 +12,7 @@ final class ARepeatedUnmarkedListMarkerStaysInNestedQuoteTest extends TestCase
     public function testEachMarkerFoldsIntoOpenNestedQuoteParagraph(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote>\n      <blockquote><p>+</p></blockquote>\n    </blockquote>\n    <ul>\n      <li>s</li>\n      <li>s</li>\n      <li>s</li>\n    </ul>\n  </li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote>\n      <blockquote>\n\n      </blockquote>\n    </blockquote>\n    <ul>\n      <li>s</li>\n      <li>s</li>\n      <li>s</li>\n    </ul>\n  </li>\n</ul>\n"),
             CarveConverter::create()->convert("- > > +\n  - s\n  - s\n  - s\n"),
         );
     }
@@ -20,7 +20,7 @@ final class ARepeatedUnmarkedListMarkerStaysInNestedQuoteTest extends TestCase
     public function testBlankLineEndsTheParagraph(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote>\n      <blockquote><p>+</p></blockquote>\n    </blockquote>\n    <ul>\n      <li><p>s</p></li>\n      <li><p>s</p></li>\n    </ul>\n  </li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote>\n      <blockquote>\n\n      </blockquote>\n    </blockquote>\n    <ul>\n      <li><p>s</p></li>\n      <li><p>s</p></li>\n    </ul>\n  </li>\n</ul>\n"),
             CarveConverter::create()->convert("- > > +\n  - s\n\n  - s\n"),
         );
     }

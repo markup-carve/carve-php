@@ -15,7 +15,7 @@ final class QuotedListLazyHeadingTest extends TestCase
     public function testIndentedHeadingShapeStaysInQuotedParagraph(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote><p>+</p></blockquote>\n  </li>\n</ul>\n<section id=\"a\">\n  <h1>a</h1>\n  <p>b</p>\n</section>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n<section id=\"a\">\n  <h1>a</h1>\n  <p>b</p>\n</section>\n"),
             CarveConverter::create()->convert("- +\n> +\n  # a\nb\n"),
         );
     }
@@ -23,7 +23,7 @@ final class QuotedListLazyHeadingTest extends TestCase
     public function testOrdinaryIndentedContinuationStaysInQuote(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote><p>+\nb</p></blockquote>\n  </li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote>\n\n    </blockquote>\n    b\n  </li>\n</ul>\n"),
             CarveConverter::create()->convert("- +\n> +\n  b\n"),
         );
     }

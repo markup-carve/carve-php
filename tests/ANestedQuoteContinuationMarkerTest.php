@@ -19,17 +19,17 @@ final class ANestedQuoteContinuationMarkerTest extends TestCase
     public static function sourceProvider(): array
     {
         $nested = '<blockquote><blockquote><p>q</p><p>para</p></blockquote></blockquote>';
-        $refused = '<blockquote><blockquote><p>q +</p></blockquote></blockquote>';
+        $refused = '<blockquote><blockquote><p>q</p></blockquote></blockquote>';
 
         return [
             'prefixed attached paragraph' => ["> > q\n> +\n> para\n", $nested],
-            'unprefixed attached paragraph' => ["> > q\n> +\npara\n", '<blockquote><blockquote><p>q + para</p></blockquote></blockquote>'],
+            'unprefixed attached paragraph' => ["> > q\n> +\npara\n", '<blockquote><blockquote><p>q</p></blockquote></blockquote><p>para</p>'],
             'marker at end of input' => ["> > q\n> +\n", $refused],
             'blank line ends the quote' => ["> > q\n> +\n\npara\n", $refused . '<p>para</p>'],
-            'nested quote in a list item' => ["- > > q\n  > +\n\npara\n", '<ul><li><blockquote><blockquote><p>q +</p></blockquote></blockquote></li></ul><p>para</p>'],
+            'nested quote in a list item' => ["- > > q\n  > +\n\npara\n", '<ul><li><blockquote><blockquote><p>q</p></blockquote></blockquote></li></ul><p>para</p>'],
             'plus at inner content column is text' => ["> > q\n> > +\n\npara\n", '<blockquote><blockquote><p>q +</p></blockquote></blockquote><p>para</p>'],
             'unnested unprefixed marker' => ["> q\n+\npara\n", '<blockquote><p>q</p><p>para</p></blockquote>'],
-            'leading plus is paragraph text' => ["> +\n\npara\n", '<blockquote><p>+</p></blockquote><p>para</p>'],
+            'leading plus is paragraph text' => ["> +\n\npara\n", '<blockquote></blockquote><p>para</p>'],
             'plus in a quoted list item' => ["> - a\n> +\n> para\n", '<blockquote><ul><li>a para</li></ul></blockquote>'],
             'attached quote nests in inner quote' => ["> > q\n> +\n> > r\n", '<blockquote><blockquote><p>q</p><blockquote><p>r</p></blockquote></blockquote></blockquote>'],
             'empty inner quote owns attached quote' => ["> >\n> +\n> > q\n", '<blockquote><blockquote><blockquote><p>q</p></blockquote></blockquote></blockquote>'],
@@ -47,7 +47,7 @@ final class ANestedQuoteContinuationMarkerTest extends TestCase
             'glued double marker is text' => [">>+\nq\n", '<p>&gt;&gt;+ q</p>'],
             'glued double marker with space is text' => [">> +\nq\n", '<p>&gt;&gt; + q</p>'],
             'glued inner marker is quote text' => ["> >+\nq\n", '<blockquote><p>&gt;+ q</p></blockquote>'],
-            'first block marker inside nested quote' => ["> > +\nq\n", '<blockquote><blockquote><p>+ q</p></blockquote></blockquote>'],
+            'first block marker inside nested quote' => ["> > +\nq\n", '<blockquote><blockquote></blockquote></blockquote><p>q</p>'],
         ];
     }
 

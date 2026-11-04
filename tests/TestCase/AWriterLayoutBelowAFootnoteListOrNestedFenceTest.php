@@ -23,7 +23,7 @@ class AWriterLayoutBelowAFootnoteListOrNestedFenceTest extends TestCase
             'row 616-6' => ["[r][] [^p] [^c]\n[^c]: - para\n   # H\n", "[r][] [^p] [^c]\n\n[^c]: - para\n\n      # H\n"],
             'a longer label' => ["[^long]: - a\n\n  para\n\n[^long]\n", "[^long]\n\n[^long]: - a\n\n         para\n"],
             'a body with no list keeps two columns' => ["[^n]: a\n\n  para\n\n[^n]\n", "[^n]\n\n[^n]: a\n\n  para\n"],
-            'row 626-8' => ["- - [ ] ```js\n        x\n\n  +\ntail\n", "- - [ ] ```js\n        x\n\n    ```\n\n  \\+\n  tail\n"],
+            'row 626-8' => ["- - [ ] ```js\n        x\n\n  +\ntail\n", "- - [ ] ```js\n        x\n\n    ```\n\n  %%\n\ntail\n"],
         ];
     }
 

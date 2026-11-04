@@ -21,15 +21,15 @@ class ASkippedCommentFenceEndsAtALineThatMissesTheHostTest extends TestCase
         return [
             'blank line ends the quote' => [
                 "> - +\n> %%%\n\n> %%%\n> text\n",
-                "<blockquote>\n  <ul>\n    <li>+</li>\n  </ul>\n</blockquote>\n<blockquote>\n\n</blockquote>",
+                "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n</blockquote>\n<blockquote>\n\n</blockquote>",
             ],
             'unprefixed line ends the quote' => [
                 "> - +\n%%%\n> %%%\n> text\n",
-                "<blockquote>\n  <ul>\n    <li>+</li>\n  </ul>\n</blockquote>",
+                "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n</blockquote>",
             ],
             'below-column line ends the description' => [
                 ":: t\n: +\n  %%%\nq\n  %%%\n  text\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>+</dd>\n</dl>\n<p>q</p>",
+                "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>q</p>",
             ],
             'a fence inside the host still skips' => [
                 "> - +\n> %%%\n> x\n> %%%\n> text\n",

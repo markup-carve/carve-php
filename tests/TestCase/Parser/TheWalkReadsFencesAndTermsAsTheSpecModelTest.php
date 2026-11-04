@@ -62,7 +62,7 @@ class TheWalkReadsFencesAndTermsAsTheSpecModelTest extends TestCase
             ],
             'a plus with a quote follower in the next item' => [
                 "- a\n> \n  - b\n  +\n> q\n",
-                "<ul><li>a</li></ul><blockquote></blockquote><ul><li>b\n+</li></ul><blockquote><p>q</p></blockquote>",
+                '<ul><li>a</li></ul><blockquote></blockquote><ul><li>b</li></ul><blockquote><p>q</p></blockquote>',
             ],
             'a note list keeps its fenced child' => [
                 "- [^n]: :: term\n    - child\n      ```\n      code\n      ```\nafter [^n]\n",
@@ -86,7 +86,7 @@ class TheWalkReadsFencesAndTermsAsTheSpecModelTest extends TestCase
             ],
             'a refused plus before a quote off its column' => [
                 "- a\n- b\n+\n > q\ntail\n",
-                "<ul><li>a</li><li>b\n+</li></ul><blockquote><p>q\ntail</p></blockquote>",
+                "<ul><li>a</li><li>b</li></ul><blockquote><p>q\ntail</p></blockquote>",
             ],
         ];
     }

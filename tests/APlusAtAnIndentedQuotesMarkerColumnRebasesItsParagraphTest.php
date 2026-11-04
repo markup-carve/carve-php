@@ -22,7 +22,7 @@ final class APlusAtAnIndentedQuotesMarkerColumnRebasesItsParagraphTest extends T
         yield 'three columns in' => ["   > - a\n   +\n   para\n", "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <p>para</p>\n</blockquote>"];
         yield 'lazy line after the attached paragraph' => ["  > - a\n  +\n  para\n  more\n", "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <p>para\nmore</p>\n</blockquote>"];
         yield 'nested quote' => ["  > > - a\n  +\n  para\n", "<blockquote>\n  <blockquote>\n    <ul>\n      <li>a</li>\n    </ul>\n  </blockquote>\n  <p>para</p>\n</blockquote>"];
-        yield 'follower past the quote column' => ["  > - a\n  +\n   para\n", "<blockquote>\n  <ul>\n    <li>a\n+\npara</li>\n  </ul>\n</blockquote>"];
+        yield 'follower past the quote column' => ["  > - a\n  +\n   para\n", "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<p>para</p>"];
         yield 'quote at column 0' => ["> - a\n+\npara\n", "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <p>para</p>\n</blockquote>"];
     }
 
