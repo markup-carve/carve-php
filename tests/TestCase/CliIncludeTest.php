@@ -188,4 +188,12 @@ class CliIncludeTest extends TestCase
         $this->assertSame(2, $result['exit']);
         $this->assertStringContainsString('Include root does not exist', $result['err']);
     }
+
+    public function testTheAstOfAnExpandedFileIsPrinted(): void
+    {
+        $result = $this->runCli(['--ast', $this->root . '/main.crv']);
+
+        $this->assertSame(0, $result['exit'], $result['err']);
+        $this->assertStringContainsString('"value": "Chapter body."', $result['out']);
+    }
 }

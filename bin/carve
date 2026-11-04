@@ -1780,6 +1780,7 @@ if ($wantIncludes) {
     }
 }
 
+$checked = null;
 try {
     $conversionWriter = null;
     if ($options['reportConversionDiagnostics'] !== null) {
@@ -1813,7 +1814,7 @@ try {
 }
 $conversionReport = $conversionWriter?->finishConversionDiagnosticCollection();
 
-if ($wantIncludes && $includeRoot !== null) {
+if ($checked !== null && $wantIncludes && $includeRoot !== null) {
     $root = realpath($includeRoot);
     if ($root !== false) {
         $display = static function (string $file) use ($root): string {
