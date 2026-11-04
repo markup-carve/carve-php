@@ -79,6 +79,9 @@ trait TransparentLineErasure
                 continue;
             }
             $index = (int)$record['line'] - 1;
+            if (isset($walk->skippedCommentLines[$index])) {
+                continue;
+            }
             $rest = rtrim((string)preg_replace('/^(?:[ \t]*>[ ]?)*[ \t]*/', '', $lines[$index] ?? ''), " \t");
             $comment = str_starts_with($rest, '%%');
             if ($comment) {

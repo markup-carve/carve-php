@@ -66,10 +66,6 @@
             "ticket": "carve-php#4581"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 385\"",
-            "ticket": "carve-php#4581"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\ACommentAfterARefusedPlusDoesNotFoldIntoTheItemTest::testTheCommentStaysOutOfTheItem with data set \"shifted nested item (#4280)\"",
             "ticket": "carve#4483"
         },
