@@ -11,8 +11,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The parser holds a consumed `+` as an empty comment. Since carve#5012 erases
- * a written `%%` line, the writer spells that comment as the `+` it was.
+ * A consumed `+` leaves no node (CARVE-P11-040), so the writer parts the blocks
+ * around it with an attaching `+` or a blank line, never a `%%` line.
  */
 class AConsumedPlusIsWrittenBackAsAPlusTest extends TestCase
 {
@@ -22,11 +22,11 @@ class AConsumedPlusIsWrittenBackAsAPlusTest extends TestCase
     public static function sources(): array
     {
         return [
-            'between two paragraphs' => ["- intro\n+\n  more\n", "- intro\n+\n  more\n"],
-            'after a fence in a quoted item' => ["> - ```\n> +\n> - s\n", "> - ```\n>   ```\n> +\n> - s\n"],
-            'two in a loose item' => ["- q\n+\n+\n\n- r\n", "- q\n\n+\n\n+\n\n- r\n"],
-            'between two quotes' => ["- > p\n+\n+\n> z\n", "- > p\n+\n+\n> z\n"],
-            'after an authored comment' => ["- intro\n%% x\n+\n  more\n", "- intro\n  %% x\n+\n  more\n"],
+            'between two paragraphs' => ["- intro\n+\n  more\n", "- intro\n+\nmore\n"],
+            'after a fence in a quoted item' => ["> - ```\n> +\n> - s\n", "> - ```\n>   ```\n> - s\n"],
+            'two in a loose item' => ["- q\n+\n+\n\n- r\n", "- q\n\n- r\n"],
+            'between two quotes' => ["- > p\n+\n+\n> z\n", "- > p\n+\n> z\n"],
+            'after an authored comment' => ["- intro\n%% x\n+\n  more\n", "- intro\n  %% x\n+\nmore\n"],
         ];
     }
 

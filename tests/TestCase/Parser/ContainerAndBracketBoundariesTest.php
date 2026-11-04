@@ -120,7 +120,7 @@ class ContainerAndBracketBoundariesTest extends TestCase
                     $code = $document->getChildren()[0]->getChildren()[0]->getChildren()[0];
                     $this->assertInstanceOf(CodeBlock::class, $code, $source);
                     $this->assertSame('', $code->getContent(), $source);
-                    $this->assertCount(3, $document->getChildren(), $source);
+                    $this->assertCount(2, $document->getChildren(), $source);
                 }
             }
         }

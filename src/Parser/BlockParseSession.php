@@ -254,6 +254,11 @@ final class BlockParseSession
     public array $unplaceableNodeIds = [];
 
     /**
+     * @var array<\MarkupCarve\Carve\Node\Block\Comment> The walk's stand-ins for a refused `+`, dropped once spans are derived.
+     */
+    public array $consumedPlusComments = [];
+
+    /**
      * Abbreviation definitions: maps abbreviation text to its definition
      *
      * @var array<string, string>
