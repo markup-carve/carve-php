@@ -27,211 +27,63 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\AMatchedDescriptionCommentKeepsItsBlockExtentTest::testMatchedCommentRemainsInsideNestedDescription",
-            "ticket": "carve-php#4244"
+            "ticket": "carve-php#4620"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\AMatchedDescriptionCommentKeepsItsBlockExtentTest::testMatchedCommentRetainsItsBodyAndExtent",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\ANestedTightListWriterTest::testNestedWriterMatchesReference with data set #5",
-            "ticket": "carve-php#4244"
+            "ticket": "carve-php#4620"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\CommentPayloadColumnsTest::testNestedTermKeepsTheCanonicalItemColumn",
-            "ticket": "carve-php#4244"
+            "ticket": "carve-php#4622"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\CommentPayloadColumnsTest::testPayloadAndFormat with data set \"folded term\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\DefinitionOnEmptiedMarkerLineTest::testDefinitionIsRestoredOnItsMarkerLine with data set \"footnote definition\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Ast\\AnIndentedFenceKeepsItsExtentTest::testAStrippedIndentDoesNotCostTheExtent with data set \"a fence indented two columns\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Ast\\AnIndentedFenceKeepsItsExtentTest::testAStrippedIndentDoesNotCostTheExtent with data set \"an indented fence folding into a run\"",
-            "ticket": "carve-php#4244"
+            "ticket": "carve-php#4622"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Ast\\SpanBeginsAtTheOpeningMarkupTest::testASpanBeginsAtTheOpeningMarkup with data set \"one-space absorbed comment fence\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\BelowColumnDefinitionFoldsTest::testNothingIsLost",
-            "ticket": "carve-php#4244"
+            "ticket": "carve-php#4620"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\AQuotedSetextHeadingFoldsInsideAListItemTest::testWhatAlreadyHeldStillHolds with data set \"a spaced rule stays a rule\"",
-            "ticket": "carve-php#4244"
+            "ticket": "carve-php#4626"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\AnInterruptingMarkerKeepsInterruptingTest::testWhatAlreadyHeldStillHolds with data set \"four columns in with no underline stays text\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\DjotAttributeWireTest::testAttributeValuesSurviveImport",
-            "ticket": "carve-php#4244"
+            "ticket": "carve-php#4626"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\DjotReviewAlignmentTest::testReconciledNoteAndAttributeBoundaries",
-            "ticket": "carve-php#4244"
+            "ticket": "carve-php#4628"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\MarkdownQuotedItemTablesTest::testTableMeaningMatchesCmarkGfm with data set \"cmark-gfm 41\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\LineBlockThematicPaddingTest::testOrdinaryParagraphGuardsAndThematicBreaksStayUnchanged",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\DescriptionSeparatorBelowContentColumnTest::testMarkerRange with data set \"term marker\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\DescriptionSeparatorBelowContentColumnTest::testVector with data set \"double-colon\"",
-            "ticket": "carve-php#4244"
+            "ticket": "carve-php#4627"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\ListColumnConformanceTest::testSharedVectors",
-            "ticket": "carve-php#4244"
+            "ticket": "carve-php#4621"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\ListColumnConformanceTest::testSourceCoordinatesAndNestedContainers",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\RetiredSpellingLintTest::testAContainerShapeThatIsNotATableIsNotReported with data set \"an indented line at top level\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Lint\\SourceLinterTest::testReportsSharedTriggers",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\MarkdownLiteralTermMarkerTest::testLiteralTermMarkerKeepsItsMeaning with data set \"nested paragraph term\"",
-            "ticket": "carve-php#4244"
+            "ticket": "carve-php#4621"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\ACommentSpansPayloadKeepsItsHostRelativeColumnsTest::testATermFoldsACommentWithoutDedentingItTwice",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AuthoredListCodeFenceOwnershipTest::testAuthoredCodeKeepsItsPayloadAndListBoundary",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\BlockParserTest::testThematicBreakIsContiguousColumnZeroOnly",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\DescriptionVisibleOpenersAfterInlineFenceTest::testTheDescriptionKeepsItsVisibleOpeners with data set \"colon after open run\"",
-            "ticket": "carve-php#4244"
+            "ticket": "carve-php#4622"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\QuotedDescendantLiteralSpansTest::testPairedSpansShieldPayloadClosersWithoutOpeningUnmatchedRuns",
             "ticket": "carve-php#4242"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\RefusedNestedFenceBlankPayloadTest::testRefusedMarkerKeepsFencePayload with data set \"document column\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\RelativeContinuationMarkerTest::testIndentedFirstBlockMarkerUsesTheOpenerColumn",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testDefinitionTermsInsideFootnotesPreservePayloadsOrRefuseAccurately",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testFootnoteHostsPreserveVerbatimPayloadsOrRefuseAccurately",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 1072\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 1079\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 1086\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 1381\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 1388\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 1395\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 145\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 152\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 159\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 454\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 461\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 468\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 763\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 770\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testMultilineCodeKeepsItsPayloadAcrossRenderPaths with data set \"native case 777\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\TheEscapeSearchParsesEachCandidateOnceTest::testNoCandidateIsParsedTwice with data set \"every block escalates\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\TheEscapeSearchParsesEachCandidateOnceTest::testNoCandidateIsParsedTwice with data set \"every line holds a failing and an idle occurrence\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\TheEscapeSearchParsesEachCandidateOnceTest::testNoCandidateIsParsedTwice with data set \"failing blocks among idle ones\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\UnclosedCommentKeepsFollowingContainerTest::testThreePercentLineDoesNotHideNestedContainer",
-            "ticket": "carve-php#4244"
+            "ticket": "carve-php#4623"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TwoSiblingSubListsInATightItemTest::testSpellsTheBoundaryWithEveryHostPrefixHoweverDeep",
-            "ticket": "carve-php#4244"
+            "ticket": "carve-php#4624"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\FenceExtentColumnsTest::testFenceOwnershipFollowsTheCurrentBlock with data set \"nested paragraph after blank ```\"",

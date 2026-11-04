@@ -218,15 +218,19 @@
   {
     "id": "barrier-floor-27",
     "source": "> - a\n>     ```\n> - sibling\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code></code></li><li>sibling\n<code>\nafter</code></li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>a\n      <pre><code></code></pre></li><li>sibling\n      <pre><code></code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "",
+      ""
+    ]
   },
   {
     "id": "barrier-floor-28",
     "source": "> - a\n>     ```\n> outside\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code></code></pre></li></ul><p>outside\n<code>\nafter</code></p></blockquote>",
+    "html": "<blockquote><ul><li>a\n      <pre><code></code></pre></li></ul><p>outside</p><pre><code>after\n</code></pre></blockquote>",
     "codePayloads": [
-      ""
+      "",
+      "after\n"
     ]
   },
   {
@@ -1258,15 +1262,15 @@
     "source": "- a\n\t\t```\n\t\t\t\t\n\t\t```\nafter\n",
     "html": "<ul><li>a\n    <pre><code></code></pre></li></ul><p>after</p>",
     "codePayloads": [
-      "\t\t\n"
+      "        \n"
     ]
   },
   {
     "id": "review-tabs-3",
     "source": "- a\n\t\t```\n\t ```\n\tcode\n\t\t```\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>   ```\n  code\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li>a\n    <pre><code>&nbsp;```\ncode\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
-      "   ```\n  code\n"
+      "&nbsp;```\ncode\n"
     ]
   },
   {
@@ -1306,15 +1310,15 @@
     "source": "- a\n\t\t\t```\n\t\t\t\t\n\t\t\t```\nafter\n",
     "html": "<ul><li>a\n    <pre><code></code></pre></li></ul><p>after</p>",
     "codePayloads": [
-      "\t\n"
+      "    \n"
     ]
   },
   {
     "id": "review-tabs-9",
     "source": "- a\n\t\t\t```\n\t ```\n\tcode\n\t\t\t```\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>   ```\n  code\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li>a\n    <pre><code>&nbsp;```\ncode\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
-      "   ```\n  code\n"
+      "&nbsp;```\ncode\n"
     ]
   },
   {
@@ -1354,15 +1358,15 @@
     "source": "- a\n  \t\t\t```\n\t\t\t\t\n  \t\t\t```\nafter\n",
     "html": "<ul><li>a\n    <pre><code></code></pre></li></ul><p>after</p>",
     "codePayloads": [
-      "\t\n"
+      "    \n"
     ]
   },
   {
     "id": "review-tabs-15",
     "source": "- a\n  \t\t\t```\n\t ```\n\tcode\n  \t\t\t```\nafter\n",
-    "html": "<ul><li>a\n    <pre><code>   ```\n  code\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li>a\n    <pre><code>&nbsp;```\ncode\n</code></pre></li></ul><p>after</p>",
     "codePayloads": [
-      "   ```\n  code\n"
+      "&nbsp;```\ncode\n"
     ]
   },
   {
@@ -1402,15 +1406,15 @@
     "source": "> - a\n> \t\t```\n> \t\t\t\t\n> \t\t```\n> after\n",
     "html": "<blockquote><ul><li>a\n      <pre><code></code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
-      "\t\t\n"
+      "        \n"
     ]
   },
   {
     "id": "review-tabs-21",
     "source": "> - a\n> \t\t```\n> \t ```\n> \tcode\n> \t\t```\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>   ```\n  code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li>a\n      <pre><code>&nbsp;```\ncode\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
-      "   ```\n  code\n"
+      "&nbsp;```\ncode\n"
     ]
   },
   {
@@ -1450,15 +1454,15 @@
     "source": "> - a\n> \t\t\t```\n> \t\t\t\t\n> \t\t\t```\n> after\n",
     "html": "<blockquote><ul><li>a\n      <pre><code></code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
-      "\t\n"
+      "    \n"
     ]
   },
   {
     "id": "review-tabs-27",
     "source": "> - a\n> \t\t\t```\n> \t ```\n> \tcode\n> \t\t\t```\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>   ```\n  code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li>a\n      <pre><code>&nbsp;```\ncode\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
-      "   ```\n  code\n"
+      "&nbsp;```\ncode\n"
     ]
   },
   {
@@ -1498,15 +1502,15 @@
     "source": "> - a\n>   \t\t\t```\n> \t\t\t\t\n>   \t\t\t```\n> after\n",
     "html": "<blockquote><ul><li>a\n      <pre><code></code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
-      "\t\n"
+      "    \n"
     ]
   },
   {
     "id": "review-tabs-33",
     "source": "> - a\n>   \t\t\t```\n> \t ```\n> \tcode\n>   \t\t\t```\n> after\n",
-    "html": "<blockquote><ul><li>a\n      <pre><code>   ```\n  code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li>a\n      <pre><code>&nbsp;```\ncode\n</code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
-      "   ```\n  code\n"
+      "&nbsp;```\ncode\n"
     ]
   },
   {
@@ -1546,15 +1550,15 @@
     "source": "> > - a\n> > \t\t```\n> > \t\t\t\t\n> > \t\t```\n> > after\n",
     "html": "<blockquote><blockquote><ul><li>a\n        <pre><code></code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
-      "\t\t\n"
+      "        \n"
     ]
   },
   {
     "id": "review-tabs-39",
     "source": "> > - a\n> > \t\t```\n> > \t ```\n> > \tcode\n> > \t\t```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>   ```\n  code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>&nbsp;```\ncode\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
-      "   ```\n  code\n"
+      "&nbsp;```\ncode\n"
     ]
   },
   {
@@ -1594,15 +1598,15 @@
     "source": "> > - a\n> > \t\t\t```\n> > \t\t\t\t\n> > \t\t\t```\n> > after\n",
     "html": "<blockquote><blockquote><ul><li>a\n        <pre><code></code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
-      "\t\n"
+      "    \n"
     ]
   },
   {
     "id": "review-tabs-45",
     "source": "> > - a\n> > \t\t\t```\n> > \t ```\n> > \tcode\n> > \t\t\t```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>   ```\n  code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>&nbsp;```\ncode\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
-      "   ```\n  code\n"
+      "&nbsp;```\ncode\n"
     ]
   },
   {
@@ -1642,15 +1646,15 @@
     "source": "> > - a\n> >   \t\t\t```\n> > \t\t\t\t\n> >   \t\t\t```\n> > after\n",
     "html": "<blockquote><blockquote><ul><li>a\n        <pre><code></code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
-      "\t\n"
+      "    \n"
     ]
   },
   {
     "id": "review-tabs-51",
     "source": "> > - a\n> >   \t\t\t```\n> > \t ```\n> > \tcode\n> >   \t\t\t```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>   ```\n  code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>&nbsp;```\ncode\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
-      "   ```\n  code\n"
+      "&nbsp;```\ncode\n"
     ]
   },
   {
@@ -2320,49 +2324,61 @@
   {
     "id": "tab-state-boundaries-0",
     "source": "- a\n  \t```\n  \tone\n      ```\n  \ttwo\n\t```\n        ~~~\n        three\n  \t~~~\n        four\n        ~~~\nafter\n",
-    "html": "<ul><li>a\n<code>\none\n</code>\ntwo\n<code></code><pre><code>three\n</code></pre>\n    four\n~~~\nafter\n  </li></ul>",
+    "html": "<ul><li>a\n    <pre><code>one\n  ```\ntwo\n</code></pre><pre><code>three\n</code></pre>\n    four\n    <pre><code></code></pre></li></ul><p>after</p>",
     "codePayloads": [
-      "three\n"
+      "one\n  ```\ntwo\n",
+      "three\n",
+      ""
     ]
   },
   {
     "id": "tab-state-boundaries-2",
     "source": "1. a\n  \t```\n  \tone\n      ```\n  \ttwo\n\t```\n        ~~~\n        three\n  \t~~~\n        four\n        ~~~\nafter\n",
-    "html": "<ol><li>a\n<code>\none\n</code>\ntwo\n<code></code><pre><code>three\n</code></pre>\n    four\n~~~\nafter\n  </li></ol>",
+    "html": "<ol><li>a\n    <pre><code>one\n  ```\ntwo\n</code></pre><pre><code>three\n</code></pre>\n    four\n    <pre><code></code></pre></li></ol><p>after</p>",
     "codePayloads": [
-      "three\n"
+      "one\n  ```\ntwo\n",
+      "three\n",
+      ""
     ]
   },
   {
     "id": "tab-state-boundaries-4",
     "source": "> - a\n>   \t```\n>   \tone\n>       ```\n>   \ttwo\n> \t```\n>         ~~~\n>         three\n>   \t~~~\n>         four\n>         ~~~\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code>\none\n</code>\ntwo\n<code></code><pre><code>three\n</code></pre>\n      four\n~~~\nafter\n    </li></ul></blockquote>",
+    "html": "<blockquote><ul><li>a\n      <pre><code>one\n  ```\ntwo\n</code></pre><pre><code>three\n</code></pre>\n      four\n      <pre><code></code></pre></li></ul><p>after</p></blockquote>",
     "codePayloads": [
-      "three\n"
+      "one\n  ```\ntwo\n",
+      "three\n",
+      ""
     ]
   },
   {
     "id": "tab-state-boundaries-6",
     "source": "> 1. a\n>   \t```\n>   \tone\n>       ```\n>   \ttwo\n> \t```\n>         ~~~\n>         three\n>   \t~~~\n>         four\n>         ~~~\n> after\n",
-    "html": "<blockquote><ol><li>a\n<code>\none\n</code>\ntwo\n<code></code><pre><code>three\n</code></pre>\n      four\n~~~\nafter\n    </li></ol></blockquote>",
+    "html": "<blockquote><ol><li>a\n      <pre><code>one\n  ```\ntwo\n</code></pre><pre><code>three\n</code></pre>\n      four\n      <pre><code></code></pre></li></ol><p>after</p></blockquote>",
     "codePayloads": [
-      "three\n"
+      "one\n  ```\ntwo\n",
+      "three\n",
+      ""
     ]
   },
   {
     "id": "tab-state-boundaries-8",
     "source": "> > - a\n> >   \t```\n> >   \tone\n> >       ```\n> >   \ttwo\n> > \t```\n> >         ~~~\n> >         three\n> >   \t~~~\n> >         four\n> >         ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code>\none\n</code>\ntwo\n<code></code><pre><code>three\n</code></pre>\n        four\n~~~\nafter\n      </li></ul></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li>a\n        <pre><code>one\n  ```\ntwo\n</code></pre><pre><code>three\n</code></pre>\n        four\n        <pre><code></code></pre></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
-      "three\n"
+      "one\n  ```\ntwo\n",
+      "three\n",
+      ""
     ]
   },
   {
     "id": "tab-state-boundaries-10",
     "source": "> > 1. a\n> >   \t```\n> >   \tone\n> >       ```\n> >   \ttwo\n> > \t```\n> >         ~~~\n> >         three\n> >   \t~~~\n> >         four\n> >         ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ol><li>a\n<code>\none\n</code>\ntwo\n<code></code><pre><code>three\n</code></pre>\n        four\n~~~\nafter\n      </li></ol></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ol><li>a\n        <pre><code>one\n  ```\ntwo\n</code></pre><pre><code>three\n</code></pre>\n        four\n        <pre><code></code></pre></li></ol><p>after</p></blockquote></blockquote>",
     "codePayloads": [
-      "three\n"
+      "one\n  ```\ntwo\n",
+      "three\n",
+      ""
     ]
   },
   {
@@ -2656,14 +2672,20 @@
   {
     "id": "floor-code-4-0-0",
     "source": "- term\n  : payload\n    ```\n    code\n```\nafter\n",
-    "html": "<ul><li>term\n: payload\n<code>\ncode\n</code>\nafter</li></ul>",
-    "codePayloads": []
+    "html": "<ul><li>term\n: payload\n    <pre><code>code\n</code></pre></li></ul><pre><code>after\n</code></pre>",
+    "codePayloads": [
+      "code\n",
+      "after\n"
+    ]
   },
   {
     "id": "floor-code-4-0-1",
     "source": "> - term\n>   : payload\n>     ```\n>     code\n> ```\n> after\n",
-    "html": "<blockquote><ul><li>term\n: payload\n<code>\ncode\n</code>\nafter</li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code>code\n</code></pre></li></ul><pre><code>after\n</code></pre></blockquote>",
+    "codePayloads": [
+      "code\n",
+      "after\n"
+    ]
   },
   {
     "id": "floor-code-4-2-0",
@@ -2700,38 +2722,52 @@
   {
     "id": "floor-code-4-6-0",
     "source": "- term\n  : payload\n    ```\n    code\n      ```\nafter\n",
-    "html": "<ul><li>term\n: payload\n<code>\ncode\n</code>\nafter</li></ul>",
-    "codePayloads": []
+    "html": "<ul><li>term\n: payload\n    <pre><code>code\n  ```\n</code></pre></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n  ```\n"
+    ]
   },
   {
     "id": "floor-code-4-6-1",
     "source": "> - term\n>   : payload\n>     ```\n>     code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li>term\n: payload\n<code>\ncode\n</code>\nafter</li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code>code\n  ```\n</code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n  ```\n"
+    ]
   },
   {
     "id": "floor-code-4-8-0",
     "source": "- term\n  : payload\n    ```\n    code\n        ```\nafter\n",
-    "html": "<ul><li>term\n: payload\n<code>\ncode\n</code>\nafter</li></ul>",
-    "codePayloads": []
+    "html": "<ul><li>term\n: payload\n    <pre><code>code\n    ```\n</code></pre></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n    ```\n"
+    ]
   },
   {
     "id": "floor-code-4-8-1",
     "source": "> - term\n>   : payload\n>     ```\n>     code\n>         ```\n> after\n",
-    "html": "<blockquote><ul><li>term\n: payload\n<code>\ncode\n</code>\nafter</li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code>code\n    ```\n</code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n    ```\n"
+    ]
   },
   {
     "id": "floor-code-6-0-0",
     "source": "- term\n  : payload\n      ```\n      code\n```\nafter\n",
-    "html": "<ul><li>term\n: payload\n<code>\ncode\n</code>\nafter</li></ul>",
-    "codePayloads": []
+    "html": "<ul><li>term\n: payload\n    <pre><code>code\n</code></pre></li></ul><pre><code>after\n</code></pre>",
+    "codePayloads": [
+      "code\n",
+      "after\n"
+    ]
   },
   {
     "id": "floor-code-6-0-1",
     "source": "> - term\n>   : payload\n>       ```\n>       code\n> ```\n> after\n",
-    "html": "<blockquote><ul><li>term\n: payload\n<code>\ncode\n</code>\nafter</li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code>code\n</code></pre></li></ul><pre><code>after\n</code></pre></blockquote>",
+    "codePayloads": [
+      "code\n",
+      "after\n"
+    ]
   },
   {
     "id": "floor-code-6-2-0",
@@ -2784,26 +2820,36 @@
   {
     "id": "floor-code-6-8-0",
     "source": "- term\n  : payload\n      ```\n      code\n        ```\nafter\n",
-    "html": "<ul><li>term\n: payload\n<code>\ncode\n</code>\nafter</li></ul>",
-    "codePayloads": []
+    "html": "<ul><li>term\n: payload\n    <pre><code>code\n  ```\n</code></pre></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n  ```\n"
+    ]
   },
   {
     "id": "floor-code-6-8-1",
     "source": "> - term\n>   : payload\n>       ```\n>       code\n>         ```\n> after\n",
-    "html": "<blockquote><ul><li>term\n: payload\n<code>\ncode\n</code>\nafter</li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code>code\n  ```\n</code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n  ```\n"
+    ]
   },
   {
     "id": "floor-code-8-0-0",
     "source": "- term\n  : payload\n        ```\n        code\n```\nafter\n",
-    "html": "<ul><li>term\n: payload\n<code>\ncode\n</code>\nafter</li></ul>",
-    "codePayloads": []
+    "html": "<ul><li>term\n: payload\n    <pre><code>code\n</code></pre></li></ul><pre><code>after\n</code></pre>",
+    "codePayloads": [
+      "code\n",
+      "after\n"
+    ]
   },
   {
     "id": "floor-code-8-0-1",
     "source": "> - term\n>   : payload\n>         ```\n>         code\n> ```\n> after\n",
-    "html": "<blockquote><ul><li>term\n: payload\n<code>\ncode\n</code>\nafter</li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code>code\n</code></pre></li></ul><pre><code>after\n</code></pre></blockquote>",
+    "codePayloads": [
+      "code\n",
+      "after\n"
+    ]
   },
   {
     "id": "floor-code-8-2-0",
@@ -2872,33 +2918,37 @@
   {
     "id": "floor-body-4-0-0",
     "source": "- term\n  : payload\n    ```\ncode\n  ```\nafter\n",
-    "html": "<ul><li>term\n: payload\n    <pre><code></code></pre></li></ul><p>code\n<code>\nafter</code></p>",
+    "html": "<ul><li>term\n: payload\n    <pre><code></code></pre></li></ul><p>code</p><pre><code>after\n</code></pre>",
     "codePayloads": [
-      ""
+      "",
+      "after\n"
     ]
   },
   {
     "id": "floor-body-4-0-1",
     "source": "> - term\n>   : payload\n>     ```\n> code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code></code></pre></li></ul><p>code\n<code>\nafter</code></p></blockquote>",
+    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code></code></pre></li></ul><p>code</p><pre><code>after\n</code></pre></blockquote>",
     "codePayloads": [
-      ""
+      "",
+      "after\n"
     ]
   },
   {
     "id": "floor-body-4-1-0",
     "source": "- term\n  : payload\n    ```\n code\n  ```\nafter\n",
-    "html": "<ul><li>term\n: payload\n    <pre><code></code></pre></li></ul><p>code\n<code>\nafter</code></p>",
+    "html": "<ul><li>term\n: payload\n    <pre><code></code></pre></li></ul><p>code</p><pre><code>after\n</code></pre>",
     "codePayloads": [
-      ""
+      "",
+      "after\n"
     ]
   },
   {
     "id": "floor-body-4-1-1",
     "source": "> - term\n>   : payload\n>     ```\n>  code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code></code></pre></li></ul><p>code\n<code>\nafter</code></p></blockquote>",
+    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code></code></pre></li></ul><p>code</p><pre><code>after\n</code></pre></blockquote>",
     "codePayloads": [
-      ""
+      "",
+      "after\n"
     ]
   },
   {
@@ -2984,33 +3034,37 @@
   {
     "id": "floor-body-6-0-0",
     "source": "- term\n  : payload\n      ```\ncode\n  ```\nafter\n",
-    "html": "<ul><li>term\n: payload\n    <pre><code></code></pre></li></ul><p>code\n<code>\nafter</code></p>",
+    "html": "<ul><li>term\n: payload\n    <pre><code></code></pre></li></ul><p>code</p><pre><code>after\n</code></pre>",
     "codePayloads": [
-      ""
+      "",
+      "after\n"
     ]
   },
   {
     "id": "floor-body-6-0-1",
     "source": "> - term\n>   : payload\n>       ```\n> code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code></code></pre></li></ul><p>code\n<code>\nafter</code></p></blockquote>",
+    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code></code></pre></li></ul><p>code</p><pre><code>after\n</code></pre></blockquote>",
     "codePayloads": [
-      ""
+      "",
+      "after\n"
     ]
   },
   {
     "id": "floor-body-6-1-0",
     "source": "- term\n  : payload\n      ```\n code\n  ```\nafter\n",
-    "html": "<ul><li>term\n: payload\n    <pre><code></code></pre></li></ul><p>code\n<code>\nafter</code></p>",
+    "html": "<ul><li>term\n: payload\n    <pre><code></code></pre></li></ul><p>code</p><pre><code>after\n</code></pre>",
     "codePayloads": [
-      ""
+      "",
+      "after\n"
     ]
   },
   {
     "id": "floor-body-6-1-1",
     "source": "> - term\n>   : payload\n>       ```\n>  code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code></code></pre></li></ul><p>code\n<code>\nafter</code></p></blockquote>",
+    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code></code></pre></li></ul><p>code</p><pre><code>after\n</code></pre></blockquote>",
     "codePayloads": [
-      ""
+      "",
+      "after\n"
     ]
   },
   {
@@ -3096,33 +3150,37 @@
   {
     "id": "floor-body-8-0-0",
     "source": "- term\n  : payload\n        ```\ncode\n  ```\nafter\n",
-    "html": "<ul><li>term\n: payload\n    <pre><code></code></pre></li></ul><p>code\n<code>\nafter</code></p>",
+    "html": "<ul><li>term\n: payload\n    <pre><code></code></pre></li></ul><p>code</p><pre><code>after\n</code></pre>",
     "codePayloads": [
-      ""
+      "",
+      "after\n"
     ]
   },
   {
     "id": "floor-body-8-0-1",
     "source": "> - term\n>   : payload\n>         ```\n> code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code></code></pre></li></ul><p>code\n<code>\nafter</code></p></blockquote>",
+    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code></code></pre></li></ul><p>code</p><pre><code>after\n</code></pre></blockquote>",
     "codePayloads": [
-      ""
+      "",
+      "after\n"
     ]
   },
   {
     "id": "floor-body-8-1-0",
     "source": "- term\n  : payload\n        ```\n code\n  ```\nafter\n",
-    "html": "<ul><li>term\n: payload\n    <pre><code></code></pre></li></ul><p>code\n<code>\nafter</code></p>",
+    "html": "<ul><li>term\n: payload\n    <pre><code></code></pre></li></ul><p>code</p><pre><code>after\n</code></pre>",
     "codePayloads": [
-      ""
+      "",
+      "after\n"
     ]
   },
   {
     "id": "floor-body-8-1-1",
     "source": "> - term\n>   : payload\n>         ```\n>  code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code></code></pre></li></ul><p>code\n<code>\nafter</code></p></blockquote>",
+    "html": "<blockquote><ul><li>term\n: payload\n      <pre><code></code></pre></li></ul><p>code</p><pre><code>after\n</code></pre></blockquote>",
     "codePayloads": [
-      ""
+      "",
+      "after\n"
     ]
   },
   {
@@ -3208,14 +3266,20 @@
   {
     "id": "item-boundary-0",
     "source": "> - a\n>     ```\n> - sibling\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code></code></li><li>sibling\n<code>\nafter</code></li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>a\n      <pre><code></code></pre></li><li>sibling\n      <pre><code></code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "",
+      ""
+    ]
   },
   {
     "id": "item-boundary-1",
     "source": "> - a\n>     ```\n>\n> - sibling\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li><p>a\n<code></code></p></li><li><p>sibling\n<code>\nafter</code></p></li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li><p>a</p><pre><code></code></pre></li><li><p>sibling</p><pre><code></code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "\n",
+      ""
+    ]
   },
   {
     "id": "item-boundary-2",
@@ -3236,32 +3300,47 @@
   {
     "id": "item-boundary-4",
     "source": "> - a\n>     ```\n> 1. sibling\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code></code></li></ul><ol><li>sibling\n<code>\nafter</code></li></ol></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>a\n      <pre><code></code></pre></li></ul><ol><li>sibling</li></ol><pre><code>after\n</code></pre></blockquote>",
+    "codePayloads": [
+      "",
+      "after\n"
+    ]
   },
   {
     "id": "item-boundary-5",
     "source": "> - a\n>     ```\n>\n> 1. sibling\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code></code></li></ul><ol><li>sibling\n<code>\nafter</code></li></ol></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>a\n      <pre><code></code></pre></li></ul><ol><li>sibling</li></ol><pre><code>after\n</code></pre></blockquote>",
+    "codePayloads": [
+      "\n",
+      "after\n"
+    ]
   },
   {
     "id": "item-boundary-6",
     "source": "> - a\n>     ```\n> - [ ] task\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code></code></li></ul><ul class=\"task-list\"><li><input type=\"checkbox\" disabled aria-label=\"task after\"> task\n<code>\nafter</code></li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>a\n      <pre><code></code></pre></li></ul><ul class=\"task-list\"><li><input type=\"checkbox\" disabled aria-label=\"task\"> task\n      <pre><code></code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "",
+      ""
+    ]
   },
   {
     "id": "item-boundary-7",
     "source": "> - a\n>     ```\n>\n> - [ ] task\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code></code></li></ul><ul class=\"task-list\"><li><input type=\"checkbox\" disabled aria-label=\"task after\"> task\n<code>\nafter</code></li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>a\n      <pre><code></code></pre></li></ul><ul class=\"task-list\"><li><input type=\"checkbox\" disabled aria-label=\"task\"> task\n      <pre><code></code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "\n",
+      ""
+    ]
   },
   {
     "id": "blank-boundary-8",
     "source": "> - a\n>     ```\n>\n> outside\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code></code></li></ul><p>outside\n<code>\nafter</code></p></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li>a\n      <pre><code></code></pre></li></ul><p>outside</p><pre><code>after\n</code></pre></blockquote>",
+    "codePayloads": [
+      "\n",
+      "after\n"
+    ]
   },
   {
     "id": "blank-boundary-9",
@@ -3274,16 +3353,20 @@
   {
     "id": "blank-boundary-10",
     "source": "> - a\n>     ```\n>\n>  # heading\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li>a\n<code></code></li></ul><h1 id=\"heading\">heading</h1><pre><code>after\n</code></pre></blockquote>",
+    "html": "<blockquote><ul><li>a\n      <pre><code></code></pre></li></ul><h1 id=\"heading\">heading</h1><pre><code>after\n</code></pre></blockquote>",
     "codePayloads": [
+      "\n",
       "after\n"
     ]
   },
   {
     "id": "authored-code-hosts-0",
     "source": "- :: term\n  : payload\n    ```\n    code\n  ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul>",
-    "codePayloads": []
+    "html": "<ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl><pre><code></code></pre></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n",
+      ""
+    ]
   },
   {
     "id": "authored-code-hosts-1",
@@ -3296,20 +3379,27 @@
   {
     "id": "authored-code-hosts-2",
     "source": "- :: term\n  : payload\n    ```\n    code\n      ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul>",
-    "codePayloads": []
+    "html": "<ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n  ```\n</code></pre></dd></dl></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n  ```\n"
+    ]
   },
   {
     "id": "authored-code-hosts-3",
     "source": "- :: term\n  : payload\n    ```\n    code\n        ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul>",
-    "codePayloads": []
+    "html": "<ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n    ```\n</code></pre></dd></dl></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n    ```\n"
+    ]
   },
   {
     "id": "authored-code-hosts-4",
     "source": "- :: term\n  : payload\n      ```\n      code\n  ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul>",
-    "codePayloads": []
+    "html": "<ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl><pre><code></code></pre></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n",
+      ""
+    ]
   },
   {
     "id": "authored-code-hosts-5",
@@ -3330,14 +3420,19 @@
   {
     "id": "authored-code-hosts-7",
     "source": "- :: term\n  : payload\n      ```\n      code\n        ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul>",
-    "codePayloads": []
+    "html": "<ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n  ```\n</code></pre></dd></dl></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n  ```\n"
+    ]
   },
   {
     "id": "authored-code-hosts-8",
     "source": "- :: term\n  : payload\n        ```\n        code\n  ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul>",
-    "codePayloads": []
+    "html": "<ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl><pre><code></code></pre></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n",
+      ""
+    ]
   },
   {
     "id": "authored-code-hosts-9",
@@ -3444,8 +3539,11 @@
   {
     "id": "authored-code-hosts-24",
     "source": "> - :: term\n>   : payload\n>     ```\n>     code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl><pre><code></code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n",
+      ""
+    ]
   },
   {
     "id": "authored-code-hosts-25",
@@ -3458,20 +3556,27 @@
   {
     "id": "authored-code-hosts-26",
     "source": "> - :: term\n>   : payload\n>     ```\n>     code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n  ```\n</code></pre></dd></dl></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n  ```\n"
+    ]
   },
   {
     "id": "authored-code-hosts-27",
     "source": "> - :: term\n>   : payload\n>     ```\n>     code\n>         ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n    ```\n</code></pre></dd></dl></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n    ```\n"
+    ]
   },
   {
     "id": "authored-code-hosts-28",
     "source": "> - :: term\n>   : payload\n>       ```\n>       code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl><pre><code></code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n",
+      ""
+    ]
   },
   {
     "id": "authored-code-hosts-29",
@@ -3492,14 +3597,19 @@
   {
     "id": "authored-code-hosts-31",
     "source": "> - :: term\n>   : payload\n>       ```\n>       code\n>         ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n  ```\n</code></pre></dd></dl></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n  ```\n"
+    ]
   },
   {
     "id": "authored-code-hosts-32",
     "source": "> - :: term\n>   : payload\n>         ```\n>         code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl><pre><code></code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n",
+      ""
+    ]
   },
   {
     "id": "authored-code-hosts-33",
@@ -3606,8 +3716,11 @@
   {
     "id": "authored-code-hosts-48",
     "source": "> > - :: term\n> >   : payload\n> >     ```\n> >     code\n> >   ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl><pre><code></code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n",
+      ""
+    ]
   },
   {
     "id": "authored-code-hosts-49",
@@ -3620,20 +3733,27 @@
   {
     "id": "authored-code-hosts-50",
     "source": "> > - :: term\n> >   : payload\n> >     ```\n> >     code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n  ```\n</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n  ```\n"
+    ]
   },
   {
     "id": "authored-code-hosts-51",
     "source": "> > - :: term\n> >   : payload\n> >     ```\n> >     code\n> >         ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n    ```\n</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n    ```\n"
+    ]
   },
   {
     "id": "authored-code-hosts-52",
     "source": "> > - :: term\n> >   : payload\n> >       ```\n> >       code\n> >   ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl><pre><code></code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n",
+      ""
+    ]
   },
   {
     "id": "authored-code-hosts-53",
@@ -3654,14 +3774,19 @@
   {
     "id": "authored-code-hosts-55",
     "source": "> > - :: term\n> >   : payload\n> >       ```\n> >       code\n> >         ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n  ```\n</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n  ```\n"
+    ]
   },
   {
     "id": "authored-code-hosts-56",
     "source": "> > - :: term\n> >   : payload\n> >         ```\n> >         code\n> >   ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl><pre><code></code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n",
+      ""
+    ]
   },
   {
     "id": "authored-code-hosts-57",

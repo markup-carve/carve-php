@@ -42,7 +42,8 @@ class LineBlockThematicPaddingTest extends TestCase
 
     public function testOrdinaryParagraphGuardsAndThematicBreaksStayUnchanged(): void
     {
-        foreach ([" ---\n", "---\n"] as $source) {
+        // ` ---` is a break under rule A and a bare `---` opens frontmatter; both have other canonical forms.
+        foreach (["\\---\n", "***\n"] as $source) {
             $this->assertSame($source, CarveConverter::toCarve($source));
         }
     }

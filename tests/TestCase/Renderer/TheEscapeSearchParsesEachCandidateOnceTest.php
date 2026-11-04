@@ -23,9 +23,10 @@ final class TheEscapeSearchParsesEachCandidateOnceTest extends TestCase
      */
     public static function documents(): iterable
     {
-        yield 'every block escalates' => [str_repeat("  ## H\n\n", 20)];
-        yield 'every line holds a failing and an idle occurrence' => [str_repeat(" | a |\n", 20)];
-        yield 'failing blocks among idle ones' => ["a\n\n" . str_repeat("  ## H\n\nplain *x* text\n\n - b\n\n", 8)];
+        // `_a__a_` reads `{_a_}` then literal `_a_`, which minimal mode cannot spell; indented `## H` is a heading under rule A.
+        yield 'every block escalates' => [str_repeat("_a__a_\n\n", 20)];
+        yield 'every line holds a failing and an idle occurrence' => [str_repeat("_a__a_\n", 20)];
+        yield 'failing blocks among idle ones' => ["a\n\n" . str_repeat("_a__a_\n\nplain *x* text\n\n - b\n\n", 8)];
     }
 
     #[DataProvider('documents')]

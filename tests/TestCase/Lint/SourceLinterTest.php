@@ -28,7 +28,8 @@ class SourceLinterTest extends TestCase
             'heading-trailing-attribute' => "# Title {#id}\n",
             'fence-opener-fallback' => "```php, bad\ncode\n```\n",
             'blockquote-marker-without-space' => ">quoted\n",
-            'block-marker-as-text' => "  ::: note\n",
+            // `  ::: note` opens a container under rule A.
+            'block-marker-as-text' => "  :::note\n",
             'list-item-body-detached' => "1. item\n\n  # heading\n",
             'list-item-block-overindented' => "-{.x1} item\n\n       # heading\n",
             'empty-include-path' => "{{ #section }}\n",

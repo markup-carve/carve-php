@@ -24,7 +24,8 @@ final class MarkdownLiteralTermMarkerTest extends TestCase
     {
         return [
             'space after marker' => ["\\:: term\n", "\\:: term\n"],
-            'nested paragraph term' => ["- one\n :: term\n :  def\n", "- one\n  \\:: term\n  :  def\n"],
+            // Escaped: under rule A a bare ` :: term` opens a description list.
+            'nested paragraph term' => ["- one\n  \\:: term\n  :  def\n", "- one\n  \\:: term\n  :  def\n"],
             'tab after marker' => ["::\tterm\n:  d\n", "\\::\tterm\n:  d\n"],
             'bare marker' => ["\\::\n", "::\n"],
         ];

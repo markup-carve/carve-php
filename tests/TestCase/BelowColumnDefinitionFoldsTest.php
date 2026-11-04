@@ -110,10 +110,16 @@ class BelowColumnDefinitionFoldsTest extends TestCase
     {
         // The regression this fixes is content LOSS, so assert the text is
         // present rather than only where it landed.
-        foreach (['[^f]: x', '[a]: /u', '*[A]: x'] as $definition) {
-            $html = $this->converter->convert("- - a\n " . $definition);
+        // Under rule A the line registers as a definition, so its payload surfaces through a reference.
+        $cases = [
+            '[^f]: x' => ['see[^f]', '<p>x<a href="#fnref1"'],
+            '[a]: /u' => ['see [t][a]', '<a href="/u">t</a>'],
+            '*[A]: x' => ['see A', '<abbr title="x">A</abbr>'],
+        ];
+        foreach ($cases as $definition => [$reference, $payload]) {
+            $html = $this->converter->convert("- - a\n " . $definition . "\n\n" . $reference);
 
-            $this->assertStringContainsString($definition, $html, $definition . ' vanished');
+            $this->assertStringContainsString($payload, $html, $definition . ' vanished');
         }
     }
 

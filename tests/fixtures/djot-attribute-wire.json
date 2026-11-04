@@ -3226,7 +3226,7 @@
   {
     "name": "owner-review-2",
     "source": "- item\n  more\n{}\n- b",
-    "html": "<ul><li>item\nmore</li></ul><ul><li>b</li></ul>",
+    "html": "<ul><li>item\nmore</li><li>b</li></ul>",
     "table": true
   },
   {
@@ -3298,7 +3298,7 @@
   {
     "name": "owner-review-14",
     "source": "- item\n{}\n- b",
-    "html": "<ul><li>item</li></ul><ul><li>b</li></ul>",
+    "html": "<ul><li>item</li><li>b</li></ul>",
     "table": true
   },
   {
@@ -3346,7 +3346,7 @@
   {
     "name": "owner-review-22",
     "source": "> - item\n> {}\n> - b",
-    "html": "<blockquote><ul><li>item</li></ul><ul><li>b</li></ul></blockquote>",
+    "html": "<blockquote><ul><li>item</li><li>b</li></ul></blockquote>",
     "table": true
   },
   {
