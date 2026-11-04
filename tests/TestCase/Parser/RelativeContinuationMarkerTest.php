@@ -95,7 +95,7 @@ class RelativeContinuationMarkerTest extends TestCase
     public function testIndentedFirstBlockMarkerUsesTheOpenerColumn(): void
     {
         $linter = new FenceAndContinuationLinter();
-        foreach ([0 => false, 1 => true, 2 => false, 3 => true, 4 => false] as $column => $refused) {
+        foreach ([0 => true, 1 => true, 2 => false, 3 => true, 4 => true] as $column => $refused) {
             $fence = str_repeat(' ', $column) . '```';
             $source = "- foo\n  - +\n{$fence}\n" . str_repeat(' ', $column) . "x\n{$fence}\n";
             $warnings = array_values(array_filter(

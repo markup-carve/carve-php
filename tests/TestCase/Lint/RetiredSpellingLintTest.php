@@ -203,7 +203,8 @@ class RetiredSpellingLintTest extends TestCase
             'a quote marker with no space' => [">|{#x}< a |\n"],
             'a bullet with no space' => ["-|{#x}< a |\n"],
             'a doubled quote marker' => [">> |{#x}< a |\n"],
-            'an indented line at top level' => ["  |{#x}< a |\n"],
+            // Escaped: under rule A an indented row at top level is a table.
+            'an indented line at top level' => ["  \\|{#x}< a |\n"],
         ];
     }
 

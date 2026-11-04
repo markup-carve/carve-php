@@ -13,7 +13,6 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
-use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -284,34 +283,15 @@ class MultilineInlineCodeTest extends TestCase
                     unset($child);
                     $document = $codec->decode($wire);
                     $writer = new CarveRenderer();
-                    if ($host === 'paragraph' || $host === 'list') {
-                        try {
-                            $writer->render($document);
-                            $this->fail('Expected a source refusal');
-                        } catch (SourceUnspellableException $exception) {
-                            $this->assertSame($type, $exception->nodeType);
-                            $this->assertSame('a block-marker continuation cannot stay inside a footnote body', $exception->reason);
-                        }
-
-                        continue;
+                    // Under rule A the line opens a block in every host; carve-js refuses all of them too.
+                    $refusal = $host === 'paragraph' ? 'a block-marker continuation cannot stay inside a footnote body' : 'a line of the value opens a block in its host';
+                    try {
+                        $writer->render($document);
+                        $this->fail('Expected a source refusal');
+                    } catch (SourceUnspellableException $exception) {
+                        $this->assertSame($type, $exception->nodeType);
+                        $this->assertSame($refusal, $exception->reason);
                     }
-                    $written = $writer->render($document);
-                    $this->assertSame($this->htmlTree((new HtmlRenderer())->render($document)), $this->htmlTree($converter->convert($written)));
-                    $stack = [$codec->encode($converter->parse($written))];
-                    $payloads = [];
-                    while ($stack !== []) {
-                        $node = array_pop($stack);
-                        if (($node['type'] ?? null) === $type) {
-                            $payloads[] = $node[$type === 'code' ? 'value' : 'content'];
-                        }
-                        foreach ($node as $child) {
-                            if (is_array($child)) {
-                                $stack[] = $child;
-                            }
-                        }
-                    }
-                    $this->assertSame([$value], $payloads);
-                    $this->assertSame($written, $writer->render($converter->parse($written)));
                 }
             }
         }

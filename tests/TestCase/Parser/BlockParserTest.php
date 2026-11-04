@@ -301,12 +301,10 @@ class BlockParserTest extends TestCase
 
     public function testThematicBreakIsContiguousColumnZeroOnly(): void
     {
-        // §262: a thematic break is a column-0 run of >= 3 IDENTICAL `-`/`*`/`_`,
-        // contiguous (no leading or internal whitespace). Trailing whitespace is
-        // allowed. Markdown's loose spaced/indented forms are NOT thematic breaks.
+        // §262: a run of >= 3 IDENTICAL `-`/`*`/`_`; trailing whitespace is allowed.
 
         // Contiguous col-0 runs stay thematic breaks (trailing whitespace ok).
-        foreach (['***', '----', '___', '*****', '*** ', "***\t"] as $hr) {
+        foreach (['***', '----', '___', '*****', '*** ', "***\t", '* * *', '- - -'] as $hr) {
             $doc = $this->parser->parse($hr);
             $this->assertInstanceOf(
                 ThematicBreak::class,
@@ -315,8 +313,8 @@ class BlockParserTest extends TestCase
             );
         }
 
-        // Internal spaces: `* * *` / `- - -` become lists, `_ _ _` a paragraph.
-        foreach (['* * *', '- - -', '_ _ _', '*** *', '-*-*-', '****-'] as $notHr) {
+        // Spaced `* * *` / `- - -` are breaks under rule A (carve-js agrees); these are not.
+        foreach (['_ _ _', '*** *', '-*-*-', '****-'] as $notHr) {
             $doc = $this->parser->parse($notHr);
             $this->assertNotInstanceOf(
                 ThematicBreak::class,
@@ -325,13 +323,13 @@ class BlockParserTest extends TestCase
             );
         }
 
-        // Leading indentation disqualifies the run (it becomes a paragraph).
+        // Under rule A an indented run is still a thematic break (carve-js agrees).
         foreach ([' ***', '  ---', "\t***"] as $indented) {
             $doc = $this->parser->parse($indented);
             $this->assertInstanceOf(
-                Paragraph::class,
+                ThematicBreak::class,
                 $doc->getChildren()[0],
-                'Expected paragraph for indented run: ' . json_encode($indented),
+                'Expected thematic break for indented run: ' . json_encode($indented),
             );
         }
     }

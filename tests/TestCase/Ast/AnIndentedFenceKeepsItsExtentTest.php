@@ -67,12 +67,12 @@ class AnIndentedFenceKeepsItsExtentTest extends TestCase
         $fence = str_repeat('`', 3);
 
         return [
-            // The reported document. Offsets 1-15 are the whole run, opener and
-            // closer included; carve-rs publishes exactly that.
-            'an indented fence folding into a run' => [' ' . $fence . "\n code\n " . $fence . "\n", 1, 15],
+            // Under rule A an indented fence opens a code block, so the run opens mid-line.
+            // Offsets 2-18 are the whole run, opener and closer included.
+            'an indented fence folding into a run' => ['a ' . $fence . "\n code\n b " . $fence . "\n", 2, 18],
             // Two columns of indent, so two gaps per line rather than one -
             // the same shape, further from the boundary that used to decide it.
-            'a fence indented two columns' => ['  ' . $fence . "\n  code\n  " . $fence . "\n", 2, 18],
+            'a fence indented two columns' => ['a ' . $fence . "\n  code\n  b " . $fence . "\n", 2, 20],
         ];
     }
 

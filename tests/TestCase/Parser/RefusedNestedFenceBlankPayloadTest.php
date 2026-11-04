@@ -21,7 +21,7 @@ class RefusedNestedFenceBlankPayloadTest extends TestCase
 
         yield 'wrong column' => ["- a\n  - ```\n    x\n\n +\n  > q\n", $detached];
         yield 'letter at the same column' => ["- a\n  - ```\n    x\n\n z\n  > q\n", $letter];
-        yield 'document column' => ["- a\n  - ```\n    x\n\n+\n  > q\n", "<ul>\n  <li>a\n    <ul>\n      <li>\n        <pre><code>x\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>+\n&gt; q</p>"];
+        yield 'document column' => ["- a\n  - ```\n    x\n\n+\n  > q\n", "<ul>\n  <li>a\n    <ul>\n      <li>\n        <pre><code>x\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>&gt; q</p>"];
         yield 'nested marker column' => ["- a\n  - ```\n    x\n\n  +\n  > q\n", $attached];
         yield 'tilde fence' => ["- a\n  - ~~~\n    x\n\n +\n  > q\n", $detached];
         yield 'two payload blanks' => ["- a\n  - ```\n    x\n\n\n +\n  > q\n", str_replace("x\n\n</code>", "x\n\n\n</code>", $detached)];

@@ -16,9 +16,10 @@ class UnclosedCommentKeepsFollowingContainerTest extends TestCase
     public function testThreePercentLineDoesNotHideNestedContainer(): void
     {
         $render = static fn (string $source): string => (new HtmlRenderer())->render((new BlockParser())->parse($source));
-        self::assertSame($render("- tail\n  %%\n   :::: \n"), $render("- tail\n  %%%\n   :::: \n"));
-        self::assertStringContainsString('<div>', $render("- tail\n  %%%\n   ::::\n"));
-        $nested = "> 1. 1. - b\n>    \t {.c}\n>    %%%\n>     \t ::: note\n";
-        self::assertStringContainsString('<p class="c">::: note</p>', $render($nested));
+        // Under rule A an unclosed `%%%` hides everything its container owns, so the follower sits at column 0.
+        self::assertSame($render("- tail\n  %%\n:::: \n"), $render("- tail\n  %%%\n:::: \n"));
+        self::assertStringContainsString('<div>', $render("- tail\n  %%%\n::::\n"));
+        $nested = "> 1. 1. - b\n>    \t {.c}\n>    %%%\n> ::: note\n";
+        self::assertStringContainsString('<aside class="admonition note"', $render($nested));
     }
 }
