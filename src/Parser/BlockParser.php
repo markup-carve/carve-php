@@ -4541,7 +4541,7 @@ class BlockParser
     {
         $lines = explode("\n", $part);
         $count = count($lines);
-        for ($k = 1; $k < $count; $k++) {
+        for ($k = 0; $k < $count; $k++) {
             $line = ltrim($lines[$k], " \t");
             if (!str_starts_with($line, '{') || str_starts_with($line, '{%')) {
                 continue;
@@ -6530,6 +6530,7 @@ class BlockParser
             $this->keptCommentDelimiter(...),
             fn (): BlockQuoteBuilder => $this->quotesBuilder(),
             $this->wrappedBlockAttributeLength(...),
+            fn (array $lines, int $start): ?int => RefusedBraceRun::end($lines, $start, $this->inlineParser),
         );
     }
 

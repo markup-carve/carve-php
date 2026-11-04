@@ -200,6 +200,11 @@ final class PlainContinuationState
 
     public bool $spanFromMarkerLine = false;
 
+    /**
+     * Index past the refused brace run the last line opened, so the line there joins its paragraph (CARVE-P2-035).
+     */
+    public ?int $refusedBraceEnd = null;
+
     public function __construct()
     {
         $this->blankRun = new ItemBlankRunState();
