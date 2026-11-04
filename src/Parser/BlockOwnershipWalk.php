@@ -1847,8 +1847,16 @@ final class BlockOwnershipWalk
     {
         $kind = $this->frames[$frame]->kind;
         $parent = $this->frames[$frame - 1]->kind ?? 'doc';
+        if ($kind === 'quote') {
+            $host = $frame - 1;
+            while (($this->frames[$host]->kind ?? 'doc') === 'quote') {
+                $host--;
+            }
+            $parent = $this->frames[$host]->kind ?? 'doc';
+        }
 
-        return !$this->framesHoldNote() && ($kind === 'item' || ($kind === 'dd' && $parent === 'item'));
+        return !$this->framesHoldNote() && ($kind === 'item' || ($kind === 'dd' && $parent === 'item')
+            || ($kind === 'quote' && ($parent === 'item' || $parent === 'dd')));
     }
 
     private function framesHoldNote(): bool
