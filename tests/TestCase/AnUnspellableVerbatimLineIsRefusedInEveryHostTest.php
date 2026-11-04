@@ -63,7 +63,7 @@ class AnUnspellableVerbatimLineIsRefusedInEveryHostTest extends TestCase
     public static function unspellableValues(): array
     {
         $rows = [];
-        foreach (["a\n> b", "a\n# h", "a\n[^d]: u", "a\n%% c", "a\n:: t", "a\n*[H]: x", "a\n>\nc", "a\n[d]: u\nc", "a\n[d]:\nc", "a\n:::\nc", "a\n```\nc", "a\n{.c}\nc", "a\n| x |\nc", "a\n***\nc", "a\n-\nc", "a\n> "] as $value) {
+        foreach (["a\n> b", "a\n# h", "a\n[^d]: u", "a\n%% c", "a\n:: t", "a\n*[H]: x", "a\n>\nc", "a\n[d]: u\nc", "a\n[d]:\nc", "a\n:::\nc", "a\n```\nc", "a\n{.c}\nc", "a\n| x |\nc", "a\n***\nc", "a\n> "] as $value) {
             foreach (array_keys(self::HOSTS) as $host) {
                 $rows[$host . ': ' . json_encode($value)] = [$host, $value];
             }
@@ -90,7 +90,7 @@ class AnUnspellableVerbatimLineIsRefusedInEveryHostTest extends TestCase
     public static function spellableValues(): array
     {
         $rows = [];
-        foreach (["a\nb\nc", "a\n[d]: u", "a\n[d]:", "a\n:::", "a\n```", "a\n{.c}", "a\n| x |", "a\n***", "a\n>", "a\n>b", "a\n#", "a\n#h", "a\n::t", "a\n[^d]:", "a\n*[H]:", "a\n_ _ _\nc", "a\n{}\nc", "a\n+ b"] as $value) {
+        foreach (["a\nb\nc", "a\n[d]: u", "a\n[d]:", "a\n:::", "a\n```", "a\n{.c}", "a\n| x |", "a\n***", "a\n>", "a\n>b", "a\n#", "a\n#h", "a\n::t", "a\n[^d]:", "a\n*[H]:", "a\n_ _ _\nc", "a\n{}\nc", "a\n+ b", "a\n~~~!\nc", "a\n```!\nc", "a\n{abc!}\nc", "a\n{.}\nc", "a\n::: !\nc", "a\n-- -\nc", "a\n-\nc"] as $value) {
             foreach (array_keys(self::HOSTS) as $host) {
                 $rows[$host . ': ' . json_encode($value)] = [$host, $value];
             }

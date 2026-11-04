@@ -294,12 +294,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * @var string
      */
-    private const VERBATIM_INNER_LINE_OPENER = '/^(?:>[ \t]*$|-$|:{3,}(?:[ \t]*$|[ \t]+[^ \t:])|`{3,}(?![`{])|~{3,}|\{(?![=}])[^\n]*\}[ \t]*$|\|.*\|[ \t]*$|(?:\*[ \t]*){3,}$|(?:-[ \t]*){3,}$|_{3,}[ \t]*$)/';
+    private const VERBATIM_INNER_LINE_OPENER = '/^(?:>[ \t]*$|:{3,}(?:[ \t]*$|[ \t]+[^ \t:])|`{3,}(?![`{])|~{3,}|\{(?![=}])[^\n]*\}[ \t]*$|\|.*\|[ \t]*$|(?:\*[ \t]*){3,}$|(?:-[ \t]*){3,}$|_{3,}[ \t]*$)/';
 
     /**
      * @var string
      */
-    private const VERBATIM_MARKER_BODY_OPENER = '/^(?:-$|[-*.] +[^ ]|[0-9]+[.)] +[^ ])/';
+    private const VERBATIM_MARKER_BODY_OPENER = '/^(?:[-*.] +[^ ]|[0-9]+[.)] +[^ ])/';
 
     /**
      * @var string
@@ -575,6 +575,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     private ?array $pendingVerbatimCellWraps = null;
 
     private ?ReferenceDefinitionExtractor $verbatimDefinitions = null;
+
+    /**
+     * @var array<string, bool>
+     */
+    private array $verbatimLineProbes = [];
 
     /**
      * @var list<string>|null
@@ -6268,7 +6273,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $closed = $i === $last ? $line . '`' : $line;
             if (
                 preg_match(self::VERBATIM_LINE_OPENER, $closed) === 1
-                || $i < $last && preg_match(self::VERBATIM_INNER_LINE_OPENER, $line) === 1
+                || $i < $last && preg_match(self::VERBATIM_INNER_LINE_OPENER, $line) === 1 && $this->verbatimLineEndsAParagraph($line)
                 || str_starts_with($line, '[') && $this->verbatimLineIsADefinition($i < $last ? [$line] : [$line . '`', $line . ' `'])
                 || $markerBody && preg_match(self::VERBATIM_MARKER_BODY_OPENER, $closed) === 1
             ) {
@@ -6285,6 +6290,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 );
             }
         }
+    }
+
+    /**
+     * The opener shapes are only a prefilter: the reader decides whether the line leaves the paragraph.
+     */
+    private function verbatimLineEndsAParagraph(string $line): bool
+    {
+        if (!isset($this->verbatimLineProbes[$line])) {
+            $children = (new CarveConverter())->parse("a\n{$line}\nc\n")->getChildren();
+            $this->verbatimLineProbes[$line] = count($children) !== 1 || !$children[0] instanceof Paragraph;
+        }
+
+        return $this->verbatimLineProbes[$line];
     }
 
     /**
