@@ -978,6 +978,11 @@ class BlockParser
         // abbreviation-expansion budget (output-amplification DoS guard).
         $document->setSourceLength($sourceLength);
 
+        // A refused `+` is consumed and leaves no node (CARVE-P11-040); its stand-in only reached the spans.
+        foreach ($this->state->session->consumedPlusComments as $comment) {
+            $comment->getParent()?->removeChild($comment);
+        }
+
         if ($walk->letterPlus !== []) {
             $this->state->source->originalSource = $authoredSource;
             $this->state->source->authoredLines = $authoredPlusLines;
@@ -2992,6 +2997,9 @@ class BlockParser
             }
             $comment = new Comment(rtrim($content, " \t"));
             $sourceLine = $this->sourceLineFor($start);
+            if ($content === '' && array_key_exists($sourceLine, $this->state->source->refusedPlus)) {
+                $this->state->session->consumedPlusComments[] = $comment;
+            }
             $sourceText = $this->state->source->sourceLines[$sourceLine] ?? '';
             // A comment is a LEAF, so its span begins at the `%` markup, not in
             // the leading indentation or a container marker it follows - the

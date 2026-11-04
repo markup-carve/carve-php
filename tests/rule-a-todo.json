@@ -34,18 +34,6 @@
             "ticket": "carve-php#4581"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-3\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-3\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-3\"",
-            "ticket": "carve-php#4581"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-2\"",
             "ticket": "carve-php#4581"
         },
@@ -79,10 +67,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 385\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-3\"",
             "ticket": "carve-php#4581"
         },
         {
@@ -2100,18 +2084,6 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\PendingDefinitionTermFenceTest::testFencesPreservePendingTermOwnership with data set \"pending-term-static-review-64\"",
             "ticket": "carve-php#4308"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"842-a-plus-at-a-stacked-item-s-marker-column-reaches-it-2\"",
-            "ticket": "carve-php#4328"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"842-a-plus-at-a-stacked-item-s-marker-column-reaches-it-2\"",
-            "ticket": "carve-php#4328"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"842-a-plus-at-a-stacked-item-s-marker-column-reaches-it-2\"",
-            "ticket": "carve-php#4328"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheWriterInventsNoEscapeTheReParseDoesNotNeed with data set \"839-a-quoted-row-attribute-value-may-hold-a-pipe\"",
