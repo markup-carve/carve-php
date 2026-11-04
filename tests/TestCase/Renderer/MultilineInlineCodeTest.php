@@ -118,24 +118,14 @@ class MultilineInlineCodeTest extends TestCase
                 }
                 $wire['children'][1]['children'][0]['items'][0]['children'] = [$node];
                 $document = $codec->decode($wire);
-                $renderer = new CarveRenderer();
-                if ($line !== ' > y') {
-                    try {
-                        $renderer->render($document);
-                        $this->fail('An unsafe footnote term must refuse to render.');
-                    } catch (SourceUnspellableException $error) {
-                        $this->assertSame($type, $error->nodeType);
-                        $this->assertSame($line[0] === ' ' ? 'a block-marker continuation cannot stay inside a footnote body' : 'a block marker on a continuation line ends the definition term', $error->reason);
-                    }
-
-                    continue;
+                try {
+                    (new CarveRenderer())->render($document);
+                    $this->fail('An unsafe footnote term must refuse to render.');
+                } catch (SourceUnspellableException $error) {
+                    $this->assertSame($type, $error->nodeType);
+                    // A term is one line under rule A, so an indented line ends it too (carve-php#4623).
+                    $this->assertSame($line[0] === ' ' ? 'a definition term holds one line, so a line break in the value ends it' : 'a block marker on a continuation line ends the definition term', $error->reason);
                 }
-                $written = $renderer->render($document);
-                $parsed = $converter->parse($written);
-                $this->assertSame($converter->render($document), $converter->render($parsed));
-                $actual = $codec->encode($parsed)['children'][1]['children'][0]['items'][0]['children'][0];
-                $this->assertSame($value, $actual[$type === 'code' ? 'value' : 'content']);
-                $this->assertSame($written, $renderer->render($parsed));
             }
         }
     }

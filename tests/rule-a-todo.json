@@ -50,10 +50,6 @@
             "ticket": "carve-php#4242"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\MultilineInlineCodeTest::testDefinitionTermsInsideFootnotesPreservePayloadsOrRefuseAccurately",
-            "ticket": "carve-php#4623"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TwoSiblingSubListsInATightItemTest::testSpellsTheBoundaryWithEveryHostPrefixHoweverDeep",
             "ticket": "carve-php#4624"
         },
