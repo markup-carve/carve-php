@@ -203,7 +203,7 @@ class DjotToCarve
      */
     public function convert(string $djot): string
     {
-        return EmptyListItemSpelling::spell($this->importDocument($djot));
+        return ErasedBoundaryComments::drop(EmptyListItemSpelling::spell($this->importDocument($djot)));
     }
 
     private function importDocument(string $djot): string

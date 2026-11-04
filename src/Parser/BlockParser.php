@@ -752,6 +752,19 @@ class BlockParser
         }
     }
 
+    /**
+     * Line indexes of the one-line `%%` comments PART 0 S1 erases before layout (carve#5012).
+     *
+     * @return array<int, int>
+     */
+    public function erasedCommentLines(string $input): array
+    {
+        $this->resetParseState();
+        $lines = $this->splitLines(str_replace("\0", "\u{FFFD}", StringUtil::toValidUtf8($input)));
+
+        return array_keys(array_filter($this->transparentErasedLines($lines, $input), static fn (array $line): bool => $line['comment']));
+    }
+
     private function parseDocument(string $input): Document
     {
         return $this->parseDocumentCore($input, true);
