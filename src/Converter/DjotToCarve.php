@@ -7008,20 +7008,25 @@ class DjotToCarve
             if ($known !== null && $known[0] < $at && $known[1] === $indent) {
                 continue;
             }
+            // The list starts at the first item the scan reaches: a blank
+            // between two items leaves them in one list, while lines above
+            // the first item, deeper or not, are not the list's.
             $start = $at;
-            while ($start > 0) {
-                $previous = $lines[$start - 1];
+            for ($above = $at - 1; $above >= 0; $above--) {
+                $previous = $lines[$above];
+                if (trim($previous) === '') {
+                    continue;
+                }
                 $column = strspn($previous, ' ');
-                if (trim($previous) !== '' && $column < $indent) {
+                if ($column < $indent) {
                     break;
                 }
-                if ($column === $indent && preg_match('/^ *(?:[-*+]|\d+[.)])(?: |$)/', $previous) !== 1) {
-                    break;
+                if ($column === $indent) {
+                    if (preg_match('/^ *(?:[-*+]|\d+[.)])(?: |$)/', $previous) !== 1) {
+                        break;
+                    }
+                    $start = $above;
                 }
-                $start--;
-            }
-            while (trim($lines[$start]) === '') {
-                $start++;
             }
             $known = [$start, $indent];
             if (($lines[$start - 1] ?? '') !== $lead[1] . '{loose}') {
