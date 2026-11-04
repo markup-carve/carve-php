@@ -330,6 +330,9 @@ final class BlockSourceMapper
                 $last = $span;
             }
         }
+        if ($node instanceof DefinitionList) {
+            $this->unplaceDescriptionsAcrossTerms($node, false);
+        }
 
         $own = $node->getPos();
         $allChildrenPlaced = count($node->getChildren()) === count(array_filter(
@@ -436,6 +439,37 @@ final class BlockSourceMapper
         $node->setPos($derived);
 
         return $derived;
+    }
+
+    /**
+     * A description whose leading comment sits before a term of its own entry
+     * omits `pos`: no contiguous span holds the comment without the term
+     * (CARVE-P12-027, CARVE-P12-022, carve#5167).
+     */
+    public function unplaceDescriptionsAcrossTerms(Node $node, bool $recurse = true, int $depth = 0): void
+    {
+        if ($node instanceof DefinitionList) {
+            $termStart = null;
+            foreach ($node->getChildren() as $child) {
+                $pos = $child->getPos();
+                if ($child instanceof DefinitionTerm) {
+                    $termStart = $pos?->startOffset;
+
+                    continue;
+                }
+                $first = $child->getChildren()[0] ?? null;
+                if ($pos !== null && $termStart !== null && $first instanceof Comment && $pos->startOffset < $termStart) {
+                    $child->setPos(null);
+                }
+                $termStart = null;
+            }
+        }
+        if (!$recurse || $depth >= BlockGrammar::MAX_NESTING_DEPTH * 4) {
+            return;
+        }
+        foreach ($node->getChildren() as $child) {
+            $this->unplaceDescriptionsAcrossTerms($child, true, $depth + 1);
+        }
     }
 
     /**

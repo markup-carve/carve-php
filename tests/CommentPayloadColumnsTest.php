@@ -60,10 +60,13 @@ class CommentPayloadColumnsTest extends TestCase
         $this->assertSame($formatted, CarveConverter::toCarve($formatted));
     }
 
+    /**
+     * The comment opens the description's body (CARVE-P12-027, carve#5167).
+     */
     public function testNestedTermKeepsTheCanonicalItemColumn(): void
     {
         $this->assertSame(
-            "- a\n  :: t\n   %%%\n  x\n   %%%\n  : d\n",
+            "- a\n  :: t\n  : %%%\n    x\n    %%%\n\n    d\n",
             CarveConverter::toCarve("- a\n  :: t\n    %%%\n  x\n    %%%\n  :  d\n"),
         );
     }

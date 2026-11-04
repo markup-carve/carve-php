@@ -151,6 +151,7 @@ trait TransparentLineErasure
             $this->insertTransparentNodes($document, $this->placeByOwner($document, $nested, $erased));
             $this->insertTransparentNodes($document, $hoisted, null);
             $this->coverChildSpans($document);
+            $this->sourceMapper()->unplaceDescriptionsAcrossTerms($document);
             $this->orderCollectedDefinitions($document);
             if ($positions) {
                 $this->sourceMapper()->unplaceAcrossErasedLines($document);
@@ -631,6 +632,16 @@ trait TransparentLineErasure
         for ($i = min($k, count($children) - 1); $i >= 0; $i--) {
             if ($holds($children[$i])) {
                 return $children[$i];
+            }
+            // A line after a term opens the next description (CARVE-P12-027).
+            if ($children[$i] instanceof DefinitionTerm) {
+                break;
+            }
+        }
+        $count = count($children);
+        for ($j = max(0, $i + 1); $j < $count; $j++) {
+            if ($holds($children[$j])) {
+                return $children[$j];
             }
         }
         foreach ($children as $child) {

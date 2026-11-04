@@ -1650,6 +1650,7 @@ final class ListBlockBuilder
         $subTrailingState = new TrailingBlockState(isLead: false);
         $subTermColumn = null;
         $subTermOwnsText = false;
+        $subDescriptionColumn = null;
         $subListMarkerLine = null;
         // The width of the block comment open over these lines, or
         // null. PART 9 §28 gives the fence a body that recognizes no
@@ -1923,13 +1924,23 @@ final class ListBlockBuilder
                 // even if the preceding paragraph was farther indented. Keep
                 // later markers at their source columns for sibling ownership.
                 // A definition body or open div owns its own child column.
+                $inSubDescription = $subDescriptionColumn !== null
+                    && IndentationHelper::getLeadingColumns($stripped, $subDescriptionColumn) >= $subDescriptionColumn;
                 $subLines[] = $strippedIsMarker
                     && !$hadSubListMarker
                     && !$hadSubTerm
+                    && !$inSubDescription
                     && $subTrailingState->openParagraph
                     && !$subTrailingState->hasOpenDiv()
                     ? ltrim($stripped, " \t") : $stripped;
                 $subLineMap[] = $this->sourceLineFor($i);
+                // A description body keeps its column across a blank line, so its paragraph's list stays in it.
+                $subHead = ltrim($stripped, " \t");
+                if (str_starts_with($subHead, ':') && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $subHead, $separator) === 1) {
+                    $subDescriptionColumn = IndentationHelper::getLeadingColumns($stripped) + 1 + strlen($separator[1]);
+                } elseif ($subDescriptionColumn !== null && !$inSubDescription && $subHead !== '') {
+                    $subDescriptionColumn = null;
+                }
                 // AT OR PAST the item's content column, exactly as
                 // in BlockContinuationScanner::collectPlainContinuationCore(): an
                 // invisible block here ends the paragraph under it

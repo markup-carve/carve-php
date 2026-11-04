@@ -40,6 +40,13 @@ final class DefinitionListBuilder
     private WeakMap $descriptionContentColumns;
 
     /**
+     * Comments read after a term, waiting for the description that follows, and the entry count when read.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\DefinitionList, array{comments: list<\MarkupCarve\Carve\Node\Block\Comment>, entries: int}>
+     */
+    private WeakMap $pendingTermComments;
+
+    /**
      * @param \MarkupCarve\Carve\Parser\BlockParserState $state
      * @param \MarkupCarve\Carve\Parser\BlockSourceMapper $source
      * @param \MarkupCarve\Carve\Parser\BlockContinuationScanner $continuations
@@ -99,6 +106,7 @@ final class DefinitionListBuilder
     ) {
         $this->wrappedAttributeScanner = new WrappedAttributeRunScanner($state, $source, $isBlockAttributeLineCallback, $wrappedBlockAttributeLengthCallback);
         $this->descriptionContentColumns = new WeakMap();
+        $this->pendingTermComments = new WeakMap();
     }
 
     /**
@@ -466,10 +474,17 @@ final class DefinitionListBuilder
             break;
         }
 
+        // No description followed: the comments stay ahead of the list, as before.
+        foreach ($this->pendingTermComments[$dl]['comments'] ?? [] as $comment) {
+            $parent->appendChild($comment);
+        }
+        unset($this->pendingTermComments[$dl]);
         $entries = $dl->getChildren();
         if ($entries !== []) {
             $first = $entries[0]->getPos();
-            $last = $entries[count($entries) - 1]->getPos();
+            $lastEntry = $entries[count($entries) - 1];
+            $lastChildren = $lastEntry->getChildren();
+            $last = $lastEntry->getPos() ?? ($lastChildren === [] ? null : $lastChildren[count($lastChildren) - 1]->getPos());
             if ($first !== null && $last !== null) {
                 $dl->setPos(new SourceSpan(
                     startLine: $first->startLine,
@@ -546,9 +561,11 @@ final class DefinitionListBuilder
         $run = [];
         $map = [];
         for ($k = $i; $k < $end; $k++) {
-            $line = ltrim($lines[$k], " \t");
-            if ($this->isDocumentAbbreviation($parent, $line)) {
-                if ($this->state->session->discoveringDefinitions && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(.*)$/D', $line, $abbr) === 1) {
+            // A comment span's payload keeps its columns (PART 0 S1).
+            $line = $lines[$k];
+            $trimmed = ltrim($line, " \t");
+            if ($this->isDocumentAbbreviation($parent, $trimmed)) {
+                if ($this->state->session->discoveringDefinitions && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(.*)$/D', $trimmed, $abbr) === 1) {
                     $this->state->session->defineAbbreviation($abbr[1], rtrim($abbr[2], " \t"), $this->sourceLineFor($k));
                     $this->state->session->discoveredAbbreviationLines[$this->sourceLineFor($k)] = true;
                     $this->state->session->siblingSkippedAbbreviations[$this->sourceLineFor($k)] = [$abbr[1], rtrim($abbr[2], " \t")];
@@ -568,9 +585,11 @@ final class DefinitionListBuilder
         $holder = new Document();
         $this->parseBlocks($holder, $run, 0, $map);
         foreach ($holder->getChildren() as $node) {
-            // A term holds a line comment only; a comment span cannot be written inside it.
-            if ($node instanceof Comment && $last !== null && $node->getFenceLength() === null && !$node->isDelimited()) {
-                $last->appendChild($node);
+            // A comment after a term opens the next description's body (CARVE-P12-027, carve#5167).
+            if ($node instanceof Comment && $last instanceof DefinitionTerm) {
+                $pending = $this->pendingTermComments[$dl] ?? ['comments' => [], 'entries' => count($children)];
+                $pending['comments'][] = $node;
+                $this->pendingTermComments[$dl] = $pending;
             } else {
                 $parent->appendChild($node);
             }
@@ -2681,6 +2700,25 @@ final class DefinitionListBuilder
                 startOffset: $ddPos->startOffset,
                 endOffset: $lastChildPos->endOffset,
             );
+        }
+        $pending = $this->pendingTermComments[$dl] ?? null;
+        if ($pending !== null) {
+            unset($this->pendingTermComments[$dl]);
+            $dd->setChildren([...$pending['comments'], ...$dd->getChildren()]);
+            $firstPos = $pending['comments'][0]->getPos();
+            if (count($dl->getChildren()) > $pending['entries']) {
+                // A term stands between: no contiguous span holds the comment without it (CARVE-P12-022).
+                $ddPos = null;
+            } elseif ($ddPos !== null && $firstPos !== null) {
+                $ddPos = new SourceSpan(
+                    startLine: $firstPos->startLine,
+                    endLine: $ddPos->endLine,
+                    startColumn: $firstPos->startColumn,
+                    endColumn: $ddPos->endColumn,
+                    startOffset: $firstPos->startOffset,
+                    endOffset: $ddPos->endOffset,
+                );
+            }
         }
         $dd->setPos($ddPos);
         if ($dd->getChildren() === [] && $dd->getPos() === null) {
