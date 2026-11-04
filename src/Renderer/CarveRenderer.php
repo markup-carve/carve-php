@@ -2871,6 +2871,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             if (
                 $child instanceof Paragraph && ($previous instanceof BlockQuote
                 || ($lastPreviousItem instanceof ListItem && $lastPreviousItem->getChildren() !== []))
+                // A quote or sub-list ending in a closed block (a fence, CARVE-P11-074) takes no lazy line, so no blank is owed.
+                && $this->openParagraphReachesDown($previous)
             ) {
                 $inlines = $child->getChildren();
                 if (count($inlines) === 1 && ($inlines[0] instanceof Text || $inlines[0] instanceof EscapedText) && $inlines[0]->getContent() === '+') {

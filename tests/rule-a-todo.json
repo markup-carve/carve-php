@@ -90,32 +90,8 @@
             "ticket": "carve#4483"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"853-a-lazy-line-folds-into-the-paragraph-a-line-after-an-ended-descendant-started\"",
-            "ticket": "carve#4446"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"864-a-paragraph-after-a-closed-third-level-item-takes-a-lazy-line\"",
-            "ticket": "carve#4541"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"853-a-lazy-line-folds-into-the-paragraph-a-line-after-an-ended-descendant-started\"",
-            "ticket": "carve#4446"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"858-a-typed-div-s-directive-classes-lead-its-attributes-4\"",
             "ticket": "carve#4531"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"864-a-paragraph-after-a-closed-third-level-item-takes-a-lazy-line\"",
-            "ticket": "carve#4541"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"853-a-lazy-line-folds-into-the-paragraph-a-line-after-an-ended-descendant-started\"",
-            "ticket": "carve#4446"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"864-a-paragraph-after-a-closed-third-level-item-takes-a-lazy-line\"",
-            "ticket": "carve#4541"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\ABelowColumnMarkerKeepsItsParagraphOwnerTest::testBelowColumnPlusStaysLiteralInQuotedItem",
