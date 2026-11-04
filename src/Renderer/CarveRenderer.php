@@ -299,7 +299,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * @var string
      */
-    private const VERBATIM_MARKER_BODY_OPENER = '/^(?:[-*.] +[^ ]|[0-9]+[.)] +[^ ])/';
+    private const VERBATIM_MARKER_BODY_OPENER = '/^(?:[-*.]|[0-9]+[.)]|[a-zA-Z][.)]|[ivxlcdm]+[.)]|[IVXLCDM]+[.)])(?: +[^ ]|\{)/';
 
     /**
      * @var string
@@ -580,6 +580,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * @var array<string, bool>
      */
     private array $verbatimLineProbes = [];
+
+    /**
+     * @var array<string, bool>
+     */
+    private array $verbatimMarkerProbes = [];
+
+    private ?CarveConverter $verbatimProbeConverter = null;
 
     /**
      * @var list<string>|null
@@ -6277,7 +6284,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 preg_match(self::VERBATIM_LINE_OPENER, $closed) === 1
                 || $i < $last && preg_match(self::VERBATIM_INNER_LINE_OPENER, $line) === 1 && $this->verbatimLineEndsAParagraph($line)
                 || str_starts_with($line, '[') && $this->verbatimLineIsADefinition($i < $last ? [$line] : [$line . '`', $line . ' `'])
-                || $markerBody && preg_match(self::VERBATIM_MARKER_BODY_OPENER, $closed) === 1
+                || $markerBody && preg_match(self::VERBATIM_MARKER_BODY_OPENER, $closed) === 1 && $this->verbatimLineOpensAnItem($closed)
             ) {
                 $nodeType = match (true) {
                     $node instanceof Math => 'math',
@@ -6305,6 +6312,22 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return $this->verbatimLineProbes[$line];
+    }
+
+    /**
+     * The marker shapes are only a prefilter: the reader decides whether the line opens an item in a marker body.
+     */
+    private function verbatimLineOpensAnItem(string $line): bool
+    {
+        if (!isset($this->verbatimMarkerProbes[$line])) {
+            $this->verbatimProbeConverter ??= new CarveConverter();
+            $children = $this->verbatimProbeConverter->parse("- a\n {$line}\n")->getChildren();
+            $list = $children[0] ?? null;
+            $items = $list instanceof ListBlock ? $list->getChildren() : [];
+            $this->verbatimMarkerProbes[$line] = count($children) !== 1 || count($items) !== 1 || count($items[0]->getChildren()) !== 1;
+        }
+
+        return $this->verbatimMarkerProbes[$line];
     }
 
     /**
