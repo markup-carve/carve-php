@@ -110,12 +110,12 @@ final class TransparentPlacement
         $host = null;
         foreach ($node->getChildren() as $child) {
             $pos = $child->getPos();
-            $hostPos = $host?->getPos();
+            $hostLines = $host === null ? null : self::lines($host);
             if (
                 ($child instanceof AbbreviationDefinition
                     || $child instanceof Comment && $child->getFenceLength() === null && !$child->isDelimited())
-                && $host !== null && $pos !== null && $hostPos !== null
-                && $hostPos->startLine < $pos->startLine && $pos->startLine <= $hostPos->endLine
+                && $hostLines !== null && $pos !== null
+                && $hostLines[0] < $pos->startLine && $pos->startLine <= $hostLines[1]
             ) {
                 $entries = $this->inParagraph->offsetExists($host) ? $this->inParagraph[$host] : [];
                 $entries[] = [self::lineBreaksBefore($host, $pos->startLine), $child];
@@ -134,18 +134,47 @@ final class TransparentPlacement
     /**
      * How many of the paragraph's line breaks start above `$line`.
      */
-    private static function lineBreaksBefore(Node $node, int $line, int $depth = 0): int
+    private static function lineBreaksBefore(Node $node, int $line, int &$at = 0, int $depth = 0): int
     {
         $count = 0;
         foreach ($node->getChildren() as $child) {
+            $pos = $child->getPos();
             if ($child instanceof SoftBreak || $child instanceof HardBreak) {
-                $pos = $child->getPos();
-                $count += $pos !== null && $pos->startLine < $line ? 1 : 0;
+                // A break joined across an erased line has no pos (CARVE-P12-022); it starts where the content before it ends.
+                $count += ($pos === null ? $at : $pos->startLine) < $line ? 1 : 0;
+                $at = $pos === null ? $at + 1 : $pos->endLine;
             } elseif ($depth < BlockParser::MAX_NESTING_DEPTH * 4) {
-                $count += self::lineBreaksBefore($child, $line, $depth + 1);
+                $count += self::lineBreaksBefore($child, $line, $at, $depth + 1);
+            }
+            if ($pos !== null && !$child instanceof SoftBreak && !$child instanceof HardBreak) {
+                $at = $pos->endLine;
             }
         }
 
         return $count;
+    }
+
+    /**
+     * The first and last source line a node covers, from its placed descendants when it has no pos.
+     *
+     * @return array{0: int, 1: int}|null
+     */
+    private static function lines(Node $node, int $depth = 0): ?array
+    {
+        $pos = $node->getPos();
+        if ($pos !== null) {
+            return [$pos->startLine, $pos->endLine];
+        }
+        $lines = null;
+        if ($depth < BlockParser::MAX_NESTING_DEPTH * 4) {
+            foreach ($node->getChildren() as $child) {
+                $inner = self::lines($child, $depth + 1);
+                if ($inner !== null) {
+                    $lines = $lines === null ? $inner : [min($lines[0], $inner[0]), max($lines[1], $inner[1])];
+                }
+            }
+        }
+
+        return $lines;
     }
 }
