@@ -1683,7 +1683,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $previousCompactDefinition = false;
             $previousDescriptionList = false;
             $listSeparated = false;
-            $descriptionListOffset = 0;
             $previousEmitted = null;
             $movedMarker = null;
             foreach ($blocks as $index => $block) {
@@ -1711,9 +1710,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($block instanceof ListBlock) {
                     $previousDescriptionList = false;
                     $listSeparated = $previousList !== null && self::listsWouldMerge($previousList, $block);
-                    if (!$listSeparated) {
-                        $descriptionListOffset = 0;
-                    }
                     $previousList = $block;
                 } elseif ($block instanceof DefinitionList) {
                     $listSeparated = $previousEmitted instanceof DefinitionList || $previousDescriptionList;
@@ -1726,7 +1722,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $previousList = null;
                     $previousDescriptionList = false;
                     $listSeparated = false;
-                    $descriptionListOffset = 0;
                 }
                 // A block that spells nothing contributes nothing - not even
                 // the blank line a part of its own would open. As far as the
@@ -1755,18 +1750,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     ) {
                         // A marker body's list ends its paragraph with no blank, as an item's does (PART 0 S3, carve#4860).
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
-                    } elseif ($listSeparated && $parts !== [] && $descriptionBody && !$block instanceof DefinitionList) {
-                        // Each sibling list takes the next body column. Move
-                        // item continuations and nested children with its opener.
-                        $descriptionListOffset++;
-                        $indent = str_repeat(' ', $descriptionListOffset);
-                        $shifted = array_map(
-                            fn (string $line): string => $this->indentContinuationLine($line, $indent),
-                            explode("\n", $rendered),
-                        );
-                        $parts[array_key_last($parts)] .= "\n\n" . implode("\n", $shifted);
                     } elseif ($listSeparated && $parts !== []) {
-                        $descriptionListOffset = 0;
                         // The tag OPENS the next block's first line rather than
                         // joining two blocks, so every host that indents line by
                         // line can see the break and prefix the line - see
