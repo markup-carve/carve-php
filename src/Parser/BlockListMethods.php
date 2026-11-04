@@ -1280,6 +1280,17 @@ trait BlockListMethods
                 ) {
                     return true;
                 }
+                // Without a content column, the walk's verdict says which line the comment left outside the host.
+                if (
+                    $attachedKind === self::ATTACHED_PARAGRAPH
+                    && $contentIndent === null
+                    && $index > 0
+                    && $trailingState->fence === null
+                    && isset($this->state->source->closingLines[$this->sourceLineFor($index)])
+                    && $this->endsAttachedParagraph(ltrim($lines[$index - 1], " \t"))
+                ) {
+                    return true;
+                }
                 // An unmarked indented line continues the open quoted
                 // paragraph. Its block-shaped text is not a new block here.
                 // With a blank or closer ahead, an unclosed lead fence ends at a sibling marker or a `+` (carve#3421).
