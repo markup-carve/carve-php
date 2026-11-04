@@ -421,7 +421,7 @@
   {
     "id": "review-recovery-6",
     "source": "1. * b\n   \t:::\n\n    in\n   \t```\n",
-    "html": "<ol>\n  <li>\n    <ul>\n      <li>b</li>\n    </ul>\n    <div>\n      <p>in\n<code></code></p>\n    </div>\n  </li>\n</ol>"
+    "html": "<ol>\n  <li>\n    <ul>\n      <li>b\n        <div>\n\n        </div>\n      </li>\n    </ul>\n    <p>in</p>\n    <pre><code></code></pre>\n  </li>\n</ol>"
   },
   {
     "id": "review-recovery-7",
@@ -436,12 +436,12 @@
   {
     "id": "review-recovery-9",
     "source": "1. - b\n   \t---\n   ---\n    \t %% c\n",
-    "html": "<ol>\n  <li>\n    <ul>\n      <li>b</li>\n    </ul>\n    <hr>\n    <hr>\n  </li>\n</ol>"
+    "html": "<ol>\n  <li>\n    <ul>\n      <li>b\n        <hr>\n      </li>\n    </ul>\n    <hr>\n  </li>\n</ol>"
   },
   {
     "id": "review-recovery-10",
     "source": "* 10. b\n  \t> q\n  ```\n         ---\n",
-    "html": "<ul>\n  <li>\n    <ol start=\"10\">\n      <li>b</li>\n    </ol>\n    <blockquote><p>q\n<code>\n---</code></p></blockquote>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <ol start=\"10\">\n      <li>b\n        <blockquote><p>q</p></blockquote>\n      </li>\n    </ol>\n    <pre><code>       ---\n</code></pre>\n  </li>\n</ul>"
   },
   {
     "id": "review-recovery-11",

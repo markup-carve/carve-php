@@ -335,6 +335,9 @@ final class BlockOwnershipWalk
             $plusAccepted = false;
             $inWrappedAttribute = $at <= $this->wrappedAttributeEnd;
             $frameCount = count($this->frames);
+            // The C5 column of the current quote segment, measured on demand.
+            $stripped = null;
+            $segment = 1;
             // S2: the deepest open frame the line reaches.
             for ($k = 1; $k < $frameCount; $k++) {
                 $f = $this->frames[$k];
@@ -366,12 +369,18 @@ final class BlockOwnershipWalk
                     $this->lead($this->frames[$k - 1]->canon);
                     $this->take(strlen($this->src) - strlen($q[1] ?? ''));
                     $this->m = self::indentCols($this->src);
+                    $stripped = null;
+                    $segment = $k + 1;
                     $reached = $k;
 
                     continue;
                 }
                 if ($this->m['rest'] !== '' && $this->m['col'] < $f->col && !$inWrappedAttribute) {
-                    break;
+                    // A tab past an off-stop frame column is measured in that frame (PART 9 §24 C5).
+                    $stripped ??= $this->strippedColumn($this->src, $segment, $this->m);
+                    if ($stripped < $f->col + $f->c5Shift) {
+                        break;
+                    }
                 }
                 $reached = $k;
             }
@@ -694,8 +703,15 @@ final class BlockOwnershipWalk
                 if (!$plusFollower) {
                     $this->noteOpener($o, $form, $this->frames[$o]->col);
                 }
+                $shift = $this->strippedColumn($this->src, $segment, $this->m) - $this->m['col'];
                 $this->lead($this->frames[$o]->canon, $form->kind === 'term' || $form->kind === 'dd');
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon, inHost: !$leftLineBlockSpan);
+                // A marker opened on an off-stop tab run has its C5 columns that far right.
+                for ($k = $o + 1, $n = count($this->frames); $k < $n && $this->frames[$k]->kind !== 'quote'; $k++) {
+                    if (in_array($this->frames[$k]->kind, self::BODY_FRAMES, true)) {
+                        $this->frames[$k]->c5Shift = $shift;
+                    }
+                }
             }
             $this->sibling = null;
             $result[] = $this->out . $this->src;
@@ -2038,6 +2054,44 @@ final class BlockOwnershipWalk
         }
 
         return $depth;
+    }
+
+    /**
+     * A leading run's column as nested frames strip it (PART 9 §24 C5): tab stops
+     * restart at every frame column of the quote segment from `$segment` the run reaches.
+     *
+     * @param string $line
+     * @param int $segment
+     * @param array{col: int, rest: string} $m
+     */
+    private function strippedColumn(string $line, int $segment, array $m): int
+    {
+        if (!str_contains(substr($line, 0, strlen($line) - strlen($m['rest'])), "\t")) {
+            return $m['col'];
+        }
+        $origins = [];
+        for ($q = $segment, $n = count($this->frames); $q < $n && $this->frames[$q]->kind !== 'quote'; $q++) {
+            $origins[] = $this->frames[$q]->col;
+        }
+        $col = 0;
+        $origin = 0;
+        $o = 0;
+        $last = count($origins);
+        $len = strlen($line);
+        for ($i = 0; $i < $len; $i++) {
+            if ($line[$i] === ' ') {
+                $col++;
+            } elseif ($line[$i] === "\t") {
+                $col = $origin + (intdiv($col - $origin, 4) + 1) * 4;
+            } else {
+                break;
+            }
+            while ($o < $last && $origins[$o] <= $col) {
+                $origin = $origins[$o++];
+            }
+        }
+
+        return $col;
     }
 
     /**
