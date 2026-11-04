@@ -26,24 +26,12 @@
             "ticket": "carve#4531"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\AMatchedDescriptionCommentKeepsItsBlockExtentTest::testMatchedCommentRemainsInsideNestedDescription",
-            "ticket": "carve-php#4620"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\AMatchedDescriptionCommentKeepsItsBlockExtentTest::testMatchedCommentRetainsItsBodyAndExtent",
-            "ticket": "carve-php#4620"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\CommentPayloadColumnsTest::testNestedTermKeepsTheCanonicalItemColumn",
             "ticket": "carve-php#4622"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\CommentPayloadColumnsTest::testPayloadAndFormat with data set \"folded term\"",
             "ticket": "carve-php#4622"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Ast\\SpanBeginsAtTheOpeningMarkupTest::testASpanBeginsAtTheOpeningMarkup with data set \"one-space absorbed comment fence\"",
-            "ticket": "carve-php#4620"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\AQuotedSetextHeadingFoldsInsideAListItemTest::testWhatAlreadyHeldStillHolds with data set \"a spaced rule stays a rule\"",
