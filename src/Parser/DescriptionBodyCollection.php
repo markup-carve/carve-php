@@ -25,6 +25,11 @@ final class DescriptionBodyCollection
     public ?bool $lastOpenerIsParagraph = null;
 
     /**
+     * Last line index of a refused brace run opened past the body column, its follower included.
+     */
+    public int $refusedBraceThrough = -1;
+
+    /**
      * Whether a FORM A line has been pushed since the last blank.
      *
      * Past-the-column laziness is about a line following the body's own

@@ -1133,11 +1133,24 @@ trait BlockListMethods
         $bodyColumn = null;
         // The verdict for the blank run being read, once per run: [run end, reaches the body].
         $blankRun = [-1, false];
+        // Index of the line after a refused brace run that leads the block, which joins the run's paragraph (CARVE-P2-035).
+        $refusedFollower = -1;
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, &$leadFenceOpen, &$fenceTakesRest, &$blockColumn, &$fenceCloses, &$bodyColumn, &$blankRun, $lines, $count, $baseIndent, $contentIndent): bool {
+            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, &$leadFenceOpen, &$fenceTakesRest, &$blockColumn, &$fenceCloses, &$bodyColumn, &$blankRun, &$refusedFollower, $lines, $count, $baseIndent, $contentIndent): bool {
+                // A list marker at the item's content column joins; it would otherwise open a sublist.
+                if (
+                    $index === $refusedFollower
+                    && IndentationHelper::getLeadingColumns($line) === ($contentIndent ?? $baseIndent)
+                    && $this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null
+                ) {
+                    return false;
+                }
+                if ($attachedKind === self::ATTACHED_PENDING && str_starts_with(ltrim($line, " \t"), '{') && !str_starts_with(ltrim($line, " \t"), '{%')) {
+                    $refusedFollower = RefusedBraceRun::end($lines, $index, $this->inlineParser) ?? -1;
+                }
                 // An unclosed attached fence takes the rest of its container when no blank line or closer follows.
                 if ($fenceTakesRest) {
                     return $blockColumn !== null && !IndentationHelper::isBlankLine($line)

@@ -1692,7 +1692,6 @@ class CarveCorpusTest extends TestCase
         '556-a-closed-block-leaves-no-frame-for-the-line-below-14' => 'carve#4907: a %% line below a div item column ends the comment span',
         '867-an-indented-comment-block-in-a-line-block-leaves-nothing-4' => 'carve#4469: an indented comment block in a line block leaves nothing',
         // Pin move to carve 3d7a9fff (carve#5015 port): rows whose ruling another lane ports.
-        '821-an-attribute-run-after-a-lone-plus-leads-a-sublist-at-the-content-column-2' => 'carve#5080: a list marker after a refused brace run joins its paragraph',
         '947-a-quote-s-next-is-not-payload-of-an-item-fence-the-last-block-left-open' => 'carve#5050: a quote\'s next + is not payload of an item fence',
         '947-a-quote-s-next-is-not-payload-of-an-item-fence-the-last-block-left-open-2' => 'carve#5050: a quote\'s next + is not payload of an item fence',
         '947-a-quote-s-next-is-not-payload-of-an-item-fence-the-last-block-left-open-3' => 'carve#5050: a quote\'s next + is not payload of an item fence',

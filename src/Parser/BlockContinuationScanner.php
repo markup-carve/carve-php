@@ -114,6 +114,7 @@ final class BlockContinuationScanner
      * @param \Closure(string): string $keptCommentDelimiterCallback
      * @param \Closure(): \MarkupCarve\Carve\Parser\BlockQuoteBuilder $getBlockQuoteBuilder
      * @param \Closure(array<string>, int): ?int $wrappedBlockAttributeLengthCallback
+     * @param \Closure(array<string>, int): ?int $refusedBraceRunEndCallback
      */
     public function __construct(
         private BlockParserState $state,
@@ -153,6 +154,7 @@ final class BlockContinuationScanner
         private Closure $keptCommentDelimiterCallback,
         private Closure $getBlockQuoteBuilder,
         private Closure $wrappedBlockAttributeLengthCallback,
+        private Closure $refusedBraceRunEndCallback,
     ) {
     }
 
@@ -1539,6 +1541,16 @@ final class BlockContinuationScanner
                 continue;
             }
 
+            $braceLead = ltrim(BlockGrammar::stripLazyFrame($nextLine), " \t");
+            if (str_starts_with($braceLead, '{') && !str_starts_with($braceLead, '{%') && ($run->refusedBraceEnd ?? -1) <= $i) {
+                $run->refusedBraceEnd = ($this->refusedBraceRunEndCallback)($lines, $i);
+                // A lazy line below the content column is no continuation of the run.
+                for ($j = $i + 1; $run->refusedBraceEnd !== null && $j < $run->refusedBraceEnd; $j++) {
+                    if (isset($this->state->source->lazyLines[$this->sourceLineFor($j)])) {
+                        $run->refusedBraceEnd = null;
+                    }
+                }
+            }
             if (
                 !$this->collectPlainLine(
                     $run,
@@ -2343,6 +2355,7 @@ final class BlockContinuationScanner
             && $markerLeavesDescription
             && $run->rejectedColonFenceLength === null
             && !$attachedChildFollower
+            && $run->refusedBraceEnd !== $i
             && !($run->nestedNoteBodyColumn !== null && IndentationHelper::getLeadingColumns($nextLine, $run->nestedNoteBodyColumn) >= $run->nestedNoteBodyColumn)
             && !($trailingState->inFootnoteBody && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN) >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN && $this->leadNoteExtendsThrough($itemLines, $run->noteCursor, $run->noteBroken))
             && !(
