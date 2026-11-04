@@ -676,11 +676,12 @@ class TableParser
      * The D3 alignment block at the start of a cell (`{>^}`, `={~ .x}`): its
      * symbols as a marker run, the ordinary attributes after them, and where
      * the block ends. Null when the cell has none, or when the block is not
-     * followed by the space that ends a prefix (T11).
+     * followed by the space that ends a prefix (T11), unless `$terminated` is
+     * false, which lint uses to find a block that lacks only that space.
      *
      * @return array{marker: string, attributes: string, end: int}|null
      */
-    public function bracedAlignment(string $cell): ?array
+    public function bracedAlignment(string $cell, bool $terminated = true): ?array
     {
         $kind = ($cell[0] ?? '') === '=' ? 1 : 0;
         if (($cell[$kind] ?? '') !== '{') {
@@ -692,7 +693,7 @@ class TableParser
         }
         $end = $kind + $close + 1;
         $payload = substr($cell, $kind + 1, $close - 1);
-        if (($cell[$end] ?? '') !== ' ' || preg_match('/^([<>~?])([\^~v])?(?= |$)/', $payload, $match) !== 1) {
+        if (($terminated && ($cell[$end] ?? '') !== ' ') || preg_match('/^([<>~?])([\^~v])?(?= |$)/', $payload, $match) !== 1) {
             return null;
         }
         $symbols = $match[0];
