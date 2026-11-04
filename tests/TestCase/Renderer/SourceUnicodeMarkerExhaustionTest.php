@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\RawText;
@@ -16,6 +17,7 @@ use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
 class SourceUnicodeMarkerExhaustionTest extends TestCase
 {
@@ -37,7 +39,7 @@ class SourceUnicodeMarkerExhaustionTest extends TestCase
             while ($stack !== []) {
                 $node = array_pop($stack);
                 if ($node instanceof Code) {
-                    $node->setContent("x`\n[r]: /url\ntail");
+                    $node->setContent("x`\n[r]: /url");
                 } elseif (method_exists($node, 'getChildren')) {
                     array_push($stack, ...$node->getChildren());
                 }
@@ -70,6 +72,36 @@ class SourceUnicodeMarkerExhaustionTest extends TestCase
             $this->assertStringContainsString("\u{E009}m0x0\u{E00A}", $result->value);
             $this->assertStringContainsString('[r]: /url', $result->value);
             $this->assertSame($result->value, $writer->convert($result->value));
+        }
+    }
+
+    public function testADefinitionBeforeTheLastValueLineIsRefusedWhenOnlyEightCharactersAreFree(): void
+    {
+        foreach ([0xE001, 0xE003, 0xE004, 0xE005, 0xE006] as $freeStart) {
+            $pool = '';
+            for ($code = 0xE000; $code <= 0xF8FF; $code++) {
+                if ($code < $freeStart || $code >= $freeStart + 8) {
+                    $pool .= mb_chr($code, 'UTF-8');
+                }
+            }
+            $writer = CarveConverter::carve();
+            $document = $writer->parse("```\n{$pool}\n```\n\nbody[^n]\n\n[^n]: > `x`\n");
+            $stack = $document->getChildren();
+            while ($stack !== []) {
+                $node = array_pop($stack);
+                if ($node instanceof Code) {
+                    $node->setContent("x`\n[r]: /url\ntail");
+                } elseif (method_exists($node, 'getChildren')) {
+                    array_push($stack, ...$node->getChildren());
+                }
+            }
+            try {
+                $writer->renderWithReport($document);
+                $this->fail(sprintf('No refusal with U+%04X free.', $freeStart));
+            } catch (Throwable $refusal) {
+                $this->assertInstanceOf(SourceUnspellableException::class, $refusal);
+                $this->assertStringContainsString('opens a block in its host', $refusal->getMessage());
+            }
         }
     }
 
