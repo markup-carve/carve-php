@@ -26,7 +26,11 @@ class TrackOneCauseRepairsTest extends TestCase
     {
         yield 'indented opener' => [" ---\na\n---\nx\n"];
         yield 'tab-indented opener' => ["\t---\na\n---\nx\n"];
-        yield 'indented closer' => ["---\na\n ---\nx\n"];
+    }
+
+    public function testAnIndentedCloserLeavesTheFrontmatterOpenThroughEof(): void
+    {
+        $this->assertSame('', trim(CarveConverter::create()->convert("---\na\n ---\nx\n")));
     }
 
     public function testUnindentedFrontmatterIsStillCaptured(): void

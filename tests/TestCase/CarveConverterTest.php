@@ -626,7 +626,8 @@ class CarveConverterTest extends TestCase
     {
         $converter = new CarveConverter(true);
 
-        $djot = "---\n\n![image](test.png)";
+        // carve#5016: a first-line `---` opens frontmatter.
+        $djot = "***\n\n![image](test.png)";
         $result = $converter->convert($djot);
 
         $this->assertStringContainsString('<hr />', $result);

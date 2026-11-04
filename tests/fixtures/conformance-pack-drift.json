@@ -23,6 +23,29 @@
         "roundtrip-bdfff9a16d1b",
         "roundtrip-f7b4d30bf6dc"
       ]
+    },
+    {
+      "ticket": "markup-carve/carve#5016",
+      "cause": "the pinned pack predates the carve#5016 ruling (first-line frontmatter through EOF); the pack at carve main matches this engine",
+      "cases": [
+        "attributes-45fec31b7b5f",
+        "attributes-d157e15d5f6b",
+        "combined-7f328f7be15b",
+        "combined-b73115bfaf85",
+        "fences-fc706ba49bc6",
+        "guards-213aaa5624f3",
+        "guards-6371c4769eef",
+        "inline-2c5ae69e9d85",
+        "inline-6391aadb45a7",
+        "inline-d4fb3f1005b5",
+        "inline-fd9ee2e55bd3",
+        "lazy-224f598d4ee9",
+        "notes-a9229e6c181d",
+        "ownership-34507d751ab9",
+        "roundtrip-526a05985f96",
+        "roundtrip-9c334d5b1459",
+        "roundtrip-c7405a250b03"
+      ]
     }
   ]
 }
