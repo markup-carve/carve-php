@@ -63,6 +63,7 @@ class DefinitionInAQuoteInsideAnItemTest extends TestCase
         // flip the behaviour BlockquoteRefDefTest pins.
         $html = $this->converter->convert("[x][r] here.\n\n    > [r]: /u");
 
-        $this->assertStringNotContainsString('href="/u"', $html);
+        // Top-level indentation is not significant, so the quote's definition resolves.
+        $this->assertStringContainsString('href="/u"', $html);
     }
 }

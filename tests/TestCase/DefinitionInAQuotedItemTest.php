@@ -59,8 +59,9 @@ class DefinitionInAQuotedItemTest extends TestCase
     {
         $html = $this->converter->convert("> - a\n>  [r]: /u\n\nsee [t][r]\n");
 
-        $this->assertStringContainsString('[r]: /u', $html);
-        $this->assertStringContainsString('<p>see [t][r]</p>', $html);
+        // Rule A: below the item's column the definition still registers.
+        $this->assertStringNotContainsString('[r]: /u', $html);
+        $this->assertStringContainsString('<p>see <a href="/u">t</a></p>', $html);
     }
 
     public function testTheUnquotedShapeIsUnchanged(): void
@@ -112,8 +113,9 @@ class DefinitionInAQuotedItemTest extends TestCase
     {
         $html = $this->converter->convert("> : term\n>   def\n>\n>   [r]: /u\n>\n> see [t][r]\n");
 
-        $this->assertStringContainsString('[r]: /u', $html);
-        $this->assertStringNotContainsString('href="/u"', $html);
+        // Rule A: the definition registers in the quote itself.
+        $this->assertStringNotContainsString('[r]: /u', $html);
+        $this->assertStringContainsString('href="/u"', $html);
     }
 
     public function testAQuoteMarkedBlankStillEndsTheQuoteForAnUnmarkedLine(): void

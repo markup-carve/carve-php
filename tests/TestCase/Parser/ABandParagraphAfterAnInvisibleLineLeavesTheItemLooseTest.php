@@ -229,17 +229,15 @@ class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
      * the oracle's reading: a band heading or quote behind an invisible line
      * stays at document level, the same as on the base.
      *
-     * It leaves the list as a PARAGRAPH, not as the block its marker spells: at
-     * column 1 it is a lazy line of the paragraph the blank would have opened.
-     * That is what the oracle renders, and what the base rendered.
+     * At document level it opens the block its marker spells.
      *
      * @return array<string, array{string, string}>
      */
     public static function bandOpenersThatStayOutside(): array
     {
         return [
-            'heading' => ['# h', '<p># h</p>'],
-            'quote' => ['> q', '<p>&gt; q</p>'],
+            'heading' => ['# h', "<section id=\"h\">\n  <h1>h</h1>\n</section>"],
+            'quote' => ['> q', '<blockquote><p>q</p></blockquote>'],
         ];
     }
 

@@ -72,7 +72,7 @@ class BulletMarkerContentColumnTest extends TestCase
      */
     public function testBelowTheMeasuredColumnStaysLiteral(): void
     {
-        $expected = "<ul>\n  <li>item\n# H</li>\n</ul>";
+        $expected = "<ul>\n  <li>item</li>\n</ul>\n<section id=\"H\">\n  <h1>H</h1>\n</section>";
         $this->assertHtml($expected, "-   item\n  # H\n");
         $this->assertHtml($expected, "-   item\n   # H\n");
     }

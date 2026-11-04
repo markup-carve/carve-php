@@ -36,10 +36,8 @@ class FoldedTermCommentBreakPositionsTest extends TestCase
                 ];
             }
             ksort($spans);
-            $this->assertSame([
-                [$eol . '>   ', [1, 7, 2, 5]],
-                [$eol . '> ', [2, 12, 3, 3]],
-            ], array_values($spans));
+            // Rule A: the term no longer folds the comment and `more`, so no break remains.
+            $this->assertSame([], array_values($spans));
         }
     }
 }

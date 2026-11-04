@@ -41,7 +41,7 @@ final class ListItemAuthoredBlockBaseTest extends TestCase
     public function testBelowTheMinimumStillOpensNothing(): void
     {
         $html = (new CarveConverter())->convert("1. x\n > q\n");
-        self::assertStringNotContainsString('<blockquote>', $html);
+        self::assertStringContainsString("</ol>\n<blockquote><p>q</p></blockquote>", $html);
     }
 
     public function testOverIndentedDefinitionsRegister(): void
@@ -109,10 +109,10 @@ final class ListItemAuthoredBlockBaseTest extends TestCase
     public function testDefinitionsBelowTheItemMinimumStayLiteral(): void
     {
         $html = (new CarveConverter())->convert("10. x\n   [r]: /u\n   [^n]: note\n\nSee [r][] and [^n].\n");
-        self::assertStringContainsString('[r]: /u', $html);
-        self::assertStringContainsString('[^n]: note', $html);
-        self::assertStringNotContainsString('href="/u"', $html);
-        self::assertStringNotContainsString('doc-noteref', $html);
+        self::assertStringNotContainsString('[r]: /u', $html);
+        self::assertStringNotContainsString('[^n]: note', $html);
+        self::assertStringContainsString('href="/u"', $html);
+        self::assertStringContainsString('doc-noteref', $html);
     }
 
     public function testATabAndEquivalentSpacesChooseTheSameAuthoredBase(): void

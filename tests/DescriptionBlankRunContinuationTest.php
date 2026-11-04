@@ -36,7 +36,7 @@ final class DescriptionBlankRunContinuationTest extends TestCase
     public function testABlankRunDoesNotClaimALineBelowTheBodyColumn(): void
     {
         $source = ":: t\n: d\n\n\n > q\n";
-        $expected = "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>&gt; q</p>";
+        $expected = "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<blockquote><p>q</p></blockquote>";
 
         self::assertSame($expected, (new CarveConverter())->convert($source));
     }

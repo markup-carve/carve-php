@@ -233,7 +233,7 @@ class TwoSiblingSubListsInATightItemTest extends TestCase
         // splice between two blocks to the head of the second one, and at
         // document level nothing may move with it.
         $this->assertSame("- apples\n\n\n\n- oranges\n", $this->converter->toCarve("- apples\n\n\n\n- oranges\n"));
-        $this->assertSame("1. a\n\n\n\n1. b\n", $this->converter->toCarve("1. a\n\n  1. b\n"));
+        $this->assertSame("1. a\n\n2. b\n", $this->converter->toCarve("1. a\n\n  1. b\n"));
     }
 
     public function testWritesOneBlankLineBelowABlockAtTheMarkerColumn(): void

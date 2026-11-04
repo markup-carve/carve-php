@@ -36,15 +36,16 @@ class ANewMarkerDoesNotReachADeadContainerColumnTest extends TestCase
     {
         $html = $this->converter->convert("> - x\n\n>   [r]: /url\n\nsee [t][r]\n");
 
-        $this->assertStringContainsString('[r]: /url', $html);
-        $this->assertStringNotContainsString('href="/url"', $html);
+        // Rule A: the definition in the new quote registers and is not published.
+        $this->assertStringNotContainsString('[r]: /url', $html);
+        $this->assertStringContainsString('href="/url"', $html);
     }
 
     public function testItHoldsForAnOrderedItemToo(): void
     {
         $html = $this->converter->convert("> 1. x\n\n>    [r]: /url\n\nsee [t][r]\n");
 
-        $this->assertStringNotContainsString('href="/url"', $html);
+        $this->assertStringContainsString('href="/url"', $html);
     }
 
     /**

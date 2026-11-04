@@ -14,8 +14,10 @@ final class FigureGroupCommentLayoutTest extends TestCase
 
     public function testCommentBeforeContentAddsNoEmptyHtmlLine(): void
     {
-        $expected = "<figure class=\"carve-figure-group\">\n  <p>~~~</p>\n</figure>\n";
+        // Rule A: the open comment now takes the `~~~` line, leaving the group empty.
+        $expected = "<figure class=\"carve-figure-group\">\n\n</figure>\n";
         self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert("::: figure\n  %%%\n ~~~\n"));
+        $expected = "<figure class=\"carve-figure-group\">\n  <pre><code></code></pre>\n</figure>\n";
         self::assertSame(preg_replace('/\n\z/', '', $expected), CarveConverter::create()->convert("::: figure\n ~~~\n"));
     }
 }

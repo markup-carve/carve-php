@@ -66,7 +66,8 @@ final class AListMarkerAtAnOuterItemColumnEndsItsDescriptionTest extends TestCas
     public function testMarkerOneColumnShortStaysInTheDescription(): void
     {
         $source = "- a\n  :: t\n  :  d\n - b\n";
-        $expected = "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n      <dd>d\n- b</dd>\n    </dl>\n  </li>\n</ul>\n";
+        // One column short still reaches the outer list column, so it opens a sibling item.
+        $expected = "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n      <dd>d</dd>\n    </dl>\n  </li>\n  <li>b</li>\n</ul>\n";
         self::assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 

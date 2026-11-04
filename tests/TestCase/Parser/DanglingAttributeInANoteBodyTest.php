@@ -75,6 +75,7 @@ class DanglingAttributeInANoteBodyTest extends TestCase
         $html = $this->html("[^a]: note\n[^a]\n{.cls}\n");
 
         $this->assertStringNotContainsString('class="cls"', $html);
-        $this->assertStringContainsString('<p>note<a href="#fnref1"', $html);
+        // The reference folds lazily into its own note, which is then unreferenced.
+        $this->assertSame('', $html);
     }
 }

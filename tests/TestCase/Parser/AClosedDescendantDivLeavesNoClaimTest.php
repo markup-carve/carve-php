@@ -26,7 +26,7 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
     public function testTheOnlyQuoteItemRetainsItsLazyMarker(): void
     {
         $html = (new CarveConverter())->convert("> - ::: box\n>   body\n>  - next\n>   :::\ntail\n");
-        $this->assertStringContainsString("<p>body\n- next</p>", $html);
+        $this->assertStringContainsString("</li>\n    <li>next</li>", $html);
         $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<p>tail</p>\n"), $html);
     }
 
@@ -35,7 +35,7 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
         foreach (['', " - next\n"] as $lazy) {
             $html = (new CarveConverter())->convert("- a\n  - ::: box\n    body\n" . $lazy . "    :::\ntail\n");
             $this->assertStringContainsString('<div class="box">', $html);
-            $this->assertStringContainsString($lazy === '' ? '<p>body</p>' : "<p>body\n- next</p>", $html);
+            $this->assertStringContainsString($lazy === '' ? '<p>body</p>' : "</ul>\n  </li>\n  <li>next", $html);
             $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</ul>\n<p>tail</p>\n"), $html);
         }
     }
@@ -105,7 +105,7 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
     {
         $parser = new BlockParser();
         $html = (new HtmlRenderer())->render($parser->parse("- a\n  - ::: box\n    body\n - next\n    :::\ntail\n"));
-        $this->assertStringContainsString("<p>body\n- next</p>", $html);
+        $this->assertStringContainsString("</ul>\n  </li>\n  <li>next", $html);
         $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
     }
 

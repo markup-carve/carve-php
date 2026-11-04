@@ -35,11 +35,11 @@ class TheFormatterRoundTripsADescriptionWhoseOnlyContentIsADroppedNoteTest exten
         return [
             'note body is an indented list marker' => [
                 'source' => ":: t\n:  [^f]: note\n     - nested\ntail\n",
-                'canonical' => ":: t\n: [^f]: note\n    - nested\n\ntail\n",
+                'canonical' => ":: t\n: [^f]: note\n    - nested\n      tail\n",
             ],
             'note body is a plain continuation line' => [
                 'source' => ":: t\n:  [^f]: note\n     cont\ntail\n",
-                'canonical' => ":: t\n: [^f]: note\n    cont\n\ntail\n",
+                'canonical' => ":: t\n: [^f]: note\n    cont\n    tail\n",
             ],
         ];
     }
@@ -54,7 +54,7 @@ class TheFormatterRoundTripsADescriptionWhoseOnlyContentIsADroppedNoteTest exten
     public function testTheDroppedNoteShapeRoundTrips(string $source, string $canonical): void
     {
         $html = $this->html($source);
-        $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>tail</p>", $html);
+        $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>", $html);
 
         $formatted = CarveConverter::toCarve($source);
         $this->assertSame($canonical, $formatted, 'canonical form matches the carve-js reference');

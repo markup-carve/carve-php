@@ -52,9 +52,9 @@ class AdjacentSiblingListsStaySeparateTest extends TestCase
     {
         $source = "1. a\n\n  1. b\n";
 
-        $this->assertSame(['ListBlock', 'ListBlock'], $this->topTypes($source));
-        $this->assertSame("1. a\n\n\n\n1. b\n", $this->converter->toCarve($source));
-        $this->assertSame(['ListBlock', 'ListBlock'], $this->topTypes($this->converter->toCarve($source)));
+        $this->assertSame(['ListBlock'], $this->topTypes($source));
+        $this->assertSame("1. a\n\n2. b\n", $this->converter->toCarve($source));
+        $this->assertSame(['ListBlock'], $this->topTypes($this->converter->toCarve($source)));
     }
 
     public function testAThirdListIsSeparatedTheSameWayAtTheSameColumn(): void
@@ -64,9 +64,9 @@ class AdjacentSiblingListsStaySeparateTest extends TestCase
         // 2 and the third would NEST inside the second.
         $source = "1. a\n\n  1. b\n\n   1. c\n";
 
-        $this->assertSame("1. a\n\n\n\n1. b\n\n\n\n1. c\n", $this->converter->toCarve($source));
+        $this->assertSame("1. a\n\n2. b\n\n3. c\n", $this->converter->toCarve($source));
         $this->assertSame(
-            ['ListBlock', 'ListBlock', 'ListBlock'],
+            ['ListBlock'],
             $this->topTypes($this->converter->toCarve($source)),
         );
     }

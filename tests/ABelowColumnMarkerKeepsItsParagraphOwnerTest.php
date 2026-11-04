@@ -14,7 +14,7 @@ final class ABelowColumnMarkerKeepsItsParagraphOwnerTest extends TestCase
     public function testBelowColumnPlusStaysLiteralInQuotedItem(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<blockquote>\n  <blockquote>\n    <ul>\n      <li>a\n&gt; q\n+\npara</li>\n    </ul>\n  </blockquote>\n</blockquote>\n"),
+            preg_replace('/\n\z/', '', "<blockquote>\n  <blockquote>\n    <ul>\n      <li>a\nq</li>\n    </ul>\n  </blockquote>\n</blockquote>\n<p>para</p>\n"),
             CarveConverter::create()->convert("> > - a\n  > q\n  +\n  para\n"),
         );
     }

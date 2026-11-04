@@ -184,7 +184,7 @@ final class CommentFencePrePassTest extends TestCase
         // resolving the reference.
         $html = $this->html("paragraph\n- %%%\n  [r]: /url\n  %%%\n\n[r][]\n");
 
-        $this->assertStringContainsString('[r]: /url', $html, 'the line renders as paragraph text');
+        $this->assertStringContainsString("<p>paragraph\n-</p>", $html, 'the marker renders as paragraph text');
         $this->assertStringNotContainsString('href="/url"', $html, 'and a line that renders may not also define');
     }
 

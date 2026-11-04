@@ -37,7 +37,7 @@ class PostBlankContentColumnTest extends TestCase
         // `> q` is one column in, below the `- ` content column (2), after a
         // blank: the item ends and the quote parses at document level.
         $this->assertHtml(
-            "<ul>\n  <li>one</li>\n</ul>\n<p>&gt; q</p>",
+            "<ul>\n  <li>one</li>\n</ul>\n<blockquote><p>q</p></blockquote>",
             "- one\n\n > q\n",
         );
     }
@@ -62,10 +62,9 @@ class PostBlankContentColumnTest extends TestCase
 
     public function testBlockOpenerBelowContentColumnNoBlankIsLazyContinuation(): void
     {
-        // No blank: the below-column `> q` lazily continues the item paragraph
-        // as text rather than nesting a blockquote.
+        // No blank: the below-column `> q` still ends the item and opens a quote.
         $this->assertHtml(
-            "<ul>\n  <li>one\n&gt; q</li>\n</ul>",
+            "<ul>\n  <li>one</li>\n</ul>\n<blockquote><p>q</p></blockquote>",
             "- one\n > q\n",
         );
     }
@@ -83,7 +82,7 @@ class PostBlankContentColumnTest extends TestCase
     {
         // `1. ` content column is 3, so two columns in is still below it.
         $this->assertHtml(
-            "<ol>\n  <li>one</li>\n</ol>\n<p>&gt; q</p>",
+            "<ol>\n  <li>one</li>\n</ol>\n<blockquote><p>q</p></blockquote>",
             "1. one\n\n  > q\n",
         );
     }
@@ -109,23 +108,18 @@ class PostBlankContentColumnTest extends TestCase
 
     public function testTableBelowContentColumnFoldsAllRowsAsLazyText(): void
     {
-        // Below the content column a table is lazy text: BOTH rows fold into the
-        // item paragraph rather than the second row splitting off (§24 C3).
+        // Below the content column the table ends the item and opens at document level.
         $this->assertHtml(
-            "<ul>\n  <li>one\n|= H |\n| x |</li>\n</ul>",
+            "<ul>\n  <li>one</li>\n</ul>\n<table>\n  <thead>\n    <tr><th scope=\"col\">H</th></tr>\n  </thead>\n  <tbody>\n    <tr><td>x</td></tr>\n  </tbody>\n</table>",
             "- one\n |= H |\n | x |\n",
         );
     }
 
     public function testTableBelowContentColumnOfIndentedOrderedItemFoldsLazy(): void
     {
-        // The content column includes the marker's OWN indentation: `    1. `
-        // is base column 4 + marker 3 = content column 7. A `| x |` row at
-        // column 2 is below it, so it folds as lazy text rather than ending the
-        // item and escaping the row to a document paragraph (§24 C3). A block
-        // opener dedented below an INDENTED marker interrupts only at column 0.
+        // The `| x |` row at column 2 is below content column 7, so it ends the item.
         $this->assertHtml(
-            "<ol>\n  <li>y\n| x |</li>\n</ol>",
+            "<ol>\n  <li>y</li>\n</ol>\n<table>\n  <tbody>\n    <tr><td>x</td></tr>\n  </tbody>\n</table>",
             "    1. y\n  | x |\n",
         );
     }

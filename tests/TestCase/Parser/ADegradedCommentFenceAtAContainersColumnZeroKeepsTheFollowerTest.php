@@ -59,11 +59,11 @@ class ADegradedCommentFenceAtAContainersColumnZeroKeepsTheFollowerTest extends T
      */
     public static function corpusRowProvider(): array
     {
-        $kept = "<ul>\n  <li>x\n    y\n  </li>\n</ul>";
+        $kept = "<ul>\n  <li>x</li>\n</ul>";
 
         return [
             'a bullet host' => ["- x\n%%%\ny\n", $kept],
-            'the line form it must equal' => ["- x\n%% z\ny\n", $kept],
+            'the line form it must equal' => ["- x\n%% z\ny\n", "<ul>\n  <li>x\ny</li>\n</ul>"],
             'a terminated fence still ends the item' => ["- x\n%%%\n%%%\ny\n", "<ul>\n  <li>x</li>\n</ul>\n<p>y</p>"],
             'an ordered host' => ["1. x\n%%%\ny\n", "<ol>\n  <li>x</li>\n</ol>"],
             'a padded marker' => ["-   x\n%%%\ny\n", $kept],
@@ -215,14 +215,9 @@ class ADegradedCommentFenceAtAContainersColumnZeroKeepsTheFollowerTest extends T
         foreach ([3, 4] as $column) {
             $html = $this->converter->convert("- x\n  %%%\n" . str_repeat(' ', $column) . $opener . "\ntail\n");
 
-            // THE OVER-INDENTED BLOCK LEAVES NO PARAGRAPH OPEN, so `tail`
-            // leaves the item (markup-carve/carve#2884, and the answer the
-            // executable spec and carve-js both give). The run below the fence
-            // is still UNREBASED - the opener keeps its authored column in the
-            // item, which is what this test is about - and only where `tail`
-            // lands has moved.
+            // The unclosed fence hides the run below it; `tail` leaves the item.
             $this->assertSame(
-                "<ul>\n  <li>x\n    " . $opener . "\n  </li>\n</ul>\n<p>tail</p>",
+                "<ul>\n  <li>x</li>\n</ul>\n<p>tail</p>",
                 trim($html),
                 'column ' . $column,
             );

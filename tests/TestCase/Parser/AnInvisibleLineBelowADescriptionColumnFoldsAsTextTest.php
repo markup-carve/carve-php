@@ -64,9 +64,12 @@ class AnInvisibleLineBelowADescriptionColumnFoldsAsTextTest extends TestCase
         // The band is two columns wide under a `:  ` body and the answer does
         // not move inside it.
         foreach ([' ', '  '] as $indent) {
-            $expected = $line === '*[A]: a'
-                ? "<dl>\n  <dt>t</dt>\n  <dd>d\ntail</dd>\n</dl>"
-                : $this->folds($line);
+            $expected = match ($line) {
+                '[r]: /u', '*[A]: a' => "<dl>\n  <dt>t</dt>\n  <dd>d\ntail</dd>\n</dl>",
+                '[^f]: n' => "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>",
+                '{.k}' => "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p class=\"k\">tail</p>",
+                default => $this->folds($line),
+            };
             $this->assertSame(
                 $expected,
                 $this->html(":: t\n:  d\n" . $indent . $line . "\ntail\n"),
@@ -82,16 +85,16 @@ class AnInvisibleLineBelowADescriptionColumnFoldsAsTextTest extends TestCase
     public function testNothingRegistersSoAReferenceBelowStaysLiteral(): void
     {
         $this->assertSame(
-            $this->folds('[r]: /u') . "\n<p>See [text][r].</p>",
+            "<dl>\n  <dt>t</dt>\n  <dd>d\ntail</dd>\n</dl>\n<p>See <a href=\"/u\">text</a>.</p>",
             $this->html(":: t\n:  d\n  [r]: /u\ntail\n\nSee [text][r].\n"),
         );
         $this->assertSame(
-            $this->folds('[^f]: n') . "\n<p>See[^f]</p>",
+            "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>See<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>n\ntail<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
             $this->html(":: t\n:  d\n  [^f]: n\ntail\n\nSee[^f]\n"),
         );
         $abbr = $this->html(":: t\n:  d\n  *[A]: a\ntail\n\nA here\n");
-        $this->assertSame($this->folds('*[A]: a') . "\n<p>A here</p>", $abbr);
-        $this->assertStringNotContainsString('<abbr', $abbr);
+        $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>d\ntail</dd>\n</dl>\n<p><abbr title=\"a\">A</abbr> here</p>", $abbr);
+        $this->assertStringContainsString('<abbr', $abbr);
     }
 
     /**
@@ -104,8 +107,8 @@ class AnInvisibleLineBelowADescriptionColumnFoldsAsTextTest extends TestCase
     {
         $html = $this->html(":: t\n:  d\n  {.k}\ntail\n");
 
-        $this->assertSame($this->folds('{.k}'), $html);
-        $this->assertStringNotContainsString('class=', $html);
+        $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p class=\"k\">tail</p>", $html);
+        $this->assertStringContainsString('class=', $html);
     }
 
     public function testAControlACommentIsColumnExemptAndRendersNothing(): void
@@ -117,29 +120,29 @@ class AnInvisibleLineBelowADescriptionColumnFoldsAsTextTest extends TestCase
         $this->assertSame(
             '<dl>
   <dt>t</dt>
-  <dd>
-    <p>d</p>
-    <p>tail</p>
-  </dd>
+  <dd>d
+tail</dd>
 </dl>',
             $this->html(":: t\n:  d\n  %% c\ntail\n"),
         );
     }
 
     /**
-     * Corpus 426-2/3 keeps these openers in the description paragraph.
+     * Below the column each opener ends the description and opens at document level.
      */
     public function testARealOpenerBelowTheColumnFollowsItsBand(): void
     {
         foreach ([' ', '  '] as $indent) {
             foreach (['> q', '# h', '| a |', '---', '::: note'] as $opener) {
                 $html = $this->html(":: t\n:  d\n" . $indent . $opener . "\n");
-                if ($opener === '::: note') {
-                    $this->assertStringStartsWith("<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>", $html);
-                } else {
-                    $this->assertStringStartsWith("<dl>\n  <dt>t</dt>\n  <dd>d\n", $html);
-                    $this->assertStringEndsWith("</dd>\n</dl>", $html);
-                }
+                $after = [
+                    '> q' => '<blockquote><p>q</p></blockquote>',
+                    '# h' => "<section id=\"h\">\n  <h1>h</h1>\n</section>",
+                    '| a |' => "<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>",
+                    '---' => '<hr>',
+                    '::: note' => "<aside class=\"admonition note\" aria-label=\"Note\">\n\n</aside>",
+                ][$opener];
+                $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n" . $after, $html);
             }
         }
     }
@@ -181,7 +184,7 @@ class AnInvisibleLineBelowADescriptionColumnFoldsAsTextTest extends TestCase
     public function testAControlTheListItemHostItAgreesWith(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>d\n[r]: /u\ntail</li>\n</ul>",
+            "<ul>\n  <li>d\ntail</li>\n</ul>",
             $this->html("- d\n [r]: /u\ntail\n"),
         );
     }

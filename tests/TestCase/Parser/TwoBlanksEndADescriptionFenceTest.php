@@ -50,7 +50,7 @@ class TwoBlanksEndADescriptionFenceTest extends TestCase
     {
         $source = ":: term\n:  desc\n   ```\nlazy\n\n\n   ```\n";
         $expected = "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>desc</p>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n"
-            . "<p>lazy</p>\n<p><code></code></p>\n";
+            . "<p>lazy</p>\n<pre><code></code></pre>\n";
         $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 
@@ -58,7 +58,7 @@ class TwoBlanksEndADescriptionFenceTest extends TestCase
     {
         $source = ":: term\n:  desc\n   ```\nlazy\n\n   ```\n";
         $expected = "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>desc</p>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n"
-            . "<p>lazy</p>\n<p><code></code></p>\n";
+            . "<p>lazy</p>\n<pre><code></code></pre>\n";
         $this->assertSame(preg_replace('/\n\z/', '', $expected), (new CarveConverter())->convert($source));
     }
 

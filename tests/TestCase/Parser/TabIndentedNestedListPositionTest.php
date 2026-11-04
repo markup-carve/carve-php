@@ -30,7 +30,7 @@ class TabIndentedNestedListPositionTest extends TestCase
             'tab ending at content column' => ["10. a\n\t- b\n", 7, 2, 2],
             'quoted tab' => ["> - a\n> \t- b\n", 9, 2, 4],
             'middle level' => ["- outer\n\t- a\n", 8, 2, 1],
-            'three levels' => ["- outer\n\t- a\n\t\t1. a\n", 15, 3, 3],
+            'three levels' => ["- outer\n\t- a\n\t\t1. a\n", 14, 3, 2],
             'spaces' => ["- outer\n  - a\n", 10, 2, 3],
             'multibyte prefix' => ["> - é\n> \t- b\n", 9, 2, 4],
         ];

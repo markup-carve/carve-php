@@ -190,11 +190,11 @@ class AColumnZeroCommentEndsADescriptionBodyTest extends TestCase
     public function testAControlTheOtherTwoHostsDoNotMove(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>d\n    tail\n  </li>\n</ul>",
+            "<ul>\n  <li>d\ntail</li>\n</ul>",
             $this->html("- d\n%% c\ntail\n"),
         );
         $this->assertSame(
-            "<blockquote><p>d</p></blockquote>\n<p>tail</p>",
+            "<blockquote><p>d\ntail</p></blockquote>",
             $this->html("> d\n%% c\ntail\n"),
         );
     }

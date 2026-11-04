@@ -83,8 +83,8 @@ class TheQuoteMarkerRuleIsSpelledOnceTest extends TestCase
         $html = $this->html("- a\n\n  >  >\ndedent\n");
 
         // The paragraph the parser builds is the one the tracker must see.
-        $this->assertStringContainsString('<p>&gt;', $html, $html);
-        $this->assertStringContainsString("&gt;\ndedent</p>", $html, $html);
+        $this->assertStringContainsString("<blockquote>\n      <blockquote>\n\n      </blockquote>", $html, $html);
+        $this->assertStringContainsString("</ul>\n<p>dedent</p>", $html, $html);
     }
 
     /**

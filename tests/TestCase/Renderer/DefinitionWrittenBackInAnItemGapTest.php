@@ -40,8 +40,9 @@ class DefinitionWrittenBackInAnItemGapTest extends TestCase
 
     public function testAFootnoteDefinitionIsWrittenBackOnItsOwnLine(): void
     {
+        // `more` continues the note lazily, so nothing splits the item and the note is hoisted.
         $source = "- a\n  [^f]: x\n  more\n\nsee[^f]\n";
-        $this->assertSame($source, $this->fmt($source));
+        $this->assertSame("- a\n\nsee[^f]\n\n[^f]: x\n  more\n", $this->fmt($source));
         $this->assertSame($this->html($source), $this->html($this->fmt($source)));
     }
 
@@ -66,7 +67,7 @@ class DefinitionWrittenBackInAnItemGapTest extends TestCase
         // into one paragraph, and a paragraph with a soft break renders
         // differently from two tight blocks.
         $formatted = $this->fmt("- a\n  [^f]: x\n  more\n\nsee[^f]\n");
-        $this->assertStringContainsString("<li>a\n    more\n  </li>", $this->html($formatted));
+        $this->assertStringContainsString("<li>a</li>\n</ul>\n<p>see<a id=\"fnref1\"", $this->html($formatted));
     }
 
     public function testADefinitionWrittenAtDocumentLevelStaysThere(): void

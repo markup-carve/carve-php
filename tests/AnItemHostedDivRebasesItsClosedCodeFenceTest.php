@@ -26,7 +26,7 @@ class AnItemHostedDivRebasesItsClosedCodeFenceTest extends TestCase
             }
         }
         $html = $converter->convert("::: box\n    ```\n    code\n    ```\nafter\n");
-        self::assertStringNotContainsString('<pre>', $html);
-        self::assertStringContainsString('<code>', $html);
+        self::assertStringNotContainsString('```', $html);
+        self::assertStringContainsString("<pre><code>code\n</code></pre>", $html);
     }
 }

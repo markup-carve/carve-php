@@ -59,7 +59,7 @@ class AnEscalationReachesTheBlockThatFailedTest extends TestCase
      */
     public function testABlockWhoseMinimalFormOpensAHeadingItDoesNotHaveEscalates(): void
     {
-        $this->assertSame("\\#\\# H\n", $this->written("  ## H\n"));
+        $this->assertSame("## H\n", $this->written("  ## H\n"));
     }
 
     public function testABlockWhoseMinimalFormReParsesAsItselfIsLeftAlone(): void
@@ -73,7 +73,7 @@ class AnEscalationReachesTheBlockThatFailedTest extends TestCase
      */
     public function testTheEscalationDoesNotSpreadFromTheBlockThatNeededIt(): void
     {
-        $this->assertSame("\\#\\# H\n\nplain (b) text\n", $this->written("  ## H\n\nplain (b) text\n"));
+        $this->assertSame("## H\n\nplain (b) text\n", $this->written("  ## H\n\nplain (b) text\n"));
     }
 
     /**
@@ -107,7 +107,7 @@ class AnEscalationReachesTheBlockThatFailedTest extends TestCase
     public function testTheUnitWidensToTheBlockWhenEscapingTheRunIsNotEnough(): void
     {
         $this->assertSame(
-            "\\| a |\n\\| b |\n\nsee (c) 50% now\n",
+            "| a |\n| b |\n\nsee (c) 50% now\n",
             $this->written(" | a |\n | b |\n\nsee (c) 50% now\n"),
         );
     }
@@ -118,6 +118,6 @@ class AnEscalationReachesTheBlockThatFailedTest extends TestCase
      */
     public function testEveryBlockEscalatesInADocumentWhereEveryBlockFails(): void
     {
-        $this->assertSame("\\#\\# H\n\n\\#\\#\\# I\n", $this->written("  ## H\n\n  ### I\n"));
+        $this->assertSame("## H\n\n### I\n", $this->written("  ## H\n\n  ### I\n"));
     }
 }

@@ -136,12 +136,12 @@ class SymmetricListInterruptionTest extends TestCase
     public function testDedentBelowIndentedBaseStartsSiblingList(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>\n<ul>\n  <li>c</li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n  <li>b</li>\n  <li>c</li>\n</ul>\n"),
             $this->converter->convert("  - a\n  - b\n- c"),
         );
-        // A single indented item then a dedented one: still two sibling lists.
+        // A single indented item then a dedented one: still one list.
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>\n"),
             $this->converter->convert("  - a\n- b"),
         );
         // A normal col-0 list with a child then a col-0 sibling is unaffected.

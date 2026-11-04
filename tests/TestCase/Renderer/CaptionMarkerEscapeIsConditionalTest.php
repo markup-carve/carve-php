@@ -42,11 +42,10 @@ class CaptionMarkerEscapeIsConditionalTest extends TestCase
 
     public function testAfterAnImageTheMarkerKeepsItsEscape(): void
     {
-        // Here the caption WOULD form, so the escape is load-bearing: the
-        // source had the image and the marker on separate blocks.
+        // The indented image and marker now form a figure, so the marker stays bare.
         $formatted = $this->carve(" ![Apollo](a.jpg)\n ^ Figure 1: moon\n");
 
-        $this->assertStringContainsString('\\^ Figure 1', $formatted);
+        $this->assertStringContainsString("![Apollo](a.jpg)\n^ Figure 1", $formatted);
     }
 
     /**

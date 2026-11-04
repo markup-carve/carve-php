@@ -61,7 +61,7 @@ class BlockFamilyRoundSevenTest extends TestCase
   {
     "id": "r7_07",
     "source": ":: t\n: 1. para\n    {#x}\ntail\n",
-    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<ol>\n<li>para\n{<span class=\"tag\"><strong>#x</strong></span>}\ntail</li>\n</ol>\n</dd>\n</dl>",
+    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<ol>\n<li>para</li>\n</ol>\n</dd>\n</dl>\n<p>tail</p>",
     "shape": "PHP-3 :: t / : 1~ para / ~ATTR / T"
   },
   {
@@ -73,25 +73,25 @@ class BlockFamilyRoundSevenTest extends TestCase
   {
     "id": "r7_09",
     "source": "1. - para\n %% c\n```\nx\n",
-    "expected": "<ol>\n<li>\n<ul>\n<li>para\n<pre><code></code></pre>\n</li>\n</ul>\n</li>\n</ol>\n<p>x</p>",
+    "expected": "<ol>\n<li>\n<ul>\n<li>para</li>\n</ul>\n</li>\n</ol>\n<pre><code>x\n</code></pre>",
     "shape": "PHP-5 1~ - para / ~CMT / ``` / T"
   },
   {
     "id": "r7_10",
     "source": "1. - para\n %%%\n %%%\n```\nx\n",
-    "expected": "<ol>\n<li>\n<ul>\n<li>para\n<pre><code></code></pre>\n</li>\n</ul>\n</li>\n</ol>\n<p>x</p>",
+    "expected": "<ol>\n<li>\n<ul>\n<li>para</li>\n</ul>\n</li>\n</ol>\n<pre><code>x\n</code></pre>",
     "shape": "PHP-6 1~ - para / ~%%% / ~%%% / ``` / T"
   },
   {
     "id": "r7_11",
     "source": ":: t\n: :: t\n  : para\n %%%\n %%%\ntail\n",
-    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<dl>\n<dt>t</dt>\n<dd>\n<p>para</p>\n<p>tail</p>\n</dd>\n</dl>\n</dd>\n</dl>",
+    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n</dd>\n</dl>\n<p>tail</p>",
     "shape": "PHP-7 :: t / : :: t / ~: para / ~%%% / ~%%% / T"
   },
   {
     "id": "comment line twin",
     "source": ":: t\n: :: t\n  : para\n %% c\ntail\n",
-    "expected": "<dl><dt>t</dt><dd><dl><dt>t</dt><dd><p>para</p><p>tail</p></dd></dl></dd></dl>"
+    "expected": "<dl><dt>t</dt><dd><dl><dt>t</dt><dd>para\ntail</dd></dl></dd></dl>"
   },
   {
     "id": "document column fence",

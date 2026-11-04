@@ -82,7 +82,7 @@ class AQuotesLazyCommentLineIsStillACommentTest extends TestCase
     public function testADefinitionOnTheSameLineIsOrdinaryTextInstead(): void
     {
         $this->assertSame(
-            '<blockquote><p>x [r]: /u</p></blockquote> <p>See [r][].</p>',
+            '<blockquote><p>x</p></blockquote> <p>See <a href="/u">r</a>.</p>',
             $this->html("> x\n [r]: /u\n\nSee [r][].\n"),
         );
     }

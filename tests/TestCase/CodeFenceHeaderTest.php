@@ -163,7 +163,7 @@ class CodeFenceHeaderTest extends TestCase
             $source = str_repeat(' ', $indent) . "```\ncode\n" . str_repeat(' ', $indent) . '```';
             $html = $this->converter->convert($source);
 
-            $this->assertStringNotContainsString('<pre><code>', $html, 'indent ' . $indent);
+            $this->assertStringContainsString('<pre><code>', $html, 'indent ' . $indent);
             $this->assertStringContainsString('code', $html, 'indent ' . $indent);
         }
     }
@@ -292,7 +292,7 @@ class CodeFenceHeaderTest extends TestCase
     {
         $html = $this->converter->convert(" ```\n[r]: /u\n\n[x][r]");
 
-        $this->assertStringContainsString('<a href="/u">x</a>', $html);
+        $this->assertStringContainsString("<pre><code>[r]: /u\n\n[x][r]</code></pre>", $html);
     }
 
     public function testReferencePrepassStillCollectsForwardReferenceDefinition(): void

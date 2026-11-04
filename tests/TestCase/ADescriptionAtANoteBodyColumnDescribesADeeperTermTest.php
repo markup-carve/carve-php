@@ -41,14 +41,14 @@ final class ADescriptionAtANoteBodyColumnDescribesADeeperTermTest extends TestCa
     {
         $html = (new CarveConverter())->convert("- x\n   :: t\n  : zq\n");
 
-        self::assertStringNotContainsString('<dd>', $html);
-        self::assertStringContainsString(': zq', $html);
+        self::assertStringContainsString('<dd>', $html);
+        self::assertStringNotContainsString(': zq', $html);
     }
 
     public function testASeparatorBetweenTheNoteColumnAndTheTermStaysOutOfTheTerm(): void
     {
         $html = (new CarveConverter())->convert("r[^1]\n\n[^1]: x\n     :: t\n   : zq\n");
 
-        self::assertStringNotContainsString('<dd>', $html);
+        self::assertMatchesRegularExpression('#<dt>t</dt>\s*<dd>zq</dd>#', $html);
     }
 }

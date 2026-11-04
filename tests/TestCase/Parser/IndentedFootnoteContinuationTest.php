@@ -63,13 +63,11 @@ class IndentedFootnoteContinuationTest extends TestCase
 
     public function testALineNotIndentedPastTheDefinitionIsNotBody(): void
     {
-        // The boundary the fix must not move: at the definition's OWN column the
-        // line is not a continuation, so it stays item content rather than being
-        // swallowed into the note.
+        // At the definition's own column the line is lazy paragraph text of the note.
         $html = $this->html("- a\n  [^f]: x\n  tail\n\nsee[^f]\n");
 
         $this->assertStringContainsString('tail', $html, 'the line vanished');
-        $this->assertDoesNotMatchRegularExpression('/x\s*tail/', $html, 'tail must not join the note body');
+        $this->assertMatchesRegularExpression('/x\s*tail/', $html, 'tail continues the note paragraph lazily');
     }
 
     public function testAQuotedDefinitionStaysSingleLine(): void

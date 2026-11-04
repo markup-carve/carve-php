@@ -183,13 +183,12 @@ class AMarkerOnAQuoteLazyContinuationIsTextTest extends TestCase
     }
 
     /**
-     * BELOW the item's content column a marker was already lazy item text, and
-     * that band does not move.
+     * BELOW the item's content column a marker now opens a sibling item.
      */
     public function testAMarkerBelowTheContentColumnIsUnchanged(): void
     {
         $this->assertSame(
-            '<ul> <li> <blockquote><p>q - s tail</p></blockquote> </li> </ul>',
+            '<ul> <li> <blockquote><p>q</p></blockquote> </li> <li>s tail</li> </ul>',
             $this->html("- > q\n - s\ntail\n"),
         );
     }

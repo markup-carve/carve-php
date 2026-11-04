@@ -17,7 +17,7 @@ class DefinitionTermLazyWhitespaceTest extends TestCase
     {
         $render = static fn (string $source): string => (new HtmlRenderer())->render((new BlockParser())->parse($source));
 
-        self::assertSame("<blockquote>\n  <dl>\n    <dt>c\n# H</dt>\n  </dl>\n</blockquote>\n", $render("> :: c\n  # H"));
-        self::assertSame("<pre><code></code></pre>\n<ul>\n  <li>\n    <blockquote>\n      <dl>\n        <dt>t\n<code></code></dt>\n      </dl>\n    </blockquote>\n  </li>\n</ul>\n", $render("```\n```\n- > :: t\n```"));
+        self::assertSame("<blockquote>\n  <dl>\n    <dt>c</dt>\n  </dl>\n</blockquote>\n<section id=\"H\">\n  <h1>H</h1>\n</section>\n", $render("> :: c\n  # H"));
+        self::assertSame("<pre><code></code></pre>\n<ul>\n  <li>\n    <blockquote>\n      <dl>\n        <dt>t</dt>\n      </dl>\n    </blockquote>\n  </li>\n</ul>\n<pre><code></code></pre>\n", $render("```\n```\n- > :: t\n```"));
     }
 }

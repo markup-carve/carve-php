@@ -131,11 +131,11 @@ class AnIndentedLoneImageIsAParagraphTest extends TestCase
 
     public function testACaptionLineStillKeepsTheIndentedPairLiteral(): void
     {
-        // A caption line is additional content, so this is still a paragraph.
+        // The indented image with a caption line is now a figure too.
         $source = " ![Apollo](a.jpg)\n ^ Figure 1: moon\n";
-        $this->assertSame(['paragraph'], $this->kinds($this->parse($source)));
+        $this->assertSame(['figure'], $this->kinds($this->parse($source)));
         $this->assertSame(
-            "<p><img src=\"a.jpg\" alt=\"Apollo\">\n^ Figure 1: moon</p>",
+            "<figure>\n  <img src=\"a.jpg\" alt=\"Apollo\">\n  <figcaption>Figure 1: moon</figcaption>\n</figure>",
             $this->html($source),
         );
 

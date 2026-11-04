@@ -131,7 +131,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     public function testConsecutiveLinesPastTheColumnStayInTheAuthoredQuote(): void
     {
         $this->assertSame(
-            '<dl> <dt>t</dt> <dd> <p>body</p> <blockquote><p>q &gt; r</p></blockquote> </dd> </dl>',
+            '<dl> <dt>t</dt> <dd> <p>body</p> <blockquote><p>q r</p></blockquote> </dd> </dl>',
             $this->squash($this->html(":: t\n: body\n    > q\n     > r\n")),
         );
     }
@@ -157,7 +157,7 @@ class ADefinitionContinuationPastItsColumnIsLazyTextTest extends TestCase
     {
         return [
             'a list, at the column' => [":: t\n: - x\n  - y\n", '<ul> <li>x</li> <li>y</li> </ul>'],
-            'a list, one past it' => [":: t\n: - x\n   - y\n", '<ul> <li>x - y</li> </ul>'],
+            'a list, one past it' => [":: t\n: - x\n   - y\n", '<ul> <li>x</li> <li>y</li> </ul>'],
             'a fenced code block, at the column' => [":: t\n: ```\n  c\n  ```\n", '<pre><code>c </code></pre>'],
             'a fenced code block, one past it' => [
                 ":: t\n: ```\n   c\n   ```\n",

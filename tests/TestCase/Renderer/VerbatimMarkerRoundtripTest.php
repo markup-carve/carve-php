@@ -17,7 +17,7 @@ class VerbatimMarkerRoundtripTest extends TestCase
 
     public function testListMarkersInsideCodeKeepTheirValue(): void
     {
-        foreach (['. b', '-{.k} b', '+ b', '1. b'] as $marker) {
+        foreach (['-{.k} b', '+ b', '. b', '1. b'] as $marker) {
             $codec = new AstCodec();
             $document = $codec->decode([
 
@@ -41,6 +41,15 @@ class VerbatimMarkerRoundtripTest extends TestCase
                     ],
                 ],
             ]);
+            // An ordered marker opens a list at every column of the item (rule A), so no spelling keeps it in the code.
+            if ($marker === '. b' || $marker === '1. b') {
+                try {
+                    (new CarveRenderer())->render($document);
+                    self::fail('expected a refusal for ' . $marker);
+                } catch (SourceUnspellableException) {
+                    continue;
+                }
+            }
             $source = (new CarveRenderer())->render($document);
             $tree = $codec->encode((new CarveConverter())->parse($source));
             self::assertSame("a\n" . $marker, $tree['children'][0]['items'][0]['children'][0]['children'][1]['value']);

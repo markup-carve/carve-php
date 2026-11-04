@@ -78,8 +78,8 @@ class ADefinitionInAContainerStopsAtItsBodyTest extends TestCase
             'inside a dd' => [":: term\n:  [^f]: x\n\nsee[^f]\n", 11, 18],
             // A quote that goes on below the definition: the blank the reach
             // used to take is not even adjacent here, and the answer is the
-            // same - the definition's body is its own line.
-            'inside a quote with more below' => ["> [^f]: note\n> more\n\nx [^f]\n", 2, 12],
+            // same - the definition's body runs through `more`.
+            'inside a quote with more below' => ["> [^f]: note\n> more\n\nx [^f]\n", 2, 19],
         ];
     }
 

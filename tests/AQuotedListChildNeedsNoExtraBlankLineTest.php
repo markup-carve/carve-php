@@ -15,7 +15,7 @@ class AQuotedListChildNeedsNoExtraBlankLineTest extends TestCase
     {
         $source = ">   - a\n> - b\n>     - c\n>   :::\n1. lazy\n";
         $formatted = CarveConverter::toCarve($source);
-        $expected = "> - a\n>\n>\n>\n> - b\n>   - c\n>   :::\n>\n>   :::\n\n1. lazy\n";
+        $expected = "> - a\n> - b\n>   - c\n>   :::\n>\n>   :::\n\n1. lazy\n";
 
         self::assertSame($expected, $formatted);
         $converter = new CarveConverter();

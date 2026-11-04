@@ -69,7 +69,7 @@ class AFoldedLineKeepsTheContainerItLandsOnTest extends TestCase
         $html = $this->converter->convert("- > - x\n " . $opener . "\n");
 
         $this->assertSame(
-            '<ul><li><blockquote><ul><li>x' . "\n" . self::foldedText($opener) . '</li></ul></blockquote></li></ul>',
+            '<ul><li><blockquote><ul><li>x</li></ul></blockquote></li></ul>' . self::openedBlock($opener),
             self::squeeze($html),
         );
     }
@@ -123,7 +123,7 @@ class AFoldedLineKeepsTheContainerItLandsOnTest extends TestCase
     {
         $cases = ['the frame base' => [0, true]];
         for ($column = 1; $column <= 10; $column++) {
-            $cases['column ' . $column] = [$column, false];
+            $cases['column ' . $column] = [$column, true];
         }
 
         return $cases;
@@ -149,7 +149,7 @@ class AFoldedLineKeepsTheContainerItLandsOnTest extends TestCase
         $html = $this->converter->convert("- a\n  > - q\n " . $opener . "\n");
 
         $this->assertSame(
-            '<ul><li>a<blockquote><ul><li>q' . "\n" . self::foldedText($opener) . '</li></ul></blockquote></li></ul>',
+            '<ul><li>a<blockquote><ul><li>q</li></ul></blockquote></li></ul>' . self::openedBlock($opener),
             self::squeeze($html),
         );
     }
@@ -174,7 +174,7 @@ class AFoldedLineKeepsTheContainerItLandsOnTest extends TestCase
         $html = $this->converter->convert("- a\n  > q\n " . $opener . "\n");
 
         $this->assertSame(
-            '<ul><li>a<blockquote><p>q' . "\n" . self::foldedText($opener) . '</p></blockquote></li></ul>',
+            '<ul><li>a<blockquote><p>q</p></blockquote></li></ul>' . self::openedBlock($opener),
             self::squeeze($html),
         );
     }
@@ -187,7 +187,7 @@ class AFoldedLineKeepsTheContainerItLandsOnTest extends TestCase
     {
         $html = $this->converter->convert("- a\n " . $opener . "\n");
 
-        $this->assertSame('<ul><li>a' . "\n" . self::foldedText($opener) . '</li></ul>', self::squeeze($html));
+        $this->assertSame('<ul><li>a</li></ul>' . self::openedBlock($opener), self::squeeze($html));
     }
 
     /**
@@ -200,29 +200,32 @@ class AFoldedLineKeepsTheContainerItLandsOnTest extends TestCase
         $html = $this->converter->convert("> - x\n " . $opener . "\n");
 
         $this->assertSame(
-            '<blockquote><ul><li>x' . "\n" . self::foldedText($opener) . '</li></ul></blockquote>',
+            '<blockquote><ul><li>x</li></ul></blockquote>' . self::openedBlock($opener),
             self::squeeze($html),
         );
     }
 
     /**
-     * CONTROL: a folded definition is TEXT, so nothing may resolve against it.
+     * A below-column definition now leaves the item and registers.
      */
     public function testTheFoldedDefinitionDoesNotRegister(): void
     {
         $html = $this->converter->convert("- > - x\n [r]: /url\n\nSee [r][].\n");
 
-        $this->assertStringNotContainsString('<a href="/url">', $html);
-        $this->assertStringContainsString('[r]: /url', $html);
+        $this->assertStringContainsString('<a href="/url">', $html);
+        $this->assertStringNotContainsString('[r]: /url', $html);
     }
 
     /**
-     * A thematic break folded as text is inline, where typography rewrites the
-     * run - so the folded bytes are not the ones that were authored.
+     * The block a below-column opener now opens after the item closes.
      */
-    protected static function foldedText(string $opener): string
+    protected static function openedBlock(string $opener): string
     {
-        return $opener === '---' ? "\u{2014}" : $opener;
+        return match ($opener) {
+            '# H' => '<section id="H"><h1>H</h1></section>',
+            '---' => '<hr>',
+            default => '',
+        };
     }
 
     /**

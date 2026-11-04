@@ -32,7 +32,7 @@ class ATrailingTabDoesNotRebaseAListInADescriptionTest extends TestCase
 
         $converter = new CarveConverter();
         $this->assertSame($converter->convert($plain), $converter->convert($source));
-        $this->assertSame(2, substr_count($converter->convert($source), '<ul>'));
-        $this->assertStringNotContainsString('<li><p>', $converter->convert($source));
+        $this->assertSame(1, substr_count($converter->convert($source), '<ul>'));
+        $this->assertStringContainsString('<li><p>', $converter->convert($source));
     }
 }

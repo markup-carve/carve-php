@@ -44,7 +44,7 @@ class StrictColumnAndOuterLoosenessTest extends TestCase
     public function testColonFenceBodyBelowContentColumnIsLiteral(): void
     {
         // `:::` opens at content column 2; body `- para text` and closer `:::`
-        // sit at column 1, below it -> the div never forms, the run is literal.
+        // sit at column 1, below it -> they leave the aside and `:::` opens an empty div.
         $this->assertHtml(
             '<ul>
   <li>
@@ -52,11 +52,11 @@ class StrictColumnAndOuterLoosenessTest extends TestCase
 
     </aside>
   </li>
+  <li>para text</li>
 </ul>
-<ul>
-  <li>para text
-:::</li>
-</ul>',
+<div>
+
+</div>',
             "- ::: note\n - para text\n :::\n",
         );
     }
@@ -70,12 +70,12 @@ class StrictColumnAndOuterLoosenessTest extends TestCase
 
     </aside>
   </li>
-</ul>
-<ul>
   <li>one</li>
-  <li>two
-:::</li>
-</ul>',
+  <li>two</li>
+</ul>
+<div>
+
+</div>',
             "- ::: note\n - one\n - two\n :::\n",
         );
     }

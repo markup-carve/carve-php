@@ -69,11 +69,9 @@ class HeadingColumnZeroTest extends TestCase
      */
     public function testIndentedMarkerLineIsItsOwnParagraph(): void
     {
-        // The indented `##` is not a heading (column-zero rule) and no longer
-        // folds into the open one either, so it is a paragraph of its own with
-        // its indent stripped.
+        // The indented `##` now opens a heading section of its own.
         $input = "## H\n   ## indented";
-        $expected = "<section id=\"H\">\n  <h2>H</h2>\n  <p>## indented</p>\n</section>\n";
+        $expected = "<section id=\"H\">\n  <h2>H</h2>\n</section>\n<section id=\"indented\">\n  <h2>indented</h2>\n</section>\n";
 
         $this->assertSame(preg_replace('/\n\z/', '', $expected), $this->converter->convert($input));
     }

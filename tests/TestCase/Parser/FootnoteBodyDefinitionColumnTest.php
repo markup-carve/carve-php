@@ -61,12 +61,11 @@ class FootnoteBodyDefinitionColumnTest extends TestCase
 
     public function testIsTextBelowTheBodyColumnAndInert(): void
     {
-        // One space is too little for a continuation, so the line is the
-        // document's next block - and the production allows no leading indent.
+        // Rule A: one space below the body column still registers the definition.
         $html = $this->html($this->document(1));
 
-        $this->assertStringContainsString('[r]: /u', $html);
-        $this->assertStringNotContainsString('href="/u"', $html);
+        $this->assertStringNotContainsString('[r]: /u', $html);
+        $this->assertStringContainsString('href="/u"', $html);
     }
 
     /**

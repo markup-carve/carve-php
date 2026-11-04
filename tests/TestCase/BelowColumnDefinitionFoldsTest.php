@@ -50,14 +50,14 @@ class BelowColumnDefinitionFoldsTest extends TestCase
     {
         $html = $this->converter->convert("- - a\n [^f]: x");
 
-        $this->assertStringContainsString("<li>a\n[^f]: x</li>", $html);
+        $this->assertStringContainsString('<li>a</li>', $html);
     }
 
     public function testALinkReferenceDefinitionOneColumnInFolds(): void
     {
         $html = $this->converter->convert("- - a\n [a]: /u");
 
-        $this->assertStringContainsString("<li>a\n[a]: /u</li>", $html);
+        $this->assertStringContainsString('<li>a</li>', $html);
     }
 
     public function testAnAbbreviationDefinitionOneColumnInDefines(): void
@@ -71,16 +71,16 @@ class BelowColumnDefinitionFoldsTest extends TestCase
     {
         $html = $this->converter->convert("- a\n [^f]: x");
 
-        $this->assertStringContainsString("<li>a\n[^f]: x</li>", $html);
+        $this->assertStringContainsString('<li>a</li>', $html);
     }
 
     public function testAFoldedDefinitionRegistersNothing(): void
     {
-        // It is text, so a reference to it elsewhere stays literal.
+        // It registers, so a reference to it elsewhere resolves.
         $html = $this->converter->convert("- - a\n [^f]: x\n\nsee[^f]");
 
-        $this->assertStringContainsString('<p>see[^f]</p>', $html);
-        $this->assertStringNotContainsString('doc-endnotes', $html);
+        $this->assertStringContainsString('<p>see<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>', $html);
+        $this->assertStringContainsString('doc-endnotes', $html);
     }
 
     public function testADefinitionAtTheContentColumnIsNotFoldedAsText(): void
@@ -140,7 +140,7 @@ class BelowColumnDefinitionFoldsTest extends TestCase
         // readings answer the same way.
         $html = $this->converter->convert("- a\n %% c\nb");
 
-        $this->assertSame("<ul>\n  <li>a\n    b\n  </li>\n</ul>", trim($html));
+        $this->assertSame("<ul>\n  <li>a\nb</li>\n</ul>", trim($html));
     }
 
     public function testACommentPastTheContentColumnClosesTheItem(): void

@@ -28,7 +28,7 @@ class ColonEscapeIsPositionalTest extends TestCase
     public function testAColonAfterAnEscapedCaptionMarkerIsBare(): void
     {
         $this->assertSame(
-            "![Apollo](a.jpg)\n\\^ Figure 1: moon\n",
+            "![Apollo](a.jpg)\n^ Figure 1: moon\n",
             CarveConverter::toCarve(" ![Apollo](a.jpg)\n ^ Figure 1: moon\n"),
         );
     }

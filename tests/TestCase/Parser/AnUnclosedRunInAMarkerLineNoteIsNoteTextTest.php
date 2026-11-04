@@ -33,19 +33,19 @@ class AnUnclosedRunInAMarkerLineNoteIsNoteTextTest extends TestCase
         yield 'at the body column, right under the marker line' => [
             "- [^n]: text\n    ```\n    code\nafter [^n]\n",
             '<ul><li></li></ul><p>after ' . $ref . '</p>' . $notes
-                . "<p>text\n<code>\ncode</code>" . self::BACKLINK . '</p></li></ol></section>',
+                . "<p>text</p><pre><code>code\n</code></pre><p>" . self::BACKLINK . '</p></li></ol></section>',
         ];
 
         yield 'after folded marker lines and an empty definition marker' => [
             "- [^a]: text\n    - child\n    [^b]: \n      - c2\n    ~~~\n    code\nafter [^a] [^b]\n",
             '<ul><li></li></ul><p>after ' . $ref . ' [^b]</p>' . $notes
-                . "<p>text\n- child\n[^b]:\n- c2\n~~~\ncode" . self::BACKLINK . '</p></li></ol></section>',
+                . "<p>text</p><ul><li>child\n[^b]:\n          <ul><li>c2</li></ul></li></ul><pre><code>code\n</code></pre><p>" . self::BACKLINK . '</p></li></ol></section>',
         ];
 
         yield 'in a second note paragraph after a blank' => [
             "- [^a]: text\n    more\n    [^b]: \n\n      more\n      ~~~\n      code\nafter [^a] [^b]\n",
             '<ul><li></li></ul><p>after ' . $ref . ' [^b]</p>' . $notes
-                . "<p>text\nmore\n[^b]:</p><p>more\n~~~\ncode" . self::BACKLINK . '</p></li></ol></section>',
+                . "<p>text\nmore\n[^b]:</p><p>more</p><pre><code>code\n</code></pre><p>" . self::BACKLINK . '</p></li></ol></section>',
         ];
     }
 

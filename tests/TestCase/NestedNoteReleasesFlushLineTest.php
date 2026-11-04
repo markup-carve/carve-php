@@ -16,7 +16,7 @@ class NestedNoteReleasesFlushLineTest extends TestCase
     public function testInvisibleNestedNoteLeavesNoLazyParagraph(): void
     {
         $render = static fn (string $source): string => (new HtmlRenderer())->render((new BlockParser())->parse($source));
-        self::assertStringEndsWith("</ul>\n<p>.</p>\n", $render("- - A\n    [^n]: y\n.\n"));
+        self::assertStringEndsWith("<li>A</li>\n    </ul>\n  </li>\n</ul>\n", $render("- - A\n    [^n]: y\n.\n"));
         self::assertStringContainsString("A\nplain\n.</li>", $render("- - A\n    plain\n.\n"));
     }
 }

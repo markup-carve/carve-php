@@ -17,6 +17,6 @@ class QuotedParagraphOverindentedDefinitionTest extends TestCase
     {
         $render = static fn (string $source): string => (new HtmlRenderer())->render((new BlockParser())->parse($source));
 
-        self::assertSame("<ul>\n  <li>\n    <blockquote>\n      <dl>\n        <dt>t</dt>\n      </dl>\n    </blockquote>\n  </li>\n</ul>\n<blockquote><p>: d\n[^f]: n\ntail</p></blockquote>\n", $render("- > :: t\n> : d\n>   [^f]: n\ntail"));
+        self::assertSame("<ul>\n  <li>\n    <blockquote>\n      <dl>\n        <dt>t</dt>\n      </dl>\n    </blockquote>\n  </li>\n</ul>\n<blockquote><p>: d</p></blockquote>\n", $render("- > :: t\n> : d\n>   [^f]: n\ntail"));
     }
 }

@@ -141,8 +141,9 @@ class ADefinitionBetweenAFootnoteBodysColumnAndANestedItemsReachesTheNoteTest ex
     {
         $html = $this->converter->convert("[^f]: b\n\n  - a\n [r]: /url\n\nSee [r][] and [^f].");
 
-        $this->assertStringContainsString('<p>[r]: /url</p>', $html);
-        $this->assertStringContainsString('See [r][] and', $html);
+        // Rule A: the definition registers and the item stays in the note.
+        $this->assertStringNotContainsString('<p>[r]: /url</p>', $html);
+        $this->assertStringContainsString('See <a href="/url">r</a> and', $html);
     }
 
     /**
@@ -287,7 +288,8 @@ class ADefinitionBetweenAFootnoteBodysColumnAndANestedItemsReachesTheNoteTest ex
     {
         $html = $this->converter->convert("- a\n [r]: /url\n\nSee [r][].");
 
-        $this->assertStringContainsString("<li>a\n[r]: /url</li>", $html);
-        $this->assertStringContainsString('See [r][].', $html);
+        // Rule A: the definition registers below the item's column.
+        $this->assertStringContainsString('<li>a</li>', $html);
+        $this->assertStringContainsString('See <a href="/url">r</a>.', $html);
     }
 }

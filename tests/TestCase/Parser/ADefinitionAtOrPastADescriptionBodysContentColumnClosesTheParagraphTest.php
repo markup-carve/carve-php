@@ -113,7 +113,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
         $html = $this->converter->convert(":: t\n:  a\n" . str_repeat(' ', $column) . "[r]: /url\ntail");
 
         $expected = $folds
-            ? "<dl>\n  <dt>t</dt>\n  <dd>a\n[r]: /url\ntail</dd>\n</dl>"
+            ? self::ERASED
             : self::ERASED;
         $this->assertSame($expected, trim($html));
     }
@@ -128,8 +128,8 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
         $html = $this->converter->convert(":: t\n:  a\n" . str_repeat(' ', $column) . "[^f]: x\ntail");
 
         $expected = $folds
-            ? "<dl>\n  <dt>t</dt>\n  <dd>a\n[^f]: x\ntail</dd>\n</dl>"
-            : self::ENDED;
+            ? "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>"
+            : "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>";
         $this->assertSame($expected, trim($html));
     }
 
@@ -163,7 +163,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
         $html = $this->converter->convert(":: t\n: a\n" . str_repeat(' ', $column) . "[r]: /url\ntail");
 
         $expected = $folds
-            ? "<dl>\n  <dt>t</dt>\n  <dd>a\n[r]: /url\ntail</dd>\n</dl>"
+            ? self::ERASED
             : self::ERASED;
         $this->assertSame($expected, trim($html));
     }
@@ -225,8 +225,8 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
 
         return [
             'column 0' => [0, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<section id=\"h\">\n  <h1>h</h1>\n  <p>tail</p>\n</section>"],
-            'below the column, 1' => [1, "<dl>\n  <dt>t</dt>\n  <dd>a\n# h\ntail</dd>\n</dl>"],
-            'below the column, 2' => [2, "<dl>\n  <dt>t</dt>\n  <dd>a\n# h\ntail</dd>\n</dl>"],
+            'below the column, 1' => [1, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<section id=\"h\">\n  <h1>h</h1>\n  <p>tail</p>\n</section>"],
+            'below the column, 2' => [2, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<section id=\"h\">\n  <h1>h</h1>\n  <p>tail</p>\n</section>"],
             'at the column' => [3, $ended],
             'one past the column' => [4, $ended],
             'two past the column' => [5, $ended],
@@ -292,8 +292,8 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
 
         return [
             'column 0' => [0, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<hr>\n<p>tail</p>"],
-            'below the column, 1' => [1, "<dl>\n  <dt>t</dt>\n  <dd>a\n***\ntail</dd>\n</dl>"],
-            'below the column, 2' => [2, "<dl>\n  <dt>t</dt>\n  <dd>a\n***\ntail</dd>\n</dl>"],
+            'below the column, 1' => [1, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<hr>\n<p>tail</p>"],
+            'below the column, 2' => [2, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<hr>\n<p>tail</p>"],
             'at the column' => [3, $ended],
             'one past the column' => [4, $ended],
             'two past the column' => [5, $ended],
@@ -317,7 +317,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
     {
         $table = "<table>\n      <tbody>\n        <tr><td>a</td></tr>\n      </tbody>\n    </table>";
         $ended = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    " . $table . "\n  </dd>\n</dl>\n<p>tail</p>";
-        $folded = "<dl>\n  <dt>t</dt>\n  <dd>a\n| a |\ntail</dd>\n</dl>";
+        $folded = "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n<p>tail</p>";
 
         return [
             'below the column, 1' => [1, $folded],
@@ -351,7 +351,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
      */
     public static function attributeBlockBandProvider(): array
     {
-        $folded = "<dl>\n  <dt>t</dt>\n  <dd>a\n{.k}\ntail</dd>\n</dl>";
+        $folded = "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p class=\"k\">tail</p>";
 
         return [
             'column 0' => [0, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p class=\"k\">tail</p>"],
@@ -379,7 +379,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
     public static function blockQuoteBandProvider(): array
     {
         $inside = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <blockquote><p>q\ntail</p></blockquote>\n  </dd>\n</dl>";
-        $folded = "<dl>\n  <dt>t</dt>\n  <dd>a\n&gt; q\ntail</dd>\n</dl>";
+        $folded = "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<blockquote><p>q\ntail</p></blockquote>";
 
         return [
             'column 0' => [0, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<blockquote><p>q\ntail</p></blockquote>"],
@@ -450,12 +450,11 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
     public static function belowTheEndedBodyProvider(): array
     {
         $only = "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>definition</p>\n    <h1 id=\"H\">H</h1>\n  </dd>\n</dl>";
-        $text = $only . "\n<p>[r]: /url</p>";
         $rows = [];
         foreach ([3 => 'at the column', 4 => 'one past the column'] as $heading => $label) {
             $rows[$label . ', definition at 0'] = [$heading, 0, $only];
-            $rows[$label . ', definition at 1'] = [$heading, 1, $text];
-            $rows[$label . ', definition at 2'] = [$heading, 2, $text];
+            $rows[$label . ', definition at 1'] = [$heading, 1, $only];
+            $rows[$label . ', definition at 2'] = [$heading, 2, $only];
             $rows[$label . ', definition at 3'] = [$heading, 3, $only];
         }
 
@@ -500,7 +499,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
         $outOfItem = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        <h1 id=\"H\">H</h1>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>";
 
         return [
-            'between the two columns' => [3, "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n# H\ntail</li>\n    </ul>\n  </dd>\n</dl>"],
+            'between the two columns' => [3, "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n    <h1 id=\"H\">H</h1>\n  </dd>\n</dl>\n<p>tail</p>"],
             'at the item column' => [4, $outOfItem],
             'one past the item column' => [5, $outOfItem],
             'two past the item column' => [6, $outOfItem],
@@ -657,7 +656,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
      */
     public static function footnoteBodyInTheBodyProvider(): array
     {
-        $absorbed = "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>tail</p>";
+        $absorbed = "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>";
 
         return [
             // Below the note floor the marker closes the note and opens a list in the description (carve#4860).

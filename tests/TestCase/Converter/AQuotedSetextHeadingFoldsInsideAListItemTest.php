@@ -163,18 +163,16 @@ final class AQuotedSetextHeadingFoldsInsideAListItemTest extends TestCase
     }
 
     /**
-     * Three columns is not four, and the fold may not reach it.
-     *
-     * Asserted as the ABSENCE of the fold rather than as the whole rendering,
-     * because what this engine does with the three-column case is itself wrong:
-     * commonmark and carve-js both let the marker interrupt the paragraph, and
-     * this engine folds it into the paragraph text. That is #2340, measured at
-     * the top level too, and pinning the current HTML here would bake it in.
+     * Three columns is not four, and the fold may not reach it: the marker
+     * interrupts the paragraph, as commonmark and carve-js have it.
      */
     public function testTheFoldDoesNotReachThreeColumns(): void
     {
         $this->assertStringNotContainsString('<h2>', $this->render("- > foo\n  >    # bar\n  > ---\n"));
-        $this->assertStringNotContainsString('<h1>', $this->render("- > foo\n  >    # bar\n  > ===\n"));
+        $this->assertSame(
+            '<ul><li><blockquote><p>foo</p><h1>bar</h1><p>===</p></blockquote></li></ul>',
+            $this->render("- > foo\n  >    # bar\n  > ===\n"),
+        );
     }
 
     private function render(string $markdown): string
