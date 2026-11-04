@@ -1,12 +1,4 @@
 {
   "comment": "Conformance pack cases this engine renders differently from the spec model, one entry per cause with its open ticket. See tests/ConformancePackTest.php.",
-  "entries": [
-    {
-      "ticket": "markup-carve/carve#5132",
-      "cause": "a > + after a quote-attached paragraph: the model erases it at the end of input; this engine keeps it a letter",
-      "cases": [
-        "lazy-5e5b39627ed0"
-      ]
-    }
-  ]
+  "entries": []
 }

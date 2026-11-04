@@ -25,10 +25,6 @@ final class CanonicalAheadOfPin
                 '285-adjacent-block-openers-in-an-attached-run-stay-separate-2' => "- x\n+\n|= a |\n| b |\n+\n|= a |\n| b |\n",
                 '99-table-cell-attributes' => "|={.highlight} Total |= 99 |\n| a | b |\n",
             ],
-            'md' => [
-                // carve#5015: the blank before the direct child heading loosens the quoted list.
-                '84-single-line-headings-10' => "> - a\n>\n>   ### b \\###\n",
-            ],
         ];
     }
 

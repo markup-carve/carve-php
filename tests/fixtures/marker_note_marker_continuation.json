@@ -182,7 +182,7 @@
   {
     "id": "matrix-n6307",
     "source": "> - [^n]: text\n>     - child\n>     %% k\n>   x\n> after [^n]\n",
-    "html": "<blockquote><ul><li>x\nafter <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><ul><li>child</li></ul><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>",
+    "html": "<blockquote><ul><li></li></ul></blockquote>",
     "classification": "C",
     "checker_pin": "078a5922",
     "reference_head": "21e28d03",
@@ -191,7 +191,7 @@
   {
     "id": "matrix-n6347",
     "source": "> - [^n]: text\n>     - child\n>     %% k\n>     %% k\nafter [^n]\n",
-    "html": "<blockquote><ul><li></li></ul></blockquote><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><ul><li>child</li></ul><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul></blockquote>"
   },
   {
     "id": "matrix-n6395",

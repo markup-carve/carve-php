@@ -33,6 +33,9 @@ use PHPUnit\Framework\TestCase;
  * quote, so the line under them still folds, and a fix that dropped their gate
  * too would show up there first.
  *
+ * Since carve#5129 an erased comment line goes with its quote prefix, so the
+ * comment rows read as the document without that line.
+ *
  * Expectations are the oracle's output (`scripts/spec/layout.mjs` plus
  * `scripts/spec/html.mjs`) at markup-carve/carve 774eb404, run per row.
  */
@@ -71,11 +74,11 @@ class ACommentPastAQuoteColumnEndsItsParagraphTest extends TestCase
             ],
             'the same shape with text around it' => [
                 "> a\n>  %% c\ntail\n",
-                "<blockquote><p>a</p></blockquote>\n<p>tail</p>\n",
+                "<blockquote><p>a\ntail</p></blockquote>\n",
             ],
             'a nested quote answers the same' => [
                 "> > a\n> >  %% c\ntail\n",
-                "<blockquote>\n  <blockquote><p>a</p></blockquote>\n</blockquote>\n<p>tail</p>\n",
+                "<blockquote>\n  <blockquote><p>a\ntail</p></blockquote>\n</blockquote>\n",
             ],
             'GUARD a comment at the content column' => [
                 "> %%\np\n",
@@ -83,7 +86,7 @@ class ACommentPastAQuoteColumnEndsItsParagraphTest extends TestCase
             ],
             'GUARD the line below is quoted' => [
                 "> head\n>   %% c\n> tail\n",
-                "<blockquote>\n  <p>head</p>\n  <p>tail</p>\n</blockquote>\n",
+                "<blockquote><p>head\ntail</p></blockquote>\n",
             ],
             'GUARD a blank line after the comment' => [
                 "> head\n>   %% c\n\n> tail\n",

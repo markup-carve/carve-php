@@ -141,9 +141,10 @@ class ContainerBoundaryRulingsTest extends TestCase
             // the other way. The LIST spelling of this one still folds and is
             // filed as markup-carve/carve-php#1421 - its tracker answers "is a
             // paragraph open" and "is the item still collecting" with one flag.
+            // carve#5129: the erased comment goes with its `>`, so `tail` folds in.
             'comment in a quote' => [
                 "> a\n> %% c\ntail\n",
-                "<blockquote><p>a</p></blockquote>\n<p>tail</p>\n",
+                "<blockquote><p>a\ntail</p></blockquote>\n",
             ],
         ];
     }
@@ -186,9 +187,10 @@ class ContainerBoundaryRulingsTest extends TestCase
             // `tail` outside the quote, and no corpus document carries this
             // shape. An indented ATTRIBUTE line is the genuine control for the
             // column test, and it is the row below.
+            // carve#5129 later erased the comment with its `>`, so `tail` folds in.
             'comment past the column inside a quote' => [
                 "> a\n>  %% c\ntail\n",
-                "<blockquote><p>a</p></blockquote>\n<p>tail</p>\n",
+                "<blockquote><p>a\ntail</p></blockquote>\n",
             ],
             // WHAT THE ROW ABOVE WAS MISTAKEN FOR, and the pair that proves the
             // column test beside the comment is still live.

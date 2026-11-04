@@ -418,7 +418,7 @@ final class BlockOwnershipWalk
                 $this->refusedPlus[$at] = isset($this->claimedMarkers[$at])
                     ? $this->finding($at, $host->kind, 'claimed')
                     : $this->plusFinding($at, $host->kind, $column, $plus);
-                $this->skipInvisible($plus, $at, $column);
+                $this->skipInvisible($plus, $at, $column, true);
                 $this->lead((int)$host->markerCanon);
                 $result[] = $this->out . str_repeat(' ', $keepMarkerColumn ? 0 : max(0, $host->canon - (int)$host->markerCanon)) . '%%';
                 if ($this->trace !== null) {
@@ -1094,7 +1094,7 @@ final class BlockOwnershipWalk
                     // A refused marker is consumed and renders nothing (carve#5013).
                     $this->refusedPlus[$this->at] = $this->plusFinding($this->at, $f->kind, (int)$f->docMarker, $frame);
                     $this->consumePlus();
-                    $this->skipInvisible($frame, $this->at, (int)$f->docMarker);
+                    $this->skipInvisible($frame, $this->at, (int)$f->docMarker, true);
                     $consumed = true;
                 }
             }
@@ -1560,8 +1560,10 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * The first line past the invisible lines from `$from` (CARVE-P9-013, carve#4449). Off the
-     * marker column an invisible line is that next line, and a note definition's body is its own.
+     * The first line past the invisible lines from `$from` (CARVE-P9-013, carve#4449). Only the
+     * lines the host keeps are skipped: at the marker column or at or past its content column
+     * (carve#5130). A refused marker moves no line, so it skips only those at its column.
+     * A note definition's body is its own.
      *
      * @param int $from
      * @param int $hostIndex
@@ -1569,10 +1571,22 @@ final class BlockOwnershipWalk
      * @param array<int, \MarkupCarve\Carve\Parser\OwnershipFrame> $frames
      * @param array<int, bool> $fenced Collects the lines of a skipped comment fence (true) and each skipped note definition (false).
      * @param array<int, true> $noteBodies Folded plain-text lines of skipped note definitions.
+     * @param bool $refused
      */
-    private function firstVisibleLine(int $from, int $hostIndex, int $column, array $frames, array &$fenced = [], array &$noteBodies = []): int
-    {
+    private function firstVisibleLine(
+        int $from,
+        int $hostIndex,
+        int $column,
+        array $frames,
+        array &$fenced = [],
+        array &$noteBodies = [],
+        bool $refused = false,
+    ): int {
         $n = count($this->lines);
+        $host = $frames[$hostIndex];
+        $content = !$refused && in_array($host->kind, ['item', 'dd', 'note'], true)
+            ? (int)$host->docMarker + $host->col - (int)$host->markerCol
+            : PHP_INT_MAX;
         $view = fn (int $k): string => $this->throughQuotes($this->lines[$k], $hostIndex, $frames)['rest'] ?? "\u{E000}";
         $k = $from;
         $quoted = fn (int $j): bool => $this->throughQuotes($this->lines[$j], $hostIndex, $frames) !== null;
@@ -1582,16 +1596,19 @@ final class BlockOwnershipWalk
                 return $k;
             }
             $rest = rtrim($view($k), " \t");
-            if (self::docColumn($this->lines[$k], $view($k)) !== $column) {
+            $at = self::docColumn($this->lines[$k], $view($k));
+            if ($at !== $column && $at < $content) {
                 return $k;
             }
             if (preg_match('/^(%{3,})/', $rest, $c) === 1) {
                 $closer = '/^%{' . strlen($c[1]) . '}(?!%)/';
                 $opener = $k++;
-                // A nonblank line that misses the host ends the span (CARVE-P0-005, carve#4870).
+                // A nonblank line that misses the span's owner ends the span (CARVE-P0-005, carve#4870);
+                // a span the host keeps at its content column is missed below that column.
+                $bound = $at === $column ? $column : $content;
                 $misses = fn (int $j): bool => $this->throughQuotes($this->lines[$j], $hostIndex, $frames) === null
                     || (trim($view($j), " \t") !== '' && !str_starts_with(ltrim($view($j), " \t"), '%%')
-                        && self::docColumn($this->lines[$j], $view($j)) < $column);
+                        && self::docColumn($this->lines[$j], $view($j)) < $bound);
                 while ($k < $n && preg_match($closer, $view($k)) !== 1 && !$misses($k)) {
                     $k++;
                 }
@@ -1711,11 +1728,11 @@ final class BlockOwnershipWalk
     /**
      * The readers meet the skipped lines where the block stands, one line for a line, as a host reads a comment before its block.
      */
-    private function skipInvisible(int $hostIndex, int $at, int $column): void
+    private function skipInvisible(int $hostIndex, int $at, int $column, bool $refused = false): void
     {
         $fenced = [];
         $noteBodies = [];
-        $end = $this->firstVisibleLine($at + 1, $hostIndex, $column, $this->frames, $fenced, $noteBodies);
+        $end = $this->firstVisibleLine($at + 1, $hostIndex, $column, $this->frames, $fenced, $noteBodies, $refused);
         if ($end === $at + 1) {
             return;
         }

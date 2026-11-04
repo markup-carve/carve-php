@@ -41,11 +41,6 @@ trait TransparentLineErasure
     /**
      * @var string
      */
-    private const TRANSPARENT_QUOTE_PREFIX = '/^(?:[ \t]*>[ ]?)+/';
-
-    /**
-     * @var string
-     */
     private const TRANSPARENT_REGION_MARKER = '/^%%[ \t]*#(?:end)?region(?![A-Za-z0-9_])/';
 
     /**
@@ -194,9 +189,8 @@ trait TransparentLineErasure
     }
 
     /**
-     * The visible stream: erased lines removed, an erased quoted line keeps its
-     * bare `>` prefix so it still ends a quoted paragraph. Every visible line
-     * keeps its authored bytes and line ending.
+     * The visible stream: erased lines removed with their quote prefixes
+     * (carve#5129). Every visible line keeps its authored bytes and line ending.
      *
      * @param string $input
      * @param \MarkupCarve\Carve\Parser\SourceLines $lines
@@ -216,10 +210,7 @@ trait TransparentLineErasure
             $end = $starts[$index + 1] ?? strlen($input);
             $segment = substr($input, $starts[$index], $end - $starts[$index]);
             if (isset($erased[$index])) {
-                if (preg_match(self::TRANSPARENT_QUOTE_PREFIX, $line, $prefix) !== 1) {
-                    continue;
-                }
-                $segment = rtrim($prefix[0]) . substr($segment, strlen($line));
+                continue;
             }
             $map[] = $index;
             $visible .= $segment;

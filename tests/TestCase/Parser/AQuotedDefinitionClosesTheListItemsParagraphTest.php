@@ -25,7 +25,7 @@ final class AQuotedDefinitionClosesTheListItemsParagraphTest extends TestCase
             ],
             'bullet reference' => [
                 "- a\n  :: t\n  :  d\n    > q\n    > [n]: /u\n q\n",
-                "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n      <dd>d</dd>\n    </dl>\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>\n<p>q</p>\n",
+                "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n      <dd>d</dd>\n    </dl>\n    <blockquote><p>q\nq</p></blockquote>\n  </li>\n</ul>\n",
             ],
             'task continued footnote' => [
                 "- [ ] a\n  :: t\n  :  d\n    > q\n    > [^n]: note\n    >   more\n q\n",
@@ -33,11 +33,11 @@ final class AQuotedDefinitionClosesTheListItemsParagraphTest extends TestCase
             ],
             'nested bullet' => [
                 "- a\n  - b\n    :: t\n    :  d\n      > q\n      > [n]: /u\n q\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <dl>\n          <dt>t</dt>\n          <dd>d</dd>\n        </dl>\n        <blockquote><p>q</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>q</p>\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <dl>\n          <dt>t</dt>\n          <dd>d</dd>\n        </dl>\n        <blockquote><p>q\nq</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>\n",
             ],
             'one column control' => [
                 "- a\n  > q\n  > [n]: /u\n q\n",
-                "<ul>\n  <li>a\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>\n<p>q</p>\n",
+                "<ul>\n  <li>a\n    <blockquote><p>q\nq</p></blockquote>\n  </li>\n</ul>\n",
             ],
             'open quote paragraph' => [
                 "- a\n  > q\n q\n",

@@ -53,7 +53,7 @@ final class ADefinitionEndsAnAttachedParagraphTest extends TestCase
 
         yield 'in a quote' => [
             "> - a\n> +\n> text\n> [r]: /u\n> more\n",
-            "<blockquote>\n  <ul>\n    <li>a\n      text\n    </li>\n  </ul>\n  <p>more</p>\n</blockquote>",
+            "<blockquote>\n  <ul>\n    <li>a\n      text\nmore\n    </li>\n  </ul>\n</blockquote>",
         ];
     }
 
