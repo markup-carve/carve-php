@@ -32,7 +32,7 @@ final class AQuotedParagraphKeepsABelowColumnSeparatorTest extends TestCase
         $source = "r[^1]\n\n[^1]: > x\n" . str_repeat(' ', $termColumn) . ":: t\n  : zq\n";
         $html = (new CarveConverter())->convert($source);
 
-        self::assertStringContainsString("<blockquote><p>x\n:: t\n: zq</p></blockquote>", $html);
+        self::assertStringContainsString("<blockquote><p>x</p></blockquote>\n      <dl>\n        <dt>t</dt>\n        <dd>zq</dd>\n      </dl>", $html);
     }
 
     public function testTheSeparatorAfterAnOrdinaryQuotedTermStaysOutsideTheQuote(): void
@@ -46,7 +46,7 @@ final class AQuotedParagraphKeepsABelowColumnSeparatorTest extends TestCase
     {
         $html = (new CarveConverter())->convert("> x\n   :: t\n: zq\n");
 
-        self::assertStringContainsString("<blockquote><p>x\n:: t\n: zq</p></blockquote>", $html);
+        self::assertStringContainsString("<blockquote><p>x</p></blockquote>\n<dl>\n  <dt>t</dt>\n  <dd>zq</dd>\n</dl>", $html);
     }
 
     public function testTheSeparatorAfterAQuotedFootnoteTermStaysOutsideTheQuote(): void

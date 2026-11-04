@@ -34,7 +34,7 @@ class ABlockAtAMarkerLineNotesBodyColumnOpensInTheNoteTest extends TestCase
         yield 'a quote, with a fence in its lazy paragraph' => [
             "- [^n]: text\n    > quote\n      ```\n      code\n      ```\nafter [^n]\n",
             '<ul><li></li></ul><p>after ' . $ref . '</p>' . $notes
-                . "<p>text</p><blockquote><p>quote\n<code>\ncode\n</code></p></blockquote>" . self::BACKLINK . '</li></ol></section>',
+                . "<p>text</p><blockquote><p>quote</p></blockquote><pre><code>code\n</code></pre>" . self::BACKLINK . '</li></ol></section>',
         ];
 
         yield 'a heading after a term, then a fence past the column' => [

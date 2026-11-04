@@ -95,7 +95,8 @@ class FenceAdmissionRegressionsTest extends TestCase
         foreach ([3, 8, 20] as $column) {
             $prefix = str_repeat(' ', $column);
             $source = "- a\n  ```\n" . $prefix . "::: note\n" . $prefix . "- x\n" . $prefix . "::: \n";
-            $expected = "<ul><li>a\n<code>\n::: note\n- x\n:::</code></li></ul>";
+            $payload = str_repeat(' ', $column - 2);
+            $expected = "<ul><li>a\n    <pre><code>" . $payload . "::: note\n" . $payload . "- x\n" . $payload . "::: \n</code></pre></li></ul>";
             $html = (new CarveConverter())->convert($source);
             $this->assertSame($expected, trim((string)preg_replace('/>\\s+</', '><', $html)));
         }
@@ -104,7 +105,7 @@ class FenceAdmissionRegressionsTest extends TestCase
     public function testPostFenceDivMarkerKeepsItsPublishedOwnership(): void
     {
         $source = "- a\n  ```\n  ~~~\n  code\n  ~~~\n    ::: note\n    text\n   - x\n    :::\n";
-        $expected = "<ul>\n  <li>a\n<code></code>\n    <pre><code>code\n</code></pre>\n    ::: note\ntext\n- x\n:::\n  </li>\n</ul>\n";
+        $expected = "<ul>\n  <li>a\n    <pre><code>~~~\ncode\n~~~\n  ::: note\n  text\n - x\n  :::\n</code></pre>\n  </li>\n</ul>\n";
         $html = (new CarveConverter())->convert($source);
         $this->assertSame(
             trim((string)preg_replace('/>\\s+</', '><', $expected)),
@@ -115,7 +116,7 @@ class FenceAdmissionRegressionsTest extends TestCase
     public function testPostHeadingDivMarkerKeepsItsPublishedOwnership(): void
     {
         $source = "- a\n  ```\n  # h\n    ::: note\n    ~~~\n   - x\n    :::\n";
-        $expected = "<ul>\n  <li>a\n<code></code>\n    <h1 id=\"h\">h</h1>\n    ::: note\n~~~\n- x\n:::\n  </li>\n</ul>\n";
+        $expected = "<ul>\n  <li>a\n    <pre><code># h\n  ::: note\n  ~~~\n - x\n  :::\n</code></pre>\n  </li>\n</ul>\n";
         $html = (new CarveConverter())->convert($source);
         $this->assertSame(
             trim((string)preg_replace('/>\\s+</', '><', $expected)),

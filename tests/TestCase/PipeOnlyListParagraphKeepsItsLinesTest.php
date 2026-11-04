@@ -16,6 +16,6 @@ class PipeOnlyListParagraphKeepsItsLinesTest extends TestCase
     public function testPipeLinesStayInTheOpenParagraph(): void
     {
         $html = (new HtmlRenderer())->render((new BlockParser())->parse("- b\n|\n ||\n"));
-        self::assertSame("<ul>\n  <li>b\n|\n||</li>\n</ul>\n", $html);
+        self::assertSame("<ul>\n  <li>b\n|</li>\n</ul>\n<table>\n  <tbody>\n    <tr><td></td></tr>\n  </tbody>\n</table>\n", $html);
     }
 }

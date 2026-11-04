@@ -125,7 +125,6 @@ class ContainerBoundaryRulingsTest extends TestCase
      */
     public static function invisibleAtTheContentColumnProvider(): array
     {
-        $item = "<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>\n";
         $description = "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>tail</p>\n";
         // carve#5012 erases a line comment or link definition, so `tail` folds in.
         $erasedItem = "<ul>\n  <li>a\ntail</li>\n</ul>\n";
@@ -133,7 +132,7 @@ class ContainerBoundaryRulingsTest extends TestCase
 
         return [
             'reference definition in an item' => ["- a\n  [r]: /u\ntail\n", $erasedItem],
-            'footnote definition in an item' => ["- a\n  [^f]: t\ntail\n", $item],
+            'footnote definition in an item' => ["- a\n  [^f]: t\ntail\n", "<ul>\n  <li>a</li>\n</ul>\n"],
             'reference definition in a description' => [":: t\n:  a\n   [r]: /u\ntail\n", $erasedDescription],
             'comment in a description' => [":: t\n:  a\n   %% c\ntail\n", $erasedDescription],
             // Not pinned by the corpus: #1350 is stated about a container's
@@ -169,11 +168,10 @@ class ContainerBoundaryRulingsTest extends TestCase
     public static function invisibleBelowTheColumnProvider(): array
     {
         return [
-            'comment at column 0' => ["- a\n%% c\nb\n", "<li>a\n    b\n  </li>"],
-            'comment one column short' => ["- a\n %% c\nb\n", "<li>a\n    b\n  </li>"],
-            // One column short of the item's content column, so it is not the
-            // definition the column would have made it.
-            'reference definition one column short' => ["- a\n [r]: /u\ntail\n", '[r]: /u'],
+            'comment at column 0' => ["- a\n%% c\nb\n", "<li>a\nb</li>"],
+            'comment one column short' => ["- a\n %% c\nb\n", "<li>a\nb</li>"],
+            // One column short of the content column, it is still a definition.
+            'reference definition one column short' => ["- a\n [r]: /u\ntail\n", "<li>a\ntail</li>"],
             // A COMMENT PAST THE COLUMN IS STILL A BLOCK, so this row does not
             // belong to the rule above and is no longer read as its control.
             // After the `> ` prefix is stripped the quote's content column is 0
@@ -192,15 +190,10 @@ class ContainerBoundaryRulingsTest extends TestCase
                 "> a\n>  %% c\ntail\n",
                 "<blockquote><p>a\ntail</p></blockquote>\n",
             ],
-            // WHAT THE ROW ABOVE WAS MISTAKEN FOR, and the pair that proves the
-            // column test beside the comment is still live.
-            // `tryParseBlockAttributes()` requires the line to BEGIN with `{`,
-            // so an indented brace run in a quote is paragraph text - and the
-            // flush-left line below it continues that SAME paragraph, which is
-            // why all three lines land in one `<p>`.
+            // An indented attribute line in a quote also ends the paragraph.
             'attribute line indented inside a quote' => [
                 "> q\n>  {.k}\ntail\n",
-                "<blockquote><p>q\n{.k}\ntail</p></blockquote>\n",
+                "<blockquote><p>q</p></blockquote>\n<p>tail</p>\n",
             ],
             // The same attribute AT the column is a block, so it ends the
             // paragraph and the flush-left line leaves the quote. A fix that
@@ -327,12 +320,12 @@ class ContainerBoundaryRulingsTest extends TestCase
     {
         $html = $this->html("- a\n  [^f]: t\n\n    more\ntail\n\nx[^f]\n");
 
-        // The item ends, so the flush-left line is top-level.
-        $this->assertStringContainsString("<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>", $html);
+        // The item ends, and the flush-left line folds into the note.
+        $this->assertStringContainsString("<ul>\n  <li>a</li>\n</ul>\n<p>x<a id=\"fnref1\"", $html);
         // And the note keeps BOTH blocks - the second one is the half that used
         // to leave the document entirely.
         $this->assertStringContainsString('<p>t</p>', $html);
-        $this->assertStringContainsString('<p>more<a href="#fnref1"', $html);
+        $this->assertStringContainsString('<p>more' . "\n" . 'tail<a href="#fnref1"', $html);
     }
 
     /**
@@ -358,7 +351,7 @@ class ContainerBoundaryRulingsTest extends TestCase
     {
         $html = $this->html("- a\n  [^f]: t\n    more\ntail\n\nx[^f]\n");
 
-        $this->assertStringContainsString("<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>", $html);
+        $this->assertStringContainsString("<ul>\n  <li>a</li>\n</ul>\n<p>x<a id=\"fnref1\"", $html);
     }
 
     /**

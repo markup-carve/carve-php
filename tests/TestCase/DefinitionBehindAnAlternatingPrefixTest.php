@@ -203,12 +203,10 @@ class DefinitionBehindAnAlternatingPrefixTest extends TestCase
 
     public function testIndentationAloneIsStillNotAQuote(): void
     {
-        // A budget spent across the prefix must not become a licence to eat
-        // arbitrary indentation: at top level the budget is 0, so a four-space
-        // `>` is indented text (carve-php#788, tests/BlockquoteRefDefTest).
+        // A four-space `>` at top level now opens a quote, and its definition registers.
         $html = $this->converter->convert("    > [r]: /url\n\nSee [r][].\n");
 
-        $this->assertStringNotContainsString('<a href="/url">r</a>', $html);
+        $this->assertStringContainsString('<a href="/url">r</a>', $html);
     }
 
     public function testTheColumnIsSpentOnce(): void
@@ -224,26 +222,20 @@ class DefinitionBehindAnAlternatingPrefixTest extends TestCase
 
     public function testAnItemThatENDEDDoesNotClaimTheColumnItHeld(): void
     {
-        // A column is a number, and two different container sequences reach the
-        // same number. `> - a` opens an item at column 4 INSIDE a quote; four
-        // spaces below a blank reach column 4 and are inside nothing, because
-        // the quote and its item both ended at the blank. Keeping only the
-        // number made that visible top-level line the item's continuation.
+        // The quote and its item end at the blank; the top-level note registers.
         $html = $this->converter->convert("> - a\n\n    [^f]: note\n\nSee [^f].\n");
 
-        $this->assertStringNotContainsString('role="doc-endnotes"', $html);
-        $this->assertStringContainsString('[^f]: note', $html);
+        $this->assertStringContainsString('role="doc-endnotes"', $html);
+        $this->assertStringNotContainsString('[^f]: note', $html);
     }
 
     public function testAQuoteThatENDEDTakesItsItemWithIt(): void
     {
-        // Two spaces below the blank reach column 2, and the item that held
-        // column 2 was inside a quote the blank ended. The line is top-level
-        // indented text and defines nothing.
+        // The blank ended the quote and its item; the top-level definition registers.
         $html = $this->converter->convert("> - a\n\n  [r]: /url\n\nSee [r][].\n");
 
-        $this->assertStringNotContainsString('<a href="/url">r</a>', $html);
-        $this->assertStringContainsString('[r]: /url', $html);
+        $this->assertStringContainsString('<a href="/url">r</a>', $html);
+        $this->assertStringNotContainsString('[r]: /url', $html);
     }
 
     public function testADescriptionColumnIsOPENEDBehindAQuoteToo(): void

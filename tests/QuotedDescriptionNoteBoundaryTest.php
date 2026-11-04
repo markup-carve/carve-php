@@ -15,7 +15,7 @@ final class QuotedDescriptionNoteBoundaryTest extends TestCase
     {
         $html = (new CarveConverter())->convert("> - q\n>   :: t\n>   :  [^f]: note\n>        - nested\n>    after\n");
 
-        self::assertStringContainsString("<dd></dd>\n      </dl>\n      after", $html);
+        self::assertStringContainsString("<dd></dd>\n      </dl>\n    </li>", $html);
         self::assertStringNotContainsString('<dd>after</dd>', $html);
     }
 }

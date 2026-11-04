@@ -51,7 +51,7 @@ class ABlockOpenerRegistersAgainstTheColumnItReachesTest extends TestCase
     {
         return [
             'the frame base' => [0, true],
-            'below every column' => [1, false],
+            'below every column' => [1, true],
             'the outer content column' => [2, true],
             'between the two' => [3, true],
             'the inner content column' => [4, true],
@@ -118,7 +118,7 @@ class ABlockOpenerRegistersAgainstTheColumnItReachesTest extends TestCase
     {
         return [
             'the frame base' => [0, true],
-            'below every column' => [1, false],
+            'below every column' => [1, true],
             'the outermost content column' => [2, true],
             'between the first two' => [3, true],
             'the middle content column' => [4, true],
@@ -163,17 +163,13 @@ class ABlockOpenerRegistersAgainstTheColumnItReachesTest extends TestCase
     #[DataProvider('quoteColumnProvider')]
     public function testAnUnmarkedQuoteLineReachesNoColumn(int $column): void
     {
-        // A LAZY QUOTE LINE CARRIES NO `>`, so it extends an open paragraph and
-        // nothing else. The quote hands it down unstripped, which is the only
-        // reason its own indentation looks like it reaches an item below it -
-        // reading that indentation as a column opened blocks inside the item
-        // that every other engine folds.
+        // Without its `>` the line leaves the quote and registers at document level.
         $html = $this->converter->convert(
             "> - - x\n" . str_repeat(' ', $column) . "[r]: /url\n\nSee [r][].\n",
         );
 
-        $this->assertStringContainsString('[r]: /url', $html);
-        $this->assertStringNotContainsString('<a href="/url">r</a>', $html);
+        $this->assertStringNotContainsString('[r]: /url', $html);
+        $this->assertStringContainsString('<a href="/url">r</a>', $html);
     }
 
     /**
@@ -183,7 +179,7 @@ class ABlockOpenerRegistersAgainstTheColumnItReachesTest extends TestCase
     {
         return [
             'the quote frame base' => [0, true],
-            'below every item column' => [1, false],
+            'below every item column' => [1, true],
             'the outer item column' => [2, true],
             'between the two items' => [3, true],
             'the inner item column' => [4, true],

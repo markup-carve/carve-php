@@ -85,8 +85,8 @@ class AQuotedItemFenceDoesNotKeepAnUnmarkedLineTest extends TestCase
     public function testACloserAtTheContentColumnAllowsANewParagraph(): void
     {
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<blockquote>\n  <ul>\n    <li>a\n      <pre><code>payload\n</code></pre>\n      paragraph\n"
-                . "    </li>\n  </ul>\n  <p>flush</p>\n</blockquote>\n"),
+            preg_replace('/\n\z/', '', "<blockquote>\n  <ul>\n    <li><p>a</p>\n      <pre><code>payload\n</code></pre>\n      <p>paragraph\nflush</p>\n"
+                . "    </li>\n  </ul>\n</blockquote>\n"),
             (new CarveConverter())->convert(
                 "> - a\n>\n>     ```\n>     payload\n>   ```\n>   paragraph\nflush\n",
             ),
@@ -104,7 +104,7 @@ class AQuotedItemFenceDoesNotKeepAnUnmarkedLineTest extends TestCase
                     $source = "> - a\n>\n> {$pad}{$opener}\n> {$pad}x\n> {$runPad}{$run}\n>   after\nflush\n";
                     $block = str_ends_with($opener, '=html') ? "x\n" : "<pre><code>x\n</code></pre>\n";
                     $this->assertSame(
-                        preg_replace('/\n\z/', '', "<blockquote>\n  <ul>\n    <li>a\n      {$block}      after\n    </li>\n  </ul>\n</blockquote>\n<p>flush</p>\n"),
+                        preg_replace('/\n\z/', '', "<blockquote>\n  <ul>\n    <li><p>a</p>\n      {$block}      <p>after\nflush</p>\n    </li>\n  </ul>\n</blockquote>\n"),
                         (new CarveConverter())->convert($source),
                         $source,
                     );

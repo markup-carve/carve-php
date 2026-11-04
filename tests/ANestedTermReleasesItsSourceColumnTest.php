@@ -61,15 +61,15 @@ final class ANestedTermReleasesItsSourceColumnTest extends TestCase
     public function testQuoteBelowDescriptionColumnFoldsIntoOpenTerm(): void
     {
         $html = CarveConverter::create()->convert(":: outer\n:  detail\n     :: inner\n  > quote\n");
-        self::assertStringContainsString("<dt>inner\n&gt; quote</dt>", $html);
-        self::assertStringNotContainsString('<blockquote>', $html);
+        self::assertStringContainsString("</dl>\n<blockquote><p>quote</p></blockquote>", $html);
+        self::assertStringNotContainsString('&gt; quote', $html);
     }
 
     public function testQuotePastDescriptionColumnKeepsItsSourceOffsetInTerm(): void
     {
         $html = CarveConverter::create()->convert(":: outer\n:  detail\n     :: inner\n    > quote\n");
-        self::assertStringContainsString("<dt>inner\n &gt; quote</dt>", $html);
-        self::assertStringNotContainsString('<blockquote>', $html);
+        self::assertStringContainsString("</dl>\n    <blockquote><p>quote</p></blockquote>\n  </dd>", $html);
+        self::assertStringNotContainsString('&gt; quote', $html);
     }
 
     public function testQuotedSeparatorBelowNestedTermReturnsToDescription(): void

@@ -47,9 +47,8 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
     }
 
     /**
-     * The item's content column is 2. Column 1 is BELOW it, where §10 I5 makes
-     * the definition ordinary text and the flush-left line folds in behind it;
-     * 2 is AT it and 3 and 4 are PAST it, and the whole at-or-past half ends the
+     * The item's content column is 2. Column 1 is BELOW it, and the one-line
+     * definition is erased there too (carve#5012); 2 is AT it and 3 and 4 are PAST it, and the whole at-or-past half ends the
      * item. Column 0 reaches no container at all.
      *
      * Columns 3 and 4 are the two carve-php answered alone, and all four
@@ -61,7 +60,7 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
     {
         return [
             'column 0' => [0, false],
-            'below, column 1' => [1, true],
+            'below, column 1' => [1, false],
             'at the column' => [2, false],
             'one past the column' => [3, false],
             'two past the column' => [4, false],
@@ -97,7 +96,7 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
         $this->assertSame(
             $folds
                 ? "<ul>\n  <li>a\n[^f]: x\ntail</li>\n</ul>"
-                : "<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>",
+                : "<ul>\n  <li>a</li>\n</ul>",
             trim($html),
         );
     }
@@ -133,11 +132,10 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
     public static function markerLeadBandProvider(): array
     {
         $ended = "<ul>\n  <li>\n    <ul>\n      <li>a\ntail</li>\n    </ul>\n  </li>\n</ul>";
-        $folded = "<ul>\n  <li>\n    <ul>\n      <li>a\n[r]: /url\ntail</li>\n    </ul>\n  </li>\n</ul>";
 
         return [
             'column 0' => [0, $ended],
-            'below both columns, 1' => [1, $folded],
+            'below both columns, 1' => [1, $ended],
             'at the outer column' => [2, $ended],
             'past the outer column, below the inner' => [3, $ended],
             'at the inner column' => [4, $ended],
@@ -171,11 +169,10 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
     public static function subListBandProvider(): array
     {
         $ended = "<ul>\n  <li>a\n    <ul>\n      <li>x\ntail</li>\n    </ul>\n  </li>\n</ul>";
-        $folded = "<ul>\n  <li>a\n    <ul>\n      <li>x\n[r]: /url\ntail</li>\n    </ul>\n  </li>\n</ul>";
 
         return [
             'column 0' => [0, $ended],
-            'below both columns, 1' => [1, $folded],
+            'below both columns, 1' => [1, $ended],
             'at the outer column' => [2, $ended],
             'past the outer column, below the inner' => [3, $ended],
             'at the inner column' => [4, $ended],
@@ -206,8 +203,8 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
     public static function commentControlProvider(): array
     {
         return [
-            'column 0' => [0, true],
-            'below, column 1' => [1, true],
+            'column 0' => [0, false],
+            'below, column 1' => [1, false],
             'at the column' => [2, false],
             'one past the column' => [3, false],
             'two past the column' => [4, false],
@@ -248,12 +245,11 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
     public static function descriptionHostProvider(): array
     {
         $ended = "<dl>\n  <dt>t</dt>\n  <dd>a\ntail</dd>\n</dl>";
-        $folded = "<dl>\n  <dt>t</dt>\n  <dd>a\n[r]: /url\ntail</dd>\n</dl>";
 
         return [
             'column 0' => [0, $ended],
-            'below the column, 1' => [1, $folded],
-            'below the column, 2' => [2, $folded],
+            'below the column, 1' => [1, $ended],
+            'below the column, 2' => [2, $ended],
             'at the column' => [3, $ended],
             'one past the column' => [4, $ended],
             'two past the column' => [5, $ended],

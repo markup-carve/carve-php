@@ -594,7 +594,7 @@ class MarkdownRendererTest extends TestCase
     {
         $document = $this->converter->parse(":: a\n: b\n\t:: t\n  : zq\n");
 
-        $this->assertSame("**a**\n\nb\n\n**t**\n\n\\: zq\n", $this->renderer->render($document));
+        $this->assertSame("**a**\n\nb\n\n**t**\n\nzq\n", $this->renderer->render($document));
     }
 
     public function testComplexDocument(): void

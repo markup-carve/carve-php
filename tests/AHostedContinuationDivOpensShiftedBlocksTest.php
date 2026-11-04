@@ -60,17 +60,19 @@ final class AHostedContinuationDivOpensShiftedBlocksTest extends TestCase
     public function testRootAndRootBoxKeepShiftedOpenersAsText(): void
     {
         $kinds = [
-            'colon' => [[':::: inner', 'x', '::::'], '<p>:::: innerx::::</p>'],
-            'line' => [['::: |', 'x', ':::'], '<p>::: |x:::</p>'],
-            'backtick' => [['```', 'x', '```'], '<p><code>x</code></p>'],
-            'tilde' => [['~~~', 'x', '~~~'], '<p>~~~x~~~</p>'],
-            'heading' => [['# h'], '<p># h</p>'],
-            'quote' => [['> x'], '<p>&gt; x</p>'],
-            'break' => [['---'], '<p>—</p>'],
-            'table' => [['| x |'], '<p>| x |</p>'],
+            'colon' => [[':::: inner', 'x', '::::'], '<div class="inner"><p>x</p></div>'],
+            'line' => [['::: |', 'x', ':::'], '<div class="line-block"><p>x</p></div>'],
+            'backtick' => [['```', 'x', '```'], '<pre><code>x</code></pre>'],
+            'tilde' => [['~~~', 'x', '~~~'], '<pre><code>x</code></pre>'],
+            'heading' => [['# h'], '<section id="h"><h1>h</h1></section>', '<h1 id="h">h</h1>'],
+            'quote' => [['> x'], '<blockquote><p>x</p></blockquote>'],
+            'break' => [['---'], '<hr>'],
+            'table' => [['| x |'], '<table><tbody><tr><td>x</td></tr></tbody></table>'],
         ];
         $converter = new CarveConverter();
-        foreach ($kinds as $kind => [$lines, $expected]) {
+        foreach ($kinds as $kind => $entry) {
+            [$lines, $expected] = $entry;
+            $boxExpected = $entry[2] ?? $expected;
             foreach ([1, 2, 4] as $offset) {
                 $body = implode("\n", array_map(
                     static fn (string $line): string => str_repeat(' ', $offset) . $line,
@@ -78,7 +80,7 @@ final class AHostedContinuationDivOpensShiftedBlocksTest extends TestCase
                 )) . "\n";
                 self::assertSame($expected, self::compact($converter->convert($body)), "$kind/$offset/root");
                 self::assertSame(
-                    '<div class="box">' . $expected . '</div>',
+                    '<div class="box">' . $boxExpected . '</div>',
                     self::compact($converter->convert("::: box\n" . $body . ":::\n")),
                     "$kind/$offset/box",
                 );

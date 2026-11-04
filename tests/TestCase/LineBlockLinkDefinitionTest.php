@@ -69,9 +69,8 @@ class LineBlockLinkDefinitionTest extends TestCase
     public static function verseColumnProvider(): array
     {
         return [
-            // Three spaces is not any item's content column, so `::: |` is
-            // prose and the definition under it is a definition.
-            'an indented opener at top level is prose' => ["   ::: |\nDEF\n   :::\n\nUSE\n", true],
+            // The indented `::: |` opens verse, so the definition under it is verse.
+            'an indented opener at top level opens' => ["   ::: |\nDEF\n   :::\n\nUSE\n", false],
             // Inside the item it IS the content column, so the block opens and
             // the closer at that column ends it - the definition is below.
             'an opener at an item content column opens' => ["- item\n  ::: |\n  verse\n  :::\n\nDEF\n\nUSE\n", true],

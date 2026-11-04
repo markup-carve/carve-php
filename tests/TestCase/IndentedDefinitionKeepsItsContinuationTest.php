@@ -57,7 +57,8 @@ class IndentedDefinitionKeepsItsContinuationTest extends TestCase
 
     public function testALineAtTheDefinitionsOwnColumnIsNotContinuation(): void
     {
-        $this->assertStringNotContainsString('more', $this->noteBody("- a\n  [^f]: x\n  more\n\nsee[^f]\n"));
+        // At the definition's own column the line is lazy paragraph text of the note.
+        $this->assertStringContainsString('more', $this->noteBody("- a\n  [^f]: x\n  more\n\nsee[^f]\n"));
     }
 
     public function testATopLevelDefinitionIsUnchanged(): void

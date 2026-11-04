@@ -19,18 +19,18 @@ final class EscapeWindowWithRootImageTest extends TestCase
 
     public function testAnImageBesideBlocksKeepsLocalEscapeWindowsAvailable(): void
     {
-        $source = "![a](/i)\n\n  ## H\n";
+        $source = "![a](/i)\n\n\\## H\n";
         $document = (new BlockParser())->parse($source);
         $children = $document->getChildren();
         self::assertInstanceOf(Image::class, $children[0]);
         self::assertInstanceOf(Paragraph::class, $children[1]);
         self::assertNotNull((new EscapeWindows($document))->windowFor([$children[1]->getChildren()[0]]));
-        self::assertSame("![a](/i)\n\n\\#\\# H\n", CarveConverter::toCarve($source));
+        self::assertSame("![a](/i)\n\n\\## H\n", CarveConverter::toCarve($source));
     }
 
     public function testDistantRootBlocksUseSeparateWindows(): void
     {
-        $document = (new BlockParser())->parse("![a](/i)\n\n" . str_repeat("  ## H\n\n", 40));
+        $document = (new BlockParser())->parse("![a](/i)\n\n" . str_repeat("\\## H\n\n", 40));
         $paragraphs = array_values(array_filter(
             $document->getChildren(),
             static fn ($child): bool => $child instanceof Paragraph,
@@ -44,7 +44,7 @@ final class EscapeWindowWithRootImageTest extends TestCase
 
     public function testAnImageInsideADivDoesNotDisableItsChildWindow(): void
     {
-        $document = (new BlockParser())->parse("::: box\n![a](/i)\n\n  ## H\n:::\n");
+        $document = (new BlockParser())->parse("::: box\n![a](/i)\n\n\\## H\n:::\n");
         $div = $document->getChildren()[0];
         self::assertInstanceOf(Div::class, $div);
         $paragraph = $div->getChildren()[1];

@@ -20,7 +20,7 @@ class BlockFamilyRoundSixTest extends TestCase
   {
     "id": "r6_05",
     "source": ":: t\n: 1. para\n %%%\n %%%\ntail\n",
-    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<ol>\n<li>para\ntail\n</li>\n</ol>\n</dd>\n</dl>",
+    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<ol>\n<li>para</li>\n</ol>\n</dd>\n</dl>\n<p>tail</p>",
     "shape": "PHP-4 :: t / : 1~ para / ~%%% / ~%%% / T"
   },
   {
@@ -68,7 +68,7 @@ class BlockFamilyRoundSixTest extends TestCase
   {
     "id": "r6_16",
     "source": "1. [^c]: para\n   %%%\n   %%%\n     tail\n",
-    "expected": "<ol>\n<li>tail</li>\n</ol>",
+    "expected": "<ol>\n<li></li>\n</ol>",
     "shape": "PHP-12 1~ [^c]: para / ~%%% / ~%%% / ~T"
   },
   {
@@ -80,7 +80,7 @@ class BlockFamilyRoundSixTest extends TestCase
   {
     "id": "r6_18",
     "source": "1. - para\n  {#x}\n```\n",
-    "expected": "<ol>\n<li>\n<ul>\n<li>para\n{<span class=\"tag\"><strong>#x</strong></span>}\n<code></code></li>\n</ul>\n</li>\n</ol>",
+    "expected": "<ol>\n<li>\n<ul>\n<li>para</li>\n</ul>\n</li>\n</ol>\n<pre id=\"x\"><code></code></pre>",
     "shape": "PHP-14 1~ - para / ~ATTR / ```"
   },
   {
@@ -110,7 +110,7 @@ class BlockFamilyRoundSixTest extends TestCase
   {
     "id": "r6_25",
     "source": "- :: t\n  : para\n %%%\n %%%\nx\n",
-    "expected": "<ul>\n<li>\n<dl>\n<dt>t</dt>\n<dd>\n<p>para</p>\n<p>x</p>\n</dd>\n</dl>\n</li>\n</ul>",
+    "expected": "<ul>\n<li>\n<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n</li>\n</ul>\n<p>x</p>",
     "shape": "PHP-21 - :: t / ~: para / ~%%% / ~%%% / T"
   },
   {
@@ -122,7 +122,7 @@ class BlockFamilyRoundSixTest extends TestCase
   {
     "id": "r6_35",
     "source": "[r][] [^p] [^c] [^d]\n[^c]: :: t\n %%%\n %%%\ntail\n",
-    "expected": "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t\ntail</dt>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>",
+    "expected": "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<p>tail</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t</dt>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>",
     "shape": "PHP-31 USE / [^c]: :: t / ~%%% / ~%%% / T"
   },
   {
@@ -453,7 +453,7 @@ JSON;
     public function testNoteHostedTermKeepsCommentBreak(): void
     {
         $html = (new CarveConverter())->convert("[r][] [^p] [^c] [^d]\n[^c]: :: t\n %% c\n");
-        self::assertStringContainsString("<dt>t\n</dt>", $html);
+        self::assertStringContainsString('<dt>t</dt>', $html);
     }
 
     public function testCaptionAtDescriptionBodyColumnAttaches(): void

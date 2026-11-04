@@ -15,14 +15,15 @@ class FormatterKeepsAdjacentTightListsInDescriptionTest extends TestCase
     {
         foreach (
             [
-                ['- a', '- c', "\t"],
-                ['* alpha', '* beta', '  '],
-                ['1. first', '1. second', ''],
-            ] as [$first, $second, $tail]
+                // Rule A: one loose list now, written at the body's column.
+                ['- a', '- c', "\t", '- c'],
+                ['* alpha', '* beta', '  ', '* beta'],
+                ['1. first', '1. second', '', '2. second'],
+            ] as [$first, $second, $tail, $out]
         ) {
             $source = ":: term\n: {$first}\n\n   {$second}{$tail}\n";
             $written = CarveConverter::toCarve($source);
-            self::assertSame(":: term\n: {$first}\n\n   {$second}\n", $written);
+            self::assertSame(":: term\n: {$first}\n\n  {$out}\n", $written);
             self::assertSame(CarveConverter::create()->convert($source), CarveConverter::create()->convert($written));
             self::assertSame($written, CarveConverter::toCarve($written));
         }

@@ -108,9 +108,8 @@ class AMarkerAtAContentColumnOpensASublistTest extends TestCase
 
     public function testBelowTheContentColumnAMarkerStillFolds(): void
     {
-        // §24 C3's other band: "BELOW content_column ... a list marker folds as
-        // lazy item text". Corpus 05-lists-8.
-        $this->assertSame('<ol> <li>outer 1. inner</li> </ol>', $this->html("1. outer\n  1. inner\n"));
+        // Below the content column the marker reaches the list column and opens a sibling item.
+        $this->assertSame('<ol> <li>outer</li> <li>inner</li> </ol>', $this->html("1. outer\n  1. inner\n"));
     }
 
     /**

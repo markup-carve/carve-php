@@ -27,14 +27,14 @@ class ANoteMarkerLineBlockAnswersAsItsHostTest extends TestCase
             '[^c]: para
 %% c
 ```
-', '',
+', '<pre><code></code></pre>',
         ];
 
         yield '[^c]: para / .CMT / ``` 2' => [
             '[^c]: para
  %% c
 ```
-', '',
+', '<pre><code></code></pre>',
         ];
 
         yield 'USE / [^c]: ::: note / .......ATTR 3' => [
@@ -76,16 +76,18 @@ class ANoteMarkerLineBlockAnswersAsItsHostTest extends TestCase
             '[r][] [^p] [^c]
 [^c]: :: t
             [^p]: n
-', '<p>[r][] [^p] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
+', '<p>[r][] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a> <a id="fnref2" href="#fn2" role="doc-noteref"><sup>2</sup></a></p>
 <section role="doc-endnotes" aria-label="Footnotes">
 <hr>
 <ol>
 <li id="fn1">
+<p>n<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+</li>
+<li id="fn2">
 <dl>
-<dt>t
-[^p]: n</dt>
+<dt>t</dt>
 </dl>
-<p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+<p><a href="#fnref2" role="doc-backlink" aria-label="Back to reference">↩</a></p>
 </li>
 </ol>
 </section>',
@@ -95,14 +97,13 @@ class ANoteMarkerLineBlockAnswersAsItsHostTest extends TestCase
             '[r][] [^p] [^c]
 [^c]: :: t
             [r]: /u
-', '<p>[r][] [^p] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
+', '<p><a href="/u">r</a> [^p] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
 <section role="doc-endnotes" aria-label="Footnotes">
 <hr>
 <ol>
 <li id="fn1">
 <dl>
-<dt>t
-[r]: /u</dt>
+<dt>t</dt>
 </dl>
 <p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
 </li>
@@ -150,14 +151,13 @@ class ANoteMarkerLineBlockAnswersAsItsHostTest extends TestCase
             '[r][] [^p] [^c]
 [^c]: :: t
    [r]: /u
-', '<p>[r][] [^p] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
+', '<p><a href="/u">r</a> [^p] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
 <section role="doc-endnotes" aria-label="Footnotes">
 <hr>
 <ol>
 <li id="fn1">
 <dl>
-<dt>t
-[r]: /u</dt>
+<dt>t</dt>
 </dl>
 <p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
 </li>
@@ -191,16 +191,18 @@ class ANoteMarkerLineBlockAnswersAsItsHostTest extends TestCase
             '[r][] [^p] [^c]
 [^c]: :: t
    [^p]: n
-', '<p>[r][] [^p] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
+', '<p>[r][] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a> <a id="fnref2" href="#fn2" role="doc-noteref"><sup>2</sup></a></p>
 <section role="doc-endnotes" aria-label="Footnotes">
 <hr>
 <ol>
 <li id="fn1">
+<p>n<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+</li>
+<li id="fn2">
 <dl>
-<dt>t
-[^p]: n</dt>
+<dt>t</dt>
 </dl>
-<p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+<p><a href="#fnref2" role="doc-backlink" aria-label="Back to reference">↩</a></p>
 </li>
 </ol>
 </section>',
@@ -246,23 +248,25 @@ class ANoteMarkerLineBlockAnswersAsItsHostTest extends TestCase
       para
 %% c
 ```
-', '',
+', '<pre><code></code></pre>',
         ];
 
         yield 'USE / [^c]: :: t / .......NDEF 15' => [
             '[r][] [^p] [^c]
 [^c]: :: t
        [^p]: n
-', '<p>[r][] [^p] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
+', '<p>[r][] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a> <a id="fnref2" href="#fn2" role="doc-noteref"><sup>2</sup></a></p>
 <section role="doc-endnotes" aria-label="Footnotes">
 <hr>
 <ol>
 <li id="fn1">
+<p>n<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+</li>
+<li id="fn2">
 <dl>
-<dt>t
-[^p]: n</dt>
+<dt>t</dt>
 </dl>
-<p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+<p><a href="#fnref2" role="doc-backlink" aria-label="Back to reference">↩</a></p>
 </li>
 </ol>
 </section>',
@@ -325,14 +329,13 @@ class ANoteMarkerLineBlockAnswersAsItsHostTest extends TestCase
             '[r][] [^p] [^c]
 [^c]: :: t
          [r]: /u
-', '<p>[r][] [^p] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
+', '<p><a href="/u">r</a> [^p] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
 <section role="doc-endnotes" aria-label="Footnotes">
 <hr>
 <ol>
 <li id="fn1">
 <dl>
-<dt>t
-[r]: /u</dt>
+<dt>t</dt>
 </dl>
 <p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
 </li>
@@ -401,14 +404,13 @@ class ANoteMarkerLineBlockAnswersAsItsHostTest extends TestCase
             '[r][] [^p] [^c]
 [^c]: :: t
         [r]: /u
-', '<p>[r][] [^p] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
+', '<p><a href="/u">r</a> [^p] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
 <section role="doc-endnotes" aria-label="Footnotes">
 <hr>
 <ol>
 <li id="fn1">
 <dl>
-<dt>t
-[r]: /u</dt>
+<dt>t</dt>
 </dl>
 <p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
 </li>
@@ -482,16 +484,18 @@ class ANoteMarkerLineBlockAnswersAsItsHostTest extends TestCase
             '[r][] [^p] [^c]
 [^c]: :: t
          [^p]: n
-', '<p>[r][] [^p] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
+', '<p>[r][] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a> <a id="fnref2" href="#fn2" role="doc-noteref"><sup>2</sup></a></p>
 <section role="doc-endnotes" aria-label="Footnotes">
 <hr>
 <ol>
 <li id="fn1">
+<p>n<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+</li>
+<li id="fn2">
 <dl>
-<dt>t
-[^p]: n</dt>
+<dt>t</dt>
 </dl>
-<p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+<p><a href="#fnref2" role="doc-backlink" aria-label="Back to reference">↩</a></p>
 </li>
 </ol>
 </section>',
@@ -502,14 +506,14 @@ class ANoteMarkerLineBlockAnswersAsItsHostTest extends TestCase
       more
 %% c
 ```
-', '',
+', '<pre><code></code></pre>',
         ];
 
         yield '[^c]: 1. para / .CMT / ``` 29' => [
             '[^c]: 1. para
  %% c
 ```
-', '',
+', '<pre><code></code></pre>',
         ];
 
         yield 'control 1' => [

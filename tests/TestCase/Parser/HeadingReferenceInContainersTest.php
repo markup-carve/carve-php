@@ -119,8 +119,8 @@ class HeadingReferenceInContainersTest extends TestCase
     {
         $html = $this->html("   # Indented\n\nSee [Indented][].");
 
-        $this->assertStringContainsString('<p># Indented</p>', $html);
-        $this->assertStringContainsString('[Indented][]', $html);
+        $this->assertStringContainsString('<h1>Indented</h1>', $html);
+        $this->assertStringContainsString('<a href="#Indented">Indented</a>', $html);
     }
 
     /**

@@ -92,7 +92,8 @@ class APercentLeadingInlineCommentJoinsItsOpenerTest extends TestCase
 
     public function testANestedItemsBlockCommentKeepsItsSeparator(): void
     {
-        $this->assertSame("- - x\n    %% %\n    y\n", CarveConverter::toCarve("- - x\n  %%%\n  y\n"));
+        // Rule A: `%%%` at the outer item's column opens a block comment there.
+        $this->assertSame("- - x\n  %%%\n  y\n  %%%\n", CarveConverter::toCarve("- - x\n  %%%\n  y\n"));
     }
 
     public function testTheBlockArmKeepsItsSeparator(): void

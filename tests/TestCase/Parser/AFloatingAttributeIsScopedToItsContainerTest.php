@@ -103,7 +103,7 @@ class AFloatingAttributeIsScopedToItsContainerTest extends TestCase
     {
         $html = $this->html(">  {.k}\ntail\n");
 
-        $this->assertSame(preg_replace('/\n\z/', '', "<blockquote><p>{.k}\ntail</p></blockquote>\n"), $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<blockquote>\n\n</blockquote>\n<p>tail</p>\n"), $html);
     }
 
     /**

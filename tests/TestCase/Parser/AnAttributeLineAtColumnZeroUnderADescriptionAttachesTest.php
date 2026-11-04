@@ -130,10 +130,8 @@ class AnAttributeLineAtColumnZeroUnderADescriptionAttachesTest extends TestCase
 
         $this->assertSame('<dl>
   <dt>t</dt>
-  <dd>
-    <p>d</p>
-    <p>tail</p>
-  </dd>
+  <dd>d
+tail</dd>
 </dl>', $html);
         $this->assertStringNotContainsString('class=', $html);
     }
@@ -180,7 +178,7 @@ class AnAttributeLineAtColumnZeroUnderADescriptionAttachesTest extends TestCase
     public function testAControlBelowTheContentColumnItFoldsAndStaysLiteral(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>d\n{.k}\ntail</dd>\n</dl>",
+            "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p class=\"k\">tail</p>",
             $this->html(":: t\n:  d\n  {.k}\ntail\n"),
         );
     }

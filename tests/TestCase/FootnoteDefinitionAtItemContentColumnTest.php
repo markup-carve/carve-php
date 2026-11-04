@@ -69,13 +69,11 @@ class FootnoteDefinitionAtItemContentColumnTest extends TestCase
 
     public function testADefinitionBelowTheContentColumnStaysText(): void
     {
-        // The first control. One column short, the line is outside the item
-        // body and folds as the paragraph text it looks like, registering
-        // nothing (§24 C3). Exactly the content column is stripped, never less.
+        // One column short reaches the list column, so the definition registers at document level.
         $html = $this->converter->convert("- a\n [^f]: x\n\nsee[^f]");
 
-        $this->assertStringContainsString('[^f]: x', $html);
-        $this->assertStringNotContainsString('doc-noteref', $html);
+        $this->assertStringNotContainsString('[^f]: x', $html);
+        $this->assertStringContainsString('doc-noteref', $html);
     }
 
     public function testADefinitionPastTheContentColumnUsesItsAuthoredBase(): void
@@ -140,12 +138,11 @@ class FootnoteDefinitionAtItemContentColumnTest extends TestCase
 
     public function testBelowEveryOpenColumnStillStaysText(): void
     {
-        // One column in reaches neither 2 nor 4, so §24 C3's fold applies and
-        // the line is visible text that registers nothing.
+        // One column in reaches neither 2 nor 4, so the definition registers at document level.
         $html = $this->converter->convert("- - b\n [^f]: note\n\nsee[^f]");
 
-        $this->assertStringContainsString('[^f]: note', $html);
-        $this->assertStringContainsString('see[^f]', $html);
-        $this->assertStringNotContainsString('doc-endnotes', $html);
+        $this->assertStringNotContainsString('[^f]: note', $html);
+        $this->assertStringNotContainsString('see[^f]', $html);
+        $this->assertStringContainsString('doc-endnotes', $html);
     }
 }

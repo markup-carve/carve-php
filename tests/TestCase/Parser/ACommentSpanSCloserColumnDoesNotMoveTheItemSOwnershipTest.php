@@ -127,7 +127,7 @@ class ACommentSpanSCloserColumnDoesNotMoveTheItemSOwnershipTest extends TestCase
     public function testALineCommentBelowTheColumnStillRetainsTheFollower(): void
     {
         $this->assertSame(
-            "<ul>\n  <li>a\n    b\n  </li>\n</ul>",
+            "<ul>\n  <li>a\nb</li>\n</ul>",
             trim((new CarveConverter())->convert("- a\n%% c\nb\n")),
         );
     }

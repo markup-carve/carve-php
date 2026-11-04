@@ -109,12 +109,9 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
 
     public function testABelowColumnBlockOpenerFoldsAsTextIntoTheSubItem(): void
     {
-        // One column in, `# H` is below the sub-list's content column, so it is
-        // paragraph text rather than a heading - and it folds like any other
-        // lazy line. The lazy line therefore keeps its own indentation into the
-        // item's stream; dedenting it would have promoted it to a heading.
+        // Rule A: below every content column `# H` ends both items and opens a heading.
         $this->assertSame(
-            '<ul> <li> <ul> <li>a # H</li> </ul> </li> </ul>',
+            '<ul> <li> <ul> <li>a</li> </ul> </li> </ul> <section id="H"> <h1>H</h1> </section>',
             $this->squash($this->converter->convert("- - a\n # H\n")),
         );
     }

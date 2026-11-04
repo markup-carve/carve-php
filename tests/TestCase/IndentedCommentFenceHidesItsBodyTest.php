@@ -69,10 +69,9 @@ class IndentedCommentFenceHidesItsBodyTest extends TestCase
         // not the text it looks like. Corpus case
         // 186-a-comment-fence-is-a-comment-at-any-column-too pins it.
         //
-        // The item stays open across it, so `tail` is still item content - a
-        // comment closes nothing.
+        // Below the content column `tail` ends the item and lands at document level.
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>a\n    tail\n  </li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>a</li>\n</ul>\n<p>tail</p>\n"),
             $this->converter->convert("- a\n %%% n\n x\n %%%\n tail\n"),
         );
     }

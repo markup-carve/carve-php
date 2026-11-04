@@ -40,22 +40,22 @@ class DefinitionTermFoldLinterTest extends TestCase
     public static function cases(): array
     {
         return [
-            'top level heading' => [":: c\n  # H\n", [[2, 3]]],
-            'quoted heading' => ["> :: c\n>   # H\n", [[2, 5]]],
-            'heading in a list item' => ["- item\n\n  :: c\n    # H\n", [[4, 5]]],
-            'note in a description, once per term' => [":: a\n: b\n  :: c\n    ::: note\n    body\n    :::\n", [[4, 5]]],
-            'carriage return' => [":: c\r  # H\r", [[2, 3]]],
-            'byte order mark' => ["\u{FEFF}:: c\n # H\n", [[2, 2]]],
+            'top level heading' => [":: c\n  # H\n", []],
+            'quoted heading' => ["> :: c\n>   # H\n", []],
+            'heading in a list item' => ["- item\n\n  :: c\n    # H\n", []],
+            'note in a description, once per term' => [":: a\n: b\n  :: c\n    ::: note\n    body\n    :::\n", []],
+            'carriage return' => [":: c\r  # H\r", []],
+            'byte order mark' => ["\u{FEFF}:: c\n # H\n", []],
             'plain continuation text' => [":: c\n  more text\n", []],
             'list marker' => [":: c\n  - x\n", []],
             'opener at column 0' => [":: c\n# H\n", []],
             'opener at the description column' => [":: a\n: b\n  :: c\n  # H\n", []],
             'inside a code span' => [":: a\n  `code\n  # H\n  end`\n", []],
             'inside a nested code span' => [":: *`code\n  # H\n  end`*\n", []],
-            'folded link definition' => ["[t][r]\n\n:: a\n: b\n  :: c\n    [r]: /u\n", [[6, 5]]],
-            'folded footnote definition' => ["x[^n]\n\n- item\n\n  :: c\n    [^n]: y\n", [[6, 5]]],
+            'folded link definition' => ["[t][r]\n\n:: a\n: b\n  :: c\n    [r]: /u\n", []],
+            'folded footnote definition' => ["x[^n]\n\n- item\n\n  :: c\n    [^n]: y\n", []],
             'inside a folded comment fence' => [":: c\n  %%%\n  # H\n  %%%\n  more\n", []],
-            'opener before a trailing comment' => [":: c\n  # H %% note\n", [[2, 3]]],
+            'opener before a trailing comment' => [":: c\n  # H %% note\n", []],
         ];
     }
 

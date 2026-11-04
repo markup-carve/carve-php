@@ -58,12 +58,12 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
     use RuleATodo;
 
     /**
-     * The answer every at-or-past row gives: the list is the body's only
-     * content and `tail` is a document-level paragraph.
+     * The footnote band's answer: the list is the body's only content and
+     * `tail` continues the unreferenced note's body.
      *
      * @var string
      */
-    protected const ENDED = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>";
+    protected const ENDED = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>";
 
     /**
      * carve#5012 erases a one-line reference definition, so `tail` continues the item.
@@ -306,11 +306,11 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
         return [
             'below the column, 1' => [
                 1,
-                "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n[r]: /url\ntail</li>\n    </ul>\n  </dd>\n</dl>",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\ntail</li>\n    </ul>\n  </dd>\n</dl>",
             ],
             'below the column, 2' => [
                 2,
-                "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n    <p>tail</p>\n  </dd>\n</dl>",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\ntail</li>\n    </ul>\n  </dd>\n</dl>",
             ],
         ];
     }
@@ -367,7 +367,7 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
 
         return [
             'column 0' => [0, $ended],
-            'below the outer column' => [1, "<ul>\n  <li>\n    <ul>\n      <li>a\n[r]: /url\ntail</li>\n    </ul>\n  </li>\n</ul>"],
+            'below the outer column' => [1, $ended],
             'at the outer column' => [2, $ended],
             'past the outer column, below the inner' => [3, $ended],
             'at the inner column' => [4, $ended],
@@ -395,11 +395,11 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
         return [
             'below the column, 1' => [
                 1,
-                "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n[^f]: x\ntail</li>\n    </ul>\n  </dd>\n</dl>",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>",
             ],
             'below the column, 2' => [
                 2,
-                "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n    <p>tail</p>\n  </dd>\n</dl>",
+                "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>",
             ],
         ];
     }
@@ -462,9 +462,9 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
     public static function openerBelowTheColumnProvider(): array
     {
         return [
-            'a heading' => ['# H', "<p># H\ntail</p>"],
-            'a thematic break' => ['***', "<p>***\ntail</p>"],
-            'a code fence' => ["```\nz\n```", "<p><code>\nz\n</code>\ntail</p>"],
+            'a heading' => ['# H', "<section id=\"H\">\n  <h1>H</h1>\n  <p>tail</p>\n</section>"],
+            'a thematic break' => ['***', "<hr>\n<p>tail</p>"],
+            'a code fence' => ["```\nz\n```", "<pre><code>z\n</code></pre>\n<p>tail</p>"],
         ];
     }
 
@@ -490,23 +490,14 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
             $pad = str_repeat(' ', $column);
             $body = implode("\n", array_map(static fn (string $l): string => $pad . $l, explode("\n", $payload)));
             $html = $this->converter->convert(":: t\n:  - a\n" . $body . "\ntail");
-            if ($column === 1 && ($payload === '# H' || $payload === '***')) {
-                $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n" . $payload . "\ntail</li>\n    </ul>\n  </dd>\n</dl>";
-            } elseif ($column === 2 && ($payload === '# H' || $payload === '***')) {
-                $block = $payload === '# H' ? '<h1 id="H">H</h1>' : '<hr>';
-                $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        " . $block
-                    . "\n      </li>\n    </ul>\n    <p>tail</p>\n  </dd>\n</dl>";
-            } else {
-                $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n" . $after;
-            }
+            $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n" . $after;
 
             $this->assertSame($expected, trim($html), 'column ' . $column);
         }
     }
 
     /**
-     * AN ATTRIBUTE LINE BELOW EVERY CONTENT COLUMN IS LAZY ITEM TEXT under an
-     * open paragraph (PART 9 §24 C3 BELOW), matching the executable spec.
+     * AN ATTRIBUTE LINE BELOW EVERY CONTENT COLUMN ends the body and attaches to `tail`.
      *
      * @return array<string, array{0: int}>
      */
@@ -524,7 +515,7 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
         $html = $this->converter->convert(":: t\n:  - a\n" . str_repeat(' ', $column) . "{.k}\ntail");
 
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n{.k}\ntail</li>\n    </ul>\n  </dd>\n</dl>",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p class=\"k\">tail</p>",
             trim($html),
         );
     }

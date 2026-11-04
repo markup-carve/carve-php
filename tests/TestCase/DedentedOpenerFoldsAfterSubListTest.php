@@ -9,6 +9,8 @@ use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\TestCase;
 
 /**
+ * Rule A: a dedented opener below the sub-list now ends it; the history below predates that.
+ *
  * A block-shaped line below BOTH the sub-list's content column and the outer
  * item's opens nothing (strict content-column rule), so while a paragraph is
  * open it is a lazy line like any other text (PART 0 S4). This collector ended
@@ -34,7 +36,7 @@ class DedentedOpenerFoldsAfterSubListTest extends TestCase
     {
         $html = $this->converter->convert("- x\n  - a\n - b");
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>x\n    <ul>\n      <li>a\n- b</li>\n    </ul>\n  </li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>x\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n  <li>b</li>\n</ul>\n"),
             $html,
         );
     }
@@ -42,32 +44,28 @@ class DedentedOpenerFoldsAfterSubListTest extends TestCase
     public function testSeveralDedentedMarkersAllFold(): void
     {
         $html = $this->converter->convert("- x\n  - a\n - b\n - c");
-        $this->assertStringContainsString("<li>a\n- b\n- c</li>", $html);
+        $this->assertStringContainsString("<li>b</li>\n  <li>c</li>", $html);
     }
 
     public function testADedentedHeadingFoldsAsText(): void
     {
         $html = $this->converter->convert("- x\n  - a\n # H");
-        $this->assertStringContainsString("<li>a\n# H</li>", $html);
-        $this->assertStringNotContainsString('<h1', $html);
+        $this->assertStringContainsString("</ul>\n<section id=\"H\">\n  <h1>H</h1>", $html);
+        $this->assertStringNotContainsString("a\n# H", $html);
     }
 
     public function testADedentedQuoteFoldsAsText(): void
     {
         $html = $this->converter->convert("- x\n  - a\n > q");
-        $this->assertStringContainsString("<li>a\n&gt; q</li>", $html);
-        $this->assertStringNotContainsString('<blockquote>', $html);
+        $this->assertStringContainsString("</ul>\n<blockquote><p>q</p></blockquote>", $html);
+        $this->assertStringNotContainsString('&gt; q', $html);
     }
 
     public function testTwoColumnsInFoldsAsWell(): void
     {
-        // §24 C3 does not ask how deep the indent is: below the content column
-        // a marker folds, at any depth. This engine (and the other two) used to
-        // nest it under `a`, because the folded line kept its own indentation
-        // and that reached the SUB-list's content column on the reparse
-        // (carve#603).
+        // Below the sub-list's content column the marker opens a sibling of `x`, at any depth.
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>x\n    <ul>\n      <li>a\n- b</li>\n    </ul>\n  </li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>x\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n  <li>b</li>\n</ul>\n"),
             $this->converter->convert("-   x\n    - a\n  - b"),
         );
     }
@@ -76,7 +74,7 @@ class DedentedOpenerFoldsAfterSubListTest extends TestCase
     {
         // The threshold is the content column, not a distance from column 0.
         $this->assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>x\n    <ul>\n      <li>a\n- b</li>\n    </ul>\n  </li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>x\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n  <li>b</li>\n</ul>\n"),
             $this->converter->convert("  - x\n    - a\n   - b"),
         );
     }
@@ -99,10 +97,10 @@ class DedentedOpenerFoldsAfterSubListTest extends TestCase
     public function testABlankLineLeavesNothingToFoldInto(): void
     {
         // No open paragraph after the blank, so the dedented marker ends the
-        // item and starts its own list, as S4 requires.
+        // sub-list and opens a loose sibling of `x`.
         $html = $this->converter->convert("- x\n  - a\n\n - b");
         $this->assertStringNotContainsString("a\n- b", $html);
-        $this->assertStringContainsString('<li>b</li>', $html);
+        $this->assertStringContainsString('<li><p>b</p></li>', $html);
     }
 
     public function testPlainDedentedTextStillFolds(): void

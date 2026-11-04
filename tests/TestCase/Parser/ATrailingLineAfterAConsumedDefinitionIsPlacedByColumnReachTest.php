@@ -156,7 +156,7 @@ class ATrailingLineAfterAConsumedDefinitionIsPlacedByColumnReachTest extends Tes
 
     /**
      * p = 1 is below the outer note's body column 2, so the definition and the
-     * line below it leave every note and become document text; `[t][r]` never
+     * line below it leave every note and become document blocks; `[t][r]`
      * resolves. Without this row the band is satisfied by a rule that keeps
      * pulling lines into the outer note.
      */
@@ -164,9 +164,9 @@ class ATrailingLineAfterAConsumedDefinitionIsPlacedByColumnReachTest extends Tes
     {
         $html = $this->converter->convert($this->document(mid: 2, inner: 4, payload: 1));
 
-        $this->assertStringContainsString("<p>[r]: /url\nTAILWORD</p>", $html);
-        $this->assertStringContainsString('[t][r]', $html);
-        $this->assertStringNotContainsString('href="/url"', $html);
+        $this->assertStringContainsString("<p>TAILWORD</p>\n", $html);
+        $this->assertStringContainsString('<a href="/url">t</a>', $html);
+        $this->assertStringNotContainsString('[t][r]', $html);
     }
 
     /**

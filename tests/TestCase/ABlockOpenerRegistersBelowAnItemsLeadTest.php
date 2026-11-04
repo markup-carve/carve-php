@@ -129,9 +129,7 @@ class ABlockOpenerRegistersBelowAnItemsLeadTest extends TestCase
 
     /**
      * A `>` at the head of the inner prefix is the control, not another row of
-     * the table above: the opener line carries no `>`, so it reaches no column
-     * inside the quote and is lazy paragraph text there whatever its own
-     * indentation says.
+     * the table above: the opener line carries no `>`, so it closes the quote and opens in the outer item.
      *
      * @return array<string, array{0: string, 1: string}>
      */
@@ -140,11 +138,11 @@ class ABlockOpenerRegistersBelowAnItemsLeadTest extends TestCase
         return [
             'a quote' => [
                 '> x',
-                '<ul> <li>a <blockquote><p>x # H</p></blockquote> </li> </ul>',
+                '<ul> <li>a <blockquote><p>x</p></blockquote> <h1 id="H">H</h1> </li> </ul>',
             ],
             'a quote over a marker' => [
                 '> - x',
-                '<ul> <li>a <blockquote> <ul> <li>x # H</li> </ul> </blockquote> </li> </ul>',
+                '<ul> <li>a <blockquote> <ul> <li>x</li> </ul> </blockquote> <h1 id="H">H</h1> </li> </ul>',
             ],
         ];
     }
@@ -157,8 +155,7 @@ class ABlockOpenerRegistersBelowAnItemsLeadTest extends TestCase
 
     /**
      * Every column the below-lead spelling makes live, and the one below all of
-     * them. Column 1 reaches NO content column, so the line stays item text -
-     * that is the boundary a fix written one column too wide crosses.
+     * them. Column 1 reaches NO content column and registers too under rule A.
      *
      * @return array<string, array{0: int, 1: bool}>
      */
@@ -166,7 +163,7 @@ class ABlockOpenerRegistersBelowAnItemsLeadTest extends TestCase
     {
         return [
             'the frame base' => [0, true],
-            'below every column' => [1, false],
+            'below every column' => [1, true],
             'the outer content column' => [2, true],
             'between the two' => [3, true],
             'the inner content column' => [4, true],
@@ -196,13 +193,12 @@ class ABlockOpenerRegistersBelowAnItemsLeadTest extends TestCase
 
     /**
      * The other control: a line carrying no `>` reaches no column inside a
-     * quote whatever its own indentation says, so it is lazy paragraph text and
-     * the definition never registers.
+     * quote whatever its own indentation says; under rule A the definition still registers.
      */
     public function testAnUnmarkedLineReachesNoColumnInsideAQuote(): void
     {
         $this->assertSame(
-            '<blockquote><p>a &gt; x [r]: /url</p></blockquote> <p>See [r][].</p>',
+            '<blockquote><p>a x</p></blockquote> <p>See <a href="/url">r</a>.</p>',
             $this->html("> a\n  > x\n   [r]: /url\n\nSee [r][].\n"),
         );
     }

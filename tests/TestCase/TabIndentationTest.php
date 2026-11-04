@@ -254,16 +254,15 @@ class TabIndentationTest extends TestCase
     }
 
     /**
-     * Heading with leading tab - should NOT be a heading.
+     * Heading with leading tab - rule A reads it as a heading at document level.
      */
     public function testHeadingWithLeadingTab(): void
     {
         $input = "\t# Not a heading";
         $result = $this->converter->convert($input);
 
-        // Tab-indented # should not be a heading
-        $this->assertStringNotContainsString('<h1>', $result);
-        $this->assertStringContainsString('<p>', $result);
+        $this->assertStringContainsString('<h1>Not a heading</h1>', $result);
+        $this->assertStringNotContainsString('<p>', $result);
     }
 
     /**

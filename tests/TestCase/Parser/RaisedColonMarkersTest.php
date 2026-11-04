@@ -28,7 +28,9 @@ final class RaisedColonMarkersTest extends TestCase
         foreach (['- second', '1. second', '- [x] second'] as $marker) {
             foreach ([1, 2, 4, 6, 8] as $column) {
                 $source = "- head\n\n      :::\n      a\n" . str_repeat(' ', $column) . $marker . "\n";
-                $this->assertStringContainsString("<p>a\n" . $marker . '</p>', $converter->convert($source));
+                // Column 1 is below the item's content column, so the marker leaves the item.
+                $expected = $column === 1 ? "<p>a</p>\n    </div>\n  </li>\n" : "<p>a\n" . $marker . '</p>';
+                $this->assertStringContainsString($expected, $converter->convert($source));
             }
         }
     }

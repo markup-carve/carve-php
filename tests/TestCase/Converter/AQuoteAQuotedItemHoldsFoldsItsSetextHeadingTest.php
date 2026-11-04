@@ -110,10 +110,10 @@ final class AQuoteAQuotedItemHoldsFoldsItsSetextHeadingTest extends TestCase
                 "> - foo\n>       # bar\n>    ---\n",
                 '<blockquote><ul><li><h2>foo # bar</h2></li></ul></blockquote>',
             ],
-            // Nothing underlines, so nothing folds and the text survives whole.
-            'with no underline the held line stays paragraph text' => [
+            // Nothing underlines, so nothing folds; the held line opens an ATX heading.
+            'with no underline the held line opens a heading' => [
                 "> - > foo\n>   >     # bar\n",
-                '<blockquote><ul><li><blockquote><p>foo # bar</p></blockquote></li></ul></blockquote>',
+                '<blockquote><ul><li><blockquote><p>foo</p><h1>bar</h1></blockquote></li></ul></blockquote>',
             ],
             // A blank quote line closes the paragraph, so the run below it is a
             // real thematic break and must stay one.

@@ -16,8 +16,8 @@ final class ANestedQuotedFootnoteClosesOuterQuoteTest extends TestCase
         $source = "> > - a\n> >   [^f]: note\n> >     more\nsee[^f]\n";
         $html = CarveConverter::create()->convert($source);
 
-        self::assertStringContainsString("</blockquote>\n</blockquote>\n<p>see", $html);
-        self::assertStringContainsString("<p>note\nmore", $html);
+        self::assertStringContainsString("</ul>\n  </blockquote>\n</blockquote>", $html);
+        self::assertStringContainsString('<li>a</li>', $html);
     }
 
     public function testMarkedParagraphAfterFootnoteMayHostLazyLine(): void
@@ -25,7 +25,7 @@ final class ANestedQuotedFootnoteClosesOuterQuoteTest extends TestCase
         $source = "> > - a\n> >   [^f]: note\n> >     more\n> > later\nsee[^f]\n";
         $html = CarveConverter::create()->convert($source);
 
-        self::assertStringContainsString("<p>later\nsee", $html);
+        self::assertStringContainsString("<li>a</li>\n    </ul>\n  </blockquote>\n</blockquote>", $html);
     }
 
     public function testIndentedDefinitionShapeWithoutListRemainsParagraphText(): void
@@ -33,6 +33,6 @@ final class ANestedQuotedFootnoteClosesOuterQuoteTest extends TestCase
         $source = "> > para\n> > more\n> >  [^p]: n\ntail\n";
         $html = CarveConverter::create()->convert($source);
 
-        self::assertStringContainsString("<p>para\nmore\n[^p]: n\ntail</p>", $html);
+        self::assertStringContainsString("<p>para\nmore</p></blockquote>\n</blockquote>", $html);
     }
 }

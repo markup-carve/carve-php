@@ -53,12 +53,11 @@ class FmtKeepsARegionsSelectionTest extends TestCase
      */
     public static function readings(): iterable
     {
-        // A comment that is not a marker clears X1 retention at the content
-        // column, so the marker under it stays there too.
-        yield 'below a non-marker comment' => ["- a\n%% note\n%% #endregion r\n", "- a\n  %% note\n  %% #endregion r\n"];
+        // A flush-left comment below an item leaves it, and the marker under it stays at column 0.
+        yield 'below a non-marker comment' => ["- a\n%% note\n%% #endregion r\n", "- a\n\n%% note\n%% #endregion r\n"];
 
-        // A marker retained in a nested item goes back to that item's marker column.
-        yield 'in a nested item' => ["- x\n  - y\n%% #endregion r\n", "- x\n  - y\n  %% #endregion r\n"];
+        // A flush-left marker below a nested item stays at column 0.
+        yield 'in a nested item' => ["- x\n  - y\n%% #endregion r\n", "- x\n  - y\n%% #endregion r\n"];
 
         // Below a list the closer cannot be written adjacent: it would join the item.
         yield 'below a list' => ["- a\n\n%% #endregion r\n", "- a\n\n%% #endregion r\n"];

@@ -63,26 +63,17 @@ class QuoteFenceLinterTest extends TestCase
     }
 
     /**
-     * IN A FOOTNOTE BODY THIS SHAPE IS NOT THE MISTAKE, and the pass is right
-     * to stay quiet: the quote has an open paragraph and the lines below it
-     * carry no marker, so they are its lazy continuation and the opener never
-     * becomes a sibling. Both spec revisions render one blockquote holding
-     * `::: >` as text.
-     *
-     * This row asserted a warning until markup-carve/carve-php#1898, because
-     * the engine published two sibling quotes here where the spec publishes
-     * one - the warning was true about the engine's own output and false about
-     * the language.
+     * In a footnote body the opener now opens a sibling quote, so the pass warns.
      */
     public function testSaysNothingWhereTheOpenerIsTheQuotesOwnLazyText(): void
     {
         $source = "[^a]: > q\n      ::: >\n      b\n      :::\n\nsee[^a]\n";
 
         $this->assertStringContainsString(
-            "<blockquote><p>q\n::: &gt;\nb\n:::</p></blockquote>",
+            "<blockquote><p>q</p></blockquote>\n      <blockquote><p>b</p></blockquote>",
             (new CarveConverter())->convert($source),
         );
-        $this->assertSame([], $this->reports($source));
+        $this->assertCount(1, $this->reports($source));
     }
 
     public function testSaysNothingAboutTheNestedSpellingWhichNeedsTheMarker(): void

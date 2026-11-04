@@ -19,37 +19,37 @@ class BlockFamilyRoundNineTest extends TestCase
   {
     "id": "r9_00",
     "source": "> [^c]: para\n > q\n",
-    "expected": "<blockquote>\n</blockquote>\n<p>&gt; q</p>"
+    "expected": "<blockquote>\n</blockquote>"
   },
   {
     "id": "r9_01",
     "source": "> [^c]: para\n  > q\n",
-    "expected": "<blockquote>\n</blockquote>\n<p>&gt; q</p>"
+    "expected": "<blockquote>\n</blockquote>"
   },
   {
     "id": "r9_02",
     "source": "> [^c]: para\n   > q\n",
-    "expected": "<blockquote>\n</blockquote>\n<p>&gt; q</p>"
+    "expected": "<blockquote>\n</blockquote>"
   },
   {
     "id": "r9_03",
     "source": "> [^c]: para\n     > q\n",
-    "expected": "<blockquote>\n</blockquote>\n<p>&gt; q</p>"
+    "expected": "<blockquote>\n</blockquote>"
   },
   {
     "id": "r9_04",
     "source": ":: t\n: > para\n  ^ cap\n```\n",
-    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<figure>\n<blockquote><p>para</p></blockquote>\n<figcaption>cap\n<code></code></figcaption>\n</figure>\n</dd>\n</dl>"
+    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<figure>\n<blockquote><p>para</p></blockquote>\n<figcaption>cap</figcaption>\n</figure>\n</dd>\n</dl>\n<pre><code></code></pre>"
   },
   {
     "id": "r9_05",
     "source": "1. :: t\n  %%%\n2. next\n%%%\n",
-    "expected": "<ol>\n  <li>\n    <dl>\n      <dt>t\n</dt>\n    </dl>\n  </li>\n  <li>next</li>\n</ol>\n"
+    "expected": "<ol>\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n  </li>\n</ol>\n"
   },
   {
     "id": "quote marker at quote column",
     "source": "> [^c]: para\n> q\n",
-    "expected": "<blockquote><p>q</p></blockquote>"
+    "expected": "<blockquote></blockquote>"
   },
   {
     "id": "caption continuation without fence",

@@ -94,8 +94,9 @@ final class InvalidContainerMetadataTest extends TestCase
     public function testProseOpenerDoesNotBlockFormatting(): void
     {
         $patch = CarveConverter::toCarvePatch("  ::: widget Bad\nx\n:::\n");
-        self::assertNotEmpty($patch->edits);
-        self::assertSame([], $patch->unresolved);
+        // The indented opener now reads as a container, so its metadata needs review.
+        self::assertSame([], $patch->edits);
+        self::assertSame(['invalid-container-metadata'], array_map(static fn ($s): string => $s->code, $patch->unresolved));
     }
 
     public function testAuthoredMetadataAndNestedValidFencesDuringDjotMigration(): void

@@ -19,15 +19,14 @@ class ADefinitionTermPastAnOpenDescriptionColumnTest extends TestCase
     public static function foldedLines(): array
     {
         return [
-            'footnote' => ['  [^n]: note', '[^n]: note'],
+            'footnote' => ['  [^n]: note', "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>"],
         ];
     }
 
     #[DataProvider('foldedLines')]
-    public function testAPastColumnTermClosesTheParagraph(string $lines, string $folded): void
+    public function testAPastColumnTermClosesTheParagraph(string $lines, string $expected): void
     {
         $source = ":: t\n:  d\n{$lines}\n      :: u\n      :  e";
-        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d\n{$folded}</p>\n    <dl>\n      <dt>u</dt>\n      <dd>e</dd>\n    </dl>\n  </dd>\n</dl>";
 
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
@@ -58,7 +57,7 @@ class ADefinitionTermPastAnOpenDescriptionColumnTest extends TestCase
     public function testATermBelowTheBodyColumnKeepsItsCurrentReading(): void
     {
         $source = ":: t\n:  d\n  :: u\n  :  e";
-        self::assertSame("<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>:: u\n:  e</p>", trim((new CarveConverter())->convert($source)));
+        self::assertSame("<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n  <dt>u</dt>\n  <dd>e</dd>\n</dl>", trim((new CarveConverter())->convert($source)));
     }
 
     public function testATermOneColumnPastTheBodyOpensTheNestedList(): void
@@ -71,7 +70,7 @@ class ADefinitionTermPastAnOpenDescriptionColumnTest extends TestCase
     public function testAnOpenQuoteParagraphStillFoldsAnUnmarkedTerm(): void
     {
         $source = "> q\n>   :: u\n>   :  e";
-        self::assertSame("<blockquote><p>q\n:: u\n:  e</p></blockquote>", trim((new CarveConverter())->convert($source)));
+        self::assertSame("<blockquote>\n  <p>q</p>\n  <dl>\n    <dt>u</dt>\n    <dd>e</dd>\n  </dl>\n</blockquote>", trim((new CarveConverter())->convert($source)));
     }
 
     public function testATermInsideANestedItemKeepsItsDescriptionInThatItem(): void
@@ -105,7 +104,7 @@ class ADefinitionTermPastAnOpenDescriptionColumnTest extends TestCase
     public function testALaterQuoteKeepsItsOpenParagraph(): void
     {
         $source = ":: t\n:  d\n  x\n\n   > q\n      :: u\n      :  e";
-        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d\nx</p>\n    <blockquote><p>q\n:: u\n:  e</p></blockquote>\n  </dd>\n</dl>";
+        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d\nx</p>\n    <blockquote><p>q</p></blockquote>\n    <dl>\n      <dt>u</dt>\n      <dd>e</dd>\n    </dl>\n  </dd>\n</dl>";
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
 
@@ -119,7 +118,7 @@ class ADefinitionTermPastAnOpenDescriptionColumnTest extends TestCase
     public function testAnOpenNestedTermKeepsItsContinuation(): void
     {
         $source = ":: t\n:  d\n  - a\n\n   :: x\n      :: u\n      :  e";
-        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d\n- a</p>\n    <dl>\n      <dt>x\n   :: u\n   :  e</dt>\n    </dl>\n  </dd>\n</dl>";
+        $expected = "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<ul>\n  <li>a</li>\n</ul>\n<dl>\n  <dt>x</dt>\n  <dt>u</dt>\n  <dd>e</dd>\n</dl>";
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
 

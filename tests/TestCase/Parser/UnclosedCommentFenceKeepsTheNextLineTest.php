@@ -36,9 +36,9 @@ class UnclosedCommentFenceKeepsTheNextLineTest extends TestCase
     {
         $html = $this->html("- a\n  %%% x\n # h\n");
 
-        $this->assertStringContainsString('# h', $html, "the author's line vanished");
-        // Below the content column it is TEXT, not a heading.
-        $this->assertStringNotContainsString('<h1', $html);
+        $this->assertStringContainsString('<h1>h</h1>', $html, "the author's line vanished");
+        // Below the content column it closes the list and opens a document heading.
+        $this->assertStringContainsString('</ul> <section id="h">', $html);
         // And the fence itself stays invisible.
         $this->assertStringNotContainsString('%%%', $html);
     }

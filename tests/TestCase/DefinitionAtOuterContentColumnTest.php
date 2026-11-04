@@ -81,13 +81,11 @@ class DefinitionAtOuterContentColumnTest extends TestCase
 
     public function testBelowEveryColumnTheLineIsStillItemText(): void
     {
-        // The boundary the ruling does NOT move: column 1 reaches no content
-        // column at all, so the line is the lazy paragraph text §24 C3 says it
-        // is.
+        // Column 1 ends the items, so the line is a definition and registers.
         $html = $this->converter->convert("- - a\n [^f]: x\n\nsee[^f]\n");
 
-        $this->assertStringContainsString('[^f]: x', $html);
-        $this->assertStringNotContainsString('doc-endnotes', $html);
+        $this->assertStringNotContainsString('[^f]: x', $html);
+        $this->assertStringContainsString('doc-endnotes', $html);
     }
 
     public function testTheSameHoldsForALinkDefinition(): void

@@ -17,7 +17,7 @@ class ReferenceDefinitionStaysOnOneLineTest extends TestCase
         $converter = new CarveConverter();
 
         $this->assertSame(
-            "<ul>\n  <li></li>\n</ul>\n<p>:::</p>",
+            "<ul>\n  <li></li>\n</ul>\n<div>\n\n</div>",
             trim($converter->convert("* [d]: \n :::\n")),
         );
     }
@@ -37,7 +37,7 @@ class ReferenceDefinitionStaysOnOneLineTest extends TestCase
         $converter = new CarveConverter();
 
         $this->assertSame(
-            "<ul>\n  <li></li>\n</ul>\n<p>:::</p>",
+            "<ul>\n  <li></li>\n</ul>\n<div>\n\n</div>",
             trim($converter->convert("* [d]: /u\n :::\n")),
         );
     }

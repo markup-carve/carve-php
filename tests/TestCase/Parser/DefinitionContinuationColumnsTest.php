@@ -46,8 +46,15 @@ class DefinitionContinuationColumnsTest extends TestCase
                     $html = $this->converter->convert(
                         $this->source($head, $contentColumn, $definition, $column),
                     );
-                    $this->assertFalse($this->tailIsInside($html), $html);
-                    $this->assertStringContainsString("<p>more\ntail</p>", $html);
+                    if ($definition === '[^f]: t') {
+                        // The lines fold into the unreferenced note body.
+                        $this->assertStringNotContainsString('more', $html);
+                        $this->assertStringNotContainsString('tail', $html);
+
+                        continue;
+                    }
+                    $this->assertTrue($this->tailIsInside($html), $html);
+                    $this->assertStringContainsString("<li>a\nmore\ntail</li>", $html);
                 }
             }
         }

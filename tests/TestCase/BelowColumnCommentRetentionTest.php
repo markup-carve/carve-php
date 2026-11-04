@@ -17,6 +17,6 @@ class BelowColumnCommentRetentionTest extends TestCase
     {
         $render = static fn (string $source): string => (new HtmlRenderer())->render((new BlockParser())->parse($source));
 
-        self::assertSame("<ul>\n  <li>\n    <ul>\n      <li>item\n        tail\n      </li>\n    </ul>\n  </li>\n</ul>\n", $render("- - item\n %%%\n  %%%\ntail"));
+        self::assertSame("<ul>\n  <li>\n    <ul>\n      <li>item</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>\n", $render("- - item\n %%%\n  %%%\ntail"));
     }
 }

@@ -48,8 +48,9 @@ class AttachedDefinitionBoundariesTest extends TestCase
     {
         $source = "> :: term\n> : body\n> +\n> 1. inner\n>    [r]: /a\n>   [s]: /b\n\nSee [r][] [s][].\n";
         $html = (new CarveConverter())->convert($source);
-        $this->assertStringContainsString('<p>[s]: /b</p>', $html);
-        $this->assertStringNotContainsString('href="/b"', $html);
+        // Rule A: the second definition registers too.
+        $this->assertStringNotContainsString('<p>[s]: /b</p>', $html);
+        $this->assertStringContainsString('href="/b"', $html);
     }
 
     private function htmlTree(string $html): array

@@ -52,7 +52,7 @@ class DifferentialAuditRegressionTest extends TestCase
     public function testResidualQuoteIndentKeepsAThematicRunInTheParagraph(): void
     {
         $html = (new CarveConverter())->convert(">  ---\nh\n");
-        $this->assertSame(preg_replace('/\n\z/', '', "<blockquote><p>—\nh</p></blockquote>\n"), $html);
+        $this->assertSame(preg_replace('/\n\z/', '', "<blockquote>\n  <hr>\n</blockquote>\n<p>h</p>\n"), $html);
     }
 
     /**

@@ -58,11 +58,9 @@ class HostedColonCloserGeometryTest extends TestCase
     {
         $doc = (new BlockParser())->parse($source);
         $children = $doc->getChildren();
-        // After a closed literal or verse block, `- tail` misses the quoted item and opens its own list (carve#4860).
-        self::assertCount($kind === 'box' ? 1 : 2, $children, $source);
-        if ($kind !== 'box') {
-            self::assertSame('list', $children[1]->getType(), $source);
-        }
+        // After the closed block, `- tail` misses the quoted item and opens its own list (carve#4860).
+        self::assertCount(2, $children, $source);
+        self::assertSame('list', $children[1]->getType(), $source);
         $host = $children[0];
         for ($i = 0; $i < $depth; $i++) {
             self::assertSame('block_quote', $host->getType(), $source);
@@ -84,8 +82,8 @@ class HostedColonCloserGeometryTest extends TestCase
             self::assertCount(1, $blocks, $source);
             self::assertSame('div', $blocks[0]->getType(), $source);
             self::assertSame('paragraph', $blocks[0]->getChildren()[0]->getType(), $source);
-            self::assertStringContainsString($run, self::text($blocks[0]), $source);
-            self::assertStringContainsString('- tail', self::text($blocks[0]), $source);
+            self::assertSame('a', self::text($blocks[0]), $source);
+            self::assertStringContainsString('tail', self::text($children[1]), $source);
         } else {
             self::assertCount(1, $blocks, $source);
             self::assertSame('line_block', $blocks[0]->getType(), $source);

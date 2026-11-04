@@ -38,11 +38,11 @@ final class IndentedListAttachedParagraphTest extends TestCase
     public function testFlushLeftListMarkersEndTheAttachedParagraph(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>para</li>\n</ul>\n<ol>\n  <li>c</li>\n</ol>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li></li>\n</ul>\n<p>para\n1. c</p>\n"),
             CarveConverter::create()->convert("  - +\npara\n1. c\n"),
         );
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>para</li>\n</ul>\n<ul>\n  <li>c</li>\n</ul>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li></li>\n</ul>\n<p>para\n- c</p>\n"),
             CarveConverter::create()->convert("  - +\npara\n- c\n"),
         );
     }

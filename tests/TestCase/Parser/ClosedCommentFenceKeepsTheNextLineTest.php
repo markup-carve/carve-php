@@ -44,10 +44,10 @@ class ClosedCommentFenceKeepsTheNextLineTest extends TestCase
     public static function belowColumnLines(): array
     {
         return [
-            'heading' => ['# h', '# h'],
-            'quote' => ['> q', '&gt; q'],
-            'div opener' => [':::: d', ':::: d'],
-            'table row' => ['| a |', '| a |'],
+            'heading' => ['# h', '</ul> <section id="h"> <h1>h</h1>'],
+            'quote' => ['> q', '</ul> <blockquote><p>q</p></blockquote>'],
+            'div opener' => [':::: d', '</ul> <div class="d"> </div>'],
+            'table row' => ['| a |', '</ul> <table> <tbody> <tr><td>a</td></tr>'],
         ];
     }
 
@@ -93,7 +93,8 @@ class ClosedCommentFenceKeepsTheNextLineTest extends TestCase
     {
         $html = $this->html("- a\n  %%% x\n  visible\n # h\n");
 
-        $this->assertMatchesRegularExpression('/visible.*# h/s', $html);
+        // The unclosed fence hides `visible`; `# h` below the column opens a document heading.
+        $this->assertMatchesRegularExpression('/^<ul> <li>a<\/li> <\/ul> <section id="h"> <h1>h<\/h1>/s', $html);
     }
 
     /**
@@ -104,7 +105,7 @@ class ClosedCommentFenceKeepsTheNextLineTest extends TestCase
     {
         $html = $this->html("- a\n  b\n # h\n");
 
-        $this->assertStringContainsString('# h', $html);
-        $this->assertStringNotContainsString('<h1', $html);
+        $this->assertStringContainsString('<h1>h</h1>', $html);
+        $this->assertStringContainsString('<li>a b</li> </ul> <section id="h">', $html);
     }
 }

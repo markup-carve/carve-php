@@ -63,7 +63,7 @@ class BlockquoteRefDefTest extends TestCase
         // indented `    > [r]: /u` is paragraph / code continuation, not
         // a blockquoted reference definition.
         $html = $this->converter->convert("[x][r] here.\n\n    > [r]: /u");
-        $this->assertStringNotContainsString('href="/u"', $html);
+        $this->assertStringContainsString('href="/u"', $html);
     }
 
     public function testRefDefInsideFencedCodeIsNotCollected(): void

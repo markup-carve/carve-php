@@ -20,42 +20,42 @@ class BlockFamilyRoundThreeTest extends TestCase
   {
     "id": "r3_011",
     "source": "[r][] [^p] [^c] [^d]\n[^c]: :: t\n      : para\n   [^p]: n\n",
-    "expected": "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t\n: para\n[^p]: n</dt>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
+    "expected": "<p>[r][] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> <a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<p>n<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n<li id=\"fn2\">\n<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n<p><a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
   },
   {
     "id": "r3_012",
     "source": "[r][] [^p] [^c] [^d]\n[^c]: :: t\n      : para\n       [^p]: n\n",
-    "expected": "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t\n: para\n[^p]: n</dt>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
+    "expected": "<p>[r][] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> <a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<p>n<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n<li id=\"fn2\">\n<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n<p><a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
   },
   {
     "id": "r3_013",
     "source": "[r][] [^p] [^c] [^d]\n[^c]: :: t\n      : para\n         [^p]: n\n",
-    "expected": "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t\n: para\n[^p]: n</dt>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
+    "expected": "<p>[r][] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> <a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<p>n<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n<li id=\"fn2\">\n<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n<p><a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
   },
   {
     "id": "r3_014",
     "source": "[r][] [^p] [^c] [^d]\n[^c]: :: t\n      : para\n            [^p]: n\n",
-    "expected": "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t\n: para\n[^p]: n</dt>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
+    "expected": "<p>[r][] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> <a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<p>n<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n<li id=\"fn2\">\n<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n<p><a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
   },
   {
     "id": "r3_015",
     "source": "[r][] [^p] [^c] [^d]\n\n[^c]: :: t\n      : para\n   [r]: /u\n",
-    "expected": "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t\n: para\n[r]: /u</dt>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
+    "expected": "<p><a href=\"/u\">r</a> [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
   },
   {
     "id": "r3_016",
     "source": "[r][] [^p] [^c] [^d]\n\n[^c]: :: t\n      : para\n        [r]: /u\n",
-    "expected": "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t\n: para\n[r]: /u</dt>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
+    "expected": "<p><a href=\"/u\">r</a> [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
   },
   {
     "id": "r3_017",
     "source": "[r][] [^p] [^c] [^d]\n\n[^c]: :: t\n      : para\n         [r]: /u\n",
-    "expected": "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t\n: para\n[r]: /u</dt>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
+    "expected": "<p><a href=\"/u\">r</a> [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
   },
   {
     "id": "r3_018",
     "source": "[r][] [^p] [^c] [^d]\n\n[^c]: :: t\n      : para\n            [r]: /u\n",
-    "expected": "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t\n: para\n[r]: /u</dt>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
+    "expected": "<p><a href=\"/u\">r</a> [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n<p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
   },
   {
     "id": "r3_022",
@@ -70,12 +70,12 @@ class BlockFamilyRoundThreeTest extends TestCase
   {
     "id": "r3_037",
     "source": ":: t\n: para\n%% c\n```\nx\n",
-    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<p>para</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n<p>x</p>"
+    "expected": "<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n<pre><code>x\n</code></pre>"
   },
   {
     "id": "r3_038",
     "source": ":: t\n: para\n %% c\n```\nx\n",
-    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<p>para</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n<p>x</p>"
+    "expected": "<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n<pre><code>x\n</code></pre>"
   },
   {
     "id": "r3_046",
@@ -95,27 +95,27 @@ class BlockFamilyRoundThreeTest extends TestCase
   {
     "id": "r3_060",
     "source": ":: t\n: 1. para\n   {#x}\ntail\n",
-    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<ol>\n<li>para\n{<span class=\"tag\"><strong>#x</strong></span>}\ntail</li>\n</ol>\n</dd>\n</dl>"
+    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<ol>\n<li>para</li>\n</ol>\n</dd>\n</dl>\n<p>tail</p>"
   },
   {
     "id": "r3_062",
     "source": ":: t\n: ::: note\n  para\n%% c\n```\nx\n",
-    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<aside class=\"admonition note\" aria-label=\"Note\">\n<p>para</p>\n<pre><code></code></pre>\n</aside>\n</dd>\n</dl>\n<p>x</p>"
+    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<aside class=\"admonition note\" aria-label=\"Note\">\n<p>para</p>\n</aside>\n</dd>\n</dl>\n<pre><code>x\n</code></pre>"
   },
   {
     "id": "r3_063",
     "source": "1. :: t\n   : para\n%% c\n```\n",
-    "expected": "<ol>\n<li>\n<dl>\n<dt>t</dt>\n<dd>\n<p>para</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n</li>\n</ol>"
+    "expected": "<ol>\n<li>\n<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n</li>\n</ol>\n<pre><code></code></pre>"
   },
   {
     "id": "r3_069",
     "source": "- :: t\n  : para\n %% c\n```\n",
-    "expected": "<ul>\n<li>\n<dl>\n<dt>t</dt>\n<dd>\n<p>para</p>\n<pre><code></code></pre>\n</dd>\n</dl>\n</li>\n</ul>"
+    "expected": "<ul>\n<li>\n<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n</li>\n</ul>\n<pre><code></code></pre>"
   },
   {
     "id": "r3_070",
     "source": ":: t\n: - para\n   {#x}\ntail\n",
-    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<ul>\n<li>para\n{<span class=\"tag\"><strong>#x</strong></span>}\ntail</li>\n</ul>\n</dd>\n</dl>"
+    "expected": "<dl>\n<dt>t</dt>\n<dd>\n<ul>\n<li>para</li>\n</ul>\n</dd>\n</dl>\n<p>tail</p>"
   },
 {
   "id": "n:desc/footnote-3340",
@@ -125,7 +125,7 @@ class BlockFamilyRoundThreeTest extends TestCase
 {
   "id": "n:desc/footnote-5960",
   "source": "[r][] [^p] [^c] [^d]\n\n:: t\n: [^c]: para\n    more\n   - li\n```\nx\n",
-  "expected": "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<dl>\n<dt>t</dt>\n<dd>\n<ul>\n<li>li\n<code>\nx</code></li>\n</ul>\n</dd>\n</dl>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<p>para\nmore<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
+  "expected": "<p>[r][] [^p] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^d]</p>\n<dl>\n<dt>t</dt>\n<dd>\n<ul>\n<li>li</li>\n</ul>\n</dd>\n</dl>\n<pre><code>x\n</code></pre>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<p>para\nmore<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"
 }
 ]
 JSON;

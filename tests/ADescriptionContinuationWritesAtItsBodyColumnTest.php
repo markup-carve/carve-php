@@ -20,16 +20,16 @@ final class ADescriptionContinuationWritesAtItsBodyColumnTest extends TestCase
     public static function foldedOpeners(): array
     {
         return [
-            'quote' => ['> quote', '\\> quote'],
-            'heading' => ['# H', '\\# H'],
-            'two-hash heading' => ['## H', '\\#\\# H'],
-            'six-hash heading' => ['###### H', '\\#\\#\\#\\#\\#\\# H'],
-            'bare quote' => ['>', '\\>'],
-            'double quote' => ['>> q', '>> q'],
-            'table row' => ['| a |', '\\| a |'],
-            'non-row pipe' => ['| a', '| a'],
-            'tight table row' => ['|a|b|', '\\|a|b|'],
-            'plain hash' => ['#tag', '#tag'],
+            'quote' => ['> quote', "\n> quote"],
+            'heading' => ['# H', "\n# H"],
+            'two-hash heading' => ['## H', "\n## H"],
+            'six-hash heading' => ['###### H', "\n###### H"],
+            'bare quote' => ['>', "\n>"],
+            'double quote' => ['>> q', '  >> q'],
+            'table row' => ['| a |', "\n| a |"],
+            'non-row pipe' => ['| a', '  | a'],
+            'tight table row' => ['|a|b|', "\n| a | b |"],
+            'plain hash' => ['#tag', '  #tag'],
         ];
     }
 
@@ -37,7 +37,8 @@ final class ADescriptionContinuationWritesAtItsBodyColumnTest extends TestCase
     public function testFoldedOpenersAreEscapedAtTheBodyColumn(string $sourceLine, string $written): void
     {
         $formatted = CarveConverter::toCarve(":: term\n:  definition\n $sourceLine\n");
-        self::assertSame(":: term\n: definition\n  $written\n", $formatted);
+        // Openers below the body column open document-level blocks after the description list.
+        self::assertSame(":: term\n: definition\n$written\n", $formatted);
         self::assertSame($formatted, CarveConverter::toCarve($formatted));
     }
 

@@ -53,7 +53,8 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
                         . $quote . "    body\n" . $quote . str_repeat(' ', $column) . "- next\n"
                         . $quote . '    ' . $fence . "\n- tail\n";
                     $html = (new CarveConverter())->convert($source);
-                    $this->assertStringContainsString("<p>body\n- next</p>", $html);
+                    // Columns 1 and 3 reach a list column and open a sibling; column 4 stays lazy text.
+                    $this->assertStringContainsString([1 => "<li>next\n", 3 => '<li>next</li>', 4 => "<p>body\n- next</p>"][$column], $html);
                     $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"), $html);
                 }
             }
@@ -76,7 +77,7 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
     {
         $source = "> - a\n>   - b\n>     - ::: box\n>       body\n>    - next\n>       :::\n- tail\n";
         $html = (new CarveConverter())->convert($source);
-        $this->assertStringContainsString("<p>body\n- next</p>", $html);
+        $this->assertStringContainsString("</ul>\n        </li>\n        <li>next\n", $html);
         $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"), $html);
     }
 
@@ -97,7 +98,7 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
             if ($body === 'box') {
                 $this->assertSame(trim(PinnedOracleHtml::forSource($source)), trim($html));
             } else {
-                $this->assertStringContainsString("<p>body<br>\n- next</p>", $html);
+                $this->assertStringContainsString("<p>body</p>\n          </div>\n        </li>\n      </ul>\n    </li>\n    <li>next\n", $html);
             }
             $this->assertStringEndsWith(preg_replace('/\n\z/', '', "</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"), $html);
         }

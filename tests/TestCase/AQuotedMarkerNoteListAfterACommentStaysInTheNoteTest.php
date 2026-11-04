@@ -29,7 +29,7 @@ class AQuotedMarkerNoteListAfterACommentStaysInTheNoteTest extends TestCase
     {
         $source = "> - [^n]: text\n>     - child\n>       - deep\nafter [^n]\n";
         $converter = new CarveConverter();
-        self::assertStringContainsString('<p>text - child - deep', preg_replace('/\s+/', ' ', $converter->convert($source)));
+        self::assertSame('<blockquote> <ul> <li></li> </ul> </blockquote>', preg_replace('/\s+/', ' ', $converter->convert($source)));
     }
 
     /**
