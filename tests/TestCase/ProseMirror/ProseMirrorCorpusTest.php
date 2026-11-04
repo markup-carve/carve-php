@@ -155,11 +155,12 @@ class ProseMirrorCorpusTest extends TestCase
      * rows of rulings not ported here yet (carve#5012, carve#5013) join.
      * carve#5091 adds two covered placeholders the bridge has no slot for (15):
      * the header-kind `= <` of 659-2 and the alignment-only `{<} <` of 952-2
-     * come back bare; the HTML is the same.
+     * come back bare; the HTML is the same. Corpus 953-3 (16) spells a cell
+     * with the deprecated `|<` prefix, which comes back as its braced run.
      *
      * @var int
      */
-    private const MAXIMUM_COVERED_BUT_DIFFERING = 15;
+    private const MAXIMUM_COVERED_BUT_DIFFERING = 16;
 
     public function testTheCorpusSurvivesTheBridge(): void
     {

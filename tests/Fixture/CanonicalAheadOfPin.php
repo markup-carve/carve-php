@@ -23,10 +23,6 @@ final class CanonicalAheadOfPin
                 '284-a-ragged-table-keeps-each-row-s-cell-count-2' => "|= |= x |\n| y |\n",
                 '284-a-ragged-table-keeps-each-row-s-cell-count-3' => "|= h |\n| | x |\n",
                 '285-adjacent-block-openers-in-an-attached-run-stay-separate-2' => "- x\n+\n|= a |\n| b |\n+\n|= a |\n| b |\n",
-                // carve#5098 (carve#5100): a promoted placeholder is written header-kind.
-                '659-table-spans-keep-alignment-defaults-in-physical-columns-4' => "|={>} Wide |={<} < |={~} Last |\n| a | b | c |\n",
-                // carve#5094: header placeholders are spaced, `|= ^ |`.
-                '952-native-head-rows-with-span-placeholders-9' => "|= ^ |= a |\n| 1 | 2 |\n",
                 '99-table-cell-attributes' => "|={.highlight} Total |= 99 |\n| a | b |\n",
             ],
             'md' => [

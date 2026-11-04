@@ -272,11 +272,11 @@ CRV;
             self::assertContains('551-a-link-destination-is-opaque-to-the-bracket-scan-3.crv', $files, $profile);
         }
         // Corpus 551 adds three link documents on both configured routes;
-        // CARVE-P9-082 makes 589-32 a table both routes take.
+        // 589-32 has a native header row since carve#4980 and falls back.
         // Corpus 617-3 is an unmarked CSV fence on both configured routes.
         // Rows 588-3 and 588-4 fall back because their lines end in plus.
         // Corpus 673 adds one accepted link-title-padding document per route.
-        self::assertSame(['tier2' => 75, 'events' => 75], $accepted, 'A configured fast-path routing change needs explicit review.');
+        self::assertSame(['tier2' => 74, 'events' => 74], $accepted, 'A configured fast-path routing change needs explicit review.');
     }
 
     #[DataProvider('activeUnsupportedExtension')]

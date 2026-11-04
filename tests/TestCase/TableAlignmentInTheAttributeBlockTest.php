@@ -11,50 +11,10 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * carve#5091 (D3: alignment symbols lead the cell's attribute block) and
- * carve#4980 stage 1 (native head rows for span placeholders), checked against
- * carve main ahead of the spec pin.
+ * carve#4980 stage 1 (native head rows for span placeholders).
  */
 final class TableAlignmentInTheAttributeBlockTest extends TestCase
 {
-    private const FIXTURE = __DIR__ . '/../fixtures/table-syntax-ahead-of-pin-5091.json';
-
-    private const PINNED_CORPUS = __DIR__ . '/../spec/tests/corpus/';
-
-    /**
-     * @return array<string, array{string, string, string|null}>
-     */
-    public static function aheadOfPinRows(): array
-    {
-        $data = json_decode((string)file_get_contents(self::FIXTURE), true, 512, JSON_THROW_ON_ERROR);
-        $rows = [];
-        foreach ($data['rows'] as $row) {
-            $rows[$row['slug']] = [$row['source'], $row['html'], $row['fmt'] ?? null];
-        }
-
-        return $rows;
-    }
-
-    #[DataProvider('aheadOfPinRows')]
-    public function testACarveMainRowRendersAndFormats(string $source, string $html, ?string $fmt): void
-    {
-        $this->assertSame(self::normalize($html), self::normalize((new CarveConverter())->convert($source)));
-        if ($fmt !== null) {
-            $this->assertSame($fmt, CarveConverter::toCarve($source));
-        }
-    }
-
-    public function testNoRowIsAlreadyAtThePin(): void
-    {
-        $stale = [];
-        foreach (self::aheadOfPinRows() as $slug => [$source]) {
-            if (@file_get_contents(self::PINNED_CORPUS . $slug . '.crv') === $source) {
-                $stale[] = $slug;
-            }
-        }
-
-        $this->assertSame([], $stale, 'The pin carries these rows now: delete them from the fixture');
-    }
-
     /**
      * @return array<string, array{string, string}>
      */
@@ -135,10 +95,5 @@ final class TableAlignmentInTheAttributeBlockTest extends TestCase
         foreach ($data['vectors'] as $vector) {
             $this->assertSame($vector['fixed'], CarveConverter::toCarve($vector['source']), $vector['name']);
         }
-    }
-
-    private static function normalize(string $html): string
-    {
-        return trim((string)preg_replace('/>\s+</', '><', (string)preg_replace('/\s+/', ' ', $html)));
     }
 }
