@@ -41,8 +41,8 @@ class VerbatimMarkerRoundtripTest extends TestCase
                     ],
                 ],
             ]);
-            // An ordered marker opens a list at every column of the item (rule A), so no spelling keeps it in the code.
-            if ($marker === '. b' || $marker === '1. b') {
+            // A list marker opens an item at every column of the item (rule A), so no spelling keeps it in the code.
+            if ($marker !== '+ b') {
                 try {
                     (new CarveRenderer())->render($document);
                     self::fail('expected a refusal for ' . $marker);

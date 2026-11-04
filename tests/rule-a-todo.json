@@ -226,10 +226,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\VerbatimMarkerRoundtripTest::testListMarkersInsideCodeKeepTheirValue",
-            "ticket": "carve-php#4616"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\UnclosedCommentKeepsFollowingContainerTest::testThreePercentLineDoesNotHideNestedContainer",
             "ticket": "carve-php#4244"
         },
