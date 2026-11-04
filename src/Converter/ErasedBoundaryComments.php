@@ -36,6 +36,27 @@ final class ErasedBoundaryComments
     }
 
     /**
+     * Respell each `%% $body` line that stands at its container's own column as a code block holding `$body`.
+     * Such a line ends a Markdown list, but no comment, fenced or not, ends a Carve list (CARVE-P9-014), so the
+     * writer pass needs a visible block there to see two lists.
+     */
+    public static function fenceListEnders(string $carve, string $body): string
+    {
+        if (!str_contains($carve, '%%')) {
+            return $carve;
+        }
+        $lines = explode("\n", $carve);
+        $pattern = '/^((?:[ \t]*>[ ]?)*)%%[ \t]+' . preg_quote($body, '/') . '[ \t]*$/D';
+        foreach (array_reverse((new BlockParser())->erasedCommentLines($carve)) as $index) {
+            if (preg_match($pattern, $lines[$index] ?? '', $m) === 1) {
+                array_splice($lines, $index, 1, [$m[1] . '```', $m[1] . $body, $m[1] . '```']);
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
      * Drop each erased quoted bare `%%` line where the document reads as with a fence there, and write the fence
      * where it does not.
      */
