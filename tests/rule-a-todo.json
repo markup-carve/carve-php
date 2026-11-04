@@ -1710,10 +1710,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\ColonFenceAuthoredBaseTest::testCloserUsesAuthoredBase with data set #72",
-            "ticket": "carve-php#4243"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\ColonFenceAuthoredBaseTest::testCloserUsesAuthoredBase with data set #75",
             "ticket": "carve-php#4244"
         },
