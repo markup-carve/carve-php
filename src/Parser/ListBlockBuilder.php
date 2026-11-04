@@ -872,34 +872,8 @@ final class ListBlockBuilder
         // Get the base indentation of this list
         $baseIndent = IndentationHelper::getLeadingColumns($line);
         $listSourceLine = $this->sourceLineFor($start);
-        $footnoteOwnerColumn = null;
-        if ($parent instanceof Footnote) {
-            $firstAuthoredLine = $this->state->source->authoredLines[$listSourceLine] ?? '';
-            if (preg_match('/\[\^[^\]]+\]:[ \t]+/', $firstAuthoredLine, $footnoteMarker, PREG_OFFSET_CAPTURE) === 1) {
-                $footnoteOwnerColumn = ContinuationMarkerClassifier::columnAt($firstAuthoredLine, $footnoteMarker[0][1]) + 2;
-            }
-        }
-        $listOpeningColumn = $parent instanceof Document
-            ? 0
-            : $this->resolveMarkerColumn($listSourceLine, $line);
-        if ($parent instanceof ListItem && $listOpeningColumn !== null) {
-            $ownerPos = $parent->getPos();
-            if ($ownerPos !== null) {
-                $ownerLine = $this->state->source->authoredLines[$ownerPos->startLine - 1] ?? '';
-                $ownerStart = $ownerPos->startColumn - 1;
-                if (preg_match('/^([ \t]*)([-*.]|[0-9]+[.)]|[A-Za-z]+[.)])(?:\{[^}]*\})?([ \t]+)/', substr($ownerLine, $ownerStart), $ownerMarker) === 1) {
-                    $ownerContentEnd = $ownerStart + strlen($ownerMarker[1]) + strlen($ownerMarker[2]) + strlen($ownerMarker[3]);
-                    $ownerContentColumn = ContinuationMarkerClassifier::columnAt($ownerLine, $ownerContentEnd);
-                    $nestedLine = $this->state->source->authoredLines[$listSourceLine] ?? '';
-                    $nestedMarker = ltrim($line, " \t");
-                    $markerColumn = str_ends_with($nestedLine, $nestedMarker)
-                        ? strlen($nestedLine) - strlen($nestedMarker)
-                        : strspn($nestedLine, " \t");
-                    $opening = $this->openingByteColumnAtVisual($nestedLine, $ownerContentColumn, $markerColumn);
-                    $listOpeningColumn = max($listOpeningColumn, $opening);
-                }
-            }
-        }
+        $footnoteOwnerColumn = $this->footnoteOwnerColumn($parent, $listSourceLine);
+        $listOpeningColumn = $this->listOpeningColumn($parent, $listSourceLine, $line);
         $listContentColumn = ($listOpeningColumn ?? $baseIndent)
             + $this->listMarkerWidth(ltrim($line, " \t"), $listInfo);
 
@@ -4024,6 +3998,42 @@ final class ListBlockBuilder
         }
 
         return $opening;
+    }
+
+    private function footnoteOwnerColumn(Node $parent, int $sourceLine): ?int
+    {
+        if (!$parent instanceof Footnote) {
+            return null;
+        }
+        $line = $this->state->source->authoredLines[$sourceLine] ?? '';
+        if (preg_match('/\[\^[^\]]+\]:[ \t]+/', $line, $marker, PREG_OFFSET_CAPTURE) !== 1) {
+            return null;
+        }
+
+        return ContinuationMarkerClassifier::columnAt($line, $marker[0][1]) + 2;
+    }
+
+    private function listOpeningColumn(Node $parent, int $sourceLine, string $line): ?int
+    {
+        $opening = $parent instanceof Document ? 0 : $this->resolveMarkerColumn($sourceLine, $line);
+        if (!$parent instanceof ListItem || $opening === null || $parent->getPos() === null) {
+            return $opening;
+        }
+        $ownerPos = $parent->getPos();
+        $ownerLine = $this->state->source->authoredLines[$ownerPos->startLine - 1] ?? '';
+        $ownerStart = $ownerPos->startColumn - 1;
+        if (preg_match('/^([ \t]*)([-*.]|[0-9]+[.)]|[A-Za-z]+[.)])(?:\{[^}]*\})?([ \t]+)/', substr($ownerLine, $ownerStart), $marker) !== 1) {
+            return $opening;
+        }
+        $contentEnd = $ownerStart + strlen($marker[1]) + strlen($marker[2]) + strlen($marker[3]);
+        $contentColumn = ContinuationMarkerClassifier::columnAt($ownerLine, $contentEnd);
+        $nestedLine = $this->state->source->authoredLines[$sourceLine] ?? '';
+        $nestedMarker = ltrim($line, " \t");
+        $markerColumn = str_ends_with($nestedLine, $nestedMarker)
+            ? strlen($nestedLine) - strlen($nestedMarker)
+            : strspn($nestedLine, " \t");
+
+        return max($opening, $this->openingByteColumnAtVisual($nestedLine, $contentColumn, $markerColumn));
     }
 
     private function sourceLineFor(int $index): int
