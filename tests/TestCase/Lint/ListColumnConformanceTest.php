@@ -50,9 +50,14 @@ final class ListColumnConformanceTest extends TestCase
             ["100. c\n\n\t- d\n", 'list-marker-below-content-column', 3, 2],
             ["é\n\n10. c\n\n   - d\n", 'list-marker-below-content-column', 5, 4],
             ["- x\n  9. a\n     - b\n  10. c\n     - d\n", 'list-marker-below-content-column', 5, 6],
-            [" 9. nine\r\n10. ten\r\n", 'ordered-list-split-by-indent', 2, 1],
-            [">  9. nine\n> 10. ten\n", 'ordered-list-split-by-indent', 2, 3],
         ];
+        // Rule A reads these as one list, so the retired split rule reports nothing (docs/validation.md).
+        foreach ([" 9. nine\r\n10. ten\r\n", ">  9. nine\n> 10. ten\n"] as $source) {
+            self::assertSame([], array_values(array_filter(
+                (new DocumentLinter())->lint($source),
+                static fn ($warning): bool => $warning->rule === 'ordered-list-split-by-indent',
+            )), $source);
+        }
         foreach ($cases as [$source, $rule, $line, $column]) {
             $warnings = array_values(array_filter(
                 (new DocumentLinter())->lint($source),
