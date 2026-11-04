@@ -48,6 +48,34 @@ without it, include targets are not read. Included findings show the target path
 relative to the root and the directive chain. In PHP, `IncludeLinter::lint()`
 accepts a resolver and source path after the lint options.
 Use `carve lint --extension citations doc.crv` to check references placement.
+`carve lint --include-root DIR` also reports `include-lines-table-rows-hint` on
+a `{table}` include of a CSV or TSV file selected with `@lines`, which counts
+physical lines and can cut a quoted record in half; `@rows` selects whole
+records.
+
+## Suppressing findings
+
+A `%% ` line comment that starts with `carve-lint-` turns rules off for part of
+the document. `DocumentLinter` and `carve lint` both honor it.
+
+```
+%% carve-lint-disable-next-line heading-closing-hashes
+## Kept ##
+
+%% carve-lint-disable unused-link-reference-definition, empty-link-destination
+...
+%% carve-lint-enable
+```
+
+- `carve-lint-disable-next-line` silences the line below the comment;
+  `carve-lint-disable-line` silences the comment's own line.
+- `carve-lint-disable` silences everything from its line on, until a
+  `carve-lint-enable` naming the same rule (or naming none).
+- Rule ids are separated by spaces or commas. With no ids the directive covers
+  every rule. `a11y/heading-jump` is accepted as an alias of
+  `heading-level-skip`.
+- Only `%%` line comments count; a directive inside a `%%%` fence or a braced
+  `{% %}` comment is ignored.
 
 Several passes have no section below. `TableColumnLinter` reports a table cell
 alignment run with no terminating space, `aligns` / `valigns` / `widths`
@@ -114,6 +142,8 @@ it, which `ReferenceLinter::rewriteCaseOnlyReferences()` does programmatically.
 Both `lint()` and `rewriteCaseOnlyReferences()` take an `extensions` option; pass
 the `LowercaseHeadingIdsExtension` or `AsciiHeadingIdsExtension` the document
 renders with so references are judged against the ids that render produces.
+`unused-link-reference-definition` is a `[label]: url` definition that no
+rendered reference link or image uses.
 `broken-fragment-link` is a `[text](#id)` link, inline or
 through a reference definition, whose fragment matches no id in the rendered
 HTML. Ids are read off the rendered output, so heading slugs, footnote ids and
@@ -145,6 +175,8 @@ but renders differently:
   `github-alert-marker` name common syntax that renders with another meaning.
 - `html-comment-renders-as-text` flags a complete `<!-- ... -->` in a
   paragraph, which publishes as text; write `%%` or a `%%%` fence instead.
+- `empty-link-destination` flags an inline link with nothing between its
+  parentheses (`[text]()`); add a URL or write plain text.
 
 `caption-looking-paragraph` is opt-in because ordinary prose can look like a
 caption. Enable it with `['captionLookingParagraph' => true]` in the
@@ -175,6 +207,15 @@ Two more hints name a parsed span that reads like something else:
 | `glob-shaped-strong` | `*.js,*.ts`, which renders a strong span holding `.js,` |
 
 Code and escaped delimiters stay quiet.
+
+Three block spellings from Markdown are reported too. Each parses, but as
+something else:
+
+| rule | what it catches |
+|---|---|
+| `setext-heading-underline` | a `===` or `---` line under text, which Carve does not read as a heading underline; write `# Title` |
+| `heading-closing-hashes` | `## Title ##`, where the closing run is heading text; delete it |
+| `indented-code-block` | a line indented four spaces as code, which renders as a paragraph; use a ``` fence |
 
 One hint names a spelling `carve fmt` rewrites:
 
