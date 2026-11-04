@@ -7,13 +7,6 @@
       "cases": [
         "lazy-5e5b39627ed0"
       ]
-    },
-    {
-      "ticket": "markup-carve/carve-php#4581",
-      "cause": "a paragraph after a consumed + in a quoted item folds the next quote line; the model opens a quote",
-      "cases": [
-        "lazy-408e39e5714b"
-      ]
     }
   ]
 }
