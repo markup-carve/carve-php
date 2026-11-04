@@ -157,6 +157,9 @@ trait TransparentLineErasure
             $this->insertTransparentNodes($document, $hoisted, null);
             $this->coverChildSpans($document);
             $this->orderCollectedDefinitions($document);
+            if ($positions) {
+                $this->sourceMapper()->unplaceAcrossErasedLines($document);
+            }
             if ($this->state->session->abbreviations !== []) {
                 $notInTree = $document->getAbbreviationDefinitionsNotInTree();
                 $document->setAbbreviationDefinitions($this->state->session->abbreviationDefinitionsInSourceOrder());

@@ -439,6 +439,69 @@ final class BlockSourceMapper
     }
 
     /**
+     * A node joined across a `%%` line S1 erased omits `pos`, down to the break
+     * that crosses it; the comment keeps its span (CARVE-P12-022, carve#5136).
+     */
+    public function unplaceAcrossErasedLines(Node $node): void
+    {
+        $children = $node->getChildren();
+        $lines = [];
+        foreach ($children as $child) {
+            $pos = $child->getPos();
+            if ($child instanceof Comment && !$child->isDelimited() && $pos !== null) {
+                $lines[] = $pos;
+            }
+        }
+        if ($lines !== []) {
+            usort($lines, static fn (SourceSpan $a, SourceSpan $b): int => $a->startOffset <=> $b->startOffset);
+            foreach ($children as $child) {
+                if (!$child instanceof Comment) {
+                    $this->unplaceAcross($child, $lines);
+                }
+            }
+        }
+        foreach ($children as $child) {
+            $this->unplaceAcrossErasedLines($child);
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param array<\MarkupCarve\Carve\Ast\SourceSpan> $lines Sorted by start offset.
+     */
+    private function unplaceAcross(Node $node, array $lines): void
+    {
+        $pos = $node->getPos();
+        if ($pos !== null) {
+            $count = count($lines);
+            $low = 0;
+            $high = $count;
+            while ($low < $high) {
+                $mid = intdiv($low + $high, 2);
+                if ($lines[$mid]->startOffset <= $pos->startOffset) {
+                    $low = $mid + 1;
+                } else {
+                    $high = $mid;
+                }
+            }
+            $inside = [];
+            for ($i = $low; $i < $count && $lines[$i]->startOffset < $pos->endOffset; $i++) {
+                if ($lines[$i]->endOffset < $pos->endOffset) {
+                    $inside[] = $lines[$i];
+                }
+            }
+            if ($inside === []) {
+                return;
+            }
+            $node->setPos(null);
+            $lines = $inside;
+        }
+        foreach ($node->getChildren() as $child) {
+            $this->unplaceAcross($child, $lines);
+        }
+    }
+
+    /**
      * Where each line an unresolved caption slot gives back sits in the source.
      *
      * The slot comes back as a soft break plus a text run per line. Both are
