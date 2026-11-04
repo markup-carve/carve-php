@@ -57,6 +57,7 @@ use MarkupCarve\Carve\Renderer\StaticRenderExtensionsInterface;
 use MarkupCarve\Carve\Transform\RenderAwareTransformerInterface;
 use MarkupCarve\Carve\Transform\TransformerInterface;
 use MarkupCarve\Carve\Util\CycleCollection;
+use MarkupCarve\Carve\Util\StringUtil;
 use RuntimeException;
 use WeakMap;
 
@@ -203,7 +204,10 @@ class CarveConverter
         $written = $renderer->render($document);
         if (TransparentPlacement::hasErasedLines($document) && !self::readsBackErased($source, $written)) {
             // No spelling the writer found keeps what the erased lines meant: keep the author's (carve#5012).
-            $authored = str_replace(["\r\n", "\r"], "\n", $source);
+            $authored = str_replace(["\r\n", "\r", "\0"], ["\n", "\n", "\u{FFFD}"], StringUtil::toValidUtf8($source));
+            if (str_starts_with($authored, "\u{FEFF}")) {
+                $authored = substr($authored, 3);
+            }
 
             return str_ends_with($authored, "\n") ? $authored : $authored . "\n";
         }
