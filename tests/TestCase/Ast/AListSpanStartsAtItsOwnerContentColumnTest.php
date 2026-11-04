@@ -25,6 +25,7 @@ class AListSpanStartsAtItsOwnerContentColumnTest extends TestCase
         yield 'tab under wide ordered marker' => ["10. a\n\t- b\n", [[0, 1], [0, 1], [7, 2], [7, 2]]];
         yield 'footnote body siblings' => ["[^f]\n\n[^f]: - a\n  - b\n", [[12, 7], [12, 7], [18, 3]]];
         yield 'attributed footnote body with tab' => ["[^f]\n\n[^f]: -{#x} a\n\t- b\n", [[12, 7], [12, 7], [20, 1]]];
+        yield 'nested list after multibyte note label' => ["[^éé]\n\n[^éé]: - a\n           - b\n", [[14, 8], [14, 8], [27, 10], [27, 10]]];
         yield 'ordered siblings' => ["  1. a\n  2. b\n", [[0, 1], [0, 1], [7, 1]]];
     }
 

@@ -4010,7 +4010,7 @@ final class ListBlockBuilder
             return null;
         }
 
-        return ContinuationMarkerClassifier::columnAt($line, $marker[0][1]) + 2;
+        return $this->visualColumnAtByte($line, $marker[0][1]) + 2;
     }
 
     private function listOpeningColumn(Node $parent, int $sourceLine, string $line): ?int
@@ -4021,19 +4021,33 @@ final class ListBlockBuilder
         }
         $ownerPos = $parent->getPos();
         $ownerLine = $this->state->source->authoredLines[$ownerPos->startLine - 1] ?? '';
-        $ownerStart = $ownerPos->startColumn - 1;
+        $ownerStart = strlen(mb_substr($ownerLine, 0, $ownerPos->startColumn - 1, 'UTF-8'));
         if (preg_match('/^([ \t]*)([-*.]|[0-9]+[.)]|[A-Za-z]+[.)])(?:\{[^}]*\})?([ \t]+)/', substr($ownerLine, $ownerStart), $marker) !== 1) {
             return $opening;
         }
         $contentEnd = $ownerStart + strlen($marker[1]) + strlen($marker[2]) + strlen($marker[3]);
-        $contentColumn = ContinuationMarkerClassifier::columnAt($ownerLine, $contentEnd);
+        $contentColumn = $this->visualColumnAtByte($ownerLine, $contentEnd);
         $nestedLine = $this->state->source->authoredLines[$sourceLine] ?? '';
         $nestedMarker = ltrim($line, " \t");
         $markerColumn = str_ends_with($nestedLine, $nestedMarker)
             ? strlen($nestedLine) - strlen($nestedMarker)
             : strspn($nestedLine, " \t");
 
-        return max($opening, $this->openingByteColumnAtVisual($nestedLine, $contentColumn, $markerColumn));
+        return $this->openingByteColumnAtVisual($nestedLine, $contentColumn, $markerColumn);
+    }
+
+    private function visualColumnAtByte(string $line, int $endByte): int
+    {
+        $column = 0;
+        for ($at = 0, $end = min($endByte, strlen($line)); $at < $end; $at++) {
+            if ($line[$at] === "\t") {
+                $column += IndentationHelper::TAB_STOP - ($column % IndentationHelper::TAB_STOP);
+            } elseif ((ord($line[$at]) & 0xc0) !== 0x80) {
+                $column++;
+            }
+        }
+
+        return $column;
     }
 
     private function sourceLineFor(int $index): int
