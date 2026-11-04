@@ -15,7 +15,7 @@ final class NestedDivsInAnItemScaleLinearlyTest extends TestCase
     {
         $converter = new CarveConverter();
         self::assertSame(
-            "<ul>\n  <li>head\n    <div class=\"box\">\n      <p>a</p>\n      <aside class=\"admonition note\" aria-label=\"Note\">\n        <p>b</p>\n      </aside>\n    </div>\n  </li>\n</ul>",
+            "<ul>\n  <li><p>head</p>\n    <div class=\"box\">\n      <p>a</p>\n      <aside class=\"admonition note\" aria-label=\"Note\">\n        <p>b</p>\n      </aside>\n    </div>\n  </li>\n</ul>",
             trim($converter->convert(self::source(1))),
         );
 
