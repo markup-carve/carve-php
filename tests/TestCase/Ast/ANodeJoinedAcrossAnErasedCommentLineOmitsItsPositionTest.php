@@ -94,6 +94,18 @@ class ANodeJoinedAcrossAnErasedCommentLineOmitsItsPositionTest extends TestCase
     }
 
     /**
+     * The canonical writer still puts the comment back between the paragraph's lines.
+     */
+    public function testTheWriterKeepsTheCommentBetweenTheJoinedLines(): void
+    {
+        $writer = CarveConverter::carve();
+        foreach (["a\n%% x\nb\n", "a\n%% x\nb\n%% y\nc\n", "*a\n%% x\nb*\n"] as $source) {
+            $this->assertSame($source, $writer->render($writer->parse($source)));
+        }
+        $this->assertSame("- a\n  %% c\n  b\n", $writer->render($writer->parse("- a\n %% c\nb\n")));
+    }
+
+    /**
      * @return list<string>
      */
     private static function outline(Node $node, int $depth = 0): array
