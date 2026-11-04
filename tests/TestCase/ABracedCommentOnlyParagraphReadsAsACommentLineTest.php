@@ -28,7 +28,7 @@ class ABracedCommentOnlyParagraphReadsAsACommentLineTest extends TestCase
                 "<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>",
             ],
             'a lead of only comments keeps the item tight' => [
-                "- {% c\n  d %}\n\n  Body.\n",
+                "- {% c\n   d %}\n\n  Body.\n",
                 "<ul>\n  <li>Body.</li>\n</ul>",
             ],
             'after a blank in an item it keeps the item tight' => [

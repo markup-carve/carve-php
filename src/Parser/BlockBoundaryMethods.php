@@ -171,8 +171,9 @@ trait BlockBoundaryMethods
             $wrapped = null;
             if (str_starts_with(ltrim($line, " \t"), '{')) {
                 $run = [ltrim($line, " \t")];
+                $openerColumn = IndentationHelper::getLeadingColumns($line);
                 for ($at = $k + 1; $at < $count && !IndentationHelper::isBlankLine($lines[$at]) && !WrappedBlockAttributeScanner::opensInsideBlock($lines[$at]); $at++) {
-                    $run[] = ltrim($lines[$at], " \t");
+                    $run[] = str_repeat(' ', max(0, IndentationHelper::getLeadingColumns($lines[$at]) - $openerColumn)) . ltrim($lines[$at], " \t");
                     if (!WrappedBlockAttributeScanner::endsInsideBlock($lines[$at], true)) {
                         break;
                     }

@@ -897,7 +897,7 @@ DJOT;
 
     public function testBracePercentMultilineIsComment(): void
     {
-        $djot = "Before\n\n{% This is a\nmultiline\ncomment %}\n\nAfter";
+        $djot = "Before\n\n{% This is a\n multiline\n comment %}\n\nAfter";
 
         $result = $this->converter->convert($djot);
 

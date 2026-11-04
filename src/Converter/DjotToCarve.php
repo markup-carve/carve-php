@@ -208,7 +208,121 @@ class DjotToCarve
 
     private function importDocument(string $djot): string
     {
-        $djot = StringUtil::toValidUtf8($djot);
+        $protected = $this->protectBlockBraceRuns(StringUtil::toValidUtf8($djot));
+
+        return $protected['restore']($this->importProtectedDocument($protected['source']));
+    }
+
+    /**
+     * Hold every block brace run Djot refuses for its continuation columns out of the conversion.
+     *
+     * The run passes through verbatim: the Carve reader refuses it from the same columns (CARVE-P2-035).
+     *
+     * @return array{source: string, restore: \Closure(string): string}
+     */
+    private function protectBlockBraceRuns(string $source): array
+    {
+        $unchanged = ['source' => $source, 'restore' => static fn (string $output): string => $output];
+        if (!str_contains($source, '{') || !str_contains($source, "\n")) {
+            return $unchanged;
+        }
+        $lines = explode("\n", $source);
+        $serial = 0;
+        while (str_contains($source, 'DJOTBRACELITERAL' . $serial . 'Q')) {
+            $serial++;
+        }
+        $prefix = 'DJOTBRACELITERAL' . $serial . 'Q';
+        $output = [];
+        $runs = [];
+        $labelDepth = 0;
+        $offset = 0;
+        $count = count($lines);
+        for ($i = 0; $i < $count; $i++) {
+            $line = $lines[$i];
+            $insideLabel = $labelDepth > 0;
+            $labelDepth = self::imageLabelDepthAfter($line, $labelDepth);
+            $at = Emphasis::structuralPrefixEnd($line);
+            if ($insideLabel || ($line[$at] ?? '') !== '{' || ($line[$at + 1] ?? '') === '%') {
+                $output[] = $line;
+                $offset += strlen($line) + 1;
+
+                continue;
+            }
+            $start = $offset + $at;
+            $attributes = $this->readDjotWordAttributes($source, $start, validateColumns: false);
+            $span = $attributes === null ? '' : substr($source, $start, $attributes['end'] - $start);
+            if (!str_contains($span, "\n") || $this->djotCommentContinuesParagraph($source, $start)) {
+                $output[] = $line;
+                $offset += strlen($line) + 1;
+
+                continue;
+            }
+            $end = $i + substr_count($span, "\n") + 1;
+            $refused = false;
+            for ($j = $i + 1; $j < $end; $j++) {
+                $refused = $refused || Emphasis::structuralPrefixEnd($lines[$j]) <= $at;
+            }
+            if (!$refused) {
+                $output[] = $line;
+                $offset += strlen($line) + 1;
+
+                continue;
+            }
+            $token = $prefix . count($runs) . 'Z';
+            $blank = $i > 0 && trim($lines[$i - 1]) !== '';
+            $runs[] = [
+                'token' => $token,
+                'value' => substr(implode("\n", array_slice($lines, $i, $end - $i)), $at),
+                'prefix' => substr($line, 0, $at),
+                'blank' => $blank,
+            ];
+            if ($blank) {
+                $output[] = '';
+            }
+            $output[] = substr($line, 0, $at) . $token;
+            for ($j = $i; $j < $end; $j++) {
+                $offset += strlen($lines[$j]) + 1;
+            }
+            $i = $end - 1;
+        }
+        if ($runs === []) {
+            return $unchanged;
+        }
+
+        return [
+            'source' => implode("\n", $output),
+            'restore' => static function (string $converted) use ($runs): string {
+                foreach ($runs as $run) {
+                    if ($run['blank']) {
+                        $converted = str_replace("\n\n" . $run['prefix'] . $run['token'], "\n" . $run['prefix'] . $run['token'], $converted);
+                    }
+                    $converted = str_replace($run['token'], $run['value'], $converted);
+                }
+
+                return $converted;
+            },
+        ];
+    }
+
+    private static function imageLabelDepthAfter(string $line, int $depth): int
+    {
+        $length = strlen($line);
+        for ($at = 0; $at < $length; $at++) {
+            if ($line[$at] === '\\') {
+                $at++;
+            } elseif ($depth > 0) {
+                $depth += $line[$at] === '[' ? 1 : ($line[$at] === ']' ? -1 : 0);
+            } elseif ($line[$at] === '!' && ($line[$at + 1] ?? '') === '[') {
+                $depth = 1;
+                $at++;
+            }
+        }
+
+        return $depth;
+    }
+
+    private function importProtectedDocument(string $djot): string
+    {
         $djot = $this->recoverDjotAttributes($djot)['source'];
         if (!str_contains($djot, "\0")) {
             return $this->convertDocument($djot);
@@ -2273,6 +2387,7 @@ class DjotToCarve
         bool $table = false,
         bool $paragraphContext = true,
         bool $preserveShorthand = false,
+        bool $validateColumns = true,
     ): ?array {
         $parts = [];
         $lastClassAssignment = -1;
@@ -2298,7 +2413,7 @@ class DjotToCarve
                     $i++;
                 }
             }
-            if (($source[$i] ?? '') === '}' && str_contains(substr($source, $start, $i + 1 - $start), "\n") && ($parts !== [] || !$paragraphContext || !$this->djotCommentContinuesParagraph($source, $start))) {
+            if ($validateColumns && ($source[$i] ?? '') === '}' && str_contains(substr($source, $start, $i + 1 - $start), "\n") && ($parts !== [] || !$paragraphContext || !$this->djotCommentContinuesParagraph($source, $start))) {
                 $context = $this->djotAttributeContext($source, $start);
                 foreach (array_slice(explode("\n", substr($source, $start, $i + 1 - $start)), 1) as $raw) {
                     $line = $this->djotAttributeLine($raw, $context['depth']);

@@ -69,7 +69,7 @@ class DefinitionListExtentEndsAtItsLastPlacedChildTest extends TestCase
     {
         // Was line 4, offset 23. §15 A5 lets one attribute block wrap, so the
         // list consumed two lines here rather than one - and neither is a child.
-        $list = $this->definitionList(":: t\n:  d\n   {.k\n   #x}\ntail\n");
+        $list = $this->definitionList(":: t\n:  d\n   {.k\n    #x}\ntail\n");
 
         $this->assertSame(2, $list['pos']['endLine']);
         $this->assertSame(9, $list['pos']['endOffset']);

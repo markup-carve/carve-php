@@ -16,13 +16,13 @@ final class AWrappedAttributeAndAHostlessCaretLineInTheWalkTest extends TestCase
     public static function wrappedAttributeProvider(): array
     {
         return [
-            'after paragraph text' => ["a\n {.c\n }\npara\n", "<p>a</p>\n<p class=\"c\">para</p>"],
-            'at document level' => ["  {.a\n  .b}\ntail\n", '<p class="a b">tail</p>'],
-            'closer at column 0' => ["a\n {.c\n}\npara\n", "<p>a</p>\n<p class=\"c\">para</p>"],
-            'in a quote' => ["> a\n>  {.c\n>  }\n> b\n", "<blockquote>\n  <p>a</p>\n  <p class=\"c\">b</p>\n</blockquote>"],
+            'after paragraph text' => ["a\n {.c\n  }\npara\n", "<p>a</p>\n<p class=\"c\">para</p>"],
+            'at document level' => ["  {.a\n   .b}\ntail\n", '<p class="a b">tail</p>'],
+            'closer at column 0' => ["a\n {.c\n}\npara\n", "<p>a\n{.c\n}\npara</p>"],
+            'in a quote' => ["> a\n>  {.c\n>   }\n> b\n", "<blockquote>\n  <p>a</p>\n  <p class=\"c\">b</p>\n</blockquote>"],
             'a quote needs its marker on every line' => ["> a\n>  {.c\n}\npara\n", "<blockquote><p>a\n{.c\n}\npara</p></blockquote>"],
             'a footnote body at its column' => [
-                "[^f]: d\n  {.c\n}\n  x\n\n[^f]\n",
+                "[^f]: d\n  {.c\n   }\n  x\n\n[^f]\n",
                 "<p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>d</p>\n      <p class=\"c\">x<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
             ],
         ];

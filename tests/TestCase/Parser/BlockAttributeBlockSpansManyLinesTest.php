@@ -78,22 +78,22 @@ class BlockAttributeBlockSpansManyLinesTest extends TestCase
     {
         return [
             'one line' => ["{.a .b}\npara\n", 'class="a b"'],
-            'two lines' => ["{.a\n.b}\npara\n", 'class="a b"'],
-            'three lines' => ["{.a\n.b\n.c}\npara\n", 'class="a b c"'],
-            'four lines' => ["{.a\n.b\n.c\n.d}\npara\n", 'class="a b c d"'],
+            'two lines' => ["{.a\n .b}\npara\n", 'class="a b"'],
+            'three lines' => ["{.a\n .b\n .c}\npara\n", 'class="a b c"'],
+            'four lines' => ["{.a\n .b\n .c\n .d}\npara\n", 'class="a b c d"'],
             'ten lines' => [
-                '{' . implode("\n", ['.a', '.b', '.c', '.d', '.e', '.f', '.g', '.h', '.i', '.j}']) . "\npara\n",
+                '{' . implode("\n ", ['.a', '.b', '.c', '.d', '.e', '.f', '.g', '.h', '.i', '.j}']) . "\npara\n",
                 'class="a b c d e f g h i j"',
             ],
             // The grammar's own note on `opt_pad`: "`{` + newline + `.a}` and
             // `{.a` + newline + `}` were outside the production while the
             // interior `{.a` + newline + `.b}` was inside it. All three engines
             // accept every one of the three."
-            'a break after the opening brace' => ["{\n.a}\npara\n", 'class="a"'],
-            'a break before the closing brace' => ["{.a\n}\npara\n", 'class="a"'],
-            'a break at both ends' => ["{\n.a\n}\npara\n", 'class="a"'],
+            'a break after the opening brace' => ["{\n .a}\npara\n", 'class="a"'],
+            'a break before the closing brace' => ["{.a\n }\npara\n", 'class="a"'],
+            'a break at both ends' => ["{\n .a\n }\npara\n", 'class="a"'],
             'indented continuations still work' => ["{.a\n  .b\n  .c}\npara\n", 'class="a b c"'],
-            'mixed kinds of attribute over lines' => ["{#i\n.c\nk=\"v\"}\npara\n", 'id="i"'],
+            'mixed kinds of attribute over lines' => ["{#i\n .c\n k=\"v\"}\npara\n", 'id="i"'],
             // A QUOTED VALUE ON ONE LINE is untouched by any of this - the
             // rule is about the line break, not about the quotes.
             'a quoted value on one line' => ["{k=\"a b\"}\npara\n", 'k="a b"'],
@@ -208,7 +208,7 @@ class BlockAttributeBlockSpansManyLinesTest extends TestCase
     {
         $this->assertSame(
             preg_replace('/\n\z/', '', "<p class=\"a b c\">para</p>\n"),
-            $this->html("{.a\n.b\n.c}\npara\n"),
+            $this->html("{.a\n .b\n .c}\npara\n"),
         );
     }
 

@@ -8,6 +8,7 @@ use Closure;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Block\ListParser;
 use MarkupCarve\Carve\Parser\Block\TableParser;
+use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 
 /**
  * Block ownership, rule A (carve#3885): one walk moves every opener past its
@@ -205,6 +206,8 @@ final class BlockOwnershipWalk
 
     private int $wrappedAttributeEnd = -1;
 
+    private int $wrappedAttributeColumn = 0;
+
     private bool $onMarkerLine = false;
 
     private int $nextVisible = -1;
@@ -373,7 +376,9 @@ final class BlockOwnershipWalk
                 $reached = $k;
             }
             if ($inWrappedAttribute) {
-                $result[] = $this->out . str_repeat(' ', $this->frames[$reached]->canon) . $this->m['rest'];
+                // Past the opener's column, as written, keeps the continuation inside its run (CARVE-P2-035).
+                $pad = max(1, $this->m['col'] - $this->wrappedAttributeColumn);
+                $result[] = $this->out . str_repeat(' ', $this->frames[$reached]->canon + $pad) . $this->m['rest'];
 
                 continue;
             }
@@ -1167,6 +1172,10 @@ final class BlockOwnershipWalk
                 break;
             }
         }
+        $opener = $this->lines[$this->at];
+        for ($d = 0; $d < $depth; $d++) {
+            $opener = preg_match(self::QUOTE, ltrim($opener, " \t"), $q) === 1 ? ($q[1] ?? '') : $opener;
+        }
         $run = [$rest];
         $count = count($this->lines);
         for ($j = $this->at + 1; $j < $count; $j++) {
@@ -1186,10 +1195,12 @@ final class BlockOwnershipWalk
             }
         }
         $length = count($run);
-        if ($length < 2 || ($this->wrappedAttributeLength)($run) !== $length) {
+        $openerColumn = IndentationHelper::getLeadingColumns($opener);
+        if ($length < 2 || ($this->wrappedAttributeLength)($run, $openerColumn) !== $length) {
             return false;
         }
         $this->wrappedAttributeEnd = $this->at + $length - 1;
+        $this->wrappedAttributeColumn = $openerColumn;
 
         return true;
     }

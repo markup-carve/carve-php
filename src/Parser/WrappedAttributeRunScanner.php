@@ -41,13 +41,15 @@ final class WrappedAttributeRunScanner
         }
 
         $probe = [$first];
+        $openerColumn = IndentationHelper::getLeadingColumns($lines[$start]);
         $depth = $this->quoteDepth($start);
         for ($at = $start + 1; $at < $count && !IndentationHelper::isBlankLine($lines[$at]); $at++) {
             // A lazy line outside the opener's quote cannot close its attribute.
             if ($this->quoteDepth($at) < $depth || WrappedBlockAttributeScanner::opensInsideBlock($lines[$at])) {
                 break;
             }
-            $probe[] = ltrim($lines[$at], " \t");
+            // Kept relative to the opener, so a continuation at or below its `{` stays refused (CARVE-P2-035).
+            $probe[] = str_repeat(' ', max(0, IndentationHelper::getLeadingColumns($lines[$at]) - $openerColumn)) . ltrim($lines[$at], " \t");
             if (!WrappedBlockAttributeScanner::endsInsideBlock($lines[$at], true)) {
                 break;
             }

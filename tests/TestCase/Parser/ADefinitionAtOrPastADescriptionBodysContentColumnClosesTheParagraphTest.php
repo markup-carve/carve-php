@@ -620,7 +620,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
     public function testTheWrappedAttributeSpellingDoesNotMove(int $column, string $expected): void
     {
         $pad = str_repeat(' ', $column);
-        $html = $this->converter->convert(":: t\n:  body\n" . $pad . "{.a\n" . $pad . ".b}\ntail");
+        $html = $this->converter->convert(":: t\n:  body\n" . $pad . "{.a\n" . $pad . " .b}\ntail");
 
         $this->assertSame($expected, trim($html));
     }

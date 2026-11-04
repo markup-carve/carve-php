@@ -24,7 +24,7 @@ final class AnAttributeLineEndsAnItemHoldingANestedListTest extends TestCase
         return [
             'one-line, list follower' => ["- a\n  - b\n{.c}\n- d\n", $list . "<ul class=\"c\">\n  <li>d</li>\n</ul>"],
             'one-line, paragraph follower' => ["- a\n  - b\n{.c}\npara\n", $list . '<p class="c">para</p>'],
-            'wrapped, list follower' => ["- a\n  - b\n{.c\n}\n- d\n", $list . "<ul class=\"c\">\n  <li>d</li>\n</ul>"],
+            'wrapped, list follower' => ["- a\n  - b\n{.c\n }\n- d\n", $list . "<ul class=\"c\">\n  <li>d</li>\n</ul>"],
             'one-line, fence follower' => ["- a\n  - b\n{.c}\n~~~\ny\n~~~\n", $list . "<pre class=\"c\"><code>y\n</code></pre>"],
         ];
     }

@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\ListParser;
 use WeakMap;
 
@@ -43,6 +44,24 @@ final class BlockParseSession
     public function listItemContentColumn(ListItem $item): ?int
     {
         return $this->listItemContentColumns[$item] ?? null;
+    }
+
+    /**
+     * Paragraphs that hold only a refused braced comment run: literal text, but invisible to list looseness.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Node, true>|null
+     */
+    private ?WeakMap $refusedCommentParagraphs = null;
+
+    public function recordRefusedCommentParagraph(Paragraph $paragraph): void
+    {
+        $this->refusedCommentParagraphs ??= new WeakMap();
+        $this->refusedCommentParagraphs[$paragraph] = true;
+    }
+
+    public function isRefusedCommentParagraph(Node $node): bool
+    {
+        return isset($this->refusedCommentParagraphs[$node]);
     }
 
     public function recordFoldedFenceColumn(Paragraph $paragraph, int $column): void
