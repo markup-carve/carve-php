@@ -1672,7 +1672,7 @@ class MarkdownToCarve
 
                     return [$i, $prevLineType, $body, true];
                 }
-                if (preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)]) {1,4})(\|.*)$/s', $quotedText, $itemRow) === 1) {
+                if (preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)]) {1,4})(\|.*)$/s', $quotedText, $itemRow) === 1 && !($prevLineType === 'blockquote' && $this->isTextOrdinal($quotedText, $quoted[1], $quoteState))) {
                     $quotedText = $itemRow[1] . $this->escapeBlockOpener($itemRow[2]);
                 }
                 if (trim($quotedText) === '') {
@@ -3983,6 +3983,9 @@ class MarkdownToCarve
         $continues = $continuedByLazy || ($state->previous !== null && $state->previous['prefix'] === $prefix
             && ($this->quoteParagraphIsOpen($state->previous['text']) || ($openBefore !== null && $farPastContent))
             && ($this->continuesParagraph($text) || $farPastContent));
+        $heldOrdinal = !$continues && $this->isTextOrdinal($text, $prefix, $state)
+            && !$this->headsGfmTable($text, $lines[$index + 1] ?? '');
+        $continues = $continues || $heldOrdinal;
         $heldMarker = $state->previous !== null && $state->previous['prefix'] === $prefix
             && $this->quoteParagraphIsOpen($state->previous['text']) && $this->isHeldOrderedMarker($text, $list);
         // A marker that interrupts the paragraph above it has to go on
@@ -4000,7 +4003,9 @@ class MarkdownToCarve
             $text = str_repeat(' ', $paragraphCol) . ltrim($text, " \t");
             $written = $text;
         }
-        if ($heldMarker) {
+        // A held ordinal opens nothing in Carve either, but its marker would be
+        // stripped as an item's when the next row asks for a table header.
+        if ($heldMarker || ($heldOrdinal && str_contains($text, '|'))) {
             $written = substr($text, 0, strlen($text) - strlen(ltrim($text, " \t"))) . $this->escapeBlockOpener(ltrim($text, " \t"));
         } elseif ($continues && $list->openItemContentColumn() !== null) {
             $written = str_repeat(' ', $list->openItemContentColumn())
@@ -4081,9 +4086,10 @@ class MarkdownToCarve
 
     /**
      * A line four or more columns into the open paragraph of a quote an item
-     * holds continues it: `$line` is rewritten at the quote's content with its
-     * block shape escaped. Left alone when a list inside the quote owns the
-     * paragraph.
+     * holds, or an ordered marker other than 1 holding a pipe under it,
+     * continues that paragraph: `$line` is rewritten at the quote's content
+     * with its block shape escaped. Left alone when a list inside the quote
+     * owns the paragraph.
      *
      * @param array<int, string> $lines
      * @param int $index
@@ -4100,7 +4106,8 @@ class MarkdownToCarve
         $quoted = $this->normalizeBlockquoteMarkers($this->stripColumns($lines[$index], $contentCol));
         if (
             preg_match('/^((?:> )+)(.*)$/s', $quoted, $quote) !== 1
-            || $this->indentWidth($quote[2]) < 4
+            || ($this->indentWidth($quote[2]) < 4 && (preg_match('/^ {0,3}(?!0*1[.)])\d{1,9}[.)][ \t].*\|/', $quote[2]) !== 1
+                || $this->headsGfmTable($quote[2], $lines[$index + 1] ?? '')))
             || !(($lazyQuote !== null && $lazyQuote['col'] === $contentCol && $lazyQuote['prefix'] === $quote[1])
                 || $this->heldQuoteParagraphIsOpen($lines, $index, $contentCol, $quote[1]))
         ) {
@@ -4135,6 +4142,28 @@ class MarkdownToCarve
         $quotedPrevious = $this->quotedText(substr($previous, min(strlen($previous), $contentCol)), $prefix);
 
         return $quotedPrevious !== null && $this->quoteParagraphIsOpen($quotedPrevious);
+    }
+
+    /**
+     * Whether a paragraph line and the source line after it are a GFM table's
+     * header and delimiter row.
+     */
+    protected function headsGfmTable(string $text, string $next): bool
+    {
+        return $this->tableStage->startsTableHeader([trim($text), trim($this->stripContainerMarkers($next))], 0);
+    }
+
+    /**
+     * Whether an ordered marker other than 1 stands under the open paragraph of
+     * the quote itself: it cannot interrupt the paragraph (CommonMark 5.2), so
+     * the line is text of it.
+     */
+    protected function isTextOrdinal(string $text, string $prefix, QuoteRunState $state): bool
+    {
+        return $state->previous !== null && $state->previous['prefix'] === $prefix
+            && ($state->markers[$prefix] ?? null)?->openItemContentColumn() === null
+            && $this->quoteParagraphIsOpen($state->previous['text'])
+            && preg_match('/^[ \t]*(?!0*1[.)])\d{1,9}[.)](?:[ \t]|$)/', $text) === 1;
     }
 
     /**
@@ -5999,16 +6028,18 @@ class MarkdownToCarve
             return $line;
         }
         // Inside a quote the markers place the content column, so the row's own
-        // indent is whatever follows them. Outside one it is the line's, and it
-        // opens a table only at a column some container's content starts at -
-        // column 0, or an enclosing item's. A row one column past any of those
-        // is a paragraph already.
+        // indent is whatever follows them, and up to three columns of it still
+        // open a table: Carve reads that slack as none, though under a row the
+        // import wrote it stays where it was. Outside one it is the
+        // line's, and it opens a table only at a column some container's content
+        // starts at - column 0, or an enclosing item's.
         $indent = $row[2] === '' ? $this->indentWidth($row[1]) : $this->indentWidth($row[3]);
-        if (!in_array($indent, $row[2] === '' ? [0, ...$listCols] : [0], true)) {
+        $above = $this->stripContainerMarkers($written);
+        $slackUnderRow = $indent > 0 && preg_match('/^\|.*\|$/', trim($above)) === 1;
+        if ($row[2] === '' ? !in_array($indent, [0, ...$listCols], true) : ($indent > 3 || $slackUnderRow)) {
             return $line;
         }
         $held = trim($row[4]);
-        $above = $this->stripContainerMarkers($written);
         if (
             $this->tableStage->startsTableHeader([$held, $this->stripContainerMarkers($lines[$index + 1] ?? '')], 0)
             || $this->tableStage->startsTableHeader([$above, $held], 0)
