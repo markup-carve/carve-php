@@ -3099,7 +3099,7 @@ class BlockParser
         // Comments are stored but not rendered
         $comment = new Comment($content, $fenceLength);
         $sourceLine = $this->sourceLineFor($start);
-        $sourceText = $this->state->source->sourceLines[$sourceLine] ?? '';
+        $sourceText = $this->state->source->authoredLines[$sourceLine] ?? $this->state->source->sourceLines[$sourceLine] ?? '';
         // A comment fence is a LEAF too: its span begins at the opening `%` run,
         // not in the leading indentation or a container marker it follows
         // (markup-carve/carve#1928).

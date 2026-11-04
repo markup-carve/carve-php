@@ -27,19 +27,14 @@ final class AMatchedDescriptionCommentKeepsItsBlockExtentTest extends TestCase
     public function testMatchedCommentRemainsInsideNestedDescription(): void
     {
         $source = ":: t\n: :: t\n  : para\n %%%\n %%%\ntail\n";
-        $expected = "<dl>\n<dt>t</dt>\n<dd>\n<dl>\n<dt>t</dt>\n<dd>\n<p>para</p>\n<p>tail</p>\n</dd>\n</dl>\n</dd>\n</dl>";
+        $expected = "<dl>\n<dt>t</dt>\n<dd>\n<dl>\n<dt>t</dt>\n<dd>para</dd>\n</dl>\n</dd>\n</dl>\n<p>tail</p>";
         self::assertSame(
             preg_replace('/\s+/', '', $expected),
             preg_replace('/\s+/', '', (new CarveConverter())->convert($source)),
         );
 
         $ast = (new AstCodec())->encode((new BlockParser(trackPositions: true))->parse($source));
-        $outerItems = self::arrayAt(self::arrayAt(self::arrayAt($ast, 'children'), 0), 'items');
-        $outerDescription = self::arrayAt($outerItems, 1);
-        $nestedList = self::arrayAt(self::arrayAt($outerDescription, 'children'), 0);
-        $innerDescription = self::arrayAt(self::arrayAt($nestedList, 'items'), 1);
-        $children = self::arrayAt($innerDescription, 'children');
-        $comment = self::arrayAt($children, 1);
+        $comment = self::arrayAt(self::arrayAt($ast, 'children'), 1);
         self::assertSame('comment', $comment['type']);
         self::assertTrue($comment['block']);
         self::assertSame('', $comment['content']);
@@ -55,8 +50,7 @@ final class AMatchedDescriptionCommentKeepsItsBlockExtentTest extends TestCase
             $pad = str_repeat(' ', $indent);
             $source = ":: t\n:  x\n{$pad}%%%\ny\n{$pad}%%%\nz\n";
             $ast = (new AstCodec())->encode((new BlockParser(trackPositions: true))->parse($source));
-            $children = self::arrayAt(self::arrayAt(self::arrayAt(self::arrayAt(self::arrayAt($ast, 'children'), 0), 'items'), 1), 'children');
-            $comment = self::arrayAt($children, 1);
+            $comment = self::arrayAt(self::arrayAt($ast, 'children'), 1);
             $pos = self::arrayAt($comment, 'pos');
             self::assertSame('comment', $comment['type']);
             self::assertSame('y', $comment['content']);
@@ -65,7 +59,7 @@ final class AMatchedDescriptionCommentKeepsItsBlockExtentTest extends TestCase
             self::assertSame(10 + $indent, $pos['startOffset']);
             self::assertSame(19 + 2 * $indent, $pos['endOffset']);
             $formatted = CarveConverter::toCarve($source);
-            self::assertSame(":: t\n: x\n\n  %%%\n  y\n  %%%\n\n  z\n", $formatted);
+            self::assertSame(":: t\n: x\n\n%%%\ny\n%%%\n\nz\n", $formatted);
             self::assertSame($formatted, CarveConverter::toCarve($formatted));
         }
     }

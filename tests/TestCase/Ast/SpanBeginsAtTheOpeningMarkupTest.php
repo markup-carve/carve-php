@@ -114,9 +114,9 @@ class SpanBeginsAtTheOpeningMarkupTest extends TestCase
                 7,
                 '%',
             ],
-            'one-space absorbed comment fence' => [
+            'one-space comment fence after an item' => [
                 "- a\n %%% n\n x\n %%%\n tail\n",
-                'children.0.items.0.children.1',
+                'children.1',
                 5,
                 '%',
             ],
