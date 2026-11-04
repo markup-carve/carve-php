@@ -28,6 +28,7 @@ class DefinitionOnEmptiedMarkerLineTest extends TestCase
         yield 'reference definition followed by a definition description' => ["* * [d]: u\n  :\n", "See [x][d].\n", '<a href="u">x</a>'];
         yield 'reference definition followed by text' => ["* * [d]: u\n  x\n", "See [x][d].\n", '<a href="u">x</a>'];
         yield 'dash markers' => ["- - [d]: u\n  tail\n", "See [x][d].\n", '<a href="u">x</a>'];
+
         // The `:` sits at the note's column: at column 2 rule A folds it into the note as lazy text.
         yield 'footnote definition' => ["* * [^f]: n\n      :\n", "See [^f].\n", 'id="fnref1"'];
         yield 'nothing follows the emptied item' => ["* * [d]: u\n", "See [x][d].\n", '<a href="u">x</a>'];
