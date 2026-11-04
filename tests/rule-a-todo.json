@@ -354,10 +354,6 @@
             "ticket": "carve-php#4244"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\ContainerOwnershipTest::testContainerOwnership with data set \"- - intro\n%% c\n  tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\DefinitionOnEmptiedMarkerLineTest::testDefinitionIsRestoredOnItsMarkerLine with data set \"footnote definition\"",
             "ticket": "carve-php#4244"
         },
@@ -2218,10 +2214,6 @@
             "ticket": "carve-php#4243"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testThePartElevenOneCCeilingIsNoLongerReached",
-            "ticket": "carve#4907"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\SpecParityTest::testSpecParity with data set \"marker-colon-always-opens/556-a-closed-block-leaves-no-frame-for-the-line-below-14\"",
             "ticket": "carve#4907"
         },
@@ -2246,28 +2238,12 @@
             "ticket": "carve#5012"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"952-native-head-rows-with-span-placeholders-6\"",
-            "ticket": "carve#4980"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"659-table-spans-keep-alignment-defaults-in-physical-columns-4\"",
-            "ticket": "carve#4980"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"952-native-head-rows-with-span-placeholders-9\"",
-            "ticket": "carve#4980"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 506-comment-columns-and-surviving-list-items-5\"",
             "ticket": "carve#5012"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 620-generated-container-documents-23\"",
             "ticket": "carve#5012"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 952-native-head-rows-with-span-placeholders-6\"",
-            "ticket": "carve#4980"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\ConverterCorpusTest::testConvertedSourceRendersTheExpectedHtml with data set \"37-djot-thematic-break-spellings-survive\"",
