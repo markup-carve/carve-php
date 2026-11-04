@@ -67,12 +67,12 @@
   {
     "id": "box-comment-h2",
     "source": "- a\n\n  ::: box\n  x\n  %% k\nc\n",
-    "html": "<ul><li><p>a</p><div class=\"box\"><p>x</p></div></li></ul><p>c</p>"
+    "html": "<ul><li><p>a</p><div class=\"box\"><p>x\nc</p></div></li></ul>"
   },
   {
     "id": "box-comment-h3",
     "source": "- ::: box\n  x\n  %% k\nc\n",
-    "html": "<ul><li><div class=\"box\"><p>x</p></div></li></ul><p>c</p>"
+    "html": "<ul><li><div class=\"box\"><p>x\nc</p></div></li></ul>"
   },
   {
     "id": "box-comment-h4",
@@ -82,7 +82,7 @@
   {
     "id": "box-comment-h7",
     "source": "- - ::: box\n    x\n    %% k\nc\n",
-    "html": "<ul><li><ul><li><div class=\"box\"><p>x</p></div></li></ul></li></ul><p>c</p>"
+    "html": "<ul><li><ul><li><div class=\"box\"><p>x\nc</p></div></li></ul></li></ul>"
   },
   {
     "id": "box-closed-block-i1-heading",

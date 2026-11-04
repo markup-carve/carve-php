@@ -2,6 +2,126 @@
     "about": "Tests the rule A port (#4216) still fails, each with its ticket. tests/RuleATodo.php runs them as expected failures.",
     "entries": [
         {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-2\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-4\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-8\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"929-a-refused-plus-is-escaped-when-the-block-below-would-attach-2\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"929-a-refused-plus-is-escaped-when-the-block-below-would-attach-3\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"929-a-refused-plus-is-escaped-when-the-block-below-would-attach-4\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"929-a-refused-plus-is-escaped-when-the-block-below-would-attach-5\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"929-a-refused-plus-is-escaped-when-the-block-below-would-attach\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-3\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-3\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-3\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-2\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-4\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-8\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 929-a-refused-plus-is-escaped-when-the-block-below-would-attach-2\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 929-a-refused-plus-is-escaped-when-the-block-below-would-attach-3\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 929-a-refused-plus-is-escaped-when-the-block-below-would-attach-4\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 929-a-refused-plus-is-escaped-when-the-block-below-would-attach-5\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 929-a-refused-plus-is-escaped-when-the-block-below-would-attach\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 385\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-3\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [ ]\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [x]\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [X]\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [_]\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [-]\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [/]\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [!]\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [>]\"",
+            "ticket": "carve-php#4581"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [?]\"",
+            "ticket": "carve-php#4581"
+        },
+        {
             "test": "MarkupCarve\\Carve\\Test\\ACommentAfterARefusedPlusDoesNotFoldIntoTheItemTest::testTheCommentStaysOutOfTheItem with data set \"shifted nested item (#4280)\"",
             "ticket": "carve#4483"
         },
@@ -2158,140 +2278,16 @@
             "ticket": "carve#5080"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\ACommentAtTheItemColumnLeavesNoParagraphClaimTest::testCorpusUsesTheCommentExceptionReading",
-            "ticket": "carve#5012"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-2\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-4\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-8\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"929-a-refused-plus-is-escaped-when-the-block-below-would-attach-2\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"929-a-refused-plus-is-escaped-when-the-block-below-would-attach-3\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"929-a-refused-plus-is-escaped-when-the-block-below-would-attach-4\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"929-a-refused-plus-is-escaped-when-the-block-below-would-attach-5\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"929-a-refused-plus-is-escaped-when-the-block-below-would-attach\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testSemanticPreservation with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-3\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testIdempotency with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-3\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-3\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-2\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-4\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-8\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 929-a-refused-plus-is-escaped-when-the-block-below-would-attach-2\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 929-a-refused-plus-is-escaped-when-the-block-below-would-attach-3\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 929-a-refused-plus-is-escaped-when-the-block-below-would-attach-4\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 929-a-refused-plus-is-escaped-when-the-block-below-would-attach-5\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 929-a-refused-plus-is-escaped-when-the-block-below-would-attach\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 385\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\CarveFormatterTest::testCorpusFormatsSemanticallyAndIdempotently with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-3\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [ ]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [x]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [X]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [_]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [-]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [/]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [!]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [>]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [?]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\AnEmptyMarkdownHeaderDoesNotBecomeAParagraphTest::testAQuotedTableInterruptsItsItemWithoutMakingItLoose",
+            "ticket": "carve-php#4576"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\DjotDefinitionContainerOwnershipTest::testDefinitionContainerOwnershipPreservesNativeStructure",
             "ticket": "carve-php#4576"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\DjotRootAttributeBoundariesTest::testAttributeOwnership with data set \"boundary-258\"",
             "ticket": "carve-php#4576"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\HostedCommentSpanOwnershipTest::testAHostedBlockAndACommentSpanEndWithTheirItem with data set \"box-comment-h2\"",
-            "ticket": "carve-php#4575"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\InvisibleQuotedPlusFollowerTest::testAcceptedPlusKeepsTheVisibleFollowerInItsNestedQuote with data set \"line comment\"",
@@ -2480,14 +2476,6 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\AnInvisibleLineAfterARefusedNestedPlusTest::testInvisibleLineAfterRefusedPlus with data set \"comment-still-folds\"",
             "ticket": "carve-php#4572"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"506-comment-columns-and-surviving-list-items-5\"",
-            "ticket": "carve#5012"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"620-generated-container-documents-23\"",
-            "ticket": "carve#5012"
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\AttachedDefinitionBoundariesTest::testDefinitionsKeepTheirAttachedBlockOwnership with data set \"native case 126\"",
