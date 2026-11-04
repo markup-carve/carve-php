@@ -187,14 +187,14 @@ class AnImportedItemsBareTextLeadStaysTightTest extends TestCase
             ],
             'a sublist with a stray block hoisted in front of it' => [
                 '<ul><li>a<ul><p>x</p><li>b</li></ul></li></ul>',
-                "- a\n+\nx\n\n  - b\n",
+                "- a\n+\nx\n  - b\n",
             ],
             // THE EMPTY LIST MUST NOT ANSWER FOR THE RUN. It writes nothing, so
             // the nested run still starts with the stray paragraph below it -
             // and an empty list that got the vote abutted `x` into the lead.
             'an empty sublist ahead of one with a stray block' => [
                 '<ul><li>a<ul></ul><ul><p>x</p><li>b</li></ul></li></ul>',
-                "- a\n+\nx\n\n  - b\n",
+                "- a\n+\nx\n  - b\n",
             ],
         ];
     }

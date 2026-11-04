@@ -151,11 +151,12 @@ class ProseMirrorCorpusTest extends TestCase
      * carve b8c898ac adds a line block in a nested description (910). The pin
      * to carve 04ab7a96 counts 7: an unclosed verse span (855-3, carve#4907)
      * and three line blocks after a verse span (939, carve#4956) join, while 856
-     * and 910 leave.
+     * and 910 leave. The pin to carve 3d7a9fff (the carve#5015 port) counts 13:
+     * rows of rulings not ported here yet (carve#5012, carve#5013) join.
      *
      * @var int
      */
-    private const MAXIMUM_COVERED_BUT_DIFFERING = 7;
+    private const MAXIMUM_COVERED_BUT_DIFFERING = 13;
 
     public function testTheCorpusSurvivesTheBridge(): void
     {

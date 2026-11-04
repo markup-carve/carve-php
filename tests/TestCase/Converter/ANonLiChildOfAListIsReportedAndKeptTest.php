@@ -212,7 +212,7 @@ class ANonLiChildOfAListIsReportedAndKeptTest extends TestCase
         // block takes the `+` continuation marker rather than a blank line and
         // an indent (carve-php#2642). A tight item renders its blocks with no
         // `<p>` wrapper, which is why the reparse looks for the text.
-        $this->assertSame("- a\n+\nx\n\n  - b\n", $this->carve($html));
+        $this->assertSame("- a\n+\nx\n  - b\n", $this->carve($html));
 
         $reparsed = (new CarveConverter())->convert($this->carve($html));
         $this->assertSame(2, substr_count($reparsed, '<ul>'));

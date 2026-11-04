@@ -87,7 +87,8 @@ class CodeFenceCarrierMarkerTest extends TestCase
             $renderer->setRoundTripMode(true);
             $markdown = (new CarveConverter(renderer: $renderer))->convert($source);
             $importer = new MarkdownToCarve();
-            self::assertSame($source, $importer->convert($markdown));
+            // carve#5015: the blank before the fence loosens the first and third source, which come back in canonical form.
+            self::assertSame(CarveConverter::toCarve($source), $importer->convert($markdown));
         }
     }
 }

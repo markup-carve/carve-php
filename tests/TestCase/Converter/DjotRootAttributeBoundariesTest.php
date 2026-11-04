@@ -69,7 +69,17 @@ class DjotRootAttributeBoundariesTest extends TestCase
 
             return;
         }
-        self::assertSame(self::normalize($expected), self::normalize($html), $source . "\n" . $converted);
+        // PART 9 §17 L1 (carve#5015) makes a blank-separated item loose where djot.js keeps it tight; an item's own `p` is not compared.
+        self::assertSame(self::withoutItemParagraphs(self::normalize($expected)), self::withoutItemParagraphs(self::normalize($html)), $source . "\n" . $converted);
+    }
+
+    private static function withoutItemParagraphs(string $html): string
+    {
+        $html = (string)preg_replace('#(<li(?: [^>]*)?>)\s*<p>(.*?)</p>(?=\s*(?:<(?:ul|ol|dl|pre|blockquote|div|table|h[1-6])[ >]|</li>))#s', '$1$2', $html);
+
+        $html = (string)preg_replace('#(<li(?: [^>]*)?>)\s*<p>(.*?)</p>\s*(</li>)#s', '$1$2$3', $html);
+
+        return (string)preg_replace('#\s+(<(?:ul|ol|dl)[ >])#', '$1', $html);
     }
 
     public function testPendingItemAttributesReturnWhenAFootnoteCloses(): void

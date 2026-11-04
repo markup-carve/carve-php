@@ -2918,10 +2918,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($child instanceof ListBlock) {
                     if (!$separated && $boundaryPeer !== null && $this->adjacentBlocksMerge($boundaryPeer, $child)) {
                         $out .= $this->listBoundary() . $rendered;
-                    } elseif (!$separated && $atMarkerColumn) {
-                        // A tight item writes no other blank above a sub-list: it would loosen the item (PART 9 §17 L1).
-                        $out .= "\n" . $rendered;
                     } else {
+                        // No blank above a sub-list in a tight item: it would loosen the item (PART 9 §17 L1).
                         $out .= $rendered;
                     }
                     // Back at the content column, so a child below this one is

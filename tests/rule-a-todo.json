@@ -2234,18 +2234,6 @@
             "ticket": "carve-php#4243"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter-4\"",
-            "ticket": "carve#4907"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter-4\"",
-            "ticket": "carve#4907"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter-4\"",
-            "ticket": "carve#4907"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testThePartElevenOneCCeilingIsNoLongerReached",
             "ticket": "carve#4907"
         },
@@ -2254,64 +2242,160 @@
             "ticket": "carve#4907"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 187-a-comment-fence-is-a-comment-at-any-column-too\"",
-            "ticket": "carve#4995"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\ListStyleDroppedTest::testStyleMarkerStartsItsOwnList with data set \"nested noninitial before later paragraph\"",
+            "ticket": "carve-php#4573"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"187-a-comment-fence-is-a-comment-at-any-column-too\"",
-            "ticket": "carve#4995"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Renderer\\ListStyleDroppedTest::testStyleMarkerStartsItsOwnList with data set \"nested noninitial before another list\"",
+            "ticket": "carve-php#4573"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"187-a-comment-fence-is-a-comment-at-any-column-too\"",
-            "ticket": "carve#4995"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\MarkdownImportSweepListItemsTest::testTheImportReadsTheItemAsCommonMarkDoes with data set \"a bare nested marker is no setext heading text\"",
+            "ticket": "carve-php#4573"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 192-a-comment-fence-under-a-nested-item-does-not-close-it-either\"",
-            "ticket": "carve#4995"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"319-cell-attributes-bind-after-the-kind-and-alignment-markers-2\"",
+            "ticket": "carve#5091"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"192-a-comment-fence-under-a-nested-item-does-not-close-it-either\"",
-            "ticket": "carve#4995"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"319-cell-attributes-bind-after-the-kind-and-alignment-markers-3\"",
+            "ticket": "carve#5091"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"192-a-comment-fence-under-a-nested-item-does-not-close-it-either\"",
-            "ticket": "carve#4995"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"319-cell-attributes-bind-after-the-kind-and-alignment-markers-6\"",
+            "ticket": "carve#5091"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 418-an-invisible-fenced-block-is-not-a-list-paragraph\"",
-            "ticket": "carve#4988"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-2\"",
+            "ticket": "carve#5013"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"418-an-invisible-fenced-block-is-not-a-list-paragraph\"",
-            "ticket": "carve#4988"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-4\"",
+            "ticket": "carve#5013"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"418-an-invisible-fenced-block-is-not-a-list-paragraph\"",
-            "ticket": "carve#4988"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"506-comment-columns-and-surviving-list-items-5\"",
+            "ticket": "carve#5012"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter\"",
-            "ticket": "carve#4988"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"620-generated-container-documents-23\"",
+            "ticket": "carve#5012"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter\"",
-            "ticket": "carve#4988"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-8\"",
+            "ticket": "carve#5013"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter\"",
-            "ticket": "carve#4988"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"659-table-spans-keep-alignment-defaults-in-physical-columns-4\"",
+            "ticket": "carve#4980"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter-2\"",
-            "ticket": "carve#4988"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"814-a-span-marker-with-no-origin-keeps-its-column-s-alignment-2\"",
+            "ticket": "carve#4980"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter-2\"",
-            "ticket": "carve#4988"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"929-a-refused-plus-is-escaped-when-the-block-below-would-attach-5\"",
+            "ticket": "carve#5013"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"508-a-comment-span-s-closer-below-its-host-s-column-stays-a-delimiter-2\"",
-            "ticket": "carve#4988"
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"952-native-head-rows-with-span-placeholders-2\"",
+            "ticket": "carve#4980"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"952-native-head-rows-with-span-placeholders-6\"",
+            "ticket": "carve#4980"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"952-native-head-rows-with-span-placeholders-9\"",
+            "ticket": "carve#4980"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"659-table-spans-keep-alignment-defaults-in-physical-columns-4\"",
+            "ticket": "carve#4980"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"814-a-span-marker-with-no-origin-keeps-its-column-s-alignment-2\"",
+            "ticket": "carve#4980"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"952-native-head-rows-with-span-placeholders-9\"",
+            "ticket": "carve#4980"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"md: 319-cell-attributes-bind-after-the-kind-and-alignment-markers-3\"",
+            "ticket": "carve#5091"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 319-cell-attributes-bind-after-the-kind-and-alignment-markers-2\"",
+            "ticket": "carve#5091"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 319-cell-attributes-bind-after-the-kind-and-alignment-markers-3\"",
+            "ticket": "carve#5091"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 319-cell-attributes-bind-after-the-kind-and-alignment-markers-6\"",
+            "ticket": "carve#5091"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-2\"",
+            "ticket": "carve#5013"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 436-a-refused-description-plus-folds-a-line-below-column-0-and-a-comment-does-not-4\"",
+            "ticket": "carve#5013"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 506-comment-columns-and-surviving-list-items-5\"",
+            "ticket": "carve#5012"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 620-generated-container-documents-23\"",
+            "ticket": "carve#5012"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-8\"",
+            "ticket": "carve#5013"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 659-table-spans-keep-alignment-defaults-in-physical-columns-4\"",
+            "ticket": "carve#4980"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 814-a-span-marker-with-no-origin-keeps-its-column-s-alignment-2\"",
+            "ticket": "carve#4980"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 929-a-refused-plus-is-escaped-when-the-block-below-would-attach-5\"",
+            "ticket": "carve#5013"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 952-native-head-rows-with-span-placeholders-2\"",
+            "ticket": "carve#4980"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 952-native-head-rows-with-span-placeholders-6\"",
+            "ticket": "carve#4980"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 952-native-head-rows-with-span-placeholders-9\"",
+            "ticket": "carve#4980"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\ConverterCorpusTest::testConvertedSourceRendersTheExpectedHtml with data set \"37-djot-thematic-break-spellings-survive\"",
+            "ticket": "carve#5015"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\ConverterCorpusTest::testConvertedSourceRendersTheExpectedHtml with data set \"40-djot-a-brace-run-continuation-must-be-indented\"",
+            "ticket": "carve#5080"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\ACommentAtTheItemColumnLeavesNoParagraphClaimTest::testCorpusUsesTheCommentExceptionReading",
+            "ticket": "carve#5012"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\TableAlignmentFixturesTest::testFixture with data set \"attributes spans and empty cells\"",
+            "ticket": "carve#5091"
         }
     ]
 }

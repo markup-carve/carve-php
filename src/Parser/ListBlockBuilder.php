@@ -339,6 +339,11 @@ final class ListBlockBuilder
             && !$this->continuationReachesNestedListContent($lastItem, $currentIndent)
             // A blank below a lead that renders nothing keeps the list tight (PART 9 §17 L1b, carve#4639).
             && ($this->rendersSomething($lastItem) || !$this->blankFollowsLead($lines, $i, $baseIndent))
+            // A blank an open fence in a child list holds as payload stays that list's before a block (PART 9 §17 L1).
+            && !(
+                isset($this->state->session->unclosedFencePayloadLines[$this->sourceLineFor($i - 1)])
+                && $this->isBlockElementStart(ltrim($currentLine, " \t"), $lines, $i)
+            )
         ) {
             $list->setTight(false);
             $blankLoosened = true;

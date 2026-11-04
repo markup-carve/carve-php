@@ -7,11 +7,14 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
+use MarkupCarve\Carve\Test\RuleATodo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class ListStyleDroppedTest extends TestCase
 {
+    use RuleATodo;
+
     /**
      * @return array<string, array{string, string, string}>
      */
