@@ -79,6 +79,13 @@ final class BlockOwnershipWalk
     public array $skippedAbbreviations = [];
 
     /**
+     * Lines of a `%%%` span skipped after a `+`, keyed by source line. Its body is opaque (PART 0 S1).
+     *
+     * @var array<int, true>
+     */
+    public array $skippedCommentLines = [];
+
+    /**
      * Lazy lines folded into an open line block's stanza, keyed by line index.
      *
      * @var array<int, true>
@@ -254,6 +261,7 @@ final class BlockOwnershipWalk
         $this->movedSpanEnd = -1;
         $this->lazyLines = [];
         $this->attachedPreludeLines = [];
+        $this->skippedCommentLines = [];
         $this->lineBlockLazyLines = [];
         $this->fenceOpenerLines = [];
         $this->refusedPlus = [];
@@ -734,7 +742,11 @@ final class BlockOwnershipWalk
         if (isset($skipped['noteBodies'][$at])) {
             $this->lazyLines[$at] = true;
         }
-        $abbreviation = $skipped['hostIndex'] === 1
+        $inSpan = $skipped['fenced'][$at] ?? false;
+        if ($inSpan) {
+            $this->skippedCommentLines[$at] = true;
+        }
+        $abbreviation = !$inSpan && $skipped['hostIndex'] === 1
             && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', trim($this->lines[$at]), $match) === 1
             ? [$match[1], rtrim($match[2], " \t")]
             : null;
