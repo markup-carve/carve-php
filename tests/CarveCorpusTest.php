@@ -1657,7 +1657,6 @@ class CarveCorpusTest extends TestCase
         'an-unclosed-fence-in-a-marker-line-note-cannot-retain-the-following-line',
         'an-unresolved-reference-in-a-heading-cross-reference-clone',
         'native-head-rows-with-span-placeholders',
-        'a-deprecated-cell-alignment-prefix-reads-as-its-braced-run',
     ];
 
     /**
