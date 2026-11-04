@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\RawText;
@@ -37,7 +38,7 @@ class SourceUnicodeMarkerExhaustionTest extends TestCase
             while ($stack !== []) {
                 $node = array_pop($stack);
                 if ($node instanceof Code) {
-                    $node->setContent("x`\n[r]: /url\ntail");
+                    $node->setContent("x`\n[r]: /url");
                 } elseif (method_exists($node, 'getChildren')) {
                     array_push($stack, ...$node->getChildren());
                 }
@@ -70,6 +71,45 @@ class SourceUnicodeMarkerExhaustionTest extends TestCase
             $this->assertStringContainsString("\u{E009}m0x0\u{E00A}", $result->value);
             $this->assertStringContainsString('[r]: /url', $result->value);
             $this->assertSame($result->value, $writer->convert($result->value));
+        }
+    }
+
+    public function testAFootnoteCodeValueWithADefinitionOnAMiddleLineIsRefusedWhenOnlyEightCharactersAreFree(): void
+    {
+        $pool = '';
+        for ($code = 0xE000; $code <= 0xF8FF; $code++) {
+            if ($code < 0xE001 || $code >= 0xE001 + 8) {
+                $pool .= mb_chr($code, 'UTF-8');
+            }
+        }
+        $writer = CarveConverter::carve();
+        $document = $writer->parse("```\n{$pool}\n```\n\nbody[^n]\n\n[^n]: > `x`\n");
+        $stack = $document->getChildren();
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            if ($node instanceof Code) {
+                $node->setContent("x`\n[r]: /url\ntail");
+            } elseif (method_exists($node, 'getChildren')) {
+                array_push($stack, ...$node->getChildren());
+            }
+        }
+        $legacy = new class extends CarveRenderer {
+            protected function pickVerbatimSentinels(string $text): array
+            {
+                /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string} $picked */
+                $picked = DocumentSentinels::pickTokens($text, 8, 0xE001);
+
+                return $picked;
+            }
+        };
+        // CARVE-P11-078: a link definition on a value line that is not the last has no spelling.
+        foreach ([static fn () => $legacy->render($document), static fn () => $writer->renderWithReport($document)] as $write) {
+            try {
+                $write();
+                $this->fail('A code value with a link definition on a middle line was written.');
+            } catch (SourceUnspellableException) {
+                $this->addToAssertionCount(1);
+            }
         }
     }
 
