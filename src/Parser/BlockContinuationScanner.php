@@ -5229,8 +5229,22 @@ final class BlockContinuationScanner
         if (preg_match('/^([ \t]*)(\S+)( +)/', $lastLine, $match) !== 1) {
             return PHP_INT_MAX;
         }
+        $indent = IndentationHelper::getLeadingColumns($match[1] . 'x');
+        $column = $indent + strlen($match[2]) + strlen($match[3]);
+        // A nested item's ancestors stay open: the fence reaches the outermost list it stands in.
+        for ($k = $back - 1; $k > 0 && $indent > 0; $k--) {
+            $line = $itemLines[$k];
+            if (
+                IndentationHelper::getLeadingColumns($line) < $indent
+                && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null
+                && preg_match('/^([ \t]*)(\S+)( +)/', $line, $match) === 1
+            ) {
+                $indent = IndentationHelper::getLeadingColumns($match[1] . 'x');
+                $column = $indent + strlen($match[2]) + strlen($match[3]);
+            }
+        }
 
-        return $contentIndent + IndentationHelper::getLeadingColumns($match[1] . 'x') + strlen($match[2]) + strlen($match[3]);
+        return $contentIndent + $column;
     }
 
     /**
