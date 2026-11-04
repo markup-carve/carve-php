@@ -1596,7 +1596,14 @@ class MarkdownToCarve
                     || ($this->indentWidth($quotedText) < $quotedItemCol
                         && ($quoteState->previous === null || !$this->quoteParagraphIsOpen($quoteState->previous['text'])));
                 if ($listCols->isEmpty()) {
-                    $quotedTableCol = $atQuoteTop ? 0 : $quotedItemCol;
+                    $quotedTableCol = $quotedItemCol;
+                    if ($atQuoteTop) {
+                        // Below the innermost item, an outer open item can still hold the table.
+                        $markers = $quoteState->markers[$quoteKey] ?? null;
+                        $indent = $this->indentWidth($quotedText);
+                        $quotedTableCol = $markers === null ? 0 : $markers->contentAt($indent) + $markers->shiftAt($indent);
+                        $atQuoteTop = $quotedTableCol === 0;
+                    }
                     $quotedTable = $this->tableStage->collectQuotedTable(
                         $lines,
                         $i,

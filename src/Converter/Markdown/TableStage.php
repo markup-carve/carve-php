@@ -8,6 +8,7 @@ use Closure;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\ErasedBoundaryComments;
 use MarkupCarve\Carve\Converter\MigrationDiagnostic;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\TableParser;
@@ -509,10 +510,11 @@ final class TableStage
 
     public function writeWithoutOmittedTableComments(string $source): string
     {
-        $document = CarveConverter::carve()->parse(ErasedBoundaryComments::fence($source, $this->context->omittedTableComment));
-        $remove = function (Node $node) use (&$remove): void {
+        $body = $this->context->omittedTableComment;
+        $document = CarveConverter::carve()->parse(ErasedBoundaryComments::fence(ErasedBoundaryComments::fenceListEnders($source, $body), $body));
+        $remove = function (Node $node) use (&$remove, $body): void {
             foreach ($node->getChildren() as $child) {
-                if ($child instanceof Comment && trim($child->getContent()) === $this->context->omittedTableComment) {
+                if (($child instanceof Comment || $child instanceof CodeBlock) && trim($child->getContent()) === $body) {
                     $node->removeChild($child);
                 } else {
                     $remove($child);
