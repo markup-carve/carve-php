@@ -29,7 +29,7 @@ class ASkippedCommentFenceEndsAtALineThatMissesTheHostTest extends TestCase
             ],
             'below-column line ends the description' => [
                 ":: t\n: +\n  %%%\nq\n  %%%\n  text\n",
-                "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>q</p>",
+                "<dl>\n  <dt>t</dt>\n  <dd>q</dd>\n</dl>",
             ],
             'a fence inside the host still skips' => [
                 "> - +\n> %%%\n> x\n> %%%\n> text\n",

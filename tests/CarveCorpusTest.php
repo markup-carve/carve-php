@@ -1658,6 +1658,9 @@ class CarveCorpusTest extends TestCase
         'an-unclosed-fence-in-a-marker-line-note-cannot-retain-the-following-line',
         'an-unresolved-reference-in-a-heading-cross-reference-clone',
         'native-head-rows-with-span-placeholders',
+        // Arrived with the pin move to carve 5401b518 (carve#5130, carve#5132 ports).
+        'a-plus-skips-every-invisible-line-its-host-keeps',
+        'a-quote-plus-after-a-quote-attached-paragraph-is-a-letter',
     ];
 
     /**

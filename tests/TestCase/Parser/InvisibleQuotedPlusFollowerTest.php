@@ -14,20 +14,15 @@ class InvisibleQuotedPlusFollowerTest extends TestCase
     use RuleATodo;
 
     /**
-     * @var string
-     */
-    private const ERASED = "<blockquote>\n  <blockquote><p>a</p></blockquote>\n  <p>b</p>\n</blockquote>";
-
-    /**
      * @return array<string, array{0: string, 1?: string}>
      */
     public static function invisibleFollowers(): array
     {
         return [
-            // carve#5012 erases the line, so `+` meets `b` outside the inner quote.
-            'line comment' => ['%% c', self::ERASED],
+            // carve#5129: the erased line goes with its `>`, so `+` meets `b` in the inner quote.
+            'line comment' => ['%% c'],
             'fenced comment' => ["%%% c\n > hidden\n > %%%"],
-            'reference definition' => ['[r]: /u', self::ERASED],
+            'reference definition' => ['[r]: /u'],
         ];
     }
 

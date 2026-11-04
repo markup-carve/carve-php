@@ -267,7 +267,7 @@
     {
         "id": "v53",
         "source": "- > > - para\n  > >   [r]: /u\ntail\n",
-        "html": "<ul>\n  <li>\n    <blockquote>\n      <blockquote>\n        <ul>\n          <li>para</li>\n        </ul>\n      </blockquote>\n    </blockquote>\n  </li>\n</ul>\n<p>tail</p>"
+        "html": "<ul>\n  <li>\n    <blockquote>\n      <blockquote>\n        <ul>\n          <li>para\ntail</li>\n        </ul>\n      </blockquote>\n    </blockquote>\n  </li>\n</ul>"
     },
     {
         "id": "v54",
@@ -282,7 +282,7 @@
     {
         "id": "v56",
         "source": "- - > - para\n    >   [r]: /u\ntail\n",
-        "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n          <ul>\n            <li>para</li>\n          </ul>\n        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>"
+        "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n          <ul>\n            <li>para\ntail</li>\n          </ul>\n        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>"
     },
     {
         "id": "v57",

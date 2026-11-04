@@ -19,10 +19,33 @@ class AQuoteInAQuotedItemLeavesNoParagraphAfterABlockTest extends TestCase
             'heading' => ['# H'],
             'break' => ['---'],
             'blank' => [''],
-            'definition' => ['[r]: /u'],
-            'indented definition' => [' [r]: /u'],
             'div opener' => ['::: d'],
         ];
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function erasedLines(): array
+    {
+        return [
+            'definition' => ['[r]: /u'],
+            'indented definition' => [' [r]: /u'],
+        ];
+    }
+
+    /**
+     * carve#5129: an erased definition goes with its quote prefixes, so `tail` continues the paragraph.
+     */
+    #[DataProvider('erasedLines')]
+    public function testAnErasedLineLeavesTheParagraphOpen(string $line): void
+    {
+        foreach (['> - > para', '> 1. > para', '> > - > para'] as $head) {
+            $prefix = substr($head, 0, (int)strrpos($head, '>') + 1);
+            $prefix = preg_replace('/[^> ]/', ' ', $prefix) ?? '';
+            $source = $head . "\n" . rtrim($prefix . ' ' . $line) . "\ntail\n\n[r][]\n";
+            $this->assertStringContainsString("<p>para\ntail</p></blockquote>", (new CarveConverter())->convert($source), $source);
+        }
     }
 
     #[DataProvider('closingLines')]

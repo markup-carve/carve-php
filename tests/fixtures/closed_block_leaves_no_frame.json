@@ -42,7 +42,7 @@
   {
     "id": "quote-1-reference-paragraph",
     "source": "> - a\n>   [r]: /u\ntail\n",
-    "html": "<blockquote><ul><li>a</li></ul></blockquote><p>tail</p>"
+    "html": "<blockquote><ul><li>a\ntail</li></ul></blockquote>"
   },
   {
     "id": "quote-1-reference-list",
@@ -102,7 +102,7 @@
   {
     "id": "quote-2-reference-paragraph",
     "source": "> > - a\n> >   [r]: /u\ntail\n",
-    "html": "<blockquote><blockquote><ul><li>a</li></ul></blockquote></blockquote><p>tail</p>"
+    "html": "<blockquote><blockquote><ul><li>a\ntail</li></ul></blockquote></blockquote>"
   },
   {
     "id": "quote-2-reference-list",

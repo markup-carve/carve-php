@@ -2,14 +2,6 @@
     "about": "Tests the rule A port (#4216) still fails, each with its ticket. tests/RuleATodo.php runs them as expected failures.",
     "entries": [
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-8\"",
-            "ticket": "carve#5157"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-8\"",
-            "ticket": "carve#5157"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\ACommentAfterARefusedPlusDoesNotFoldIntoTheItemTest::testTheCommentStaysOutOfTheItem with data set \"shifted nested item (#4280)\"",
             "ticket": "carve#4483"
         },
@@ -207,10 +199,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\CommentsPreserveListContentColumnTest::testCommentsPreserveListContentColumn with data set \"1. intro\n%% c\n 1. tail\n\"",
-            "ticket": "carve-php#4244"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\CommentsPreserveListContentColumnTest::testCommentsPreserveListContentColumn with data set \"> - intro\n> %% c\n>  - tail\n\"",
             "ticket": "carve-php#4244"
         },
         {
@@ -2038,15 +2026,7 @@
             "ticket": "carve#5012"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"620-generated-container-documents-23\"",
-            "ticket": "carve#5012"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 506-comment-columns-and-surviving-list-items-5\"",
-            "ticket": "carve#5012"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 620-generated-container-documents-23\"",
             "ticket": "carve#5012"
         },
         {
