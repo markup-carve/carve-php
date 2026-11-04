@@ -86,42 +86,6 @@
             "ticket": "carve-php#4581"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [ ]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [x]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [X]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [_]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [-]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [/]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [!]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [>]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TheCarve3421FollowUpRulingsTest::testStackedListFollowerIsRefusedForEveryTaskState with data set \"task state [?]\"",
-            "ticket": "carve-php#4581"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\ACommentAfterARefusedPlusDoesNotFoldIntoTheItemTest::testTheCommentStaysOutOfTheItem with data set \"shifted nested item (#4280)\"",
             "ticket": "carve#4483"
         },

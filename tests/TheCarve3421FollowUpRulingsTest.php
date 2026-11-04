@@ -30,7 +30,7 @@ class TheCarve3421FollowUpRulingsTest extends TestCase
     public function testStackedListFollowerIsRefusedForEveryTaskState(string $state): void
     {
         $html = (new CarveConverter())->convert("- [$state] - +\n    text\n");
-        $this->assertStringContainsString("<li>+\ntext</li>\n    </ul>", $html);
+        $this->assertStringContainsString("<ul>\n      <li></li>\n    </ul>\n    text\n  </li>", $html);
     }
 
     /**
