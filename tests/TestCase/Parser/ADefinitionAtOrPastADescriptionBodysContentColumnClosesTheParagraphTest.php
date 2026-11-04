@@ -112,10 +112,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
     {
         $html = $this->converter->convert(":: t\n:  a\n" . str_repeat(' ', $column) . "[r]: /url\ntail");
 
-        $expected = $folds
-            ? self::ERASED
-            : self::ERASED;
-        $this->assertSame($expected, trim($html));
+        $this->assertSame(self::ERASED, trim($html));
     }
 
     /**
@@ -162,10 +159,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
     {
         $html = $this->converter->convert(":: t\n: a\n" . str_repeat(' ', $column) . "[r]: /url\ntail");
 
-        $expected = $folds
-            ? self::ERASED
-            : self::ERASED;
-        $this->assertSame($expected, trim($html));
+        $this->assertSame(self::ERASED, trim($html));
     }
 
     /**
