@@ -74,4 +74,21 @@ class TableColumnLinterTest extends TestCase
         self::assertContains('table-width-total', $rules($linter->lint("{widths=60,50}\n| a | b |")));
         self::assertContains('table-column-overlap', $rules($linter->lint("{aligns=left}\n|=> H |")));
     }
+
+    public function testABracedAlignmentIsAPaddedPrefixAndAnInTableMarker(): void
+    {
+        $linter = new TableColumnLinter();
+        $rules = static fn (array $warnings): array => array_map(static fn ($warning): string => $warning->line . ':' . $warning->column . ' ' . $warning->rule, $warnings);
+        self::assertSame([], $rules($linter->lint("|= Fruit |={>} Price |\n| a | 1 |\n")));
+        self::assertSame(['1:2 table-column-overlap'], $rules($linter->lint("{aligns=\"left\"}\n|={>} H |\n| a |\n")));
+        self::assertSame(['1:2 table-column-overlap'], $rules($linter->lint("{valigns=\"top\"}\n|={<v} H |\n| a |\n")));
+        self::assertSame([], $rules($linter->lint("{valigns=\"top\"}\n|={>} H |\n| a |\n")));
+        self::assertSame([], $rules($linter->lint("{aligns=\"left\"}\n| a |\n|={>} H |\n")));
+        self::assertSame(['1:16 table-column-overlap'], $rules($linter->lint("{header-rows=1 aligns=\"left\"}\n|{>} H |\n| a |\n")));
+        self::assertSame([], $rules($linter->lint("{aligns=left}\n|not closed\n|=> H |\n")));
+        self::assertSame(['1:2 table-marker-run-padding', '2:2 table-marker-run-padding'], $rules($linter->lint("|=a |\n|={.x}value |\n")));
+        self::assertSame(['1:2 table-marker-run-padding'], $rules($linter->lint("|={>}x |\n")));
+        self::assertSame(['1:2 table-marker-run-padding'], $rules($linter->lint("|{>}x |\n")));
+        self::assertSame([], $rules($linter->lint("|{>} x |\n")));
+    }
 }

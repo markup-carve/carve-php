@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\BlockParser;
 
@@ -72,9 +76,13 @@ class TableColumnLinter
                     $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, (int)$offset, strlen($key), 'table-width-total', 'The specified table column widths total more than 100%.');
                 }
             }
-            $header = $next;
-            foreach (['aligns' => '[<>~]', 'valigns' => '[~^v]'] as $key => $sigil) {
-                if (preg_match('/\b' . $key . '=/', $line, $attribute, PREG_OFFSET_CAPTURE) === 1 && preg_match('/\|=' . $sigil . '/', $header) === 1) {
+            $markers = null;
+            foreach (['aligns', 'valigns'] as $key) {
+                if (preg_match('/\b' . $key . '=/', $line, $attribute, PREG_OFFSET_CAPTURE) !== 1) {
+                    continue;
+                }
+                $markers ??= $this->headMarkerAxes($lines, $lineIndex);
+                if ($markers[$key]) {
                     $offset = $attribute[0][1];
                     $warnings[] = $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $offset, strlen($key), 'table-column-overlap', 'A column supplies the same alignment axis both in the table and in a table attribute; the in-table marker wins.');
                 }
@@ -82,6 +90,48 @@ class TableColumnLinter
         }
 
         return $warnings;
+    }
+
+    /**
+     * Which alignment axes the head of the table the attribute line at
+     * `$attributeLine` carries sets with an in-table marker, read from the
+     * parsed cells so the braced form (`|={>} H |`) counts like the deprecated
+     * prefix (`|=> H |`). A header cell below the head is a row header and
+     * aligns only itself.
+     *
+     * @param list<string> $lines
+     * @param int $attributeLine
+     *
+     * @return array{aligns: bool, valigns: bool}
+     */
+    private function headMarkerAxes(array $lines, int $attributeLine): array
+    {
+        $rows = [ltrim($lines[$attributeLine])];
+        for ($i = $attributeLine + 1; isset($lines[$i]) && str_starts_with(ltrim($lines[$i]), '|'); $i++) {
+            $rows[] = ltrim($lines[$i]);
+        }
+        $axes = ['aligns' => false, 'valigns' => false];
+        $table = (new CarveConverter())->parse(implode("\n", $rows) . "\n")->getChildren()[0] ?? null;
+        if (!$table instanceof Table) {
+            return $axes;
+        }
+        $head = ($table->getRowGroups() ?? $table->statedRowGroups())['headRows'] ?? null;
+        foreach ($table->getChildren() as $row) {
+            if (!$row instanceof TableRow) {
+                continue;
+            }
+            if ($head === null ? !$row->isHeader() : $head-- <= 0) {
+                break;
+            }
+            foreach ($row->getChildren() as $cell) {
+                if ($cell instanceof TableCell) {
+                    $axes['aligns'] = $axes['aligns'] || $cell->hasExplicitAlignment();
+                    $axes['valigns'] = $axes['valigns'] || $cell->hasExplicitVerticalAlignment();
+                }
+            }
+        }
+
+        return $axes;
     }
 
     /**
@@ -110,6 +160,20 @@ class TableColumnLinter
         int $offset,
         string $cell,
     ): ?LintWarning {
+        $rule = RetiredSpellingLinter::RULE_TABLE_MARKER_RUN_PADDING;
+        // A braced alignment (`{>}`, carve#5091) is not an attribute payload,
+        // so the marker-run scan does not see it as a block.
+        $braced = $parser->bracedAlignment($cell, terminated: false);
+        if ($braced !== null) {
+            if (($cell[$braced['end']] ?? '') === ' ') {
+                return null;
+            }
+            if ($cell[0] === '=') {
+                return $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $offset, $braced['end'], $rule, 'The table kind marker has no terminating space, so it is literal cell content. Add a space after the marker run and its attribute block to make it a header.');
+            }
+
+            return $this->warning($rows, $byteAt, $validUtf8, $prefixCounts, $lineIndex, $offset, $braced['end'], $rule, sprintf('The table cell attribute block "%s" has no terminating space, so it is literal cell content. Add a space after the block to apply it to the cell.', substr($cell, 0, $braced['end'])));
+        }
         $scan = $parser->scanCellMarkerRun($cell);
         if ($scan === null || $scan['terminated'] || $scan['runEnd'] !== $scan['glyphEnd']) {
             return null;
@@ -117,7 +181,6 @@ class TableColumnLinter
         $kindEnd = $scan['kind'] ? 1 : 0;
         $block = $scan['blockEnd'] !== null;
         $suffix = $block ? ' and its attribute block' : '';
-        $rule = RetiredSpellingLinter::RULE_TABLE_MARKER_RUN_PADDING;
         if ($scan['runEnd'] > $kindEnd) {
             $run = substr($cell, $kindEnd, $scan['runEnd'] - $kindEnd);
 
