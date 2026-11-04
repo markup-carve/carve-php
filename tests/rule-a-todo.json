@@ -2230,10 +2230,6 @@
             "ticket": "carve-php#4573"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\MarkdownImportSweepListItemsTest::testTheImportReadsTheItemAsCommonMarkDoes with data set \"a bare nested marker is no setext heading text\"",
-            "ticket": "carve-php#4573"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"506-comment-columns-and-surviving-list-items-5\"",
             "ticket": "carve#5012"
         },
