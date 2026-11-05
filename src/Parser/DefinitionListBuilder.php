@@ -2838,6 +2838,9 @@ final class DefinitionListBuilder
      */
     private function opensDescriptionBelowBody(string $line, int $index, ?int $marker, int $width): bool
     {
+        if (isset($this->state->source->lazyLines[$this->sourceLineFor($index)])) {
+            return false;
+        }
         if (preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, ltrim($line, " \t")) !== 1) {
             return false;
         }
