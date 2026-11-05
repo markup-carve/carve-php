@@ -3023,7 +3023,7 @@ class BlockParser
             if ($content === '' && array_key_exists($sourceLine, $this->state->source->refusedPlus)) {
                 $this->state->session->consumedPlusComments[] = $comment;
             }
-            $sourceText = $this->state->source->sourceLines[$sourceLine] ?? '';
+            $sourceText = $this->state->source->authoredLines[$sourceLine] ?? '';
             // A comment is a LEAF, so its span begins at the `%` markup, not in
             // the leading indentation or a container marker it follows - the
             // latitude a container keeps was withdrawn from leaves by
@@ -4165,7 +4165,7 @@ class BlockParser
                 $this->state->session->defineAbbreviation($m[1], $definition, $this->sourceLineFor($start));
                 $this->state->session->discoveredAbbreviationLines[$this->sourceLineFor($start)] = true;
                 if ($this->state->source->trackPositions) {
-                    $span = $this->wholeLineSpan($this->sourceLineFor($start));
+                    $span = $this->sourceMapper()->leafLineSpan($this->sourceLineFor($start));
                     if ($span !== null) {
                         $this->state->session->abbreviationSpans[$m[1]] = $span->toArray();
                     }
@@ -4192,7 +4192,7 @@ class BlockParser
         $pending = [];
         foreach ($skipped as $line => [$term, $expansion]) {
             $node = new AbbreviationDefinition($term, $expansion);
-            $node->setPos($this->state->source->trackPositions ? $this->wholeLineSpan($line) : null);
+            $node->setPos($this->state->source->trackPositions ? $this->sourceMapper()->leafLineSpan($line) : null);
             $pending[] = $node;
         }
         $merged = [];
