@@ -25,8 +25,9 @@ final class ConsumedKeyLinter
         $length = strlen($source);
         $warnings = [];
         $pending = [$document];
-        while ($pending !== []) {
-            $node = array_shift($pending);
+        for ($next = 0; isset($pending[$next]); $next++) {
+            $node = $pending[$next];
+            unset($pending[$next]);
             $key = $this->consumedKey($node);
             $pos = $node->getPos();
             if ($key !== null && $pos !== null) {
