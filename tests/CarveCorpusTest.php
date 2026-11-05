@@ -1663,6 +1663,7 @@ class CarveCorpusTest extends TestCase
         'a-quote-plus-after-a-quote-attached-paragraph-is-a-letter',
         'a-comment-between-a-term-and-its-description-is-the-description-s-first-block',
         'a-container-owned-comment-run-is-one-writer-block',
+        'a-document-owned-comment-run-stays-between-list-items',
         'an-indented-quoted-item-keeps-a-lazy-line-at-its-base',
         'a-below-item-marker-continues-the-list-in-a-description',
         'a-braced-comment-that-starts-a-continuation-line-is-at-block-position',
