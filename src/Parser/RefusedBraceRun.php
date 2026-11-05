@@ -177,6 +177,10 @@ final class RefusedBraceRun
             return null;
         }
 
-        return str_starts_with($line, BlockGrammar::LAZY_FRAME) ? substr($line, strlen(BlockGrammar::LAZY_FRAME)) : $line;
+        while (str_starts_with($line, BlockGrammar::LAZY_FRAME)) {
+            $line = substr($line, strlen(BlockGrammar::LAZY_FRAME));
+        }
+
+        return $line;
     }
 }
