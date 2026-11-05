@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
@@ -19,6 +20,43 @@ use MarkupCarve\Carve\Node\Node;
  */
 final class GithubAlerts
 {
+    /**
+     * Decode an escaped alert opener only when the parser found literal text
+     * inside a quote. The source escape has already prevented alert import.
+     */
+    public static function literalEscapedLabels(Document $document, string $source): string
+    {
+        $offsets = [];
+        $pending = [[$document, false]];
+        while ($pending !== []) {
+            [$node, $inQuote] = array_pop($pending);
+            $inQuote = $inQuote || $node instanceof BlockQuote;
+            $children = $node->getChildren();
+            if ($inQuote) {
+                foreach ($children as $index => $child) {
+                    $next = $children[$index + 1] ?? null;
+                    $pos = $child->getPos();
+                    if (
+                        $child instanceof EscapedText && $child->getContent() === '[' && $pos !== null
+                        && mb_substr($source, $pos->startOffset, 2, 'UTF-8') === '\\['
+                        && $next instanceof Text && preg_match('/^!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/', $next->getContent()) === 1
+                    ) {
+                        $offsets[] = $pos->startOffset;
+                    }
+                }
+            }
+            foreach ($children as $child) {
+                $pending[] = [$child, $inQuote];
+            }
+        }
+        rsort($offsets);
+        foreach ($offsets as $offset) {
+            $source = mb_substr($source, 0, $offset, 'UTF-8') . mb_substr($source, $offset + 1, null, 'UTF-8');
+        }
+
+        return $source;
+    }
+
     /**
      * GitHub alert label -> the Carve admonition kind it imports as.
      *

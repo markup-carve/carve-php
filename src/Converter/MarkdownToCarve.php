@@ -2231,7 +2231,7 @@ class MarkdownToCarve
             $carve = $this->foldDefinedAbbreviations($carve);
         }
         $carve = $this->repairImportedEmailLinks($carve, $frontmatter);
-        $carve = $this->importGithubAlerts($carve, $frontmatter);
+        $carve = $this->importGithubAlerts($carve, $frontmatter, $carrierOriginal);
         if (!self::holdsAlertLabelGuard($markdown)) {
             $carve = preg_replace('/^((?:> ?)+)\x01(?=\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*$)/m', '$1', $carve) ?? $carve;
         }
@@ -2540,8 +2540,9 @@ class MarkdownToCarve
     /**
      * @param string $carve
      * @param array<string> $frontmatter
+     * @param string $markdown
      */
-    private function importGithubAlerts(string $carve, array $frontmatter): string
+    private function importGithubAlerts(string $carve, array $frontmatter, string $markdown): string
     {
         if ($this->referenceContext->importingFootnoteBody || !str_contains($carve, '[!')) {
             return $carve;
@@ -2549,10 +2550,14 @@ class MarkdownToCarve
         $source = $frontmatter === [] ? $carve : "\n" . $carve;
         $converter = CarveConverter::carve();
         $document = $converter->parse($source);
-        if (!GithubAlerts::import($document, $source)) {
-            return $carve;
+        $changed = GithubAlerts::import($document, $source);
+        $written = $changed ? $converter->render($document) : $source;
+        if (preg_match('/\\\\\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/', $markdown) === 1) {
+            $written = GithubAlerts::literalEscapedLabels($changed ? $converter->parse($written) : $document, $written);
         }
-        $written = $converter->render($document);
+        if ($frontmatter !== [] && !$changed) {
+            $written = substr($written, 1);
+        }
 
         return str_ends_with($carve, "\n") ? $written : rtrim($written, "\n");
     }
