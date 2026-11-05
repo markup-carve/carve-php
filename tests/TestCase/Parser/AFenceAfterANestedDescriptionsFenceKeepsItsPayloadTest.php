@@ -39,6 +39,13 @@ final class AFenceAfterANestedDescriptionsFenceKeepsItsPayloadTest extends TestC
             "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <dl>\n          <dt>t</dt>\n          <dd>\n"
             . "            <pre><code>code\n</code></pre>\n          </dd>\n        </dl>\n      </li>\n      <li>y</li>\n    </ul>\n  </dd>\n</dl>",
         ];
+
+        yield 'a marker that ends a fence still releases the description' => [
+            ":: t\n: - :: t\n    : ```\n    - x\n    - y\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <dl>\n          <dt>t</dt>\n          <dd>\n"
+            . "            <pre><code></code></pre>\n          </dd>\n        </dl>\n"
+            . "        <ul>\n          <li>x</li>\n          <li>y</li>\n        </ul>\n      </li>\n    </ul>\n  </dd>\n</dl>",
+        ];
     }
 
     #[DataProvider('documents')]
