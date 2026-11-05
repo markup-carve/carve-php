@@ -4525,7 +4525,7 @@ class BlockParser
     }
 
     /**
-     * A lazy comment keeps its written column after quote prefixes are read.
+     * A lazy brace run keeps its written column after quote prefixes are read.
      * Body collection may have stripped the item's content column from both
      * lines, collapsing a one-column difference (CARVE-P2-035, carve#5203).
      *
@@ -4535,10 +4535,6 @@ class BlockParser
     private function refusedRunEndInSourceColumns(array $lines, int $start): ?int
     {
         $end = RefusedBraceRun::end($lines, $start, $this->inlineParser);
-        if (!str_starts_with(ltrim(self::stripLazyFrame($lines[$start]), " \t"), '{%')) {
-            return $end;
-        }
-
         $probe = [];
         for ($at = $start, $count = count($lines); $at < $count; $at++) {
             $line = self::stripLazyFrame($lines[$at]);
