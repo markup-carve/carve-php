@@ -116,8 +116,8 @@ final class FragileConstructLinter
     {
         $pending = [$document];
         while ($pending !== []) {
-            $node = array_shift($pending);
-            array_unshift($pending, ...$node->getChildren());
+            $node = array_pop($pending);
+            array_push($pending, ...array_reverse($node->getChildren()));
             $pos = $node->getPos();
             if ($pos === null || $node === $document) {
                 continue;
