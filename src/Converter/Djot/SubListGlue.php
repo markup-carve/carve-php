@@ -16,7 +16,7 @@ final class SubListGlue
     /**
      * @var string
      */
-    private const MARKER = '/^( *)([-*+]|\(?(?:\d+|[a-zA-Z]|[ivxlcdmIVXLCDM]+)[.)]) /';
+    private const MARKER = '/^( *)([-*+]|\((?:\d+|[a-zA-Z]|[ivxlcdmIVXLCDM]+)\)|(?:\d+|[a-zA-Z]|[ivxlcdmIVXLCDM]+)[.)]) /';
 
     public static function glue(string $carve): string
     {
