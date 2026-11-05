@@ -76,7 +76,8 @@ class AContainerOwnedCommentLineHasBlankLinesAroundItTest extends TestCase
         $source = "1. :: t\n   : # h\n\n     %% note\n\n     %% c2\n2. b\n";
         $formatted = CarveConverter::toCarve($source);
 
-        self::assertSame($source, $formatted);
+        // carve#5206 rules consecutive container-owned lines as one block.
+        self::assertSame("1. :: t\n   : # h\n\n     %% note\n     %% c2\n\n2. b\n", $formatted);
         self::assertSame((new CarveConverter())->convert($source), (new CarveConverter())->convert($formatted));
     }
 }
