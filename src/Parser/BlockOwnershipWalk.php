@@ -114,6 +114,13 @@ final class BlockOwnershipWalk
     public array $fenceOpenerLines = [];
 
     /**
+     * Payload and closer lines of a code or raw fence the walk opened, keyed by line index.
+     *
+     * @var array<int, true>
+     */
+    public array $fenceBodyLines = [];
+
+    /**
      * Every lone `+` the walk refused, keyed by line index: a refused marker renders nothing (carve#5013),
      * an off-column `+` is a letter. The value is its lint finding, or null where the rule does not report it.
      *
@@ -296,6 +303,7 @@ final class BlockOwnershipWalk
         $this->lineBlockLazyLines = [];
         $this->refusedKeptLines = [];
         $this->fenceOpenerLines = [];
+        $this->fenceBodyLines = [];
         $this->refusedPlus = [];
         $this->letterPlus = [];
         $this->claimedMarkers = [];
@@ -569,6 +577,9 @@ final class BlockOwnershipWalk
                         // A blank payload line ends the stanza, so no lazy line folds past it (PART 0 S4).
                         $this->frames[$innerIndex]->para = $rest !== '';
                     }
+                }
+                if ($inner->family !== 'comment' && !$inner->lineBlock) {
+                    $this->fenceBodyLines[$at] = true;
                 }
                 $result[] = $this->out . $this->src;
                 if ($this->trace !== null) {

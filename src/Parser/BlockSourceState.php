@@ -88,6 +88,13 @@ final class BlockSourceState
     public array $fenceOpenerLines = [];
 
     /**
+     * Top-level payload and closer lines of a code or raw fence the ownership walk opened.
+     *
+     * @var array<int, true>
+     */
+    public array $fenceBodyLines = [];
+
+    /**
      * Whether the ownership walk read lines 0.. as frontmatter on their raw, unindented spelling.
      */
     public bool $frontmatter = false;
