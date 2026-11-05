@@ -86,6 +86,13 @@ final class BlockOwnershipWalk
     public array $skippedCommentLines = [];
 
     /**
+     * Traced only: the owner a `%%` line's own column reaches, before the next visible line stands it deeper (carve#5178).
+     *
+     * @var array<int, string>
+     */
+    public array $commentColumnOwners = [];
+
+    /**
      * Lazy lines folded into an open line block's stanza, keyed by line index.
      *
      * @var array<int, true>
@@ -262,6 +269,7 @@ final class BlockOwnershipWalk
         $this->lazyLines = [];
         $this->attachedPreludeLines = [];
         $this->skippedCommentLines = [];
+        $this->commentColumnOwners = [];
         $this->lineBlockLazyLines = [];
         $this->fenceOpenerLines = [];
         $this->refusedPlus = [];
@@ -399,6 +407,10 @@ final class BlockOwnershipWalk
                 $result[] = $this->out . str_repeat(' ', $this->frames[$reached]->canon + $pad) . $this->m['rest'];
 
                 continue;
+            }
+            // Between a term and its description the description takes the comment (CARVE-P12-027).
+            if ($this->trace !== null && str_starts_with($this->m['rest'], '%%') && $this->frames[$reached]->last !== 'term') {
+                $this->commentColumnOwners[$at] = $this->ownerPath($reached);
             }
             $reached = $this->standInvisibleLine($reached, $plus !== null);
             // A lone `+` nothing took is a plain letter and ends nothing (carve#4396). Payload stays as written.

@@ -56,7 +56,7 @@ trait TransparentLineErasure
      * @param array<int, string> $lines
      * @param string $input
      *
-     * @return array<int, array{owner: string, comment: bool}>
+     * @return array<int, array{owner: string, comment: bool, byColumn: bool}>
      */
     private function transparentErasedLines(array $lines, string $input): array
     {
@@ -90,7 +90,8 @@ trait TransparentLineErasure
             ) {
                 continue;
             }
-            $erased[$index] = ['owner' => (string)$record['owner'], 'comment' => $comment];
+            $column = $comment ? $walk->commentColumnOwners[$index] ?? null : null;
+            $erased[$index] = ['owner' => $column ?? (string)$record['owner'], 'comment' => $comment, 'byColumn' => $column !== null];
         }
         ksort($erased);
 
@@ -99,7 +100,7 @@ trait TransparentLineErasure
 
     /**
      * @param string $input
-     * @param array<int, array{owner: string, comment: bool}> $erased
+     * @param array<int, array{owner: string, comment: bool, byColumn: bool}> $erased
      * @param int $sourceLength
      */
     private function parseTransparentDocument(string $input, array $erased, int $sourceLength): Document
@@ -195,7 +196,7 @@ trait TransparentLineErasure
      *
      * @param string $input
      * @param \MarkupCarve\Carve\Parser\SourceLines $lines
-     * @param array<int, array{owner: string, comment: bool}> $erased
+     * @param array<int, array{owner: string, comment: bool, byColumn: bool}> $erased
      *
      * @return array{0: string, 1: array<int, int>}
      */
@@ -345,7 +346,7 @@ trait TransparentLineErasure
 
     /**
      * @param array<int, int> $map
-     * @param array<int, array{owner: string, comment: bool}> $erased
+     * @param array<int, array{owner: string, comment: bool, byColumn: bool}> $erased
      * @param array<int, string> $lines
      */
     private function remapTransparentTrace(array $map, array $erased, array $lines): void
@@ -395,7 +396,7 @@ trait TransparentLineErasure
      *
      * @param string $input
      * @param \MarkupCarve\Carve\Parser\SourceLines $lines
-     * @param array<int, array{owner: string, comment: bool}> $erased
+     * @param array<int, array{owner: string, comment: bool, byColumn: bool}> $erased
      *
      * @return array{0: array<int, \MarkupCarve\Carve\Node\Node>, 1: array{references: array<string, \MarkupCarve\Carve\Parser\ReferenceDefinition>, abbreviations: array<int, array{0: string, 1: string}>}, 2: array<int, \MarkupCarve\Carve\Ast\SourceSpan>}
      */
@@ -571,7 +572,7 @@ trait TransparentLineErasure
      *
      * @param \MarkupCarve\Carve\Node\Document $document
      * @param array<int, array{0: int, 1: \MarkupCarve\Carve\Node\Node}> $nodes
-     * @param array<int, array{owner: string, comment: bool}> $erased
+     * @param array<int, array{owner: string, comment: bool, byColumn: bool}> $erased
      *
      * @return array<int, array{0: int, 1: \MarkupCarve\Carve\Node\Node}>
      */
@@ -601,20 +602,24 @@ trait TransparentLineErasure
         $rest = [];
         $targets = [];
         foreach ($nodes as $entry) {
-            $segments = explode('/', $erased[$entry[0] - 1]['owner'] ?? 'doc');
+            $owner = $erased[$entry[0] - 1]['owner'] ?? 'doc';
+            $byColumn = $erased[$entry[0] - 1]['byColumn'] ?? false;
+            $segments = explode('/', $owner);
             $last = (string)end($segments);
             $nth = count(array_keys($segments, $last, true));
-            $target = $index[$last][$nth - 1] ?? null;
+            $target = $owner === 'doc' && $byColumn ? $document : $index[$last][$nth - 1] ?? null;
             if ($target === null) {
                 $rest[] = $entry;
 
                 continue;
             }
-            $targets[spl_object_id($target)] ??= [$target, []];
-            $targets[spl_object_id($target)][1][] = $entry;
+            $targets[spl_object_id($target)] ??= [$target, [], []];
+            // A comment is a child of the container its column reaches, never of one nested in it (carve#5178).
+            $targets[spl_object_id($target)][$byColumn ? 2 : 1][] = $entry;
         }
-        foreach ($targets as [$target, $entries]) {
+        foreach ($targets as [$target, $entries, $comments]) {
             $this->insertTransparentNodes($target, $entries, 1);
+            $this->insertTransparentNodes($target, $comments, null);
         }
 
         return $rest;
