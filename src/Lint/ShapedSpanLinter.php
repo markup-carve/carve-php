@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
-use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\Strong;
 
@@ -32,9 +31,7 @@ final class ShapedSpanLinter
      */
     public function lint(string $source): array
     {
-        $converter = new CarveConverter();
-        $converter->getParser()->enablePositionTracking();
-        $pending = [$converter->parse($source)];
+        $pending = [LintParse::parse($source)[1]];
         $map = SourceOffsets::map($source);
         $length = strlen($source);
         $warnings = [];

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
-use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Comment;
 
 final class DocumentLinter
@@ -16,6 +15,17 @@ final class DocumentLinter
      * @return list<\MarkupCarve\Carve\Lint\LintWarning>
      */
     public function lint(string $source, array $options = []): array
+    {
+        return LintParse::share($source, fn (): array => $this->lintShared($source, $options));
+    }
+
+    /**
+     * @param string $source
+     * @param array{platforms?: list<string>, extensions?: list<\MarkupCarve\Carve\Extension\ExtensionInterface|string>, captionLookingParagraph?: bool} $options
+     *
+     * @return list<\MarkupCarve\Carve\Lint\LintWarning>
+     */
+    private function lintShared(string $source, array $options): array
     {
         $warnings = array_merge(
             (new MarkdownHabitLinter())->lint($source, ['platforms' => $options['platforms'] ?? []]),
@@ -53,9 +63,7 @@ final class DocumentLinter
      */
     private function applySuppressions(string $source, array $warnings): array
     {
-        $converter = new CarveConverter();
-        $converter->getParser()->enablePositionTracking();
-        $pending = [$converter->parse($source)];
+        $pending = [LintParse::parse($source)[1]];
         $directives = [];
         $map = SourceOffsets::map($source);
         $length = strlen($source);

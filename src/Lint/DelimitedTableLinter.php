@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Lint;
 
 use MarkupCarve\Carve\Ast\SourceSpan;
-use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\Table;
@@ -19,9 +18,7 @@ final class DelimitedTableLinter
      */
     public function lint(string $source): array
     {
-        $converter = new CarveConverter();
-        $converter->getParser()->enablePositionTracking();
-        $document = $converter->parse($source);
+        $document = LintParse::parse($source)[1];
         $map = SourceOffsets::map($source);
         $length = strlen($source);
         $warnings = [];

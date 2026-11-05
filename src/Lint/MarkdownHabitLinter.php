@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
-use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Comment;
 
 /**
@@ -176,9 +175,7 @@ class MarkdownHabitLinter
             return $source;
         }
 
-        $converter = new CarveConverter();
-        $converter->getParser()->enablePositionTracking();
-        $pending = [$converter->parse($source)];
+        $pending = [LintParse::parse($source)[1]];
         $masked = $source;
         $map = SourceOffsets::map($source);
         $length = strlen($source);

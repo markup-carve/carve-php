@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
-use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
@@ -60,9 +59,7 @@ final class FragileConstructLinter
      */
     public function lint(string $source): array
     {
-        $converter = new CarveConverter();
-        $converter->getParser()->enablePositionTracking();
-        $document = $converter->parse($source);
+        [$converter, $document] = LintParse::parse($source);
         $this->index($source);
         $warnings = [];
         foreach ($converter->getParser()->getOverindentedOpeners() as $opener) {

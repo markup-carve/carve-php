@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
-use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Node;
 
@@ -35,11 +34,9 @@ final class ThematicBreakSpellingLinter
      */
     public function lint(string $source): array
     {
-        $converter = new CarveConverter();
-        $converter->getParser()->enablePositionTracking();
         $this->source = $source;
         $this->warnings = [];
-        $this->visit($converter->parse($source));
+        $this->visit(LintParse::parse($source)[1]);
 
         return $this->warnings;
     }
