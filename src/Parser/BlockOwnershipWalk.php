@@ -1371,7 +1371,7 @@ final class BlockOwnershipWalk
         $j = $at + 1;
         $ended = false;
         for ($size = 16;; $size *= 2) {
-            for (; $j < $count && count($window) < $size && !$ended; $j++) {
+            for (; $j < $count && $j - $at < $size && !$ended; $j++) {
                 $line = $this->lines[$j];
                 for ($d = 0; $d < $depth && $line !== null; $d++) {
                     $line = preg_match(self::QUOTE, ltrim($line, " \t"), $q) === 1 ? ($q[1] ?? '') : null;
