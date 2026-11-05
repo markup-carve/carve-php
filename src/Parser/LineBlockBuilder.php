@@ -402,8 +402,15 @@ final class LineBlockBuilder
         $segments = [];
         $endingSegments = [];
         $lineEndings = [];
+        $sourcePrefixes = [];
         $offsetInStanza = 0;
         foreach ($lines as $index => [$line, $lineNumber]) {
+            $authored = $this->state->source->authoredLines[$this->sourceLineFor($lineNumber)] ?? '';
+            $content = ltrim($line, " \t");
+            $found = $content === '' ? false : strrpos($authored, $content);
+            if ($found !== false) {
+                $sourcePrefixes[$lineNumber] = $found - (strlen($line) - strlen($content));
+            }
             [$expanded, $runs, $kept] = $this->callExpandLineBlockLine($line, $lineNumber);
             if (isset($verseComments[$index])) {
                 $expanded = '';
@@ -452,7 +459,7 @@ final class LineBlockBuilder
             $paragraph,
             implode("\n", $texts),
             $lines[0][1],
-            sourceMap: $this->lineBlockMap(array_merge($segments, $endingSegments)),
+            sourceMap: $this->lineBlockMap(array_merge($segments, $endingSegments), $sourcePrefixes),
             lineBlock: true,
         );
         $this->callConvertParagraphSoftBreaksToHardBreaks($paragraph, $lineEndings);
@@ -726,10 +733,11 @@ final class LineBlockBuilder
      *   number, whether the segment answers only where no other one does, and
      *   byte length in the source - which differs from the built length exactly
      *   for a rewritten run.
+     * @param array<int, int> $sourcePrefixes The difference between the stanza's and authored line's columns.
      *
      * @return \MarkupCarve\Carve\Parser\SourceMap|null
      */
-    public function lineBlockMap(array $segments): ?SourceMap
+    public function lineBlockMap(array $segments, array $sourcePrefixes = []): ?SourceMap
     {
         if (!$this->state->source->trackPositions || $segments === []) {
             return null;
@@ -749,7 +757,7 @@ final class LineBlockBuilder
             // quoted or listed line block short by the prefix width, the check
             // that a span selects the node's own text then failed, and the
             // nodes lost their positions - visibly, and only when nested.
-            $prefix = $this->state->frame->currentContentColumns[$sourceLine] ?? 0;
+            $prefix = $sourcePrefixes[$lineNumber] ?? ($this->state->frame->currentContentColumns[$sourceLine] ?? 0);
             if ($fallback) {
                 $map->addFallback(
                     $textOffset,
@@ -828,10 +836,15 @@ final class LineBlockBuilder
                 }
                 if ($next < $count) {
                     $span = $inline instanceof HardBreak
-                        ? $this->lineEndingCoordinates($pos, $this->sourceLineFor($lineEndings[$next][1]))
+                        ? ($pos->startOffset > $pos->endOffset
+                            ? $this->endOfLineSpan($lineEndings[$next][1])
+                            : $this->lineEndingCoordinates($pos, $this->sourceLineFor($lineEndings[$next][1])))
                         : $this->endOfLineSpan($lineEndings[$next][1]);
                     $next++;
                 }
+            }
+            if ($span !== null && ($span->startOffset > $span->endOffset || $span->startLine > $span->endLine)) {
+                $span = $next > 0 ? $this->endOfLineSpan($lineEndings[$next - 1][1]) : null;
             }
 
             $nextPosition = ($parent->getChildren()[$index + 1] ?? null)?->getPos();
