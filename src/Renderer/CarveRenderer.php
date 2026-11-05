@@ -3100,13 +3100,17 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
                             continue;
                         }
-                        $out .= ($child instanceof Comment || $child instanceof CodeBlock
-                            || $previousEmitted instanceof Comment || $previousEmitted instanceof CodeBlock ? '' : "\n") . $rendered;
-                        $previous = $child;
-                        $previousEmitted = $child;
-                        $atMarkerColumn = false;
+                        if (
+                            $child instanceof Comment || $child instanceof CodeBlock
+                            || $previousEmitted instanceof Comment || $previousEmitted instanceof CodeBlock
+                        ) {
+                            $out .= $rendered;
+                            $previous = $child;
+                            $previousEmitted = $child;
+                            $atMarkerColumn = false;
 
-                        continue;
+                            continue;
+                        }
                     }
                     $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($rendered);
                     $previous = $child;
