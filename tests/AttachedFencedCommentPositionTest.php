@@ -19,6 +19,13 @@ final class AttachedFencedCommentPositionTest extends TestCase
         self::assertSame(['startOffset' => 4, 'endOffset' => 13], self::offsets($comments[0]));
     }
 
+    public function testContinuationMarkerKeepsCommentPayloadIndentation(): void
+    {
+        $comments = self::comments("- +\n%%%\n  c\n%%%\ntext\n");
+        self::assertCount(1, $comments);
+        self::assertSame('  c', $comments[0]['content'] ?? null);
+    }
+
     public function testNoteBodyKeepsItsEmptyFencedComment(): void
     {
         $comments = self::comments("- [^n]: t\n  %%%\n  %%%\n\n    ~~~\n    e\n]\n");
