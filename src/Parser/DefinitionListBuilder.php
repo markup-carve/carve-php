@@ -1508,8 +1508,6 @@ final class DefinitionListBuilder
             ) {
                 // CARVE-P2-017: the inner body cannot withhold this outer column.
                 $l->releasedMarkerEntry = true;
-                $b->body[] = '';
-                $b->bodyMap[] = -1;
                 $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
             }
         }
