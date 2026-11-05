@@ -2091,8 +2091,10 @@ final class DefinitionListBuilder
                 // CARVE-P2-017: leave each nested body whose content column the opener misses.
                 $b->bodyFrames->releaseListsAt($entryColumn);
                 // An item the opener still reaches keeps the line at its column.
+                // A line at a nested description's body column stays in that description.
                 $reachesOuterBody = $b->bodyFrames->outermostListContentColumn() === null
-                    && ($leadMarker === null || $entryColumn < $this->continuations->listMarkerWidth($b->lead(), $leadMarker));
+                    && ($leadMarker === null || $entryColumn < $this->continuations->listMarkerWidth($b->lead(), $leadMarker))
+                    && ($b->nestedDescriptionBodyColumn === null || $entryColumn < $b->nestedDescriptionBodyColumn);
             }
         }
         if ($reachesOuterBody && $opensBlock && !$this->isInvisibleOrAttributeLine($l->trimmedCont)) {
