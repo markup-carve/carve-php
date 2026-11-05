@@ -63,7 +63,7 @@ trait TransparentLineErasure
         // Only a `%%` line that opens no `%%%` span, or a definition line, can be erased.
         if (
             (!str_contains($input, '%%') && !str_contains($input, ']:'))
-            || preg_match('/^(?:[ \t]*>[ ]?)*[ \t]*(?:%%(?!%)|\*?\[[^\n]*\]:)/m', $input) !== 1
+            || preg_match('/^(?:[ \t]*>[ ]?)*[ \t]*(?:%%(?!%)|\*?\[[^\n]*\]:)/m', implode("\n", $lines)) !== 1
         ) {
             return [];
         }

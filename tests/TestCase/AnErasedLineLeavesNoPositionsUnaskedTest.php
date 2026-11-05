@@ -25,6 +25,13 @@ final class AnErasedLineLeavesNoPositionsUnaskedTest extends TestCase
         yield 'a table caption' => ["*[A]: x\n\n{#t}\n| a |\n^ A #: c\n\nSee </#t>.\n"];
     }
 
+    public function testAnErasedLineAfterALoneCarriageReturnIsStillErased(): void
+    {
+        $converter = new CarveConverter();
+
+        self::assertSame(trim($converter->convert("a\n%% hidden\nb\n")), trim($converter->convert("a\r%% hidden\rb\r")));
+    }
+
     #[DataProvider('sources')]
     public function testNoPositionIsWritten(string $source): void
     {
