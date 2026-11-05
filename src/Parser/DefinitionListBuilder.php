@@ -1498,7 +1498,13 @@ final class DefinitionListBuilder
         $l->marker = ($this->getListParser)()->parseListItemMarker($l->trimmedCont);
         if ($l->marker !== null) {
             $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
-            if ($l->contColumn >= $b->continuationColumn && $b->bodyNestedState->fence === null && $b->bodyFrames->releaseDescriptionsAt($l->contColumn)) {
+            if (
+                $l->contColumn >= $b->continuationColumn && $b->bodyNestedState->fence === null
+                // A fence's payload line is no marker, whatever opened the fence (PART 0 S1), and a marker
+                // that ends a fence leaves it no blank.
+                && !$this->inOrAfterFence($b->i)
+                && $b->bodyFrames->releaseDescriptionsAt($l->contColumn)
+            ) {
                 // CARVE-P2-017: the inner body cannot withhold this outer column.
                 $l->releasedMarkerEntry = true;
                 $b->body[] = '';
@@ -2928,6 +2934,16 @@ final class DefinitionListBuilder
         }
 
         return $column;
+    }
+
+    private function inOrAfterFence(int $index): bool
+    {
+        $source = $this->state->source;
+        $line = $this->sourceLineFor($index);
+        $previous = $this->sourceLineFor($index - 1);
+
+        return isset($source->fenceBodyLines[$line])
+            || isset($source->fenceOpenerLines[$previous]) || isset($source->fenceBodyLines[$previous]);
     }
 
     /**
