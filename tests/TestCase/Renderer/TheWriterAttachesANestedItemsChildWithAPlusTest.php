@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
-use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -17,7 +16,7 @@ class TheWriterAttachesANestedItemsChildWithAPlusTest extends TestCase
 {
     protected function fmt(string $source): string
     {
-        return (new CarveConverter(renderer: new CarveRenderer()))->convert($source);
+        return CarveConverter::toCarve($source);
     }
 
     protected function html(string $source): string
@@ -36,6 +35,8 @@ class TheWriterAttachesANestedItemsChildWithAPlusTest extends TestCase
             'captioned quote in an ordered item' => ["- x\n  1. text\n     > q\n\n     ^ cap\n\n  after\n"],
             'captioned quote under a quote host' => ["> - x\n>   - text\n>     > q\n>\n>     ^ cap\n>   - c\n"],
             'captioned table, depth 2' => ["- x\n  - text\n    | a |\n\n    ^ cap\n  - c\n"],
+            'captioned quote, then a fence' => ["- x\n  - start\n    > q\n\n    ^ cap\n    ```\n    c\n    ```\n  - end\n"],
+            'captioned quote, then a line comment' => ["- x\n  - text\n    > q\n\n    ^ cap\n    %% k\n"],
         ];
     }
 
