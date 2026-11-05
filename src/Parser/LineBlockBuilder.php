@@ -176,7 +176,7 @@ final class LineBlockBuilder
         for ($index = 0; $index < $count; $index++) {
             $contentLine = $contentLines[$index];
             $lineNumber = $start + 1 + $index;
-            if (preg_match('/^(%{3,})(.*)$/', $contentLine, $opener) === 1) {
+            if (preg_match('/^ {0,3}(%{3,})(.*)$/', $contentLine, $opener) === 1) {
                 $run = strlen($opener[1]);
                 $closer = $index + 1;
                 // A lazy line missed the span's owner, so S1 ends the span before it (carve#4956).
