@@ -5444,9 +5444,15 @@ class BlockParser
      */
     protected function isReferenceDefinitionLine(string $line): bool
     {
-        return $this->referenceDefinitionExtractor->matchDefinitionLine($line) !== null
-            || preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $line) === 1
-            || preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line) === 1;
+        // Every supported definition starts with a bracket or abbreviation marker.
+        // The ownership walk asks this for ordinary lines too.
+        $first = $line[0] ?? '';
+        if ($first === '[') {
+            return $this->referenceDefinitionExtractor->matchDefinitionLine($line) !== null
+                || preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $line) === 1;
+        }
+
+        return $first === '*' && preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $line) === 1;
     }
 
     protected function isCaptionableParagraphContent(string $content, int $sourceLine): bool
