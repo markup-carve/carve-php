@@ -4535,6 +4535,7 @@ class BlockParser
     private function refusedRunEndInSourceColumns(array $lines, int $start): ?int
     {
         $end = RefusedBraceRun::end($lines, $start, $this->inlineParser);
+        $comment = str_starts_with(ltrim(self::stripLazyFrame($lines[$start]), " \t"), '{%');
         $probe = [];
         for ($at = $start, $count = count($lines); $at < $count; $at++) {
             $line = self::stripLazyFrame($lines[$at]);
@@ -4542,6 +4543,9 @@ class BlockParser
                 break;
             }
             $text = ltrim($line, " \t");
+            if (!$comment && $at > $start && str_starts_with($text, '{')) {
+                break;
+            }
             $source = $this->state->source->authoredLines[$this->sourceLineFor($at)] ?? null;
             if ($source === null || !str_ends_with($source, $text)) {
                 return $end;
@@ -4552,7 +4556,7 @@ class BlockParser
             $prefix = str_replace('> ', '', $prefix);
             $column = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
             $probe[] = str_repeat(' ', $column) . $text;
-            if (str_contains($line, '%}')) {
+            if ($comment && str_contains($line, '%}')) {
                 break;
             }
         }
