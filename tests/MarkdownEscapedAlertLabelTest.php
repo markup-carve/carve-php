@@ -67,4 +67,11 @@ final class MarkdownEscapedAlertLabelTest extends TestCase
 
         self::assertSame("> \\[!NOTE][ref][]\n> x\n\n[ref]: /u\n", (new MarkdownToCarve())->convert($markdown));
     }
+
+    public function testEscapedLabelInsideImportedAlertBodyBecomesLiteral(): void
+    {
+        $converted = (new MarkdownToCarve())->convert("> [!NOTE]\n> \\[!TIP]\n");
+
+        self::assertSame("::: note\n[!TIP]\n:::\n", $converted);
+    }
 }

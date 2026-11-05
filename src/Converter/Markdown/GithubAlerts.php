@@ -30,7 +30,7 @@ final class GithubAlerts
         $pending = [[$document, false]];
         while ($pending !== []) {
             [$node, $inQuote] = array_pop($pending);
-            $inQuote = $inQuote || $node instanceof BlockQuote;
+            $inQuote = $inQuote || $node instanceof BlockQuote || ($node instanceof Div && $node->admonitionKind() !== null);
             $children = $node->getChildren();
             if ($inQuote) {
                 foreach ($children as $index => $child) {
