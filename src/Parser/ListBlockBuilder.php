@@ -2447,7 +2447,8 @@ final class ListBlockBuilder
             || $unclosedFenceBase !== null
             || $authoredBaseEligible !== []
         ) {
-            $lines = $this->rebaseOverindentedItemBlocks($lines, $authoredBaseEligible, $leadNestedColumn, absorbLeadNoteBody: true, unclosedFenceBase: $unclosedFenceBase);
+            $eligible = DescriptionLazyRebaseGuard::eligible($lines, $lineMap, $this->state->source->lazyLines, $authoredBaseEligible);
+            $lines = $this->rebaseOverindentedItemBlocks($lines, $eligible, $leadNestedColumn, absorbLeadNoteBody: true, unclosedFenceBase: $unclosedFenceBase);
             // Attribute lines and their fence use one local base after item rebasing.
             $lines = $this->alignAttributeFenceRun($lines, $lineMap);
         }
