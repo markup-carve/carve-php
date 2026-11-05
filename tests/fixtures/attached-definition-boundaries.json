@@ -3397,11 +3397,11 @@
   },
   {
     "source": "[^f]: a\n+\n%%%\n[r]: /opaque\n%%%\n  [^n]: note\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<p>[^n]: note</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<p>See [r][], [r\\]][], and <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>.</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "source": "[^f]: a\n+\n%%%\n[r]: /opaque\n%%%\n   [^n]: note\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<p>[^n]: note</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<p>See [r][], [r\\]][], and <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>.</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "source": "[^f]: a\n+\n%%%\n[r]: /opaque\n%%%\n[r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
@@ -3413,11 +3413,11 @@
   },
   {
     "source": "[^f]: a\n+\n%%%\n[r]: /opaque\n%%%\n  [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<p>[r]]: /url</p><p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "[^f]: a\n+\n%%%\n[r]: /opaque\n%%%\n   [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<p>[r]]: /url</p><p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": "[^f]: a\n+\n%%%\n[r]: /opaque\n%%%\n[r]: /url\n [r]: /again\n\nSee [r][], [r\\]][], and [^n].\n",
@@ -4097,11 +4097,11 @@
   },
   {
     "source": ":: term\n: body\n+\n%%%\n[r]: /opaque\n%%%\n  [^n]: note\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>body</dd>\n</dl>\n<p>[^n]: note</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>body</dd>\n</dl>\n<p>See [r][], [r\\]][], and <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>.</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "source": ":: term\n: body\n+\n%%%\n[r]: /opaque\n%%%\n   [^n]: note\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>body</dd>\n</dl>\n<p>[^n]: note</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>body</dd>\n</dl>\n<p>See [r][], [r\\]][], and <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>.</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "source": ":: term\n: body\n+\n%%%\n[r]: /opaque\n%%%\n[r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
@@ -4113,11 +4113,11 @@
   },
   {
     "source": ":: term\n: body\n+\n%%%\n[r]: /opaque\n%%%\n  [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>body</dd>\n</dl>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>body</p>\n    <p>[r]]: /url</p>\n  </dd>\n</dl>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": ":: term\n: body\n+\n%%%\n[r]: /opaque\n%%%\n   [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>body</dd>\n</dl>\n<p>[r]]: /url</p>\n<p>See [r][], [r\\]][], and [^n].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>body</p>\n    <p>[r]]: /url</p>\n  </dd>\n</dl>\n<p>See [r][], [r\\]][], and [^n].</p>"
   },
   {
     "source": ":: term\n: body\n+\n%%%\n[r]: /opaque\n%%%\n[r]: /url\n [r]: /again\n\nSee [r][], [r\\]][], and [^n].\n",

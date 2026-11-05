@@ -148,7 +148,7 @@ final class BlockOwnershipWalk
     /**
      * The invisible lines between a taken `+` and its block, read where that block stands (CARVE-P9-013).
      *
-     * @var array{host: \MarkupCarve\Carve\Parser\OwnershipFrame, at: int, end: int, hostIndex: int, fenced: array<int, bool>, noteBodies: array<int, true>, column: int, lead: string}|null
+     * @var array{host: \MarkupCarve\Carve\Parser\OwnershipFrame, at: int, end: int, hostIndex: int, fenced: array<int, bool>, noteBodies: array<int, true>, column: int, lead: string, spanPad?: int}|null
      */
     private ?array $skipped = null;
 
@@ -419,6 +419,9 @@ final class BlockOwnershipWalk
                     ? $this->finding($at, $host->kind, 'claimed')
                     : $this->plusFinding($at, $host->kind, $column, $plus);
                 $this->skipInvisible($plus, $at, $column, true);
+                if ($this->skipped !== null && !$keepMarkerColumn) {
+                    $this->skipped['spanPad'] = self::spanPad($host);
+                }
                 $this->lead((int)$host->markerCanon);
                 $result[] = $this->out . str_repeat(' ', $keepMarkerColumn ? 0 : max(0, $host->canon - (int)$host->markerCanon)) . '%%';
                 if ($this->trace !== null) {
@@ -765,7 +768,11 @@ final class BlockOwnershipWalk
                 $this->letterPlus[$at] = true;
             }
         }
-        $result[] = $skipped['lead'] . (($skipped['fenced'][$at] ?? false) || $abbreviation !== null ? '%%' : $rest);
+        $result[] = $skipped['lead'] . match (true) {
+            $inSpan => str_repeat(' ', $skipped['spanPad'] ?? 0) . '%%',
+            $abbreviation !== null => '%%',
+            default => $rest,
+        };
         if ($this->trace !== null) {
             $this->emit($at, 'S5', $this->ownerPath(), 'CARVE-P0-024', 'leaf', ['plus' => $at]);
         }
@@ -1095,6 +1102,9 @@ final class BlockOwnershipWalk
                     $this->refusedPlus[$this->at] = $this->plusFinding($this->at, $f->kind, (int)$f->docMarker, $frame);
                     $this->consumePlus();
                     $this->skipInvisible($frame, $this->at, (int)$f->docMarker, true);
+                    if ($this->skipped !== null) {
+                        $this->skipped['spanPad'] = self::spanPad($f);
+                    }
                     $consumed = true;
                 }
             }
@@ -1754,6 +1764,15 @@ final class BlockOwnershipWalk
             'column' => $column,
             'lead' => substr($basis, 0, strlen($basis) - strlen($raw)) . str_repeat(' ', $this->frames[$hostIndex]->markerCanon),
         ];
+    }
+
+    /**
+     * A `%%%` span after a refused marker closes no item (PART 0 FAMILIES `invisible`, carve#5170),
+     * so its placeholder lines stand at the host's content column, not below it.
+     */
+    private static function spanPad(OwnershipFrame $host): int
+    {
+        return in_array($host->kind, ['item', 'dd', 'note'], true) ? max(0, $host->canon - (int)$host->markerCanon) : 0;
     }
 
     private function holdAttachedTo(int $host, int $from): void
