@@ -1688,8 +1688,6 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
-        '928-a-multi-line-paragraph-of-only-braced-comments-is-an-invisible-line-2' => 'carve-php#4699: a refused braced run keeps the item loose',
-        '928-a-multi-line-paragraph-of-only-braced-comments-is-an-invisible-line-3' => 'carve-php#4699: a refused braced run separates sibling lists',
         '882-attributed-bracket-spans-share-the-inline-cap' => 'carve#4681: attributed bracket spans share the inline cap',
         '872-a-table-writes-one-col-per-column-entry-2' => 'carve#4608: a table writes one col per column entry',
         '872-a-table-writes-one-col-per-column-entry' => 'carve#4608: a table writes one col per column entry',

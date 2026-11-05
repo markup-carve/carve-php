@@ -25,7 +25,11 @@ class ABracedCommentOnlyParagraphReadsAsACommentLineTest extends TestCase
             ],
             'a multi-line one between siblings' => [
                 "- a\n\n{% c\nd %}\n\n- b\n",
-                "<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>",
+                "<ul>\n  <li>a</li>\n</ul>\n<p>{% c\nd %}</p>\n<ul>\n  <li>b</li>\n</ul>",
+            ],
+            'a refused lead makes the item loose' => [
+                "- {% c\n  d %}\n\n  Body.\n",
+                "<ul>\n  <li><p>{% c\nd %}</p>\n    <p>Body.</p>\n  </li>\n</ul>",
             ],
             'a lead of only comments keeps the item tight' => [
                 "- {% c\n   d %}\n\n  Body.\n",
