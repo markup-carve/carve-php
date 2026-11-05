@@ -53,4 +53,11 @@ final class MarkdownEscapedAlertLabelTest extends TestCase
         self::assertStringContainsString('[link](#NOTE)', $converted);
         self::assertStringContainsString('> [!TIP]', $converted);
     }
+
+    public function testEscapedLazyQuoteLabelBecomesLiteral(): void
+    {
+        $converted = (new MarkdownToCarve())->convert("> before\n\\[!NOTE]\n> after\n");
+
+        self::assertSame("> before\n> [!NOTE]\n> after\n", $converted);
+    }
 }
