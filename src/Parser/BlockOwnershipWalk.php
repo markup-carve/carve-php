@@ -828,7 +828,7 @@ final class BlockOwnershipWalk
             $pad = max(0, $column - $this->skipped['runColumn']);
         }
         $result[] = $skipped['lead'] . match (true) {
-            $inSpan => str_repeat(' ', $skipped['spanPad'] ?? 0) . '%%',
+            $inSpan => str_repeat(' ', $skipped['spanPad'] ?? 0) . $rest,
             $abbreviation !== null => '%%',
             default => str_repeat(' ', $pad) . $rest,
         };
