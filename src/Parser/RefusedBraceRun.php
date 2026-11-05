@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser;
 
+use Closure;
+use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 
 /**
@@ -90,6 +92,69 @@ final class RefusedBraceRun
         }
 
         return null;
+    }
+
+    /**
+     * The last line a refused run's paragraph keeps: the follower, a fence opener there through its closer.
+     *
+     * Null when the run at $start is not refused.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param \MarkupCarve\Carve\Parser\InlineParser $inlineParser
+     * @param \Closure(string): bool $isDefinition
+     * @param \MarkupCarve\Carve\Parser\Block\FencedBlockParser $fenced
+     * @param int $column The container's content column; a follower short of it misses the container.
+     */
+    public static function keptThrough(
+        array $lines,
+        int $start,
+        InlineParser $inlineParser,
+        Closure $isDefinition,
+        FencedBlockParser $fenced,
+        int $column = 0,
+    ): ?int {
+        $runEnd = self::end($lines, $start, $inlineParser);
+        if ($runEnd === null) {
+            return null;
+        }
+        // PART 0 S1 erases a comment or link definition line first, so the follower is the line after it.
+        while (isset($lines[$runEnd]) && self::invisibleSibling(ltrim($lines[$runEnd], " \t"), $isDefinition)) {
+            $runEnd++;
+        }
+        $follower = isset($lines[$runEnd]) ? ltrim($lines[$runEnd], " \t") : '';
+        if (trim($follower, " \t") === '' || IndentationHelper::getLeadingColumns($lines[$runEnd]) < $column) {
+            return $runEnd - 1;
+        }
+        if (preg_match('/^(`{3,}|~{3,})/', $follower, $fence) !== 1 || $fenced->parseCodeFenceOpener($follower) === null) {
+            return $runEnd;
+        }
+        // The paragraph still ends at a blank; a fence with no closer at all is the follower alone.
+        $blank = -1;
+        $count = count($lines);
+        for ($j = $runEnd + 1; $j < $count; $j++) {
+            $line = ltrim($lines[$j] ?? '', " \t");
+            if ($blank < 0 && trim($line, " \t") === '') {
+                $blank = $j;
+            }
+            if (
+                preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $line, $closer) === 1
+                && $closer[1][0] === $fence[1][0] && strlen($closer[1]) >= strlen($fence[1])
+            ) {
+                return $blank < 0 ? $j : $blank - 1;
+            }
+        }
+
+        return $runEnd;
+    }
+
+    /**
+     * @param string $rest
+     * @param \Closure(string): bool $isDefinition
+     */
+    private static function invisibleSibling(string $rest, Closure $isDefinition): bool
+    {
+        return str_starts_with($rest, '%%') || ($rest !== '' && !str_starts_with($rest, '[^') && $isDefinition($rest));
     }
 
     /**

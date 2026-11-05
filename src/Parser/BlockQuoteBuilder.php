@@ -1796,6 +1796,17 @@ final class BlockQuoteBuilder
         array &$codeCloserMemo,
         bool $nested = false,
     ): void {
+        if (
+            !$nested && $state['mode'] === BlockQuoteLazyMode::Content
+            && isset($this->state->source->refusedKeptLines[$this->sourceLineFor($sourceIndex)])
+            && ContainerPrefix::countLeadingQuoteMarkers($content) === $state['innerDepth']
+        ) {
+            // A refused brace run and the line its paragraph keeps are text (CARVE-P2-035).
+            $state['paragraphOpen'] = true;
+            $state['attrRun'] = null;
+
+            return;
+        }
         // A NESTED RUN OWNS ITS STATE, AND ONLY WHILE IT LASTS. The state is
         // shared down the recursion so one run carries its own history - an
         // absorbed colon fence, an open code fence, a table's continuation row.

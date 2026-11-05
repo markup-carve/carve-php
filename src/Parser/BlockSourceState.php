@@ -74,6 +74,13 @@ final class BlockSourceState
     public array $lineBlockLazyLines = [];
 
     /**
+     * Lines a refused brace run's paragraph keeps as text, the run included, each to its run's first line (CARVE-P2-035).
+     *
+     * @var array<int, int>
+     */
+    public array $refusedKeptLines = [];
+
+    /**
      * Top-level lines the ownership walk opened a code fence on.
      *
      * @var array<int, true>

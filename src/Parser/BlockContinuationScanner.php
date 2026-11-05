@@ -2365,6 +2365,7 @@ final class BlockContinuationScanner
             && $run->rejectedColonFenceLength === null
             && !$attachedChildFollower
             && $run->refusedBraceEnd !== $i
+            && !isset($this->state->source->refusedKeptLines[$this->sourceLineFor($i)])
             && !($run->nestedNoteBodyColumn !== null && IndentationHelper::getLeadingColumns($nextLine, $run->nestedNoteBodyColumn) >= $run->nestedNoteBodyColumn)
             && !($trailingState->inFootnoteBody && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN) >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN && $this->leadNoteExtendsThrough($itemLines, $run->noteCursor, $run->noteBroken))
             && !(
@@ -3153,6 +3154,8 @@ final class BlockContinuationScanner
         }
         if (
             $quotedLazyOpener || $quotedLazyMarker || $failedReplayFence || $descendantParagraphFence
+            // A refused brace run and the line its paragraph keeps are text (CARVE-P2-035).
+            || (!$wasInFence && isset($this->state->source->refusedKeptLines[$this->sourceLineFor($i)]))
             || ($authoredTermContinuation && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0))
         ) {
             return $this->advanceTrailingState($trailingState, 'text', true);

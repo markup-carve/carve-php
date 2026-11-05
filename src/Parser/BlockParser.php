@@ -729,6 +729,14 @@ class BlockParser
             fn (string $line): bool => $this->isBlockAttributeLine($line),
             fn (array $run, int $column = 0): ?int => WrappedBlockAttributeScanner::scan($run, 0, $this->inlineParser, $column)['length'] ?? null,
             $this->commentOnlyParagraphEnd(...),
+            fn (array $lines, int $start, int $column): ?int => RefusedBraceRun::keptThrough(
+                $lines,
+                $start,
+                $this->inlineParser,
+                $this->isReferenceDefinitionLine(...),
+                $this->fencedBlockParser,
+                $column,
+            ),
         );
     }
 
@@ -831,6 +839,7 @@ class BlockParser
         $this->state->source->lazyLines = $walk->lazyLines;
         $this->state->source->attachedPreludeLines = $walk->attachedPreludeLines;
         $this->state->source->lineBlockLazyLines = $walk->lineBlockLazyLines;
+        $this->state->source->refusedKeptLines = $walk->refusedKeptLines;
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
         $this->state->source->closingLines = $walk->closingLines;
         $this->state->source->frontmatter = $walk->frontmatter;

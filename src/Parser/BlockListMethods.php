@@ -1148,6 +1148,15 @@ trait BlockListMethods
                 ) {
                     return false;
                 }
+                // A refused brace run and the line its paragraph keeps are text (CARVE-P2-035).
+                if (
+                    $attachedKind !== self::ATTACHED_PENDING && $trailingState->fence === null
+                    && isset($this->state->source->refusedKeptLines[$this->sourceLineFor($index)])
+                ) {
+                    $trailingState = $this->advanceTrailingState($trailingState, 'text');
+
+                    return false;
+                }
                 if ($attachedKind === self::ATTACHED_PENDING && str_starts_with(ltrim($line, " \t"), '{') && !str_starts_with(ltrim($line, " \t"), '{%')) {
                     $refusedFollower = RefusedBraceRun::end($lines, $index, $this->inlineParser) ?? -1;
                 }
