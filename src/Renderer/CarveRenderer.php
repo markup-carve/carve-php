@@ -286,6 +286,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     private bool $codeEndsItsParagraph = false;
 
+    private bool $codeHasPriorInlineSibling = false;
+
     /**
      * @var string
      */
@@ -5356,6 +5358,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->ensureWriterState();
         $siblings = ($node instanceof Code || $node instanceof Math) && $node->getAttributeEntries() === [] && $node->getParent() instanceof Paragraph ? $node->getParent()->getChildren() : [];
         $this->codeEndsItsParagraph = $siblings !== [] && end($siblings) === $node;
+        $this->codeHasPriorInlineSibling = $siblings !== [] && $siblings[0] !== $node;
         if ($node instanceof Code || $node instanceof Math || $node instanceof RawInline || $node instanceof LiteralInline) {
             $this->refuseUnspellableVerbatimLines($node);
         }
@@ -6474,10 +6477,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $listMarker = $nodeType !== 'code' || $this->paragraphAtAuthoredBodyColumn
             ? '|[-*+.](?: +|\{)|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] +'
             : '';
-        // A definition-shaped last line stays put: the padded closer ends its destination (CARVE-P11-078).
-        $definition = $this->codeEndsItsParagraph
-            ? '\[(?:\^[^\]\n]+\]:[ \t]|[^\]\n]+\]:[ \t](?=[^\n]*\n))'
-            : '\[[^\]\n]+\]:[ \t]';
+        // A prior inline sibling can expose a final definition-shaped line
+        // even when the span closes the paragraph (CARVE-P11-078).
+        $definition = !$this->codeEndsItsParagraph || $this->codeHasPriorInlineSibling
+            ? '\[[^\]\n]+\]:[ \t]'
+            : '\[(?:\^[^\]\n]+\]:[ \t]|[^\]\n]+\]:[ \t](?=[^\n]*\n))';
         $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|' . $definition . $colon . $listMarker . '))/';
 
         return (string)preg_replace($marker, "\n" . str_repeat($this->verbatimSentinels[7], match ($nodeType) {
@@ -6566,7 +6570,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $needsPad = $boundaryStart !== null || $boundaryEnd !== null
             || str_starts_with($content, '`')
             || str_ends_with($content, '`')
-            || ($this->codeEndsItsParagraph && preg_match(self::DEFINITION_SHAPED_LAST_LINE, $content) === 1)
+            || preg_match(self::DEFINITION_SHAPED_LAST_LINE, $content) === 1
             || (str_starts_with($content, ' ')
                 && str_ends_with($content, ' ')
                 && strspn($content, ' ') !== strlen($content));
