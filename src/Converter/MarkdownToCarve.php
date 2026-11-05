@@ -406,8 +406,10 @@ class MarkdownToCarve
                 $prefix = substr($markdown, $lineStart, $offset - $lineStart);
                 $lineEnd = strpos($markdown, "\n", $offset);
                 $nextLine = $lineEnd === false ? '' : substr($markdown, $lineEnd + 1, strcspn($markdown, "\n", $lineEnd + 1));
+                $quotedLine = preg_match('/^[ \t]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?(?:>[ \t]*)+/', $prefix) === 1;
                 $isHeading = preg_match('/^[ \t]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?(?:>[ \t]*)*#{1,6}[ \t]/', $prefix) === 1
-                    || preg_match('/^[ \t]*(?:>[ \t]*)*(?:=+|-+)[ \t]*\r?$/', $nextLine) === 1;
+                    || (preg_match('/^[ \t]*(?:>[ \t]*)*(?:=+|-+)[ \t]*\r?$/', $nextLine) === 1
+                        && (!$quotedLine || preg_match('/^[ \t]*>/', $nextLine) === 1));
                 $slashes = 0;
                 for ($at = $offset - 1; $at >= 0 && $markdown[$at] === '\\'; $at--) {
                     $slashes++;

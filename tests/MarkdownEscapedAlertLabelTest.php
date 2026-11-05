@@ -74,4 +74,11 @@ final class MarkdownEscapedAlertLabelTest extends TestCase
 
         self::assertSame("::: note\n[!TIP]\n:::\n", $converted);
     }
+
+    public function testUnquotedThematicBreakAfterQuoteDoesNotHideLabel(): void
+    {
+        $converted = (new MarkdownToCarve())->convert("> \\[!NOTE]\n---\n");
+
+        self::assertStringStartsWith("> [!NOTE]\n", $converted);
+    }
 }
