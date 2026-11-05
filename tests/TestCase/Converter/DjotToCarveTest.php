@@ -517,7 +517,6 @@ class DjotToCarveTest extends TestCase
         $expected = <<<'CARVE'
         - a
           \- x
-
           - y
         CARVE;
 
