@@ -737,6 +737,7 @@ class BlockParser
                 $this->fencedBlockParser,
                 $column,
             ),
+            fn (array $lines, int $start): ?int => RefusedBraceRun::end($lines, $start, $this->inlineParser),
         );
     }
 
