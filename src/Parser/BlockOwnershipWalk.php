@@ -2402,7 +2402,8 @@ final class BlockOwnershipWalk
      */
     private function descriptionAtMissedItemMarker(int $reached): bool
     {
-        if (in_array($this->frames[$reached]->kind, self::BODY_FRAMES, true)
+        if (
+            in_array($this->frames[$reached]->kind, self::BODY_FRAMES, true)
             || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $this->m['rest']) !== 1
         ) {
             return false;
