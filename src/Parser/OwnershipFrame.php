@@ -15,6 +15,16 @@ use Closure;
 final class OwnershipFrame
 {
     /**
+     * First frame of the run of plain frames this one belongs to, null when it starts one.
+     */
+    public ?OwnershipFrame $runHead = null;
+
+    /**
+     * On a run head: the stack index of the last frame pushed onto its run.
+     */
+    public int $runEnd = 0;
+
+    /**
      * @param string $kind
      * @param int $col
      * @param int $canon
