@@ -3084,10 +3084,18 @@ class BlockParser
         if (trim($lines[$start], " \t") === '%%') {
             $sourceLine = $this->sourceLineFor($start);
             if (isset($this->state->source->attachedPreludeLines[$sourceLine])) {
+                // The ownership walk hides an attached fence for layout. Recover its
+                // authored lines here, removing only the enclosing quote markers;
+                // a `> ` inside the comment body is still literal payload.
                 $authored = $this->state->source->authoredLines[$sourceLine] ?? '';
+                $quoteDepth = 0;
                 $unindented = ltrim($authored, " \t");
-                if (str_starts_with($unindented, '>')) {
-                    $authored = ContainerPrefix::stripQuoteMarkers($unindented);
+                while (($quoted = ContainerPrefix::quoteContent($unindented)) !== null) {
+                    $quoteDepth++;
+                    $unindented = $quoted;
+                }
+                if ($quoteDepth > 0) {
+                    $authored = $unindented;
                 }
                 $opener = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($authored);
                 if ($opener !== null) {
@@ -3100,9 +3108,16 @@ class BlockParser
                             break;
                         }
                         $raw = $this->state->source->authoredLines[$physical] ?? '';
-                        $unindented = ltrim($raw, " \t");
-                        if (str_starts_with($unindented, '>')) {
-                            $raw = ContainerPrefix::stripQuoteMarkers($unindented);
+                        if ($quoteDepth > 0) {
+                            $unindented = ltrim($raw, " \t");
+                            $strippedDepth = 0;
+                            while ($strippedDepth < $quoteDepth && ($quoted = ContainerPrefix::quoteContent($unindented)) !== null) {
+                                $strippedDepth++;
+                                $unindented = $quoted;
+                            }
+                            if ($strippedDepth === $quoteDepth) {
+                                $raw = $unindented;
+                            }
                         }
                         $raw = IndentationHelper::stripLeadingColumns($raw, $openerColumn);
                         $restored[] = $raw;
