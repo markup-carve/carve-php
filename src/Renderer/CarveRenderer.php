@@ -3101,10 +3101,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                             continue;
                         }
                         if (
-                            $child instanceof Comment || $child instanceof CodeBlock
-                            || $previousEmitted instanceof Comment || $previousEmitted instanceof CodeBlock
+                            $child instanceof Comment || $previousEmitted instanceof Comment
+                            || !$atMarkerColumn && ($child instanceof CodeBlock || $previousEmitted instanceof CodeBlock)
                         ) {
                             $out .= $rendered;
+                            $previous = $child;
+                            $previousEmitted = $child;
+                            $atMarkerColumn = false;
+
+                            continue;
+                        }
+                        // A line comment cannot follow a marker-column block in a nested item: it would leave the item.
+                        if ($next !== null && $this->isALineComment($next)) {
+                            $out .= "\n" . $rendered;
                             $previous = $child;
                             $previousEmitted = $child;
                             $atMarkerColumn = false;
