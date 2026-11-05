@@ -33,6 +33,7 @@ final class DjotBlankAfterASubListKeepsTheItemTightTest extends TestCase
             'nested owner' => ["- top\n\n  - one\n\n    - two\n\n    para\n", "- top\n  - one\n    - two\n  +\n  para\n"],
             'quoted paragraph' => ["> - one\n>\n>   - two\n>\n>   para\n", "> - one\n>   - two\n> +\n> para\n"],
             'blank before a quote, no sub-list' => ["- one\n\n  > q\n", "- one\n\n  > q\n"],
+            'unclosed parenthesized marker is text' => ["- parent\n\n  (1. child\n", "- parent\n\n  (1. child\n"],
         ];
     }
 
