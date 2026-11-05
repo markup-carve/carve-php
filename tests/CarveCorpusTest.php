@@ -1663,6 +1663,10 @@ class CarveCorpusTest extends TestCase
         'a-quote-plus-after-a-quote-attached-paragraph-is-a-letter',
         'a-comment-between-a-term-and-its-description-is-the-description-s-first-block',
         'a-container-owned-comment-run-is-one-writer-block',
+        'an-indented-quoted-item-keeps-a-lazy-line-at-its-base',
+        'a-below-item-marker-continues-the-list-in-a-description',
+        'a-braced-comment-that-starts-a-continuation-line-is-at-block-position',
+        'a-lazy-braced-comment-uses-source-columns-in-every-host',
     ];
 
     /**
@@ -1684,6 +1688,8 @@ class CarveCorpusTest extends TestCase
      * @var array<string, string>
      */
     protected const KNOWN_GAPS = [
+        '928-a-multi-line-paragraph-of-only-braced-comments-is-an-invisible-line-2' => 'carve-php#4699: a refused braced run keeps the item loose',
+        '928-a-multi-line-paragraph-of-only-braced-comments-is-an-invisible-line-3' => 'carve-php#4699: a refused braced run separates sibling lists',
         '882-attributed-bracket-spans-share-the-inline-cap' => 'carve#4681: attributed bracket spans share the inline cap',
         '872-a-table-writes-one-col-per-column-entry-2' => 'carve#4608: a table writes one col per column entry',
         '872-a-table-writes-one-col-per-column-entry' => 'carve#4608: a table writes one col per column entry',
