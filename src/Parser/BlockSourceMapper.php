@@ -167,7 +167,7 @@ final class BlockSourceMapper
      */
     public function openerTitleMap(int $line, string $title): ?SourceMap
     {
-        if (!$this->state->source->trackPositions || $title === '') {
+        if (!$this->state->source->trackPositions || $this->state->source->blockPositionsOnly || $title === '') {
             return null;
         }
         $lineText = $this->state->source->authoredLines[$line] ?? null;
@@ -200,7 +200,7 @@ final class BlockSourceMapper
      */
     public function foldedLinesMap(array $contentLines, int $firstLineSearchFrom = 0, array $literalLines = []): ?SourceMap
     {
-        if (!$this->state->source->trackPositions || $contentLines === []) {
+        if (!$this->state->source->trackPositions || $this->state->source->blockPositionsOnly || $contentLines === []) {
             return null;
         }
 
@@ -998,7 +998,7 @@ final class BlockSourceMapper
      */
     public function cellSourceMap(int $index, array $cellData, string $content): ?SourceMap
     {
-        if (!$this->state->source->trackPositions || $content === '' || ($cellData['verbatim'] ?? false) !== true) {
+        if (!$this->state->source->trackPositions || $this->state->source->blockPositionsOnly || $content === '' || ($cellData['verbatim'] ?? false) !== true) {
             return null;
         }
 
@@ -1183,7 +1183,7 @@ final class BlockSourceMapper
      */
     public function rebuiltCellSourceMap(array $cellData, string $content): ?SourceMap
     {
-        if (!$this->state->source->trackPositions || $content === '') {
+        if (!$this->state->source->trackPositions || $this->state->source->blockPositionsOnly || $content === '') {
             return null;
         }
 
@@ -1286,7 +1286,7 @@ final class BlockSourceMapper
      */
     public function captionSourceMap(int $start, array $captionLines, int $markerWidth): ?SourceMap
     {
-        if (!$this->state->source->trackPositions) {
+        if (!$this->state->source->trackPositions || $this->state->source->blockPositionsOnly) {
             return null;
         }
 
