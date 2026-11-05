@@ -640,13 +640,7 @@ final class BlockOwnershipWalk
                 }
                 $owner = $this->frames[$reached];
                 $limit = $next->kind === 'quote' ? PHP_INT_MAX : $next->canon - 1;
-                $column = $this->m['col'] - $owner->cut;
-                // A continuation of an attached brace run moves with its opener, so its column past the `{` holds (CARVE-P2-035).
-                if ($this->attachedBraceRun !== null && $this->attachedBraceRun['last'] === $at - 1) {
-                    $column = $this->attachedBraceRun['out'] + $this->m['col'] - $this->attachedBraceRun['col'];
-                    $this->attachedBraceRun['last'] = $at;
-                }
-                $this->lead(min(max($column, $owner->canon), $limit));
+                $this->lead(min(max($this->lazyColumn($at, $owner), $owner->canon), $limit));
                 if (preg_match('/^(`{3,}|~{3,})/', $this->m['rest']) === 1) {
                     $this->textFences[count($result)] = $owner->canon;
                 }
@@ -669,7 +663,7 @@ final class BlockOwnershipWalk
             ) {
                 $this->lead($lonePlus->markerCanon);
                 $result[] = $this->out . $this->src;
-                $this->attachedBraceRun = $this->m['rest'][0] === '{' ? ['last' => $at, 'col' => $this->m['col'], 'out' => (int)$lonePlus->markerCanon] : null;
+                $this->holdAttachedBraceRun($at, (int)$lonePlus->markerCanon);
                 $lonePlus->para = true;
                 $lonePlus->last = 'para';
                 if ($this->trace !== null) {
@@ -871,6 +865,25 @@ final class BlockOwnershipWalk
         $this->movedSpanEnd = $this->commentSpanEnd(rtrim($this->m['rest'], " \t"), $this->at);
 
         return $deeper;
+    }
+
+    private function holdAttachedBraceRun(int $at, int $out): void
+    {
+        $this->attachedBraceRun = str_starts_with($this->m['rest'], '{') ? ['last' => $at, 'col' => $this->m['col'], 'out' => $out] : null;
+    }
+
+    /**
+     * The column a lazy line is written at before the frame's bounds apply.
+     */
+    private function lazyColumn(int $at, OwnershipFrame $owner): int
+    {
+        // A continuation of an attached brace run moves with its opener, so its column past the `{` holds (CARVE-P2-035).
+        if ($this->attachedBraceRun === null || $this->attachedBraceRun['last'] !== $at - 1) {
+            return $this->m['col'] - $owner->cut;
+        }
+        $this->attachedBraceRun['last'] = $at;
+
+        return $this->attachedBraceRun['out'] + $this->m['col'] - $this->attachedBraceRun['col'];
     }
 
     private function recordCommentColumnOwner(int $at, int $reached): void
