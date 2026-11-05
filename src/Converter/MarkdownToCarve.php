@@ -110,6 +110,8 @@ class MarkdownToCarve
      */
     private const ALERT_LABEL_GUARD = "\x01";
 
+    private ?string $escapedAlertMarker = null;
+
     /**
      * Source lines whose ordered task item Carve cannot spell, in order, for the
      * fidelity report. Reset by every `convert()`.
@@ -383,6 +385,47 @@ class MarkdownToCarve
      */
     public function convert(string $markdown): string
     {
+        $decodedSource = html_entity_decode($markdown, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $marker = "\u{E000}\u{E001}";
+        while (str_contains($markdown, $marker) || str_contains($decodedSource, $marker)) {
+            $marker .= "\u{E001}";
+        }
+        $marked = false;
+        if (str_contains($markdown, '\\[!')) {
+            preg_match_all('/\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/', $markdown, $labels, PREG_OFFSET_CAPTURE);
+            $markedSource = '';
+            $copyAt = 0;
+            $scanAt = 0;
+            $lineStart = 0;
+            foreach ($labels[0] as [$label, $offset]) {
+                $newline = strrpos(substr($markdown, $scanAt, $offset - $scanAt), "\n");
+                if ($newline !== false) {
+                    $lineStart = $scanAt + $newline + 1;
+                }
+                $scanAt = $offset;
+                $prefix = substr($markdown, $lineStart, $offset - $lineStart);
+                $lineEnd = strpos($markdown, "\n", $offset);
+                $nextLine = $lineEnd === false ? '' : substr($markdown, $lineEnd + 1, strcspn($markdown, "\n", $lineEnd + 1));
+                $quotedLine = preg_match('/^[ \t]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?(?:>[ \t]*)+/', $prefix) === 1;
+                $isHeading = preg_match('/^[ \t]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?(?:>[ \t]*)*#{1,6}[ \t]/', $prefix) === 1
+                    || (preg_match('/^[ \t]*(?:>[ \t]*)*(?:=+|-+)[ \t]*\r?$/', $nextLine) === 1
+                        && (!$quotedLine || preg_match('/^[ \t]*>/', $nextLine) === 1));
+                $slashes = 0;
+                for ($at = $offset - 1; $at >= 0 && $markdown[$at] === '\\'; $at--) {
+                    $slashes++;
+                }
+                $tail = $markdown[$offset + strlen($label)] ?? '';
+                if ($slashes % 2 !== 0 && !$isHeading && !in_array($tail, ['[', '(', '{'], true)) {
+                    $markedSource .= substr($markdown, $copyAt, $offset - 1 - $copyAt) . $marker . '\\';
+                    $copyAt = $offset;
+                    $marked = true;
+                }
+            }
+            if ($marked) {
+                $markdown = $markedSource . substr($markdown, $copyAt);
+            }
+        }
+        $this->escapedAlertMarker = $marked ? $marker : null;
         $outer = $this->inlineContext->blockEscape;
         // The marker must be a byte the document cannot hold, raw or decoded.
         $holdsMarker = str_contains($markdown, InlineContext::BLOCK_ESCAPE) || preg_match('/&#(?:0*2|[xX]0*2);/', $markdown) === 1;
@@ -392,9 +435,12 @@ class MarkdownToCarve
         } finally {
             $escape = $this->inlineContext->blockEscape;
             $this->inlineContext->blockEscape = $outer;
+            $this->escapedAlertMarker = null;
         }
 
-        return $escape === '\\' ? $carve : str_replace(InlineContext::BLOCK_ESCAPE, '\\', $carve);
+        $carve = $escape === '\\' ? $carve : str_replace(InlineContext::BLOCK_ESCAPE, '\\', $carve);
+
+        return $marked ? str_replace($marker, '', $carve) : $carve;
     }
 
     private function importDocument(string $markdown): string
@@ -2231,7 +2277,7 @@ class MarkdownToCarve
             $carve = $this->foldDefinedAbbreviations($carve);
         }
         $carve = $this->repairImportedEmailLinks($carve, $frontmatter);
-        $carve = $this->importGithubAlerts($carve, $frontmatter);
+        $carve = $this->importGithubAlerts($carve, $frontmatter, $carrierOriginal);
         if (!self::holdsAlertLabelGuard($markdown)) {
             $carve = preg_replace('/^((?:> ?)+)\x01(?=\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*$)/m', '$1', $carve) ?? $carve;
         }
@@ -2540,8 +2586,9 @@ class MarkdownToCarve
     /**
      * @param string $carve
      * @param array<string> $frontmatter
+     * @param string $markdown
      */
-    private function importGithubAlerts(string $carve, array $frontmatter): string
+    private function importGithubAlerts(string $carve, array $frontmatter, string $markdown): string
     {
         if ($this->referenceContext->importingFootnoteBody || !str_contains($carve, '[!')) {
             return $carve;
@@ -2549,10 +2596,14 @@ class MarkdownToCarve
         $source = $frontmatter === [] ? $carve : "\n" . $carve;
         $converter = CarveConverter::carve();
         $document = $converter->parse($source);
-        if (!GithubAlerts::import($document, $source)) {
-            return $carve;
+        $changed = GithubAlerts::import($document, $source);
+        $written = $changed ? $converter->render($document) : $source;
+        if ($this->escapedAlertMarker !== null && str_contains($written, $this->escapedAlertMarker)) {
+            $written = GithubAlerts::literalEscapedLabels($changed ? $converter->parse($written) : $document, $written, $this->escapedAlertMarker);
         }
-        $written = $converter->render($document);
+        if ($frontmatter !== [] && !$changed) {
+            $written = substr($written, 1);
+        }
 
         return str_ends_with($carve, "\n") ? $written : rtrim($written, "\n");
     }
