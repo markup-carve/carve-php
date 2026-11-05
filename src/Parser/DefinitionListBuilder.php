@@ -1861,7 +1861,9 @@ final class DefinitionListBuilder
         if ($b->bodyFrames->releasedListLine === $b->i) {
             // The invisible line consumes no block position. Keep the released
             // list's own column for it and for the visible line behind it.
+            // A fence payload line the walk already rebased sets no base of its own.
             $b->bodyFrames->releasedBlockBase = $this->isInvisibleOrAttributeLine($l->trimmedCont)
+                || isset($this->state->source->fenceBodyLines[$this->sourceLineFor($b->i)])
                 ? null
                 : $l->contColumn - $b->continuationColumn;
             $b->bodyFrames->releasedListLine = null;
