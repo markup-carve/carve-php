@@ -28,6 +28,7 @@ final class OwnershipForm
      * @param bool $caption
      * @param bool $table
      * @param bool $breakLine A marker-shaped line under a paragraph that renders as a spaced thematic break.
+     * @param bool $kept A line a refused brace run's paragraph keeps (CARVE-P2-035).
      */
     public function __construct(
         public readonly string $kind,
@@ -44,6 +45,7 @@ final class OwnershipForm
         public readonly bool $caption = false,
         public readonly bool $table = false,
         public readonly bool $breakLine = false,
+        public readonly bool $kept = false,
     ) {
     }
 }

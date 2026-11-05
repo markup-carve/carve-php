@@ -100,6 +100,13 @@ final class BlockOwnershipWalk
     public array $lineBlockLazyLines = [];
 
     /**
+     * Lines a refused brace run's paragraph keeps as text, the run included, each to its run's first line (CARVE-P2-035).
+     *
+     * @var array<int, int>
+     */
+    public array $refusedKeptLines = [];
+
+    /**
      * Lines the walk opened a code fence on, keyed by line index.
      *
      * @var array<int, true>
@@ -226,6 +233,10 @@ final class BlockOwnershipWalk
 
     private int $nextVisible = -1;
 
+    private int $refusedKeptStart = -1;
+
+    private int $refusedKeptThrough = -1;
+
     private int $movedSpanEnd = -1;
 
     /**
@@ -244,6 +255,7 @@ final class BlockOwnershipWalk
         private readonly Closure $isAttributeLine,
         private readonly Closure $wrappedAttributeLength,
         private readonly Closure $commentOnlyParagraphEnd,
+        private readonly ?Closure $refusedRunKeptThrough = null,
     ) {
     }
 
@@ -265,12 +277,15 @@ final class BlockOwnershipWalk
         $this->reach = 0;
         $this->wrappedAttributeEnd = -1;
         $this->nextVisible = -1;
+        $this->refusedKeptStart = -1;
+        $this->refusedKeptThrough = -1;
         $this->movedSpanEnd = -1;
         $this->lazyLines = [];
         $this->attachedPreludeLines = [];
         $this->skippedCommentLines = [];
         $this->commentColumnOwners = [];
         $this->lineBlockLazyLines = [];
+        $this->refusedKeptLines = [];
         $this->fenceOpenerLines = [];
         $this->refusedPlus = [];
         $this->letterPlus = [];
@@ -561,7 +576,7 @@ final class BlockOwnershipWalk
                 array_pop($this->frames);
             }
             // S3: the line's form, the record's `form` field.
-            $form = $this->classify($this->m['rest'], $this->frames[$reached], $this->m['col']);
+            $form = $this->classifyLine($this->m['rest'], $this->frames[$reached], $this->m['col']);
             $topIndex = count($this->frames) - 1;
             if ($this->m['rest'] !== '' && ($form->kind === 'dd' || ($reached === $topIndex && $this->frames[$reached] === $this->ddSiblingOwner))) {
                 $this->ddSiblingOwner = null;
@@ -712,7 +727,7 @@ final class BlockOwnershipWalk
                 $this->lead($owner->para || !$closedColumn || $plusFollower
                     ? max($this->m['col'] - $owner->cut, $owner->canon)
                     : $owner->canon);
-                if ($owner->para && preg_match('/^(`{3,}|~{3,})/', $this->m['rest']) === 1) {
+                if ($owner->para && !$form->kept && preg_match('/^(`{3,}|~{3,})/', $this->m['rest']) === 1) {
                     $this->textFences[count($result)] = $owner->canon;
                 }
                 $this->frames[$o]->para = true;
@@ -737,6 +752,10 @@ final class BlockOwnershipWalk
                 $this->emitApplied($at, $form, $closerPath ?? $this->ownerPath(), $closed, $reachedPath, $plusFollower);
             }
         }
+        $this->refusedKeptLines = array_filter(
+            $this->refusedKeptLines,
+            fn (int $runStart): bool => !$this->refusedRunMissesItsContainer($runStart),
+        );
 
         return $this->frameTextFences($result);
     }
@@ -1139,7 +1158,8 @@ final class BlockOwnershipWalk
             return;
         }
         $this->onMarkerLine = true;
-        $form = $this->classify($this->m['rest'], $this->frames[$frame], $this->frames[$frame]->kind === 'quote' ? $this->m['col'] : $start + $this->m['col']);
+        $column = $this->frames[$frame]->kind === 'quote' ? $this->m['col'] : $start + $this->m['col'];
+        $form = $this->classifyLine($this->m['rest'], $this->frames[$frame], $column);
         $this->onMarkerLine = false;
         if ($form->kind === 'text') {
             $plus = false;
@@ -1299,6 +1319,80 @@ final class BlockOwnershipWalk
         $this->wrappedAttributeColumn = $openerColumn;
 
         return true;
+    }
+
+    private function classifyLine(string $rest, OwnershipFrame $owner, int $col): OwnershipForm
+    {
+        return $this->keptByRefusedRun($rest, $owner, $col) ?? $this->classify($rest, $owner, $col);
+    }
+
+    /**
+     * A refused brace run and the line its paragraph keeps are text (CARVE-P2-035).
+     */
+    private function keptByRefusedRun(string $rest, OwnershipFrame $owner, int $col): ?OwnershipForm
+    {
+        if ($this->refusedRunKeptThrough === null || $rest === '') {
+            return null;
+        }
+        $at = $this->at;
+        if ($at > $this->refusedKeptStart && $this->refusedRunMissesItsContainer($this->refusedKeptStart)) {
+            $this->refusedKeptThrough = -1;
+        }
+        if ($at > $this->refusedKeptStart && $at <= $this->refusedKeptThrough && !$this->invisibleSibling($rest)) {
+            $this->refusedKeptLines[$at] = $this->refusedKeptStart;
+
+            return new OwnershipForm(kind: 'text', interrupts: false, kept: true);
+        }
+        if ($rest[0] !== '{') {
+            return null;
+        }
+        if ($at === $this->refusedKeptStart) {
+            return $at <= $this->refusedKeptThrough ? new OwnershipForm(kind: 'text', interrupts: false, kept: true) : null;
+        }
+        $depth = 0;
+        foreach ($this->frames as $index => $frame) {
+            if ($index > 0 && $frame->kind === 'quote') {
+                $depth++;
+            }
+            if ($frame === $owner) {
+                break;
+            }
+        }
+        $window = [str_repeat(' ', $col) . $rest];
+        $count = count($this->lines);
+        for ($j = $at + 1; $j < $count; $j++) {
+            $line = $this->lines[$j];
+            for ($d = 0; $d < $depth && $line !== null; $d++) {
+                $line = preg_match(self::QUOTE, ltrim($line, " \t"), $q) === 1 ? ($q[1] ?? '') : null;
+            }
+            $window[] = $line ?? '';
+            if ($line === null || trim($line, " \t") === '') {
+                break;
+            }
+        }
+        $top = $this->frames[count($this->frames) - 1];
+        $kept = ($this->refusedRunKeptThrough)($window, 0, in_array($top->kind, ['doc', 'quote'], true) ? 0 : $top->col);
+        if ($kept === null) {
+            return null;
+        }
+        $this->refusedKeptStart = $at;
+        $this->refusedKeptThrough = $at + $kept;
+        $this->refusedKeptLines[$at] = $at;
+
+        return new OwnershipForm(kind: 'text', interrupts: false, kept: true);
+    }
+
+    /**
+     * A run that misses its container, as a lazy line or by closing it, keeps nothing.
+     */
+    private function refusedRunMissesItsContainer(int $start): bool
+    {
+        return isset($this->lazyLines[$start]) || isset($this->closingLines[$start]);
+    }
+
+    private function invisibleSibling(string $rest): bool
+    {
+        return str_starts_with($rest, '%%') || (!str_starts_with($rest, '[^') && ($this->isDefinition)($rest));
     }
 
     private function classify(string $rest, OwnershipFrame $owner, int $col): OwnershipForm
