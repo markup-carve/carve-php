@@ -21,6 +21,7 @@ use MarkupCarve\Carve\Converter\HeadingId\HeadingIdSource;
 use MarkupCarve\Carve\Converter\HeadingId\MapIds;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
@@ -833,7 +834,7 @@ class DjotToCarve
 
         $carve = $this->normalizeCarveHeadingQuotes($carve);
 
-        $carve = TightDefinitionDescriptions::normalize(SubListGlue::glue($this->genericDjotDivClasses($carve)));
+        $carve = TightDefinitionDescriptions::normalize(SubListGlue::dropBlanksAfterSubLists(SubListGlue::glue($this->genericDjotDivClasses($carve)), self::singleItemChildren(...)));
 
         return ($strippedDefinitions['restore'])($frontmatter === '' ? $carve : $frontmatter . $separator . $carve);
     }
@@ -2022,6 +2023,17 @@ class DjotToCarve
         }
 
         return $parts === [] ? $source : implode('', $parts) . substr($source, $copied);
+    }
+
+    private static function singleItemChildren(string $source): ?int
+    {
+        $children = (new BlockParser())->parse($source)->getChildren();
+        $list = $children[0] ?? null;
+        if (count($children) !== 1 || !$list instanceof ListBlock || count($list->getChildren()) !== 1) {
+            return null;
+        }
+
+        return count($list->getChildren()[0]->getChildren());
     }
 
     private function normalizeCarveHeadingQuotes(string $carve): string

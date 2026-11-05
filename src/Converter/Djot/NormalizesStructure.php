@@ -1426,16 +1426,26 @@ trait NormalizesStructure
         $attributeLine = $attrs !== null && $attrs['end'] === strlen($raw);
         if ($attributeLine && !$structure->paragraph && $holdItemAttributes !== null) {
             $owner = null;
+            $ownerKey = -1;
             for ($key = count($structure->lists) - 1; $key >= 0; $key--) {
                 if ($structure->lists[$key]->depth === $quoteDepth && $indent > $structure->lists[$key]->column) {
                     $owner = $structure->lists[$key];
+                    $ownerKey = $key;
 
                     break;
                 }
             }
             if ($owner !== null && $attrs['source'] !== '{}') {
                 $heldLoose = preg_match('/\x00DJOTITEMATTR\x00(?:\d+\x00)?B\d+\x00$/', $structure->out[$owner->start - 2] ?? '') === 1;
-                if ($structure->blank && !$heldLoose && !str_contains($structure->out[$owner->start], "{loose}\n")) {
+                // djot.js charges a blank read while a sub-list is open to the sub-list (carve#5197).
+                $subLists = array_slice($structure->lists, $ownerKey + 1);
+                $sameDepth = array_filter($subLists, static fn ($list): bool => $list->depth === $quoteDepth);
+                $subListOpen = $sameDepth !== [];
+                // The attribute line closes those sub-lists, so a later blank is the owner's own.
+                if ($subListOpen && count($sameDepth) === count($subLists)) {
+                    array_splice($structure->lists, $ownerKey + 1);
+                }
+                if ($structure->blank && !$heldLoose && !$subListOpen && !str_contains($structure->out[$owner->start], "{loose}\n")) {
                     $start = $structure->out[$owner->start];
                     if ($structure->noteOwner !== null && preg_match('/^(\[\^[^\]\n]+\]:[ \t]*)(.*)$/', $start, $noteItem) === 1) {
                         $this->replaceDjotLayoutLine($structure->out, $owner->start, $noteItem[1] . "{loose}\n  " . $noteItem[2]);
