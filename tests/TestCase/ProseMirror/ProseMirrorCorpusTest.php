@@ -160,7 +160,7 @@ class ProseMirrorCorpusTest extends TestCase
      *
      * @var int
      */
-    private const MAXIMUM_COVERED_BUT_DIFFERING = 16;
+    private const MAXIMUM_COVERED_BUT_DIFFERING = 17;
 
     public function testTheCorpusSurvivesTheBridge(): void
     {

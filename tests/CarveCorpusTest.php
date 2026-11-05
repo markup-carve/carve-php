@@ -1684,15 +1684,12 @@ class CarveCorpusTest extends TestCase
      */
     protected const KNOWN_GAPS = [
         '882-attributed-bracket-spans-share-the-inline-cap' => 'carve#4681: attributed bracket spans share the inline cap',
-        '867-an-indented-comment-block-in-a-line-block-leaves-nothing-2' => 'carve#4469: an indented comment block in a line block leaves nothing',
-        '867-an-indented-comment-block-in-a-line-block-leaves-nothing' => 'carve#4469: an indented comment block in a line block leaves nothing',
         '872-a-table-writes-one-col-per-column-entry-2' => 'carve#4608: a table writes one col per column entry',
         '872-a-table-writes-one-col-per-column-entry' => 'carve#4608: a table writes one col per column entry',
         '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',
         '873-a-plus-after-an-attached-block-reaches-its-host-through-quote-prefixes-2' => 'carve#4649: a plus reaches its host through quote prefixes',
         '806-a-marker-folds-into-the-paragraph-a-first-block-plus-took-3' => 'carve#4545: a marker folds into the paragraph a first block plus took',
         '556-a-closed-block-leaves-no-frame-for-the-line-below-14' => 'carve#4907: a %% line below a div item column ends the comment span',
-        '867-an-indented-comment-block-in-a-line-block-leaves-nothing-4' => 'carve#4469: an indented comment block in a line block leaves nothing',
         // Pin move to carve 3d7a9fff (carve#5015 port): rows whose ruling another lane ports.
         '947-a-quote-s-next-is-not-payload-of-an-item-fence-the-last-block-left-open' => 'carve#5050: a quote\'s next + is not payload of an item fence',
         '947-a-quote-s-next-is-not-payload-of-an-item-fence-the-last-block-left-open-2' => 'carve#5050: a quote\'s next + is not payload of an item fence',
