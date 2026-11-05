@@ -638,13 +638,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         // A line erased inside a paragraph is written there, not as the sibling the tree holds (carve#5012).
         $detached = [];
-        $this->detachPlacedNodes($document, $placement, $detached);
-        foreach (array_reverse($placement->standIns()) as [$container, $index, $standIn]) {
+        // Stand-in slots index the children as parsed, so they go in before anything is detached.
+        foreach ($placement->standIns() as [$container, $index, $standIn]) {
             $children = $container->getChildren();
             $detached[] = [$container, $children];
             array_splice($children, $index, 0, [$standIn]);
             $container->setChildren($children);
         }
+        $this->detachPlacedNodes($document, $placement, $detached);
         $outer = $this->transparentPlacement;
         $this->transparentPlacement = $placement;
         try {

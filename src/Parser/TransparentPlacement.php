@@ -94,6 +94,15 @@ final class TransparentPlacement
     {
         $placement = new self();
         $placement->collect($document);
+        // A relocated comment is recorded after the deeper ones its block holds; write them in source order.
+        $byLine = static fn (array $a, array $b): int => ($a[1]->getPos()->startLine ?? 0) <=> ($b[1]->getPos()->startLine ?? 0);
+        foreach ($placement->inParagraph as $paragraph) {
+            $entries = $placement->inParagraph[$paragraph];
+            usort($entries, $byLine);
+            $placement->inParagraph[$paragraph] = $entries;
+        }
+        // Last slot first, so each insert leaves the earlier indexes in place.
+        usort($placement->standIns, static fn (array $a, array $b): int => [$b[1], $b[2]->getPos()->startLine ?? 0] <=> [$a[1], $a[2]->getPos()->startLine ?? 0]);
 
         return $placement->placed->count() === 0 ? null : $placement;
     }
@@ -112,7 +121,7 @@ final class TransparentPlacement
     }
 
     /**
-     * Stand-in comments to insert between blocks, as container, child index and node.
+     * Stand-in comments to insert between blocks, as container, child index and node, last slot first.
      *
      * @return array<int, array{0: \MarkupCarve\Carve\Node\Node, 1: int, 2: \MarkupCarve\Carve\Node\Block\Comment}>
      */

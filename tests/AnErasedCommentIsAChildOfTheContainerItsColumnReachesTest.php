@@ -52,6 +52,8 @@ class AnErasedCommentIsAChildOfTheContainerItsColumnReachesTest extends TestCase
             'column 0 before a continuation' => ["- a0\n%% n\n  more\n"],
             'outer column before a nested sibling' => ["- a0\n  - a1\n  %% n\n  - b1\n"],
             'outer column before nested text' => ["- a0\n  - a1\n  %% n\n    more\n"],
+            'two comments in one paragraph keep their order' => ["- a\n%% x\n  %% y\n  more\n"],
+            'two comments between items keep their order' => ["- a0\n  - a1\n%% x\n  %% y\n  - b1\n- b0\n"],
         ];
     }
 
