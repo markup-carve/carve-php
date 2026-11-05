@@ -36,4 +36,12 @@ final class MarkdownEscapedAlertLabelTest extends TestCase
         self::assertStringStartsWith("> \\[!NOTE]\n", $converted);
         self::assertStringContainsString("> [!TIP]\n> y", $converted);
     }
+
+    public function testAuthoredPrivateUseCharacterReferenceSurvives(): void
+    {
+        $converted = (new MarkdownToCarve())->convert("> \\[!TIP]\n> &#xE000;\n");
+
+        self::assertStringContainsString("\u{E000}", $converted);
+        self::assertStringContainsString('> [!TIP]', $converted);
+    }
 }

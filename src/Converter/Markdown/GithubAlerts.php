@@ -39,12 +39,12 @@ final class GithubAlerts
                     if (
                         $child instanceof EscapedText && $child->getContent() === '[' && $pos !== null
                         && mb_substr($source, $pos->startOffset, 2, 'UTF-8') === '\\['
-                        && $pos->startOffset > 0
-                        && mb_substr($source, $pos->startOffset - 1, 1, 'UTF-8') === $marker
+                        && $pos->startOffset >= mb_strlen($marker, 'UTF-8')
+                        && mb_substr($source, $pos->startOffset - mb_strlen($marker, 'UTF-8'), mb_strlen($marker, 'UTF-8'), 'UTF-8') === $marker
                         && $next instanceof Text
                         && preg_match('/^!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](?![\[(\{])/', $next->getContent()) === 1
                     ) {
-                        $offsets[] = $pos->startOffset - 1;
+                        $offsets[] = $pos->startOffset - mb_strlen($marker, 'UTF-8');
                     }
                 }
             }
@@ -54,7 +54,7 @@ final class GithubAlerts
         }
         rsort($offsets);
         foreach ($offsets as $offset) {
-            $source = mb_substr($source, 0, $offset, 'UTF-8') . mb_substr($source, $offset + 2, null, 'UTF-8');
+            $source = mb_substr($source, 0, $offset, 'UTF-8') . mb_substr($source, $offset + mb_strlen($marker, 'UTF-8') + 1, null, 'UTF-8');
         }
 
         return $source;

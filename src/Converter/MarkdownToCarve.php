@@ -385,8 +385,12 @@ class MarkdownToCarve
      */
     public function convert(string $markdown): string
     {
-        $marker = str_contains($markdown, "\u{E000}") ? "\u{E001}" : "\u{E000}";
-        $this->escapedAlertMarker = $marker;
+        $decodedSource = html_entity_decode($markdown, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $marker = "\u{E000}\u{E001}";
+        while (str_contains($markdown, $marker) || str_contains($decodedSource, $marker)) {
+            $marker .= "\u{E001}";
+        }
+        $marked = false;
         if (str_contains($markdown, '\\[!')) {
             preg_match_all('/\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/', $markdown, $labels, PREG_OFFSET_CAPTURE);
             foreach (array_reverse($labels[0]) as [$label, $offset]) {
@@ -396,9 +400,11 @@ class MarkdownToCarve
                 }
                 if ($slashes % 2 !== 0) {
                     $markdown = substr_replace($markdown, $marker, $offset - 1, 0);
+                    $marked = true;
                 }
             }
         }
+        $this->escapedAlertMarker = $marked ? $marker : null;
         $outer = $this->inlineContext->blockEscape;
         // The marker must be a byte the document cannot hold, raw or decoded.
         $holdsMarker = str_contains($markdown, InlineContext::BLOCK_ESCAPE) || preg_match('/&#(?:0*2|[xX]0*2);/', $markdown) === 1;
@@ -413,7 +419,7 @@ class MarkdownToCarve
 
         $carve = $escape === '\\' ? $carve : str_replace(InlineContext::BLOCK_ESCAPE, '\\', $carve);
 
-        return str_replace($marker, '', $carve);
+        return $marked ? str_replace($marker, '', $carve) : $carve;
     }
 
     private function importDocument(string $markdown): string
