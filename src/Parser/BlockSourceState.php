@@ -143,6 +143,13 @@ final class BlockSourceState
     public bool $trackPositions = false;
 
     /**
+     * Track block spans but no inline source maps; the erasure pass places its nodes by block lines only.
+     *
+     * @var bool
+     */
+    public bool $blockPositionsOnly = false;
+
+    /**
      * Attach line numbers for editor scroll synchronization.
      *
      * @var bool

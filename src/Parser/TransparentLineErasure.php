@@ -60,7 +60,11 @@ trait TransparentLineErasure
      */
     private function transparentErasedLines(array $lines, string $input): array
     {
-        if (!str_contains($input, '%%') && !str_contains($input, ']:')) {
+        // Only a `%%` line that opens no `%%%` span, or a definition line, can be erased.
+        if (
+            (!str_contains($input, '%%') && !str_contains($input, ']:'))
+            || preg_match('/^(?:[ \t]*>[ ]?)*[ \t]*(?:%%(?!%)|\*?\[[^\n]*\]:)/m', $input) !== 1
+        ) {
             return [];
         }
         $walk = $this->newOwnershipWalk();
@@ -108,7 +112,9 @@ trait TransparentLineErasure
         $traced = $this->traceNext;
         $this->traceNext = false;
         $positions = $this->state->source->trackPositions;
+        $blockOnly = $this->state->source->blockPositionsOnly;
         $this->state->source->trackPositions = true;
+        $this->state->source->blockPositionsOnly = !$positions;
         try {
             $lines = new SourceLines(str_starts_with($input, "\u{FEFF}") ? substr($input, 3) : $input, $input);
             [$restored, $injection, $definitionSpans] = $this->erasedLineNodes($input, $lines, $erased);
@@ -165,6 +171,7 @@ trait TransparentLineErasure
             }
         } finally {
             $this->state->source->trackPositions = $positions;
+            $this->state->source->blockPositionsOnly = $blockOnly;
         }
         if (!$positions) {
             $this->dropTransparentPositions($document);
