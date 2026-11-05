@@ -1661,6 +1661,7 @@ class CarveCorpusTest extends TestCase
         // Arrived with the pin move to carve 5401b518 (carve#5130, carve#5132 ports).
         'a-plus-skips-every-invisible-line-its-host-keeps',
         'a-quote-plus-after-a-quote-attached-paragraph-is-a-letter',
+        'a-comment-between-a-term-and-its-description-is-the-description-s-first-block',
     ];
 
     /**
