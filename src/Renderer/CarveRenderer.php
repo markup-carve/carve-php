@@ -1651,6 +1651,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * @param \MarkupCarve\Carve\Node\Block\ListItem|null $item
      * @param bool $descriptionBody
      * @param int|null $firstBlockLength
+     * @param bool $containerOwned Whether these blocks belong to a quote, fence or note body.
      *
      * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
@@ -1660,6 +1661,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         ?ListItem $item = null,
         bool $descriptionBody = false,
         ?int &$firstBlockLength = null,
+        bool $containerOwned = false,
     ): string {
         if ($this->blockDepth >= self::MAX_RENDER_DEPTH) {
             throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Carve');
@@ -1745,7 +1747,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
                     } elseif (
                         // Erased with the comments, a blank between them joins the blanks around the run (PART 0 S1).
-                        $parts !== [] && $item !== null && $previousEmitted !== null
+                        $parts !== [] && ($item !== null || $descriptionBody || $containerOwned) && $previousEmitted !== null
                         && $this->isALineComment($previousEmitted) && $this->isALineComment($block)
                     ) {
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
@@ -2355,7 +2357,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         $this->quoteHostDepth++;
         try {
-            $inner = $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($node->getChildren()));
+            $inner = $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($node->getChildren(), containerOwned: true));
         } finally {
             $this->quoteHostDepth--;
         }
@@ -3552,7 +3554,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $this->colonFenceDepth++;
         try {
-            return $this->renderBlocks($node->getChildren());
+            return $this->renderBlocks($node->getChildren(), containerOwned: true);
         } finally {
             $this->colonFenceDepth--;
         }
@@ -4697,7 +4699,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $outer = $this->markerBodyBlocks;
                 $this->markerBodyBlocks = $node->getChildren();
                 try {
-                    return $this->renderBlocks($this->markerBodyBlocks, $inDefinitionDescription, firstBlockLength: $firstBlockLength);
+                    return $this->renderBlocks($this->markerBodyBlocks, $inDefinitionDescription, firstBlockLength: $firstBlockLength, containerOwned: true);
                 } finally {
                     $this->markerBodyBlocks = $outer;
                 }
