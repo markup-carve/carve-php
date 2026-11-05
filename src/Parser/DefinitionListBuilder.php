@@ -2542,6 +2542,7 @@ final class DefinitionListBuilder
         if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) !== 1) {
             $b->body = $this->rebaseOverindentedItemBlocks(
                 $b->body,
+                eligible: DescriptionLazyRebaseGuard::eligible($b->body, $b->bodyMap, $this->state->source->lazyLines, null),
                 includeSublists: true,
                 skipOnlyClosedOpaqueAtMinimum: true,
                 absorbLeadNoteBody: true,
@@ -2564,12 +2565,22 @@ final class DefinitionListBuilder
     {
         /** @var array<int, array{strip: int, column: int, char: string, length: int}> $bodyEligibleFenceSource */
         $bodyEligibleFenceSource = [];
+        $eligible = DescriptionLazyRebaseGuard::eligible($b->body, $b->bodyMap, $this->state->source->lazyLines, null);
+        $protectedSources = [];
+        if ($eligible !== null) {
+            foreach ($b->bodyMap as $bodyIndex => $sourceLine) {
+                if (!isset($eligible[$bodyIndex])) {
+                    $protectedSources[$sourceLine] = true;
+                }
+            }
+        }
         $syntheticTermColumn = null;
         $syntheticTermEntryColumn = 0;
         $syntheticTermBlank = false;
         foreach ($b->bodyFenceSource as $fenceSource) {
             if (
-                !$fenceSource['nested']
+                !isset($protectedSources[$this->sourceLineFor($fenceSource['index'])])
+                && !$fenceSource['nested']
                 && $fenceSource['paragraph']
                 && $fenceSource['columns'] > $b->continuationColumn
                 && $fenceSource['eligible']
