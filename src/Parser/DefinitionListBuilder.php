@@ -2835,6 +2835,11 @@ final class DefinitionListBuilder
             return IndentationHelper::getLeadingColumns($line) < $width;
         }
 
+        // Measured where the separator stands in the source, past any indented quote prefix.
+        $column = self::authoredSubjectColumn($source, ltrim($line, " \t"));
+        if ($column !== null) {
+            return $column < $marker + $width;
+        }
         $quoted = strlen($source) - strlen(ContainerPrefix::stripQuoteMarkers($source));
 
         return IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers($source)) + $quoted < $marker + $width;
