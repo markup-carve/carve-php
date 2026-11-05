@@ -24,4 +24,11 @@ final class ADescriptionMarkerEndsMissedItemTest extends TestCase
         self::assertStringContainsString(': z</p>', $html);
         self::assertStringNotContainsString('</ul>\n<p>: z</p>', $html);
     }
+
+    public function testTabAfterDescriptionSeparatorEndsItem(): void
+    {
+        $html = CarveConverter::create()->convert("- x\n  :: t\n  : - ::: |\n       - item\n: \tz\n");
+
+        self::assertStringEndsWith("</ul>\n<p>: \tz</p>", $html);
+    }
 }
