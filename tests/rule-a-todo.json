@@ -158,10 +158,6 @@
             "ticket": "carve#5012"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\ConverterCorpusTest::testConvertedSourceRendersTheExpectedHtml with data set \"37-djot-thematic-break-spellings-survive\"",
-            "ticket": "carve#5015"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\ConverterCorpusTest::testConvertedSourceRendersTheExpectedHtml with data set \"40-djot-a-brace-run-continuation-must-be-indented\"",
             "ticket": "carve#5080"
         }
