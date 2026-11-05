@@ -4553,6 +4553,9 @@ class BlockParser
             $prefix = substr($source, 0, strlen($source) - strlen($text));
             // Marker-line openers already sit past the list marker. Quote
             // markers alone are removed from the source-column comparison.
+            if (str_contains($prefix, '>')) {
+                $prefix = (string)preg_replace('/^[ \t]+(?=>)/', '', $prefix);
+            }
             $prefix = str_replace('> ', '', $prefix);
             $column = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
             $probe[] = str_repeat(' ', $column) . $text;
