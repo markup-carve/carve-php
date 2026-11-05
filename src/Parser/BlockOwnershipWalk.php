@@ -391,6 +391,13 @@ final class BlockOwnershipWalk
                     }
                 }
                 $reached = $k;
+                // The rest of a run of plain frames answers as this one did.
+                $head = $f->runHead ?? $f;
+                $end = min($head->runEnd, $frameCount - 1);
+                if ($end > $k && $f->markerCol === null && $f->kind !== 'quote' && ($this->frames[$end]->runHead ?? null) === $head) {
+                    $k = $end;
+                    $reached = $end;
+                }
             }
             if ($inWrappedAttribute) {
                 // Past the opener's column, as written, keeps the continuation inside its run (CARVE-P2-035).
@@ -411,7 +418,7 @@ final class BlockOwnershipWalk
                 // A refused marker is consumed and renders nothing (carve#5013). Its placeholder stays
                 // inside the host, so the next line keeps the same owner.
                 $keepMarkerColumn = count($this->frames) > $plus + 1 || isset($this->claimedMarkers[$at]);
-                $this->frames = array_slice($this->frames, 0, $plus + 1);
+                $this->truncate($plus + 1);
                 $host = $this->frames[$plus];
                 $host->para = false;
                 $column = self::docColumn($lines[$at], $this->m['rest']);
@@ -431,7 +438,7 @@ final class BlockOwnershipWalk
                 continue;
             }
             if ($plus !== null) {
-                $this->frames = array_slice($this->frames, 0, $plus + 1);
+                $this->truncate($plus + 1);
                 $this->frames[$plus]->para = false;
                 $this->skipInvisible($plus, $at, self::docColumn($lines[$at], $this->m['rest']));
                 $this->holdAttachedTo($plus, $this->skipped['end'] ?? $at + 1);
@@ -682,7 +689,7 @@ final class BlockOwnershipWalk
                 }
             }
             $this->sibling = $this->frames[$reached + 1] ?? null;
-            $this->frames = array_slice($this->frames, 0, $reached + 1);
+            $this->truncate($reached + 1);
             $o = $reached;
             if ($this->m['rest'] === '') {
                 $this->frames[$o]->para = false;
@@ -690,7 +697,7 @@ final class BlockOwnershipWalk
             } elseif ($form->kind === 'colon-close') {
                 $this->lead($this->frames[$form->frame]->canon);
                 $closerPath = $this->trace !== null ? $this->ownerPath($form->frame) : null;
-                $this->frames = array_slice($this->frames, 0, $form->frame);
+                $this->truncate($form->frame);
                 $t = count($this->frames) - 1;
                 $this->frames[$t]->para = false;
                 $this->frames[$t]->last = 'block';
@@ -1008,7 +1015,7 @@ final class BlockOwnershipWalk
             if ($form->kind === 'fence' && !$form->lineBlock) {
                 $this->fenceOpenerLines[$this->at] = true;
             }
-            $this->frames[] = new OwnershipFrame(
+            $this->push(new OwnershipFrame(
                 $form->kind,
                 $o->col,
                 $o->canon,
@@ -1020,12 +1027,12 @@ final class BlockOwnershipWalk
                 reader: $reader,
                 family: $form->family ?? 'div',
                 opened: $this->at,
-            );
+            ));
 
             return;
         }
         if ($form->kind === 'quote') {
-            $this->frames[] = new OwnershipFrame(
+            $this->push(new OwnershipFrame(
                 'quote',
                 0,
                 0,
@@ -1035,7 +1042,7 @@ final class BlockOwnershipWalk
                 docMarker: self::docColumn($this->lines[$this->at], $this->src),
                 line: $this->at,
                 written: self::columnOf($this->out),
-            );
+            ));
             preg_match(self::QUOTE, $this->src, $q);
             $this->take(strlen($this->src) - strlen($q[1] ?? ''));
             $this->m = self::indentCols($this->src);
@@ -1048,7 +1055,7 @@ final class BlockOwnershipWalk
             $sibling = $this->sibling;
             $this->sibling = null;
             $listCol = $sibling !== null && $sibling->kind === $form->kind && $sibling->axes === $form->axes ? ($sibling->listCol ?? $col) : $col;
-            $this->frames[] = new OwnershipFrame(
+            $this->push(new OwnershipFrame(
                 $form->kind,
                 $col + $form->width,
                 $canon + $form->width,
@@ -1062,13 +1069,41 @@ final class BlockOwnershipWalk
                 docMarker: self::docColumn($this->lines[$this->at], $this->src),
                 line: $this->at,
                 written: self::columnOf($this->out),
-            );
+            ));
             // Content behind a lead tab is paragraph text, whatever it spells (corpus 684, 736, 840).
             $leadTab = str_contains(substr($this->src, 0, $form->head), "\t")
                 || ($this->src[$form->head] ?? '') === "\t";
             $this->take($form->head);
             $this->m = self::indentCols($this->src);
             $this->content(count($this->frames) - 1, $col + $form->head, $canon + $form->head, $leadTab);
+        }
+    }
+
+    /**
+     * A plain frame (no marker column, not a quote) joins the run of an equal plain frame below it,
+     * so S2 can step over the run at once. Frames are pushed once and never move.
+     */
+    private function push(OwnershipFrame $frame): void
+    {
+        $index = count($this->frames);
+        $below = $this->frames[$index - 1];
+        $head = $below->runHead ?? $below;
+        if (
+            $index > 1 && $frame->markerCol === null && $frame->kind !== 'quote' && $below->markerCol === null && $below->kind !== 'quote'
+            && $frame->col === $below->col && $frame->c5Shift === $below->c5Shift
+        ) {
+            $frame->runHead = $head;
+        } else {
+            $frame->runEnd = $index;
+        }
+        $head->runEnd = $frame->runHead !== null ? $index : $index - 1;
+        $this->frames[] = $frame;
+    }
+
+    private function truncate(int $count): void
+    {
+        for ($n = count($this->frames); $n > $count; $n--) {
+            array_pop($this->frames);
         }
     }
 
