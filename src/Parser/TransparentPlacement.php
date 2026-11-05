@@ -284,6 +284,9 @@ final class TransparentPlacement
                 // A break joined across an erased line has no pos (CARVE-P12-022); it starts where the content before it ends.
                 $count += ($pos === null ? $at : $pos->startLine) < $line ? 1 : 0;
                 $at = $pos === null ? $at + 1 : $pos->endLine;
+            } elseif ($child instanceof Comment && $child->isDelimited()) {
+                // A braced comment is written with its own line breaks.
+                $count += $pos !== null && $pos->endLine < $line ? substr_count($child->getContent(), "\n") : 0;
             } elseif ($depth < BlockParser::MAX_NESTING_DEPTH * 4) {
                 $count += self::lineBreaksBefore($child, $line, $at, $depth + 1);
             }
