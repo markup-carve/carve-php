@@ -4242,7 +4242,6 @@ class BlockParser
         $forcedThrough = -1;
         $inlineSpan = ['scanned' => 0, 'code' => 0, 'comment' => false];
         $refusedEnd = str_starts_with($content, '{') && !$standaloneCodeInclude
-            && !(str_starts_with($content, '{%') && $this->commentBetweenListSiblings($start))
             ? $this->refusedRunEndInSourceColumns($lines, $start) : null;
         if ($refusedEnd === null && str_contains($content, "\n")) {
             $forced = $this->endsInRefusedBraceRun($content);
@@ -4761,47 +4760,6 @@ class BlockParser
             startOffset: $from->startOffset,
             endOffset: $to->endOffset,
         );
-    }
-
-    /**
-     * Whether the paragraph at $start sits on blank lines between two items of one list.
-     *
-     * A comment-only paragraph there stays an invisible line (CARVE-P9-013), refused or not.
-     */
-    private function commentBetweenListSiblings(int $start): bool
-    {
-        $source = $this->state->source->sourceLines;
-        $first = $this->sourceLineFor($start);
-        if ($first < 1 || !IndentationHelper::isBlankLine($source[$first - 1] ?? '')) {
-            return false;
-        }
-        $end = $first;
-        while (isset($source[$end]) && !IndentationHelper::isBlankLine($source[$end])) {
-            $end++;
-        }
-        if ($end - $first < 2 || !isset($source[$end])) {
-            return false;
-        }
-        $column = IndentationHelper::getLeadingColumns($source[$first]);
-        $next = $end;
-        while (isset($source[$next]) && IndentationHelper::isBlankLine($source[$next])) {
-            $next++;
-        }
-        $after = $source[$next] ?? null;
-        if (
-            $after === null || IndentationHelper::getLeadingColumns($after) > $column
-            || $this->listParser->parseListItemMarker(ltrim($after, " \t")) === null
-        ) {
-            return false;
-        }
-        $back = $first - 1;
-        while ($back >= 0 && IndentationHelper::isBlankLine($source[$back] ?? '')) {
-            $back--;
-        }
-        $before = $source[$back] ?? null;
-
-        return $before !== null && (IndentationHelper::getLeadingColumns($before) > $column
-            || $this->listParser->parseListItemMarker(ltrim($before, " \t")) !== null);
     }
 
     /**
@@ -5385,6 +5343,11 @@ class BlockParser
     protected function commentOnlyParagraphEnd(array $lines, int $k, bool $inItem): int
     {
         if (!str_starts_with(ltrim($lines[$k] ?? '', " \t"), '{%')) {
+            return -1;
+        }
+        // CARVE-P2-035 makes a run with a shallow continuation literal text,
+        // even when its bytes otherwise look like a paragraph of only comments.
+        if (RefusedBraceRun::end($lines, $k, $this->inlineParser) !== null) {
             return -1;
         }
         $count = count($lines);

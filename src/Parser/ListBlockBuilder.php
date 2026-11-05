@@ -205,7 +205,10 @@ final class ListBlockBuilder
         );
         $commentLead = str_starts_with($lead['content'], '%%') ? [$lead['content']] : [];
         // A lead paragraph of only comments is invisible as a `%%` lead is (carve#4799).
-        $leadParagraphEnd = $this->commentOnlyParagraphEnd([$lead['content'], ...array_slice($lines, $j + 1, $i - $j - 1)], 0, true);
+        // The marker is removed from the lead passed to the comment probe.
+        // Restore its source column so a shallow brace continuation is refused.
+        $leadColumn = $baseIndent + $this->listMarkerWidth(ltrim($lines[$j], " \t"), $lead);
+        $leadParagraphEnd = $this->commentOnlyParagraphEnd([str_repeat(' ', $leadColumn) . $lead['content'], ...array_slice($lines, $j + 1, $i - $j - 1)], 0, true);
         if ($leadParagraphEnd !== -1) {
             $commentLead = ['%%'];
             $below = array_filter($below, static fn (int $offset): bool => $offset >= $leadParagraphEnd - 1, ARRAY_FILTER_USE_KEY);
