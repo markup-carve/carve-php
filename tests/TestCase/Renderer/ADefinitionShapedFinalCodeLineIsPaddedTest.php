@@ -18,6 +18,7 @@ final class ADefinitionShapedFinalCodeLineIsPaddedTest extends TestCase
         return [
             'following sibling in footnote' => ["r[^n]\n\n[^n]: p `a\n  [x]: y` q\n", "r[^n]\n\n[^n]: p ` a\n   [x]: y ` q\n"],
             'last sibling after strike marker' => ["~``` x\n[d]: u ```\n", "~` x\n [d]: u `\n"],
+            'leading newline stays spellable' => ["a `\n[d]: u` q\n", "a `\n [d]: u` q\n"],
         ];
     }
 

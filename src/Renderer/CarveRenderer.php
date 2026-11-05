@@ -6570,7 +6570,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $needsPad = $boundaryStart !== null || $boundaryEnd !== null
             || str_starts_with($content, '`')
             || str_ends_with($content, '`')
-            || preg_match(self::DEFINITION_SHAPED_LAST_LINE, $content) === 1
+            || (!str_starts_with($content, "\n") && preg_match(self::DEFINITION_SHAPED_LAST_LINE, $content) === 1)
             || (str_starts_with($content, ' ')
                 && str_ends_with($content, ' ')
                 && strspn($content, ' ') !== strlen($content));
