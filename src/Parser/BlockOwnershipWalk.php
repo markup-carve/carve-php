@@ -619,6 +619,7 @@ final class BlockOwnershipWalk
                 $this->softLeaf = true;
             }
             $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts && !$captionsQuote && $form->kind !== 'dd'
+                && !$this->descriptionAtMissedItemMarker($reached)
                 // A marker that a marker body owns, or that misses one, opens a list (PART 0 S3, carve#4860).
                 && !($form->kind === 'item' && $this->marksBodyList($reached))
                 && !($this->verseSpanBlank && $this->frames[$topIndex]->lineBlock && $this->frames[$topIndex]->span !== null && $this->frames[$topIndex]->span[0] === '%');
@@ -2390,6 +2391,30 @@ final class BlockOwnershipWalk
             $host = $this->frames[$k - 1];
             if ($frame->kind === 'quote' && ($host->kind === 'item' || $host->kind === 'dd') && $host->plus !== null && $host->plus === ($frame->line ?? -2) - 1) {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * A description-shaped line at a surviving item's marker column ends that item (PART 0 S4).
+     */
+    private function descriptionAtMissedItemMarker(int $reached): bool
+    {
+        if (
+            in_array($this->frames[$reached]->kind, self::BODY_FRAMES, true)
+            || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $this->m['rest']) !== 1
+        ) {
+            return false;
+        }
+        for ($k = $reached + 1, $count = count($this->frames); $k < $count; $k++) {
+            if ($this->frames[$k]->kind === 'item' && $this->m['col'] === $this->frames[$k]->markerCol) {
+                for ($child = $k + 1; $child < $count; $child++) {
+                    if ($this->frames[$child]->kind === 'dd') {
+                        return true;
+                    }
+                }
             }
         }
 
