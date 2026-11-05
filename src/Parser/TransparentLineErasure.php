@@ -308,6 +308,12 @@ trait TransparentLineErasure
         foreach ($node->getChildren() as $child) {
             $this->remapTransparentNode($child, $remap, $depth + 1);
         }
+        if ($node instanceof Table || $node instanceof FigureGroup) {
+            $caption = $node->getCaption();
+            if ($caption !== null) {
+                $this->remapTransparentNode($caption, $remap, $depth + 1);
+            }
+        }
     }
 
     /**
