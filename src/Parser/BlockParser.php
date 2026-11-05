@@ -4267,10 +4267,8 @@ class BlockParser
             }
 
             $trimmedNext = ltrim(self::stripLazyFrame($nextLine), " \t");
-            // In a list item or at the root, a `{%` inside an open paragraph is an inline comment, as djot.js reads it.
             if (
                 !$forced && str_starts_with($trimmedNext, '{')
-                && !(str_starts_with($trimmedNext, '{%') && ($parent instanceof ListItem || $parent instanceof Document))
                 && !self::inlineSpanOpen($contentParts, $inlineSpan, $literalLines)
             ) {
                 $refusedEnd = RefusedBraceRun::end($lines, $i, $this->inlineParser);
