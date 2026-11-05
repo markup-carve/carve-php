@@ -408,7 +408,7 @@ final class LineBlockBuilder
             $authored = $this->state->source->authoredLines[$this->sourceLineFor($lineNumber)] ?? '';
             $content = ltrim($line, " \t");
             $found = $content === '' ? false : strrpos($authored, $content);
-            if ($found !== false) {
+            if ($found !== false && !str_contains(substr($authored, 0, $found), "\t")) {
                 $sourcePrefixes[$lineNumber] = $found - (strlen($line) - strlen($content));
             }
             [$expanded, $runs, $kept] = $this->callExpandLineBlockLine($line, $lineNumber);
