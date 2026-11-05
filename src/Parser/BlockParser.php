@@ -4525,7 +4525,7 @@ class BlockParser
     }
 
     /**
-     * A lazy comment keeps its written column after quote prefixes are read.
+     * A lazy brace run keeps its written column after quote prefixes are read.
      * Body collection may have stripped the item's content column from both
      * lines, collapsing a one-column difference (CARVE-P2-035, carve#5203).
      *
@@ -4535,10 +4535,7 @@ class BlockParser
     private function refusedRunEndInSourceColumns(array $lines, int $start): ?int
     {
         $end = RefusedBraceRun::end($lines, $start, $this->inlineParser);
-        if (!str_starts_with(ltrim(self::stripLazyFrame($lines[$start]), " \t"), '{%')) {
-            return $end;
-        }
-
+        $comment = str_starts_with(ltrim(self::stripLazyFrame($lines[$start]), " \t"), '{%');
         $probe = [];
         for ($at = $start, $count = count($lines); $at < $count; $at++) {
             $line = self::stripLazyFrame($lines[$at]);
@@ -4546,6 +4543,9 @@ class BlockParser
                 break;
             }
             $text = ltrim($line, " \t");
+            if (!$comment && $at > $start && str_starts_with($text, '{')) {
+                break;
+            }
             $source = $this->state->source->authoredLines[$this->sourceLineFor($at)] ?? null;
             if ($source === null || !str_ends_with($source, $text)) {
                 return $end;
@@ -4553,10 +4553,13 @@ class BlockParser
             $prefix = substr($source, 0, strlen($source) - strlen($text));
             // Marker-line openers already sit past the list marker. Quote
             // markers alone are removed from the source-column comparison.
+            if (str_contains($prefix, '>')) {
+                $prefix = (string)preg_replace('/^[ \t]+(?=>)/', '', $prefix);
+            }
             $prefix = str_replace('> ', '', $prefix);
             $column = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
             $probe[] = str_repeat(' ', $column) . $text;
-            if (str_contains($line, '%}')) {
+            if ($comment && str_contains($line, '%}')) {
                 break;
             }
         }

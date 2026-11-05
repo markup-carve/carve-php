@@ -24,4 +24,20 @@ final class ARefusedBraceRunInNestedQuotesStaysLiteralTest extends TestCase
             CarveConverter::create()->convert("> > > {.k\ntail\n> > > #x}\n"),
         );
     }
+
+    public function testAnAttributeValueContainingACommentCloserKeepsTheRunLiteral(): void
+    {
+        self::assertSame(
+            "<blockquote>\n  <blockquote><p>{#id\ntail\ntitle=\"%}\"\n#x}</p></blockquote>\n</blockquote>",
+            CarveConverter::create()->convert("> > {#id\ntail\n> > title=\"%}\"\n> > #x}\n"),
+        );
+    }
+
+    public function testWhitespaceBeforeAQuoteMarkerDoesNotAdvanceTheAttributeColumn(): void
+    {
+        self::assertSame(
+            "<blockquote>\n  <blockquote><p>q\n{.k\n#x}\ntail</p></blockquote>\n</blockquote>",
+            CarveConverter::create()->convert("> > q\n> > {.k\n > > #x}\ntail\n"),
+        );
+    }
 }
