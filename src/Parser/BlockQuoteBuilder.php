@@ -258,7 +258,8 @@ final class BlockQuoteBuilder
                 $indentedQuotedPlus = IndentationHelper::getLeadingColumns(
                     $this->state->source->authoredLines[$this->sourceLineFor($i)] ?? $currentLine,
                 ) > 0;
-                $nextPhysical = ltrim($this->state->source->sourceLines[$this->sourceLineFor($i + 1)] ?? '', " \t");
+                $follow = $this->runFollower($i, $count);
+                $nextPhysical = ltrim($this->state->source->sourceLines[$this->sourceLineFor($follow)] ?? '', " \t");
                 $nextDepth = 0;
                 while (($rest = ContainerPrefix::quoteContent($nextPhysical)) !== null) {
                     $nextPhysical = $rest;
@@ -270,6 +271,7 @@ final class BlockQuoteBuilder
                     if ($nextDepth >= $decision['depth'] && trim($nextPhysical) !== '') {
                         $innerLines[] = str_repeat('> ', $decision['depth']);
                         $innerLineMap[] = -1;
+                        $i = $this->spliceRunLines($i, $follow, $decision['depth'], $innerLines, $innerLineMap);
                         $follower = ltrim($this->state->source->sourceLines[$this->sourceLineFor($i + 1)] ?? '', " \t");
                         for ($level = 0; $level < $decision['depth']; $level++) {
                             $follower = ContainerPrefix::quoteContent($follower) ?? $follower;
@@ -819,6 +821,52 @@ final class BlockQuoteBuilder
         }
 
         return $depth;
+    }
+
+    /**
+     * The block after a successive run attaches past its placeholders and the prelude between them.
+     *
+     * @param int $marker
+     * @param int $count
+     */
+    private function runFollower(int $marker, int $count): int
+    {
+        $follow = $marker + 1;
+        for ($at = $marker + 1; $at < $count; $at++) {
+            $line = $this->sourceLineFor($at);
+            if ($this->state->source->isConsumedMarker($line)) {
+                $follow = $at + 1;
+            } elseif (!isset($this->state->source->attachedPreludeLines[$line])) {
+                break;
+            }
+        }
+
+        return $follow;
+    }
+
+    /**
+     * Keep the lines of a successive run in the host, at its depth.
+     *
+     * @param int $marker
+     * @param int $follow
+     * @param int $depth
+     * @param array<string> $innerLines
+     * @param array<int> $innerLineMap
+     *
+     * @return int The last line spliced.
+     */
+    private function spliceRunLines(int $marker, int $follow, int $depth, array &$innerLines, array &$innerLineMap): int
+    {
+        for ($at = $marker + 1; $at < $follow; $at++) {
+            $line = ltrim($this->state->source->sourceLines[$this->sourceLineFor($at)] ?? '', " \t");
+            for ($level = 0; $level < $depth; $level++) {
+                $line = ContainerPrefix::quoteContent($line) ?? $line;
+            }
+            $innerLines[] = str_repeat('> ', $depth) . $line;
+            $innerLineMap[] = $this->sourceLineFor($at);
+        }
+
+        return $follow - 1;
     }
 
     private function firstBlockQuoteFollowerAtOrigin(int $start): bool

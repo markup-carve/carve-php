@@ -1684,7 +1684,6 @@ class CarveCorpusTest extends TestCase
      */
     protected const KNOWN_GAPS = [
         '882-attributed-bracket-spans-share-the-inline-cap' => 'carve#4681: attributed bracket spans share the inline cap',
-        '852-a-plus-a-second-plus-follows-hands-the-quote-its-next-block-2' => 'carve#4444: a second plus hands the quote its next block',
         '867-an-indented-comment-block-in-a-line-block-leaves-nothing-2' => 'carve#4469: an indented comment block in a line block leaves nothing',
         '867-an-indented-comment-block-in-a-line-block-leaves-nothing' => 'carve#4469: an indented comment block in a line block leaves nothing',
         '872-a-table-writes-one-col-per-column-entry-2' => 'carve#4608: a table writes one col per column entry',

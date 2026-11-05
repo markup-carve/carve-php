@@ -142,6 +142,41 @@ final class BlockSourceState
      */
     public bool $trackSourceLines = false;
 
+    /**
+     * Whether the walk consumed this line's later `+` of a successive run into a placeholder (carve#5013).
+     *
+     * @param int $line
+     */
+    public function isConsumedMarker(int $line): bool
+    {
+        if (!array_key_exists($line, $this->refusedPlus)) {
+            return false;
+        }
+        $body = ltrim($this->sourceLines[$line] ?? '', " \t");
+        while (($rest = ContainerPrefix::quoteContent($body)) !== null) {
+            $body = $rest;
+        }
+
+        return trim($body, " \t") === '%%';
+    }
+
+    /**
+     * The marker a follower attaches through: a successive run offers one block, so its placeholders are stepped over.
+     *
+     * @param int $prior The line right before the follower.
+     */
+    public function markerLineThrough(int $prior): int
+    {
+        $at = $prior;
+        $crossed = false;
+        while ($at > 0 && ($this->isConsumedMarker($at) || isset($this->attachedPreludeLines[$at]))) {
+            $crossed = $crossed || $this->isConsumedMarker($at);
+            $at--;
+        }
+
+        return $crossed ? $at : $prior;
+    }
+
     public function resetItemMarkerIndex(): void
     {
         $this->itemMarkerLineIndex = null;
