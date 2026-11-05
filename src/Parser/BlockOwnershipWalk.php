@@ -390,14 +390,8 @@ final class BlockOwnershipWalk
                         break;
                     }
                 }
+                $k = $this->runEnd($k, $frameCount);
                 $reached = $k;
-                // The rest of a run of plain frames answers as this one did.
-                $head = $f->runHead ?? $f;
-                $end = min($head->runEnd, $frameCount - 1);
-                if ($end > $k && $f->markerCol === null && $f->kind !== 'quote' && ($this->frames[$end]->runHead ?? null) === $head) {
-                    $k = $end;
-                    $reached = $end;
-                }
             }
             if ($inWrappedAttribute) {
                 // Past the opener's column, as written, keeps the continuation inside its run (CARVE-P2-035).
@@ -1098,6 +1092,21 @@ final class BlockOwnershipWalk
         }
         $head->runEnd = $frame->runHead !== null ? $index : $index - 1;
         $this->frames[] = $frame;
+    }
+
+    /**
+     * The rest of a run of plain frames answers S2 as frame `$k` did.
+     */
+    private function runEnd(int $k, int $frameCount): int
+    {
+        $f = $this->frames[$k];
+        if ($f->markerCol !== null || $f->kind === 'quote') {
+            return $k;
+        }
+        $head = $f->runHead ?? $f;
+        $end = min($head->runEnd, $frameCount - 1);
+
+        return $end > $k && $this->frames[$end]->runHead === $head ? $end : $k;
     }
 
     private function truncate(int $count): void
