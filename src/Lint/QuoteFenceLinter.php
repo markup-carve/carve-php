@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
-use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Node;
 
@@ -33,9 +32,7 @@ class QuoteFenceLinter
      */
     public function lint(string $source, array $options = []): array
     {
-        $converter = new CarveConverter();
-        $converter->getParser()->enablePositionTracking();
-        $document = $converter->parse($source);
+        $document = LintParse::parse($source)[1];
 
         $warnings = [];
         $this->collect($document, SourceOffsets::map($source), strlen($source), $warnings);

@@ -63,9 +63,7 @@ class SourceLinter
      */
     public function lint(string $source, ?callable $onRecoveredContainerMetadata = null): array
     {
-        $converter = new CarveConverter();
-        $converter->getParser()->enablePositionTracking();
-        $document = $converter->parse($source);
+        [$converter, $document] = LintParse::parse($source);
         $rows = preg_split('/\r\n|\r|\n/', $source, flags: PREG_SPLIT_OFFSET_CAPTURE) ?: [];
         $rowCount = count($rows);
         $map = SourceOffsets::map($source);

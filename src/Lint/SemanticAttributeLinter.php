@@ -84,12 +84,17 @@ class SemanticAttributeLinter
      */
     public function lint(string $source, array $options = []): array
     {
-        $converter = new CarveConverter();
-        foreach ($this->selectedExtensions($options['extensions'] ?? []) as $extension) {
-            $converter->addExtension($extension);
+        $extensions = $this->selectedExtensions($options['extensions'] ?? []);
+        if ($extensions === []) {
+            [$converter, $document] = LintParse::parse($source);
+        } else {
+            $converter = new CarveConverter();
+            foreach ($extensions as $extension) {
+                $converter->addExtension($extension);
+            }
+            $converter->getParser()->enablePositionTracking();
+            $document = $converter->parse($source);
         }
-        $converter->getParser()->enablePositionTracking();
-        $document = $converter->parse($source);
 
         // Read off the renderer the caller's extensions just configured rather
         // than off a second copy of the tier split. A rule that decides "is this

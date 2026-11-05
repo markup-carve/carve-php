@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
-use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\CitationsExtension;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Node;
@@ -36,9 +35,7 @@ class ReferencesPlacementLinter
             return [];
         }
 
-        $converter = new CarveConverter();
-        $converter->getParser()->enablePositionTracking();
-        $document = $converter->parse($source);
+        $document = LintParse::parse($source)[1];
         $byteAt = SourceOffsets::map($source);
         $warnings = [];
         $this->collect($document, false, $byteAt, strlen($source), $warnings);

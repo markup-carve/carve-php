@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
-use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -24,9 +23,7 @@ final class AuthoringLinter
      */
     public function lint(string $source, bool $captionLookingParagraph = false): array
     {
-        $converter = new CarveConverter();
-        $converter->getParser()->enablePositionTracking();
-        $document = $converter->parse($source);
+        $document = LintParse::parse($source)[1];
         $offsetMap = SourceOffsets::map($source);
         $sourceLength = strlen($source);
         $rows = preg_split('/\r\n|\r|\n/', $source, flags: PREG_SPLIT_OFFSET_CAPTURE) ?: [];

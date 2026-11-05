@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
-use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\TableParser;
@@ -71,11 +70,8 @@ class RetiredSpellingLinter
      */
     public function lint(string $source): array
     {
-        $converter = new CarveConverter();
-        $converter->getParser()->enablePositionTracking();
-
         $warnings = [];
-        $this->collect($converter->parse($source), $source, SourceOffsets::map($source), $warnings);
+        $this->collect(LintParse::parse($source)[1], $source, SourceOffsets::map($source), $warnings);
 
         return $warnings;
     }
