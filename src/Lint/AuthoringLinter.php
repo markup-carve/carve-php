@@ -37,6 +37,7 @@ final class AuthoringLinter
         $protectedRanges = [];
         $commentStarts = [];
         $emptyLinks = [];
+        $linkRanges = [];
         $pending = [$document];
         while ($pending !== []) {
             $node = array_pop($pending);
@@ -72,6 +73,9 @@ final class AuthoringLinter
                     && preg_match('/^(?:`{3,}|~{3,})/', substr($source, $startByte, $endByte - $startByte)) === 1
                 ) {
                     $protectedRanges[] = [$startByte, $endByte];
+                }
+                if ($node instanceof Link) {
+                    $linkRanges[] = [$startByte, $endByte];
                 }
                 if ($node->getType() === 'comment') {
                     $commentStarts[$pos->startLine] = min($commentStarts[$pos->startLine] ?? $startByte, $startByte);
@@ -226,8 +230,16 @@ final class AuthoringLinter
             if (preg_match('/<\/?[A-Za-z][\w:-]*(?:\s+[^<>]*)?\/?>/', $visible, $match, PREG_OFFSET_CAPTURE)) {
                 $emit($at, $prefix + $match[0][1] + 1, strlen($match[0][0]), 'bare-html-tag', 'This bare HTML tag is escaped as text; use a raw HTML block if markup is intended.');
             }
-            if (preg_match('/\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/', $visible, $match, PREG_OFFSET_CAPTURE) && preg_match('/^\s*>/', $raw)) {
-                $emit($at, $prefix + $match[0][1] + 1, strlen($match[0][0]), 'github-alert-marker', 'This github alert marker stays literal in a Carve quote; use an admonition fence.');
+            if (preg_match_all('/\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/', $visible, $matches, PREG_OFFSET_CAPTURE) && preg_match('/^\s*>/', $raw)) {
+                foreach ($matches[0] as [$label, $offset]) {
+                    $sourceOffset = $visibleStart + $offset;
+                    foreach ($linkRanges as [$start, $end]) {
+                        if ($sourceOffset >= $start && $sourceOffset < $end) {
+                            continue 2;
+                        }
+                    }
+                    $emit($at, $prefix + $offset + 1, strlen($label), 'github-alert-marker', 'This github alert marker stays literal in a Carve quote; use an admonition fence.');
+                }
             }
             if ($paragraph && preg_match_all('/(^|[\s([{])([*\/])(?=\w)/u', $visible, $matches, PREG_OFFSET_CAPTURE)) {
                 foreach ($matches[0] as $i => [$match, $offset]) {
