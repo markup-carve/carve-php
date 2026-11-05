@@ -1343,7 +1343,8 @@ final class BlockOwnershipWalk
 
             return new OwnershipForm(kind: 'text', interrupts: false, kept: true);
         }
-        if ($rest[0] !== '{') {
+        // A comment run is read by the paragraph builders themselves; it may reach a sibling's marker line.
+        if ($rest[0] !== '{' || str_starts_with($rest, '{%')) {
             return null;
         }
         if ($at === $this->refusedKeptStart) {
@@ -1358,20 +1359,31 @@ final class BlockOwnershipWalk
                 break;
             }
         }
+        $top = $this->frames[count($this->frames) - 1];
+        // A description body reads its refused runs itself (DefinitionListBuilder).
+        if ($top->kind === 'dd' || $top->kind === 'note') {
+            return null;
+        }
+        $column = in_array($top->kind, ['doc', 'quote'], true) ? 0 : $top->col;
+        // The window doubles only while the answer reaches its edge, so a run of one-line attributes stays linear.
         $window = [str_repeat(' ', $col) . $rest];
         $count = count($this->lines);
-        for ($j = $at + 1; $j < $count; $j++) {
-            $line = $this->lines[$j];
-            for ($d = 0; $d < $depth && $line !== null; $d++) {
-                $line = preg_match(self::QUOTE, ltrim($line, " \t"), $q) === 1 ? ($q[1] ?? '') : null;
+        $j = $at + 1;
+        $ended = false;
+        for ($size = 16;; $size *= 2) {
+            for (; $j < $count && count($window) < $size && !$ended; $j++) {
+                $line = $this->lines[$j];
+                for ($d = 0; $d < $depth && $line !== null; $d++) {
+                    $line = preg_match(self::QUOTE, ltrim($line, " \t"), $q) === 1 ? ($q[1] ?? '') : null;
+                }
+                $window[] = $line ?? '';
+                $ended = $line === null || trim($line, " \t") === '';
             }
-            $window[] = $line ?? '';
-            if ($line === null || trim($line, " \t") === '') {
+            $kept = ($this->refusedRunKeptThrough)($window, 0, $column, !$ended && $j < $count);
+            if ($kept !== -1) {
                 break;
             }
         }
-        $top = $this->frames[count($this->frames) - 1];
-        $kept = ($this->refusedRunKeptThrough)($window, 0, in_array($top->kind, ['doc', 'quote'], true) ? 0 : $top->col);
         if ($kept === null) {
             return null;
         }

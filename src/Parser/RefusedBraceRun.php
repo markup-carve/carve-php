@@ -22,8 +22,9 @@ final class RefusedBraceRun
      * @param int $start
      * @param \MarkupCarve\Carve\Parser\InlineParser $inlineParser
      * @param int|null $limit Index the run may not reach.
+     * @param bool $more Whether lines follow $lines; -1 then means the run reaches past them.
      */
-    public static function end(array $lines, int $start, InlineParser $inlineParser, ?int $limit = null): ?int
+    public static function end(array $lines, int $start, InlineParser $inlineParser, ?int $limit = null, bool $more = false): ?int
     {
         $first = self::content($lines[$start] ?? '');
         if ($first === null) {
@@ -91,13 +92,13 @@ final class RefusedBraceRun
             }
         }
 
-        return null;
+        return $more ? -1 : null;
     }
 
     /**
      * The last line a refused run's paragraph keeps: the follower, a fence opener there through its closer.
      *
-     * Null when the run at $start is not refused.
+     * Null when the run at $start is not refused, -1 when $more lines would decide it.
      *
      * @param array<string> $lines
      * @param int $start
@@ -105,6 +106,7 @@ final class RefusedBraceRun
      * @param \Closure(string): bool $isDefinition
      * @param \MarkupCarve\Carve\Parser\Block\FencedBlockParser $fenced
      * @param int $column The container's content column; a follower short of it misses the container.
+     * @param bool $more Whether lines follow $lines.
      */
     public static function keptThrough(
         array $lines,
@@ -113,14 +115,18 @@ final class RefusedBraceRun
         Closure $isDefinition,
         FencedBlockParser $fenced,
         int $column = 0,
+        bool $more = false,
     ): ?int {
-        $runEnd = self::end($lines, $start, $inlineParser);
-        if ($runEnd === null) {
-            return null;
+        $runEnd = self::end($lines, $start, $inlineParser, null, $more);
+        if ($runEnd === null || $runEnd === -1) {
+            return $runEnd;
         }
         // PART 0 S1 erases a comment or link definition line first, so the follower is the line after it.
         while (isset($lines[$runEnd]) && self::invisibleSibling(ltrim($lines[$runEnd], " \t"), $isDefinition)) {
             $runEnd++;
+        }
+        if ($more && !isset($lines[$runEnd])) {
+            return -1;
         }
         $follower = isset($lines[$runEnd]) ? ltrim($lines[$runEnd], " \t") : '';
         if (trim($follower, " \t") === '' || IndentationHelper::getLeadingColumns($lines[$runEnd]) < $column) {
@@ -145,7 +151,7 @@ final class RefusedBraceRun
             }
         }
 
-        return $runEnd;
+        return $more && $blank < 0 ? -1 : $runEnd;
     }
 
     /**
