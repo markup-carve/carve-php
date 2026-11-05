@@ -1529,7 +1529,7 @@ final class InlineStage
         }
 
         return $match[1][0] . '[' . $label . ']'
-                    . ($definition === $label && preg_match('/^[\p{L}\p{N} .-]*$/u', $label) === 1 && preg_match('/(?:\.{3,}|--)/', $label) !== 1 ? '[]' : $protect('[' . $definition . ']'));
+                    . ($definition === $label && preg_match('/^[\p{L}\p{N} .!-]*$/u', $label) === 1 && preg_match('/(?:\.{3,}|--)/', $label) !== 1 ? '[]' : $protect('[' . $definition . ']'));
     }
 
     /**
