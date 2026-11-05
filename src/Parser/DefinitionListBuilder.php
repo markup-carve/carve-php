@@ -1500,10 +1500,11 @@ final class DefinitionListBuilder
             $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
             if (
                 $l->contColumn >= $b->continuationColumn && $b->bodyNestedState->fence === null
-                // A fence's payload line is no marker, whatever opened the fence (PART 0 S1), and a marker
-                // that ends a fence leaves it no blank.
-                && !$this->inOrAfterFence($b->i)
+                // A fence's payload line is no marker, whatever opened the fence (PART 0 S1).
+                && !isset($this->state->source->fenceBodyLines[$this->sourceLineFor($b->i)])
                 && $b->bodyFrames->releaseDescriptionsAt($l->contColumn)
+                // A marker that ends a fence leaves no blank in it.
+                && !$this->followsFenceLine($b->i)
             ) {
                 // CARVE-P2-017: the inner body cannot withhold this outer column.
                 $l->releasedMarkerEntry = true;
@@ -2936,14 +2937,11 @@ final class DefinitionListBuilder
         return $column;
     }
 
-    private function inOrAfterFence(int $index): bool
+    private function followsFenceLine(int $index): bool
     {
-        $source = $this->state->source;
-        $line = $this->sourceLineFor($index);
         $previous = $this->sourceLineFor($index - 1);
 
-        return isset($source->fenceBodyLines[$line])
-            || isset($source->fenceOpenerLines[$previous]) || isset($source->fenceBodyLines[$previous]);
+        return isset($this->state->source->fenceOpenerLines[$previous]) || isset($this->state->source->fenceBodyLines[$previous]);
     }
 
     /**
