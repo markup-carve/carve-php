@@ -2298,8 +2298,10 @@ final class BlockContinuationScanner
         }
         if ($noteCommentFenceEnd !== null) {
             // A matched comment fence closes the note paragraph like a line comment.
-            $itemLines[] = str_repeat(' ', IndentationHelper::getLeadingColumns($nextLine) - $contentIndent) . '%%';
-            $itemLineMap[] = $this->sourceLineFor($i);
+            for ($spanIndex = $i; $spanIndex < $noteCommentFenceEnd; $spanIndex++) {
+                $itemLines[] = IndentationHelper::stripLeadingColumns($lines[$spanIndex], $contentIndent);
+                $itemLineMap[] = $this->sourceLineFor($spanIndex);
+            }
             $trailingState = $this->advanceTrailingState($trailingState, '%%', true);
             $i = $noteCommentFenceEnd;
 

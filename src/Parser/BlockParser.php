@@ -3081,6 +3081,57 @@ class BlockParser
      */
     protected function tryParseFencedComment(Node $parent, array $lines, int $start): ?int
     {
+        if (trim($lines[$start], " \t") === '%%') {
+            $sourceLine = $this->sourceLineFor($start);
+            if (isset($this->state->source->attachedPreludeLines[$sourceLine])) {
+                // The ownership walk hides an attached fence for layout. Recover its
+                // authored lines here, removing only the enclosing quote markers;
+                // a `> ` inside the comment body is still literal payload.
+                $authored = $this->state->source->authoredLines[$sourceLine] ?? '';
+                $quoteDepth = 0;
+                $unindented = ltrim($authored, " \t");
+                while (($quoted = ContainerPrefix::quoteContent($unindented)) !== null) {
+                    $quoteDepth++;
+                    $unindented = $quoted;
+                }
+                if ($quoteDepth > 0) {
+                    $authored = $unindented;
+                }
+                $opener = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($authored);
+                if ($opener !== null) {
+                    $openerColumn = IndentationHelper::getLeadingColumns($authored);
+                    $authored = IndentationHelper::stripLeadingColumns($authored, $openerColumn);
+                    $restored = [$authored];
+                    for ($at = $start + 1, $count = count($lines); $at < $count; $at++) {
+                        $physical = $this->sourceLineFor($at);
+                        if (!isset($this->state->source->attachedPreludeLines[$physical])) {
+                            break;
+                        }
+                        $raw = $this->state->source->authoredLines[$physical] ?? '';
+                        if ($quoteDepth > 0) {
+                            $unindented = ltrim($raw, " \t");
+                            $strippedDepth = 0;
+                            while ($strippedDepth < $quoteDepth && ($quoted = ContainerPrefix::quoteContent($unindented)) !== null) {
+                                $strippedDepth++;
+                                $unindented = $quoted;
+                            }
+                            if ($strippedDepth === $quoteDepth) {
+                                $raw = $unindented;
+                            }
+                        }
+                        $raw = IndentationHelper::stripLeadingColumns($raw, $openerColumn);
+                        $restored[] = $raw;
+                        if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($raw, $opener['length'])) {
+                            foreach ($restored as $offset => $text) {
+                                $lines[$start + $offset] = $text;
+                            }
+
+                            break;
+                        }
+                    }
+                }
+            }
+        }
         $line = $lines[$start];
 
         $fenceInfo = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line);
