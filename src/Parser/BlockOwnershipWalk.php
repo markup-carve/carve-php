@@ -114,6 +114,13 @@ final class BlockOwnershipWalk
     public array $fenceOpenerLines = [];
 
     /**
+     * Payload and closer lines of a code or raw fence the walk opened, keyed by line index.
+     *
+     * @var array<int, true>
+     */
+    public array $fenceBodyLines = [];
+
+    /**
      * Every lone `+` the walk refused, keyed by line index: a refused marker renders nothing (carve#5013),
      * an off-column `+` is a letter. The value is its lint finding, or null where the rule does not report it.
      *
@@ -296,6 +303,7 @@ final class BlockOwnershipWalk
         $this->lineBlockLazyLines = [];
         $this->refusedKeptLines = [];
         $this->fenceOpenerLines = [];
+        $this->fenceBodyLines = [];
         $this->refusedPlus = [];
         $this->letterPlus = [];
         $this->claimedMarkers = [];
@@ -570,6 +578,7 @@ final class BlockOwnershipWalk
                         $this->frames[$innerIndex]->para = $rest !== '';
                     }
                 }
+                $this->recordFenceBodyLine($at, $inner);
                 $result[] = $this->out . $this->src;
                 if ($this->trace !== null) {
                     $this->emit($at, 'S1', $payloadPath, 'CARVE-P0-005', $payloadForm, [
@@ -1065,6 +1074,13 @@ final class BlockOwnershipWalk
         }
 
         return $path;
+    }
+
+    private function recordFenceBodyLine(int $at, OwnershipFrame $fence): void
+    {
+        if ($fence->family !== 'comment' && !$fence->lineBlock) {
+            $this->fenceBodyLines[$at] = true;
+        }
     }
 
     private function apply(int $owner, int $col, OwnershipForm $form, int $canon, ?int $reader = null, bool $inHost = false): void
