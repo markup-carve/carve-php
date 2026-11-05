@@ -19,7 +19,7 @@ class DjotDestinationBoundariesTest extends TestCase
         $rows = json_decode(file_get_contents(__DIR__ . '/../../fixtures/djot-destination-boundaries.json'), true, flags: JSON_THROW_ON_ERROR);
         foreach ($rows as $row) {
             // PART 9 §17 L1 (carve#5015): a blank before a direct child sublist loosens the list, where djot.js keeps it tight.
-            $html = $row['name'] === 'review2-60' ? str_replace("<li>outer\n<ul>", '<li><p>outer</p><ul>', $row['html']) : $row['html'];
+            $html = $row['html'];
 
             yield $row['name'] => [$row['source'], $html];
         }

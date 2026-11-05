@@ -36,7 +36,7 @@ class DjotNoteMetadataTest extends TestCase
                 $html = preg_replace('/\n[ \t]+(?=<(?:ul|ol|dl)>)/', "\n", $html);
                 $html = preg_replace('/>\s+</', '><', $html);
                 // PART 9 §17 L1 (carve#5015): a blank before a direct child sublist loosens the list, where djot.js keeps it tight.
-                $expected = $row['name'] === 'nested owner review 0' ? str_replace("<li>outer\n<ul>", '<li><p>outer</p><ul>', $row['html']) : $row['html'];
+                $expected = $row['html'];
                 self::assertSame(ImageParagraphFixture::normalized($expected), $html, $row['name']);
             }
         }

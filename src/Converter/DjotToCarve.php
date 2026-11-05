@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Converter\Djot\MasksOpaque;
 use MarkupCarve\Carve\Converter\Djot\NormalizesStructure;
 use MarkupCarve\Carve\Converter\Djot\PlaceholderPrefix;
 use MarkupCarve\Carve\Converter\Djot\ReportsLosses;
+use MarkupCarve\Carve\Converter\Djot\SubListGlue;
 use MarkupCarve\Carve\Converter\Djot\TightDefinitionDescriptions;
 use MarkupCarve\Carve\Converter\HeadingId\HeadingIdSource;
 use MarkupCarve\Carve\Converter\HeadingId\MapIds;
@@ -832,7 +833,7 @@ class DjotToCarve
 
         $carve = $this->normalizeCarveHeadingQuotes($carve);
 
-        $carve = TightDefinitionDescriptions::normalize($this->genericDjotDivClasses($carve));
+        $carve = TightDefinitionDescriptions::normalize(SubListGlue::glue($this->genericDjotDivClasses($carve)));
 
         return ($strippedDefinitions['restore'])($frontmatter === '' ? $carve : $frontmatter . $separator . $carve);
     }

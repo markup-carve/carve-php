@@ -131,7 +131,6 @@ class DjotLossReportTest extends TestCase
             'wrapped definition remains text' => ["[link][a and\nb]\n\n[a and\nb]: url\n"],
             'unterminated code remains open' => ["\n|`|x\n"],
             'pipe inside closed code' => ["| `a |`\n"],
-            'nested list without trailing blank' => ["- a\n\n  - b\n  - c\n- d\n"],
             'loose parent item with nested list' => ["- one\n  and\n\n  another paragraph\n\n  - a list\n\n- two\n"],
         ];
     }
@@ -154,7 +153,6 @@ class DjotLossReportTest extends TestCase
             'quote before nested list' => ["- a\n\n  > q\n\n  - c\n\n- d\n"],
             'table before nested list' => ["- a\n\n  | t |\n\n  - c\n\n- d\n"],
             'div before nested list' => ["- a\n\n  ::: n\n  in\n  :::\n\n  - c\n\n- d\n"],
-            'block after nested list' => ["- a\n\n  - c\n\n  ***\n- d\n"],
         ];
     }
 
@@ -162,6 +160,25 @@ class DjotLossReportTest extends TestCase
     public function testPreservesListBlockBoundaries(string $source): void
     {
         self::assertSame($source, (new DjotToCarve())->convert($source));
+    }
+
+    /**
+     * djot.js reads no separation before a sub-list, so that blank goes (carve#5187).
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function subListGlueSpellings(): array
+    {
+        return [
+            'nested list without trailing blank' => ["- a\n\n  - b\n  - c\n- d\n", "- a\n  - b\n  - c\n- d\n"],
+            'block after nested list' => ["- a\n\n  - c\n\n  ***\n- d\n", "- a\n  - c\n\n  ***\n- d\n"],
+        ];
+    }
+
+    #[DataProvider('subListGlueSpellings')]
+    public function testDropsTheBlankBeforeASubList(string $source, string $expected): void
+    {
+        self::assertSame($expected, (new DjotToCarve())->convert($source));
     }
 
     public function testEscapesBlockMarkersInListParagraphContinuations(): void
