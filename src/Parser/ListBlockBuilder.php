@@ -2685,6 +2685,14 @@ final class ListBlockBuilder
     }
 
     /**
+     * @param array<string> $lines
+     */
+    public function walksNoIneligibleLine(array $lines): bool
+    {
+        return $this->bodyRebaser()->walksNoIneligibleLine($lines);
+    }
+
+    /**
      * Rebase authored block openers within a collected container body.
      *
      * @param array<string> $lines
