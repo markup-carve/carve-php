@@ -74,7 +74,7 @@ final class AuthoringLinter
                 ) {
                     $protectedRanges[] = [$startByte, $endByte];
                 }
-                if ($node instanceof Link) {
+                if ($node instanceof Link && ($node->getReferenceLabel() === null || $node->getDestination() !== '' || $node->isResolvedEmptyReference())) {
                     $linkRanges[] = [$startByte, $endByte];
                 }
                 if ($node->getType() === 'comment') {
@@ -105,7 +105,9 @@ final class AuthoringLinter
             $emit($pos->startLine, $pos->startColumn, 1, 'empty-link-destination', 'This inline link has an empty destination; add a URL or use plain text.');
         }
         usort($protectedRanges, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        usort($linkRanges, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
         $firstProtected = 0;
+        $firstLink = 0;
 
         $tableRows = [];
         foreach ($tables as $table) {
@@ -233,10 +235,11 @@ final class AuthoringLinter
             if (preg_match_all('/\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/', $visible, $matches, PREG_OFFSET_CAPTURE) && preg_match('/^\s*>/', $raw)) {
                 foreach ($matches[0] as [$label, $offset]) {
                     $sourceOffset = $visibleStart + $offset;
-                    foreach ($linkRanges as [$start, $end]) {
-                        if ($sourceOffset >= $start && $sourceOffset < $end) {
-                            continue 2;
-                        }
+                    while (isset($linkRanges[$firstLink]) && $linkRanges[$firstLink][1] <= $sourceOffset) {
+                        $firstLink++;
+                    }
+                    if (isset($linkRanges[$firstLink]) && $linkRanges[$firstLink][0] <= $sourceOffset) {
+                        continue;
                     }
                     $emit($at, $prefix + $offset + 1, strlen($label), 'github-alert-marker', 'This github alert marker stays literal in a Carve quote; use an admonition fence.');
                 }
