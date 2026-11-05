@@ -2410,7 +2410,11 @@ final class BlockOwnershipWalk
         }
         for ($k = $reached + 1, $count = count($this->frames); $k < $count; $k++) {
             if ($this->frames[$k]->kind === 'item' && $this->m['col'] === $this->frames[$k]->markerCol) {
-                return true;
+                for ($child = $k + 1; $child < $count; $child++) {
+                    if ($this->frames[$child]->kind === 'dd') {
+                        return true;
+                    }
+                }
             }
         }
 
