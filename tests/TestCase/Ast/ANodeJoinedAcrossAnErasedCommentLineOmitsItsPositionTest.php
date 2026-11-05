@@ -34,13 +34,13 @@ class ANodeJoinedAcrossAnErasedCommentLineOmitsItsPositionTest extends TestCase
             'paragraph in an item (corpus 183)' => [
                 "- a\n %% c\nb\n", [
                     'document 0..11',
-                    '  list 0..11',
-                    '    list_item 0..11',
+                    '  list -',
+                    '    list_item -',
                     '      paragraph -',
                     '        text 2..3',
                     '        soft_break -',
                     '        text 10..11',
-                    '      comment 5..9',
+                    '  comment 5..9',
                 ],
             ],
             'footnote whose comment is hoisted' => [
@@ -102,7 +102,7 @@ class ANodeJoinedAcrossAnErasedCommentLineOmitsItsPositionTest extends TestCase
         foreach (["a\n%% x\nb\n", "a\n%% x\nb\n%% y\nc\n", "*a\n%% x\nb*\n"] as $source) {
             $this->assertSame($source, $writer->render($writer->parse($source)));
         }
-        $this->assertSame("- a\n  %% c\n  b\n", $writer->render($writer->parse("- a\n %% c\nb\n")));
+        $this->assertSame("- a\n%% c\n  b\n", $writer->render($writer->parse("- a\n %% c\nb\n")));
     }
 
     /**

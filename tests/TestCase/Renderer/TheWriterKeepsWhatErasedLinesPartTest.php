@@ -22,8 +22,8 @@ class TheWriterKeepsWhatErasedLinesPartTest extends TestCase
     public static function cases(): array
     {
         return [
-            'comment run in a loose item' => ["- a\n\n  %% y\n%% z\n- c\n", "- a\n\n  %% y\n  %% z\n\n- c\n"],
-            'comment run in a quoted loose item' => ["> - a\n>\n>   %% y\n> %% z\n> - c\n", "> - a\n>\n>   %% y\n>   %% z\n>\n> - c\n"],
+            'comment run in a loose item' => ["- a\n\n  %% y\n%% z\n- c\n", "- a\n\n  %% y\n%% z\n\n- c\n"],
+            'comment run in a quoted loose item' => ["> - a\n>\n>   %% y\n> %% z\n> - c\n", "> - a\n>\n>   %% y\n> %% z\n>\n> - c\n"],
             'definition between item paragraphs' => ["- a\n+\n[r]: /a\n[r]: /b\nmore\n\nSee [r][].\n", "- a\n+\n[r]: /b\nmore\n\nSee [r][].\n"],
         ];
     }

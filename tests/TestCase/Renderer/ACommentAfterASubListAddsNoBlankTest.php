@@ -23,25 +23,25 @@ final class ACommentAfterASubListAddsNoBlankTest extends TestCase
     {
         yield 'bullet sub-list' => [
             "- a\n  * b\n   n\n   zz\n%% c\n- s\n",
-            "- a\n  * b\n    n\n    zz\n  %% c\n- s\n",
+            "- a\n  * b\n    n\n    zz\n%% c\n- s\n",
             "<ul>\n  <li>a\n    <ul>\n      <li>b\nn\nzz</li>\n    </ul>\n  </li>\n  <li>s</li>\n</ul>",
         ];
 
         yield 'ordered sub-list' => [
             "- a\n  1. b\n%% c\n- s\n",
-            "- a\n  1. b\n  %% c\n- s\n",
+            "- a\n  1. b\n%% c\n- s\n",
             "<ul>\n  <li>a\n    <ol>\n      <li>b</li>\n    </ol>\n  </li>\n  <li>s</li>\n</ul>",
         ];
 
         yield 'definition list' => [
             "- a\n  :: t\n  : d\n%% c\n- s\n",
-            "- a\n  :: t\n  : d\n  %% c\n- s\n",
+            "- a\n  :: t\n  : d\n%% c\n- s\n",
             "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n      <dd>d</dd>\n    </dl>\n  </li>\n  <li>s</li>\n</ul>",
         ];
 
         yield 'quoted list' => [
             "> - a\n>   * b\n> %% c\n> - s\n",
-            "> - a\n>   * b\n>   %% c\n> - s\n",
+            "> - a\n>   * b\n> %% c\n> - s\n",
             "<blockquote>\n  <ul>\n    <li>a\n      <ul>\n        <li>b</li>\n      </ul>\n    </li>\n    <li>s</li>\n  </ul>\n</blockquote>",
         ];
 

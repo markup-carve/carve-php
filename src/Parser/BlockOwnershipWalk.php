@@ -408,10 +408,7 @@ final class BlockOwnershipWalk
 
                 continue;
             }
-            // Between a term and its description the description takes the comment (CARVE-P12-027).
-            if ($this->trace !== null && str_starts_with($this->m['rest'], '%%') && $this->frames[$reached]->last !== 'term') {
-                $this->commentColumnOwners[$at] = $this->ownerPath($reached);
-            }
+            $this->recordCommentColumnOwner($at, $reached);
             $reached = $this->standInvisibleLine($reached, $plus !== null);
             // A lone `+` nothing took is a plain letter and ends nothing (carve#4396). Payload stays as written.
             if (
@@ -829,6 +826,14 @@ final class BlockOwnershipWalk
         $this->movedSpanEnd = $this->commentSpanEnd(rtrim($this->m['rest'], " \t"), $this->at);
 
         return $deeper;
+    }
+
+    private function recordCommentColumnOwner(int $at, int $reached): void
+    {
+        // Between a term and its description the description takes the comment (CARVE-P12-027).
+        if ($this->trace !== null && str_starts_with($this->m['rest'], '%%') && $this->frames[$reached]->last !== 'term') {
+            $this->commentColumnOwners[$at] = $this->ownerPath($reached);
+        }
     }
 
     private function standAt(int $col): void
