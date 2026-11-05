@@ -1737,6 +1737,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     ) {
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
                     } elseif (
+                        // Erased with the comments, a blank between them joins the blanks around the run (PART 0 S1).
+                        $parts !== [] && $item !== null && $previousEmitted !== null
+                        && $this->isALineComment($previousEmitted) && $this->isALineComment($block)
+                    ) {
+                        $parts[array_key_last($parts)] .= "\n" . $rendered;
+                    } elseif (
                         $parts !== [] && $item !== null && $block instanceof Paragraph
                         && $previousEmitted instanceof ListBlock
                         && ($rendered === '+' || str_starts_with($rendered, "+\n") || str_starts_with($rendered, "\\+\n"))
@@ -2938,6 +2944,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $previousEmitted = null;
             $previousBeforeComments = null;
             $movedMarker = null;
+            $attachedBelowDefinition = false;
             foreach ($children as $index => $child) {
                 $next = $children[$index + 1] ?? null;
                 // A definition the author wrote BETWEEN these two blocks was
@@ -2951,7 +2958,17 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         if ($out !== '') {
                             $out .= "\n";
                         }
-                        $out .= $written;
+                        // S1 erases a one-line definition, so it parts nothing: a `+` keeps the paragraphs apart (carve#5012).
+                        if (
+                            !$atMarkerColumn && !str_starts_with($written, '[^')
+                            && $previousEmitted !== null && $this->openParagraphReachesDown($previousEmitted)
+                            && $this->foldsIntoAnOpenParagraph($child)
+                        ) {
+                            $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($written);
+                            $attachedBelowDefinition = true;
+                        } else {
+                            $out .= $written;
+                        }
                         $separated = true;
                     }
                 }
@@ -2988,6 +3005,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $previous = $child;
                     $previousEmitted = $child;
                     $atMarkerColumn = false;
+
+                    continue;
+                }
+                if ($attachedBelowDefinition) {
+                    $attachedBelowDefinition = false;
+                    $out .= $this->atMarkerColumn($rendered);
+                    $previous = $child;
+                    $previousEmitted = $child;
+                    $atMarkerColumn = true;
 
                     continue;
                 }
