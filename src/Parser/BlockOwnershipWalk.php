@@ -578,9 +578,7 @@ final class BlockOwnershipWalk
                         $this->frames[$innerIndex]->para = $rest !== '';
                     }
                 }
-                if ($inner->family !== 'comment' && !$inner->lineBlock) {
-                    $this->fenceBodyLines[$at] = true;
-                }
+                $this->recordFenceBodyLine($at, $inner);
                 $result[] = $this->out . $this->src;
                 if ($this->trace !== null) {
                     $this->emit($at, 'S1', $payloadPath, 'CARVE-P0-005', $payloadForm, [
@@ -1076,6 +1074,13 @@ final class BlockOwnershipWalk
         }
 
         return $path;
+    }
+
+    private function recordFenceBodyLine(int $at, OwnershipFrame $fence): void
+    {
+        if ($fence->family !== 'comment' && !$fence->lineBlock) {
+            $this->fenceBodyLines[$at] = true;
+        }
     }
 
     private function apply(int $owner, int $col, OwnershipForm $form, int $canon, ?int $reader = null, bool $inHost = false): void
