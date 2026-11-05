@@ -4584,13 +4584,26 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             . $this->protectVerbatim($content) . (CodePayload::terminated($content) ? '' : "\n") . $fence;
     }
 
+    private function startsParagraphLine(Paragraph $paragraph, Comment $node): bool
+    {
+        $previous = null;
+        foreach ($paragraph->getChildren() as $child) {
+            if ($child === $node) {
+                return $previous === null || $previous instanceof SoftBreak || $previous instanceof HardBreak;
+            }
+            $previous = $child;
+        }
+
+        return false;
+    }
+
     protected function renderComment(Comment $node): string
     {
         $content = $node->getContent();
         if ($node->isDelimited()) {
-            // At block position a continuation passes the opening `{` (CARVE-P2-035).
+            // At block position, the start of any paragraph line, a continuation passes the opening `{` (CARVE-P2-035, carve#5189).
             $parent = $node->getParent();
-            if ($parent instanceof Paragraph ? ($parent->getChildren()[0] ?? null) === $node : !$parent instanceof InlineNode) {
+            if ($parent instanceof Paragraph ? $this->startsParagraphLine($parent, $node) : !$parent instanceof InlineNode) {
                 $content = (string)preg_replace('/\n(?=[^\n])/', "\n ", $content);
             }
 
