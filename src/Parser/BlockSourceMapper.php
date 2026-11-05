@@ -319,6 +319,16 @@ final class BlockSourceMapper
         $first = null;
         $last = null;
         foreach ($node->getChildren() as $child) {
+            // A later standalone continuation marker can be represented by a
+            // synthetic comment while layout decides its owner. It is not an
+            // item child when it lies beyond the item's collected extent.
+            if (
+                $node instanceof ListItem && $child instanceof Comment
+                && in_array($child, $this->state->session->consumedPlusComments, true)
+                && $node->getPos() !== null && $child->getPos()?->endOffset > $node->getPos()->endOffset
+            ) {
+                continue;
+            }
             $span = $this->deriveContainerSpans($child);
             if ($span === null) {
                 continue;
@@ -794,6 +804,28 @@ final class BlockSourceMapper
             $sourceLine + 1,
             $start,
             $start,
+        );
+    }
+
+    /**
+     * A leaf starts at its own markup, after indentation on its authored line.
+     */
+    public function leafLineSpan(int $index): ?SourceSpan
+    {
+        $span = $this->wholeLineSpan($index);
+        if ($span === null) {
+            return null;
+        }
+        $line = $this->state->source->authoredLines[$this->sourceLineFor($index)] ?? '';
+        $opening = strspn($line, " \t");
+
+        return $this->state->source->positionIndex?->span(
+            $this->state->source->lineStartOffsets[$span->startLine - 1] + $opening,
+            $this->state->source->lineStartOffsets[$span->startLine - 1] + strlen($line),
+            $span->startLine,
+            $span->endLine,
+            $this->state->source->lineStartOffsets[$span->startLine - 1],
+            $this->state->source->lineStartOffsets[$span->startLine - 1],
         );
     }
 
@@ -1496,6 +1528,12 @@ final class BlockSourceMapper
         // PART 12 §4: begin at the markup that opens THIS block, not at the
         // container prefix that carried its line (carve#913).
         $opening = $start + ($this->state->frame->currentContentColumns[$startLine] ?? 0);
+        if ($node instanceof Comment) {
+            $sourceLine = $this->state->source->authoredLines[$startLine] ?? '';
+            if (preg_match('/^[ \t]*%{2,}/', substr($sourceLine, $opening - $start), $marker) === 1) {
+                $opening += strspn($marker[0], " \t");
+            }
+        }
         if ($node instanceof CodeBlock) {
             $sourceLine = $this->state->source->authoredLines[$startLine] ?? '';
             if (preg_match('/^[ \t]*[`~]{3,}/', substr($sourceLine, $opening - $start), $fence) === 1) {

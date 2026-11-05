@@ -443,7 +443,7 @@ trait TransparentLineErasure
             $rest = rtrim($rest, " \t");
             if (preg_match(self::ABBREVIATION_DEFINITION_PATTERN, $rest, $m) === 1) {
                 $node = new AbbreviationDefinition($m[1], rtrim($m[2], " \t"));
-                $node->setPos(new SourceSpan($index + 1, $index + 1, 1 + $lead, $endColumn, $base + $lead, $base + $endColumn - 1));
+                $node->setPos($span);
                 $restored[$index] = $node;
                 $injection['abbreviations'][$index] = [$m[1], rtrim($m[2], " \t")];
 
