@@ -60,4 +60,11 @@ final class MarkdownEscapedAlertLabelTest extends TestCase
 
         self::assertSame("> before\n> [!NOTE]\n> after\n", $converted);
     }
+
+    public function testEscapedLabelBeforeReferenceTailKeepsItsSourceMeaning(): void
+    {
+        $markdown = "> \\[!NOTE][ref]\n> x\n\n[ref]: /u\n";
+
+        self::assertSame("> \\[!NOTE][ref][]\n> x\n\n[ref]: /u\n", (new MarkdownToCarve())->convert($markdown));
+    }
 }

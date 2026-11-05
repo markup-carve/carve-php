@@ -412,7 +412,8 @@ class MarkdownToCarve
                 for ($at = $offset - 1; $at >= 0 && $markdown[$at] === '\\'; $at--) {
                     $slashes++;
                 }
-                if ($slashes % 2 !== 0 && !$isHeading) {
+                $tail = $markdown[$offset + strlen($label)] ?? '';
+                if ($slashes % 2 !== 0 && !$isHeading && !in_array($tail, ['[', '(', '{'], true)) {
                     $markedSource .= substr($markdown, $copyAt, $offset - 1 - $copyAt) . $marker . '\\';
                     $copyAt = $offset;
                     $marked = true;
