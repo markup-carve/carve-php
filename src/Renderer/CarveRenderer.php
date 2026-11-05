@@ -6637,15 +6637,51 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return true;
         }
 
+        // A probe that already reads loose settles it without parsing the levels
+        // below; reparsing every nested body made a loose ladder cubic (carve#5193).
+        $probe = self::throughTheLineAfterTheFirstBlank($body);
+        if ($probe !== $body && self::readsLooseListFirst($probe)) {
+            return false;
+        }
+
+        return !self::readsLooseListFirst($body);
+    }
+
+    /**
+     * Whether `$source` parses to a loose list first.
+     */
+    private static function readsLooseListFirst(string $source): bool
+    {
         try {
-            $first = (new CarveConverter())->parse($body)->getChildren()[0] ?? null;
+            $first = (new CarveConverter())->parse($source)->getChildren()[0] ?? null;
         } catch (Throwable) {
             // A writer bug that produces unparseable source must not throw out
             // of the writer, and the conservative answer is the mark.
-            return true;
+            return false;
         }
 
-        return !$first instanceof ListBlock || $first->isTight();
+        return $first instanceof ListBlock && !$first->isTight();
+    }
+
+    /**
+     * `$source` cut after the first non-blank line that follows its first blank line.
+     */
+    private static function throughTheLineAfterTheFirstBlank(string $source): string
+    {
+        if (preg_match('/\n[ \t]*\n/', $source, $blank, PREG_OFFSET_CAPTURE) !== 1) {
+            return $source;
+        }
+        $at = $blank[0][1] + strlen($blank[0][0]);
+        while (true) {
+            $end = strpos($source, "\n", $at);
+            if ($end === false) {
+                return $source;
+            }
+            if (preg_match('/^[ \t]*$/', substr($source, $at, $end - $at)) !== 1) {
+                return substr($source, 0, $end + 1);
+            }
+            $at = $end + 1;
+        }
     }
 
     /**
