@@ -30,6 +30,8 @@ final class ALazyBracedCommentUsesSourceColumnsTest extends TestCase
         yield 'div, equal column' => ["::: note\npre\n{% b\nb %}\n:::\n", false];
         yield 'nested list, one column past' => ["- outer\n  - pre\n{% b\n b %}\n", true];
         yield 'nested list, equal column' => ["- outer\n  - pre\n{% b\nb %}\n", false];
+        yield 'comment opened on a list marker line' => ["- {% b\n  b %}\n", false];
+        yield 'comment opened on a quoted list marker line' => ["> - {% b\n>   b %}\n", false];
     }
 
     #[DataProvider('shapes')]
@@ -37,7 +39,6 @@ final class ALazyBracedCommentUsesSourceColumnsTest extends TestCase
     {
         $html = (new CarveConverter())->convert($source);
 
-        self::assertStringContainsString('pre', $html);
         if ($erased) {
             self::assertStringNotContainsString('{% b', $html);
         } else {

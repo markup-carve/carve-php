@@ -4551,10 +4551,12 @@ class BlockParser
             if ($source === null || !str_ends_with($source, $text)) {
                 return $end;
             }
-            $unindented = ltrim($source, " \t");
-            $inOwner = ContainerPrefix::quoteContent($unindented) === null
-                ? $source : ContainerPrefix::stripQuoteMarkers($unindented);
-            $probe[] = str_repeat(' ', IndentationHelper::getLeadingColumns($inOwner)) . $text;
+            $prefix = substr($source, 0, strlen($source) - strlen($text));
+            // Marker-line openers already sit past the list marker. Quote
+            // markers alone are removed from the source-column comparison.
+            $prefix = str_replace('> ', '', $prefix);
+            $column = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
+            $probe[] = str_repeat(' ', $column) . $text;
             if (str_contains($line, '%}')) {
                 break;
             }
