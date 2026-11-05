@@ -1641,6 +1641,14 @@ final class BlockContinuationScanner
         $run->blankRun->end();
         $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
         $nextTrimmed = ltrim($nextLine, " \t");
+        // A successive run's placeholder renders nothing, so the state stays as its marker left it (carve#5013).
+        if ($nextIndent >= $contentIndent && $this->state->source->isConsumedMarker($this->sourceLineFor($i))) {
+            $itemLines[] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+            $itemLineMap[] = $this->sourceLineFor($i);
+            $i++;
+
+            return true;
+        }
         if ($run->lowComment && !str_starts_with($nextTrimmed, '%%') && $run->openCommentLength === null) {
             return false;
         }
@@ -2329,13 +2337,14 @@ final class BlockContinuationScanner
                 < $contentIndent + $run->openDefinitionBody);
         // A marker at the body column of the marker-line note is the
         // note's own line (PART 9 §16), so it does not end the item.
-        $priorSource = $this->state->source->sourceLines[$this->sourceLineFor($i - 1)] ?? '';
+        $priorLine = $this->state->source->markerLineThrough($this->sourceLineFor($i - 1));
+        $priorSource = $this->state->source->sourceLines[$priorLine] ?? '';
         $attachedChildFollower = false;
         if (str_contains($priorSource, '+')) {
             $priorDecision = $this->state->session->continuationMarkerDecision(
                 $this->state->source,
                 ($this->getListParser)(),
-                $this->sourceLineFor($i - 1),
+                $priorLine,
             );
             $attachedChildFollower = $priorDecision['owner'] !== null
                 && $priorDecision['owner']['kind'] !== 'list'
