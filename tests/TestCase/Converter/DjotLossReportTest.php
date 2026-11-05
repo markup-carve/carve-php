@@ -171,7 +171,7 @@ class DjotLossReportTest extends TestCase
     {
         return [
             'nested list without trailing blank' => ["- a\n\n  - b\n  - c\n- d\n", "- a\n  - b\n  - c\n- d\n"],
-            'block after nested list' => ["- a\n\n  - c\n\n  ***\n- d\n", "- a\n  - c\n\n  ***\n- d\n"],
+            'block after nested list' => ["- a\n\n  - c\n\n  ***\n- d\n", "- a\n  - c\n  ***\n- d\n"],
         ];
     }
 
