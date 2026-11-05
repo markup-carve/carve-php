@@ -2544,6 +2544,55 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
+     * A figure folds when its target does. Otherwise it is written behind a `+`
+     * only below a paragraph, and only when its one-line caption ends the item:
+     * no line below a caption at the marker column stays in the item (carve#5177).
+     */
+    private function foldsIntoTheItemsOpenParagraph(Node $node, ?Node $previous, ?Node $next): bool
+    {
+        if (!$node instanceof Figure) {
+            return $this->foldsIntoAnOpenParagraph($node);
+        }
+        $target = $node->getTargets()[0] ?? null;
+        if ($target !== null && $this->foldsIntoAnOpenParagraph($target)) {
+            return true;
+        }
+
+        return $next === null && !self::holdsLineBreak($node->getCaptions()) && !$this->deepestTail($previous) instanceof Figure;
+    }
+
+    private function deepestTail(?Node $block): ?Node
+    {
+        while ($block instanceof BlockQuote || $block instanceof ListBlock || $block instanceof DefinitionList) {
+            if ($block instanceof ListBlock) {
+                $items = $block->getChildren();
+                $block = $items === [] ? null : $items[array_key_last($items)];
+            } elseif ($block instanceof DefinitionList) {
+                $descriptions = array_values(array_filter($block->getChildren(), static fn (Node $child): bool => $child instanceof DefinitionDescription));
+                $block = $descriptions === [] ? null : $descriptions[array_key_last($descriptions)];
+            }
+            $children = $block?->getChildren() ?? [];
+            $block = $children === [] ? null : $children[array_key_last($children)];
+        }
+
+        return $block;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     */
+    private static function holdsLineBreak(array $nodes): bool
+    {
+        foreach ($nodes as $node) {
+            if ($node instanceof SoftBreak || $node instanceof HardBreak || self::holdsLineBreak($node->getChildren())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Whether this block leaves a PARAGRAPH OPEN on its last line, so a line
      * written below it at the same column is read as its continuation rather
      * than as a block of its own.
@@ -2732,6 +2781,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function adjacentBlocksMerge(Node $left, Node $right): bool
     {
         if ($left::class !== $right::class) {
+            return false;
+        }
+        // A caption line closes its table, so the next table row opens a new one.
+        if ($left instanceof Table && $left->getCaption() !== null) {
             return false;
         }
         if ($left instanceof ListBlock && $right instanceof ListBlock) {
@@ -3127,7 +3180,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     || (
                         !$separated
                         && $this->openParagraphReachesDown($previousEmitted)
-                        && $this->foldsIntoAnOpenParagraph($child)
+                        && $this->foldsIntoTheItemsOpenParagraph($child, $previousEmitted, $next)
                         && !$this->opensWithAnAttributeLine($rendered)
                     )
                     || $this->definitionTailNeedsJoin($previousEmitted, $child, $separated, $rendered)
