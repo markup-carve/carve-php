@@ -26,6 +26,7 @@ final class DjotBlankBeforeASubListKeepsTheItemTightTest extends TestCase
             'two blanks' => ["1. one\n\n\n   - two\n", "1. one\n   - two\n"],
             'quoted' => ["> - one\n>\n>   - two\n", "> - one\n>   - two\n"],
             'sibling after' => ["- a\n\n  - b\n- c\n", "- a\n  - b\n- c\n"],
+            'after an unclosed quoted fence' => ["> ```\n> code\n\n- a\n\n  - b\n", "> ```\n> code\n\n- a\n  - b\n"],
         ];
     }
 

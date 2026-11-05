@@ -29,8 +29,12 @@ final class SubListGlue
         }
         $inFence = array_fill(0, $count, false);
         $fence = null;
-        foreach ($parts as $index => [, $body]) {
+        foreach ($parts as $index => [$depth, $body]) {
             $run = preg_match('/^[ \t]*(`{3,}|~{3,})(.*)$/', $body, $match) === 1 ? $match : null;
+            // A fence ends with the quote that holds it.
+            if ($fence !== null && $depth < $fence[2]) {
+                $fence = null;
+            }
             if ($fence !== null) {
                 $inFence[$index] = true;
                 if ($run !== null && $run[1][0] === $fence[0] && strlen($run[1]) >= $fence[1] && trim($run[2]) === '') {
@@ -39,7 +43,7 @@ final class SubListGlue
 
                 continue;
             }
-            $fence = $run !== null ? [$run[1][0], strlen($run[1])] : null;
+            $fence = $run !== null ? [$run[1][0], strlen($run[1]), $depth] : null;
         }
         $drop = array_fill(0, $count, false);
         for ($index = 1; $index < $count - 1; $index++) {
