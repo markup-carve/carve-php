@@ -1662,6 +1662,7 @@ class CarveCorpusTest extends TestCase
         'a-plus-skips-every-invisible-line-its-host-keeps',
         'a-quote-plus-after-a-quote-attached-paragraph-is-a-letter',
         'a-comment-between-a-term-and-its-description-is-the-description-s-first-block',
+        'a-container-owned-comment-run-is-one-writer-block',
     ];
 
     /**
