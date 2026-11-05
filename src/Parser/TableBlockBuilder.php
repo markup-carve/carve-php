@@ -907,7 +907,7 @@ final class TableBlockBuilder
         $cellTextSpan = $this->cellContentSpan($baseLineForRow, $cellData, $trimmedContent);
         if ($wraps !== []) {
             ($this->getInlineParser)()->parseTableCell($cell, $trimmedContent, $baseLineForRow, $cellMap, $wraps);
-            $this->placeCellWraps($cell, $cellData['sourceChunks']);
+            $this->placeCellWraps($cell, $cellData['sourceChunks'], $baseSourceLine);
             $cell->setPos($joined ? null : ($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent))));
 
             return;
@@ -936,8 +936,9 @@ final class TableBlockBuilder
      *
      * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
      * @param list<array{int, int, string}> $chunks
+     * @param int $baseSourceLine
      */
-    private function placeCellWraps(TableCell $cell, array $chunks): void
+    private function placeCellWraps(TableCell $cell, array $chunks, int $baseSourceLine): void
     {
         $wraps = [];
         $walk = static function (Node $node) use (&$walk, &$wraps): void {
@@ -965,7 +966,7 @@ final class TableBlockBuilder
             // An intervening join may have become code-span metadata rather
             // than an inline wrap. Match the surviving wrap's continuation
             // line instead of requiring one node for every source chunk.
-            $wantedLine = $chunks[0][0] + $wrap->getLine();
+            $wantedLine = $baseSourceLine + $wrap->getLine();
             while (isset($chunks[$next]) && $chunks[$next][0] < $wantedLine) {
                 $next++;
             }
