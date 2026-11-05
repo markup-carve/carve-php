@@ -922,11 +922,16 @@ final class BlockContinuationScanner
         $markerEnds = $invisibleLineEndsParagraph && !$this->attachedLeadIsList($lines, $i, $count);
         // The body column of the open description in the attached block, or null.
         $bodyColumn = null;
+        // Index of the line after a refused brace run that leads the block, which joins the run's paragraph (CARVE-P2-035).
+        $refusedFollower = -1;
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn): bool {
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn): bool {
+                if ($attachedKind === BlockGrammar::ATTACHED_PENDING && str_starts_with(ltrim($line, " \t"), '{')) {
+                    $refusedFollower = ($this->refusedBraceRunEndCallback)($lines, $index) ?? -1;
+                }
                 if (
                     IndentationHelper::isBlankLine($line)
                     || $this->isContinuationMarker($line)
@@ -937,7 +942,7 @@ final class BlockContinuationScanner
                 ) {
                     return true;
                 }
-                if ($this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState)) {
+                if ($index !== $refusedFollower && $this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState)) {
                     return true;
                 }
                 // In a note or description an invisible line ends the attached paragraph, or a container it stands left of (PART 9 §10 I5).

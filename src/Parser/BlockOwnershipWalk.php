@@ -162,7 +162,7 @@ final class BlockOwnershipWalk
     /**
      * The invisible lines between a taken `+` and its block, read where that block stands (CARVE-P9-013).
      *
-     * @var array{host: \MarkupCarve\Carve\Parser\OwnershipFrame, at: int, end: int, hostIndex: int, fenced: array<int, bool>, noteBodies: array<int, true>, column: int, lead: string, spanPad?: int}|null
+     * @var array{host: \MarkupCarve\Carve\Parser\OwnershipFrame, at: int, end: int, hostIndex: int, fenced: array<int, bool>, noteBodies: array<int, true>, column: int, lead: string, spanPad?: int, runColumn?: int|null}|null
      */
     private ?array $skipped = null;
 
@@ -229,6 +229,13 @@ final class BlockOwnershipWalk
 
     private int $wrappedAttributeColumn = 0;
 
+    /**
+     * A brace run a lone `+` attached, as moved: its last line, source column and written column.
+     *
+     * @var array{last: int, col: int, out: int}|null
+     */
+    private ?array $attachedBraceRun = null;
+
     private bool $onMarkerLine = false;
 
     private int $nextVisible = -1;
@@ -256,6 +263,7 @@ final class BlockOwnershipWalk
         private readonly Closure $wrappedAttributeLength,
         private readonly Closure $commentOnlyParagraphEnd,
         private readonly ?Closure $refusedRunKeptThrough = null,
+        private readonly ?Closure $refusedBraceRunEnd = null,
     ) {
     }
 
@@ -276,6 +284,7 @@ final class BlockOwnershipWalk
         $this->softLeaf = false;
         $this->reach = 0;
         $this->wrappedAttributeEnd = -1;
+        $this->attachedBraceRun = null;
         $this->nextVisible = -1;
         $this->refusedKeptStart = -1;
         $this->refusedKeptThrough = -1;
@@ -631,7 +640,13 @@ final class BlockOwnershipWalk
                 }
                 $owner = $this->frames[$reached];
                 $limit = $next->kind === 'quote' ? PHP_INT_MAX : $next->canon - 1;
-                $this->lead(min(max($this->m['col'] - $owner->cut, $owner->canon), $limit));
+                $column = $this->m['col'] - $owner->cut;
+                // A continuation of an attached brace run moves with its opener, so its column past the `{` holds (CARVE-P2-035).
+                if ($this->attachedBraceRun !== null && $this->attachedBraceRun['last'] === $at - 1) {
+                    $column = $this->attachedBraceRun['out'] + $this->m['col'] - $this->attachedBraceRun['col'];
+                    $this->attachedBraceRun['last'] = $at;
+                }
+                $this->lead(min(max($column, $owner->canon), $limit));
                 if (preg_match('/^(`{3,}|~{3,})/', $this->m['rest']) === 1) {
                     $this->textFences[count($result)] = $owner->canon;
                 }
@@ -654,6 +669,7 @@ final class BlockOwnershipWalk
             ) {
                 $this->lead($lonePlus->markerCanon);
                 $result[] = $this->out . $this->src;
+                $this->attachedBraceRun = $this->m['rest'][0] === '{' ? ['last' => $at, 'col' => $this->m['col'], 'out' => (int)$lonePlus->markerCanon] : null;
                 $lonePlus->para = true;
                 $lonePlus->last = 'para';
                 if ($this->trace !== null) {
@@ -785,7 +801,8 @@ final class BlockOwnershipWalk
         if ($abbreviation !== null) {
             $this->skippedAbbreviations[$at] = $abbreviation;
         }
-        $rest = $this->throughQuotes($this->lines[$at], $skipped['hostIndex'], $this->frames)['rest'] ?? '';
+        $level = $this->throughQuotes($this->lines[$at], $skipped['hostIndex'], $this->frames);
+        $rest = $level['rest'] ?? '';
         // A second marker in a skipped definition cannot claim the block the earlier marker took (carve#5013).
         if (!($skipped['fenced'][$at] ?? false) && $abbreviation === null && self::isPlus(trim($rest, " \t"))) {
             if (self::docColumn($this->lines[$at], ltrim($rest, " \t")) === $skipped['column']) {
@@ -797,10 +814,19 @@ final class BlockOwnershipWalk
                 $this->letterPlus[$at] = true;
             }
         }
+        // A continuation keeps its columns past the line that opened its run (CARVE-P2-035).
+        $pad = 0;
+        if (trim($rest, " \t") === '') {
+            $this->skipped['runColumn'] = null;
+        } else {
+            $column = $level['col'] ?? 0;
+            $this->skipped['runColumn'] ??= $column;
+            $pad = max(0, $column - $this->skipped['runColumn']);
+        }
         $result[] = $skipped['lead'] . match (true) {
             $inSpan => str_repeat(' ', $skipped['spanPad'] ?? 0) . '%%',
             $abbreviation !== null => '%%',
-            default => $rest,
+            default => str_repeat(' ', $pad) . $rest,
         };
         if ($this->trace !== null) {
             $this->emit($at, 'S5', $this->ownerPath(), 'CARVE-P0-024', 'leaf', ['plus' => $at]);
@@ -1833,11 +1859,15 @@ final class BlockOwnershipWalk
     {
         $run = [];
         for ($j = $k, $n = count($this->lines); $j < $n; $j++) {
-            $rest = $this->throughQuotes($this->lines[$j], $hostIndex, $frames)['rest'] ?? '';
+            $rest = $this->throughQuotes($this->lines[$j], $hostIndex, $frames, true)['rest'] ?? '';
             if (trim($rest, " \t") === '') {
                 break;
             }
             $run[] = $rest;
+        }
+        // A run refused by its continuation's column is paragraph text, so it is visible (CARVE-P2-035).
+        if ($this->refusedBraceRunEnd !== null && ($this->refusedBraceRunEnd)($run, 0) !== null) {
+            return -1;
         }
         $end = ($this->commentOnlyParagraphEnd)($run, 0, $frames[$hostIndex]->kind === 'item');
 

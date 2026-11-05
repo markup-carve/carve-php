@@ -1157,7 +1157,7 @@ trait BlockListMethods
 
                     return false;
                 }
-                if ($attachedKind === self::ATTACHED_PENDING && str_starts_with(ltrim($line, " \t"), '{') && !str_starts_with(ltrim($line, " \t"), '{%')) {
+                if ($attachedKind === self::ATTACHED_PENDING && str_starts_with(ltrim($line, " \t"), '{')) {
                     $refusedFollower = RefusedBraceRun::end($lines, $index, $this->inlineParser) ?? -1;
                 }
                 // An unclosed attached fence takes the rest of its container when no blank line or closer follows.
@@ -1317,6 +1317,7 @@ trait BlockListMethods
                         // With a blank or closer ahead, a sibling marker or a `+` still ends the run.
                         && $this->listParser->parseListItemMarker($trimmed) === null && !$this->isContinuationMarker($trimmed))
                     && !($trailingState->quoteParagraph && $lineIndent > $baseIndent)
+                    && $index !== $refusedFollower
                     && $this->trailingBlockHasEnded($attachedKind, $trimmed, $lines, $index, $trailingState)
                 ) {
                     return true;
