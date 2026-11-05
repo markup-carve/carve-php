@@ -393,15 +393,29 @@ class MarkdownToCarve
         $marked = false;
         if (str_contains($markdown, '\\[!')) {
             preg_match_all('/\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/', $markdown, $labels, PREG_OFFSET_CAPTURE);
-            foreach (array_reverse($labels[0]) as [$label, $offset]) {
+            $markedSource = '';
+            $copyAt = 0;
+            $scanAt = 0;
+            $lineStart = 0;
+            foreach ($labels[0] as [$label, $offset]) {
+                $newline = strrpos(substr($markdown, $scanAt, $offset - $scanAt), "\n");
+                if ($newline !== false) {
+                    $lineStart = $scanAt + $newline + 1;
+                }
+                $scanAt = $offset;
+                $prefix = substr($markdown, $lineStart, $offset - $lineStart);
                 $slashes = 0;
                 for ($at = $offset - 1; $at >= 0 && $markdown[$at] === '\\'; $at--) {
                     $slashes++;
                 }
-                if ($slashes % 2 !== 0) {
-                    $markdown = substr_replace($markdown, $marker, $offset - 1, 0);
+                if ($slashes % 2 !== 0 && preg_match('/^(?:[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+)?[ \t]*(?:>[ \t]*)+/', $prefix) === 1) {
+                    $markedSource .= substr($markdown, $copyAt, $offset - 1 - $copyAt) . $marker . '\\';
+                    $copyAt = $offset;
                     $marked = true;
                 }
+            }
+            if ($marked) {
+                $markdown = $markedSource . substr($markdown, $copyAt);
             }
         }
         $this->escapedAlertMarker = $marked ? $marker : null;

@@ -44,4 +44,13 @@ final class MarkdownEscapedAlertLabelTest extends TestCase
         self::assertStringContainsString("\u{E000}", $converted);
         self::assertStringContainsString('> [!TIP]', $converted);
     }
+
+    public function testEscapedHeadingLabelDoesNotChangeHeadingFragmentResolution(): void
+    {
+        $markdown = "# \\[!NOTE]\n\n[link](#note)\n\n> \\[!TIP]\n> x\n";
+        $converted = (new MarkdownToCarve())->convert($markdown);
+
+        self::assertStringContainsString('[link](#NOTE)', $converted);
+        self::assertStringContainsString('> [!TIP]', $converted);
+    }
 }
