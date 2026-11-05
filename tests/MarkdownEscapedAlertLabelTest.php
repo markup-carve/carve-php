@@ -20,4 +20,11 @@ final class MarkdownEscapedAlertLabelTest extends TestCase
             (new AuthoringLinter())->lint($converted),
         ));
     }
+
+    public function testEscapeStaysWhenRemovingItWouldCreateALink(): void
+    {
+        $converted = (new MarkdownToCarve())->convert("> foo \\[!NOTE](/u)\n> x\n");
+
+        self::assertSame("> foo \\[!NOTE](/u)\n> x\n", $converted);
+    }
 }

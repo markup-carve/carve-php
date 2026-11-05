@@ -39,7 +39,8 @@ final class GithubAlerts
                     if (
                         $child instanceof EscapedText && $child->getContent() === '[' && $pos !== null
                         && mb_substr($source, $pos->startOffset, 2, 'UTF-8') === '\\['
-                        && $next instanceof Text && preg_match('/^!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/', $next->getContent()) === 1
+                        && $next instanceof Text
+                        && preg_match('/^!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](?![\[(\{])/', $next->getContent()) === 1
                     ) {
                         $offsets[] = $pos->startOffset;
                     }
