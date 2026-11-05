@@ -26,7 +26,7 @@ class AConsumedPlusIsWrittenBackAsAPlusTest extends TestCase
             'after a fence in a quoted item' => ["> - ```\n> +\n> - s\n", "> - ```\n>   ```\n> - s\n"],
             'two in a loose item' => ["- q\n+\n+\n\n- r\n", "- q\n\n- r\n"],
             'between two quotes' => ["- > p\n+\n+\n> z\n", "- > p\n+\n> z\n"],
-            'after an authored comment' => ["- intro\n%% x\n+\n  more\n", "- intro\n  %% x\n+\nmore\n"],
+            'after an authored comment' => ["- intro\n%% x\n+\n  more\n", "- intro\n%% x\n+\nmore\n"],
         ];
     }
 

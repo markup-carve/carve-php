@@ -638,6 +638,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         // A line erased inside a paragraph is written there, not as the sibling the tree holds (carve#5012).
         $detached = [];
+        // Stand-in slots index the children as parsed, so they go in before anything is detached.
+        foreach ($placement->standIns() as [$container, $index, $standIn]) {
+            $children = $container->getChildren();
+            $detached[] = [$container, $children];
+            array_splice($children, $index, 0, [$standIn]);
+            $container->setChildren($children);
+        }
         $this->detachPlacedNodes($document, $placement, $detached);
         $outer = $this->transparentPlacement;
         $this->transparentPlacement = $placement;
@@ -645,7 +652,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return $this->withoutIdlePlusEscapes($this->renderDocument($document));
         } finally {
             $this->transparentPlacement = $outer;
-            foreach ($detached as [$parent, $children]) {
+            foreach (array_reverse($detached) as [$parent, $children]) {
                 $parent->setChildren($children);
             }
         }
@@ -2015,6 +2022,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->pendingMarkerLineShift = 0;
         try {
             $rendered = $this->renderBlockBody($node, $atAnAuthoredBodyColumn);
+            // A comment whose line this block runs past is written there, at this block's column (carve#5178).
+            $relocated = $this->transparentPlacement?->relocatedIn($node) ?? [];
+            if ($relocated !== []) {
+                $rendered = (string)preg_replace_callback(
+                    '/^[^\n]*(%% \x{F8FF}carve-relocated-[0-9-]+\x{F8FF})$/mu',
+                    fn (array $m): string => isset($relocated[$m[1]]) ? $this->renderComment($relocated[$m[1]]) : $m[0],
+                    $rendered,
+                );
+            }
 
             return $markerLineShift > 0 && $node instanceof ListBlock ? $this->shiftMarkerLineList($node, $rendered, $markerLineShift) : $rendered;
         } finally {
