@@ -949,12 +949,32 @@ final class TableBlockBuilder
             }
         };
         $walk($cell);
-        if ($wraps === [] || count($wraps) !== count($chunks) - 1) {
+        if ($wraps === [] || count($chunks) < 2) {
             return;
         }
-        foreach ($wraps as $k => $wrap) {
-            [$line, $column] = $chunks[$k + 1];
-            $wrap->setPos($this->source->cellWrapSpan($line, $column, $chunks[$k][0] === $line));
+        if (count($wraps) === count($chunks) - 1) {
+            foreach ($wraps as $k => $wrap) {
+                [$line, $column] = $chunks[$k + 1];
+                $wrap->setPos($this->source->cellWrapSpan($line, $column, $chunks[$k][0] === $line));
+            }
+
+            return;
+        }
+        $next = 1;
+        foreach ($wraps as $wrap) {
+            // An intervening join may have become code-span metadata rather
+            // than an inline wrap. Match the surviving wrap's continuation
+            // line instead of requiring one node for every source chunk.
+            $wantedLine = $chunks[0][0] + $wrap->getLine();
+            while (isset($chunks[$next]) && $chunks[$next][0] < $wantedLine) {
+                $next++;
+            }
+            if (!isset($chunks[$next]) || $chunks[$next][0] !== $wantedLine) {
+                continue;
+            }
+            [$line, $column] = $chunks[$next];
+            $wrap->setPos($this->source->cellWrapSpan($line, $column, $chunks[$next - 1][0] === $line));
+            $next++;
         }
     }
 
