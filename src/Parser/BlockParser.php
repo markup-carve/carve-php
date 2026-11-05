@@ -110,6 +110,11 @@ class BlockParser
     private ?array $pendingColonView = null;
 
     /**
+     * @var array{index: \MarkupCarve\Carve\Parser\ColonFenceIndex|null, base: int, inert: array{column: int, quotes: int}|null}|null
+     */
+    private ?array $pendingHostedColonView = null;
+
+    /**
      * Neutral starting point for incremental brace scanning.
      *
      * @var array{depth: int, inQuote: bool, quoteChar: string, pendingEscape: bool}
@@ -1897,6 +1902,12 @@ class BlockParser
             $frame->colonFenceBase = $this->pendingColonView['base'];
             $frame->currentLineMapBase = $this->pendingColonView['lineMapBase'];
             $this->pendingColonView = null;
+        }
+        if ($this->pendingHostedColonView !== null) {
+            $frame->hostedColonFenceIndex = $this->pendingHostedColonView['index'];
+            $frame->hostedColonFenceBase = $this->pendingHostedColonView['base'];
+            $frame->inertItemRebase = $this->pendingHostedColonView['inert'];
+            $this->pendingHostedColonView = null;
         }
         $frame->currentLineMap = $lineMap;
         $frame->currentContentColumns = $unchangedColonBody

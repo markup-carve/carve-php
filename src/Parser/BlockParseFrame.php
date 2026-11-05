@@ -27,6 +27,23 @@ final class BlockParseFrame
 
     public int $colonFenceBase = 0;
 
+    /**
+     * Colon boundaries for list-hosted continuation divs, shared with their
+     * nested bodies while those bodies are the scanned lines unchanged.
+     */
+    public ?ColonFenceIndex $hostedColonFenceIndex = null;
+
+    public int $hostedColonFenceBase = 0;
+
+    /**
+     * Set when the item rebase of a hosted div cannot change these lines: none
+     * is walked without eligibility and no authored line, after `quotes` quote
+     * markers, starts past `column`.
+     *
+     * @var array{column: int, quotes: int}|null
+     */
+    public ?array $inertItemRebase = null;
+
     public bool $hostedColonFences = false;
 
     public bool $listHostedColonFences = false;

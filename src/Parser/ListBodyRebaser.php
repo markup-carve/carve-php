@@ -1186,6 +1186,23 @@ final class ListBodyRebaser
     }
 
     /**
+     * Whether no line would be walked with an empty eligible set, so
+     * rebaseOverindentedItemBlocks() returns the lines unchanged.
+     *
+     * @param array<string> $lines
+     */
+    public function walksNoIneligibleLine(array $lines): bool
+    {
+        foreach ($lines as $index => $line) {
+            if ($this->shouldWalkAuthoredBase($line, [], $index, false, null)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * @param string $line
      * @param array<int, true>|null $eligible
      * @param int $index

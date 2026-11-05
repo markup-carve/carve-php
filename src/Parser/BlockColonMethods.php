@@ -346,11 +346,32 @@ trait BlockColonMethods
     {
         $index = null;
         $base = $this->state->frame->colonFenceBase;
-        $openingSource = $this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '';
-        $openingSource = preg_replace('/^(?:[ \t]*>[ \t]?)+/', '', $openingSource) ?? $openingSource;
-        $hostedContinuation = $this->state->frame->listHostedColonFences
-            && $this->listParser->parseListItemMarker(ltrim($openingSource, " \t")) === null;
-        if ($nestingAware && !$hostedContinuation && $this::class === self::class && $this->fencedBlockParser::class === FencedBlockParser::class) {
+        $hostedContinuation = $this->opensHostedContinuation($start);
+        $sharedIndex = $nestingAware && $this::class === self::class && $this->fencedBlockParser::class === FencedBlockParser::class;
+        // A nested hosted div re-read its body at every depth (carve-php#3602),
+        // so its own boundary is shared too when no per-opener column decides it.
+        $hostedIndex = null;
+        $hostedBase = $this->state->frame->hostedColonFenceBase;
+        if ($sharedIndex && $hostedContinuation && !$this->state->frame->noteHostedColonFences) {
+            $hostedIndex = $this->state->frame->hostedColonFenceIndex ??= new ColonFenceIndex();
+            $end = $hostedIndex->ends[$hostedBase + $start] ?? null;
+            if ($end !== null && $end - $hostedBase <= count($lines) && $end - $hostedBase > $start) {
+                $localEnd = $end - $hostedBase;
+                $closed = $localEnd < count($lines);
+                $lineMap = [];
+                for ($k = $start + 1; $k < $localEnd; $k++) {
+                    $lineMap[] = $this->sourceLineFor($k);
+                }
+
+                return [
+                    'lines' => array_values(array_slice($lines, $start + 1, $localEnd - $start - 1)),
+                    'lineMap' => $lineMap,
+                    'consumed' => $localEnd - $start + (int)$closed,
+                    'closed' => $closed,
+                ];
+            }
+        }
+        if ($sharedIndex && !$hostedContinuation) {
             $index = $this->state->frame->colonFenceIndex ??= new ColonFenceIndex();
             $end = $index->ends[$base + $start] ?? null;
             if ($end !== null && $end - $base <= count($lines) && $end - $base > $start) {
@@ -368,6 +389,7 @@ trait BlockColonMethods
             }
         }
         $openings = [$start];
+        $recordable = [true];
         $innerLines = [];
         $innerLineMap = [];
         $stack = [$fenceLength];
@@ -440,6 +462,9 @@ trait BlockColonMethods
                 if ($index !== null && $opening !== null) {
                     $index->ends[$base + $opening] = $base + $i;
                 }
+                if (array_pop($recordable) && $hostedIndex !== null && $opening !== null) {
+                    $hostedIndex->ends[$hostedBase + $opening] = $hostedBase + $i;
+                }
                 if ($stack === []) {
                     $i++;
                     $closed = true;
@@ -461,6 +486,11 @@ trait BlockColonMethods
                     $literal[] = $opener['className'] === '|';
                     $stack[] = $opener['length'];
                     $openings[] = $i;
+                    // Only a body whose own scan would start from this state may reuse it.
+                    $recordable[] = $hostedIndex !== null
+                        && $opener['className'] !== '|'
+                        && !$this->hasOpenShiftedLiteral($innerLines, $shiftedLiteralState)
+                        && $this->opensHostedContinuation($i);
                 }
             }
 
@@ -472,6 +502,13 @@ trait BlockColonMethods
         if ($index !== null && !$closed) {
             foreach ($openings as $opening) {
                 $index->ends[$base + $opening] = $base + $i;
+            }
+        }
+        if ($hostedIndex !== null && !$closed) {
+            foreach ($openings as $depth => $opening) {
+                if ($recordable[$depth]) {
+                    $hostedIndex->ends[$hostedBase + $opening] = $hostedBase + $i;
+                }
             }
         }
 
@@ -492,6 +529,8 @@ trait BlockColonMethods
      */
     private function parseColonBlocks(Node $parent, array $lines, array $lineMap, int $start, int $lineMapBase = 0): void
     {
+        $hostedReusable = true;
+        $inert = null;
         if (
             $this->state->frame->listHostedColonFences
             && $parent instanceof Div
@@ -521,6 +560,7 @@ trait BlockColonMethods
                 }
             }
             if ($base > 0 && $base < PHP_INT_MAX && $tableRowsToRebase !== []) {
+                $hostedReusable = false;
                 foreach ($tableRowsToRebase as $index) {
                     $line = $lines[$index];
                     $lines[$index] = IndentationHelper::stripLeadingColumns($line, IndentationHelper::getLeadingColumns($line) - $base);
@@ -542,18 +582,33 @@ trait BlockColonMethods
             $boxColumn = IndentationHelper::getLeadingColumns($unquoted);
             preg_match('/^((?:[ \t]*>[ \t]?)+)/', $source, $quotePrefix);
             $quoteDepth = substr_count($quotePrefix[1] ?? '', '>');
-            $eligible = [];
-            foreach ($lines as $index => $line) {
-                $sourceIndex = $lineMap[$lineMapBase + $index] ?? $lineMap[$index] ?? -1;
-                $authored = $this->state->source->sourceLines[$sourceIndex] ?? '';
-                for ($depth = 0; $depth < $quoteDepth; $depth++) {
-                    $authored = preg_replace('/^[ \t]*>[ \t]?/', '', $authored, 1) ?? $authored;
+            // A nested body is a subset of the lines an inert rebase already
+            // cleared, so it would run again at every depth for nothing.
+            $parentInert = $this->state->frame->inertItemRebase;
+            if ($hostedReusable && $parentInert !== null && $parentInert['quotes'] === $quoteDepth && $boxColumn >= $parentInert['column']) {
+                $inert = $parentInert;
+            } else {
+                $eligible = [];
+                foreach ($lines as $index => $line) {
+                    $sourceIndex = $lineMap[$lineMapBase + $index] ?? $lineMap[$index] ?? -1;
+                    $authored = $this->state->source->sourceLines[$sourceIndex] ?? '';
+                    for ($depth = 0; $depth < $quoteDepth; $depth++) {
+                        $authored = preg_replace('/^[ \t]*>[ \t]?/', '', $authored, 1) ?? $authored;
+                    }
+                    if (IndentationHelper::getLeadingColumns($authored) > $boxColumn) {
+                        $eligible[$index] = true;
+                    }
                 }
-                if (IndentationHelper::getLeadingColumns($authored) > $boxColumn) {
-                    $eligible[$index] = true;
+                if ($eligible === [] && $this->listsBuilder()->walksNoIneligibleLine($lines)) {
+                    $inert = ['column' => $boxColumn, 'quotes' => $quoteDepth];
+                } else {
+                    $rebased = $this->listsBuilder()->rebaseOverindentedItemBlocks($lines, $eligible, skipBareColonOpeners: true);
+                    $hostedReusable = $hostedReusable && $rebased === $lines;
+                    $lines = $rebased;
                 }
             }
-            $lines = $this->listsBuilder()->rebaseOverindentedItemBlocks($lines, $eligible, skipBareColonOpeners: true);
+        } elseif ($hostedReusable) {
+            $inert = $this->state->frame->inertItemRebase;
         }
         if ($lineMapBase !== 0 && $this->nestingDepth >= self::MAX_NESTING_DEPTH) {
             $lineMap = array_map(static fn (int $index): int => $lineMap[$lineMapBase + $index] ?? -1, array_keys($lines));
@@ -566,10 +621,18 @@ trait BlockColonMethods
             'base' => $this->state->frame->colonFenceBase + $start + 1,
             'lineMapBase' => $lineMapBase,
         ];
+        $savedHosted = $this->pendingHostedColonView;
+        $hostedIndex = $this->state->frame->hostedColonFenceIndex;
+        $this->pendingHostedColonView = $hostedReusable && ($hostedIndex !== null || $inert !== null) ? [
+            'index' => $hostedIndex,
+            'base' => $this->state->frame->hostedColonFenceBase + $start + 1,
+            'inert' => $inert,
+        ] : null;
         try {
             $this->parseBlocks($parent, $lines, 0, $lineMap);
         } finally {
             $this->pendingColonView = $saved;
+            $this->pendingHostedColonView = $savedHosted;
         }
     }
 
@@ -704,6 +767,17 @@ trait BlockColonMethods
         }
 
         return 'p';
+    }
+
+    private function opensHostedContinuation(int $index): bool
+    {
+        if (!$this->state->frame->listHostedColonFences) {
+            return false;
+        }
+        $source = $this->state->source->sourceLines[$this->sourceLineFor($index)] ?? '';
+        $source = preg_replace('/^(?:[ \t]*>[ \t]?)+/', '', $source) ?? $source;
+
+        return $this->listParser->parseListItemMarker(ltrim($source, " \t")) === null;
     }
 
     /**
