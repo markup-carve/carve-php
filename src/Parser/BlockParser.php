@@ -4243,7 +4243,7 @@ class BlockParser
         $inlineSpan = ['scanned' => 0, 'code' => 0, 'comment' => false];
         $refusedEnd = str_starts_with($content, '{') && !$standaloneCodeInclude
             && !(str_starts_with($content, '{%') && $this->commentBetweenListSiblings($start))
-            ? RefusedBraceRun::end($lines, $start, $this->inlineParser) : null;
+            ? $this->refusedRunEndInSourceColumns($lines, $start) : null;
         if ($refusedEnd === null && str_contains($content, "\n")) {
             $forced = $this->endsInRefusedBraceRun($content);
         }
@@ -4272,7 +4272,7 @@ class BlockParser
                 !$forced && str_starts_with($trimmedNext, '{')
                 && !self::inlineSpanOpen($contentParts, $inlineSpan, $literalLines)
             ) {
-                $refusedEnd = RefusedBraceRun::end($lines, $i, $this->inlineParser);
+                $refusedEnd = $this->refusedRunEndInSourceColumns($lines, $i);
                 if ($refusedEnd !== null) {
                     $literalRuns[] = [$physicalCount, $physicalCount + $refusedEnd - $i];
                     $this->appendRefusedRun($lines, $i, $refusedEnd, $contentParts, $contentLines, $literalLines, $physicalCount);
@@ -4523,6 +4523,48 @@ class BlockParser
     private function foldedLinesMap(array $contentLines, int $firstLineSearchFrom = 0, array $literalLines = []): ?SourceMap
     {
         return $this->sourceMapper()->foldedLinesMap($contentLines, $firstLineSearchFrom, $literalLines);
+    }
+
+    /**
+     * A lazy comment keeps its written column after quote prefixes are read.
+     * Body collection may have stripped the item's content column from both
+     * lines, collapsing a one-column difference (CARVE-P2-035, carve#5203).
+     *
+     * @param array<string> $lines
+     * @param int $start
+     */
+    private function refusedRunEndInSourceColumns(array $lines, int $start): ?int
+    {
+        $end = RefusedBraceRun::end($lines, $start, $this->inlineParser);
+        if (!str_starts_with(ltrim(self::stripLazyFrame($lines[$start]), " \t"), '{%')) {
+            return $end;
+        }
+
+        $probe = [];
+        for ($at = $start, $count = count($lines); $at < $count; $at++) {
+            $line = self::stripLazyFrame($lines[$at]);
+            if (IndentationHelper::isBlankLine($line)) {
+                break;
+            }
+            $text = ltrim($line, " \t");
+            $source = $this->state->source->authoredLines[$this->sourceLineFor($at)] ?? null;
+            if ($source === null || !str_ends_with($source, $text)) {
+                return $end;
+            }
+            $prefix = substr($source, 0, strlen($source) - strlen($text));
+            // Marker-line openers already sit past the list marker. Quote
+            // markers alone are removed from the source-column comparison.
+            $prefix = str_replace('> ', '', $prefix);
+            $column = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
+            $probe[] = str_repeat(' ', $column) . $text;
+            if (str_contains($line, '%}')) {
+                break;
+            }
+        }
+
+        $sourceEnd = RefusedBraceRun::end($probe, 0, $this->inlineParser);
+
+        return $sourceEnd === null ? null : $start + $sourceEnd;
     }
 
     /**
