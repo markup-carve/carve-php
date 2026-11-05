@@ -6249,6 +6249,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // keeps a `%%` that is merely code-span content out of this.
         $commentTakesTheCloser = $holdsLineComment
             && preg_match('/[ \t\n]%%(?![^\n]*\n)/', $content) === 1;
+        $flankContent = substr($content, 0, CommentFlank::before($content, strlen($content)));
 
         // The characters `bare_opener` refuses before a marker (CARVE-P3-013).
         $needsForced = $commentTakesTheCloser
@@ -6266,7 +6267,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // Whitespace against a bare delimiter stops it opening or closing,
             // and a trailing line break puts the closer at the start of the next
             // line, where only the braced closer closes.
-            || preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content) === 1
+            || preg_match('/^[ \t\r\n]/', $content) === 1
+            || $flankContent === '' || preg_match('/[ \t\r\n]$/', $flankContent) === 1
             || str_ends_with($content, $this->verbatimSentinels[4])
             // A leading `*` would form the combined bold-italic opener.
             || ($delimiter === '/' && str_starts_with($content, '*')
