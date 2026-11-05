@@ -27,4 +27,13 @@ final class MarkdownEscapedAlertLabelTest extends TestCase
 
         self::assertSame("> foo \\[!NOTE](/u)\n> x\n", $converted);
     }
+
+    public function testSyntheticAlertGuardStaysWhenAnotherLabelWasEscaped(): void
+    {
+        $markdown = ">\n> [!NOTE]\n> &#x1;\n\n> \\[!TIP]\n> y\n";
+        $converted = (new MarkdownToCarve())->convert($markdown);
+
+        self::assertStringStartsWith("> \\[!NOTE]\n", $converted);
+        self::assertStringContainsString("> [!TIP]\n> y", $converted);
+    }
 }

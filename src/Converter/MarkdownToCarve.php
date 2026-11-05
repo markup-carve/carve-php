@@ -110,6 +110,8 @@ class MarkdownToCarve
      */
     private const ALERT_LABEL_GUARD = "\x01";
 
+    private ?string $escapedAlertMarker = null;
+
     /**
      * Source lines whose ordered task item Carve cannot spell, in order, for the
      * fidelity report. Reset by every `convert()`.
@@ -383,6 +385,20 @@ class MarkdownToCarve
      */
     public function convert(string $markdown): string
     {
+        $marker = str_contains($markdown, "\u{E000}") ? "\u{E001}" : "\u{E000}";
+        $this->escapedAlertMarker = $marker;
+        if (str_contains($markdown, '\\[!')) {
+            preg_match_all('/\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/', $markdown, $labels, PREG_OFFSET_CAPTURE);
+            foreach (array_reverse($labels[0]) as [$label, $offset]) {
+                $slashes = 0;
+                for ($at = $offset - 1; $at >= 0 && $markdown[$at] === '\\'; $at--) {
+                    $slashes++;
+                }
+                if ($slashes % 2 !== 0) {
+                    $markdown = substr_replace($markdown, $marker, $offset - 1, 0);
+                }
+            }
+        }
         $outer = $this->inlineContext->blockEscape;
         // The marker must be a byte the document cannot hold, raw or decoded.
         $holdsMarker = str_contains($markdown, InlineContext::BLOCK_ESCAPE) || preg_match('/&#(?:0*2|[xX]0*2);/', $markdown) === 1;
@@ -392,9 +408,12 @@ class MarkdownToCarve
         } finally {
             $escape = $this->inlineContext->blockEscape;
             $this->inlineContext->blockEscape = $outer;
+            $this->escapedAlertMarker = null;
         }
 
-        return $escape === '\\' ? $carve : str_replace(InlineContext::BLOCK_ESCAPE, '\\', $carve);
+        $carve = $escape === '\\' ? $carve : str_replace(InlineContext::BLOCK_ESCAPE, '\\', $carve);
+
+        return str_replace($marker, '', $carve);
     }
 
     private function importDocument(string $markdown): string
@@ -2552,8 +2571,8 @@ class MarkdownToCarve
         $document = $converter->parse($source);
         $changed = GithubAlerts::import($document, $source);
         $written = $changed ? $converter->render($document) : $source;
-        if (preg_match('/\\\\\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/', $markdown) === 1) {
-            $written = GithubAlerts::literalEscapedLabels($changed ? $converter->parse($written) : $document, $written);
+        if ($this->escapedAlertMarker !== null && str_contains($written, $this->escapedAlertMarker)) {
+            $written = GithubAlerts::literalEscapedLabels($changed ? $converter->parse($written) : $document, $written, $this->escapedAlertMarker);
         }
         if ($frontmatter !== [] && !$changed) {
             $written = substr($written, 1);

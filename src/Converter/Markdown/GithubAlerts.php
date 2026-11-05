@@ -24,7 +24,7 @@ final class GithubAlerts
      * Decode an escaped alert opener only when the parser found literal text
      * inside a quote. The source escape has already prevented alert import.
      */
-    public static function literalEscapedLabels(Document $document, string $source): string
+    public static function literalEscapedLabels(Document $document, string $source, string $marker): string
     {
         $offsets = [];
         $pending = [[$document, false]];
@@ -39,10 +39,12 @@ final class GithubAlerts
                     if (
                         $child instanceof EscapedText && $child->getContent() === '[' && $pos !== null
                         && mb_substr($source, $pos->startOffset, 2, 'UTF-8') === '\\['
+                        && $pos->startOffset > 0
+                        && mb_substr($source, $pos->startOffset - 1, 1, 'UTF-8') === $marker
                         && $next instanceof Text
                         && preg_match('/^!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](?![\[(\{])/', $next->getContent()) === 1
                     ) {
-                        $offsets[] = $pos->startOffset;
+                        $offsets[] = $pos->startOffset - 1;
                     }
                 }
             }
@@ -52,7 +54,7 @@ final class GithubAlerts
         }
         rsort($offsets);
         foreach ($offsets as $offset) {
-            $source = mb_substr($source, 0, $offset, 'UTF-8') . mb_substr($source, $offset + 1, null, 'UTF-8');
+            $source = mb_substr($source, 0, $offset, 'UTF-8') . mb_substr($source, $offset + 2, null, 'UTF-8');
         }
 
         return $source;
