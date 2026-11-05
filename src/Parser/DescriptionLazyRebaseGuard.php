@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser;
 
+use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 
 /**
@@ -30,8 +31,21 @@ final class DescriptionLazyRebaseGuard
         $descriptionColumns = [];
         $afterLazy = false;
         $protected = [];
+        $fence = null;
+        $fences = new FencedBlockParser();
         foreach ($lines as $index => $entry) {
             $head = explode("\n", $entry, 2)[0];
+            if ($fence !== null) {
+                $protected[$index] = true;
+                if (
+                    IndentationHelper::getLeadingColumns($head) === $fence['column']
+                    && $fences->isCodeFenceCloser(ltrim($head, " \t"), $fence['char'], $fence['length'])
+                ) {
+                    $fence = null;
+                }
+
+                continue;
+            }
             if (isset($lazyLines[$lineMap[$index] ?? -1]) || str_contains($entry, "\n")) {
                 if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($head, " \t"), $match) === 1) {
                     $descriptionColumns[] = IndentationHelper::getLeadingColumns($head)
@@ -44,6 +58,15 @@ final class DescriptionLazyRebaseGuard
             $column = IndentationHelper::getLeadingColumns($head);
             if ($afterLazy && $descriptionColumns !== [] && $column >= $descriptionColumns[0]) {
                 $protected[$index] = true;
+                $opener = $fences->parseCodeFenceOpener(ltrim($head, " \t"))
+                    ?? $fences->parseRawBlockOpener(ltrim($head, " \t"));
+                if ($opener !== null) {
+                    $fence = [
+                        'column' => $column,
+                        'char' => $opener['fence'][0],
+                        'length' => $opener['length'],
+                    ];
+                }
             }
             $afterLazy = false;
             while ($descriptionColumns !== [] && $column < end($descriptionColumns)) {

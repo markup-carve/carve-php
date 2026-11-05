@@ -68,4 +68,12 @@ HTML;
 
         self::assertSame($expected, trim(CarveConverter::create()->convert($source)));
     }
+
+    public function testProtectedFenceKeepsItsCloserAndFollowingBlock(): void
+    {
+        $source = "- :: t\n  : :: t\n    : :: t\n      : x\n    para\n         ```\n         code\n         ```\n        after\n";
+        $html = CarveConverter::create()->convert($source);
+
+        self::assertStringContainsString("<pre><code>code\n</code></pre>\n                <p>after</p>", $html);
+    }
 }
