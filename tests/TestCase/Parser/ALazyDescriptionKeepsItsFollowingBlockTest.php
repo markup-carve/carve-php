@@ -76,4 +76,13 @@ HTML;
 
         self::assertStringContainsString("<pre><code>code\n</code></pre>\n                <p>after</p>", $html);
     }
+
+    public function testLowerFenceCloserReleasesTheFollowingSiblingBlock(): void
+    {
+        $source = ":: t\n: :: t\n  : :: t\n    : x\npara\n      ```\n      code\n     ```\n     ::: d\n";
+        $html = CarveConverter::create()->convert($source);
+
+        self::assertStringContainsString("<pre><code>code\n</code></pre>", $html);
+        self::assertStringContainsString("        </dl>\n        <pre><code>::: d\n</code></pre>", $html);
+    }
 }

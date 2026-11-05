@@ -38,7 +38,7 @@ final class DescriptionLazyRebaseGuard
             if ($fence !== null) {
                 $protected[$index] = true;
                 if (
-                    IndentationHelper::getLeadingColumns($head) === $fence['column']
+                    IndentationHelper::getLeadingColumns($head) <= $fence['column']
                     && $fences->isCodeFenceCloser(ltrim($head, " \t"), $fence['char'], $fence['length'])
                 ) {
                     $fence = null;
@@ -68,10 +68,10 @@ final class DescriptionLazyRebaseGuard
                     ];
                 }
             }
-            $afterLazy = false;
             while ($descriptionColumns !== [] && $column < end($descriptionColumns)) {
                 array_pop($descriptionColumns);
             }
+            $afterLazy = $afterLazy && $descriptionColumns !== [];
             if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($head, " \t"), $match) === 1) {
                 $descriptionColumns[] = $column + BlockGrammar::DEFINITION_MARKER_WIDTH + strlen($match[1]);
             }
