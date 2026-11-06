@@ -3642,6 +3642,12 @@ final class BlockContinuationScanner
             $wasInDiv,
             $closedDescriptionFence,
         );
+        if ($nextIndent === $contentIndent && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed, $description) === 1) {
+            $body = $description[2];
+            $bodyState = $this->advanceTrailingState(new TrailingBlockState(), $body, true);
+            $trailingState->openParagraph = trim($body, " \t") !== '+' && $bodyState->openParagraph;
+            $run->floorLiveParagraph = $trailingState->openParagraph;
+        }
         $i++;
 
         return true;
