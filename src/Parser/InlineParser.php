@@ -3311,6 +3311,13 @@ class InlineParser
             if ($attrEnd !== null) {
                 $attrStr = substr($text, $afterBracket + 1, $attrEnd - $afterBracket - 1);
                 if ($this->isValidInlineAttrPayload($attrStr)) {
+                    if ($this->inlineDepth >= self::MAX_INLINE_DEPTH) {
+                        return [
+                            'node' => new Text(substr($text, $pos, $attrEnd + 1 - $pos)),
+                            'pos' => $attrEnd + 1,
+                            'link_text' => $linkText,
+                        ];
+                    }
                     $span = new Span();
                     // The gating block is valid (real attributes or an
                     // empty/whitespace-only block). Apply and consume it here,
