@@ -2603,6 +2603,10 @@ final class BlockOwnershipWalk
             return false;
         }
         for ($k = $reached + 1, $count = count($this->frames); $k < $count; $k++) {
+            // An item inside a quote the line missed is no surviving container (carve#5273).
+            if ($this->frames[$k]->kind === 'quote') {
+                return false;
+            }
             if ($this->frames[$k]->kind === 'item' && $this->m['col'] === $this->frames[$k]->markerCol) {
                 for ($child = $k + 1; $child < $count; $child++) {
                     if ($this->frames[$child]->kind === 'dd') {
