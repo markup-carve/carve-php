@@ -857,6 +857,19 @@ trait BlockListMethods
                 'column' => $column,
                 'owner' => $column + ($lead[0][0] === '[' ? BlockGrammar::FOOTNOTE_BODY_COLUMN : strlen($lead[0])),
             ];
+        } elseif ($info !== null) {
+            // A marker line's span is owned by its item (carve#5274).
+            $at = strspn($raw, " \t");
+            $head = $this->listParser->markerHeadAt($raw, $at);
+            if ($head !== null && $head['name'] !== 'task' && ($raw[$head['content']] ?? '') === '%') {
+                $column = IndentationHelper::getLeadingColumns($raw);
+                $this->itemLeadSpan = [
+                    'lines' => count($lines),
+                    'index' => $index,
+                    'column' => $column,
+                    'owner' => $column + $head['content'] - $at,
+                ];
+            }
         }
 
         return $info === null ? null : $info['length'];

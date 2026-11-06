@@ -13,6 +13,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 - A blank before an unclosed comment span's payload now keeps sibling list items loose (carve#5266).
 - A blank within an open verse comment span now keeps description stanzas open and returns a quoted nested item's following line to the outer quote (carve#5267, carve#5269).
+- A comment span opened on a nested list marker line now ends at a line below that item's content column, so the lazy line after it stays in the outer item (carve#5274).
 - A missed line after a quoted empty verse span now leaves nested quotes and item-hosted quotes at the document boundary (carve#5265, carve#5268).
 
 ## [0.1.17] - 2026-11-06
