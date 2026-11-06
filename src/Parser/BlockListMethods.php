@@ -1103,12 +1103,13 @@ trait BlockListMethods
      * @param int $i Index of the first line after the `+` marker.
      * @param int $count Total line count.
      * @param int $baseIndent The list's base column.
+     * @param int|null $contentIndent The first-block host's content column when known.
      *
      * @return array{0: int, 1: array<string>, 2: array<int, int>}
      */
-    protected function collectListContinuationBlock(array $lines, int $i, int $count, int $baseIndent): array
+    protected function collectListContinuationBlock(array $lines, int $i, int $count, int $baseIndent, ?int $contentIndent = null): array
     {
-        return $this->collectListContinuationAtColumn($lines, $i, $count, $baseIndent, null);
+        return $this->collectListContinuationAtColumn($lines, $i, $count, $baseIndent, $contentIndent);
     }
 
     /**

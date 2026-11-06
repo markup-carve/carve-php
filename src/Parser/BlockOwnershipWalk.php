@@ -734,6 +734,7 @@ final class BlockOwnershipWalk
             }
             // S5: apply the line, the boundary table T of CARVE-P0-003.
             $closed = count($this->frames) - 1 - $reached;
+            $this->recordItemBoundary($at, $closed, $form);
             $reachedPath = $this->trace !== null && $closed > 0 ? $this->ownerPath($reached) : null;
             $closerPath = null;
             $closedColumn = false;
@@ -795,6 +796,13 @@ final class BlockOwnershipWalk
         );
 
         return $this->frameTextFences($result);
+    }
+
+    private function recordItemBoundary(int $at, int $closed, OwnershipForm $form): void
+    {
+        if ($closed > 0 && $form->kind === 'item') {
+            $this->closingLines[$at] = true;
+        }
     }
 
     private function recordCommentPayloadHostColumn(int $at): void
@@ -2080,7 +2088,11 @@ final class BlockOwnershipWalk
             return false;
         }
         $last = $at;
-        while ($held['item'] && $last > $held['from'] && trim($this->lines[$last - 1]) === '') {
+        while ($held['item'] && $last > $held['from']) {
+            $level = $this->levelOf($this->lines[$last - 1], $held['depth']);
+            if ($level === null || trim($level['rest']) !== '') {
+                break;
+            }
             $last--;
         }
         if ($last <= $held['from']) {

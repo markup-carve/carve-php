@@ -67,7 +67,7 @@ final class ListBlockBuilder
      * @param \Closure(\MarkupCarve\Carve\Node\Block\ListBlock, array<string>, int, int, int, int): (?int) $attachListContinuationCallback
      * @param \Closure(array<string>, int): (int) $blockQuoteExtentThroughDefinitionCallback
      * @param \Closure(string): (?string) $blockQuoteLineContentCallback
-     * @param \Closure(array<string>, int, int, int): (array{0: int, 1: array<string>, 2: array<int, int>}) $collectListContinuationBlockCallback
+     * @param \Closure(array<string>, int, int, int, int|null): (array{0: int, 1: array<string>, 2: array<int, int>}) $collectListContinuationBlockCallback
      * @param \Closure(array<string>, int, int, int, int, array<string>, array<int, int>, array<int, true>): (int) $collectMarkerLeadItemCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Block\ListBlock|\MarkupCarve\Carve\Node\Block\DefinitionList): (void) $consumeLooseKeyCallback
      * @param \Closure(array<string>, int, int): (int) $containerExtentBeforeADefinitionCallback
@@ -1315,7 +1315,7 @@ final class ListBlockBuilder
                 // consumed either way - it is never content - so the fall-
                 // through carries an EMPTY lead rather than a literal `+`.
                 [$i, $attached, $attachedLineMap] = $this->followerKeepsQuoteDepth($listItemSourceLine, $i)
-                    ? $this->collectListContinuationBlock($lines, $i, $count, $baseIndent)
+                    ? $this->collectListContinuationBlock($lines, $i, $count, $baseIndent, $lastItemAttachColumn)
                     : [$i, [], []];
                 $fallsThrough = $attached === []
                     && $this->continuationMarkerHasIndentedFollower($i, $count, $lines)
@@ -2959,12 +2959,13 @@ final class ListBlockBuilder
      * @param int $i Index of the first line after the `+` marker.
      * @param int $count Total line count.
      * @param int $baseIndent The list's base column.
+     * @param int|null $contentIndent The first-block host's content column when known.
      *
      * @return array{0: int, 1: array<string>, 2: array<int, int>}
      */
-    private function collectListContinuationBlock(array $lines, int $i, int $count, int $baseIndent): array
+    private function collectListContinuationBlock(array $lines, int $i, int $count, int $baseIndent, ?int $contentIndent = null): array
     {
-        return ($this->collectListContinuationBlockCallback)($lines, $i, $count, $baseIndent);
+        return ($this->collectListContinuationBlockCallback)($lines, $i, $count, $baseIndent, $contentIndent);
     }
 
     /**
