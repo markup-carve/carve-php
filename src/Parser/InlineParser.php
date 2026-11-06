@@ -3128,6 +3128,9 @@ class InlineParser
                 // A cross-line label cannot resolve, but remains an authored
                 // reference in the AST so lint can report the missing target.
                 $crossLineRef = strpbrk($ref, "\r\n") !== false;
+                if ($crossLineRef && ($this->inlineDepth > 1 || $linkText === '')) {
+                    return ['verbatim_end' => $refEnd + 1, 'link_text' => $linkText];
+                }
 
                 if (!$crossLineRef && str_starts_with($ref, '@')) {
                     return [
