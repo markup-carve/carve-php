@@ -9,6 +9,10 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- A missed line after a quoted empty verse span now leaves nested quotes and item-hosted quotes at the document boundary (carve#5265, carve#5268).
+
 ## [0.1.17] - 2026-11-06
 
 The block reader now follows the spec model's ownership walk (rule A) and the one attach rule for `+`. Markdown import follows CommonMark 0.31, and lint gains suppression comments and Markdown-habit rules.
