@@ -1435,8 +1435,9 @@ final class BlockOwnershipWalk
 
             return new OwnershipForm(kind: 'text', interrupts: false, kept: true);
         }
-        // A comment run is read by the paragraph builders themselves; it may reach a sibling's marker line.
-        if ($rest[0] !== '{' || str_starts_with($rest, '{%')) {
+        // A comment beginning on its owner's marker line belongs to that
+        // marker's reader; only a later opener can hold a paragraph follower.
+        if ($rest[0] !== '{' || (str_starts_with($rest, '{%') && $owner->line === $at)) {
             return null;
         }
         if ($at === $this->refusedKeptStart) {
