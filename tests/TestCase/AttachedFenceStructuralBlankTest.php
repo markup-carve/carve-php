@@ -6,7 +6,9 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -42,5 +44,14 @@ final class AttachedFenceStructuralBlankTest extends TestCase
         };
         $visit($document);
         self::assertSame([$expected], $contents);
+    }
+
+    public function testSourceLessBlockContentKeepsItsBlankPayloadLine(): void
+    {
+        $document = new Document();
+        (new BlockParser())->parseBlockContent($document, ['```', 'a', '', 'b', '```']);
+        $code = $document->getChildren()[0];
+        self::assertInstanceOf(CodeBlock::class, $code);
+        self::assertSame("a\n\nb\n", $code->getContent());
     }
 }

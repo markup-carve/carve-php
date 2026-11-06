@@ -2951,7 +2951,7 @@ class BlockParser
             // Container reassembly may append an empty sentinel when a host
             // ends at a structural boundary. It has no source line and is not
             // a literal payload line of an unclosed fence.
-            if ($payloadSourceLine < 0 && $currentLine === '') {
+            if ($openerSourceLine >= 0 && $payloadSourceLine < 0 && $currentLine === '') {
                 $i++;
 
                 continue;
