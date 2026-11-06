@@ -25,6 +25,11 @@ final class OwnershipFrame
     public int $runEnd = 0;
 
     /**
+     * A `+` attached code fence with no closer its host reaches ends at its first blank (PART 9 §17 L3).
+     */
+    public bool $endsAtBlank = false;
+
+    /**
      * @param string $kind
      * @param int $col
      * @param int $canon

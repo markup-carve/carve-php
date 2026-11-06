@@ -114,6 +114,20 @@ final class BlockOwnershipWalk
     public array $lineBlockLazyLines = [];
 
     /**
+     * Blanks that end a `+` attached code fence with no closer (PART 9 §17 L3), keyed by line index.
+     *
+     * @var array<int, true>
+     */
+    public array $attachedFenceBlankEnds = [];
+
+    /**
+     * Per fence shape, the line the last closer scan stopped at and its answer.
+     *
+     * @var array<string, array{int, bool}>
+     */
+    private array $attachedFenceScans = [];
+
+    /**
      * Lines a refused brace run's paragraph keeps as text, the run included, each to its run's first line (CARVE-P2-035).
      *
      * @var array<int, int>
@@ -341,6 +355,8 @@ final class BlockOwnershipWalk
         $this->skippedCommentLines = [];
         $this->commentColumnOwners = [];
         $this->lineBlockLazyLines = [];
+        $this->attachedFenceBlankEnds = [];
+        $this->attachedFenceScans = [];
         $this->refusedKeptLines = [];
         $this->fenceOpenerLines = [];
         $this->commentEndLines = [];
@@ -564,6 +580,11 @@ final class BlockOwnershipWalk
                 }
 
                 continue;
+            }
+            if ($inner->kind === 'fence' && !$missed && $inner->endsAtBlank && $this->m['rest'] === '') {
+                $this->attachedFenceBlankEnds[$at] = true;
+                $missed = true;
+                $reached = $innerIndex - 1;
             }
             if ($inner->kind === 'fence' && !$missed) {
                 $this->verseSpanBlankMissedOwner = $inner->lineBlock && $inner->span !== null && $inner->span[0] === '%'
@@ -801,6 +822,11 @@ final class BlockOwnershipWalk
                 $shift = $this->strippedColumn($this->src, $segment, $this->m) - $this->m['col'];
                 $this->lead($this->frames[$o]->canon, $form->kind === 'term' || $form->kind === 'dd');
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon, inHost: !$leftLineBlockSpan);
+                if ($plusFollower && $form->kind === 'fence' && $form->family === 'code' && $this->frames[$o]->kind === 'item') {
+                    $fence = $this->frames[count($this->frames) - 1];
+                    $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $fence->col;
+                    $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key);
+                }
                 // A marker opened on an off-stop tab run has its C5 columns that far right.
                 for ($k = $o + 1, $n = count($this->frames); $k < $n && $this->frames[$k]->kind !== 'quote'; $k++) {
                     if (in_array($this->frames[$k]->kind, self::BODY_FRAMES, true)) {
@@ -1277,6 +1303,37 @@ final class BlockOwnershipWalk
         }
 
         return $path;
+    }
+
+    /**
+     * Whether a closer follows the fence before a line below its host's column.
+     *
+     * A later fence of the same shape below the last scan's stop reuses its answer, so the walk stays linear.
+     */
+    private function attachedFenceClosed(int $at, OwnershipFrame $fence, string $key): bool
+    {
+        $last = $this->attachedFenceScans[$key] ?? null;
+        if ($last !== null && $last[0] > $at) {
+            return $last[1];
+        }
+        $n = count($this->lines);
+        for ($k = $at + 1; $k < $n; $k++) {
+            $line = self::indentCols($this->lines[$k]);
+            while (preg_match(self::QUOTE, $line['rest'], $q) === 1) {
+                $line = self::indentCols($q[1] ?? '');
+            }
+            if ($line['rest'] === '') {
+                continue;
+            }
+            if ($line['col'] < $fence->col) {
+                return ($this->attachedFenceScans[$key] = [$k, false])[1];
+            }
+            if ($fence->closes !== null && ($fence->closes)($line['rest'], $line['col'])) {
+                return ($this->attachedFenceScans[$key] = [$k, true])[1];
+            }
+        }
+
+        return ($this->attachedFenceScans[$key] = [$n, false])[1];
     }
 
     private function recordFenceBodyLine(int $at, OwnershipFrame $fence): void

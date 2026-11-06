@@ -218,12 +218,14 @@ final class BlockContinuationScanner
         $openCommentColumn = 0;
         $lowComment = false;
         $openDivTerm = false;
+        $attachedFenceEnded = false;
         $collectedComment = new CollectedCommentSpan();
         while ($i < $count) {
             $nextLine = $lines[$i];
             $priorSourceLine = $this->sourceLineFor($i) - 1;
             if (IndentationHelper::isBlankLine($nextLine)) {
                 $openDivTerm = false;
+                $attachedFenceEnded = $attachedFenceEnded || isset($this->state->source->attachedFenceBlankEnds[$this->sourceLineFor($i)]);
                 if ($lowComment && $openCommentLength === null) {
                     break;
                 }
@@ -379,8 +381,10 @@ final class BlockContinuationScanner
                     && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed) !== 1;
                 // The walk folded it into an open line block, whatever the payload looked like (carve#4748).
                 $lineBlockLazy = isset($this->state->source->lineBlockLazyLines[$this->sourceLineFor($i)]);
+                // The lead's `+` fence ended at its blank, so the walk's lazy line continues the paragraph after it (§17 L3).
+                $walkFoldsPastAttachedFence = $attachedFenceEnded && isset($this->state->source->lazyLines[$this->sourceLineFor($i)]);
                 if (
-                    !$lineBlockLazy && !$walkKeepsDivTerm && (!$literalQuoteLazy && (!$trailingState->openParagraph || $closedNestedFence || ($nestedFence->length > 0 && !$nestedFence->closed))
+                    !$lineBlockLazy && !$walkKeepsDivTerm && !$walkFoldsPastAttachedFence && (!$literalQuoteLazy && (!$trailingState->openParagraph || $closedNestedFence || ($nestedFence->length > 0 && !$nestedFence->closed))
                         && !$nestedLeadParagraphOpen
                         && !($trailingState->afterComment && ($trailingState->nestedColumn > 0 || $trailingState->hasOpenDiv()) && $nextIndent > $baseIndent))
                     || (!$walkKeepsDivTerm && !$isBlockQuoteLazyLine && $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
@@ -402,7 +406,7 @@ final class BlockContinuationScanner
                 // column-0 line and over a column-1 line both arrive at the
                 // nested parse as ` x`, and by then they cannot be told apart.
                 if (
-                    $bareContinuationLead
+                    $bareContinuationLead && !$walkFoldsPastAttachedFence
                     && !$this->continuationFollowerIsEligible($i)
                 ) {
                     break;
@@ -444,7 +448,7 @@ final class BlockContinuationScanner
                 // paragraph rather than the fence body.
                 $folded = str_starts_with($nextTrimmed, BlockGrammar::LAZY_FRAME)
                     ? $nextTrimmed
-                    : ($walkKeepsDivTerm || $lineBlockLazy || ($trailingState->openParagraph && $trailingState->hasLiteralDiv()) || (($this->leadBottomOpensFenceCallback)((string)($itemLines[0] ?? '')) && !$nestedLeadParagraphOpen)
+                    : ($walkKeepsDivTerm || $lineBlockLazy || ($trailingState->openParagraph && $trailingState->hasLiteralDiv()) || (($this->leadBottomOpensFenceCallback)((string)($itemLines[0] ?? '')) && !$nestedLeadParagraphOpen && !$walkFoldsPastAttachedFence)
                         ? BlockGrammar::LAZY_FRAME . $nextTrimmed
                         : ' ' . $nextTrimmed);
                 $itemLines[] = $folded;
