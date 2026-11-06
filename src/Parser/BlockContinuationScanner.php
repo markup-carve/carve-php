@@ -1175,7 +1175,8 @@ final class BlockContinuationScanner
         $view = static fn (int $at): string => $transform === null ? $lines[$at] : $transform($lines[$at]);
         while ($i < $count) {
             $first = $view($i);
-            if ($this->isBlockAttributeLine($first)) {
+            // The walk's skipped invisible lines lead the block too (CARVE-P9-067).
+            if ($this->isBlockAttributeLine($first) || isset($this->state->source->attachedPreludeLines[$this->sourceLineFor($i)])) {
                 $i++;
 
                 continue;
