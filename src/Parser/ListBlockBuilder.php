@@ -731,8 +731,23 @@ final class ListBlockBuilder
         $foldedBeforeBlank = false;
         $previous = null;
         $hasQuote = count(array_filter($item->getChildren(), static fn (Node $child): bool => $child instanceof BlockQuote)) > 0;
-        $singleBlankAfterQuote = $hasQuote && count(array_filter($itemLines, static fn (string $line): bool => $line === '')) === 1;
-        foreach ($itemLines as $line) {
+        // A blank inside a comment span is payload, not a blank between the item's blocks (PART 0 S1).
+        $spanBlanks = [];
+        if ($hasQuote) {
+            $scan = new CollectedCommentSpan();
+            $scanned = [];
+            foreach ($itemLines as $k => $line) {
+                if ($line === '' && $this->linesLeaveACommentSpanOpen($scanned, $scan)) {
+                    $spanBlanks[$k] = true;
+                }
+                $scanned[] = $line;
+            }
+        }
+        $singleBlankAfterQuote = $hasQuote && count(array_filter($itemLines, static fn (string $line): bool => $line === '')) - count($spanBlanks) === 1;
+        foreach ($itemLines as $k => $line) {
+            if (isset($spanBlanks[$k])) {
+                continue;
+            }
             if ($line === '') {
                 $foldedBeforeBlank = $foldedBeforeBlank || ($previous !== null && ($singleBlankAfterQuote || str_contains($previous, "\n")));
             } elseif ($foldedBeforeBlank) {
