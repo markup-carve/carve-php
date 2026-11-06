@@ -141,6 +141,14 @@ final class TrailingBlockStateScanner
         bool $atContentColumn,
     ): TrailingBlockState {
         $state = clone $state;
+        if ($state->quoteCommentLength !== null) {
+            if (($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn(substr($line, $at), $state->quoteCommentLength)) {
+                $state->quoteCommentLength = null;
+            }
+            $state->openParagraph = false;
+
+            return $state;
+        }
         if ($state->nestedDiv !== null) {
             $nestedResult = $this->advanceNestedDivState($state, $line);
             if ($nestedResult !== null) {
@@ -565,6 +573,7 @@ final class TrailingBlockStateScanner
             // ONE table, exactly as the unquoted spelling is. Nothing else in
             // the inner state crosses lines, because nothing else has to.
             $seed = new TrailingBlockState();
+            $seed->isQuoteInner = true;
             $seed->inTable = $wasQuotedTable;
             // THE QUOTE'S NESTED COLUMN AND NOTE BODY DO cross lines: a
             // definition at a quoted item's column is that item's, and leaves
@@ -573,6 +582,7 @@ final class TrailingBlockStateScanner
             $quoteAt = $deepestAt + $quoteWidth;
             $reachesNested = false;
             if ($previous !== null) {
+                $seed->quoteCommentLength = $previous->quoteCommentLength;
                 $seed->nestedColumn = $previous->nestedColumn;
                 $seed->inFootnoteBody = $previous->inFootnoteBody;
                 $seed->footnoteColumn = $previous->footnoteColumn;
@@ -628,6 +638,10 @@ final class TrailingBlockStateScanner
         // reason a new TrailingBlockState starts closed - an item whose
         // first line is a comment has to inherit "nothing open" from somewhere.
         if ($this->isCommentLineOrFence($line, $at)) {
+            $comment = ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn(substr($line, $at));
+            if ($state->isQuoteInner && $comment !== null) {
+                $state->quoteCommentLength = $comment['length'];
+            }
             // AT THE CONTENT COLUMN IT IS A BLOCK, and an invisible block ends
             // the paragraph exactly as a definition does - which is the rule
             // markup-carve/carve#1350 states and corpus 350-6 pins:
