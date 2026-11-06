@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node\Inline;
 
+use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Node;
 
 /**
@@ -89,6 +90,40 @@ final class UnresolvedReference
     {
         $source = self::renderedSourceOf($node);
 
-        return $source === null ? null : str_replace(["\r\n", "\r", "\n"], $softBreak, $source);
+        if ($source === null) {
+            return null;
+        }
+        if (!str_contains($source, "\n") && !str_contains($source, "\r")) {
+            return $source;
+        }
+
+        $inLineBlock = false;
+        for ($parent = $node->getParent(); $parent !== null; $parent = $parent->getParent()) {
+            if ($parent instanceof LineBlock) {
+                $inLineBlock = true;
+
+                break;
+            }
+        }
+
+        $hardBreakLines = [];
+        $pending = [$node];
+        while ($pending !== []) {
+            $current = array_pop($pending);
+            if ($current instanceof HardBreak && $current->getPos() !== null) {
+                $hardBreakLines[$current->getPos()->startLine] = true;
+            }
+            array_push($pending, ...$current->getChildren());
+        }
+
+        $position = $node->getPos();
+        $line = $position === null ? 1 : $position->startLine;
+
+        return preg_replace_callback('/\r\n|\r|\n/', static function () use (&$line, $inLineBlock, $hardBreakLines, $softBreak): string {
+            $replacement = $inLineBlock || isset($hardBreakLines[$line]) ? "\n" : $softBreak;
+            ++$line;
+
+            return $replacement;
+        }, $source);
     }
 }

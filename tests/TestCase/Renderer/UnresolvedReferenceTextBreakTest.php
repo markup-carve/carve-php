@@ -41,4 +41,19 @@ final class UnresolvedReferenceTextBreakTest extends TestCase
             self::assertSame($source, CarveConverter::create(renderer: $renderer)->convert($source));
         }
     }
+
+    public function testHardBreaksInFailedReferencesStayOnTwoLines(): void
+    {
+        foreach (
+            [
+                "::: |\n[a\nb][missing]\n:::\n" => "[a\nb][missing]\n",
+                "[a\\\nb][missing]\n" => "[a\\\nb][missing]\n",
+                "[a\nb\\\nc][missing]\n" => "[a b\\\nc][missing]\n",
+            ] as $source => $expected
+        ) {
+            foreach ([new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
+                self::assertSame($expected, CarveConverter::create(renderer: $renderer)->convert($source));
+            }
+        }
+    }
 }
