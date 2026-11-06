@@ -43,6 +43,18 @@ final class ADescriptionMarkerEndsAnItemWhoseTermClosedTest extends TestCase
                 "- - a\n    :: t\n    : u\n  > q\n      w\n: b\n",
                 "<ul>\n  <li>\n    <ul>\n      <li>a\n        <dl>\n          <dt>t</dt>\n          <dd>u</dd>\n        </dl>\n      </li>\n    </ul>\n    <blockquote><p>q\nw\n: b</p></blockquote>\n  </li>\n</ul>",
             ],
+            'a fence and a description after the term end the item (carve#5341)' => [
+                "- a\n  :: t\n  ```\n  :: x\n  ```\n  : w\n: z\n",
+                "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <pre><code>:: x\n</code></pre>\n    : w\n  </li>\n</ul>\n<p>: z</p>",
+            ],
+            'a stanza after the term ends the item' => [
+                "- a\n  :: t\n  :::\n  in\n  :::\n: z\n",
+                "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <div>\n      <p>in</p>\n    </div>\n  </li>\n</ul>\n<p>: z</p>",
+            ],
+            'a note after the term keeps the lazy line' => [
+                "- a\n  :: t\n  [^n]: note\n: z\n",
+                "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n    </dl>\n  </li>\n</ul>",
+            ],
             'a new item after the term keeps the lazy line' => [
                 "- o\n  :: t\n  - n\n: c\n",
                 "<ul>\n  <li>o\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <ul>\n      <li>n\n: c</li>\n    </ul>\n  </li>\n</ul>",

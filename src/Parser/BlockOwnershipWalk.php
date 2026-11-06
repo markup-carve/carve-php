@@ -1494,8 +1494,8 @@ final class BlockOwnershipWalk
             $frame->runEnd = $index;
         }
         $head->runEnd = $frame->runHead !== null ? $index : $index - 1;
-        // A list or quote opened after the term or description keeps its own paragraph open to lazy lines.
-        if ($frame->kind === 'item' || $frame->kind === 'quote') {
+        // A list, quote or note opened after the term or description keeps its own paragraph open to lazy lines.
+        if ($frame->kind === 'item' || $frame->kind === 'quote' || $frame->kind === 'note') {
             $this->markDescriptionLeft($index - 1, false);
         }
         $this->frames[] = $frame;
