@@ -2946,6 +2946,31 @@ class BlockParser
                 ? max(0, $openerRemoved - $payloadRemoved)
                 : 0;
             $currentLine = $this->fencedBlockParser->removeIndent($currentLine, $indentLen + $extraIndent);
+            $authoredOpener = $this->state->source->authoredLines[$openerSourceLine] ?? null;
+            $authoredPayload = $this->state->source->authoredLines[$payloadSourceLine] ?? null;
+            $previousPayload = $this->state->source->authoredLines[$payloadSourceLine - 1] ?? null;
+            // A literal `+` in a fence can flatten the next payload line in
+            // the ownership walk. Restore its authored column from the opener.
+            if (
+                $authoredOpener !== null && $authoredPayload !== null
+                && $previousPayload !== null && trim($previousPayload, " \t") === '+'
+                && IndentationHelper::getLeadingColumns($previousPayload) === IndentationHelper::getLeadingColumns($authoredOpener)
+                && IndentationHelper::getLeadingColumns($authoredPayload) > IndentationHelper::getLeadingColumns($previousPayload)
+                && isset($this->state->source->fenceBodyLines[$payloadSourceLine - 1])
+                && trim($currentLine, " \t") !== ''
+                && str_ends_with($authoredOpener, $line)
+                && str_ends_with($authoredPayload, ltrim($currentLine, " \t"))
+            ) {
+                $authoredIndent = max(
+                    0,
+                    IndentationHelper::getLeadingColumns($authoredPayload)
+                    - IndentationHelper::getLeadingColumns($authoredOpener),
+                );
+                $parsedIndent = IndentationHelper::getLeadingColumns($currentLine);
+                if ($authoredIndent > $parsedIndent) {
+                    $currentLine = str_repeat(' ', $authoredIndent - $parsedIndent) . $currentLine;
+                }
+            }
             $unindented = ltrim($currentLine, " \t");
             if (str_starts_with($unindented, BlockGrammar::LAZY_FRAME)) {
                 $currentLine = $unindented;
