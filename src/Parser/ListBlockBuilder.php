@@ -4057,7 +4057,9 @@ final class ListBlockBuilder
             : strspn($nestedLine, " \t");
 
         if ($sourceLine === $ownerPos->startLine - 1) {
-            return $contentEnd;
+            return str_ends_with($nestedLine, $nestedMarker) && $markerColumn >= $contentEnd
+                ? $markerColumn
+                : $contentEnd;
         }
 
         return $this->openingByteColumnAtVisual($nestedLine, $contentColumn, $markerColumn);
