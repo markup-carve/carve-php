@@ -849,6 +849,7 @@ class BlockParser
         $this->state->source->lineBlockLazyLines = $walk->lineBlockLazyLines;
         $this->state->source->refusedKeptLines = $walk->refusedKeptLines;
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
+        $this->state->source->commentEndLines = $walk->commentEndLines;
         $this->state->source->fenceBodyLines = $walk->fenceBodyLines;
         $this->state->source->closingLines = $walk->closingLines;
         $this->state->source->outerQuoteLines = $walk->outerQuoteLines;
