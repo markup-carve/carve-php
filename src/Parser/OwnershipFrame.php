@@ -30,7 +30,7 @@ final class OwnershipFrame
     public bool $endsAtBlank = false;
 
     /**
-     * On an item: a description in it closed and no block opened in the item since (PART 0 S4, carve#5320).
+     * On an item: a term or description in it closed and no block opened in the item since (PART 0 S4, carve#5320).
      */
     public bool $descriptionLeft = false;
 

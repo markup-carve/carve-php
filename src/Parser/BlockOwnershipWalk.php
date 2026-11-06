@@ -1398,6 +1398,9 @@ final class BlockOwnershipWalk
         ) {
             $this->frames[$owner]->last = $form->kind;
         }
+        if ($form->kind === 'term' && $this->frames[$owner]->kind === 'item') {
+            $this->frames[$owner]->descriptionLeft = true;
+        }
         $this->frames[$owner]->tableLine = $form->table ? $this->at : null;
         $o = $this->frames[$owner];
         if ($form->kind === 'fence' || $form->kind === 'colon') {
@@ -1520,7 +1523,8 @@ final class BlockOwnershipWalk
     {
         $leftDescription = false;
         for ($n = count($this->frames); $n > $count; $n--) {
-            $leftDescription = $leftDescription || $this->frames[$n - 1]->kind === 'dd' || $this->frames[$n - 1]->descriptionLeft;
+            $closing = $this->frames[$n - 1];
+            $leftDescription = $leftDescription || $closing->kind === 'dd' || $closing->last === 'term' || $closing->descriptionLeft;
             array_pop($this->frames);
         }
         if ($leftDescription) {
