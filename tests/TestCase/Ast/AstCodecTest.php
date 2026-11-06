@@ -430,8 +430,6 @@ class AstCodecTest extends TestCase
     private const AUTHORED_FORM_NOT_ON_THE_WIRE = [
         // Invisible comment-only paragraphs are omitted from the wire (carve#4799).
         '869-a-braced-comment-line-after-a-plus-is-the-attached-paragraph.crv',
-        // carve#4762, at the pin to carve c3c2f80f
-        '914-a-line-block-in-an-item-child-keeps-its-stanza-after-a-comment-or-marker-shaped-payload-3.crv',
         '926-a-quote-holding-only-braced-comments-is-not-a-caption-host.crv',
         '928-a-multi-line-paragraph-of-only-braced-comments-is-an-invisible-line.crv',
         '931-a-trailing-comment-in-a-comment-only-paragraph-ends-at-its-line-3.crv',

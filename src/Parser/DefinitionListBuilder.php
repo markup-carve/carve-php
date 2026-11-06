@@ -1778,6 +1778,9 @@ final class DefinitionListBuilder
                 || isset($this->state->source->lazyLines[$this->sourceLineFor($b->i)]))
             && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $b->lead()) !== 1
             && !$b->formABlockOpen
+            // A literal div owns physical verse lines. Joining one to the prior
+            // entry erases its residual column before line-block parsing.
+            && !$b->bodyNestedState->hasLiteralDiv()
             // A line inside a fence the walk opened is payload, not paragraph text.
             && !isset($this->state->source->fenceBodyLines[$this->sourceLineFor($b->i)])
             && $l->lastBodyKey !== null
