@@ -676,8 +676,9 @@ final class BlockOwnershipWalk
             if ($captionsQuote) {
                 $this->softLeaf = true;
             }
+            $endsMissedItem = $missed && $next !== null && $this->descriptionEndsMissedItem($at, $reached);
             $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts && !$captionsQuote && $form->kind !== 'dd'
-                && !$this->descriptionAtMissedItemMarker($reached)
+                && !$endsMissedItem
                 // A marker that a marker body owns, or that misses one, opens a list (PART 0 S3, carve#4860).
                 && !($form->kind === 'item' && $this->marksBodyList($reached))
                 && !($this->verseSpanBlankMissedOwner && $this->frames[$topIndex]->lineBlock
@@ -2685,12 +2686,25 @@ final class BlockOwnershipWalk
     }
 
     /**
+     * Whether a description-shaped line ends a missed item; collectors must not fold it into that item either (carve#5312).
+     */
+    private function descriptionEndsMissedItem(int $at, int $reached): bool
+    {
+        if ($this->m['rest'] === '' || !$this->descriptionAtMissedItemMarker($reached)) {
+            return false;
+        }
+        $this->closingLines[$at] = true;
+
+        return true;
+    }
+
+    /**
      * A description-shaped line at a surviving item's marker column ends that item (PART 0 S4).
      */
     private function descriptionAtMissedItemMarker(int $reached): bool
     {
         if (
-            in_array($this->frames[$reached]->kind, self::BODY_FRAMES, true)
+            in_array($this->frames[$reached]->kind, ['dd', 'note'], true)
             || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $this->m['rest']) !== 1
         ) {
             return false;
