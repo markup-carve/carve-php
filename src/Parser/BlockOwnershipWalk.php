@@ -276,6 +276,11 @@ final class BlockOwnershipWalk
      */
     public ?array $trace = null;
 
+    // Forms are immutable, so the two most common ones are shared.
+    private static ?OwnershipForm $blankForm = null;
+
+    private static ?OwnershipForm $textForm = null;
+
     public function __construct(
         private readonly ListParser $listParser,
         private readonly FencedBlockParser $fenced,
@@ -1549,12 +1554,14 @@ final class BlockOwnershipWalk
     private function classify(string $rest, OwnershipFrame $owner, int $col): OwnershipForm
     {
         if ($rest === '') {
-            return new OwnershipForm(kind: 'blank', interrupts: true);
+            return self::$blankForm ??= new OwnershipForm(kind: 'blank', interrupts: true);
         }
-        if (preg_match(self::QUOTE, $rest) === 1) {
+        // Each pattern below needs its own first byte; plain prose skips them all.
+        $first = $rest[0];
+        if ($first === '>' && preg_match(self::QUOTE, $rest) === 1) {
             return new OwnershipForm(kind: 'quote', interrupts: true);
         }
-        if (preg_match('/^(:{3,})(.*)$/D', $rest, $colon) === 1) {
+        if ($first === ':' && preg_match('/^(:{3,})(.*)$/D', $rest, $colon) === 1) {
             if (preg_match('/^(:{3,})[ \t]*$/D', $rest) === 1) {
                 for ($k = $this->reach; $k > 0 && $this->frames[$k]->kind === 'colon'; $k--) {
                     if ($this->frames[$k]->run === strlen($colon[1])) {
@@ -1580,7 +1587,7 @@ final class BlockOwnershipWalk
             }
         }
         if (
-            ($rest[0] === '`' || $rest[0] === '~') && preg_match('/^(`{3,}|~{3,})(.*)$/D', $rest, $fence) === 1
+            ($first === '`' || $first === '~') && preg_match('/^(`{3,}|~{3,})(.*)$/D', $rest, $fence) === 1
             && ($this->fenced->parseCodeFenceOpener($rest) !== null || $this->fenced->parseRawBlockOpener($rest) !== null)
         ) {
             $run = $fence[1];
@@ -1592,7 +1599,7 @@ final class BlockOwnershipWalk
 
             return new OwnershipForm(kind: 'fence', interrupts: true, closes: $closes, family: 'code');
         }
-        if (preg_match('/^(%{3,})(.*)$/D', $rest, $comment) === 1) {
+        if ($first === '%' && preg_match('/^(%{3,})(.*)$/D', $rest, $comment) === 1) {
             $run = strlen($comment[1]);
 
             return new OwnershipForm(
@@ -1605,13 +1612,13 @@ final class BlockOwnershipWalk
         if (str_starts_with($rest, '%%')) {
             return new OwnershipForm(kind: 'leaf', interrupts: true);
         }
-        if (preg_match('/^\[\^[^\]]+\]: +/', $rest, $note) === 1 && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $rest) === 1) {
+        if ($first === '[' && preg_match('/^\[\^[^\]]+\]: +/', $rest, $note) === 1 && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $rest) === 1) {
             return new OwnershipForm(kind: 'note', width: 2, head: strlen($note[0]), interrupts: true);
         }
         // T6: a continuation row right under a row of the owner's table is that table's line (carve#4161).
         if (
-            ($rest[0] === '|' && $this->tables->isTableRow($rest))
-            || ($rest[0] === '+' && $owner->tableLine === $this->at - 1 && $this->tables->isContinuationRow($rest))
+            ($first === '|' && $this->tables->isTableRow($rest))
+            || ($first === '+' && $owner->tableLine === $this->at - 1 && $this->tables->isContinuationRow($rest))
         ) {
             return new OwnershipForm(kind: 'leaf', interrupts: true, table: true);
         }
@@ -1642,27 +1649,27 @@ final class BlockOwnershipWalk
                 );
             }
         }
-        if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $rest) === 1) {
+        if ($first === ':' && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $rest) === 1) {
             return new OwnershipForm(kind: 'term', interrupts: true);
         }
-        if (preg_match('/^:( +)(?=[ \t]*[^ \t])/', $rest, $dd) === 1 && ($owner->last === 'term' || $owner->last === 'dd' || $owner === $this->ddSiblingOwner)) {
+        if ($first === ':' && preg_match('/^:( +)(?=[ \t]*[^ \t])/', $rest, $dd) === 1 && ($owner->last === 'term' || $owner->last === 'dd' || $owner === $this->ddSiblingOwner)) {
             $w = 1 + strlen($dd[1]);
 
             return new OwnershipForm(kind: 'dd', width: $w, head: $w, interrupts: false);
         }
         if (
-            preg_match('/^(#{1,6}) +(?=.*[^ \t\n\r])(.*)$/D', $rest) === 1
-            || preg_match(self::THEMATIC_BREAK, $rest) === 1
+            ($first === '#' && preg_match('/^(#{1,6}) +(?=.*[^ \t\n\r])(.*)$/D', $rest) === 1)
+            || (($first === '-' || $first === '*' || $first === '_') && preg_match(self::THEMATIC_BREAK, $rest) === 1)
             || ($this->isDefinition)($rest)
-            || (preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1)
-            || ($rest[0] === '{' && (($this->isAttributeLine)($rest) || $this->opensWrappedAttribute($rest, $owner)))
+            || ($first === '*' && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1)
+            || ($first === '{' && (($this->isAttributeLine)($rest) || $this->opensWrappedAttribute($rest, $owner)))
         ) {
             $this->softLeaf = $owner->kind === 'doc' && $owner->para && str_starts_with($rest, '*[')
                 && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1;
 
             return new OwnershipForm(kind: 'leaf', interrupts: true);
         }
-        if (preg_match('/^\^ +(?=.*[^ \t\n\r\f])(.*?)[ \t]*$/D', $rest) === 1) {
+        if ($first === '^' && preg_match('/^\^ +(?=.*[^ \t\n\r\f])(.*?)[ \t]*$/D', $rest) === 1) {
             // A caret line with no host above it is paragraph text (PART 9 §10 I7).
             if ($owner->last === null && $owner->kind !== 'dd') {
                 return new OwnershipForm(kind: 'text', interrupts: false);
@@ -1672,7 +1679,7 @@ final class BlockOwnershipWalk
             return new OwnershipForm(kind: 'leaf', interrupts: false, caption: true);
         }
 
-        return new OwnershipForm(kind: 'text', interrupts: false);
+        return self::$textForm ??= new OwnershipForm(kind: 'text', interrupts: false);
     }
 
     /**

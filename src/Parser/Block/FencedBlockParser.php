@@ -39,8 +39,10 @@ class FencedBlockParser
      */
     public function parseRecoveredCodeFenceOpener(string $line): ?array
     {
+        $first = $line[0] ?? '';
         if (
-            !preg_match('/^(`{3,}|~{3,}) ?([A-Za-z0-9_\-+#.\/]+)(?=[\p{Z}\t\n\x0B\f\r\x{85}\x{FEFF}"{\[\x{201C}\x{201D}])(.*)$/su', $line, $matches)
+            ($first !== '`' && $first !== '~')
+            || !preg_match('/^(`{3,}|~{3,}) ?([A-Za-z0-9_\-+#.\/]+)(?=[\p{Z}\t\n\x0B\f\r\x{85}\x{FEFF}"{\[\x{201C}\x{201D}])(.*)$/su', $line, $matches)
             || str_contains($matches[3], $matches[1])
             || $this->parseStrictCodeFenceOpener($line) !== null
         ) {
