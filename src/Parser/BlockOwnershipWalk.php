@@ -362,19 +362,7 @@ final class BlockOwnershipWalk
             $this->src = $lines[$at];
             $this->out = '';
             $this->m = self::indentCols($this->src);
-            foreach ($this->frames as $frame) {
-                if ($frame->kind === 'fence' && $frame->span !== null && $frame->span[0] === '%') {
-                    $hostColumn = 0;
-                    foreach ($this->frames as $owner) {
-                        if (in_array($owner->kind, ['item', 'dd', 'note'], true) && $owner->col <= $this->m['col']) {
-                            $hostColumn = max($hostColumn, $owner->col);
-                        }
-                    }
-                    $this->commentPayloadHostColumns[$at] = $hostColumn;
-
-                    break;
-                }
-            }
+            $this->recordCommentPayloadHostColumn($at);
             // A `+` right after the block a `+` attached reaches the same host, whose
             // frames the walk closed when it read that block where it stands.
             if ($this->attachedTo !== null && str_contains($this->src, '+')) {
@@ -807,6 +795,24 @@ final class BlockOwnershipWalk
         );
 
         return $this->frameTextFences($result);
+    }
+
+    private function recordCommentPayloadHostColumn(int $at): void
+    {
+        foreach ($this->frames as $frame) {
+            if ($frame->kind !== 'fence' || $frame->span === null || $frame->span[0] !== '%') {
+                continue;
+            }
+            $hostColumn = 0;
+            foreach ($this->frames as $owner) {
+                if (in_array($owner->kind, ['item', 'dd', 'note'], true) && $owner->col <= $this->m['col']) {
+                    $hostColumn = max($hostColumn, $owner->col);
+                }
+            }
+            $this->commentPayloadHostColumns[$at] = $hostColumn;
+
+            break;
+        }
     }
 
     /**
