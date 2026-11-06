@@ -475,6 +475,16 @@ final class BlockOwnershipWalk
 
                     continue;
                 }
+                if (
+                    $f->kind === 'item' && $f->plus !== null && $f->markerCol > 0
+                    && $this->m['col'] >= $f->markerCol
+                    && ($this->frames[$k + 1] ?? null)?->kind === 'fence'
+                    && $this->frames[$k + 1]->col <= $this->m['col']
+                ) {
+                    $reached = $k;
+
+                    continue;
+                }
                 if ($this->m['rest'] !== '' && $this->m['col'] < $f->col && !$inWrappedAttribute) {
                     // A tab past an off-stop frame column is measured in that frame (PART 9 §24 C5).
                     $stripped ??= $this->strippedColumn($this->src, $segment, $this->m);
@@ -543,6 +553,14 @@ final class BlockOwnershipWalk
             // The line right after a marker-line `+` follows it as a standalone one's does.
             $plusFollower = $afterPlus || $this->frames[count($this->frames) - 1]->plus === $at - 1;
             $afterPlus = false;
+            if (
+                $plusFollower && $reached < count($this->frames) - 1
+                && $this->frames[count($this->frames) - 1]->kind === 'item'
+                && $this->frames[count($this->frames) - 1]->markerCol > 0
+                && $this->m['col'] === $this->frames[count($this->frames) - 1]->markerCol
+            ) {
+                $reached = count($this->frames) - 1;
+            }
             $missed = $reached < count($this->frames) - 1;
             $innerIndex = count($this->frames) - 1;
             $inner = $this->frames[$innerIndex];
@@ -1336,6 +1354,9 @@ final class BlockOwnershipWalk
             return;
         }
         $fence = $this->frames[count($this->frames) - 1];
+        // The attached fence reads at the `+` host's marker column, even
+        // when that column is left of the item's ordinary content column.
+        $fence->col = $this->m['col'];
         $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $fence->col;
         $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key);
     }
