@@ -2782,7 +2782,15 @@ class BlockParser
                 $widest = max($widest, count($row->getChildren()));
             }
         }
-        $columns = array_fill(0, $widest, []);
+        $count = 0;
+        foreach (['aligns', 'valigns', 'widths'] as $key) {
+            $raw = $table->getAttribute($key);
+            if (is_string($raw)) {
+                $count = max($count, substr_count($raw, ',') + 1);
+            }
+        }
+        $count = min($count, $widest);
+        $columns = array_fill(0, $count, []);
         $fields = [
             'aligns' => ['field' => 'align', 'allowed' => ['left', 'right', 'center']],
             'valigns' => ['field' => 'valign', 'allowed' => ['top', 'middle', 'bottom']],
@@ -2794,7 +2802,7 @@ class BlockParser
             }
             foreach (explode(',', $raw) as $index => $value) {
                 $value = trim($value);
-                if ($index < $widest && in_array($value, $definition['allowed'], true)) {
+                if ($index < $count && in_array($value, $definition['allowed'], true)) {
                     $columns[$index][$definition['field']] = $value;
                 }
             }
@@ -2803,12 +2811,12 @@ class BlockParser
         if (is_string($rawWidths)) {
             foreach (explode(',', $rawWidths) as $index => $value) {
                 $width = is_numeric(trim($value)) ? (float)trim($value) : 0.0;
-                if ($index < $widest && $width > 0.0 && $width <= 100.0) {
+                if ($index < $count && $width > 0.0 && $width <= 100.0) {
                     $columns[$index]['width'] = TableWidth::fraction($value);
                 }
             }
         }
-        if (array_filter($columns) !== []) {
+        if ($count > 0) {
             $table->setColumns($columns);
         }
     }
