@@ -1753,7 +1753,9 @@ final class ListBlockBuilder
             ) {
                 // The `+` host's own column bounds the block, not the outer list's (§17 L3).
                 $hostColumn = $firstBlockOwner['kind'] === 'list' ? max($baseIndent, (int)$firstBlockOwner['column']) : $baseIndent;
-                [$end, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i, $count, $hostColumn);
+                // A `: +` host's content column bounds its attached paragraph: a list marker there interrupts it (PART 0 S4).
+                $hostContent = $firstBlockOwner['kind'] === 'description' ? self::descriptionPlusContentColumn($lines[$i - 1] ?? '') : null;
+                [$end, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i, $count, $hostColumn, $hostContent);
                 if ($hostColumn !== $baseIndent) {
                     // A line left of the host's column is no part of its block, closer-shaped or not.
                     for ($k = $i + 1; $k < $end; $k++) {
@@ -2387,6 +2389,23 @@ final class ListBlockBuilder
             $unclosedFenceBase,
             $blankBeforeDirectChildContinuation,
         );
+    }
+
+    /**
+     * The content column of a `: +` line, or null when the line is no such marker.
+     *
+     * @param string $line
+     *
+     * @return int|null
+     */
+    private static function descriptionPlusContentColumn(string $line): ?int
+    {
+        $rest = ltrim($line, " \t");
+        if (preg_match('/^:( +)\+/', $rest, $match) !== 1) {
+            return null;
+        }
+
+        return IndentationHelper::getLeadingColumns($line) + 1 + strlen($match[1]);
     }
 
     /**
