@@ -68,6 +68,21 @@ final class UnresolvedReferenceTextBreakTest extends TestCase
         }
     }
 
+    public function testVerbatimNewlineInUnresolvedImageAltSurvives(): void
+    {
+        foreach (
+            [
+                "![a `x\ny`][missing]\n" => "![a `x\ny`][missing]\n",
+                "![a\nb `x\ny`][missing]\n" => "![a b `x\ny`][missing]\n",
+                "![a ``x\ny`` z][missing]\n" => "![a ``x\ny`` z][missing]\n",
+            ] as $source => $expected
+        ) {
+            foreach ([new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
+                self::assertSame($expected, CarveConverter::create(renderer: $renderer)->convert($source));
+            }
+        }
+    }
+
     public function testPositionlessHardBreakInFailedReferenceStaysOnTwoLines(): void
     {
         $document = new Document();
