@@ -676,8 +676,7 @@ final class DefinitionListBuilder
                 $endsBody,
                 $colonHostBoundary,
                 $foldDeepParagraphLines ? $continuationColumn : null,
-                fn (string $a, int $at): bool => $this->reachesBodyColumn($a, $at, $definitionColumn, $continuationColumn)
-                    && !$this->startsNewBlock(ltrim($a, " \t"), $lines, $at),
+                fn (string $a, int $at): bool => $this->reachesBodyColumn($a, $at, $definitionColumn, $continuationColumn),
             );
             $bodyMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $bodyRawMap);
             $firstBlockAttached = true;

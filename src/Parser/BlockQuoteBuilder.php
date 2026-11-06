@@ -1061,6 +1061,14 @@ final class BlockQuoteBuilder
         if ($firstBlock) {
             $opening = $this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '';
             $origin = IndentationHelper::getLeadingColumns($opening);
+            $quoteMarker = strrpos($opening, '>');
+            $followerSource = $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '';
+            if ($quoteMarker !== false) {
+                $quoteColumn = ContinuationMarkerClassifier::columnAt($opening, $quoteMarker);
+                $sourceToLocal = IndentationHelper::getLeadingColumns($followerSource)
+                    - IndentationHelper::getLeadingColumns($lines[$i]);
+                $origin = max(0, $quoteColumn - $sourceToLocal);
+            }
             $attachmentLines = $lines;
             if ($origin > 0) {
                 for ($at = $i; $at < $count; $at++) {

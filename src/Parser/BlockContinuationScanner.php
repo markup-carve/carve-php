@@ -988,6 +988,7 @@ final class BlockContinuationScanner
                     $paragraphFoldColumn !== null && $attachedKind === BlockGrammar::ATTACHED_PARAGRAPH
                     && IndentationHelper::getLeadingColumns($line) >= $paragraphFoldColumn
                     && !$this->isCommentLineOrFence($line)
+                    && !$this->startsNewBlock(ltrim($line, " \t"), $lines, $index)
                 ) {
                     $foldedLines[$index] = true;
                     $attachedState = $this->advanceTrailingState($attachedState, 'text');
