@@ -2080,7 +2080,11 @@ final class BlockOwnershipWalk
             return false;
         }
         $last = $at;
-        while ($held['item'] && $last > $held['from'] && trim($this->lines[$last - 1]) === '') {
+        while ($held['item'] && $last > $held['from']) {
+            $level = $this->levelOf($this->lines[$last - 1], $held['depth']);
+            if ($level === null || trim($level['rest']) !== '') {
+                break;
+            }
             $last--;
         }
         if ($last <= $held['from']) {
