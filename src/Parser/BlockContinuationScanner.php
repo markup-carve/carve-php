@@ -954,11 +954,13 @@ final class BlockContinuationScanner
         $foldedLines = [];
         // Index past the closer of a comment span the block took; a comment span is kept whole.
         $commentThrough = -1;
+        // Last index of an attached quote's lazy extent, read once from its first line, or null.
+        $quoteEnd = null;
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough): bool {
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd): bool {
                 if ($index < $commentThrough) {
                     return false;
                 }
@@ -987,6 +989,8 @@ final class BlockContinuationScanner
                 }
                 if (
                     ($index !== $refusedFollower && $this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState))
+                    // An unmarked line continues an attached quote only within its lazy extent (PART 1 S4).
+                    || ($quoteEnd !== null && $index > $quoteEnd && !str_starts_with(ltrim($line, " \t"), '>'))
                     // In a note or description an invisible line ends the attached paragraph, or a container it stands left of (PART 9 §10 I5).
                     || (
                         $invisibleLineEndsParagraph && $attachedState->fence === null && !$attachedState->hasOpenDiv()
@@ -1003,8 +1007,12 @@ final class BlockContinuationScanner
                     $pendingThrough = -1;
                     $attachedState = new TrailingBlockState();
                     $bodyColumn = null;
+                    $quoteEnd = null;
                 }
                 $attachedKind = $this->advanceAttachedKind($attachedKind, $pendingThrough, $line, $lines, $index);
+                if ($quoteEnd === null && $attachedKind === BlockGrammar::ATTACHED_SPANNING . ':quote') {
+                    $quoteEnd = ($this->getBlockQuoteBuilder)()->blockQuoteLazyExtentEnd($lines, $index);
+                }
                 $attachedState = $this->advanceTrailingState($attachedState, $line);
                 if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $line, $body) === 1) {
                     $bodyColumn = 1 + strlen($body[1]);
