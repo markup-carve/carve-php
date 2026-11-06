@@ -128,9 +128,10 @@ final class BlockOwnershipWalk
     public array $fenceOpenerLines = [];
 
     /**
-     * Lines that ended an open `%%%` span by missing its owner (PART 0 S1), keyed by line index.
+     * Lines that ended an open `%%%` span by missing its owner (PART 0 S1), keyed by line index,
+     * to the span's opener line and delimiter width.
      *
-     * @var array<int, true>
+     * @var array<int, array{0: int, 1: int}>
      */
     public array $commentEndLines = [];
 
@@ -623,8 +624,9 @@ final class BlockOwnershipWalk
             $leftLineBlockSpan = $inner->kind === 'fence' && $inner->lineBlock && $inner->span !== null && $inner->span[0] === '%';
             if ($inner->kind === 'fence' && !($inner->lineBlock && $inner->para && $this->m['rest'] !== '')) {
                 array_pop($this->frames);
-                if ($inner->family === 'comment' && $this->m['rest'] !== '') {
-                    $this->commentEndLines[$at] = true;
+                $opener = $inner->opened ?? $inner->line;
+                if ($inner->family === 'comment' && $this->m['rest'] !== '' && $opener !== null && preg_match('/%{3,}/', $lines[$opener] ?? '', $run) === 1) {
+                    $this->commentEndLines[$at] = [$opener, strlen($run[0])];
                 }
             }
             // S3: the line's form, the record's `form` field.

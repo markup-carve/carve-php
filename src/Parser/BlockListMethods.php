@@ -840,7 +840,7 @@ trait BlockListMethods
         ) {
             // A line that misses the body ends the span (PART 0 S1, carve#4998).
             $openLength = null;
-        } elseif ($openLength !== null && isset($this->state->source->commentEndLines[$this->sourceLineFor($index)])) {
+        } elseif ($openLength !== null && $this->walkEndedOpenSpan($openLength, $lines, $index)) {
             // The walk ended the span at a line that missed its owner (PART 0 S1).
             $openLength = null;
         }
@@ -885,6 +885,30 @@ trait BlockListMethods
         }
 
         return $info === null ? null : $info['length'];
+    }
+
+    /**
+     * Whether the walk ended, at this line, the span this tracker holds open: one of the same width
+     * whose opener this collector read, not a span of a container nested in it.
+     *
+     * @param int $openLength
+     * @param array<string> $lines
+     * @param int $index
+     */
+    private function walkEndedOpenSpan(int $openLength, array $lines, int $index): bool
+    {
+        $end = $this->state->source->commentEndLines[$this->sourceLineFor($index)] ?? null;
+        if ($end === null || $end[1] !== $openLength) {
+            return false;
+        }
+        for ($k = $index - 1; $k >= 0 && isset($lines[$k]); $k--) {
+            if ($this->sourceLineFor($k) === $end[0]) {
+                // An opener behind a quote marker is the quote's span, not this collector's.
+                return !str_starts_with(ltrim($lines[$k], " \t"), '>') && str_contains($lines[$k], str_repeat('%', $openLength));
+            }
+        }
+
+        return false;
     }
 
     /**
