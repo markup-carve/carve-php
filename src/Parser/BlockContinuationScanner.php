@@ -1588,10 +1588,11 @@ final class BlockContinuationScanner
                 && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($nextLine, " \t")) === 1
             ) {
                 $authoredColumn = IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
-                    $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
+                    $this->state->source->authoredLines[$this->sourceLineFor($i)]
+                        ?? $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 ), $itemContentColumn);
                 if (
-                    $authoredColumn < $itemContentColumn
+                    $authoredColumn < $itemMarkerColumn + $contentIndent - $baseIndent
                     && ($authoredColumn > $itemMarkerColumn || isset($this->state->source->lazyLines[$this->sourceLineFor($i)]))
                 ) {
                     $lines[$i] = str_repeat(' ', $contentIndent) . BlockGrammar::LAZY_FRAME . ltrim($nextLine, " \t");
