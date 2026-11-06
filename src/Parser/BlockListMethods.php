@@ -25,7 +25,7 @@ trait BlockListMethods
     /**
      * The span a description or note lead opened: its line set, opener line and body column.
      *
-     * @var array{lines: int, index: int, column: int, owner: int}|null
+     * @var array{lines: int, index: int, column: int, owner: int, hosts?: array<int, int>}|null
      */
     private ?array $itemLeadSpan = null;
 
@@ -832,7 +832,8 @@ trait BlockListMethods
         $leadSpan = $this->itemLeadSpan;
         $raw = $lines[$index] ?? $line;
         if (
-            $openLength !== null && $leadSpan !== null && $leadSpan['column'] === $hostColumn
+            $openLength !== null && $leadSpan !== null
+            && ($leadSpan['column'] === $hostColumn || in_array($hostColumn, $leadSpan['hosts'] ?? [], true))
             && $leadSpan['lines'] === count($lines) && $leadSpan['index'] < $index
             && !IndentationHelper::isBlankLine($raw) && !str_starts_with(ltrim($raw, " \t"), '%%')
             && IndentationHelper::getLeadingColumns($raw) < $leadSpan['owner']
@@ -860,14 +861,22 @@ trait BlockListMethods
         } elseif ($info !== null) {
             // A marker line's span is owned by its item (carve#5274).
             $at = strspn($raw, " \t");
+            $column = IndentationHelper::getLeadingColumns($raw);
             $head = $this->listParser->markerHeadAt($raw, $at);
+            // Markers stacked on one line (`- - %%%`): the innermost item owns the span, and each
+            // stacked marker stands at the content column of a collector that hosts it.
+            $hosts = [];
+            while ($head !== null && $head['name'] !== 'task' && ($raw[$head['content']] ?? '') !== '%') {
+                $hosts[] = $column + $head['content'] - $at;
+                $head = $this->listParser->markerHeadAt($raw, $head['content']);
+            }
             if ($head !== null && $head['name'] !== 'task' && ($raw[$head['content']] ?? '') === '%') {
-                $column = IndentationHelper::getLeadingColumns($raw);
                 $this->itemLeadSpan = [
                     'lines' => count($lines),
                     'index' => $index,
                     'column' => $column,
                     'owner' => $column + $head['content'] - $at,
+                    'hosts' => $hosts,
                 ];
             }
         }
