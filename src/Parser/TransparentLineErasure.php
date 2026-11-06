@@ -51,6 +51,57 @@ trait TransparentLineErasure
     private ?array $transparentInjection = null;
 
     /**
+     * When root prose and its comment runs are separated by blank lines, an
+     * authored parse already has the visible layout. No erased line can join
+     * two paragraphs. This proof deliberately rejects every structural opener
+     * and leaves those documents to the ownership based erasure path.
+     *
+     * @param array<int, string> $lines
+     */
+    private function rootCommentsNeedNoErasure(array $lines): bool
+    {
+        $fence = false;
+        $afterComment = false;
+        $foundComment = false;
+        foreach ($lines as $line) {
+            if ($line === '%%%') {
+                if ($afterComment) {
+                    return false;
+                }
+                $fence = !$fence;
+
+                continue;
+            }
+            if ($fence) {
+                if (str_starts_with($line, '%%%')) {
+                    return false;
+                }
+
+                continue;
+            }
+            if ($line === '') {
+                $afterComment = false;
+
+                continue;
+            }
+            if (str_starts_with($line, '%%') && !str_starts_with($line, '%%%')) {
+                if (preg_match(self::TRANSPARENT_REGION_MARKER, $line) === 1) {
+                    return false;
+                }
+                $afterComment = true;
+                $foundComment = true;
+
+                continue;
+            }
+            if ($afterComment || preg_match('/^[A-Za-z]/', $line) !== 1 || preg_match('/^[A-Za-z][.)][ \t]/', $line) === 1) {
+                return false;
+            }
+        }
+
+        return $foundComment;
+    }
+
+    /**
      * Authored line indexes the ownership walk leaves to an erasable leaf.
      *
      * @param array<int, string> $lines

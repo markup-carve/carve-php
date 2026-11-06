@@ -817,7 +817,9 @@ class BlockParser
             $input = substr($input, 3);
         }
         $lines = $this->splitLines($input);
-        if ($transparent) {
+        $rootProse = $transparent && !$this->state->source->trackPositions && !$this->traceNext
+            && str_contains($input, '%%') && $this->rootCommentsNeedNoErasure($lines);
+        if ($transparent && !$rootProse) {
             $erased = $this->transparentErasedLines($lines, $input);
             if ($erased !== []) {
                 return $this->parseTransparentDocument($this->state->source->originalSource, $erased, $sourceLength);
@@ -830,7 +832,9 @@ class BlockParser
         $this->traceNext = false;
         $plusLetter = PlusLetter::for($input);
         $this->state->session->plusLetter = $plusLetter;
-        $lines = $walk->own($lines, $plusLetter);
+        if (!$rootProse) {
+            $lines = $walk->own($lines, $plusLetter);
+        }
         $this->skippedAbbreviations = $walk->skippedAbbreviations;
         $this->syntheticAbbreviationLines = array_fill_keys(array_keys($walk->skippedAbbreviations), true);
         if ($walk->trace !== null) {
@@ -866,8 +870,10 @@ class BlockParser
         // collects: metadata disappearing is the unsafe failure mode.
 
         // First pass: extract reference definitions, footnotes, abbreviations, and heading references
-        $this->extractDefinitions($lines, $input);
-        if ($this->needsStructuredHeadingIndex($input)) {
+        if (!$rootProse) {
+            $this->extractDefinitions($lines, $input);
+        }
+        if (!$rootProse && $this->needsStructuredHeadingIndex($input)) {
             $this->indexHeadingsFromStructure($lines);
         } elseif ($this->collectWarnings && str_contains($input, '](#')) {
             $this->extractHeadingReferences($lines);
