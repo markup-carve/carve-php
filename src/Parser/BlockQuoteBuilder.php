@@ -545,6 +545,14 @@ final class BlockQuoteBuilder
                 $innerLineMap[] = $lazySourceLine;
                 $this->state->session->blockQuoteLazySourceLines[$lazySourceLine] = true;
                 $i++;
+            } elseif (isset($this->state->source->outerQuoteLines[$this->sourceLineFor($i)])) {
+                // The marked blank ended the nested item span. The unmarked
+                // follower is a paragraph of this still-open outer quote.
+                $innerLines[] = $currentLine;
+                $lazySourceLine = $this->sourceLineFor($i);
+                $innerLineMap[] = $lazySourceLine;
+                $this->state->session->blockQuoteLazySourceLines[$lazySourceLine] = true;
+                $i++;
             } elseif (
                 ($lazyState['paragraphOpen'] || $this->quotedNestedLineBlockOpen($innerLines, $nestedLineBlock))
                 && !$this->walkOwnsElsewhere($i, $currentLine)

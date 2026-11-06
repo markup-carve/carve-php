@@ -117,6 +117,11 @@ final class BlockSourceState
     public array $closingLines = [];
 
     /**
+     * @var array<int, true>
+     */
+    public array $outerQuoteLines = [];
+
+    /**
      * The host of every lone `+` the ownership walk accepted, by line index.
      *
      * @var array<int, array{kind: string, column: int, depth: int, content: int, first: bool, list: int|null, note: int|null}>

@@ -851,6 +851,7 @@ class BlockParser
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
         $this->state->source->fenceBodyLines = $walk->fenceBodyLines;
         $this->state->source->closingLines = $walk->closingLines;
+        $this->state->source->outerQuoteLines = $walk->outerQuoteLines;
         $this->state->source->frontmatter = $walk->frontmatter;
         $this->state->source->plusHosts = $walk->plusHosts;
         $this->state->source->refusedPlus = $walk->refusedPlus;
