@@ -676,11 +676,7 @@ final class BlockOwnershipWalk
             if ($captionsQuote) {
                 $this->softLeaf = true;
             }
-            $endsMissedItem = $missed && $next !== null && $this->m['rest'] !== '' && $this->descriptionAtMissedItemMarker($reached);
-            // Collectors must not fold it into the item it ends either (carve#5312).
-            if ($endsMissedItem) {
-                $this->closingLines[$at] = true;
-            }
+            $endsMissedItem = $missed && $next !== null && $this->descriptionEndsMissedItem($at, $reached);
             $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts && !$captionsQuote && $form->kind !== 'dd'
                 && !$endsMissedItem
                 // A marker that a marker body owns, or that misses one, opens a list (PART 0 S3, carve#4860).
@@ -2687,6 +2683,19 @@ final class BlockOwnershipWalk
         }
 
         return false;
+    }
+
+    /**
+     * Whether a description-shaped line ends a missed item; collectors must not fold it into that item either (carve#5312).
+     */
+    private function descriptionEndsMissedItem(int $at, int $reached): bool
+    {
+        if ($this->m['rest'] === '' || !$this->descriptionAtMissedItemMarker($reached)) {
+            return false;
+        }
+        $this->closingLines[$at] = true;
+
+        return true;
     }
 
     /**
