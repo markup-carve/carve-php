@@ -31,4 +31,16 @@ final class CrossLineUnresolvedReferenceTest extends TestCase
         self::assertCount(1, $findings);
         self::assertSame([1, 1], [$findings[0]->line, $findings[0]->column]);
     }
+
+    public function testLiteralOuterReferenceDoesNotLintNestedReference(): void
+    {
+        $warnings = (new DocumentLinter())->lint("[[x][missing]][a\nb]\n");
+        $findings = array_values(array_filter(
+            $warnings,
+            static fn ($warning): bool => $warning->rule === 'unresolved-reference-link',
+        ));
+
+        self::assertCount(1, $findings);
+        self::assertSame([1, 1], [$findings[0]->line, $findings[0]->column]);
+    }
 }

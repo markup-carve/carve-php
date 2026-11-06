@@ -105,7 +105,24 @@ class ReferenceLinter
                 $usedIds[$explicit] = true;
             }
         }
+        $literalReferenceSpans = [];
         foreach ($nodes as $node) {
+            if ($node instanceof Link && strpbrk($node->getReferenceLabel() ?? '', "\r\n") !== false && UnresolvedReference::sourceOf($node) !== null && $node->getPos() !== null) {
+                $literalReferenceSpans[] = $node->getPos();
+            }
+        }
+        foreach ($nodes as $node) {
+            $nodePos = $node->getPos();
+            if ($nodePos !== null) {
+                foreach ($literalReferenceSpans as $span) {
+                    if (
+                        $nodePos->startOffset >= $span->startOffset && $nodePos->endOffset <= $span->endOffset
+                        && ($nodePos->startOffset !== $span->startOffset || $nodePos->endOffset !== $span->endOffset)
+                    ) {
+                        continue 2;
+                    }
+                }
+            }
             if ($node instanceof HeadingRef && $node->getHref() === null) {
                 $target = $node->getTargetId();
                 $caseOnly = $tracker->idsDifferingOnlyInCase($target);
