@@ -1063,7 +1063,7 @@ final class BlockQuoteBuilder
             $origin = IndentationHelper::getLeadingColumns($opening);
             $quoteMarker = strrpos($opening, '>');
             $followerSource = $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '';
-            if ($quoteMarker !== false && isset($lines[$i])) {
+            if ($quoteMarker !== false) {
                 $quoteColumn = ContinuationMarkerClassifier::columnAt($opening, $quoteMarker);
                 $sourceToLocal = IndentationHelper::getLeadingColumns($followerSource)
                     - IndentationHelper::getLeadingColumns($lines[$i]);
