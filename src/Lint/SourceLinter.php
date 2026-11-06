@@ -358,7 +358,7 @@ class SourceLinter
             $title = preg_match('/^:{3,}[ \t]+[A-Za-z_][\w-]*[ \t]+([^"\[ \t].*)$/', ltrim($text));
             $emit($pos->startLine, $at, $title ? strlen($view) : (str_starts_with($view, ':') ? strspn($view, ':') : 2), $title ? 'fence-title-syntax' : 'block-marker-as-text', $title ? 'A fence title must use straight double quotes; put attributes on a separate preceding line.' : 'This block-shaped marker parsed as text. Check its syntax and container indentation.');
         }
-        $this->lintContainerFences($fences, $rows, $rowCount, $fenceParser, $onRecoveredContainerMetadata, $emit);
+        $this->lintContainerFences($fences, $rows, $rowCount, $ignored, $fenceParser, $onRecoveredContainerMetadata, $emit);
         $this->lintDeclaredVersion($source, $rows, $emit);
         usort($warnings, static fn (LintWarning $a, LintWarning $b): int => $a->start <=> $b->start);
 
@@ -462,12 +462,14 @@ class SourceLinter
      * @param callable|null $onRecoveredContainerMetadata
      * @param \MarkupCarve\Carve\Parser\Block\FencedBlockParser $fenceParser
      * @param int $rowCount
+     * @param array<int, bool> $ignored
      * @param callable(int, int, int, string, string): void $emit
      */
     private function lintContainerFences(
         array $fences,
         array $rows,
         int $rowCount,
+        array $ignored,
         FencedBlockParser $fenceParser,
         ?callable $onRecoveredContainerMetadata,
         callable $emit,
@@ -482,6 +484,8 @@ class SourceLinter
                     continue;
                 }
                 if (
+                    !isset($ignored[$i + 1])
+                    &&
                     rtrim($view) === str_repeat(':', $fence['width'])
                     && strlen($rows[$i][0]) - strlen($view) === $fence['column']
                     && !isset($claimed[$i])
