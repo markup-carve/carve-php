@@ -1494,7 +1494,10 @@ final class BlockOwnershipWalk
             $frame->runEnd = $index;
         }
         $head->runEnd = $frame->runHead !== null ? $index : $index - 1;
-        $this->markDescriptionLeft($index - 1, false);
+        // A list or quote opened after the term or description keeps its own paragraph open to lazy lines.
+        if ($frame->kind === 'item' || $frame->kind === 'quote') {
+            $this->markDescriptionLeft($index - 1, false);
+        }
         $this->frames[] = $frame;
     }
 
@@ -1503,6 +1506,9 @@ final class BlockOwnershipWalk
         for ($k = $from; $k > 0; $k--) {
             if ($this->frames[$k]->kind === 'item') {
                 $this->frames[$k]->descriptionLeft = $left;
+                if (!$left) {
+                    $this->frames[$k]->hasDefinition = false;
+                }
 
                 return;
             }
