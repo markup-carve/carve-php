@@ -3710,7 +3710,12 @@ final class BlockContinuationScanner
         // rather than as the separator §17 L1 decides looseness from, and
         // the item came out TIGHT where every other reader says LOOSE.
         if ($run->openCommentLength !== null) {
+            $openBefore = $run->openCommentLength;
             $run->openCommentLength = $this->advanceItemCommentFence($run->openCommentLength, $nextTrimmed, $lines, $i);
+            // A line that ended the span by missing its owner is no closer, and it misses the item too (PART 0 S1).
+            if ($run->openCommentLength === null && !($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($nextTrimmed, $openBefore)) {
+                return false;
+            }
             // A CLOSER LEAVES THE SPAN'S OWN STATE, NOT THIS COLUMN'S. The
             // body and closer travel with the opener (`CARVE-P9-053`) and
             // the run closes the span at any column (`CARVE-P0-013`), so

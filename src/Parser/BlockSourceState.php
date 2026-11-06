@@ -98,6 +98,13 @@ final class BlockSourceState
     public array $fenceOpenerLines = [];
 
     /**
+     * Lines the ownership walk ended an open `%%%` span on because they missed its owner (PART 0 S1).
+     *
+     * @var array<int, true>
+     */
+    public array $commentEndLines = [];
+
+    /**
      * Top-level payload and closer lines of a code or raw fence the ownership walk opened.
      *
      * @var array<int, true>

@@ -128,6 +128,13 @@ final class BlockOwnershipWalk
     public array $fenceOpenerLines = [];
 
     /**
+     * Lines that ended an open `%%%` span by missing its owner (PART 0 S1), keyed by line index.
+     *
+     * @var array<int, true>
+     */
+    public array $commentEndLines = [];
+
+    /**
      * Payload and closer lines of a code or raw fence the walk opened, keyed by line index.
      *
      * @var array<int, true>
@@ -335,6 +342,7 @@ final class BlockOwnershipWalk
         $this->lineBlockLazyLines = [];
         $this->refusedKeptLines = [];
         $this->fenceOpenerLines = [];
+        $this->commentEndLines = [];
         $this->fenceBodyLines = [];
         $this->refusedPlus = [];
         $this->letterPlus = [];
@@ -615,6 +623,9 @@ final class BlockOwnershipWalk
             $leftLineBlockSpan = $inner->kind === 'fence' && $inner->lineBlock && $inner->span !== null && $inner->span[0] === '%';
             if ($inner->kind === 'fence' && !($inner->lineBlock && $inner->para && $this->m['rest'] !== '')) {
                 array_pop($this->frames);
+                if ($inner->family === 'comment' && $this->m['rest'] !== '') {
+                    $this->commentEndLines[$at] = true;
+                }
             }
             // S3: the line's form, the record's `form` field.
             $form = $this->classifyLine($this->m['rest'], $this->frames[$reached], $this->m['col']);

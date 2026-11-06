@@ -840,6 +840,9 @@ trait BlockListMethods
         ) {
             // A line that misses the body ends the span (PART 0 S1, carve#4998).
             $openLength = null;
+        } elseif ($openLength !== null && isset($this->state->source->commentEndLines[$this->sourceLineFor($index)])) {
+            // The walk ended the span at a line that missed its owner (PART 0 S1).
+            $openLength = null;
         }
         if ($openLength !== null) {
             // The walk opened a span here: a line that missed the open span's owner ended it (PART 0 S1).
