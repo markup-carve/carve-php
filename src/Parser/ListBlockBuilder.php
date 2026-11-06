@@ -2199,8 +2199,10 @@ final class ListBlockBuilder
                 ) {
                     break;
                 }
+                // The walk's lazy line continues a paragraph that ended an unclosed nested fence's item (PART 0 S4).
                 if (
-                    (!$subTrailingState->openParagraph || isset($this->state->source->closingLines[$this->sourceLineFor($i)]))
+                    ((!$subTrailingState->openParagraph && !isset($this->state->source->lazyLines[$this->sourceLineFor($i)]))
+                        || isset($this->state->source->closingLines[$this->sourceLineFor($i)]))
                     && (
                         !$subTrailingState->inDiv
                         || $subTrailingState->hasLiteralDiv()
@@ -2266,7 +2268,7 @@ final class ListBlockBuilder
                 // fold into (markup-carve/carve#950, corpus row 2 -
                 // written at column 1 precisely because the broken
                 // readings differed between the two columns).
-                if ($subTrailingState->fence !== null) {
+                if ($subTrailingState->fence !== null && !isset($this->state->source->lazyLines[$this->sourceLineFor($i)])) {
                     break;
                 }
                 // A description-shaped line here opens nothing in the surviving
@@ -2336,12 +2338,13 @@ final class ListBlockBuilder
                 // there, and the wider invisible set here, because that
                 // set is what corpus 517's tightness half is decided from
                 // and moving it needs that half moved with it.
+                $walkLazy = isset($this->state->source->lazyLines[$this->sourceLineFor($i)]);
                 if (
-                    !$sawBlankLine
-                    && (
-                        $subTrailingState->openParagraph
-                        || $subTrailingState->afterComment
-                    )
+                    ($walkLazy || (!$sawBlankLine
+                        && (
+                            $subTrailingState->openParagraph
+                            || $subTrailingState->afterComment
+                        )))
                     && !$this->isBlockElementStart($trimmedLine, $lines, $i)
                     && !$this->startsNewBlock($trimmedLine, $lines, $i)
                 ) {
