@@ -2614,6 +2614,12 @@ final class BlockContinuationScanner
             }
         }
         if (
+            $run->pendingDefinitionTerm && $nextIndent > $contentIndent && $trailingState->fence === null
+            && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed) !== 1
+        ) {
+            $run->termEntryEnded = true;
+        }
+        if (
             $nextIndent === $contentIndent
             && $trailingState->fence === null
             && !$trailingState->hasOpenDiv()
@@ -2621,13 +2627,14 @@ final class BlockContinuationScanner
         ) {
             if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextTrimmed)) {
                 $run->pendingDefinitionTerm = true;
+                $run->termEntryEnded = false;
                 $run->openTermColumn = $nextIndent;
                 $run->termCodeTailEligible = true;
                 $run->pendingTermFence = null;
                 $run->definitionBodyHasTerm = false;
             } elseif ($run->pendingDefinitionTerm && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed)) {
                 $run->pendingDefinitionTerm = false;
-                $run->definitionBodyHasTerm = true;
+                $run->definitionBodyHasTerm = !$run->termEntryEnded;
             } elseif (
                 $run->pendingDefinitionTerm && (
                     preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed)

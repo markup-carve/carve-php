@@ -189,6 +189,11 @@ final class PlainContinuationState
 
     public bool $definitionBodyHasTerm = false;
 
+    /**
+     * A deeper line after the pending term ended its entry, so a later `: ` line is no description of it (carve#5289).
+     */
+    public bool $termEntryEnded = false;
+
     public ?int $recentDefinitionBodyColumn = null;
 
     public bool $recentDefinitionParagraph = false;
