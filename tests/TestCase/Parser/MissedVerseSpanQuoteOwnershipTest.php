@@ -32,9 +32,9 @@ final class MissedVerseSpanQuoteOwnershipTest extends TestCase
                 "- > ::: |\n  > x\n  > \n  > %%%\n  > hidden\nb\n",
                 '<ul><li><blockquote><div class="line-block"><p>x</p></div></blockquote></li></ul><p>b</p>',
             ],
-            'description still owns the follower' => [
+            'description releases the follower' => [
                 ":: t\n: > ::: |\n  > %%%\n  > hidden\nb\n",
-                '<dl><dt>t</dt><dd><blockquote><div class="line-block"></div></blockquote><p>b</p></dd></dl>',
+                '<dl><dt>t</dt><dd><blockquote><div class="line-block"></div></blockquote></dd></dl><p>b</p>',
             ],
         ];
     }
