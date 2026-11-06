@@ -685,13 +685,22 @@ trait BlockColonMethods
         $commentInfo = !$literal || IndentationHelper::getLeadingColumns($line) <= 3
             ? $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line)
             : $this->fencedBlockParser->parseFencedCommentOpener($line);
-        if ($commentInfo === null || !$this->hasClosingCommentFenceAhead($line, $lines, $start)) {
+        if (
+            $commentInfo === null || !$this->hasClosingCommentFenceAhead($line, $lines, $start)
+            // The closer of a span opened on a marker line above opens nothing (carve#5298).
+            || isset($this->state->source->commentCloserLines[$this->sourceLineFor($start)])
+        ) {
             return null;
         }
 
+        $opener = $this->sourceLineFor($start);
         for ($i = $start; $i < $count; $i++) {
             // A lazy line missed the span's owner, so S1 ends the span before it (carve#4956).
             if ($i > $start && (str_starts_with($lines[$i], BlockGrammar::LAZY_FRAME) || isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]))) {
+                return $i;
+            }
+            // So does a line the walk ended this span on, such as the container's own closer (carve#5298).
+            if ($i > $start && ($this->state->source->commentEndLines[$this->sourceLineFor($i)][0] ?? null) === $opener) {
                 return $i;
             }
             $innerLines[] = $lines[$i];
