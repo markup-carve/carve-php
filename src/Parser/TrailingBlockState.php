@@ -31,6 +31,13 @@ final class TrailingBlockState
     public ?int $literalCommentLength = null;
 
     /**
+     * Length of a comment span open in this quote's own content.
+     */
+    public ?int $quoteCommentLength = null;
+
+    public bool $isQuoteInner = false;
+
+    /**
      * Column, from the tracked container's content, of the footnote definition whose body is open.
      */
     public int $footnoteColumn = 0;
