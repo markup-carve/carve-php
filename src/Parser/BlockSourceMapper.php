@@ -783,6 +783,43 @@ final class BlockSourceMapper
         );
     }
 
+    /**
+     * An empty definition owns only its opener, even if collected body lines were hoisted.
+     */
+    public function endEmptyFootnoteDefinitionAtOpener(string $label): void
+    {
+        $span = $this->state->session->footnoteDefinitionSpans[$label] ?? null;
+        if ($span === null) {
+            return;
+        }
+        $lineIndex = $span->startLine - 1;
+        $line = $this->state->source->authoredLines[$lineIndex] ?? null;
+        $lineStart = $this->state->source->lineStartOffsets[$lineIndex] ?? null;
+        if ($line === null || $lineStart === null) {
+            return;
+        }
+        $endByte = $lineStart + strlen($line);
+        $end = $this->state->source->positionIndex?->span(
+            $endByte,
+            $endByte,
+            $span->startLine,
+            $span->startLine,
+            $lineStart,
+            $lineStart,
+        );
+        if ($end === null) {
+            return;
+        }
+        $this->state->session->footnoteDefinitionSpans[$label] = new SourceSpan(
+            startLine: $span->startLine,
+            endLine: $span->startLine,
+            startColumn: $span->startColumn,
+            endColumn: $end->endColumn,
+            startOffset: $span->startOffset,
+            endOffset: $end->endOffset,
+        );
+    }
+
     public function wholeLineSpan(int $index): ?SourceSpan
     {
         if (!$this->state->source->trackPositions) {
