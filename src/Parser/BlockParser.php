@@ -3138,7 +3138,7 @@ class BlockParser
                                 $raw = $unindented;
                             }
                         }
-                        $hostColumn = $this->state->source->attachedPreludeContentColumns[$physical] ?? $openerColumn;
+                        $hostColumn = min($openerColumn, $this->state->source->attachedPreludeContentColumns[$physical] ?? $openerColumn);
                         $raw = IndentationHelper::stripLeadingColumns($raw, $hostColumn);
                         $restored[] = $raw;
                         if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($raw, $opener['length'])) {

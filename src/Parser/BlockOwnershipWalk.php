@@ -805,7 +805,7 @@ final class BlockOwnershipWalk
             }
             $hostColumn = 0;
             foreach ($this->frames as $owner) {
-                if (in_array($owner->kind, ['item', 'dd', 'note'], true) && $owner->col <= $this->m['col']) {
+                if (in_array($owner->kind, ['item', 'dd', 'note'], true) && $owner->col <= $frame->col && $owner->col <= $this->m['col']) {
                     $hostColumn = max($hostColumn, $owner->col);
                 }
             }
