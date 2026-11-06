@@ -50,6 +50,17 @@ final class DocumentLinter
             (new DefinitionTermFoldLinter())->lint($source),
             (new ReferencesPlacementLinter())->lint($source, ['extensions' => $options['extensions'] ?? []]),
         );
+        $listOpeners = [];
+        foreach ($warnings as $warning) {
+            if ($warning->rule === 'list-item-block-overindented') {
+                $listOpeners[$warning->line][$warning->column] = true;
+            }
+        }
+        $warnings = array_values(array_filter(
+            $warnings,
+            static fn (LintWarning $warning): bool => $warning->rule !== 'block-opener-overindented'
+                || !isset($listOpeners[$warning->line][$warning->column]),
+        ));
         usort($warnings, static fn (LintWarning $a, LintWarning $b): int => [$a->line, $a->column] <=> [$b->line, $b->column]);
 
         return $this->applySuppressions($source, $warnings);
