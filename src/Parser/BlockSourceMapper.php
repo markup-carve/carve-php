@@ -798,13 +798,25 @@ final class BlockSourceMapper
         if ($line === null || $lineStart === null) {
             return;
         }
+        $endByte = $lineStart + strlen($line);
+        $end = $this->state->source->positionIndex?->span(
+            $endByte,
+            $endByte,
+            $span->startLine,
+            $span->startLine,
+            $lineStart,
+            $lineStart,
+        );
+        if ($end === null) {
+            return;
+        }
         $this->state->session->footnoteDefinitionSpans[$label] = new SourceSpan(
             startLine: $span->startLine,
             endLine: $span->startLine,
             startColumn: $span->startColumn,
-            endColumn: mb_strlen($line, 'UTF-8') + 1,
+            endColumn: $end->endColumn,
             startOffset: $span->startOffset,
-            endOffset: $this->state->source->positionIndex?->codepointAt($lineStart + strlen($line)) ?? $span->endOffset,
+            endOffset: $end->endOffset,
         );
     }
 

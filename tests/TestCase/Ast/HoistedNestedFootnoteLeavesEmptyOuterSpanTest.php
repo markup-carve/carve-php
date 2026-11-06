@@ -30,4 +30,23 @@ final class HoistedNestedFootnoteLeavesEmptyOuterSpanTest extends TestCase
             self::assertSame([1, 1, 0, $endOffset], [$pos->startLine, $pos->endLine, $pos->startOffset, $pos->endOffset]);
         }
     }
+
+    public function testBomKeepsTheOpeningLineEndColumn(): void
+    {
+        $converter = new CarveConverter();
+        $converter->getParser()->enablePositionTracking();
+        $footnote = $converter->parse("\u{FEFF}[^a]: [^b]: p\n          more\n\n")->getChildren()[0];
+
+        self::assertInstanceOf(Footnote::class, $footnote);
+        $pos = $footnote->getPos();
+        self::assertNotNull($pos);
+        self::assertSame([1, 1, 2, 15, 1, 14], [
+            $pos->startLine,
+            $pos->endLine,
+            $pos->startColumn,
+            $pos->endColumn,
+            $pos->startOffset,
+            $pos->endOffset,
+        ]);
+    }
 }
