@@ -521,7 +521,12 @@ final class BlockContinuationScanner
             // it (carve-php#1866).
             $inCommentSpan = $openCommentLength !== null;
             if ($inCommentSpan || $trailingState->fence === null) {
+                $openBefore = $openCommentLength;
                 $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $stripped, $lines, $i, $contentIndent);
+                // A line that missed a lead span's body ended it (PART 0 S1): it is no payload.
+                if ($openBefore !== null && $openCommentLength === null && !($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($stripped, $openBefore)) {
+                    $inCommentSpan = false;
+                }
                 if (!$inCommentSpan) {
                     if ($openCommentLength !== null) {
                         $openCommentColumn = IndentationHelper::getLeadingColumns($stripped);
