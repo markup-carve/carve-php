@@ -347,33 +347,19 @@ final class BlockOwnershipWalk
         $this->frames = [new OwnershipFrame('doc', 0, 0, 0)];
         $result = [];
         $afterPlus = false;
-        $start = 0;
         $count = count($lines);
-        // A first-line opener claims through its first closer or EOF (carve#5016).
-        if ($count > 0 && preg_match(self::FRONTMATTER_OPENER, $lines[0]) === 1) {
-            $start = $count;
-            for ($k = 1; $k < $count; $k++) {
-                if (preg_match('/^---[ \t]*$/D', $lines[$k]) === 1) {
-                    $start = $k + 1;
-
-                    break;
-                }
-            }
-            for ($j = 0; $j < $start; $j++) {
-                $result[] = $lines[$j];
-                // INPUT: frontmatter, before ownership.
-                if ($this->trace !== null) {
-                    $this->emit($j, 'INPUT', 'doc', null, 'frontmatter');
-                }
-            }
-            $this->frontmatter = true;
-        }
+        $start = $this->ownFrontmatter($lines, $result);
         for ($at = $start; $at < $count; $at++) {
             if ($this->carrySkippedPrelude($at, $result)) {
                 continue;
             }
             $afterSoftLeaf = $this->softLeaf;
             $this->softLeaf = false;
+            if ($this->ownsPlainDocumentLine($at, $afterPlus)) {
+                $result[] = $lines[$at];
+
+                continue;
+            }
             $this->at = $at;
             $this->src = $lines[$at];
             $this->out = '';
@@ -819,6 +805,88 @@ final class BlockOwnershipWalk
         );
 
         return $this->frameTextFences($result);
+    }
+
+    /**
+     * A first-line opener claims through its first closer or EOF (carve#5016).
+     *
+     * @param array<int, string> $lines
+     * @param array<int, string> $result
+     *
+     * @return int The first line the walk owns.
+     */
+    private function ownFrontmatter(array $lines, array &$result): int
+    {
+        $count = count($lines);
+        if ($count === 0 || preg_match(self::FRONTMATTER_OPENER, $lines[0]) !== 1) {
+            return 0;
+        }
+        $start = $count;
+        for ($k = 1; $k < $count; $k++) {
+            if (preg_match('/^---[ \t]*$/D', $lines[$k]) === 1) {
+                $start = $k + 1;
+
+                break;
+            }
+        }
+        for ($j = 0; $j < $start; $j++) {
+            $result[] = $lines[$j];
+            // INPUT: frontmatter, before ownership.
+            if ($this->trace !== null) {
+                $this->emit($j, 'INPUT', 'doc', null, 'frontmatter');
+            }
+        }
+        $this->frontmatter = true;
+
+        return $start;
+    }
+
+    /**
+     * A blank or plain text line with only the document open: S2 reaches the
+     * document, S3 reads it as text, and S5 keeps it where it stands.
+     */
+    private function ownsPlainDocumentLine(int $at, bool $afterPlus): bool
+    {
+        $line = $this->lines[$at];
+        if (
+            count($this->frames) !== 1 || $afterPlus || $this->attachedTo !== null || $this->trace !== null
+            || $this->ddSiblingOwner !== null || $this->markedQuotedItemSpanBlank
+            || $at <= $this->wrappedAttributeEnd || $at <= $this->movedSpanEnd || $at <= $this->refusedKeptThrough
+        ) {
+            return false;
+        }
+        $doc = $this->frames[0];
+        if (trim($line, " \t") === '') {
+            $doc->para = false;
+
+            return true;
+        }
+        $first = $line[0];
+        if (
+            $first === ' ' || $first === "\t" || $first === '+' || $first === '{' || $first === '`' || $first === '~'
+            || $doc->plus === $at - 1 || $doc->last === 'term'
+        ) {
+            return false;
+        }
+        $this->at = $at;
+        $this->reach = 0;
+        $form = $this->classify($line, $doc, 0);
+        if ($form === self::$textForm) {
+            $doc->para = true;
+            $doc->last = 'para';
+
+            return true;
+        }
+        // A heading is a leaf that opens no frame; S5 records it as the document's last form.
+        if ($first === '#' && $form->kind === 'leaf' && !$form->table && !($this->isDefinition)($line)) {
+            $doc->para = false;
+            $doc->last = 'leaf';
+            $doc->tableLine = null;
+
+            return true;
+        }
+
+        return false;
     }
 
     private function recordItemBoundary(int $at, int $reached, OwnershipForm $form): void
