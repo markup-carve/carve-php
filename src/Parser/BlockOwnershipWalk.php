@@ -687,7 +687,7 @@ final class BlockOwnershipWalk
             if ($captionsQuote) {
                 $this->softLeaf = true;
             }
-            $endsMissedItem = $missed && $next !== null && $this->descriptionEndsMissedItem($at, $reached);
+            $endsMissedItem = $missed && $next !== null && $this->descriptionEndsMissedItem($at, $reached, $inner->kind === 'quote');
             $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts && !$captionsQuote && $form->kind !== 'dd'
                 && !$endsMissedItem
                 // A marker that a marker body owns, or that misses one, opens a list (PART 0 S3, carve#4860).
@@ -1379,6 +1379,13 @@ final class BlockOwnershipWalk
     private function apply(int $owner, int $col, OwnershipForm $form, int $canon, ?int $reader = null, bool $inHost = false): void
     {
         $reader ??= $this->frames[$owner]->reader ?? $this->frames[$owner]->canon;
+        if ($form->kind === 'term') {
+            foreach ($this->frames as $frame) {
+                if ($frame->kind === 'item') {
+                    $frame->hasDefinition = true;
+                }
+            }
+        }
         $this->frames[$owner]->para = $form->caption;
         // An invisible line between siblings leaves the host's last form standing (carve#4716).
         if (
@@ -2716,9 +2723,9 @@ final class BlockOwnershipWalk
     /**
      * Whether a description-shaped line ends a missed item; collectors must not fold it into that item either (carve#5312).
      */
-    private function descriptionEndsMissedItem(int $at, int $reached): bool
+    private function descriptionEndsMissedItem(int $at, int $reached, bool $missedQuote): bool
     {
-        if ($this->m['rest'] === '' || !$this->descriptionAtMissedItemMarker($reached)) {
+        if ($this->m['rest'] === '' || !$this->descriptionAtMissedItemMarker($reached, $missedQuote)) {
             return false;
         }
         $this->closingLines[$at] = true;
@@ -2729,7 +2736,7 @@ final class BlockOwnershipWalk
     /**
      * A description-shaped line at a surviving item's marker column ends that item (PART 0 S4).
      */
-    private function descriptionAtMissedItemMarker(int $reached): bool
+    private function descriptionAtMissedItemMarker(int $reached, bool $missedQuote): bool
     {
         if (
             in_array($this->frames[$reached]->kind, ['dd', 'note'], true)
@@ -2745,7 +2752,7 @@ final class BlockOwnershipWalk
             if ($this->frames[$k]->kind === 'item' && $this->m['col'] === $this->frames[$k]->markerCol) {
                 for ($child = $k; $child < $count; $child++) {
                     // An open description, or one that closed in an item still open (carve#5320).
-                    if ($this->frames[$child]->kind === 'dd' || $this->frames[$child]->descriptionLeft) {
+                    if ($this->frames[$child]->kind === 'dd' || $this->frames[$child]->descriptionLeft || (!$missedQuote && $this->frames[$child]->hasDefinition)) {
                         return true;
                     }
                 }
