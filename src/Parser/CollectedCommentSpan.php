@@ -42,4 +42,11 @@ final class CollectedCommentSpan
      * @var array<int, array{0: int, 1: bool}>
      */
     public array $entryColumns = [];
+
+    /**
+     * The scanned list items still open as `[marker column, content column]`, innermost last.
+     *
+     * @var array<int, array{0: int, 1: int}>
+     */
+    public array $itemColumns = [];
 }

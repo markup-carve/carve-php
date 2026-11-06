@@ -5167,6 +5167,16 @@ class BlockParser
                 if ($isMarker) {
                     $scan->markerColumn = $column;
                 }
+                // The content columns of the items still open at this line, innermost last.
+                while ($scan->itemColumns !== [] && ($isMarker ? $scan->itemColumns[array_key_last($scan->itemColumns)][0] >= $column : $scan->itemColumns[array_key_last($scan->itemColumns)][1] > $column)) {
+                    array_pop($scan->itemColumns);
+                }
+                $itemOwner = $scan->itemColumns === [] ? null : $scan->itemColumns[array_key_last($scan->itemColumns)][1];
+                $markerContent = $isMarker && $opener !== $line ? $this->innermostMarkerContent($line) : null;
+                if ($markerContent !== null && substr($line, $markerContent) === $opener) {
+                    $itemOwner = $column + $markerContent;
+                    $scan->itemColumns[] = [$column, $itemOwner];
+                }
                 $code = $this->fencedBlockParser->parseCodeFenceOpener($opener);
                 if ($code !== null) {
                     $scan->openCode = ['char' => $code['char'], 'length' => $code['length']];
@@ -5176,7 +5186,8 @@ class BlockParser
                 $comment = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($opener);
                 if ($comment !== null) {
                     $scan->openComment = $comment['length'];
-                    $scan->openOwner = $lead[1] ?? null;
+                    // A span is owned by the innermost item open at its opener (carve#5297).
+                    $scan->openOwner = $lead[1] ?? $itemOwner;
                 }
             }
             $scan->tailLength = strlen($raw);
@@ -5231,6 +5242,23 @@ class BlockParser
         }
 
         return strlen($m[1]) >= $length;
+    }
+
+    /**
+     * The byte offset of the innermost stacked item's content on a marker line, or null when a task
+     * box stands in the way, since the box is part of the item's content.
+     */
+    private function innermostMarkerContent(string $line): ?int
+    {
+        $content = null;
+        for ($head = $this->listParser->markerHeadAt($line); $head !== null; $head = $this->listParser->markerHeadAt($line, $content)) {
+            if ($head['name'] === 'task') {
+                return null;
+            }
+            $content = $head['content'];
+        }
+
+        return $content;
     }
 
     /**
