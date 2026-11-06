@@ -67,6 +67,16 @@ final class BlockSourceState
     public array $attachedPreludeLines = [];
 
     /**
+     * @var array<int, int>
+     */
+    public array $attachedPreludeContentColumns = [];
+
+    /**
+     * @var array<int, int>
+     */
+    public array $commentPayloadHostColumns = [];
+
+    /**
      * Lazy lines the walk folded into an open line block's stanza (carve#4748).
      *
      * @var array<int, true>

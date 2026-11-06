@@ -844,6 +844,8 @@ class BlockParser
         $this->state->source->resetItemMarkerIndex();
         $this->state->source->lazyLines = $walk->lazyLines;
         $this->state->source->attachedPreludeLines = $walk->attachedPreludeLines;
+        $this->state->source->attachedPreludeContentColumns = $walk->attachedPreludeContentColumns;
+        $this->state->source->commentPayloadHostColumns = $walk->commentPayloadHostColumns;
         $this->state->source->lineBlockLazyLines = $walk->lineBlockLazyLines;
         $this->state->source->refusedKeptLines = $walk->refusedKeptLines;
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
@@ -3136,7 +3138,8 @@ class BlockParser
                                 $raw = $unindented;
                             }
                         }
-                        $raw = IndentationHelper::stripLeadingColumns($raw, $openerColumn);
+                        $hostColumn = min($openerColumn, $this->state->source->attachedPreludeContentColumns[$physical] ?? $openerColumn);
+                        $raw = IndentationHelper::stripLeadingColumns($raw, $hostColumn);
                         $restored[] = $raw;
                         if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($raw, $opener['length'])) {
                             foreach ($restored as $offset => $text) {
