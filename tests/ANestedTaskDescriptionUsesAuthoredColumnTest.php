@@ -31,6 +31,10 @@ final class ANestedTaskDescriptionUsesAuthoredColumnTest extends TestCase
                 "- a\n  - [ ] item\n        :: t\n        : u\n        :: v\n        : w\n",
                 "<dt>v</dt>\n          <dd>w</dd>",
             ],
+            'shifted term on item marker' => [
+                "  - :: u\n    : e\n",
+                "<dt>u</dt>\n      <dd>e</dd>",
+            ],
         ];
     }
 
