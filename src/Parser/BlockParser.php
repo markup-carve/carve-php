@@ -2948,6 +2948,14 @@ class BlockParser
             }
             $currentLine = self::stripLazyFrame($currentLine);
 
+            // Container reassembly may append an empty sentinel when a host
+            // ends at a structural boundary. It has no source line and is not
+            // a literal payload line of an unclosed fence.
+            if ($openerSourceLine >= 0 && $payloadSourceLine < 0 && $currentLine === '') {
+                $i++;
+
+                continue;
+            }
             $payload[] = $currentLine;
             $payloadSourceRows[] = [$payloadSourceLine, 0, strlen($currentLine), $currentLine];
             $i++;
