@@ -13,6 +13,11 @@ use MarkupCarve\Carve\Node\Node;
 final class ListColumnLinter
 {
     /**
+     * @var array<int, int>
+     */
+    private array $itemContentById = [];
+
+    /**
      * @var string
      */
     private const MARKER = '/^(?:[-+*](?: +\[[ xX\-_>?\/!]\])?|\([0-9A-Za-z]+\)|[0-9A-Za-z]+[.)]|\.)(?=[ \t])/';
@@ -22,6 +27,7 @@ final class ListColumnLinter
      */
     public function lint(string $source): array
     {
+        $this->itemContentById = [];
         $document = LintParse::parse($source)[1];
         $rows = preg_split('/\r\n|\r|\n/', $source, flags: PREG_SPLIT_OFFSET_CAPTURE) ?: [];
         $items = [];
@@ -137,7 +143,7 @@ final class ListColumnLinter
         }
         $host = null;
         foreach ($items as $item) {
-            if ($item['first'] >= $lineNumber || $item['quote'] !== $opened['quote'] || $item['base'] >= $opened['base'] || $opened['base'] >= $item['content']) {
+            if ($item['first'] >= $lineNumber || $item['last'] >= $lineNumber || $item['quote'] !== $opened['quote'] || $item['base'] >= $opened['base'] || $opened['base'] >= $item['content']) {
                 continue;
             }
             for ($ln = $item['last'] + 1; $ln < $lineNumber; ++$ln) {
@@ -185,6 +191,18 @@ final class ListColumnLinter
             if ($child instanceof ListItem && $pos !== null) {
                 $line = $rows[$pos->startLine - 1][0] ?? '';
                 $at = strlen(mb_substr($line, 0, $pos->startColumn - 1, 'UTF-8'));
+                // A tab reaching the parent's content column belongs to this
+                // item's indent frame. PHP's tracked position can land after
+                // that boundary, so reconstruct it from the authored line.
+                $owner = $node->getParent();
+                $ownerContent = $owner instanceof ListItem ? ($this->itemContentById[spl_object_id($owner)] ?? null) : null;
+                $tab = $ownerContent === null ? false : strrpos(substr($line, 0, $at), "\t");
+                if ($tab !== false && preg_match('/^[ \t]*(?:[-*]|[0-9A-Za-z]+[.)])(?=[ \t])/', substr($line, $tab))) {
+                    $tabEnd = $this->visual(substr($line, 0, $tab + 1));
+                    if ($tabEnd >= $ownerContent) {
+                        $at = $tabEnd > $ownerContent ? $tab : $tab + 1;
+                    }
+                }
                 if (preg_match('/^([ \t]*)([-*]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)])(\{[^{}\r\n]*\})?( +)(?:\[[ xX_?>\/!-]\] +)?/', substr($line, $at), $match)) {
                     $base = $this->visual(substr($line, 0, $at)) + $this->visual($match[1]);
                     $paragraphs = [];
@@ -200,6 +218,7 @@ final class ListColumnLinter
                         $this->textStarts($block, $textStarts);
                     }
                     $items[] = ['first' => $pos->startLine, 'last' => $pos->endLine, 'quote' => substr_count(substr($line, 0, $at), '>'), 'list' => spl_object_id($node), 'base' => $base, 'content' => $base + mb_strlen($match[2], 'UTF-8') + strlen($match[4]), 'paragraphs' => $paragraphs, 'textStarts' => $textStarts];
+                    $this->itemContentById[spl_object_id($child)] = $base + mb_strlen($match[2], 'UTF-8') + strlen($match[4]);
                 }
             }
             $this->collect($child, $rows, $items, $warnings);
