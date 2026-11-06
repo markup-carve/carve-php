@@ -113,6 +113,13 @@ final class BlockSourceState
     public array $commentEndLines = [];
 
     /**
+     * Lines the ownership walk closed an open `%%%` span on with its exact-width run.
+     *
+     * @var array<int, true>
+     */
+    public array $commentCloserLines = [];
+
+    /**
      * Top-level payload and closer lines of a code or raw fence the ownership walk opened.
      *
      * @var array<int, true>
