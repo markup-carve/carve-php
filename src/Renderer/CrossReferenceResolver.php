@@ -54,7 +54,7 @@ class CrossReferenceResolver
     /**
      * @return array<\MarkupCarve\Carve\Node\Node>
      */
-    private function visibleChildren(Node $node): array
+    private function visibleChildren(Node $node, bool $definitionOrder = false): array
     {
         if (!$node instanceof Document) {
             return $node->getChildren();
@@ -67,8 +67,16 @@ class CrossReferenceResolver
             }
         }
         $definitions = VisibleFootnotes::definitions($node);
-        foreach ($this->visibleFootnotes as $label => $_present) {
-            $children[] = $definitions[$label];
+        if ($definitionOrder) {
+            foreach ($definitions as $label => $definition) {
+                if (isset($this->visibleFootnotes[$label])) {
+                    $children[] = $definition;
+                }
+            }
+        } else {
+            foreach ($this->visibleFootnotes as $label => $_present) {
+                $children[] = $definitions[$label];
+            }
         }
 
         return $children;
@@ -206,7 +214,7 @@ class CrossReferenceResolver
             $hasNestedLink = true;
         }
         $childInsideLink = $node instanceof InlineFootnote ? false : $insideLink || $node instanceof Link;
-        foreach ($this->visibleChildren($node) as $child) {
+        foreach ($this->visibleChildren($node, definitionOrder: true) as $child) {
             $this->scanForRender(
                 $child,
                 $tracker,
@@ -520,7 +528,7 @@ class CrossReferenceResolver
             return;
         }
 
-        foreach ($this->visibleChildren($node) as $child) {
+        foreach ($this->visibleChildren($node, definitionOrder: true) as $child) {
             if ($child instanceof Heading) {
                 $tracker->getIdForHeading($child);
             } else {
