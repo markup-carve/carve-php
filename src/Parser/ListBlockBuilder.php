@@ -735,10 +735,12 @@ final class ListBlockBuilder
         $spanBlanks = [];
         if ($hasQuote) {
             $scan = new CollectedCommentSpan();
+            $scanned = [];
             foreach ($itemLines as $k => $line) {
-                if ($line === '' && $this->linesLeaveACommentSpanOpen(array_slice($itemLines, 0, $k), $scan)) {
+                if ($line === '' && $this->linesLeaveACommentSpanOpen($scanned, $scan)) {
                     $spanBlanks[$k] = true;
                 }
+                $scanned[] = $line;
             }
         }
         $singleBlankAfterQuote = $hasQuote && count(array_filter($itemLines, static fn (string $line): bool => $line === '')) - count($spanBlanks) === 1;
