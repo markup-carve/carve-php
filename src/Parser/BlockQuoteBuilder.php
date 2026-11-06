@@ -1760,10 +1760,11 @@ final class BlockQuoteBuilder
             return;
         }
         // A span on a list marker line is that item's, closed by its run at any column (PART 9 §28, carve#5026).
-        // A marker in an open paragraph is text; a term above leaves none, and so does a note body.
+        // A marker in an open paragraph is text; a term above leaves none, and so does a note or description body (CARVE-P0-011).
         $above = ltrim(ContainerPrefix::afterLeadingQuoteMarkers(ltrim($sourceLines[$sourceIndex - 1] ?? '', " \t")), " \t");
         $at = $state['paragraphOpen'] && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $above) !== 1
             && !in_array('note', $state['hosts']['kinds'] ?? [], true)
+            && IndentationHelper::getLeadingColumns($inner) < ($state['hosts']['descriptionColumn'] ?? PHP_INT_MAX)
             ? null
             : ($this->getListParser)()->markerWalkOffset($inner, IndentationHelper::pastLeadingWhitespace($inner));
         // The block parser reads a run after a tab-separated marker as item text, so the tracker does too.

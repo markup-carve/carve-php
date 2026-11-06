@@ -31,6 +31,10 @@ final class AnUnmarkedCloserEndsAHostedQuotedCommentSpanTest extends TestCase
                 "> - a\n>   . %%%\n%%%\n\nz\n",
                 "<blockquote>\n  <ul>\n    <li>a\n      <ol>\n        <li></li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>\n<p>z</p>",
             ],
+            'a span on a list marker line in a quoted description' => [
+                "> :: t\n> : d\n>   * %%%\n%%%\n> y\n",
+                "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>\n      <p>d</p>\n      <ul>\n        <li></li>\n      </ul>\n    </dd>\n  </dl>\n  <p>y</p>\n</blockquote>",
+            ],
             'a span in an item of a quoted note' => [
                 "> [^n]: i\n>   - x\n>     %%%\n%%%\n\n[^n]\n",
                 "<blockquote>\n\n</blockquote>\n<p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>i</p>\n      <ul>\n        <li>x</li>\n      </ul>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
