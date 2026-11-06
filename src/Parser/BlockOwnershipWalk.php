@@ -475,12 +475,8 @@ final class BlockOwnershipWalk
 
                     continue;
                 }
-                if ($this->m['rest'] !== '' && $this->m['col'] < $f->col && !$inWrappedAttribute) {
-                    // A tab past an off-stop frame column is measured in that frame (PART 9 §24 C5).
-                    $stripped ??= $this->strippedColumn($this->src, $segment, $this->m);
-                    if ($stripped < $f->col + $f->c5Shift) {
-                        break;
-                    }
+                if ($this->missesFrameAtColumn($k, $inWrappedAttribute, $segment, $stripped)) {
+                    break;
                 }
                 $k = $this->runEnd($k, $frameCount);
                 $reached = $k;
@@ -543,6 +539,7 @@ final class BlockOwnershipWalk
             // The line right after a marker-line `+` follows it as a standalone one's does.
             $plusFollower = $afterPlus || $this->frames[count($this->frames) - 1]->plus === $at - 1;
             $afterPlus = false;
+            $reached = $this->attachedItemFollowerReach($reached, $plusFollower);
             $missed = $reached < count($this->frames) - 1;
             $innerIndex = count($this->frames) - 1;
             $inner = $this->frames[$innerIndex];
@@ -1336,8 +1333,69 @@ final class BlockOwnershipWalk
             return;
         }
         $fence = $this->frames[count($this->frames) - 1];
+        $opener = $this->fenced->parseCodeFenceOpener($this->m['rest']);
+        if ($opener !== null && $this->attachedCodeFenceBlankAhead($at, (int)$this->frames[$host]->markerCol, $opener['char'], $opener['length'])) {
+            $fence->col = $this->m['col'];
+        }
         $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $fence->col;
         $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key);
+    }
+
+    private function attachedCodeFenceBlankAhead(int $at, int $column, string $char, int $length): bool
+    {
+        for ($k = $at + 1, $n = count($this->lines); $k < $n; $k++) {
+            $line = self::indentCols($this->lines[$k]);
+            while (preg_match(self::QUOTE, $line['rest'], $q) === 1) {
+                $line = self::indentCols($q[1] ?? '');
+            }
+            if ($line['rest'] === '') {
+                return true;
+            }
+            if ($line['col'] < $column || $this->fenced->isCodeFenceCloser($line['rest'], $char, $length)) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    private function reachesAttachedItemFence(int $frame): bool
+    {
+        $item = $this->frames[$frame];
+        $fence = $this->frames[$frame + 1] ?? null;
+
+        return $item->kind === 'item' && $item->plus !== null && $item->markerCol > 0
+            && $this->m['col'] >= $item->markerCol
+            && $fence?->kind === 'fence' && $fence->col <= $this->m['col'];
+    }
+
+    private function missesFrameAtColumn(int $frame, bool $inWrappedAttribute, int $segment, ?int &$stripped): bool
+    {
+        $f = $this->frames[$frame];
+        if ($this->reachesAttachedItemFence($frame) || $this->m['rest'] === '' || $this->m['col'] >= $f->col || $inWrappedAttribute) {
+            return false;
+        }
+        // A tab past an off-stop frame column is measured in that frame (PART 9 §24 C5).
+        $stripped ??= $this->strippedColumn($this->src, $segment, $this->m);
+
+        return $stripped < $f->col + $f->c5Shift;
+    }
+
+    private function attachedItemFollowerReach(int $reached, bool $plusFollower): int
+    {
+        $item = $this->frames[count($this->frames) - 1];
+        $opener = $this->fenced->parseCodeFenceOpener($this->m['rest']);
+        if (
+            $plusFollower && $reached < count($this->frames) - 1
+            && $item->kind === 'item' && $item->markerCol > 0
+            && $this->m['col'] === $item->markerCol
+            && $opener !== null
+            && $this->attachedCodeFenceBlankAhead($this->at, (int)$item->markerCol, $opener['char'], $opener['length'])
+        ) {
+            return count($this->frames) - 1;
+        }
+
+        return $reached;
     }
 
     /**
