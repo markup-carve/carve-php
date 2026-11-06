@@ -2762,6 +2762,10 @@ final class BlockOwnershipWalk
             }
             if ($this->frames[$k]->kind === 'item' && $this->m['col'] === $this->frames[$k]->markerCol) {
                 for ($child = $k; $child < $count; $child++) {
+                    // A description inside a quote is the quote's: its paragraph takes the line lazily.
+                    if ($this->frames[$child]->kind === 'quote') {
+                        return false;
+                    }
                     // An open description, or one that closed in an item still open (carve#5320).
                     if ($this->frames[$child]->kind === 'dd' || $this->frames[$child]->descriptionLeft || (!$missedQuote && $this->frames[$child]->hasDefinition)) {
                         return true;
