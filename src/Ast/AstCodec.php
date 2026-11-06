@@ -1985,6 +1985,9 @@ class AstCodec
         }
 
         $children = $node->getChildren();
+        // HTML treats a braced-comment-only paragraph as an invisible line.
+        // Publishing it makes an ingesting engine render an empty paragraph.
+        $children = array_values(array_filter($children, static fn (Node $child): bool => !($child instanceof Paragraph && $child->rendersNothing())));
         if ($node instanceof Ruby) {
             // The same inlines are exposed as children for ordinary tree walks.
             // The wire owns them only through pairs, never through children.
