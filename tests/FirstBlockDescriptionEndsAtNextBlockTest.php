@@ -17,10 +17,10 @@ class FirstBlockDescriptionEndsAtNextBlockTest extends TestCase
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
 
-    public function testIndentedOpenerIsTextOfAnAttachedParagraph(): void
+    public function testIndentedOpenerStartsBlockInDescription(): void
     {
         $source = ":: t\n: +\nh\n  # heading\n";
-        $expected = "<dl>\n  <dt>t</dt>\n  <dd>h\n# heading</dd>\n</dl>";
+        $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>h</p>\n    <h1 id=\"heading\">heading</h1>\n  </dd>\n</dl>";
 
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
