@@ -28,19 +28,19 @@ final class ASameWidthRunAfterS1EndedACommentSpanOpensANewSpanTest extends TestC
             "<ul><li>a\n    <ul><li>b</li></ul>\n    p\n  </li></ul>",
         ];
 
-        yield 'an unmarked run misses the quote around the item' => [
+        yield 'an unmarked run closes the span of the item in the quote (carve#5340)' => [
             "> - a\n>   %%%\n>   x\n%%%\n>   b\ny\n",
-            '<blockquote><ul><li>a</li></ul></blockquote>',
+            "<blockquote><ul><li>a\n      b\ny\n    </li></ul></blockquote>",
         ];
 
-        yield 'an unmarked run before a marked line' => [
+        yield 'an unmarked run before a marked line closes the span (carve#5340)' => [
             "> - a\n>   %%%\n>   x\n%%%\n> b\n",
-            '<blockquote><ul><li>a</li></ul></blockquote>',
+            '<blockquote><ul><li>a</li></ul><p>b</p></blockquote>',
         ];
 
-        yield 'ordered item in a quote' => [
+        yield 'ordered item in a quote (carve#5340)' => [
             "> 1. a\n>    %%%\n>    x\n%%%\n> b\n",
-            '<blockquote><ol><li>a</li></ol></blockquote>',
+            '<blockquote><ol><li>a</li></ol><p>b</p></blockquote>',
         ];
 
         yield 'a marked closer in the item still closes' => [
