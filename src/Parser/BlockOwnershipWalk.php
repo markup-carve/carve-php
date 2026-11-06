@@ -231,9 +231,10 @@ final class BlockOwnershipWalk
     private bool $softLeaf = false;
 
     /**
-     * Whether the last line in a verse's open comment span was blank; such a blank stays outside an S1 end.
+     * A blank that does not carry its outer quote marker ends the stanza when
+     * the next line leaves the verse span under S1.
      */
-    private bool $verseSpanBlank = false;
+    private bool $verseSpanBlankMissedOwner = false;
 
     private string $src = '';
 
@@ -303,6 +304,7 @@ final class BlockOwnershipWalk
         $this->closingLines = [];
         $this->frontmatter = false;
         $this->softLeaf = false;
+        $this->verseSpanBlankMissedOwner = false;
         $this->reach = 0;
         $this->wrappedAttributeEnd = -1;
         $this->attachedBraceRun = null;
@@ -553,7 +555,9 @@ final class BlockOwnershipWalk
                 continue;
             }
             if ($inner->kind === 'fence' && !$missed) {
-                $this->verseSpanBlank = $inner->lineBlock && $inner->span !== null && $inner->span[0] === '%' && $this->m['rest'] === '';
+                $this->verseSpanBlankMissedOwner = $inner->lineBlock && $inner->span !== null && $inner->span[0] === '%'
+                    && $this->m['rest'] === ''
+                    && ($this->frames[1]->kind !== 'quote' || trim($lines[$at], " \t") === '');
                 // S1: an open payload tests its closer first (B-<family>-keep, B-<family>-end).
                 $payloadPath = $this->trace !== null ? $this->ownerPath() : '';
                 $payloadForm = 'payload';
@@ -640,7 +644,8 @@ final class BlockOwnershipWalk
                 && !$this->descriptionAtMissedItemMarker($reached)
                 // A marker that a marker body owns, or that misses one, opens a list (PART 0 S3, carve#4860).
                 && !($form->kind === 'item' && $this->marksBodyList($reached))
-                && !($this->verseSpanBlank && $this->frames[$topIndex]->lineBlock && $this->frames[$topIndex]->span !== null && $this->frames[$topIndex]->span[0] === '%');
+                && !($this->verseSpanBlankMissedOwner && $this->frames[$topIndex]->lineBlock
+                    && $this->frames[$topIndex]->span !== null && $this->frames[$topIndex]->span[0] === '%');
             // S4: a line that missed a frame folds into the deepest open paragraph.
             if ($lazy) {
                 // The fold is the S1 end of a verse's comment span (carve#4956).

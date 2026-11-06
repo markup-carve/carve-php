@@ -18,6 +18,11 @@ final class DescriptionBodyCollection
 
     public CollectedCommentSpan $commentSpan;
 
+    /**
+     * Whether the stanza before the current verse span held content.
+     */
+    public ?bool $blankSpanKeepsStanza = null;
+
     public IndexedFenceView $bodyFenceView;
 
     public ?int $lastOpenerKey = null;

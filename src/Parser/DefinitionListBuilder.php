@@ -773,6 +773,12 @@ final class DefinitionListBuilder
      */
     private function admitDescriptionLine(DescriptionBodyCollection $b, DescriptionBodyLine $l): bool
     {
+        if (
+            preg_match('/^[ \t]*%{3,}/', $l->contLine) === 1
+            && !$this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan)
+        ) {
+            $b->blankSpanKeepsStanza = null;
+        }
         // A `: ` below the body column opens the next description at any column (carve#4180, carve#4408).
         if ($l->contColumn > 0 && $this->opensDescriptionBelowBody($l->contLine, $b->i, $b->definitionColumn, $b->continuationColumn)) {
             $b->lines[$b->i] = ltrim($b->lines[$b->i], " \t");
@@ -2151,6 +2157,15 @@ final class DefinitionListBuilder
             while ($look < $b->count && IndentationHelper::isBlankLine($b->lines[$look])) {
                 $look++;
             }
+            // A blank hidden by a verse span leaves its prior stanza open, even
+            // when the next line misses this description's column (CARVE-P9-047).
+            if ($b->blankSpanKeepsStanza ??= $this->lineBlockStanzaOpenInsideSpan($b)) {
+                $b->body[] = '';
+                $b->bodyMap[] = $this->sourceLineFor($b->i);
+                $b->i++;
+
+                return true;
+            }
             $after = $b->lines[$look] ?? null;
             // The SECOND spelling of the same rule, with a different
             // job: this one decides whether the blank is an internal
@@ -2513,6 +2528,26 @@ final class DefinitionListBuilder
      */
     private function lineBlockStanzaEmptyAfterSpan(DescriptionBodyCollection $b): bool
     {
+        [$open, $spanRun, $stanza, $matchedSpan] = $this->lineBlockStanzaState($b);
+
+        return $open && $matchedSpan && $spanRun === null && !$stanza;
+    }
+
+    /**
+     * Whether a live verse span is hiding a blank without ending its stanza.
+     */
+    private function lineBlockStanzaOpenInsideSpan(DescriptionBodyCollection $b): bool
+    {
+        [$open, $spanRun, $stanza] = $this->lineBlockStanzaState($b);
+
+        return $open && $spanRun !== null && $stanza;
+    }
+
+    /**
+     * @return array{bool, int|null, bool, bool} Open block, span width, stanza content, matched span.
+     */
+    private function lineBlockStanzaState(DescriptionBodyCollection $b): array
+    {
         $open = false;
         $openerColumn = 0;
         $spanRun = null;
@@ -2557,7 +2592,7 @@ final class DefinitionListBuilder
             }
         }
 
-        return $open && $matchedSpan && $spanRun === null && !$stanza;
+        return [$open, $spanRun, $stanza, $matchedSpan];
     }
 
     /**
