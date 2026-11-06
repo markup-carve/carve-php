@@ -1708,6 +1708,12 @@ final class ListBlockBuilder
             }
             $sourceLine = $this->sourceLineFor($i);
             $priorSource = $this->state->source->sourceLines[$sourceLine - 1] ?? '';
+            if (
+                isset($this->state->source->closingLines[$sourceLine])
+                && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent
+            ) {
+                break;
+            }
             // A span closed below the column changes no ownership, and it closed the paragraph (CARVE-P0-005, I5).
             if ($subLowSpanCloser && !IndentationHelper::isBlankLine($subLine) && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent) {
                 break;
