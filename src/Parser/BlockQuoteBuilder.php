@@ -1731,11 +1731,14 @@ final class BlockQuoteBuilder
     ): void {
         $inner = ContainerPrefix::afterLeadingQuoteMarkers($content);
         $leadSpan = $this->leadSpan;
+        $hostColumns = $state['hosts']['columns'] ?? [];
+        $spanOwner = $leadSpan['owner'] ?? ($hostColumns === [] ? null : $hostColumns[count($hostColumns) - 1]);
         if (
-            $state['mode'] === BlockQuoteLazyMode::CommentFence && $leadSpan !== null
-            && $leadSpan['lines'] === count($sourceLines) && $leadSpan['index'] < $sourceIndex
+            $state['mode'] === BlockQuoteLazyMode::CommentFence
+            && (($leadSpan !== null && $leadSpan['lines'] === count($sourceLines) && $leadSpan['index'] < $sourceIndex)
+                || ($leadSpan === null && $state['commentHosted'] && $hostColumns !== []))
             && !IndentationHelper::isBlankLine($inner) && !str_starts_with(ltrim($inner, " \t"), '%%')
-            && IndentationHelper::getLeadingColumns($inner) < $leadSpan['owner']
+            && $spanOwner !== null && IndentationHelper::getLeadingColumns($inner) < $spanOwner
         ) {
             // A line that misses the body ends the span (PART 0 S1).
             $state['mode'] = BlockQuoteLazyMode::Content;
