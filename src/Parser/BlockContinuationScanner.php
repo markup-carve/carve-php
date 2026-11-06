@@ -1515,6 +1515,11 @@ final class BlockContinuationScanner
             $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
             $itemLines[0] ?? '',
         );
+        // The walk writes a task item's body at its bullet's content column, before the box.
+        $itemBodyColumn = $itemContentColumn !== null && self::leadFollowsTaskBox(
+            $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
+            $itemLines[0] ?? '',
+        ) ? $itemContentColumn - self::TASK_BOX_WIDTH : $itemContentColumn;
         while ($i < $count) {
             $nextLine = $lines[$i];
             // The source marker column ends the nested item even when its
@@ -1538,7 +1543,7 @@ final class BlockContinuationScanner
                 && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($nextLine, " \t")) === 1
                 && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
                     $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
-                ), $itemContentColumn) < $itemContentColumn
+                ), $itemContentColumn) < $itemBodyColumn
             ) {
                 break;
             }
@@ -5606,6 +5611,24 @@ final class BlockContinuationScanner
     public function listMarkerWidth(string $stripped, array $info): int
     {
         return ($this->listMarkerWidthCallback)($stripped, $info);
+    }
+
+    /**
+     * Whether a task box sits between an item's markers and its lead text.
+     *
+     * @param string $source
+     * @param string $lead
+     *
+     * @return bool
+     */
+    private static function leadFollowsTaskBox(string $source, string $lead): bool
+    {
+        $source = ContainerPrefix::stripQuoteMarkers($source);
+        if ($lead === '' || !str_ends_with($source, $lead)) {
+            return false;
+        }
+
+        return preg_match('/(?:^|[ \t])[-*+][ \t]+\[[ xX]\][ \t]+$/', substr($source, 0, strlen($source) - strlen($lead))) === 1;
     }
 
     /**
