@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -78,6 +79,24 @@ final class UnresolvedReferenceTextBreakTest extends TestCase
 
         foreach ([new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
             self::assertSame("[a\\\nb][missing]\n", $renderer->render($document));
+        }
+    }
+
+    public function testPositionlessSpacedHardBreakAndVerbatimBreakStayOnTwoLines(): void
+    {
+        $document = new Document();
+        $paragraph = new Paragraph();
+        $link = new Link('');
+        $link->setRawReferenceLabel("[a\\  \nb `x\ny`][missing]");
+        $link->appendChild(new Text('a'));
+        $link->appendChild(new HardBreak());
+        $link->appendChild(new Text('b '));
+        $link->appendChild(new Code("x\ny"));
+        $paragraph->appendChild($link);
+        $document->appendChild($paragraph);
+
+        foreach ([new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
+            self::assertSame("[a\\  \nb `x\ny`][missing]\n", $renderer->render($document));
         }
     }
 }
