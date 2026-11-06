@@ -84,6 +84,13 @@ final class BlockSourceState
     public array $lineBlockLazyLines = [];
 
     /**
+     * Blanks that end a `+` attached code fence with no closer (PART 9 §17 L3).
+     *
+     * @var array<int, true>
+     */
+    public array $attachedFenceBlankEnds = [];
+
+    /**
      * Lines a refused brace run's paragraph keeps as text, the run included, each to its run's first line (CARVE-P2-035).
      *
      * @var array<int, int>
