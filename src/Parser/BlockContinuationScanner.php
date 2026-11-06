@@ -115,6 +115,7 @@ final class BlockContinuationScanner
      * @param \Closure(): \MarkupCarve\Carve\Parser\BlockQuoteBuilder $getBlockQuoteBuilder
      * @param \Closure(array<string>, int): ?int $wrappedBlockAttributeLengthCallback
      * @param \Closure(array<string>, int): ?int $refusedBraceRunEndCallback
+     * @param \Closure(array<string>, \MarkupCarve\Carve\Parser\CollectedCommentSpan): bool $collectedLinesLeaveACommentSpanOpenCallback
      */
     public function __construct(
         private BlockParserState $state,
@@ -155,6 +156,7 @@ final class BlockContinuationScanner
         private Closure $getBlockQuoteBuilder,
         private Closure $wrappedBlockAttributeLengthCallback,
         private Closure $refusedBraceRunEndCallback,
+        private Closure $collectedLinesLeaveACommentSpanOpenCallback,
     ) {
     }
 
@@ -216,6 +218,7 @@ final class BlockContinuationScanner
         $openCommentColumn = 0;
         $lowComment = false;
         $openDivTerm = false;
+        $collectedComment = new CollectedCommentSpan();
         while ($i < $count) {
             $nextLine = $lines[$i];
             $priorSourceLine = $this->sourceLineFor($i) - 1;
@@ -271,6 +274,16 @@ final class BlockContinuationScanner
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $isBlockQuoteLazyLine = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
             $first = ltrim($nextLine, " \t");
+            if (
+                $nextIndent < $contentIndent && str_starts_with($first, '%%')
+                && ($this->collectedLinesLeaveACommentSpanOpenCallback)($itemLines, $collectedComment)
+            ) {
+                $itemLines[] = ($this->keptCommentDelimiterCallback)($nextLine);
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $i++;
+
+                continue;
+            }
             if ($lowComment && !str_starts_with($first, '%%') && $openCommentLength === null) {
                 break;
             }
