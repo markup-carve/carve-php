@@ -150,6 +150,13 @@ final class BlockOwnershipWalk
     public array $commentEndLines = [];
 
     /**
+     * Lines the ownership walk read as the closer of an open `%%%` span (CARVE-P0-005), keyed by line index.
+     *
+     * @var array<int, true>
+     */
+    public array $commentCloserLines = [];
+
+    /**
      * Payload and closer lines of a code or raw fence the walk opened, keyed by line index.
      *
      * @var array<int, true>
@@ -360,6 +367,7 @@ final class BlockOwnershipWalk
         $this->refusedKeptLines = [];
         $this->fenceOpenerLines = [];
         $this->commentEndLines = [];
+        $this->commentCloserLines = [];
         $this->fenceBodyLines = [];
         $this->refusedPlus = [];
         $this->letterPlus = [];
@@ -573,6 +581,7 @@ final class BlockOwnershipWalk
             ) {
                 array_pop($this->frames);
                 $this->frames[count($this->frames) - 1]->last = 'block';
+                $this->commentCloserLines[$at] = true;
                 $this->lead($this->frames[$reached]->canon);
                 $result[] = $this->out . $this->src;
                 if ($this->trace !== null) {
@@ -613,6 +622,8 @@ final class BlockOwnershipWalk
                     // A matched comment span is invisible: its host keeps the form it had (§10 I5).
                     if ($inner->family !== 'comment') {
                         $this->frames[count($this->frames) - 1]->last = 'block';
+                    } else {
+                        $this->commentCloserLines[$at] = true;
                     }
                     $payloadForm = 'closer';
                 } elseif ($inner->lineBlock && !($inner->span !== null && $inner->span[0] === '%')) {
