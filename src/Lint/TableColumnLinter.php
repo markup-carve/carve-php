@@ -96,8 +96,8 @@ class TableColumnLinter
      * Which alignment axes the head of the table the attribute line at
      * `$attributeLine` carries sets with an in-table marker, read from the
      * parsed cells so the braced form (`|={>} H |`) counts like the deprecated
-     * prefix (`|=> H |`). A header cell below the head is a row header and
-     * aligns only itself.
+     * prefix (`|=> H |`). A plain cell promoted by `header-rows` retains a
+     * cell-only override, as does a header cell below the head.
      *
      * @param list<string> $lines
      * @param int $attributeLine
@@ -124,7 +124,7 @@ class TableColumnLinter
                 break;
             }
             foreach ($row->getChildren() as $cell) {
-                if ($cell instanceof TableCell) {
+                if ($cell instanceof TableCell && ($cell->isHeader() || $cell->getSpanMarker() !== null)) {
                     $axes['aligns'] = $axes['aligns'] || $cell->hasExplicitAlignment();
                     $axes['valigns'] = $axes['valigns'] || $cell->hasExplicitVerticalAlignment();
                 }
