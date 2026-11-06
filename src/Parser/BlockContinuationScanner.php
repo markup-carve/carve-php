@@ -210,14 +210,17 @@ final class BlockContinuationScanner
             $sourceLead = $description[2];
         }
         $nestedFence->releaseAtListAncestor = ($this->getListParser)()->parseListItemMarker($sourceLead) !== null;
-        [$nestedMarkerColumn, $nestedContentColumn] = $this->authoredItemColumns(
-            $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
-            $bottom,
-        );
-        $nestedBodyColumn = $nestedContentColumn === null ? null : $nestedContentColumn - self::taskBoxWidth(
-            $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
-            $bottom,
-        );
+        // The nested item at this item's content column: a deeper item's band lies inside its body (PART 0 S2).
+        $leadSource = $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '';
+        $leadContent = ltrim($lead, " \t");
+        $nestedOffset = ($this->getListParser)()->markerContentOffset($leadContent);
+        $nestedLead = $nestedOffset === null ? '' : substr($leadContent, $nestedOffset);
+        [$nestedMarkerColumn, $nestedContentColumn] = $this->authoredItemColumns($leadSource, $nestedLead);
+        if ($nestedMarkerColumn === null) {
+            $nestedLead = $bottom;
+            [$nestedMarkerColumn, $nestedContentColumn] = $this->authoredItemColumns($leadSource, $nestedLead);
+        }
+        $nestedBodyColumn = $nestedContentColumn === null ? null : $nestedContentColumn - self::taskBoxWidth($leadSource, $nestedLead);
         $openCommentLength = $this->advanceItemCommentFence(null, $bottom, $lines, $i - 1);
         $openCommentColumn = 0;
         $lowComment = false;
