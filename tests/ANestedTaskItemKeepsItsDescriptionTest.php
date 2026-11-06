@@ -35,6 +35,18 @@ final class ANestedTaskItemKeepsItsDescriptionTest extends TestCase
                 "1. a\n   * [ ] item\n         text\n         : u\n",
                 "<ol>\n  <li>a\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"item text : u\"> item\ntext\n: u</li>\n    </ul>\n  </li>\n</ol>",
             ],
+            'an unchecked state other than a space' => [
+                "- a\n  - [-] item\n        :: t\n        : u\n",
+                "<ul>\n  <li>a\n    <ul class=\"task-list\">\n      <li data-task-state=\"-\"><input type=\"checkbox\" disabled aria-label=\"item\"> item\n        <dl>\n          <dt>t</dt>\n          <dd>u</dd>\n        </dl>\n      </li>\n    </ul>\n  </li>\n</ul>",
+            ],
+            'a two-space gap after the box' => [
+                "- a\n  - [ ]  item\n         :: t\n         : u\n",
+                "<ul>\n  <li>a\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"item\"> item\n        <dl>\n          <dt>t</dt>\n          <dd>u</dd>\n        </dl>\n      </li>\n    </ul>\n  </li>\n</ul>",
+            ],
+            'a marker-line task item' => [
+                "- - [ ] a\n        :: t\n        : u\n",
+                "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"a\"> a\n        <dl>\n          <dt>t</dt>\n          <dd>u</dd>\n        </dl>\n      </li>\n    </ul>\n  </li>\n</ul>",
+            ],
             'a line in the band stays lazy' => [
                 "- a\n  - [ ] item\n        :: t\n      : u\n",
                 "<ul>\n  <li>a\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"item\"> item\n        <dl>\n          <dt>t</dt>\n          <dd>u</dd>\n        </dl>\n      </li>\n    </ul>\n  </li>\n</ul>",

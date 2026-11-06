@@ -214,10 +214,10 @@ final class BlockContinuationScanner
             $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
             $bottom,
         );
-        $nestedBodyColumn = $nestedContentColumn !== null && self::leadFollowsTaskBox(
+        $nestedBodyColumn = $nestedContentColumn === null ? null : $nestedContentColumn - self::taskBoxWidth(
             $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
             $bottom,
-        ) ? $nestedContentColumn - self::TASK_BOX_WIDTH : $nestedContentColumn;
+        );
         $openCommentLength = $this->advanceItemCommentFence(null, $bottom, $lines, $i - 1);
         $openCommentColumn = 0;
         $lowComment = false;
@@ -1520,10 +1520,10 @@ final class BlockContinuationScanner
             $itemLines[0] ?? '',
         );
         // The walk writes a task item's body at its bullet's content column, before the box.
-        $itemBodyColumn = $itemContentColumn !== null && self::leadFollowsTaskBox(
+        $itemBodyColumn = $itemContentColumn === null ? null : $itemContentColumn - self::taskBoxWidth(
             $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
             $itemLines[0] ?? '',
-        ) ? $itemContentColumn - self::TASK_BOX_WIDTH : $itemContentColumn;
+        );
         while ($i < $count) {
             $nextLine = $lines[$i];
             // The source marker column ends the nested item even when its
@@ -5618,21 +5618,23 @@ final class BlockContinuationScanner
     }
 
     /**
-     * Whether a task box sits between an item's markers and its lead text.
+     * The width of the task box between an item's markers and its lead text, 0 when there is none.
      *
      * @param string $source
      * @param string $lead
      *
-     * @return bool
+     * @return int
      */
-    private static function leadFollowsTaskBox(string $source, string $lead): bool
+    private static function taskBoxWidth(string $source, string $lead): int
     {
         $source = ContainerPrefix::stripQuoteMarkers($source);
         if ($lead === '' || !str_ends_with($source, $lead)) {
-            return false;
+            return 0;
         }
 
-        return preg_match('/(?:^|[ \t])[-*+][ \t]+\[[ xX]\][ \t]+$/', substr($source, 0, strlen($source) - strlen($lead))) === 1;
+        return preg_match('/(?:^|[ \t])[-*+][ \t]+(\[[ xX_>?\/!-]\][ \t]+)$/', substr($source, 0, strlen($source) - strlen($lead)), $box) === 1
+            ? strlen($box[1])
+            : 0;
     }
 
     /**
