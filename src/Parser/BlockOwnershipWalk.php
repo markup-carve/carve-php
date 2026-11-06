@@ -1381,6 +1381,11 @@ final class BlockOwnershipWalk
     private function apply(int $owner, int $col, OwnershipForm $form, int $canon, ?int $reader = null, bool $inHost = false): void
     {
         $reader ??= $this->frames[$owner]->reader ?? $this->frames[$owner]->canon;
+        // A child list replaces the term as the item's latest block. Its
+        // following description-shaped line can then remain lazy (carve#5320).
+        if ($form->kind === 'item' && $this->frames[$owner]->kind === 'item') {
+            $this->frames[$owner]->hasDefinition = false;
+        }
         if ($form->kind === 'term') {
             for ($k = count($this->frames) - 1; $k >= 0; $k--) {
                 if ($this->frames[$k]->kind === 'item') {
