@@ -1583,8 +1583,9 @@ final class BlockContinuationScanner
 
             if ($this->walkFoldsIntoHostedNote($nextLine, $i, $contentIndent, $itemLines)) {
                 $folded = ltrim(BlockGrammar::stripLazyFrame($nextLine), " \t");
-                // A description line still answers the note's open term (CARVE-P0-004).
-                $itemLines[] = preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $folded) === 1 ? $folded : BlockGrammar::LAZY_FRAME . $folded;
+                // A description line still answers the note's open term (CARVE-P0-004); verse payload has none (PART 9 §23).
+                $itemLines[] = !isset($this->state->source->lineBlockLazyLines[$this->sourceLineFor($i)])
+                    && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $folded) === 1 ? $folded : BlockGrammar::LAZY_FRAME . $folded;
                 $itemLineMap[] = $this->sourceLineFor($i);
                 $i++;
 
