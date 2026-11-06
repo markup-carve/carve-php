@@ -921,6 +921,7 @@ final class BlockContinuationScanner
      * @param (callable(string, int): bool)|null $colonHostBoundary
      * @param bool $invisibleLineEndsParagraph
      * @param int|null $paragraphFoldColumn
+     * @param (callable(string, int): bool)|null $continuesBody Names a line that opens the host's next block once the attached one ends.
      *
      * @return array{0: int, 1: array<string>, 2: array<int>}
      */
@@ -932,6 +933,7 @@ final class BlockContinuationScanner
         ?callable $colonHostBoundary = null,
         bool $invisibleLineEndsParagraph = false,
         ?int $paragraphFoldColumn = null,
+        ?callable $continuesBody = null,
     ): array {
         $attachedKind = BlockGrammar::ATTACHED_PENDING;
         $pendingThrough = -1;
@@ -944,11 +946,18 @@ final class BlockContinuationScanner
         $bodyColumn = null;
         // Index of the line after a refused brace run that leads the block, which joins the run's paragraph (CARVE-P2-035).
         $refusedFollower = -1;
+        // Lines folded into the attached paragraph as text, by source index.
+        $foldedLines = [];
+        // Index past the closer of a comment span the block took; a comment span is kept whole.
+        $commentThrough = -1;
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn): bool {
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough): bool {
+                if ($index < $commentThrough) {
+                    return false;
+                }
                 if ($attachedKind === BlockGrammar::ATTACHED_PENDING && str_starts_with(ltrim($line, " \t"), '{')) {
                     $refusedFollower = ($this->refusedBraceRunEndCallback)($lines, $index) ?? -1;
                 }
@@ -965,23 +974,31 @@ final class BlockContinuationScanner
                 if (
                     $paragraphFoldColumn !== null && $attachedKind === BlockGrammar::ATTACHED_PARAGRAPH
                     && IndentationHelper::getLeadingColumns($line) >= $paragraphFoldColumn
+                    && !$this->isCommentLineOrFence($line)
                 ) {
+                    $foldedLines[$index] = true;
                     $attachedState = $this->advanceTrailingState($attachedState, 'text');
 
                     return false;
                 }
-                if ($index !== $refusedFollower && $this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState)) {
-                    return true;
-                }
-                // In a note or description an invisible line ends the attached paragraph, or a container it stands left of (PART 9 §10 I5).
                 if (
-                    $invisibleLineEndsParagraph && $attachedState->fence === null && !$attachedState->hasOpenDiv()
-                    && $this->isInvisibleOneLiner($line, $lines, $index)
-                    && ($attachedKind === BlockGrammar::ATTACHED_PARAGRAPH
-                        || ($attachedKind !== BlockGrammar::ATTACHED_PENDING && IndentationHelper::getLeadingColumns($line) === 0
-                            && ($attachedKind === BlockGrammar::ATTACHED_SPANNING . ':quote' || $this->nextVisibleLineLeavesTheBlock($lines, $index, $invisibleRun))))
+                    ($index !== $refusedFollower && $this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState))
+                    // In a note or description an invisible line ends the attached paragraph, or a container it stands left of (PART 9 §10 I5).
+                    || (
+                        $invisibleLineEndsParagraph && $attachedState->fence === null && !$attachedState->hasOpenDiv()
+                        && $this->isInvisibleOneLiner($line, $lines, $index)
+                        && ($attachedKind === BlockGrammar::ATTACHED_PARAGRAPH
+                            || ($attachedKind !== BlockGrammar::ATTACHED_PENDING && IndentationHelper::getLeadingColumns($line) === 0
+                                && ($attachedKind === BlockGrammar::ATTACHED_SPANNING . ':quote' || $this->nextVisibleLineLeavesTheBlock($lines, $index, $invisibleRun))))
+                    )
                 ) {
-                    return true;
+                    if ($continuesBody === null || !$continuesBody($line, $index)) {
+                        return true;
+                    }
+                    $attachedKind = BlockGrammar::ATTACHED_PENDING;
+                    $pendingThrough = -1;
+                    $attachedState = new TrailingBlockState();
+                    $bodyColumn = null;
                 }
                 $attachedKind = $this->advanceAttachedKind($attachedKind, $pendingThrough, $line, $lines, $index);
                 $attachedState = $this->advanceTrailingState($attachedState, $line);
@@ -990,12 +1007,20 @@ final class BlockContinuationScanner
                 } elseif (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $line) === 1) {
                     $bodyColumn = null;
                 }
+                if ($attachedState->fence === null) {
+                    $commentThrough = $this->commentFenceSpanEnd($line, $lines, $index) ?? -1;
+                }
 
                 return false;
             },
             null,
             $colonHostBoundary,
         );
+        foreach ($attachedRawLineMap as $offset => $raw) {
+            if (isset($foldedLines[$raw], $attached[$offset])) {
+                $attached[$offset] = BlockGrammar::LAZY_FRAME . ltrim($attached[$offset], " \t");
+            }
+        }
 
         return [$i, $attached, $attachedRawLineMap];
     }
