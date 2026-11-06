@@ -30,6 +30,11 @@ final class AColonAfterAnItemTermAndStanzaTest extends TestCase
             "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <blockquote><p>prose\n: z</p></blockquote>\n  </li>\n</ul>",
         ];
 
+        yield 'quoted stanza retains its lazy line' => [
+            "- a\n  :: t\n  > ::: |\n  >   prose\n: z\n",
+            "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <blockquote>\n      <div class=\"line-block\">\n        <p>&nbsp;&nbsp;prose<br>\n: z</p>\n      </div>\n    </blockquote>\n  </li>\n</ul>",
+        ];
+
         yield 'literal term in a code fence does not count' => [
             "- a\n  ```\n  :: t\n  ```\n  b\n: z\n",
             "<ul>\n  <li>a\n    <pre><code>:: t\n</code></pre>\n    b\n: z\n  </li>\n</ul>",

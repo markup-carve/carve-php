@@ -546,6 +546,7 @@ final class BlockOwnershipWalk
             $missed = $reached < count($this->frames) - 1;
             $innerIndex = count($this->frames) - 1;
             $inner = $this->frames[$innerIndex];
+            $missedQuote = $this->quoteBelow($reached);
             // A comment line below the column misses no host of an open comment span (CARVE-P0-005).
             if (
                 $missed && $inner->kind === 'fence' && $inner->family === 'comment' && $inner->span === null
@@ -687,7 +688,7 @@ final class BlockOwnershipWalk
             if ($captionsQuote) {
                 $this->softLeaf = true;
             }
-            $endsMissedItem = $missed && $next !== null && $this->descriptionEndsMissedItem($at, $reached, $inner->kind === 'quote');
+            $endsMissedItem = $missed && $next !== null && $this->descriptionEndsMissedItem($at, $reached, $missedQuote);
             $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts && !$captionsQuote && $form->kind !== 'dd'
                 && !$endsMissedItem
                 // A marker that a marker body owns, or that misses one, opens a list (PART 0 S3, carve#4860).
