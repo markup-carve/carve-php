@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
+use MarkupCarve\Carve\Renderer\SoftBreakMode;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -29,6 +30,15 @@ final class UnresolvedReferenceTextBreakTest extends TestCase
     {
         foreach ([new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
             self::assertSame($expected, CarveConverter::create(renderer: $renderer)->convert($source));
+        }
+    }
+
+    public function testConfiguredNewlineModeKeepsTheSourceBreak(): void
+    {
+        $source = "[x][a\nb]\n";
+        foreach ([new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
+            $renderer->setSoftBreakMode(SoftBreakMode::Newline);
+            self::assertSame($source, CarveConverter::create(renderer: $renderer)->convert($source));
         }
     }
 }

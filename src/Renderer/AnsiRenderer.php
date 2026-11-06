@@ -642,7 +642,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             // source is emptied of them here rather than in the stored value -
             // `rawRef` stays the authored source verbatim for the canonical
             // writer (PART 12 §3a, carve-php#1417).
-            $rawReference = UnresolvedReference::displaySourceOf($node);
+            $rawReference = UnresolvedReference::displaySourceOf($node, $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n");
 
             return match (true) {
                 $node instanceof Document => $this->renderChildren($node),
