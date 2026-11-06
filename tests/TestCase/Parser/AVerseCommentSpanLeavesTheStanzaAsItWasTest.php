@@ -60,6 +60,14 @@ final class AVerseCommentSpanLeavesTheStanzaAsItWasTest extends TestCase
                 "> ::: |\n> x\n> %%%\nb\n",
                 "<blockquote>\n  <div class=\"line-block\">\n    <p>x<br>\nb</p>\n  </div>\n</blockquote>",
             ],
+            'marked blank inside an open quote span' => [
+                "> ::: |\n> x\n> %%%\n>\nb\n",
+                "<blockquote>\n  <div class=\"line-block\">\n    <p>x<br>\nb</p>\n  </div>\n</blockquote>",
+            ],
+            'marked blank inside a quoted description span' => [
+                "> :: t\n> : ::: |\n>   x\n>   %%%\n>\nb\n",
+                "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>\n      <div class=\"line-block\">\n        <p>x<br>\nb</p>\n      </div>\n    </dd>\n  </dl>\n</blockquote>",
+            ],
             'span ended by S1 in a description' => [
                 ":: t\n: ::: |\n  x\n  %%%\nb\n",
                 "<dl>\n  <dt>t</dt>\n  <dd>\n    <div class=\"line-block\">\n      <p>x<br>\nb</p>\n    </div>\n  </dd>\n</dl>",
