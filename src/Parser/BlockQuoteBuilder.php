@@ -144,6 +144,7 @@ final class BlockQuoteBuilder
                     && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t")) !== null)
                 || ($state['colonClaims'][array_key_last($state['colonClaims']) ?? 0]['literal'] ?? false)
                 || $this->endsBlockQuote($line, true, $lines, $j)
+                || $this->markerOpensBodyList($line, [], $state)
             ) {
                 break;
             }
