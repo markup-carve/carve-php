@@ -1123,8 +1123,12 @@ final class BlockContinuationScanner
             $take = 1;
         } else {
             // The attribute lines belong to the block below them (carve#1238), so
-            // a fence after them is still the attached block's first line.
+            // a fence after them is still the attached block's first line. So is one after the
+            // walk's skipped prelude, a note definition included (PART 9 §17 L3).
             $opener = $this->skipLeadingAttributeLines($lines, $i, $count, $transform);
+            while ($opener < $count && isset($this->state->source->attachedPreludeLines[$this->sourceLineFor($opener)])) {
+                $opener = $this->skipLeadingAttributeLines($lines, $opener + 1, $count, $transform);
+            }
             $fenced = $this->attachedFencedBlockEnd($lines, $opener, $count, $transform, $colonHostBoundary);
             if ($fenced !== -1) {
                 $take = $fenced - $i + 1;
