@@ -2978,11 +2978,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $columns = $node->getColumns();
         if (array_filter($columns, static fn (array $column): bool => isset($column['width'])) !== []) {
             $cols = [];
-            // One `col` per `widths` entry; fewer leaves the tail unset (CARVE-P12-039).
-            $widths = $node->getAttribute('widths');
-            if (is_string($widths)) {
-                $columns = array_slice($columns, 0, substr_count($widths, ',') + 1);
-            }
+            // Every authored metadata entry has a position, even when unset.
             foreach ($columns as $column) {
                 $style = isset($column['width']) ? ' style="width: ' . TableWidth::percentage($column['width']) . '%;"' : '';
                 $cols[] = '    <col' . $style . '>';

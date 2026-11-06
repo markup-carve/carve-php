@@ -12,6 +12,22 @@ use PHPUnit\Framework\TestCase;
 
 class TableWidthPrecisionTest extends TestCase
 {
+    public function testMetadataCountIsIndependentOfRowWidth(): void
+    {
+        foreach (
+            [
+                ["{widths=,50}\n| a | b | c |\n", [[], ['width' => 0.5]], 2],
+                ["{widths=25,50}\n| a | b | c |\n", [['width' => 0.25], ['width' => 0.5]], 2],
+                ["{valigns=top,bottom widths=40}\n| a | b | c |\n", [['valign' => 'top', 'width' => 0.4], ['valign' => 'bottom']], 2],
+            ] as [$source, $columns, $colCount]
+        ) {
+            $doc = (new BlockParser())->parse($source);
+            $wire = (new AstCodec())->encode($doc);
+            $this->assertSame($columns, $wire['children'][0]['columns']);
+            $this->assertSame($colCount, preg_match_all('/<col(?: |>)/', (new HtmlRenderer())->render($doc)));
+        }
+    }
+
     public function testDecimalPercentagesPreserveAstAndHtml(): void
     {
         $doc = (new BlockParser())->parse("{widths=33.3,0.7,7}\n| a | b | c |\n");

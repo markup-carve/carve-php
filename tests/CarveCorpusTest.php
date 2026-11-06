@@ -1690,8 +1690,6 @@ class CarveCorpusTest extends TestCase
      */
     protected const KNOWN_GAPS = [
         '882-attributed-bracket-spans-share-the-inline-cap' => 'carve#4681: attributed bracket spans share the inline cap',
-        '872-a-table-writes-one-col-per-column-entry-2' => 'carve#4608: a table writes one col per column entry',
-        '872-a-table-writes-one-col-per-column-entry' => 'carve#4608: a table writes one col per column entry',
         '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',
         '873-a-plus-after-an-attached-block-reaches-its-host-through-quote-prefixes-2' => 'carve#4649: a plus reaches its host through quote prefixes',
         '806-a-marker-folds-into-the-paragraph-a-first-block-plus-took-3' => 'carve#4545: a marker folds into the paragraph a first block plus took',
