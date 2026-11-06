@@ -826,9 +826,7 @@ final class BlockOwnershipWalk
                 }
                 $this->frames[$o]->para = true;
                 $this->frames[$o]->last = 'para';
-                if ($this->frames[$o]->kind === 'item') {
-                    $this->frames[$o]->hasDefinition = false;
-                }
+                $this->clearItemDefinitionAtParagraph($o);
             } else {
                 if (!$plusFollower) {
                     $this->noteOpener($o, $form, $this->frames[$o]->col);
@@ -2736,6 +2734,13 @@ final class BlockOwnershipWalk
         $this->closingLines[$at] = true;
 
         return true;
+    }
+
+    private function clearItemDefinitionAtParagraph(int $owner): void
+    {
+        if ($this->frames[$owner]->kind === 'item') {
+            $this->frames[$owner]->hasDefinition = false;
+        }
     }
 
     /**
