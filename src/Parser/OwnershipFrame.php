@@ -35,6 +35,11 @@ final class OwnershipFrame
     public bool $descriptionLeft = false;
 
     /**
+     * A definition term opened inside this item, including a term whose list has since ended.
+     */
+    public bool $hasDefinition = false;
+
+    /**
      * @param string $kind
      * @param int $col
      * @param int $canon
