@@ -805,7 +805,7 @@ final class BlockOwnershipWalk
         }
         for ($k = $reached + 1, $n = count($this->frames); $k < $n; $k++) {
             $frame = $this->frames[$k];
-            if ($frame->kind === 'item' && $frame->axes !== $form->axes) {
+            if ($frame->kind === 'item' && ($frame->axes !== $form->axes || $frame->markerCol !== $this->m['col'])) {
                 $this->closingLines[$at] = true;
 
                 return;

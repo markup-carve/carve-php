@@ -38,4 +38,11 @@ final class AttachedItemAfterQuoteBlankTest extends TestCase
         self::assertSame(1, substr_count($actual, '<ol>'));
         self::assertStringContainsString("<ol>\n      <li>a</li>\n      <li>b</li>\n    </ol>", $actual);
     }
+
+    public function testAnOffColumnSameTypeMarkerClosesTheAttachedItem(): void
+    {
+        $source = "- a\n  - +\n  + w1\n   - b\n";
+        $expected = "<ul>\n  <li>a\n    <ul>\n      <li>+ w1</li>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>";
+        self::assertSame($expected, CarveConverter::create()->convert($source));
+    }
 }
