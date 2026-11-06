@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -20,6 +22,23 @@ class ANumericEmptyFootnoteDefinitionKeepsItsExtentTest extends TestCase
             'one' => ['1'],
             'multiple digits' => ['12'],
         ];
+    }
+
+    public function testNormalizedLabelStillMapsToItsOpeningLine(): void
+    {
+        $source = "a[^a  b]\n\n[^a  b]: {empty}\n  \n";
+        $converter = new CarveConverter(parser: new BlockParser(false, false, false, true));
+        $ast = (new AstCodec())->encode($converter->parse($source));
+        $footnotes = array_values(array_filter(
+            $ast['children'],
+            static fn (array $node): bool => $node['type'] === 'footnote',
+        ));
+
+        self::assertCount(1, $footnotes);
+        self::assertSame(3, $footnotes[0]['pos']['startLine']);
+        self::assertSame(3, $footnotes[0]['pos']['endLine']);
+        self::assertSame(10, $footnotes[0]['pos']['startOffset']);
+        self::assertSame(26, $footnotes[0]['pos']['endOffset']);
     }
 
     #[DataProvider('numericLabels')]

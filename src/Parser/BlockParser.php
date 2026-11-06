@@ -954,7 +954,7 @@ class BlockParser
             // Only when there are no children, so a definition that has content
             // keeps the extent its body already gives it.
             if ($footnote->getChildren() === []) {
-                $this->sourceMapper()->endEmptyFootnoteDefinitionAtOpener($footnote->getLabel());
+                $this->sourceMapper()->endEmptyFootnoteDefinitionAtOpener((string)$label);
             }
             $footnote->setPos($this->state->session->footnoteDefinitionSpans[$label] ?? $footnote->getPos());
             $document->appendChild($footnote);
