@@ -581,8 +581,7 @@ final class BlockOwnershipWalk
 
                 continue;
             }
-            if ($inner->kind === 'fence' && !$missed && $inner->endsAtBlank && $this->m['rest'] === '') {
-                $this->attachedFenceBlankEnds[$at] = true;
+            if (!$missed && $this->blankEndsAttachedFence($at, $inner)) {
                 $missed = true;
                 $reached = $innerIndex - 1;
             }
@@ -822,11 +821,7 @@ final class BlockOwnershipWalk
                 $shift = $this->strippedColumn($this->src, $segment, $this->m) - $this->m['col'];
                 $this->lead($this->frames[$o]->canon, $form->kind === 'term' || $form->kind === 'dd');
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon, inHost: !$leftLineBlockSpan);
-                if ($plusFollower && $form->kind === 'fence' && $form->family === 'code' && $this->frames[$o]->kind === 'item') {
-                    $fence = $this->frames[count($this->frames) - 1];
-                    $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $fence->col;
-                    $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key);
-                }
+                $this->markAttachedFence($at, $o, $form, $plusFollower);
                 // A marker opened on an off-stop tab run has its C5 columns that far right.
                 for ($k = $o + 1, $n = count($this->frames); $k < $n && $this->frames[$k]->kind !== 'quote'; $k++) {
                     if (in_array($this->frames[$k]->kind, self::BODY_FRAMES, true)) {
@@ -1303,6 +1298,32 @@ final class BlockOwnershipWalk
         }
 
         return $path;
+    }
+
+    /**
+     * The blank that ends a `+` attached fence with no closer is the host's, not payload (§17 L3).
+     */
+    private function blankEndsAttachedFence(int $at, OwnershipFrame $inner): bool
+    {
+        if ($inner->kind !== 'fence' || !$inner->endsAtBlank || $this->m['rest'] !== '') {
+            return false;
+        }
+        $this->attachedFenceBlankEnds[$at] = true;
+
+        return true;
+    }
+
+    /**
+     * An item-hosted code fence a `+` attached ends at its blank unless its host reaches a closer (carve#5304).
+     */
+    private function markAttachedFence(int $at, int $host, OwnershipForm $form, bool $plusFollower): void
+    {
+        if (!$plusFollower || $form->kind !== 'fence' || $form->family !== 'code' || $this->frames[$host]->kind !== 'item') {
+            return;
+        }
+        $fence = $this->frames[count($this->frames) - 1];
+        $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $fence->col;
+        $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key);
     }
 
     /**
