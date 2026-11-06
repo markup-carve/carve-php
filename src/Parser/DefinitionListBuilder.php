@@ -2323,6 +2323,17 @@ final class DefinitionListBuilder
      */
     private function admitDescriptionTail(DescriptionBodyCollection $b, DescriptionBodyLine $l): bool
     {
+        // A matched span opens no stanza. A local paragraph flag can still be
+        // set after it, so ask the payload whether a verse actually remains.
+        if (
+            $l->contColumn < $b->continuationColumn
+            && !IndentationHelper::isBlankLine($l->contLine)
+            && $b->bodyNestedState->hasLiteralDiv()
+            && !isset($this->state->source->lazyLines[$this->sourceLineFor($b->i)])
+            && $this->lineBlockStanzaEmptyAfterSpan($b)
+        ) {
+            return false;
+        }
         // A WRAPPED ATTRIBUTE BLOCK LEAVES NO PARAGRAPH EITHER, and
         // the tracker above cannot say so: it reads one line, and
         // `{.k` is a block-attribute line only once a later line
@@ -2488,6 +2499,60 @@ final class DefinitionListBuilder
         }
 
         return false;
+    }
+
+    /**
+     * Whether the current line block has only matched spans since its last stanza boundary.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     */
+    private function lineBlockStanzaEmptyAfterSpan(DescriptionBodyCollection $b): bool
+    {
+        $open = false;
+        $openerColumn = 0;
+        $spanRun = null;
+        $stanza = false;
+        $matchedSpan = false;
+        foreach ($b->body as $index => $entry) {
+            foreach (explode("\n", $entry) as $offset => $line) {
+                if (preg_match('/^[ 	]*:{3,}[ 	]*\|(?:[ 	]|$)/', $line) === 1) {
+                    $open = true;
+                    $source = $this->state->source->authoredLines[($b->bodyMap[$index] ?? -1) + $offset] ?? '';
+                    $openerColumn = strrpos($source, ltrim($line, " \t")) ?: 0;
+                    $spanRun = null;
+                    $stanza = false;
+                    $matchedSpan = false;
+
+                    continue;
+                }
+                if (!$open) {
+                    continue;
+                }
+                $subject = ltrim($line, " \t");
+                $source = $this->state->source->authoredLines[($b->bodyMap[$index] ?? -1) + $offset] ?? '';
+                $sourceColumn = $subject === '' ? false : strrpos($source, $subject);
+                if ($sourceColumn !== false && !str_contains(substr($source, 0, $sourceColumn), "\t")) {
+                    $line = str_repeat(' ', max(0, $sourceColumn - $openerColumn)) . $subject;
+                }
+                if ($spanRun !== null) {
+                    if (trim($line, " \t") === str_repeat('%', $spanRun)) {
+                        $spanRun = null;
+                        $matchedSpan = true;
+                    }
+
+                    continue;
+                }
+                if (preg_match('/^ {0,3}(%{3,})/', $line, $match) === 1) {
+                    $spanRun = strlen($match[1]);
+                } elseif (IndentationHelper::isBlankLine($line)) {
+                    $stanza = false;
+                } else {
+                    $stanza = true;
+                }
+            }
+        }
+
+        return $open && $matchedSpan && $spanRun === null && !$stanza;
     }
 
     /**
