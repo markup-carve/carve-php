@@ -9,6 +9,66 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+## [0.1.17] - 2026-11-06
+
+The block reader now follows the spec model's ownership walk (rule A) and the one attach rule for `+`. Markdown import follows CommonMark 0.31, and lint gains suppression comments and Markdown-habit rules.
+
+### Breaking
+
+- `CarveConverter::convert()` and `convertWithReport()` return HTML without the final newline. `render()` and streaming output keep it (#4050).
+- `carve fmt` writes every thematic break as `***`; `thematic-break-spelling` hints at other spellings (#4516).
+- Lint rule ids were merged or retired: `table-alignment-run-padding` and `table-cell-attribute-before-marker` report as `table-marker-run-padding` (#3976); `fence-delimiter-indentation` (#4446) and `raw-block-syntax` (#4454) are gone. Update suppressions and filters that name them.
+- A `---` on the first line opens frontmatter that runs to the end of the file when no closer follows (carve#5016, #4571).
+- A blank line between an item's lead and any direct child block (sublist, quote, fence, div, heading, table) loosens the list (carve#5015, #4577).
+- A `::` term is one line; only a `: ` line in the same owner opens its description (#4491).
+- A colon line that fails the opener test is paragraph text and leaves no state (carve#4863, #4492).
+- A valid `%%%` opener always opens a comment span, ending at an exact-width closer, a line that misses its owner, or the end of its container (#4506).
+- A lone `+` at a marker column, or as the whole content of a marker line, is a continuation marker; a refused one renders nothing and `continuation-marker-refused` reports it (#4328, #4582).
+- A block attribute or comment run continues only on lines indented past its opening brace (#4585).
+- Single-line invisible blocks are erased before layout, so they no longer split or loosen what is around them (carve#5012, #4587, #4618).
+
+### Fixes
+
+- Recent container fixes keep nested descriptions, lists, fences, captions, and comment runs with their owner, including lazy lines, refused `+` markers, and erased lines (#4643, #4645, #4649, #4659, #4663, #4664, #4665, #4666, #4668, #4675, #4676, #4677, #4678, #4679, #4680, #4682, #4685, #4686, #4688, #4690, #4691, #4692, #4693, #4694, #4695, #4696, #4697, #4698, #4700, #4701, #4702, #4703, #4705, #4712).
+- Authored AST spans now follow comments, definitions, line blocks, captions, and list markers through nested layouts (#4710, #4711, #4726).
+- Markdown alert labels and references keep their literal or escaped form on import, export, and lint; table wraps precede verbatim joins (#4717, #4718, #4719, #4720, #4727).
+- Djot import preserves the blank-line placement around nested lists and requires a closing parenthesis on parenthesized sublist markers (#4661, #4669, #4671).
+- The writer keeps the separator after an erased line, and pads definition-shaped code lines in inline positions (#4706).
+- Block ownership: lists, descriptions, notes, quotes, divs, line blocks and fences read their lines with the rule A walk and the spec model's `+` attach rule. This covers lazy lines, blank runs, comment spans below a container column, task items, tabs after markers and nested marker-line constructs (#3953, #3956, #3960, #3963, #3965, #3967, #3981, #3994, #3996, #3997, #3998, #4000, #4001, #4002, #4003, #4004, #4006, #4034, #4035, #4037, #4040, #4041, #4043, #4051, #4066, #4075, #4076, #4079, #4089, #4117, #4126, #4130, #4135, #4136, #4139, #4140, #4155, #4185, #4193, #4198, #4216, #4255, #4262, #4265, #4266, #4268, #4271, #4273, #4275, #4289, #4293, #4295, #4309, #4312, #4315, #4316, #4317, #4319, #4320, #4321, #4323, #4326, #4332, #4333, #4335, #4336, #4337, #4348, #4351, #4352, #4354, #4355, #4357, #4358, #4359, #4361, #4364, #4366, #4367, #4369, #4370, #4374, #4375, #4376, #4377, #4378, #4379, #4380, #4381, #4383, #4384, #4385, #4387, #4388, #4389, #4390, #4392, #4394, #4397, #4399, #4401, #4402, #4403, #4404, #4405, #4406, #4408, #4409, #4410, #4411, #4412, #4413, #4414, #4415, #4416, #4417, #4419, #4421, #4422, #4423, #4427, #4430, #4431, #4432, #4433, #4434, #4436, #4437, #4439, #4440, #4441, #4442, #4447, #4449, #4451, #4452, #4453, #4455, #4459, #4463, #4465, #4466, #4468, #4469, #4472, #4477, #4478, #4480, #4483, #4486, #4488, #4502, #4503, #4509, #4510, #4514, #4518, #4519, #4523, #4525, #4526, #4530, #4531, #4532, #4534, #4535, #4537, #4538, #4539, #4540, #4542, #4543, #4545, #4546, #4548, #4549, #4550, #4551, #4552, #4553, #4554, #4555, #4556, #4557, #4558, #4559, #4560, #4561, #4562, #4567, #4590, #4591, #4592, #4593, #4595, #4599, #4602, #4605, #4610, #4613, #4630).
+- Inline pairing follows the inline rulings: guards count where they stand, an unclosed run takes the block, empty brace groups are characters, and braced comments are skipped in flank and smart-quote tests. Unicode word guards match whole characters (#3950, #3955, #3957, #3978, #4036, #4073, #4082, #4120, #4214, #4220, #4221, #4224, #4226, #4232, #4233, #4236, #4237, #4296, #4300, #4305, #4324, #4329, #4339, #4340, #4343, #4363, #4368, #4372, #4393, #4398, #4400, #4428, #4429, #4443, #4458, #4464, #4467, #4481, #4485).
+- HTML output: authored footnote ids and class spellings are kept, attributes are written once whatever their case, an id that looks like a URL is kept, bidi controls are stripped from link and image fields, and a paragraph of only braced comments renders nothing; cross-references index headings only in visible footnotes (#3951, #4121, #4161, #4005, #4065, #4072, #4080, #4083, #4090, #4094, #4114, #4154, #4206, #4330, #4331, #4344, #4347, #4349, #4371, #4386, #4424, #4487).
+- Block images keep their attribute line on the paragraph, and promotion moves no attributes (#4069, #4564).
+- Tables: native `|=` header rows are written, also for spanned head rows; braced cell alignment is read; one `col` is written per `widths` entry; ingested default spans are normalized (#3962, #3980, #4183, #4346, #4365, #4391, #4444, #4524, #4580).
+- Carve writer: verbatim values, item code and definition terms are refused where the reader would open a block; blank lines around nested fences, quotes, comments and sibling lists match the spec (#3969, #4009, #4304, #4334, #4338, #4435, #4460, #4479, #4484, #4520, #4544, #4603, #4604, #4625, #4633, #4634).
+- `carve fmt` attaches a nested item's captioned quote, fence or image with `+` instead of a blank line, which loosened the list (#4641, #4644).
+- A comment between a definition term and its description is the description's first child (carve#5167, #4639).
+- Includes: invalid line ranges are reported after resolution and stay literal inline, warnings carry a known position, render losses name the included file, and malformed delimited includes stay code (#4084, #4096, #4240, #4247, #4290, #4341, #4342, #4350, #4373, #4425).
+- Markdown import: CommonMark 0.31 info strings, labels, HTML blocks, raw HTML across quote and lazy lines, list items, emphasis run lengths, autolinks and the lines around tables (#4028, #4029, #4030, #4031, #4032, #4033, #4038, #4039, #4049, #4078, #4489, #4493, #4495, #4496, #4498, #4499, #4504, #4505, #4507, #4512, #4515, #4521, #4565, #4588, #4589, #4594, #4631, #4635).
+- Markdown export escapes literal hyphen runs in table cells and reports render losses as the clause lists them (#3954, #4249, #4274).
+- Djot import: continuation-line markers stay text, chain markers widen, and a loose list is marked above its first item (#3973, #4501, #4636).
+- HTML import keeps terminal cell hard breaks and description lists apart; BBCode import reports removed styling wrappers (#3971, #3980, #4463).
+- Lint positions follow the parsed inlines and references; authoring lint reads only visible source and Unicode openers (#3983, #4099, #4186, #4204, #4210, #4212, #4426, #4438, #4601, #4632).
+- AST positions: list spans start at the owner content column and stay inside their lists; a node joined across an erased comment line omits `pos` (#4382, #4500, #4568, #4570, #4608).
+- `carve --ast` on a file containing `{{` no longer crashes (#4614).
+- Ownership checks stay bounded on long inputs (#4068, #4070, #4566).
+
+### Improvements
+
+- The ownership walk, erasure pass, lint traversal, and loose-list writer avoid repeated work on common inputs (#4648, #4652, #4653, #4655, #4662, #4667, #4689).
+- `carve trace <file>` and `DecisionTrace::records()` print the block decision trace as JSON lines (#4294).
+- Lint suppression comments `%% carve-lint-disable`, `-enable`, `-disable-line` and `-disable-next-line`, plus `unused-link-reference-definition` (#4192).
+- New lint rules: the authoring set (`table-shaped-paragraph`, `list-marker-without-blank-line`, `unclosed-inline-emphasis`, `empty-link-destination` and others), `html-comment-renders-as-text`, `setext-heading-underline`, `heading-closing-hashes`, `indented-code-block`, `block-opener-overindented`, `emphasis-marker-before-attributes` (#4111, #4205, #4482, #4490, #4528, #4529).
+- `list-marker-below-content-column` reports same-kind siblings, and also a marker right after an item (#4446, #4632).
+- Code fences with invalid metadata open with their language; `carve lint` suggests a raw opener only for a format the parser accepts (#4454, #4461).
+- Table includes select records with `@rows` and columns; `include-lines-table-rows-hint` flags `@lines` on CSV/TSV (#4160).
+- GitHub alert blockquotes import as admonitions (#4253, #4260, #4281, #4283).
+- A Markdown HTML comment block imports as a Carve comment (#4482).
+- The TOC reads headings from the final render document (#3985).
+- Paired quotation marks are removed from automatic heading ids (#4090).
+- The AST docs list every task state (#3937).
+
+**Full Changelog**: https://github.com/markup-carve/carve-php/compare/0.1.16...0.1.17
+
 ## [0.1.16] - 2026-10-25
 
 Task lists gain progress and blocked states. The parser and converters also follow recent container, table and destination rulings.
