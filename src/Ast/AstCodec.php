@@ -41,6 +41,7 @@ use MarkupCarve\Carve\Renderer\CrossReferenceResolver;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\TableSpanGrid;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
+use MarkupCarve\Carve\Transform\VisibleFootnotes;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
@@ -861,8 +862,8 @@ class AstCodec
     }
 
     /**
-     * Give every heading the id the renderer would give it, unless the source
-     * wrote one.
+     * Give visible headings the id the renderer would give them, unless the
+     * source wrote one. Body headings precede visible footnote definitions.
      *
      * The id takes no `order` slot: `order` is the source-appearance order of
      * the slots in a `{#id .class key=value}` block, and a slugged id was never
@@ -872,6 +873,9 @@ class AstCodec
     {
         $tracker = new HeadingIdTracker();
         $walk = function (Node $node) use (&$walk, $tracker): void {
+            if ($node instanceof FootnoteBlock) {
+                return;
+            }
             if ($node instanceof Heading) {
                 $id = $tracker->getIdForHeading($node);
                 if ($id !== '' && $node->getAttribute('id') === null) {
@@ -883,6 +887,16 @@ class AstCodec
             }
         };
         $walk($document);
+        $definitions = VisibleFootnotes::definitions($document);
+        $visible = VisibleFootnotes::labels($document, $definitions);
+        foreach ($definitions as $label => $definition) {
+            if (!isset($visible[$label])) {
+                continue;
+            }
+            foreach ($definition->getChildren() as $child) {
+                $walk($child);
+            }
+        }
     }
 
     /**
