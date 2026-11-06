@@ -21,7 +21,7 @@ class ADeeperLineEndsAnItemTermEntryTest extends TestCase
         return [
             'marker-line term, deeper line, then a description-shaped line (carve#5317)' => [
                 "- :: t\n   a\n  : x\n: z\n",
-                "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    a\n: x\n: z\n  </li>\n</ul>\n",
+                "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    a\n: x\n  </li>\n</ul>\n<p>: z</p>\n",
             ],
             'no term: the line folds as before' => [
                 "- u\n  : x\n: z\n",

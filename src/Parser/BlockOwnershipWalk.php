@@ -1381,6 +1381,11 @@ final class BlockOwnershipWalk
     private function apply(int $owner, int $col, OwnershipForm $form, int $canon, ?int $reader = null, bool $inHost = false): void
     {
         $reader ??= $this->frames[$owner]->reader ?? $this->frames[$owner]->canon;
+        // A child list replaces the term as the item's latest block. Its
+        // following description-shaped line can then remain lazy (carve#5320).
+        if ($form->kind === 'item' && $this->frames[$owner]->kind === 'item') {
+            $this->frames[$owner]->hasDefinition = false;
+        }
         if ($form->kind === 'term') {
             for ($k = count($this->frames) - 1; $k >= 0; $k--) {
                 if ($this->frames[$k]->kind === 'item') {
@@ -1397,6 +1402,9 @@ final class BlockOwnershipWalk
             && !($this->frames[$owner]->kind === 'doc' && preg_match('/^\*\[[A-Za-z0-9]+\]: +(?![ \t]*$)/', $this->m['rest']) === 1)))
         ) {
             $this->frames[$owner]->last = $form->kind;
+        }
+        if ($form->kind === 'term' && $this->frames[$owner]->kind === 'item') {
+            $this->frames[$owner]->descriptionLeft = true;
         }
         $this->frames[$owner]->tableLine = $form->table ? $this->at : null;
         $o = $this->frames[$owner];
@@ -1520,7 +1528,8 @@ final class BlockOwnershipWalk
     {
         $leftDescription = false;
         for ($n = count($this->frames); $n > $count; $n--) {
-            $leftDescription = $leftDescription || $this->frames[$n - 1]->kind === 'dd' || $this->frames[$n - 1]->descriptionLeft;
+            $closing = $this->frames[$n - 1];
+            $leftDescription = $leftDescription || $closing->kind === 'dd' || $closing->last === 'term' || $closing->descriptionLeft;
             array_pop($this->frames);
         }
         if ($leftDescription) {

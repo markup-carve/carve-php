@@ -214,6 +214,10 @@ final class BlockContinuationScanner
             $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
             $bottom,
         );
+        $nestedBodyColumn = $nestedContentColumn === null ? null : $nestedContentColumn - self::taskBoxWidth(
+            $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
+            $bottom,
+        );
         $openCommentLength = $this->advanceItemCommentFence(null, $bottom, $lines, $i - 1);
         $openCommentColumn = 0;
         $lowComment = false;
@@ -499,7 +503,7 @@ final class BlockContinuationScanner
                 $authoredColumn = IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
                     $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 ), $nestedContentColumn);
-                if ($authoredColumn >= $nestedMarkerColumn && $authoredColumn < $nestedContentColumn) {
+                if ($authoredColumn >= $nestedMarkerColumn && $authoredColumn < $nestedBodyColumn) {
                     $stripped = ltrim($stripped, " \t");
                 }
             }
@@ -1515,6 +1519,11 @@ final class BlockContinuationScanner
             $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
             $itemLines[0] ?? '',
         );
+        // The walk writes a task item's body at its bullet's content column, before the box.
+        $itemBodyColumn = $itemContentColumn === null ? null : $itemContentColumn - self::taskBoxWidth(
+            $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
+            $itemLines[0] ?? '',
+        );
         while ($i < $count) {
             $nextLine = $lines[$i];
             // The source marker column ends the nested item even when its
@@ -1538,7 +1547,7 @@ final class BlockContinuationScanner
                 && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($nextLine, " \t")) === 1
                 && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
                     $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
-                ), $itemContentColumn) < $itemContentColumn
+                ), $itemContentColumn) < $itemBodyColumn
             ) {
                 break;
             }
@@ -5606,6 +5615,26 @@ final class BlockContinuationScanner
     public function listMarkerWidth(string $stripped, array $info): int
     {
         return ($this->listMarkerWidthCallback)($stripped, $info);
+    }
+
+    /**
+     * The width of the task box between an item's markers and its lead text, 0 when there is none.
+     *
+     * @param string $source
+     * @param string $lead
+     *
+     * @return int
+     */
+    private static function taskBoxWidth(string $source, string $lead): int
+    {
+        $source = ContainerPrefix::stripQuoteMarkers($source);
+        if ($lead === '' || !str_ends_with($source, $lead)) {
+            return 0;
+        }
+
+        return preg_match('/(?:^|[ \t])[-*+][ \t]+(\[[ xX_>?\/!-]\][ \t]+)$/', substr($source, 0, strlen($source) - strlen($lead)), $box) === 1
+            ? strlen($box[1])
+            : 0;
     }
 
     /**
