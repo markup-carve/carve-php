@@ -35,6 +35,10 @@ final class ANestedTaskDescriptionUsesAuthoredColumnTest extends TestCase
                 "  - :: u\n    : e\n",
                 "<dt>u</dt>\n      <dd>e</dd>",
             ],
+            'description deeper than term' => [
+                "  - [ ] item\n      :: t\n       : u\n",
+                "<dt>t</dt>\n      <dd>u</dd>",
+            ],
         ];
     }
 
@@ -42,5 +46,13 @@ final class ANestedTaskDescriptionUsesAuthoredColumnTest extends TestCase
     public function testDescriptionFollowsTerm(string $source, string $expected): void
     {
         self::assertStringContainsString($expected, (new CarveConverter())->convert($source));
+    }
+
+    public function testDedentedDescriptionReturnsToParent(): void
+    {
+        $source = "- a\n    - [ ] item\n      :: t\n     : u\n";
+        $expected = "<ul>\n  <li>a\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"item\"> item\n        <dl>\n          <dt>t</dt>\n        </dl>\n      </li>\n    </ul>\n    : u\n  </li>\n</ul>";
+
+        self::assertSame($expected, rtrim((new CarveConverter())->convert($source), "\n"));
     }
 }

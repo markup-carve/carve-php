@@ -1512,17 +1512,11 @@ final class BlockContinuationScanner
         // (`CARVE-P0-007`), so it retains nothing for a below-column follower.
         $run->spanFromMarkerLine = $run->openCommentLength !== null;
         [$itemMarkerColumn, $itemContentColumn] = $this->authoredItemColumns(
-            $this->state->source->authoredLines[$itemLineMap[0] ?? -1]
-                ?? $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
+            $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
             $itemLines[0] ?? '',
         );
         while ($i < $count) {
             $nextLine = $lines[$i];
-            if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($nextLine, " \t")) === 1) {
-                $termSource = $this->state->source->authoredLines[$this->sourceLineFor($i)]
-                    ?? $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '';
-                $run->authoredTermSourceColumn = IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers($termSource));
-            }
             // The source marker column ends the nested item even when its
             // term is still open. The collected line has lost that column.
             // A task marker's checkbox adds a stripped column pair: its bullet's content column ends the item too.
@@ -1530,8 +1524,7 @@ final class BlockContinuationScanner
                 $run->pendingDefinitionTerm && $itemMarkerColumn !== null
                 && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($nextLine, " \t")) === 1
                 && in_array(IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
-                    $this->state->source->authoredLines[$this->sourceLineFor($i)]
-                        ?? $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
+                    $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 )), $baseIndent === self::TASK_BOX_WIDTH ? [$itemMarkerColumn, $itemMarkerColumn - self::TASK_BOX_WIDTH] : [$itemMarkerColumn], true)
             ) {
                 break;
@@ -1544,8 +1537,7 @@ final class BlockContinuationScanner
                 && $itemMarkerColumn > $baseIndent && $itemContentColumn !== null
                 && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($nextLine, " \t")) === 1
                 && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
-                    $this->state->source->authoredLines[$this->sourceLineFor($i)]
-                        ?? $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
+                    $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 ), $itemContentColumn) < $itemContentColumn
             ) {
                 break;
@@ -1600,8 +1592,7 @@ final class BlockContinuationScanner
                         ?? $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 ), $itemContentColumn);
                 if (
-                    $authoredColumn < $itemContentColumn
-                    && ($run->authoredTermSourceColumn === null || $authoredColumn !== $run->authoredTermSourceColumn)
+                    $authoredColumn < $itemMarkerColumn + $contentIndent - $baseIndent
                     && ($authoredColumn > $itemMarkerColumn || isset($this->state->source->lazyLines[$this->sourceLineFor($i)]))
                 ) {
                     $lines[$i] = str_repeat(' ', $contentIndent) . BlockGrammar::LAZY_FRAME . ltrim($nextLine, " \t");

@@ -169,8 +169,6 @@ final class PlainContinuationState
 
     public ?int $authoredTermColumn = null;
 
-    public ?int $authoredTermSourceColumn = null;
-
     public ?int $openTermColumn = null;
 
     public bool $authoredFenceOwnsLazy = false;
