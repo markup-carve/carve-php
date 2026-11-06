@@ -9,6 +9,20 @@ use PHPUnit\Framework\TestCase;
 
 final class AttachedItemAfterQuoteBlankTest extends TestCase
 {
+    public function testAMarkerBelowTheNestedContentColumnStartsASiblingList(): void
+    {
+        $source = "- a\n  - +\n  + w1\n   9. w2\n";
+        $expected = "<ul>\n  <li>a\n    <ul>\n      <li>+ w1</li>\n    </ul>\n    <ol start=\"9\">\n      <li>w2</li>\n    </ol>\n  </li>\n</ul>";
+        self::assertSame($expected, CarveConverter::create()->convert($source));
+    }
+
+    public function testAMarkerAtTheNestedContentColumnStartsAChildList(): void
+    {
+        $source = "- a\n  - +\n  + w1\n    9. w2\n";
+        $expected = "<ul>\n  <li>a\n    <ul>\n      <li>+ w1\n        <ol start=\"9\">\n          <li>w2</li>\n        </ol>\n      </li>\n    </ul>\n  </li>\n</ul>";
+        self::assertSame($expected, CarveConverter::create()->convert($source));
+    }
+
     public function testASecondQuotedContinuationReachesItsItem(): void
     {
         $source = "> - a\n> +\n> # h\n>\n> +\n> # h\n";
