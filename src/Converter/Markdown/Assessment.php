@@ -531,6 +531,10 @@ final class Assessment
                 continue;
             }
             if (preg_match('/^ {0,3}<(?:div|table|script|style|pre|!--)(?:[\s>]|$)/i', $line)) {
+                if ($tightItem) {
+                    // Raw HTML block boundaries inside a tight item are not modeled.
+                    $this->complete = false;
+                }
                 $body = [];
                 while ($i < $count && trim($lines[$i]) !== '') {
                     $body[] = $lines[$i++];
