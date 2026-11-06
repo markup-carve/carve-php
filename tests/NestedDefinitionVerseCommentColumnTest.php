@@ -24,6 +24,11 @@ final class NestedDefinitionVerseCommentColumnTest extends TestCase
             "- :: u\n  : ::: |\n        %%%\n        %%%\nz\n",
             "<ul>\n  <li>\n    <dl>\n      <dt>u</dt>\n      <dd>\n        <div class=\"line-block\">\n          <p>&nbsp;&nbsp;&nbsp;&nbsp;%%%<br>\n&nbsp;&nbsp;&nbsp;&nbsp;%%%<br>\nz</p>\n        </div>\n      </dd>\n    </dl>\n  </li>\n</ul>",
         ];
+
+        yield 'shifted item keeps a matching comment span' => [
+            "  - :: u\n    : ::: |\n        %%%\n        %%%\nz\n",
+            "<ul>\n  <li>\n    <dl>\n      <dt>u</dt>\n      <dd>\n        <div class=\"line-block\">\n\n        </div>\n      </dd>\n    </dl>\n  </li>\n</ul>\n<p>z</p>",
+        ];
     }
 
     #[DataProvider('documents')]
