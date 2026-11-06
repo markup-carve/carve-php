@@ -10,6 +10,8 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
@@ -98,6 +100,24 @@ final class UnresolvedReferenceTextBreakTest extends TestCase
 
         foreach ([new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
             self::assertSame("[a\\  \nb `x\ny`][missing]\n", $renderer->render($document));
+        }
+    }
+
+    public function testPositionlessVerbatimChildrenFollowEarlierText(): void
+    {
+        foreach ([new Code("x\ny"), new Math("x\ny"), new RawText("x\ny")] as $verbatim) {
+            $document = new Document();
+            $paragraph = new Paragraph();
+            $link = new Link('');
+            $link->setRawReferenceLabel("[x\ny `x\ny`][missing]");
+            $link->appendChild(new Text("x\ny "));
+            $link->appendChild($verbatim);
+            $paragraph->appendChild($link);
+            $document->appendChild($paragraph);
+
+            foreach ([new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
+                self::assertSame("[x y `x\ny`][missing]\n", $renderer->render($document));
+            }
         }
     }
 }

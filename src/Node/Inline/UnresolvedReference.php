@@ -108,10 +108,17 @@ final class UnresolvedReference
 
         $preservedLines = [];
         $preservedOffsets = [];
+        $searchCursor = 0;
         $pending = [$node];
         while ($pending !== []) {
             $current = array_pop($pending);
             $position = $current->getPos();
+            if ($current instanceof Text && $position === null && $current->getContent() !== '') {
+                $start = strpos($source, $current->getContent(), $searchCursor);
+                if ($start !== false) {
+                    $searchCursor = $start + strlen($current->getContent());
+                }
+            }
             if ($current instanceof HardBreak && $position !== null) {
                 $preservedLines[$position->startLine] = true;
             }
@@ -123,21 +130,18 @@ final class UnresolvedReference
                             $preservedLines[$heldLine] = true;
                         }
                     } else {
-                        $search = 0;
-                        while (($start = strpos($source, $content, $search)) !== false) {
-                            $before = rtrim(substr($source, 0, $start), ' ');
-                            if (str_ends_with($before, '`')) {
-                                preg_match_all('/\r\n|\r|\n/', $content, $breaks, PREG_OFFSET_CAPTURE);
-                                foreach ($breaks[0] as [, $offset]) {
-                                    $preservedOffsets[$start + $offset] = true;
-                                }
+                        $start = strpos($source, $content, $searchCursor);
+                        if ($start !== false) {
+                            preg_match_all('/\r\n|\r|\n/', $content, $breaks, PREG_OFFSET_CAPTURE);
+                            foreach ($breaks[0] as [, $offset]) {
+                                $preservedOffsets[$start + $offset] = true;
                             }
-                            $search = $start + strlen($content);
+                            $searchCursor = $start + strlen($content);
                         }
                     }
                 }
             }
-            array_push($pending, ...$current->getChildren());
+            array_push($pending, ...array_reverse($current->getChildren()));
         }
 
         $position = $node->getPos();
