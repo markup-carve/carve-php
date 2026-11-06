@@ -885,7 +885,8 @@ final class BlockSourceMapper
         // Locate the content in the raw slice. When the text was rewritten (an
         // escape collapsed) it will not be found verbatim, and the node keeps no
         // position rather than one that covers different bytes.
-        $within = strpos($raw, $content);
+        $cellOffset = $cellData['cellOffset'] ?? $offset;
+        $within = strpos($raw, $content, max(0, $offset - $cellOffset));
         if ($within === false) {
             return null;
         }
@@ -896,21 +897,17 @@ final class BlockSourceMapper
             return null;
         }
 
-        $start = $lineStart + $offset + $within;
+        $sourceLineText = $this->state->source->authoredLines[$sourceLine] ?? '';
+        $prefix = strpos($sourceLineText, '|');
+        if ($prefix === false) {
+            return null;
+        }
+        $start = $lineStart + $prefix + $cellOffset + $within;
 
-        // A table nested in a list item reaches here already re-indented, so the
-        // cell offset is short by whatever was stripped and the span would land
-        // on the wrong bytes. Check, and fall back to locating the content in
-        // the real source line before giving up.
+        // The split row starts at its first pipe. Check the exact slice before
+        // publishing a span; another copy in an attribute is not this text.
         if (substr($this->positionSource(), $start, strlen($content)) !== $content) {
-            $inSourceLine = strpos($this->state->source->authoredLines[$sourceLine] ?? '', $content);
-            if ($inSourceLine === false) {
-                return null;
-            }
-            $start = $lineStart + $inSourceLine;
-            if (substr($this->positionSource(), $start, strlen($content)) !== $content) {
-                return null;
-            }
+            return null;
         }
 
         return $this->state->source->positionIndex?->span(
@@ -1046,16 +1043,14 @@ final class BlockSourceMapper
             return null;
         }
 
-        $start = $lineStart + $cellOffset + $within;
+        $sourceLineText = $this->state->source->authoredLines[$sourceLine] ?? '';
+        $prefix = strpos($sourceLineText, '|');
+        if ($prefix === false) {
+            return null;
+        }
+        $start = $lineStart + $prefix + $cellOffset + $within;
         if (substr($this->positionSource(), $start, strlen($content)) !== $content) {
-            $sourceColumn = strpos($this->state->source->authoredLines[$sourceLine] ?? '', $content);
-            if ($sourceColumn === false) {
-                return null;
-            }
-            $start = $lineStart + $sourceColumn;
-            if (substr($this->positionSource(), $start, strlen($content)) !== $content) {
-                return null;
-            }
+            return null;
         }
 
         return SourceMap::contiguous($start, strlen($content), $sourceLine + 1, $start - $lineStart + 1)
