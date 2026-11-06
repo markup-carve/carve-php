@@ -526,6 +526,8 @@ final class BlockOwnershipWalk
             if (
                 $missed && $inner->kind === 'fence' && $inner->family === 'comment' && $inner->span === null
                 && str_starts_with($this->m['rest'], '%%')
+                // A `%%%` run that misses a quote ends the quote's span (S1) and opens its own.
+                && !(str_starts_with($this->m['rest'], '%%%') && $this->quoteBelow($reached))
                 && !($inner->closes !== null && ($inner->closes)($this->m['rest'], $this->m['col']))
             ) {
                 $missed = false;
