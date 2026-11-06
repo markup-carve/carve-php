@@ -107,12 +107,15 @@ final class UnresolvedReference
         }
 
         $preservedLines = [];
+        $hasPositionlessHardBreak = false;
         $pending = [$node];
         while ($pending !== []) {
             $current = array_pop($pending);
             $position = $current->getPos();
             if ($current instanceof HardBreak && $position !== null) {
                 $preservedLines[$position->startLine] = true;
+            } elseif ($current instanceof HardBreak) {
+                $hasPositionlessHardBreak = true;
             }
             if (($current instanceof Code || $current instanceof Math || $current instanceof LiteralInline || $current instanceof RawText) && $position !== null && str_contains($current->getContent(), "\n")) {
                 for ($heldLine = $position->startLine; $heldLine < $position->endLine; ++$heldLine) {
@@ -124,9 +127,17 @@ final class UnresolvedReference
 
         $position = $node->getPos();
         $line = $position === null ? 1 : $position->startLine;
+        $cursor = 0;
 
-        return preg_replace_callback('/\r\n|\r|\n/', static function () use (&$line, $inLineBlock, $preservedLines, $softBreak): string {
-            $replacement = $inLineBlock || isset($preservedLines[$line]) ? "\n" : $softBreak;
+        return preg_replace_callback('/\r\n|\r|\n/', static function (array $match) use (&$line, &$cursor, $source, $inLineBlock, $preservedLines, $hasPositionlessHardBreak, $softBreak): string {
+            $offset = strpos($source, $match[0], $cursor);
+            $backslashes = 0;
+            for ($index = $offset - 1; $index >= $cursor && $source[$index] === '\\'; --$index) {
+                ++$backslashes;
+            }
+            $cursor = $offset + strlen($match[0]);
+            $rawHardBreak = $hasPositionlessHardBreak && $backslashes % 2 === 1;
+            $replacement = $inLineBlock || isset($preservedLines[$line]) || $rawHardBreak ? "\n" : $softBreak;
             ++$line;
 
             return $replacement;

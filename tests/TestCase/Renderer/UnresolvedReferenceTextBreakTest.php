@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
+use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\SoftBreakMode;
@@ -56,6 +61,23 @@ final class UnresolvedReferenceTextBreakTest extends TestCase
             foreach ([new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
                 self::assertSame($expected, CarveConverter::create(renderer: $renderer)->convert($source));
             }
+        }
+    }
+
+    public function testPositionlessHardBreakInFailedReferenceStaysOnTwoLines(): void
+    {
+        $document = new Document();
+        $paragraph = new Paragraph();
+        $link = new Link('');
+        $link->setRawReferenceLabel("[a\\\nb][missing]");
+        $link->appendChild(new Text('a'));
+        $link->appendChild(new HardBreak());
+        $link->appendChild(new Text('b'));
+        $paragraph->appendChild($link);
+        $document->appendChild($paragraph);
+
+        foreach ([new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
+            self::assertSame("[a\\\nb][missing]\n", $renderer->render($document));
         }
     }
 }
