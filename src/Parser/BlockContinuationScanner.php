@@ -214,6 +214,10 @@ final class BlockContinuationScanner
             $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
             $bottom,
         );
+        $nestedBodyColumn = $nestedContentColumn !== null && self::leadFollowsTaskBox(
+            $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
+            $bottom,
+        ) ? $nestedContentColumn - self::TASK_BOX_WIDTH : $nestedContentColumn;
         $openCommentLength = $this->advanceItemCommentFence(null, $bottom, $lines, $i - 1);
         $openCommentColumn = 0;
         $lowComment = false;
@@ -499,7 +503,7 @@ final class BlockContinuationScanner
                 $authoredColumn = IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
                     $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 ), $nestedContentColumn);
-                if ($authoredColumn >= $nestedMarkerColumn && $authoredColumn < $nestedContentColumn) {
+                if ($authoredColumn >= $nestedMarkerColumn && $authoredColumn < $nestedBodyColumn) {
                     $stripped = ltrim($stripped, " \t");
                 }
             }
