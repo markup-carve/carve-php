@@ -156,10 +156,6 @@
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 506-comment-columns-and-surviving-list-items-5\"",
             "ticket": "carve#5012"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Converter\\ConverterCorpusTest::testConvertedSourceRendersTheExpectedHtml with data set \"40-djot-a-brace-run-continuation-must-be-indented\"",
-            "ticket": "carve#5080"
         }
     ]
 }
