@@ -6642,6 +6642,7 @@ class BlockParser
             fn (): BlockQuoteBuilder => $this->quotesBuilder(),
             $this->wrappedBlockAttributeLength(...),
             fn (array $lines, int $start): ?int => RefusedBraceRun::end($lines, $start, $this->inlineParser),
+            $this->collectedLinesLeaveACommentSpanOpen(...),
         );
     }
 
