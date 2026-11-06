@@ -383,7 +383,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
             // source is emptied of them here rather than in the stored value -
             // `rawRef` stays the authored source verbatim for the canonical
             // writer (PART 12 §3a, carve-php#1417).
-            $rawReference = UnresolvedReference::renderedSourceOf($node);
+            $rawReference = UnresolvedReference::displaySourceOf($node);
 
             return match (true) {
                 $node instanceof Document => $this->renderChildren($node),

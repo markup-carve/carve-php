@@ -81,4 +81,14 @@ final class UnresolvedReference
 
         return implode("\n", $lines);
     }
+
+    /**
+     * A source line feed in a failed reference is a soft break in text targets.
+     */
+    public static function displaySourceOf(Node $node): ?string
+    {
+        $source = self::renderedSourceOf($node);
+
+        return $source === null ? null : str_replace(["\r\n", "\r", "\n"], ' ', $source);
+    }
 }
