@@ -1751,7 +1751,22 @@ final class ListBlockBuilder
                     && !$this->followerReachesQuoteItemContent($lines[$i - 1] ?? '', $subLine)
                 ))
             ) {
-                [$end, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i, $count, $baseIndent);
+                // The `+` host's own column bounds the block, not the outer list's (§17 L3).
+                $hostColumn = $firstBlockOwner['kind'] === 'list' ? max($baseIndent, (int)$firstBlockOwner['column']) : $baseIndent;
+                [$end, $attached, $attachedLineMap] = $this->collectListContinuationBlock($lines, $i, $count, $hostColumn);
+                if ($hostColumn !== $baseIndent) {
+                    // A line left of the host's column is no part of its block, closer-shaped or not.
+                    for ($k = $i + 1; $k < $end; $k++) {
+                        if (!IndentationHelper::isBlankLine($lines[$k]) && IndentationHelper::getLeadingColumns($lines[$k], $hostColumn) < $hostColumn) {
+                            $end = $k;
+                            $attachedLineMap = array_slice($attachedLineMap, 0, $k - $i);
+                        }
+                    }
+                    $attached = array_map(
+                        static fn (string $line): string => IndentationHelper::stripLeadingColumns($line, $subIndent),
+                        array_slice($lines, $i, $end - $i),
+                    );
+                }
                 foreach ($attached as $at => $attachedLine) {
                     $subLines[] = $attachedLine;
                     $subLineMap[] = $attachedLineMap[$at];
@@ -1767,6 +1782,10 @@ final class ListBlockBuilder
                 $subLines[] = $this->blankLineResidue($subLine, $subIndent, $subTrailingState);
                 $subLineMap[] = $this->sourceLineFor($i);
                 $sawBlankLine = true;
+                // The walk ended the `+` attached fence at this blank (§17 L3).
+                if (isset($this->state->source->attachedFenceBlankEnds[$this->sourceLineFor($i)])) {
+                    $subTrailingState->fence = null;
+                }
                 $i++;
 
                 continue;
