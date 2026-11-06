@@ -1475,7 +1475,19 @@ final class BlockOwnershipWalk
             $frame->runEnd = $index;
         }
         $head->runEnd = $frame->runHead !== null ? $index : $index - 1;
+        $this->markDescriptionLeft($index - 1, false);
         $this->frames[] = $frame;
+    }
+
+    private function markDescriptionLeft(int $from, bool $left): void
+    {
+        for ($k = $from; $k > 0; $k--) {
+            if ($this->frames[$k]->kind === 'item') {
+                $this->frames[$k]->descriptionLeft = $left;
+
+                return;
+            }
+        }
     }
 
     /**
@@ -1495,8 +1507,13 @@ final class BlockOwnershipWalk
 
     private function truncate(int $count): void
     {
+        $leftDescription = false;
         for ($n = count($this->frames); $n > $count; $n--) {
+            $leftDescription = $leftDescription || $this->frames[$n - 1]->kind === 'dd' || $this->frames[$n - 1]->descriptionLeft;
             array_pop($this->frames);
+        }
+        if ($leftDescription) {
+            $this->markDescriptionLeft($count - 1, true);
         }
     }
 
@@ -2726,8 +2743,9 @@ final class BlockOwnershipWalk
                 return false;
             }
             if ($this->frames[$k]->kind === 'item' && $this->m['col'] === $this->frames[$k]->markerCol) {
-                for ($child = $k + 1; $child < $count; $child++) {
-                    if ($this->frames[$child]->kind === 'dd') {
+                for ($child = $k; $child < $count; $child++) {
+                    // An open description, or one that closed in an item still open (carve#5320).
+                    if ($this->frames[$child]->kind === 'dd' || $this->frames[$child]->descriptionLeft) {
                         return true;
                     }
                 }
