@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Node\Inline;
 
 use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 
 /**
  * One question, asked in every writer: is this node an UNRESOLVED reference?
@@ -111,10 +112,14 @@ final class UnresolvedReference
         // Images publish alt as a scalar, so their verbatim inline nodes are
         // unavailable here. Recover code-span line feeds from authored rawRef.
         if ($node instanceof Image) {
+            $altEnd = BracketScanner::balancedBracketEnds($source, 1, false)[1] ?? 0;
             preg_match_all('/`+/', $source, $runs, PREG_OFFSET_CAPTURE);
             $delimiters = $runs[0];
             for ($run = 0, $count = count($delimiters); $run < $count; ++$run) {
                 [$ticks, $start] = $delimiters[$run];
+                if ($start >= $altEnd) {
+                    break;
+                }
                 $slashes = 0;
                 for ($at = $start - 1; $at >= 0 && $source[$at] === '\\'; --$at) {
                     ++$slashes;
@@ -123,7 +128,7 @@ final class UnresolvedReference
                     continue;
                 }
                 for ($end = $run + 1; $end < $count; ++$end) {
-                    if (strlen($delimiters[$end][0]) !== strlen($ticks)) {
+                    if ($delimiters[$end][1] >= $altEnd || strlen($delimiters[$end][0]) !== strlen($ticks)) {
                         continue;
                     }
                     $contentStart = $start + strlen($ticks);

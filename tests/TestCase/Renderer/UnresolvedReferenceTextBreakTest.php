@@ -75,6 +75,7 @@ final class UnresolvedReferenceTextBreakTest extends TestCase
                 "![a `x\ny`][missing]\n" => "![a `x\ny`][missing]\n",
                 "![a\nb `x\ny`][missing]\n" => "![a b `x\ny`][missing]\n",
                 "![a ``x\ny`` z][missing]\n" => "![a ``x\ny`` z][missing]\n",
+                "![a][missing `x\ny`]\n" => "![a][missing `x y`]\n",
             ] as $source => $expected
         ) {
             foreach ([new PlainTextRenderer(), new AnsiRenderer(useColors: false)] as $renderer) {
