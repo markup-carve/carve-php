@@ -220,6 +220,11 @@ final class BlockOwnershipWalk
     public array $closingLines = [];
 
     /**
+     * @var array<int, true> Unmarked lines released from a quoted item span to its outer quote.
+     */
+    public array $outerQuoteLines = [];
+
+    /**
      * Whether the document opens with frontmatter (PART 1 admits no indent on either delimiter).
      */
     public bool $frontmatter = false;
@@ -235,6 +240,8 @@ final class BlockOwnershipWalk
      * the next line leaves the verse span under S1.
      */
     private bool $verseSpanBlankMissedOwner = false;
+
+    private bool $markedQuotedItemSpanBlank = false;
 
     private string $src = '';
 
@@ -307,9 +314,11 @@ final class BlockOwnershipWalk
         $this->runs = null;
         $this->textFences = [];
         $this->closingLines = [];
+        $this->outerQuoteLines = [];
         $this->frontmatter = false;
         $this->softLeaf = false;
         $this->verseSpanBlankMissedOwner = false;
+        $this->markedQuotedItemSpanBlank = false;
         $this->reach = 0;
         $this->wrappedAttributeEnd = -1;
         $this->attachedBraceRun = null;
@@ -561,8 +570,9 @@ final class BlockOwnershipWalk
             }
             if ($inner->kind === 'fence' && !$missed) {
                 $this->verseSpanBlankMissedOwner = $inner->lineBlock && $inner->span !== null && $inner->span[0] === '%'
-                    && $this->m['rest'] === ''
-                    && ($this->frames[1]->kind !== 'quote' || trim($lines[$at], " \t") === '');
+                    && $this->m['rest'] === '' && $this->spanBlankEndsStanza($lines[$at]);
+                $this->markedQuotedItemSpanBlank = $this->verseSpanBlankMissedOwner
+                    && $this->frames[1]->kind === 'quote' && str_contains($lines[$at], '>');
                 // S1: an open payload tests its closer first (B-<family>-keep, B-<family>-end).
                 $payloadPath = $this->trace !== null ? $this->ownerPath() : '';
                 $payloadForm = 'payload';
@@ -691,6 +701,7 @@ final class BlockOwnershipWalk
 
                 continue;
             }
+            $this->recordOuterQuoteLine($at, $missed, $reached);
             // A lone `+` at a marker column attaches a paragraph written there and the host keeps it (§17 L3):
             // S4 tests the lines after it against that paragraph, so a sibling marker interrupts it.
             $lonePlus = $plusFollower ? ($this->frames[$reached + 1] ?? null) : null;
@@ -846,6 +857,27 @@ final class BlockOwnershipWalk
         if ($quoted) {
             $this->closingLines[$at] = true;
         }
+    }
+
+    private function spanBlankEndsStanza(string $line): bool
+    {
+        $item = false;
+        foreach ($this->frames as $frame) {
+            if ($frame->kind === 'dd') {
+                return false;
+            }
+            $item = $item || $frame->kind === 'item';
+        }
+
+        return $item || ($this->frames[1]->kind !== 'quote' || trim($line, " \t") === '');
+    }
+
+    private function recordOuterQuoteLine(int $at, bool $missed, int $reached): void
+    {
+        if ($missed && $reached === 0 && $this->markedQuotedItemSpanBlank && $this->m['rest'] !== '') {
+            $this->outerQuoteLines[$at] = true;
+        }
+        $this->markedQuotedItemSpanBlank = false;
     }
 
     private function recordCommentPayloadHostColumn(int $at): void
