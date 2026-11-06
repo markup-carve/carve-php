@@ -89,4 +89,23 @@ class GeneratedHeadingIdIsPublishedTest extends TestCase
         $this->assertStringContainsString('id="Notes"', $html);
         $this->assertStringContainsString('id="Notes-2"', $html);
     }
+
+    public function testUnusedFootnoteHeadingHasNoGeneratedId(): void
+    {
+        $this->assertSame([null], $this->headingAttrs("[^n]: # H\n\n[H][]\n"));
+        $this->assertSame([null], $this->headingAttrs("[^n]: # H\n\n</#H>\n"));
+    }
+
+    public function testBodyHeadingsTakeIdsBeforeVisibleFootnotes(): void
+    {
+        $this->assertSame(
+            [['id' => 'H'], ['id' => 'H-2']],
+            $this->headingAttrs("[^n]: # H\n\n# H\n\n[^n]\n"),
+        );
+    }
+
+    public function testAuthoredIdRemainsOnAnUnusedFootnoteHeading(): void
+    {
+        $this->assertSame([['id' => 'chosen', 'order' => ['#id']]], $this->headingAttrs("[^n]: {#chosen}\n    # H\n"));
+    }
 }
