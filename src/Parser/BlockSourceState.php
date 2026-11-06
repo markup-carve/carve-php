@@ -98,9 +98,10 @@ final class BlockSourceState
     public array $fenceOpenerLines = [];
 
     /**
-     * Lines the ownership walk ended an open `%%%` span on because they missed its owner (PART 0 S1).
+     * Lines the ownership walk ended an open `%%%` span on because they missed its owner (PART 0 S1),
+     * to the span's opener line and delimiter width.
      *
-     * @var array<int, true>
+     * @var array<int, array{0: int, 1: int}>
      */
     public array $commentEndLines = [];
 

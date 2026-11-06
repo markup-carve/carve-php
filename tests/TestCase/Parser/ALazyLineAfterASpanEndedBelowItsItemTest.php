@@ -32,6 +32,10 @@ final class ALazyLineAfterASpanEndedBelowItsItemTest extends TestCase
                 "- [ ] * %%%\n  zz\nt\n",
                 "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li></li>\n    </ul>\n    zz\nt\n  </li>\n</ul>",
             ],
+            'a quote\'s span left by a wider run does not end the item\'s span' => [
+                "* a\n  > %%%\n  %%%%\n  x\nnext\n",
+                "<ul>\n  <li>a\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n<p>next</p>",
+            ],
             'a closer below the column still closes the span' => [
                 "* a\n  - y\n    %%%\n  %%%\ntail\n",
                 "<ul>\n  <li>a\n    <ul>\n      <li>y</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>",
