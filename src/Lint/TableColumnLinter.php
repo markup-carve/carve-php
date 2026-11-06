@@ -124,7 +124,7 @@ class TableColumnLinter
                 break;
             }
             foreach ($row->getChildren() as $cell) {
-                if ($cell instanceof TableCell && $cell->isHeader()) {
+                if ($cell instanceof TableCell && ($cell->isHeader() || $cell->getSpanMarker() !== null)) {
                     $axes['aligns'] = $axes['aligns'] || $cell->hasExplicitAlignment();
                     $axes['valigns'] = $axes['valigns'] || $cell->hasExplicitVerticalAlignment();
                 }
