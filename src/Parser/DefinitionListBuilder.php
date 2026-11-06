@@ -643,6 +643,11 @@ final class DefinitionListBuilder
         $definitionSource = $this->sourceLineFor($definitionStart);
         $authoredDefinition = $this->state->source->sourceLines[$definitionSource] ?? '';
         $definitionColumn = self::authoredSubjectColumn($authoredDefinition, $lines[$definitionStart]);
+        // reachesBodyColumn() measures the follower on its authored line, so the marker is measured there too.
+        $authoredDefinitionColumn = self::authoredSubjectColumn(
+            $this->state->source->authoredLines[$definitionSource] ?? $authoredDefinition,
+            $lines[$definitionStart],
+        );
         $i++;
         // First-block form (`: +`, mirroring the list `- +`): when the
         // sole content is a lone `+`, the body is the FOLLOWING
@@ -676,7 +681,7 @@ final class DefinitionListBuilder
                 $endsBody,
                 $colonHostBoundary,
                 $foldDeepParagraphLines ? $continuationColumn : null,
-                fn (string $a, int $at): bool => $this->reachesBodyColumn($a, $at, $definitionColumn, $continuationColumn),
+                fn (string $a, int $at): bool => $this->reachesBodyColumn($a, $at, $authoredDefinitionColumn, $continuationColumn),
             );
             $bodyMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $bodyRawMap);
             $firstBlockAttached = true;
