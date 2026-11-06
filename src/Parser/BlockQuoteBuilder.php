@@ -538,6 +538,14 @@ final class BlockQuoteBuilder
                 $lazyState['mode'] = BlockQuoteLazyMode::Content;
                 $lazyState['paragraphOpen'] = false;
                 $i++;
+            } elseif (
+                $lazyState['mode'] === BlockQuoteLazyMode::CommentFence
+                && strspn(ltrim($currentLine, " \t"), '%') === 2
+            ) {
+                // A `%%` line inside the open span is its payload (PART 0 S1).
+                $innerLines[] = ltrim($currentLine, " \t");
+                $innerLineMap[] = $this->sourceLineFor($i);
+                $i++;
             } elseif (isset($this->state->source->lineBlockLazyLines[$this->sourceLineFor($i)])) {
                 // The walk folded it into an open line block, whatever the payload looked like (carve#4748).
                 $innerLines[] = ltrim($currentLine, " \t");
