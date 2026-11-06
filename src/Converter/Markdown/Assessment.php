@@ -293,8 +293,9 @@ final class Assessment
      * @param list<string> $lines
      * @param int $depth
      * @param int $first
+     * @param bool $tightItem
      */
-    private function blocks(array $lines, int $first, int $depth = 0): string
+    private function blocks(array $lines, int $first, int $depth = 0, bool $tightItem = false): string
     {
         if ($depth > 64) {
             $this->complete = false;
@@ -447,7 +448,7 @@ final class Assessment
                 $tag = $ordered ? 'ol' : 'ul';
                 $this->emit($ordered ? 'ordered-list' : 'bullet-list', $n);
                 $taskList = !$ordered && preg_match('/^\[([ xX])\][ \t]+/', $m[2]) === 1;
-                $html .= '<' . $tag . ($taskList ? ' class="task-list"' : '') . ($ordered && (int)$m[1] !== 1 ? ' start="' . (int)$m[1] . '"' : '') . ">\n";
+                $html .= '<' . $tag . ($taskList ? ' class="task-list"' : '') . ($ordered && (int)$m[1] !== 1 ? ' start="' . (int)$m[1] . '"' : '') . ($ordered && str_ends_with($m[1], ')') ? ' data-delim=")"' : '') . ">\n";
                 $items = [];
                 $loose = false;
                 $blankBefore = false;
@@ -464,8 +465,16 @@ final class Assessment
                     $column = strlen($m[1] . $m[2] . $m[3]);
                     $start = $i;
                     $body = [$m[4]];
-                    for ($i++; $i < $count && (trim($lines[$i]) === '' || strspn($lines[$i], ' ') >= $column); $i++) {
-                        $body[] = trim($lines[$i]) === '' ? '' : substr($lines[$i], $column);
+                    for ($i++; $i < $count; $i++) {
+                        if (trim($lines[$i]) === '') {
+                            $body[] = '';
+                        } elseif (strspn($lines[$i], ' ') >= $column) {
+                            $body[] = substr($lines[$i], $column);
+                        } elseif (self::continuesLazily($body, $lines[$i])) {
+                            $body[] = $lines[$i];
+                        } else {
+                            break;
+                        }
                     }
                     $blank = false;
                     // The marker line stays: an item may open with only spaces after its marker.
@@ -475,10 +484,6 @@ final class Assessment
                     }
                     if (in_array('', $body, true)) {
                         $loose = true;
-                        // A blank inside a nested list or a fence may belong to that block, not to this item.
-                        if (preg_grep('/^ *(?:[-+*]|\d{1,9}[.)])[ \t]|^ *(?:`{3,}|~{3,})/', array_slice($body, 1)) !== []) {
-                            $this->complete = false;
-                        }
                     }
                     $loose = $loose || $items !== [] && $blankBefore;
                     $items[] = [$start, $body];
@@ -492,8 +497,13 @@ final class Assessment
 
                         continue;
                     }
+                    if (count($itemLines) > 1 && !$taskList) {
+                        $html .= '<li>' . rtrim($this->blocks($itemLines, $first + $start, $depth + 1, true), "\n") . "</li>\n";
+
+                        continue;
+                    }
                     if (count($itemLines) > 1 || $loose) {
-                        // A tight item holding more than one line, or a loose task item, is not modeled.
+                        // A loose task item is not modeled.
                         $this->complete = false;
                     }
                     $i = $start;
@@ -539,15 +549,10 @@ final class Assessment
                 $body[] = $lines[$i++];
             }
             $this->emit('paragraph', $n);
-            foreach ($body as $text) {
-                if (str_contains($text, "\t")) {
-                    $this->complete = false;
-                }
-            }
             $before = count($this->diagnostics);
             $inline = $this->inline(trim(implode("\n", $body)), $n);
             $image = array_filter(array_slice($this->diagnostics, $before), static fn (MigrationDiagnostic $row): bool => in_array($row->code, ['markdown-image', 'markdown-reference-link'], true)) !== [];
-            $html .= $image && preg_match('/^<img\s[^>]*>$/', $inline) === 1 ? $inline . "\n" : '<p>' . $inline . "</p>\n";
+            $html .= $image && preg_match('/^<img\s[^>]*>$/', $inline) === 1 ? $inline . "\n" : ($tightItem ? $inline . "\n" : '<p>' . $inline . "</p>\n");
         }
 
         return $html;
@@ -572,7 +577,12 @@ final class Assessment
         }
         $visit = function (DOMNode $node) use (&$visit): array {
             if ($node->nodeType === XML_TEXT_NODE) {
-                return [$node->nodeValue];
+                $value = $node->nodeValue ?? '';
+                if ($node->parentNode?->nodeName === 'li' && in_array($node->nextSibling?->nodeName, ['blockquote', 'ul', 'ol'], true)) {
+                    $value = preg_replace('/\n[ \t]+$/', "\n", $value) ?? $value;
+                }
+
+                return [$value];
             }
             if ($node->nodeType === XML_COMMENT_NODE) {
                 return [['comment', $node->nodeValue]];

@@ -66,6 +66,6 @@ final class ABlockInALooseMarkdownItemIsAssessedTest extends TestCase
             (new MarkdownToCarve())->convertWithFidelityReport($markdown)->diagnostics,
         );
 
-        $this->assertSame(['fidelity-unverified'], $codes);
+        $this->assertSame(['markdown-bullet-list', 'markdown-list-item', 'markdown-paragraph', 'markdown-block-quote', 'markdown-paragraph'], $codes);
     }
 }

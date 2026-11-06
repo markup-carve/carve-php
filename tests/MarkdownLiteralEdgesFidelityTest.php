@@ -21,7 +21,7 @@ final class MarkdownLiteralEdgesFidelityTest extends TestCase
             'two CRLF line endings' => ["hello\r\n\r\n", "hello\n\n", 'literal-text-verified'],
             'plain Unicode words' => ["café 世界 123\n\n", "café 世界 123\n\n", 'literal-text-verified'],
             'Markdown hard-break spaces' => ['hello  ', 'hello', 'markdown-paragraph'],
-            'tab inside a paragraph' => ["hello\tworld", "hello\tworld", 'fidelity-unverified'],
+            'tab inside a paragraph' => ["hello\tworld", "hello\tworld", 'markdown-paragraph'],
             'interior line ending' => ["hello\nworld", "hello\nworld", 'markdown-paragraph'],
             'markup' => ['*markup*', '/markup/', 'markdown-paragraph'],
             'leading indentation' => [' hello', 'hello', 'markdown-paragraph'],
