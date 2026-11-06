@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node\Inline;
 
+use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Node;
 
 /**
@@ -80,5 +81,89 @@ final class UnresolvedReference
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * A source line feed in a failed reference is a soft break in text targets.
+     */
+    public static function displaySourceOf(Node $node, string $softBreak): ?string
+    {
+        $source = self::renderedSourceOf($node);
+
+        if ($source === null) {
+            return null;
+        }
+        if (!str_contains($source, "\n") && !str_contains($source, "\r")) {
+            return $source;
+        }
+
+        $inLineBlock = false;
+        for ($parent = $node->getParent(); $parent !== null; $parent = $parent->getParent()) {
+            if ($parent instanceof LineBlock) {
+                $inLineBlock = true;
+
+                break;
+            }
+        }
+
+        $preservedLines = [];
+        $preservedOffsets = [];
+        $searchCursor = 0;
+        $pending = [$node];
+        while ($pending !== []) {
+            $current = array_pop($pending);
+            $position = $current->getPos();
+            if ($current instanceof Text && $position === null && $current->getContent() !== '') {
+                $start = strpos($source, $current->getContent(), $searchCursor);
+                if ($start !== false) {
+                    $searchCursor = $start + strlen($current->getContent());
+                }
+            }
+            if ($current instanceof HardBreak && $position !== null) {
+                $preservedLines[$position->startLine] = true;
+            }
+            if ($current instanceof Code || $current instanceof Math || $current instanceof LiteralInline || $current instanceof RawText) {
+                $content = $current->getContent();
+                if (str_contains($content, "\n") || str_contains($content, "\r")) {
+                    if ($position !== null) {
+                        for ($heldLine = $position->startLine; $heldLine < $position->endLine; ++$heldLine) {
+                            $preservedLines[$heldLine] = true;
+                        }
+                    } else {
+                        $start = strpos($source, $content, $searchCursor);
+                        if ($start !== false) {
+                            preg_match_all('/\r\n|\r|\n/', $content, $breaks, PREG_OFFSET_CAPTURE);
+                            foreach ($breaks[0] as [, $offset]) {
+                                $preservedOffsets[$start + $offset] = true;
+                            }
+                            $searchCursor = $start + strlen($content);
+                        }
+                    }
+                }
+            }
+            array_push($pending, ...array_reverse($current->getChildren()));
+        }
+
+        $position = $node->getPos();
+        $line = $position === null ? 1 : $position->startLine;
+        $cursor = 0;
+
+        return preg_replace_callback('/\r\n|\r|\n/', static function (array $match) use (&$line, &$cursor, $source, $inLineBlock, $preservedLines, $preservedOffsets, $softBreak): string {
+            $offset = strpos($source, $match[0], $cursor);
+            $index = $offset - 1;
+            while ($index >= $cursor && ($source[$index] === ' ' || $source[$index] === "\t")) {
+                --$index;
+            }
+            $backslashes = 0;
+            for (; $index >= $cursor && $source[$index] === '\\'; --$index) {
+                ++$backslashes;
+            }
+            $cursor = $offset + strlen($match[0]);
+            $rawHardBreak = $backslashes % 2 === 1;
+            $replacement = $inLineBlock || isset($preservedLines[$line]) || isset($preservedOffsets[$offset]) || $rawHardBreak ? "\n" : $softBreak;
+            ++$line;
+
+            return $replacement;
+        }, $source);
     }
 }
