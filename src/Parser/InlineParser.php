@@ -3125,12 +3125,14 @@ class InlineParser
             if ($refEnd !== false) {
                 $ref = substr($text, $afterBracket + 1, $refEnd - $afterBracket - 1);
 
-                // A label across a line fails and the whole form stays verbatim (CARVE-P3-004).
-                if (strpbrk($ref, "\r\n") !== false) {
+                // A cross-line label cannot resolve, but remains an authored
+                // reference in the AST so lint can report the missing target.
+                $crossLineRef = strpbrk($ref, "\r\n") !== false;
+                if ($crossLineRef && ($this->inlineDepth > 1 || $linkText === '')) {
                     return ['verbatim_end' => $refEnd + 1, 'link_text' => $linkText];
                 }
 
-                if (str_starts_with($ref, '@')) {
+                if (!$crossLineRef && str_starts_with($ref, '@')) {
                     return [
                         'node' => new Text(substr($text, $pos, $refEnd + 1 - $pos)),
                         'pos' => $refEnd + 1,
@@ -3162,9 +3164,9 @@ class InlineParser
                 // wrote and the string PART 12 §3a publishes differ.
                 $derivedRef = null;
 
-                $refDef = $originalRefBracket === ''
+                $refDef = $crossLineRef ? null : ($originalRefBracket === ''
                     ? $this->blockParser->getCollapsedReference($ref)
-                    : $this->blockParser->getReference($ref);
+                    : $this->blockParser->getReference($ref));
                 // A later definition of this label can still replace the one
                 // collected so far. Resolve authored references after the
                 // structural walk has collected the whole document.
