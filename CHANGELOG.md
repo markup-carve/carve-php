@@ -11,6 +11,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixed
 
+- A blank before an unclosed comment span's payload now keeps sibling list items loose (carve#5266).
 - A missed line after a quoted empty verse span now leaves nested quotes and item-hosted quotes at the document boundary (carve#5265, carve#5268).
 
 ## [0.1.17] - 2026-11-06

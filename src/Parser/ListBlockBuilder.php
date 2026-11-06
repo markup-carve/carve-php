@@ -553,8 +553,10 @@ final class ListBlockBuilder
         }
         $inSpan = [];
         for ($k = $head; $k < $at; $k++) {
-            if ($spanRuns[$k] >= 3 && $next[$k] !== null) {
-                for ($end = $next[$k]; $k <= $end; $k++) {
+            if ($spanRuns[$k] >= 3) {
+                // An unclosed span consumes its payload through the item boundary.
+                // Its preceding blank still separates the next sibling.
+                for ($end = $next[$k] ?? $at - 1; $k <= $end; $k++) {
                     $inSpan[$k] = true;
                 }
                 $k--;
