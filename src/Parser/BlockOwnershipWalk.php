@@ -734,6 +734,7 @@ final class BlockOwnershipWalk
             ) {
                 $this->closingLines[$at] = true;
             }
+            $this->recordClosedDocumentQuote($at, $missed, $reached, $inner);
             // A document-owned abbreviation definition ends a term too (carve#4412).
             if (!$missed && $this->frames[$reached]->last === 'term' && $this->abbreviationMissesFrames($reached, $form)) {
                 $this->closingLines[$at] = true;
@@ -816,6 +817,29 @@ final class BlockOwnershipWalk
 
                 return;
             }
+        }
+    }
+
+    /**
+     * A line leaving an empty verse stanza can close every quoted host even
+     * though the innermost frame is a div. The quote collector must not take
+     * that document-owned line as lazy text (carve#5265, carve#5268).
+     */
+    private function recordClosedDocumentQuote(int $at, bool $missed, int $reached, OwnershipFrame $inner): void
+    {
+        if (!$missed || $reached !== 0 || $inner->kind !== 'fence' || !$inner->lineBlock || $inner->para) {
+            return;
+        }
+
+        $quoted = false;
+        foreach ($this->frames as $frame) {
+            if ($frame->kind === 'dd') {
+                return;
+            }
+            $quoted = $quoted || $frame->kind === 'quote';
+        }
+        if ($quoted) {
+            $this->closingLines[$at] = true;
         }
     }
 
