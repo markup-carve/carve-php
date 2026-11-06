@@ -653,22 +653,31 @@ final class DefinitionListBuilder
         if (($firstBlockOwner['kind'] ?? null) === 'description' && $firstBlockOwner['column'] === $definitionColumn) {
             // A list marker ends an attached block that is no list; the body then opens or closes at it (PART 0 S3, carve#4860).
             $markerEnds = !$this->continuations->attachedLeadIsList($lines, $i, $count);
-            [$i, $body, $bodyRawMap] = $this->collectAttachedBlock(
+            $foldDeepParagraphLines = isset($lines[$i])
+                && IndentationHelper::getLeadingColumns($lines[$i]) === 0
+                && !$this->startsInterruptingBlock($lines[$i], $lines, $i)
+                && ($this->getListParser)()->parseListItemMarker($lines[$i]) === null;
+            $endsBody = function (string $a, int $at) use ($continuationColumn, $definitionColumn, $markerEnds): bool {
+                $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($at));
+
+                return IndentationHelper::isBlankLine($a)
+                    || ($markerEnds && ($this->getListParser)()->parseListItemMarker(ltrim($a, " \t")) !== null)
+                    || $decision['column'] >= 0 && $decision['owner'] !== null
+                    || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
+                    || $this->opensDescriptionBelowBody($a, $at, $definitionColumn, $continuationColumn);
+            };
+            $colonHostBoundary = fn (string $a, int $at): bool => preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
+                || $this->opensDescriptionBelowBody($a, $at, $definitionColumn, $continuationColumn);
+            // The attached block is one block (PART 0 S4); the body then goes on only with blocks at its column.
+            [$i, $body, $bodyRawMap] = $this->attachedFlushLeftBlock(
                 $lines,
                 $i,
                 $count,
-                function (string $a, int $at) use ($continuationColumn, $definitionColumn, $markerEnds): bool {
-                    $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($at));
-
-                    return IndentationHelper::isBlankLine($a)
-                        || ($markerEnds && ($this->getListParser)()->parseListItemMarker(ltrim($a, " \t")) !== null)
-                        || $decision['column'] >= 0 && $decision['owner'] !== null
-                        || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
-                        || $this->opensDescriptionBelowBody($a, $at, $definitionColumn, $continuationColumn);
-                },
-                null,
-                fn (string $a, int $at): bool => preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
-                    || $this->opensDescriptionBelowBody($a, $at, $definitionColumn, $continuationColumn),
+                $endsBody,
+                $colonHostBoundary,
+                $foldDeepParagraphLines ? $continuationColumn : null,
+                fn (string $a, int $at): bool => $this->reachesBodyColumn($a, $at, $definitionColumn, $continuationColumn)
+                    && !$this->startsNewBlock(ltrim($a, " \t"), $lines, $at),
             );
             $bodyMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $bodyRawMap);
             $firstBlockAttached = true;
@@ -1172,7 +1181,7 @@ final class DefinitionListBuilder
             $b->lines,
             $b->i,
             $b->count,
-            function (string $a) use (&$attachedItemColumn, &$attachedReferenceSeen, $quotedAttached): bool {
+            function (string $a, int $index) use (&$attachedItemColumn, &$attachedReferenceSeen, $quotedAttached): bool {
                 if (
                     preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
                     || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $a) === 1
@@ -2892,14 +2901,32 @@ final class DefinitionListBuilder
      * @param array<string> $lines
      * @param int $i Index of the first line after the `+` marker.
      * @param int $count Total line count.
-     * @param (callable(string): bool)|null $endsAtSibling Names a sibling of this container, or null.
-     * @param callable|null $colonHostBoundary
+     * @param (callable(string, int): bool)|null $endsAtSibling Names a sibling of this container, or null.
+     * @param (callable(string, int): bool)|null $colonHostBoundary
+     * @param int|null $paragraphFoldColumn
+     * @param (callable(string, int): bool)|null $continuesBody
      *
      * @return array{0: int, 1: array<string>, 2: array<int>}
      */
-    private function attachedFlushLeftBlock(array $lines, int $i, int $count, ?callable $endsAtSibling = null, ?callable $colonHostBoundary = null): array
-    {
-        return $this->continuations->attachedFlushLeftBlock($lines, $i, $count, $endsAtSibling, $colonHostBoundary, invisibleLineEndsParagraph: true);
+    private function attachedFlushLeftBlock(
+        array $lines,
+        int $i,
+        int $count,
+        ?callable $endsAtSibling = null,
+        ?callable $colonHostBoundary = null,
+        ?int $paragraphFoldColumn = null,
+        ?callable $continuesBody = null,
+    ): array {
+        return $this->continuations->attachedFlushLeftBlock(
+            $lines,
+            $i,
+            $count,
+            $endsAtSibling,
+            $colonHostBoundary,
+            invisibleLineEndsParagraph: true,
+            paragraphFoldColumn: $paragraphFoldColumn,
+            continuesBody: $continuesBody,
+        );
     }
 
     /**
@@ -3037,6 +3064,29 @@ final class DefinitionListBuilder
         return substr($entry, $start, strcspn($entry, "\n", $start));
     }
 
+    /**
+     * Whether a line stands at or past the description's body column as authored, before the ownership walk moved it.
+     *
+     * @param string $line
+     * @param int $index
+     * @param int|null $marker
+     * @param int $width
+     */
+    private function reachesBodyColumn(string $line, int $index, ?int $marker, int $width): bool
+    {
+        $source = $this->state->source->authoredLines[$this->sourceLineFor($index)] ?? null;
+        $column = $source === null || $marker === null ? null : self::authoredSubjectColumn($source, ltrim($line, " \t"));
+        if ($column === null) {
+            return IndentationHelper::getLeadingColumns($line) >= $width;
+        }
+
+        return $column >= $marker + $width;
+    }
+
+    /**
+     * @param string $line
+     * @param string $subject
+     */
     private static function authoredSubjectColumn(string $line, string $subject): ?int
     {
         $line = rtrim($line, " \t");
