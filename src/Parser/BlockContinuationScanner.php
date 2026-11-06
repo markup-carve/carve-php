@@ -4069,9 +4069,15 @@ final class BlockContinuationScanner
             }
             $foldedAsText = true;
         } else {
-            $itemLines[] = preg_match(BlockGrammar::DEFINITION_TERM_PATTERN . 's', $lastItemLine) === 1
-                && str_starts_with($nextTrimmed, '%%%') ? ' ' . $nextTrimmed : $nextTrimmed;
-            if ($run->pendingDefinitionTerm && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed)) {
+            // A description-shaped line the walk folds is lazy text, not a marker, for the blocks below (PART 0 S4).
+            $walkFoldsDescription = isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
+                && preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $nextTrimmed) === 1;
+            $itemLines[] = match (true) {
+                $walkFoldsDescription => BlockGrammar::LAZY_FRAME . $nextTrimmed,
+                preg_match(BlockGrammar::DEFINITION_TERM_PATTERN . 's', $lastItemLine) === 1 && str_starts_with($nextTrimmed, '%%%') => ' ' . $nextTrimmed,
+                default => $nextTrimmed,
+            };
+            if (!$walkFoldsDescription && $run->pendingDefinitionTerm && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed)) {
                 $run->openDefinitionBody = $this->advanceItemDefinitionBody($run->openDefinitionBody, $nextTrimmed);
                 $run->pendingDefinitionTerm = false;
                 $run->definitionBodyHasTerm = true;
