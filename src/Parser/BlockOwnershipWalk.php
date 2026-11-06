@@ -72,6 +72,20 @@ final class BlockOwnershipWalk
     public array $attachedPreludeLines = [];
 
     /**
+     * The content column of the host that kept each prelude line.
+     *
+     * @var array<int, int>
+     */
+    public array $attachedPreludeContentColumns = [];
+
+    /**
+     * The deepest reached item prefix of a comment payload line.
+     *
+     * @var array<int, int>
+     */
+    public array $commentPayloadHostColumns = [];
+
+    /**
      * Abbreviation definitions skipped after an attached plus, keyed by source line.
      *
      * @var array<int, array{string, string}>
@@ -298,6 +312,8 @@ final class BlockOwnershipWalk
         $this->movedSpanEnd = -1;
         $this->lazyLines = [];
         $this->attachedPreludeLines = [];
+        $this->attachedPreludeContentColumns = [];
+        $this->commentPayloadHostColumns = [];
         $this->skippedCommentLines = [];
         $this->commentColumnOwners = [];
         $this->lineBlockLazyLines = [];
@@ -346,6 +362,19 @@ final class BlockOwnershipWalk
             $this->src = $lines[$at];
             $this->out = '';
             $this->m = self::indentCols($this->src);
+            foreach ($this->frames as $frame) {
+                if ($frame->kind === 'fence' && $frame->span !== null && $frame->span[0] === '%') {
+                    $hostColumn = 0;
+                    foreach ($this->frames as $owner) {
+                        if (in_array($owner->kind, ['item', 'dd', 'note'], true) && $owner->col <= $this->m['col']) {
+                            $hostColumn = max($hostColumn, $owner->col);
+                        }
+                    }
+                    $this->commentPayloadHostColumns[$at] = $hostColumn;
+
+                    break;
+                }
+            }
             // A `+` right after the block a `+` attached reaches the same host, whose
             // frames the walk closed when it read that block where it stands.
             if ($this->attachedTo !== null && str_contains($this->src, '+')) {
@@ -791,6 +820,7 @@ final class BlockOwnershipWalk
             return false;
         }
         $this->attachedPreludeLines[$at] = true;
+        $this->attachedPreludeContentColumns[$at] = $skipped['host']->col;
         if (isset($skipped['noteBodies'][$at])) {
             $this->lazyLines[$at] = true;
         }

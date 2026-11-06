@@ -186,6 +186,18 @@ final class LineBlockBuilder
                 $endedLazy = $closer < $count && $lazy[$closer] && self::commentRun($contentLines[$closer]) !== $run;
                 $tail = trim($opener[2], " \t");
                 $commentLines = array_slice($contentLines, $index + 1, $closer - $index - 1);
+                foreach ($commentLines as $bodyIndex => &$bodyLine) {
+                    $physical = $this->sourceLineFor($lineNumber + $bodyIndex + 1);
+                    $hostColumn = $this->state->source->commentPayloadHostColumns[$physical] ?? null;
+                    $authored = $this->state->source->authoredLines[$physical] ?? null;
+                    if (
+                        $hostColumn !== null && $hostColumn > 0 && $authored !== null
+                        && preg_match('/^[ \t]*>/', $authored) !== 1 && strspn($authored, " \t") >= $hostColumn
+                    ) {
+                        $bodyLine = IndentationHelper::stripLeadingColumns($authored, $hostColumn);
+                    }
+                }
+                unset($bodyLine);
                 $comment = new Comment(implode("\n", $tail === '' ? $commentLines : [$tail, ...$commentLines]), $run);
                 $this->stampBlockSpan($comment, $this->sourceLineFor($lineNumber), $this->sourceLineFor($start + 1 + min($endedLazy ? $closer - 1 : $closer, $count - 1)));
                 if ($stanza !== []) {
