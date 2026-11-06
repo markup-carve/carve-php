@@ -682,7 +682,7 @@ trait BlockColonMethods
             return $count;
         }
 
-        $commentInfo = $literal && IndentationHelper::getLeadingColumns($line) <= 3
+        $commentInfo = !$literal || IndentationHelper::getLeadingColumns($line) <= 3
             ? $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($line)
             : $this->fencedBlockParser->parseFencedCommentOpener($line);
         if ($commentInfo === null || !$this->hasClosingCommentFenceAhead($line, $lines, $start)) {
