@@ -1512,7 +1512,8 @@ final class BlockContinuationScanner
         // (`CARVE-P0-007`), so it retains nothing for a below-column follower.
         $run->spanFromMarkerLine = $run->openCommentLength !== null;
         [$itemMarkerColumn, $itemContentColumn] = $this->authoredItemColumns(
-            $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
+            $this->state->source->authoredLines[$itemLineMap[0] ?? -1]
+                ?? $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
             $itemLines[0] ?? '',
         );
         while ($i < $count) {
@@ -1588,7 +1589,8 @@ final class BlockContinuationScanner
                 && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($nextLine, " \t")) === 1
             ) {
                 $authoredColumn = IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
-                    $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
+                    $this->state->source->authoredLines[$this->sourceLineFor($i)]
+                        ?? $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 ), $itemContentColumn);
                 if (
                     $authoredColumn < $itemContentColumn
