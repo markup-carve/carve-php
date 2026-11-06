@@ -2347,6 +2347,11 @@ final class DefinitionListBuilder
         $paragraphOpen = !$l->noteReleased && ($b->nestedLeadFence->length > 0
             ? ($b->nestedLeadFence->closed && $b->nestedLeadFence->trailing->openParagraph)
             : ($b->bodyState->openParagraph || $b->nestedLazyParagraph || $bodyTermOpen));
+        // The source walk's lazy claim retains a paragraph after a closed
+        // child block even when this local trailing scanner loses that state.
+        $paragraphOpen = $paragraphOpen || ($b->body !== []
+            && isset($this->state->source->lazyLines[$this->sourceLineFor($b->i)])
+            && $this->bodyEntryStartsParagraph($b->body[array_key_last($b->body)]));
         if (
             $b->nestedDescriptionBodyColumn !== null
             && $l->contColumn < $b->nestedDescriptionBodyColumn
