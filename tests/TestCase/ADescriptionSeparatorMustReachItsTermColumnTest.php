@@ -105,7 +105,7 @@ class ADescriptionSeparatorMustReachItsTermColumnTest extends TestCase
 
         yield 'no open term after a completed description' => [
             "- a\n  :: m\n  : d\n\n  p\n\n  : x\n: l\n",
-            '<ul> <li><p>a</p> <dl> <dt>m</dt> <dd>d</dd> </dl> <p>p</p> <p>: x : l</p> </li> </ul>',
+            '<ul> <li><p>a</p> <dl> <dt>m</dt> <dd>d</dd> </dl> <p>p</p> <p>: x</p> </li> </ul> <p>: l</p>',
         ];
 
         yield 'quoted list' => [
