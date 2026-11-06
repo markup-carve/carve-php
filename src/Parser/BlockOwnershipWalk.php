@@ -587,7 +587,8 @@ final class BlockOwnershipWalk
                         && ($this->closerRuns()['widest'][$f[1][0]][$at + 1] ?? 0) >= strlen($f[1])
                     ) {
                         $this->frames[$innerIndex]->span = $f[1];
-                    } elseif (preg_match('/^(%{3,})/', $rest, $c) === 1) {
+                    } elseif ($this->m['col'] - $inner->col <= 3 && preg_match('/^(%{3,})/', $rest, $c) === 1) {
+                        // A deeper percent run is verse text, not a span opener.
                         // A comment span leaves nothing: the stanza stays as it was before it (carve#4956).
                         $this->frames[$innerIndex]->span = $c[1];
                     } else {
