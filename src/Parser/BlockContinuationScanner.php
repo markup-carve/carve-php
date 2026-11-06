@@ -917,9 +917,10 @@ final class BlockContinuationScanner
      * @param array<string> $lines
      * @param int $i Index of the first line after the `+` marker.
      * @param int $count Total line count.
-     * @param (callable(string): bool)|null $endsAtSibling Names a sibling of this container, or null.
+     * @param (callable(string, int): bool)|null $endsAtSibling Names a sibling of this container, or null.
      * @param (callable(string, int): bool)|null $colonHostBoundary
      * @param bool $invisibleLineEndsParagraph
+     * @param int|null $paragraphFoldColumn
      *
      * @return array{0: int, 1: array<string>, 2: array<int>}
      */
@@ -930,6 +931,7 @@ final class BlockContinuationScanner
         ?callable $endsAtSibling = null,
         ?callable $colonHostBoundary = null,
         bool $invisibleLineEndsParagraph = false,
+        ?int $paragraphFoldColumn = null,
     ): array {
         $attachedKind = BlockGrammar::ATTACHED_PENDING;
         $pendingThrough = -1;
@@ -946,19 +948,27 @@ final class BlockContinuationScanner
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn): bool {
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn): bool {
                 if ($attachedKind === BlockGrammar::ATTACHED_PENDING && str_starts_with(ltrim($line, " \t"), '{')) {
                     $refusedFollower = ($this->refusedBraceRunEndCallback)($lines, $index) ?? -1;
                 }
                 if (
                     IndentationHelper::isBlankLine($line)
                     || $this->isContinuationMarker($line)
-                    || ($attachedState->fence === null && $endsAtSibling !== null && $endsAtSibling($line))
+                    || ($attachedState->fence === null && $endsAtSibling !== null && $endsAtSibling($line, $index))
                     || ($markerEnds && $attachedState->fence === null && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null)
                     || ($bodyColumn !== null && $attachedKind === BlockGrammar::ATTACHED_SPANNING . ':definition'
                         && $this->markerLeavesAttachedDescription($line, $bodyColumn, $attachedState))
                 ) {
                     return true;
+                }
+                if (
+                    $paragraphFoldColumn !== null && $attachedKind === BlockGrammar::ATTACHED_PARAGRAPH
+                    && IndentationHelper::getLeadingColumns($line) >= $paragraphFoldColumn
+                ) {
+                    $attachedState = $this->advanceTrailingState($attachedState, 'text');
+
+                    return false;
                 }
                 if ($index !== $refusedFollower && $this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState)) {
                     return true;
