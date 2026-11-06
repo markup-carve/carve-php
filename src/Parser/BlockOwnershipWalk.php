@@ -826,6 +826,9 @@ final class BlockOwnershipWalk
                 }
                 $this->frames[$o]->para = true;
                 $this->frames[$o]->last = 'para';
+                if ($this->frames[$o]->kind === 'item') {
+                    $this->frames[$o]->hasDefinition = false;
+                }
             } else {
                 if (!$plusFollower) {
                     $this->noteOpener($o, $form, $this->frames[$o]->col);
@@ -1380,9 +1383,11 @@ final class BlockOwnershipWalk
     {
         $reader ??= $this->frames[$owner]->reader ?? $this->frames[$owner]->canon;
         if ($form->kind === 'term') {
-            foreach ($this->frames as $frame) {
-                if ($frame->kind === 'item') {
-                    $frame->hasDefinition = true;
+            for ($k = count($this->frames) - 1; $k >= 0; $k--) {
+                if ($this->frames[$k]->kind === 'item') {
+                    $this->frames[$k]->hasDefinition = true;
+
+                    break;
                 }
             }
         }
