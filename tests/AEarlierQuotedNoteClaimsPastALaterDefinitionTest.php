@@ -12,6 +12,16 @@ use PHPUnit\Framework\TestCase;
  */
 final class AEarlierQuotedNoteClaimsPastALaterDefinitionTest extends TestCase
 {
+    public function testLaterNoteKeepsItsOwnIndentedBodyAfterTheEarlierClaim(): void
+    {
+        $source = "[^a]: +\n[^b]: +\npara\n\n  own\n\n[^a] [^b]\n";
+        $html = (new CarveConverter())->convert($source);
+
+        self::assertStringNotContainsString('<p>own</p>', $html);
+        self::assertStringContainsString('<p>para<a href="#fnref1"', $html);
+        self::assertStringContainsString('<p>own<a href="#fnref2"', $html);
+    }
+
     public function testPreludeDefinitionIsRegisteredWhenEarlierNoteLabelIsDuplicate(): void
     {
         $source = "[^a]: x\n[^a]: +\n[^b]: +\npara\n\n[^a] [^b]\n";

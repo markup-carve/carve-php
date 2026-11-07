@@ -3706,8 +3706,9 @@ class BlockParser
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
+     * @param int|null $afterEarlierClaim
      */
-    protected function tryParseFootnoteDefinition(Node $parent, array $lines, int $start): ?int
+    protected function tryParseFootnoteDefinition(Node $parent, array $lines, int $start, ?int $afterEarlierClaim = null): ?int
     {
         $line = $lines[$start];
 
@@ -3727,7 +3728,7 @@ class BlockParser
         }
 
         // Skip the footnote definition and any continuation lines
-        $i = $start + 1;
+        $i = $afterEarlierClaim ?? $start + 1;
         $count = count($lines);
 
         $preludeSource = $this->sourceLineFor($start);
@@ -3739,6 +3740,7 @@ class BlockParser
             && ($this->state->source->plusHosts[$preludeSource]['kind'] ?? null) === 'footnote';
         $bodyLines = [$preludeMarker ? '{empty}' : $content];
         $preludeDefinitions = [];
+        $claimedBlockEnd = null;
         // A block a `+` attached ends at a blank, even with its fence open (PART 9 section 17 L3).
         $endsAtBlank = false;
         $termScan = null;
@@ -3775,6 +3777,7 @@ class BlockParser
                     $bodyLineMap[] = $sourceLine;
                 }
                 $i = $end;
+                $claimedBlockEnd = $end;
                 $firstBlockAttached = true;
                 $endsAtBlank = true;
             }
@@ -3798,7 +3801,7 @@ class BlockParser
             IndentedContainerCollector::admissions(
                 $lines,
                 $i,
-                $preludeMarker ? $start + 1 : $count,
+                $preludeDefinitions !== [] ? $i : $count,
                 $footnoteColumn,
             ) as $admission
         ) {
@@ -4036,6 +4039,10 @@ class BlockParser
             array_pop($bodyLines);
             array_pop($bodyLineMap);
         }
+        if ($preludeMarker && count($bodyLines) > 1) {
+            array_shift($bodyLines);
+            array_shift($bodyLineMap);
+        }
 
         $bodyLines = $this->alignMarkerLineFootnoteItem($bodyLines, $bodyLineMap, $content, $label, $start);
 
@@ -4092,7 +4099,10 @@ class BlockParser
         }
         if ($this->state->session->discoveringDefinitions) {
             foreach ($preludeDefinitions as $definitionLine) {
-                $this->tryParseFootnoteDefinition($parent, $lines, $definitionLine);
+                $consumed = $this->tryParseFootnoteDefinition($parent, $lines, $definitionLine, $claimedBlockEnd);
+                if ($consumed !== null) {
+                    $i = max($i, $definitionLine + $consumed);
+                }
             }
         }
 
