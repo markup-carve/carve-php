@@ -848,6 +848,7 @@ class BlockParser
         $this->state->source->commentPayloadHostColumns = $walk->commentPayloadHostColumns;
         $this->state->source->lineBlockLazyLines = $walk->lineBlockLazyLines;
         $this->state->source->attachedFenceBlankEnds = $walk->attachedFenceBlankEnds;
+        $this->state->source->attachedQuoteEnds = $walk->attachedQuoteEnds;
         $this->state->source->refusedKeptLines = $walk->refusedKeptLines;
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
         $this->state->source->commentEndLines = $walk->commentEndLines;

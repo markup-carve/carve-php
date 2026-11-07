@@ -1366,7 +1366,7 @@ trait BlockListMethods
                     !($leadFenceOpen && $trailingState->fence !== null
                         // With a blank or closer ahead, a sibling marker or a `+` still ends the run.
                         && $this->listParser->parseListItemMarker($trimmed) === null && !$this->isContinuationMarker($trimmed))
-                    && !($trailingState->quoteParagraph && $lineIndent > $baseIndent)
+                    && !($trailingState->quoteParagraph && $lineIndent > $baseIndent && !isset($this->state->source->attachedQuoteEnds[$this->sourceLineFor($index)]))
                     && $index !== $refusedFollower
                     && $this->trailingBlockHasEnded($attachedKind, $trimmed, $lines, $index, $trailingState)
                 ) {

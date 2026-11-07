@@ -985,6 +985,7 @@ final class BlockContinuationScanner
                 if (
                     IndentationHelper::isBlankLine($line)
                     || $this->isContinuationMarker($line)
+                    || isset($this->state->source->attachedQuoteEnds[$this->sourceLineFor($index)])
                     || ($attachedState->fence === null && $endsAtSibling !== null && $endsAtSibling($line, $index))
                     || ($markerEnds && $attachedState->fence === null && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null)
                     || ($bodyColumn !== null && $attachedKind === BlockGrammar::ATTACHED_SPANNING . ':definition'

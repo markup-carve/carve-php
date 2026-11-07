@@ -91,6 +91,13 @@ final class BlockSourceState
     public array $attachedFenceBlankEnds = [];
 
     /**
+     * Lines without `>` that end a `+` attached quote and resume its host (carve#5427).
+     *
+     * @var array<int, true>
+     */
+    public array $attachedQuoteEnds = [];
+
+    /**
      * Lines a refused brace run's paragraph keeps as text, the run included, each to its run's first line (CARVE-P2-035).
      *
      * @var array<int, int>
