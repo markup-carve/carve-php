@@ -1407,7 +1407,7 @@ final class BlockOwnershipWalk
      */
     private function resumeAttachedHost(OwnershipFrame $inner): bool
     {
-        if ($inner->blankHostFrames === null || ($inner->kind !== 'colon' && $this->trace === null)) {
+        if ($inner->blankHostFrames === null) {
             return false;
         }
         $this->frames = $inner->blankHostFrames;
@@ -1461,7 +1461,7 @@ final class BlockOwnershipWalk
             return;
         }
         $fence = $this->frames[count($this->frames) - 1];
-        if ($this->trace !== null && $this->sibling?->kind === 'item' && $this->sibling->plus === $at - 1 && $this->quoteDepth($host + 1) === 0) {
+        if ($this->sibling?->kind === 'item' && $this->sibling->plus === $at - 1) {
             $fence->blankHostFrames = [...array_slice($this->frames, 0, $host + 1), $this->sibling];
         }
         if ($this->frames[$host]->kind !== 'item' && $fence->blankHostFrames === null) {
@@ -1475,27 +1475,7 @@ final class BlockOwnershipWalk
             $fence->col = $this->m['col'];
         }
         $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $fence->col;
-        $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key)
-            && ($fence->blankHostFrames === null || $this->nextAfterAttachedFenceBlankReachesHost($at, $fence));
-    }
-
-    private function nextAfterAttachedFenceBlankReachesHost(int $at, OwnershipFrame $fence): bool
-    {
-        if ($fence->blankHostFrames === null) {
-            return false;
-        }
-        $sawBlank = false;
-        $host = $fence->blankHostFrames[count($fence->blankHostFrames) - 1];
-        for ($k = $at + 1, $n = count($this->lines); $k < $n; $k++) {
-            $line = self::indentCols($this->lines[$k]);
-            if ($line['rest'] === '') {
-                $sawBlank = true;
-            } elseif ($sawBlank) {
-                return $line['col'] >= $host->col;
-            }
-        }
-
-        return false;
+        $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key);
     }
 
     private function attachedCodeFenceBlankAhead(int $at, int $column, string $char, int $length): bool
