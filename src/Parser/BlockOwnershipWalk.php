@@ -1683,6 +1683,7 @@ final class BlockOwnershipWalk
             }
             if (
                 $afterBlank && $itemContentColumn !== null && $line['col'] < $itemContentColumn
+                && !($fence->kind === 'fence' && $fence->family === 'code')
                 && !($fence->closes !== null && ($fence->closes)($line['rest'], $line['col']))
             ) {
                 return ($this->attachedFenceScans[$key] = [$k, false])[1];
