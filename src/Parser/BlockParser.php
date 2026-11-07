@@ -3730,8 +3730,13 @@ class BlockParser
         $i = $start + 1;
         $count = count($lines);
 
+        $preludeSource = $this->sourceLineFor($start);
+        while ($preludeSource > 0 && isset($this->state->source->attachedPreludeLines[$preludeSource])) {
+            $preludeSource--;
+        }
         $preludeMarker = trim($content, " \t") === '+'
-            && isset($this->state->source->attachedPreludeLines[$this->sourceLineFor($start)]);
+            && isset($this->state->source->attachedPreludeLines[$this->sourceLineFor($start)])
+            && ($this->state->source->plusHosts[$preludeSource]['kind'] ?? null) === 'footnote';
         $bodyLines = [$preludeMarker ? '{empty}' : $content];
         $preludeDefinitions = [];
         // A block a `+` attached ends at a blank, even with its fence open (PART 9 section 17 L3).
