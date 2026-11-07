@@ -6,7 +6,6 @@ namespace MarkupCarve\Carve\Node\Block;
 
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
-use function trim;
 
 /**
  * Paragraph block
@@ -45,7 +44,7 @@ class Paragraph extends BlockNode
             if ($child instanceof SoftBreak) {
                 continue;
             }
-            if ($child instanceof Text && trim($child->getContent(), " \t\r\n") === '') {
+            if ($child instanceof Text && strspn($child->getContent(), " \t\r\n") === strlen($child->getContent())) {
                 continue;
             }
 

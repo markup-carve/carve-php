@@ -19,6 +19,7 @@ use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\HeadingRef;
+use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Link;
@@ -492,7 +493,11 @@ class CrossReferenceResolver
      */
     private function rendersNoId(Node $node): bool
     {
-        return ($node instanceof FootnoteRef && $node->isUnresolved()) || UnresolvedReference::sourceOf($node) !== null;
+        if ($node instanceof FootnoteRef) {
+            return $node->isUnresolved();
+        }
+
+        return ($node instanceof Link || $node instanceof Image) && UnresolvedReference::sourceOf($node) !== null;
     }
 
     /**
