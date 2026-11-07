@@ -1384,7 +1384,7 @@ final class BlockOwnershipWalk
             if ($host === 0 && $this->sibling !== null && $this->sibling->plus === $at - 1) {
                 $container->blankHostFrames = [$this->frames[0], $this->sibling];
             }
-            $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $container->col;
+            $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $container->col . '|' . ($this->sibling->markerCol ?? -1);
             $container->endsAtBlank = !$this->attachedFenceClosed($at, $container, $key);
 
             return;
@@ -1470,16 +1470,37 @@ final class BlockOwnershipWalk
             return $last[1];
         }
         $n = count($this->lines);
+        $code = null;
         for ($k = $at + 1; $k < $n; $k++) {
             $line = self::indentCols($this->lines[$k]);
             while (preg_match(self::QUOTE, $line['rest'], $q) === 1) {
                 $line = self::indentCols($q[1] ?? '');
+            }
+            if ($fence->kind === 'colon' && $code !== null) {
+                if ($this->fenced->isCodeFenceCloser($line['rest'], $code['char'], $code['length'])) {
+                    $code = null;
+                }
+
+                continue;
             }
             if ($line['rest'] === '') {
                 continue;
             }
             if ($line['col'] < $fence->col) {
                 return ($this->attachedFenceScans[$key] = [$k, false])[1];
+            }
+            if (
+                $fence->kind === 'colon' && $this->sibling?->kind === 'item'
+                && $line['col'] === $this->sibling->markerCol
+                && $this->listParser->parseListItemMarker($line['rest']) !== null
+            ) {
+                return ($this->attachedFenceScans[$key] = [$k, false])[1];
+            }
+            if ($fence->kind === 'colon') {
+                $code = $this->fenced->parseCodeFenceOpener($line['rest']);
+                if ($code !== null) {
+                    continue;
+                }
             }
             if (
                 ($fence->closes !== null && ($fence->closes)($line['rest'], $line['col']))

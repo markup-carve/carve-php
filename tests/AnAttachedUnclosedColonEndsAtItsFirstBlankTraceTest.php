@@ -39,4 +39,21 @@ final class AnAttachedUnclosedColonEndsAtItsFirstBlankTraceTest extends TestCase
         self::assertSame('doc/div:2', $rows[3]['owner']);
         self::assertStringContainsString('<p>inside</p>', (new CarveConverter())->convert($source));
     }
+
+    public function testACloserAfterASiblingDoesNotKeepTheColonOpen(): void
+    {
+        $rows = DecisionTrace::records("- +\n::: note\n\n- next\n:::\n");
+
+        self::assertSame('doc/item:1', $rows[2]['owner']);
+        self::assertSame('doc/item:4', $rows[3]['owner']);
+    }
+
+    public function testAColonRunInsideACodeFenceIsNotACloser(): void
+    {
+        $rows = DecisionTrace::records("- +\n::: note\n\n~~~\n:::\n~~~\n  tail\n");
+
+        self::assertSame('doc/item:1', $rows[2]['owner']);
+        self::assertSame('doc/code:4', $rows[4]['owner']);
+        self::assertStringNotContainsString('/div:', $rows[6]['owner']);
+    }
 }
