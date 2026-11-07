@@ -276,7 +276,8 @@ CRV;
         // Corpus 617-3 is an unmarked CSV fence on both configured routes.
         // Rows 588-3 and 588-4 fall back because their lines end in plus.
         // Corpus 673 adds one accepted link-title-padding document per route.
-        self::assertSame(['tier2' => 74, 'events' => 74], $accepted, 'A configured fast-path routing change needs explicit review.');
+        // Corpus 973-10 (a two-item list) and 973-25 (two quotes) add two more.
+        self::assertSame(['tier2' => 76, 'events' => 76], $accepted, 'A configured fast-path routing change needs explicit review.');
     }
 
     #[DataProvider('activeUnsupportedExtension')]

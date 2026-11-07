@@ -29,4 +29,13 @@ class CorpusPopulationTest extends TestCase
             $this->assertMatchesRegularExpression('/unpaired|unclosed/', $error->getMessage());
         }
     }
+
+    public function testInputsKeepDuplicatesAndApplyTheByteModifiers(): void
+    {
+        $source = "::: compare\n```carve\nsame\n```\n```html\n<p>same</p>\n```\n:::\n"
+            . "::: compare\n```carve\nsame\n```\n```html\n<p>same</p>\n```\n:::\n"
+            . "::: compare crlf\n```carve\nsame\nline\n```\n```html\n<p>same\nline</p>\n```\n:::\n";
+        $this->assertSame(["same\n", "same\n", "same\r\nline\r\n"], CorpusPopulation::inputs($source));
+        $this->assertSame(3, CorpusPopulation::countPairs($source));
+    }
 }

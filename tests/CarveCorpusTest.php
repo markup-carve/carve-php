@@ -925,7 +925,6 @@ class CarveCorpusTest extends TestCase
         // markup-carve/carve#1526 and #1542: a container's span - and a
         // definition list's - ends at its last PLACED child.
         'a-container-s-span-ends-at-its-last-placed-child',
-        'a-definition-list-ends-at-its-last-placed-child-too',
         // markup-carve/carve#1516: an escape escalation reaches the block that
         // needed one, never the whole document.
         'a-leading-escaped-caret-keeps-its-escape',
@@ -1408,7 +1407,6 @@ class CarveCorpusTest extends TestCase
         'a-quote-on-a-description-body-marker-line-takes-a-plus-at-its-column',
         'a-quoted-colon-line-is-absorbed-only-by-its-own-paragraph',
         'a-quoted-row-attribute-value-may-hold-a-pipe',
-        'a-quoted-term-takes-no-lazy-marker-or-separator',
         'a-reference-link-around-a-literal-directive-renders',
         'a-refused-plus-reads-like-a-letter',
         'a-row-attribute-block-follows-the-last-closing-pipe',
@@ -1668,6 +1666,20 @@ class CarveCorpusTest extends TestCase
         'a-below-item-marker-continues-the-list-in-a-description',
         'a-braced-comment-that-starts-a-continuation-line-is-at-block-position',
         'a-lazy-braced-comment-uses-source-columns-in-every-host',
+        // Arrived with the pin move to carve 4293e8a5.
+        'a-multi-line-braced-comment-keeps-the-nested-list-open',
+        'a-lazy-line-after-a-comment-keeps-the-deepest-list-open',
+        'unresolved-reference-fallback-folds-soft-breaks-on-plain-and-ansi',
+        'text-ending-a-nested-span-opens-a-paragraph-in-the-surviving-item',
+        'a-block-at-a-pulled-description-column-opens-in-the-description',
+        'an-outer-item-s-paragraph-after-a-nested-attached-fence-loosens-it',
+        'an-attribute-at-an-attached-task-quote-column-applies-to-its-paragraph',
+        'a-quoted-comment-span-uses-its-live-owner',
+        'a-definition-marker-after-a-block-and-paragraph-ends-the-item',
+        'an-ended-definition-list-releases-its-marker-boundary',
+        'an-unclosed-attached-colon-ends-at-its-first-blank',
+        'an-outer-item-loosens-after-a-nested-attached-colon-ends',
+        'open-state-lifetime-boundaries',
     ];
 
     /**
@@ -1690,6 +1702,7 @@ class CarveCorpusTest extends TestCase
      */
     protected const KNOWN_GAPS = [
         '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',
+        '967-an-outer-item-s-paragraph-after-a-nested-attached-fence-loosens-it' => 'carve#5410: whether an attached fence whose closer follows its first blank ends at that blank',
     ];
 
     /**
@@ -1705,7 +1718,12 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '971-an-ended-definition-list-releases-its-marker-boundary-3' => [
+            'reason' => 'carve#5411: the ruling on carve#5373 folds the marker-column line into the released paragraph',
+            'html' => "<ul>\n  <li><p>a</p>\n    <dl>\n      <dt>m</dt>\n      <dd>d</dd>\n    </dl>\n    <p>p</p>\n    <p>: x\n: l</p>\n  </li>\n</ul>\n",
+        ],
+    ];
 
     protected CarveConverter $converter;
 
