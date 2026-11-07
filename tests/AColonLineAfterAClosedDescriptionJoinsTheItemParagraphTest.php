@@ -43,6 +43,10 @@ final class AColonLineAfterAClosedDescriptionJoinsTheItemParagraphTest extends T
                 "- a\n  :: t\n  : u\n: z\n",
                 "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n      <dd>u</dd>\n    </dl>\n  </li>\n</ul>\n<p>: z</p>",
             ],
+            'a released colon paragraph after a child list folds' => [
+                "- a\n  :: t\n\n  - n\n  - n\n\n  : u\n: z\n",
+                "<ul>\n  <li><p>a</p>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <ul>\n      <li>n</li>\n      <li>n</li>\n    </ul>\n    <p>: u\n: z</p>\n  </li>\n</ul>",
+            ],
         ];
     }
 

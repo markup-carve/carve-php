@@ -1573,6 +1573,7 @@ final class BlockOwnershipWalk
                 $this->frames[$k]->descriptionLeft = $left;
                 if (!$left) {
                     $this->frames[$k]->hasDefinition = false;
+                    $this->frames[$k]->described = false;
                 }
 
                 return;
