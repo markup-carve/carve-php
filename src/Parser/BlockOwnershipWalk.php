@@ -423,6 +423,14 @@ final class BlockOwnershipWalk
                     $this->attachedTo = null;
                 }
             }
+            // A blank ends a quote, and with it the block its `+` attached (PART 9 §17 L3, carve#5381).
+            if ($this->attachedTo !== null && $this->attachedTo['kind'] === 'quote' && $at >= $this->attachedTo['from']) {
+                $level = $this->levelOf($this->src, $this->attachedTo['depth']);
+                if ($level !== null && $level['rest'] === '') {
+                    $this->frames = array_slice($this->attachedTo['frames'], 0, -1);
+                    $this->attachedTo = null;
+                }
+            }
             // A first-block `+` reads its quote where it stands, outside the
             // host's ordinary content column. Once that quote ends, a line at
             // the host's content column resumes the host rather than the
