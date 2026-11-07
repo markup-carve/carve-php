@@ -1439,7 +1439,7 @@ final class BlockOwnershipWalk
      */
     private function markAttachedFence(int $at, int $host, OwnershipForm $form, bool $plusFollower): void
     {
-        if ($plusFollower && $form->kind === 'colon') {
+        if ($plusFollower && ($form->kind === 'colon' || ($form->kind === 'fence' && $form->lineBlock))) {
             $container = $this->frames[count($this->frames) - 1];
             if (in_array($this->frames[$host]->kind, ['note', 'dd'], true)) {
                 $container->blankHostFrames = array_slice($this->frames, 0, $host + 1);
