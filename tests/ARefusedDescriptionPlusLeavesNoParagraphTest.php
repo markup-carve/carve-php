@@ -33,9 +33,9 @@ final class ARefusedDescriptionPlusLeavesNoParagraphTest extends TestCase
             "<dl>\n  <dt>t</dt>\n  <dd></dd>\n</dl>\n<p>h</p>\n<pre><code>code\n</code></pre>",
         ];
 
-        yield 'a refused plus in a quoted description keeps its next line in the quote' => [
+        yield 'a refused plus in a quoted description leaves no lazy paragraph' => [
             "> :: t\n> : +\n h\n",
-            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd></dd>\n  </dl>\n  <p>h</p>\n</blockquote>",
+            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd></dd>\n  </dl>\n</blockquote>\n<p>h</p>",
         ];
     }
 
