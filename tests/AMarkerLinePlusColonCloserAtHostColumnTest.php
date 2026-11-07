@@ -37,6 +37,16 @@ final class AMarkerLinePlusColonCloserAtHostColumnTest extends TestCase
             "> - +\n> ::: |\n> \n>   ::: x\n>   :::\n",
             "<blockquote>\n  <ul>\n    <li>\n      <div class=\"line-block\">\n        <p>::: x</p>\n      </div>\n    </li>\n  </ul>\n</blockquote>",
         ];
+
+        yield 'preblank indented colon lines remain verse' => [
+            "- +\n::: |\n  :::\n  :::\n",
+            "<ul>\n  <li>\n    <div class=\"line-block\">\n      <p>&nbsp;&nbsp;:::<br>\n&nbsp;&nbsp;:::</p>\n    </div>\n  </li>\n</ul>",
+        ];
+
+        yield 'nested div after blank remains attached' => [
+            "- +\n::: x\n  a\n\n  ::: y\n  inner\n  :::\n  :::\n",
+            "<ul>\n  <li>\n    <div class=\"x\">\n      <p>a</p>\n      <div class=\"y\">\n        <p>inner</p>\n      </div>\n    </div>\n  </li>\n</ul>",
+        ];
     }
 
     #[DataProvider('documents')]

@@ -817,6 +817,8 @@ final class BlockContinuationScanner
         $columns = [IndentationHelper::getLeadingColumns($opening)];
         $literal = [(($this->getFencedBlockParser)()->parseDivFenceOpener($opening)['className'] ?? '') === '|'];
         $afterBlank = false;
+        $seenBlank = false;
+        $seenBody = false;
         for ($j = $openIdx + 1; $j < $count; $j++) {
             $view = $transform === null ? $lines[$j] : $transform($lines[$j]);
             $top = $stack[count($stack) - 1];
@@ -824,10 +826,14 @@ final class BlockContinuationScanner
             $atBase = $column === 0 || $column === end($columns) || $hostContentColumn !== null;
             if (trim($view) === '') {
                 $afterBlank = true;
+                $seenBlank = true;
 
                 continue;
             }
-            if ($atBase && ($this->getFencedBlockParser)()->isDivFenceCloser(ltrim($view, " \t"), $top)) {
+            if (
+                $atBase && (!$literal[count($literal) - 1] || $seenBlank || $column === 0)
+                && ($this->getFencedBlockParser)()->isDivFenceCloser(ltrim($view, " \t"), $top)
+            ) {
                 array_pop($stack);
                 array_pop($columns);
                 array_pop($literal);
@@ -837,13 +843,19 @@ final class BlockContinuationScanner
 
                 continue;
             }
+            $nextOpener = $afterBlank && $hostContentColumn !== null
+                ? ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($view, " \t")) : null;
             if (
-                $afterBlank && $hostContentColumn !== null && !end($literal)
-                && ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($view, " \t")) !== null
+                $afterBlank && $hostContentColumn !== null
+                && $nextOpener !== null
+                && (end($literal)
+                    ? $nextOpener['length'] !== $top
+                    : !$seenBody)
             ) {
                 return -1;
             }
             $afterBlank = false;
+            $seenBody = true;
             $span = $this->opaqueSpanEnd($lines, $j, $count, $transform);
             if ($span !== -1) {
                 $j = $span;
