@@ -18,7 +18,7 @@ final class TicketReproductionsRenderAsExpectedTest extends TestCase
      */
     public static function documents(): iterable
     {
-        yield 'carve#4392 reproduction 1' => ["[^f]: +\n```\na\n\n  ```\n  c\nsee\n\nx[^f]\n", "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <pre><code>a\n\n</code></pre>\n      <p>c\nsee<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"];
+        yield 'carve#4392 reproduction 1' => ["[^f]: +\n```\na\n\n  ```\n  c\nsee\n\nx[^f]\n", "<p>see</p>\n<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <pre><code>a\n</code></pre>\n      <pre><code>c\n</code></pre>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"];
         yield 'carve#4384 reproduction 1' => [" > +\n x\n", '<blockquote><p>x</p></blockquote>'];
         yield 'carve#4384 reproduction 2' => [" > +\nx\n", "<blockquote>\n\n</blockquote>\n<p>x</p>"];
         yield 'carve#4384 reproduction 3' => [" > +\n ```\n c\n ```\n", "<blockquote>\n  <pre><code>c\n</code></pre>\n</blockquote>"];
