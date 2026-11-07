@@ -822,9 +822,10 @@ final class BlockOwnershipWalk
                 if ($owner->para && !$form->kept && preg_match('/^(`{3,}|~{3,})/', $this->m['rest']) === 1) {
                     $this->textFences[count($result)] = $owner->canon;
                 }
+                $opensParagraph = !$owner->para;
                 $this->frames[$o]->para = true;
                 $this->frames[$o]->last = 'para';
-                $this->clearItemDefinitionAtParagraph($o);
+                $this->clearItemDefinitionAtParagraph($o, $opensParagraph);
             } else {
                 if (!$plusFollower) {
                     $this->noteOpener($o, $form, $this->frames[$o]->col);
@@ -1463,6 +1464,12 @@ final class BlockOwnershipWalk
         }
         if ($form->kind === 'term' && $this->frames[$owner]->kind === 'item') {
             $this->frames[$owner]->descriptionLeft = true;
+            $this->frames[$owner]->termOnly = true;
+            $this->frames[$owner]->described = true;
+        } elseif ($form->kind === 'dd' && $this->frames[$owner]->kind === 'item') {
+            $this->frames[$owner]->termOnly = false;
+        } elseif ($this->frames[$owner]->kind === 'item' && $this->frames[$owner]->last === $form->kind) {
+            $this->leaveClosedDescription($owner);
         }
         $this->frames[$owner]->tableLine = $form->table ? $this->at : null;
         $o = $this->frames[$owner];
@@ -2810,10 +2817,31 @@ final class BlockOwnershipWalk
         return true;
     }
 
-    private function clearItemDefinitionAtParagraph(int $owner): void
+    private function clearItemDefinitionAtParagraph(int $owner, bool $opens): void
     {
         if ($this->frames[$owner]->kind === 'item') {
             $this->frames[$owner]->hasDefinition = false;
+            if ($opens) {
+                $this->leaveClosedDescription($owner);
+            }
+        }
+    }
+
+    /**
+     * A block after a closed description leaves the item no open one for the marker-column boundary
+     * (PART 0 S4, carve#5363). A term still waiting for its description keeps it.
+     */
+    private function leaveClosedDescription(int $owner): void
+    {
+        $item = $this->frames[$owner];
+        if (!$item->described) {
+            return;
+        }
+        // A paragraph opened by a released `: ` line keeps the boundary standing.
+        if (preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $this->m['rest']) === 1) {
+            $item->descriptionLeft = true;
+        } elseif (!$item->termOnly) {
+            $item->descriptionLeft = false;
         }
     }
 
