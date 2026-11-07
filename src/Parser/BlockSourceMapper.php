@@ -322,6 +322,8 @@ final class BlockSourceMapper
             // The AST omits comment-only paragraphs, so they cannot extend a
             // container whose extent is defined by its placed children.
             if (self::endsAtLastChild($node) && $child instanceof Paragraph && $child->rendersNothing()) {
+                $child->setPos(null);
+
                 continue;
             }
             // A later standalone continuation marker can be represented by a
