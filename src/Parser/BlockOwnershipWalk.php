@@ -1603,14 +1603,16 @@ final class BlockOwnershipWalk
                 if ($code !== null) {
                     continue;
                 }
-                if (preg_match('/^:{' . $fence->run . '}(?!:)[ \t]*\S/', $line['rest']) === 1) {
-                    $nested++;
+                $span = $this->commentSpanEnd(rtrim($line['rest'], " \t"), $k);
+                if ($span !== -1) {
+                    $k = $span;
                     $afterBlank = false;
 
                     continue;
                 }
-                if ($nested > 0 && preg_match('/^:{' . $fence->run . '}[ \t]*$/D', $line['rest']) === 1) {
-                    $nested--;
+                $bare = preg_match('/^:{' . $fence->run . '}[ \t]*$/D', $line['rest']) === 1;
+                if ($bare ? $nested > 0 : ($this->fenced->parseDivFenceOpener($line['rest'])['length'] ?? null) === $fence->run) {
+                    $nested += $bare ? -1 : 1;
                     $afterBlank = false;
 
                     continue;
