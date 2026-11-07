@@ -7,6 +7,8 @@ namespace MarkupCarve\Carve\Parser;
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\Footnote;
+use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -491,6 +493,14 @@ final class BlockQuoteBuilder
                 $content = $this->blockQuoteLineContent(ltrim($currentLine, " \t"));
             }
             if (
+                $content !== null
+                && ($parent instanceof ListItem || $parent instanceof Footnote)
+                && !$lazyState['paragraphOpen']
+                && $this->authoredQuoteMarkerColumn($i, $currentLine) !== $this->authoredQuoteMarkerColumn($start, $line)
+            ) {
+                break;
+            }
+            if (
                 $content !== null && $startsFootnoteDefinition
                 && $this->quoteMarkerColumn($i, $currentLine) !== $quoteOpeningColumn
             ) {
@@ -763,6 +773,20 @@ final class BlockQuoteBuilder
         }
 
         return strlen($sourceTail) - strlen($markerTail);
+    }
+
+    /**
+     * Original source column of this quote marker before host content is rebased.
+     */
+    private function authoredQuoteMarkerColumn(int $index, string $line): int
+    {
+        $source = rtrim($this->state->source->authoredLines[$this->sourceLineFor($index)] ?? '', " \t");
+        $marker = ltrim(rtrim($line, " \t"), " \t");
+        if ($marker === '' || !str_ends_with($source, $marker)) {
+            return IndentationHelper::getLeadingColumns($source);
+        }
+
+        return strlen($source) - strlen($marker);
     }
 
     private function continuationMarkerSitsAtQuoteColumn(int $index, int $column): bool
