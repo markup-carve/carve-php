@@ -241,6 +241,13 @@ final class BlockOwnershipWalk
     private ?array $traceBlankHost = null;
 
     /**
+     * Trace paths of the item a marker-line `+` attached the current line to, closed only by the walk.
+     *
+     * @var array{host: string, reached: string}|null
+     */
+    private ?array $traceAttachedHost = null;
+
+    /**
      * The item released before S5 sees the next sibling marker.
      */
     private int $releasedSibling = 0;
@@ -816,7 +823,7 @@ final class BlockOwnershipWalk
             // S5: apply the line, the boundary table T of CARVE-P0-003.
             $closed = count($this->frames) - 1 - $reached + $this->releasedSibling;
             $this->recordItemBoundary($at, $reached, $form);
-            $reachedPath = $this->trace !== null && $closed > 0 ? $this->ownerPath($reached) : null;
+            $reachedPath = $this->traceReach($at, $reached, $closed, $plusFollower);
             $closerPath = null;
             $closedColumn = false;
             $frameCount = count($this->frames);
@@ -1287,6 +1294,13 @@ final class BlockOwnershipWalk
      */
     private function emitApplied(int $at, OwnershipForm $form, string $owner, int $closed, ?string $reached, bool $plusFollower): void
     {
+        // The attached block is the host's one next block, so the host it reads past is not closed (PART 9 §17 L3).
+        if ($this->traceAttachedHost !== null) {
+            $owner = $this->traceAttachedHost['host'] . substr($owner, strlen($this->traceAttachedHost['reached']));
+            $closed--;
+            $reached = $closed > 0 ? $this->traceAttachedHost['host'] : null;
+            $this->traceAttachedHost = null;
+        }
         if ($this->traceBlankHost !== null) {
             if ($form->kind === 'blank' || ($form->kind === 'text' && $this->m['col'] >= $this->traceBlankHost['column'])) {
                 $owner = $this->traceBlankHost['owner'];
@@ -1335,6 +1349,23 @@ final class BlockOwnershipWalk
             }
         }
         $this->trace[] = $record;
+    }
+
+    private function traceReach(int $at, int $reached, int $closed, bool $plusFollower): ?string
+    {
+        $this->traceAttachedHost = null;
+        if ($this->trace === null || $closed <= 0) {
+            return null;
+        }
+        $path = $this->ownerPath($reached);
+        if (
+            $plusFollower && $this->releasedSibling === 0 && $this->quoteDepth($reached + 2) === 0
+            && ($this->frames[$reached + 1] ?? null)?->kind === 'item' && $this->frames[$reached + 1]->plus === $at - 1
+        ) {
+            $this->traceAttachedHost = ['host' => $this->ownerPath($reached + 1), 'reached' => $path];
+        }
+
+        return $path;
     }
 
     /**
