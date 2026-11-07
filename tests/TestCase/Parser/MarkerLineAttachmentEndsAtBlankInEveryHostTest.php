@@ -27,4 +27,11 @@ final class MarkerLineAttachmentEndsAtBlankInEveryHostTest extends TestCase
         self::assertStringContainsString('<p>tail', $html);
         self::assertLessThan(strpos($html, '<p>tail'), strpos($html, $ended));
     }
+
+    public function testAnIndentedMatchingRunBeforeTheBlankIsPayload(): void
+    {
+        $html = (new CarveConverter())->convert("[^a]: +\n```\nhi\n  ```\n\n  tail\n\nx[^a]\n");
+        self::assertStringContainsString("<pre><code>hi\n  ```\n</code></pre>", $html);
+        self::assertStringContainsString('<p>tail', $html);
+    }
 }

@@ -1449,7 +1449,9 @@ final class BlockOwnershipWalk
     {
         if ($plusFollower && $form->kind === 'colon') {
             $container = $this->frames[count($this->frames) - 1];
-            $container->blankHostFrames = array_slice($this->frames, 0, $host + 1);
+            if (in_array($this->frames[$host]->kind, ['note', 'dd'], true)) {
+                $container->blankHostFrames = array_slice($this->frames, 0, $host + 1);
+            }
             if ($this->sibling !== null && $this->sibling->plus === $at - 1) {
                 $container->blankHostFrames = [...array_slice($this->frames, 0, $host + 1), $this->sibling];
             }
@@ -1462,9 +1464,17 @@ final class BlockOwnershipWalk
             return;
         }
         $fence = $this->frames[count($this->frames) - 1];
-        $fence->blankHostFrames = array_slice($this->frames, 0, $host + 1);
-        if ($this->sibling !== null && $this->sibling->plus === $at - 1) {
+        if (in_array($this->frames[$host]->kind, ['note', 'dd'], true)) {
+            $fence->blankHostFrames = array_slice($this->frames, 0, $host + 1);
+        }
+        if (
+            $this->sibling !== null && in_array($this->sibling->kind, ['item', 'note', 'dd'], true)
+            && $this->sibling->plus === $at - 1
+        ) {
             $fence->blankHostFrames = [...array_slice($this->frames, 0, $host + 1), $this->sibling];
+        }
+        if ($this->frames[$host]->kind !== 'item' && $fence->blankHostFrames === null) {
+            return;
         }
         $opener = $this->fenced->parseCodeFenceOpener($this->m['rest']);
         if (
@@ -1547,6 +1557,7 @@ final class BlockOwnershipWalk
         }
         $n = count($this->lines);
         $code = null;
+        $afterBlank = false;
         $codeOpener = $fence->kind === 'fence' && $fence->family === 'code'
             ? $this->fenced->parseCodeFenceOpener(ltrim($this->lines[$at], " \t")) : null;
         for ($k = $at + 1; $k < $n; $k++) {
@@ -1562,7 +1573,15 @@ final class BlockOwnershipWalk
                 continue;
             }
             if ($line['rest'] === '') {
+                $afterBlank = true;
+
                 continue;
+            }
+            if (
+                $afterBlank && $fence->blankHostFrames !== null
+                && $line['col'] < $fence->blankHostFrames[count($fence->blankHostFrames) - 1]->col
+            ) {
+                return ($this->attachedFenceScans[$key] = [$k, false])[1];
             }
             if ($line['col'] < $fence->col) {
                 return ($this->attachedFenceScans[$key] = [$k, false])[1];
@@ -1581,13 +1600,15 @@ final class BlockOwnershipWalk
                 }
             }
             if (
-                ($codeOpener !== null && $this->fenced->isCodeFenceCloser($line['rest'], $codeOpener['char'], $codeOpener['length']))
+                ($codeOpener !== null && ($line['col'] === $fence->col || $afterBlank)
+                    && $this->fenced->isCodeFenceCloser($line['rest'], $codeOpener['char'], $codeOpener['length']))
                 ||
                 ($fence->closes !== null && ($fence->closes)($line['rest'], $line['col']))
                 || ($fence->kind === 'colon' && preg_match('/^:{' . $fence->run . '}[ \t]*$/D', $line['rest']) === 1)
             ) {
                 return ($this->attachedFenceScans[$key] = [$k, true])[1];
             }
+            $afterBlank = false;
         }
 
         return ($this->attachedFenceScans[$key] = [$n, false])[1];
