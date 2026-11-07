@@ -294,7 +294,14 @@ final class LineBlockBuilder
                 continue;
             }
             $structural = $this->state->source->attachedLineBlockDedents[$this->sourceLineFor($i)] ?? 0;
-            $column = max(strlen($line) - strlen($subject), $sourceColumn - $openerColumn - $structural);
+            $quoteShift = 0;
+            if (
+                preg_match('/^( *)> /', $authored, $openingQuote) === 1
+                && preg_match('/^( *)> /', $source, $bodyQuote) === 1
+            ) {
+                $quoteShift = max(0, strlen($bodyQuote[1]) - strlen($openingQuote[1]));
+            }
+            $column = max(strlen($line) - strlen($subject), $sourceColumn - $openerColumn - $structural - $quoteShift);
             $lines[$i] = str_repeat(' ', $column) . $subject;
         }
 
