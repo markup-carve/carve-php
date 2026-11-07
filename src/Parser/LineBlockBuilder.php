@@ -293,7 +293,8 @@ final class LineBlockBuilder
             if ($sourceColumn === false || str_contains(substr($source, 0, $sourceColumn), "\t")) {
                 continue;
             }
-            $column = max(strlen($line) - strlen($subject), $sourceColumn - $openerColumn);
+            $structural = $this->state->source->attachedLineBlockDedents[$this->sourceLineFor($i)] ?? 0;
+            $column = max(strlen($line) - strlen($subject), $sourceColumn - $openerColumn - $structural);
             $lines[$i] = str_repeat(' ', $column) . $subject;
         }
 

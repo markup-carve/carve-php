@@ -797,6 +797,7 @@ trait BlockListMethods
      * @param callable $isBoundary
      * @param int $count
      * @param int $i
+     * @param int|null $hostContentColumn
      *
      * @return array{0: int, 1: array<string>, 2: array<int, int>}
      */
@@ -807,8 +808,9 @@ trait BlockListMethods
         callable $isBoundary,
         ?callable $transform = null,
         ?callable $colonHostBoundary = null,
+        ?int $hostContentColumn = null,
     ): array {
-        return $this->continuationsMapper()->collectAttachedBlock($lines, $i, $count, $isBoundary, $transform, $colonHostBoundary);
+        return $this->continuationsMapper()->collectAttachedBlock($lines, $i, $count, $isBoundary, $transform, $colonHostBoundary, $hostContentColumn);
     }
 
     /**
@@ -1183,6 +1185,9 @@ trait BlockListMethods
         $bodyColumn = null;
         // The verdict for the blank run being read, once per run: [run end, reaches the body].
         $blankRun = [-1, false];
+        $plusHost = $this->state->source->plusHosts[$this->sourceLineFor($i - 1)] ?? null;
+        $hostContentColumn = $plusHost !== null && $plusHost['kind'] === 'list' && $plusHost['first']
+            ? max(0, $plusHost['content'] - $baseIndent) : null;
         // Index of the line after a refused brace run that leads the block, which joins the run's paragraph (CARVE-P2-035).
         $refusedFollower = -1;
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
@@ -1399,6 +1404,7 @@ trait BlockListMethods
             static fn (string $line): string => IndentationHelper::stripLeadingColumns($line, $baseIndent),
             fn (string $line): bool => IndentationHelper::getLeadingColumns($line, $baseIndent + 1) <= $baseIndent
                 && $this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null,
+            $hostContentColumn,
         );
         if ($attached !== [] && $i < $count && $this->isCaptionLine(IndentationHelper::stripLeadingColumns($lines[$i], $baseIndent))) {
             // The attribute run before a fence leads it, so the fence still takes the caption (PART 9 §5).
@@ -1417,9 +1423,51 @@ trait BlockListMethods
                 $i++;
             }
         }
+        $attached = $this->rebaseAttachedLineBlock($attached, $attachedRawLineMap, $hostContentColumn);
         $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
 
         return [$i, $attached, $attachedLineMap];
+    }
+
+    /**
+     * A closed line block after a blank reads its later lines at the host's
+     * content column when its closer stands there.
+     *
+     * @param array<string> $attached
+     * @param array<int, int> $rawLineMap
+     * @param int|null $hostContentColumn
+     *
+     * @return array<string>
+     */
+    private function rebaseAttachedLineBlock(array $attached, array $rawLineMap, ?int $hostContentColumn): array
+    {
+        if ($hostContentColumn === null || $hostContentColumn === 0 || count($attached) < 3) {
+            return $attached;
+        }
+        $opener = $this->fencedBlockParser->parseDivFenceOpener($attached[0]);
+        if ($opener === null || $opener['className'] !== '|') {
+            return $attached;
+        }
+        $last = count($attached) - 1;
+        $closerColumn = IndentationHelper::getLeadingColumns($attached[$last]);
+        if (!$this->fencedBlockParser->isDivFenceCloser(ltrim($attached[$last], " \t"), $opener['length'])) {
+            return $attached;
+        }
+        $bodyColumn = min($hostContentColumn, $closerColumn);
+        for ($j = 1; $j <= $last; $j++) {
+            if (IndentationHelper::isBlankLine($attached[$j])) {
+                for ($k = $j + 1; $k < $last; $k++) {
+                    $attached[$k] = IndentationHelper::stripLeadingColumns($attached[$k], $bodyColumn);
+                    $this->state->source->attachedLineBlockDedents[$this->sourceLineFor($rawLineMap[$k])] = $bodyColumn;
+                }
+                $attached[$last] = ltrim($attached[$last], " \t");
+                $this->state->source->attachedLineBlockDedents[$this->sourceLineFor($rawLineMap[$last])] = $closerColumn;
+
+                break;
+            }
+        }
+
+        return $attached;
     }
 
     /**

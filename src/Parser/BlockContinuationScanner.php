@@ -804,8 +804,9 @@ final class BlockContinuationScanner
      * @param int $count
      * @param int $length
      * @param int $openIdx
+     * @param int|null $hostContentColumn
      */
-    public function colonFenceEnd(array $lines, int $openIdx, int $length, int $count, ?callable $transform): int
+    public function colonFenceEnd(array $lines, int $openIdx, int $length, int $count, ?callable $transform, ?int $hostContentColumn = null): int
     {
         $index = $this->fenceCloserIndex($lines);
         if (!$this->exactCloserPossible($index['colon'], $length, $openIdx)) {
@@ -815,12 +816,18 @@ final class BlockContinuationScanner
         $opening = $transform === null ? $lines[$openIdx] : $transform($lines[$openIdx]);
         $columns = [IndentationHelper::getLeadingColumns($opening)];
         $literal = [(($this->getFencedBlockParser)()->parseDivFenceOpener($opening)['className'] ?? '') === '|'];
+        $afterBlank = false;
         for ($j = $openIdx + 1; $j < $count; $j++) {
             $view = $transform === null ? $lines[$j] : $transform($lines[$j]);
             $top = $stack[count($stack) - 1];
-            $column = IndentationHelper::getLeadingColumns($view, (int)end($columns) + 1);
-            $atBase = $column === 0 || $column === end($columns);
-            if ($atBase && ($this->getFencedBlockParser)()->isDivFenceCloser($view, $top)) {
+            $column = IndentationHelper::getLeadingColumns($view, max((int)end($columns) + 1, $hostContentColumn ?? 0));
+            $atBase = $column === 0 || $column === end($columns) || $hostContentColumn !== null;
+            if (trim($view) === '') {
+                $afterBlank = true;
+
+                continue;
+            }
+            if ($atBase && ($this->getFencedBlockParser)()->isDivFenceCloser(ltrim($view, " \t"), $top)) {
                 array_pop($stack);
                 array_pop($columns);
                 array_pop($literal);
@@ -830,6 +837,13 @@ final class BlockContinuationScanner
 
                 continue;
             }
+            if (
+                $afterBlank && $hostContentColumn !== null && !end($literal)
+                && ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($view, " \t")) !== null
+            ) {
+                return -1;
+            }
+            $afterBlank = false;
             $span = $this->opaqueSpanEnd($lines, $j, $count, $transform);
             if ($span !== -1) {
                 $j = $span;
@@ -879,9 +893,16 @@ final class BlockContinuationScanner
      * @param int $count
      * @param int $i
      * @param (callable(string, int): bool)|null $colonHostBoundary A sibling of the host that ends a colon block (carve#4717).
+     * @param int|null $hostContentColumn
      */
-    public function attachedFencedBlockEnd(array $lines, int $i, int $count, ?callable $transform, ?callable $colonHostBoundary = null): int
-    {
+    public function attachedFencedBlockEnd(
+        array $lines,
+        int $i,
+        int $count,
+        ?callable $transform,
+        ?callable $colonHostBoundary = null,
+        ?int $hostContentColumn = null,
+    ): int {
         $opaque = $this->opaqueSpanEnd($lines, $i, $count, $transform);
         if ($opaque !== -1) {
             return $opaque;
@@ -909,11 +930,11 @@ final class BlockContinuationScanner
                 }
             }
         }
-        $end = $this->colonFenceEnd($lines, $i, $opener['length'], $count, $transform);
+        $end = $this->colonFenceEnd($lines, $i, $opener['length'], $count, $transform, $hostContentColumn);
 
         // A sibling of the host ends the block before a closer further down (carve#4717).
         if ($boundary !== null && $end >= $boundary) {
-            $inside = $this->colonFenceEnd($lines, $i, $opener['length'], $boundary, $transform);
+            $inside = $this->colonFenceEnd($lines, $i, $opener['length'], $boundary, $transform, $hostContentColumn);
 
             return $inside === -1 ? $boundary - 1 : $inside;
         }
@@ -1135,6 +1156,7 @@ final class BlockContinuationScanner
      * @param int $count
      * @param int $i
      * @param (callable(string, int): bool)|null $colonHostBoundary
+     * @param int|null $hostContentColumn
      *
      * @return array{0: int, 1: array<string>, 2: array<int, int>}
      */
@@ -1145,6 +1167,7 @@ final class BlockContinuationScanner
         callable $isBoundary,
         ?callable $transform = null,
         ?callable $colonHostBoundary = null,
+        ?int $hostContentColumn = null,
     ): array {
         if (!$this->continuationFollowerIsEligible($i)) {
             return [$i, [], []];
@@ -1175,7 +1198,7 @@ final class BlockContinuationScanner
             while ($opener < $count && isset($this->state->source->attachedPreludeLines[$this->sourceLineFor($opener)])) {
                 $opener = $this->skipLeadingAttributeLines($lines, $opener + 1, $count, $transform);
             }
-            $fenced = $this->attachedFencedBlockEnd($lines, $opener, $count, $transform, $colonHostBoundary);
+            $fenced = $this->attachedFencedBlockEnd($lines, $opener, $count, $transform, $colonHostBoundary, $hostContentColumn);
             if ($fenced !== -1) {
                 $take = $fenced - $i + 1;
             } else {
