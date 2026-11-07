@@ -29,10 +29,10 @@ final class AttachedCodeFenceTraceTest extends TestCase
             ],
         ];
 
-        yield 'sibling below the content column stays payload' => [
+        yield 'sibling below the content column closes the item' => [
             "- +\n```\n\n- sibling\n", [
-                ['line' => 3, 'step' => 'S1', 'owner' => 'doc/item:1/code:2', 'rule' => 'CARVE-P0-005', 'form' => 'payload', 'cell' => 'B-code-keep'],
-                ['line' => 4, 'step' => 'S1', 'owner' => 'doc/item:1/code:2', 'rule' => 'CARVE-P0-005', 'form' => 'payload', 'cell' => 'B-code-keep'],
+                ['line' => 3, 'step' => 'S5', 'owner' => 'doc/item:1', 'rule' => 'CARVE-P0-003', 'form' => 'blank'],
+                ['line' => 4, 'step' => 'S5', 'owner' => 'doc/item:4', 'rule' => 'CARVE-P0-024', 'form' => 'item', 'cell' => 'B-item-start', 'closed' => 1, 'reached' => 'doc'],
             ],
         ];
 
