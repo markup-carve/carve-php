@@ -1719,6 +1719,10 @@ class CarveCorpusTest extends TestCase
      * @var array<string, array{reason: string, html: string}>
      */
     protected const AHEAD_OF_PIN = [
+        '851-a-first-block-plus-shape-reads-the-one-attach-rule-6' => [
+            'reason' => 'carve#5415: a refused description marker leaves no paragraph to continue the quote',
+            'html' => "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd></dd>\n  </dl>\n</blockquote>\n<p>para</p>\n",
+        ],
         '971-an-ended-definition-list-releases-its-marker-boundary-3' => [
             'reason' => 'carve#5411: the ruling on carve#5373 folds the marker-column line into the released paragraph',
             'html' => "<ul>\n  <li><p>a</p>\n    <dl>\n      <dt>m</dt>\n      <dd>d</dd>\n    </dl>\n    <p>p</p>\n    <p>: x\n: l</p>\n  </li>\n</ul>\n",
