@@ -1534,7 +1534,7 @@ final class BlockOwnershipWalk
         ) {
             $parent = $this->frames[count($this->frames) - 2];
             $form = $this->classifyLine($this->m['rest'], $parent, $this->m['col']);
-            if ($form->interrupts && !in_array($form->kind, ['item', 'colon-close'], true)) {
+            if ($form->kind === 'leaf' && $form->interrupts) {
                 return count($this->frames) - 1;
             }
         }
