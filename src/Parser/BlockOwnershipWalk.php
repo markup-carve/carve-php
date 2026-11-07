@@ -1558,7 +1558,10 @@ final class BlockOwnershipWalk
         $n = count($this->lines);
         $code = null;
         $afterBlank = false;
+        $hostFrame = $fence->blankHostFrames === null ? null
+            : $fence->blankHostFrames[count($fence->blankHostFrames) - 1];
         $codeOpener = $fence->kind === 'fence' && $fence->family === 'code'
+            && $hostFrame !== null && in_array($hostFrame->kind, ['note', 'dd'], true)
             ? $this->fenced->parseCodeFenceOpener(ltrim($this->lines[$at], " \t")) : null;
         for ($k = $at + 1; $k < $n; $k++) {
             $line = self::indentCols($this->lines[$k]);
@@ -1578,7 +1581,7 @@ final class BlockOwnershipWalk
                 continue;
             }
             if (
-                $afterBlank && $fence->blankHostFrames !== null
+                $afterBlank && $hostFrame !== null && in_array($hostFrame->kind, ['note', 'dd'], true)
                 && $line['col'] < $fence->blankHostFrames[count($fence->blankHostFrames) - 1]->col
             ) {
                 return ($this->attachedFenceScans[$key] = [$k, false])[1];
