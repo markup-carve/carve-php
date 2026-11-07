@@ -447,33 +447,7 @@ final class BlockOwnershipWalk
                 }
             }
             $this->endQuoteGrantAtBlank($at);
-            // A first-block `+` reads its quote where it stands, outside the
-            // host's ordinary content column. Once that quote ends, a line at
-            // the host's content column resumes the host rather than the
-            // quote's parent. The quote's contents do not decide this boundary.
-            if ($this->attachedTo !== null && $at > $this->attachedTo['from'] && ($this->attachedTo['item'] || $this->attachedTo['kind'] === 'note' || ($this->attachedTo['kind'] === 'dd' && $this->heldOnMarkerLine($this->attachedTo)))) {
-                $held = $this->attachedTo;
-                $host = $held['frames'][count($held['frames']) - 1];
-                $level = $this->levelOf($this->src, $held['depth']);
-                // A marker at the attached item's authored marker column is
-                // its sibling, even when the one attached block was a quote.
-                if ($held['item']) {
-                    $this->releaseAttachedItemAtSibling($at, $held, $level);
-                }
-                if (
-                    $this->attachedTo !== null && $level !== null && $level['rest'] !== '' && $level['col'] >= $host->col
-                    && $this->levelOf($this->src, $held['depth'] + 1) === null
-                    && (
-                        ($this->quoteDepth(count($this->frames) - 1) > $held['depth'] && ($held['item'] || !$this->foldsIntoAttachedQuote($level['rest'])))
-                        || $this->endsAttachedQuote($held, $level['rest'])
-                    )
-                    && $this->attachedBlockEndsAt($at)
-                ) {
-                    $this->attachedQuoteEnds[$at] = true;
-                    $this->frames = $held['frames'];
-                    $this->attachedTo = null;
-                }
-            }
+            $this->resumeHostAfterAttachedQuote($at);
             $reached = 0;
             $plus = null;
             $plusAccepted = false;
@@ -2566,6 +2540,42 @@ final class BlockOwnershipWalk
         $host = $held['frames'][count($held['frames']) - 1];
 
         return $quote !== null && $quote->kind === 'quote' && $quote->line === $held['from'] && $this->m['col'] >= $host->col ? $host : null;
+    }
+
+    /**
+     * A first-block `+` reads its quote where it stands, outside the host's ordinary content column.
+     * Once that quote ends, a line at the host's content column resumes the host rather than the
+     * quote's parent. The quote's contents do not decide this boundary.
+     */
+    private function resumeHostAfterAttachedQuote(int $at): void
+    {
+        $held = $this->attachedTo;
+        if (
+            $held === null || $at <= $held['from']
+            || !($held['item'] || $held['kind'] === 'note' || ($held['kind'] === 'dd' && $this->heldOnMarkerLine($held)))
+        ) {
+            return;
+        }
+        $host = $held['frames'][count($held['frames']) - 1];
+        $level = $this->levelOf($this->src, $held['depth']);
+        // A marker at the attached item's authored marker column is
+        // its sibling, even when the one attached block was a quote.
+        if ($held['item']) {
+            $this->releaseAttachedItemAtSibling($at, $held, $level);
+        }
+        if (
+            $this->attachedTo !== null && $level !== null && $level['rest'] !== '' && $level['col'] >= $host->col
+            && $this->levelOf($this->src, $held['depth'] + 1) === null
+            && (
+                ($this->quoteDepth(count($this->frames) - 1) > $held['depth'] && ($held['item'] || !$this->foldsIntoAttachedQuote($level['rest'])))
+                || $this->endsAttachedQuote($held, $level['rest'])
+            )
+            && $this->attachedBlockEndsAt($at)
+        ) {
+            $this->attachedQuoteEnds[$at] = true;
+            $this->frames = $held['frames'];
+            $this->attachedTo = null;
+        }
     }
 
     /**
