@@ -3950,7 +3950,7 @@ class BlockParser
                 ? null : $this->authoredFootnoteBodyFloor($start, $lines[$start]);
             $authoredNext = $this->authoredColumnOf($i, $nextLine);
             $originalLine = $this->state->source->authoredLines[$this->sourceLineFor($i)] ?? null;
-            if ($originalLine !== null && str_ends_with($originalLine, ltrim($nextLine, " \t"))) {
+            if ($parent->getType() === 'list_item' && $originalLine !== null && str_ends_with($originalLine, ltrim($nextLine, " \t"))) {
                 $authoredNext = max($authoredNext ?? 0, IndentationHelper::getLeadingColumns($originalLine));
             }
             if (
