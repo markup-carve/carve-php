@@ -1547,6 +1547,8 @@ final class BlockOwnershipWalk
         }
         $n = count($this->lines);
         $code = null;
+        $codeOpener = $fence->kind === 'fence' && $fence->family === 'code'
+            ? $this->fenced->parseCodeFenceOpener(ltrim($this->lines[$at], " \t")) : null;
         for ($k = $at + 1; $k < $n; $k++) {
             $line = self::indentCols($this->lines[$k]);
             while (preg_match(self::QUOTE, $line['rest'], $q) === 1) {
@@ -1579,6 +1581,8 @@ final class BlockOwnershipWalk
                 }
             }
             if (
+                ($codeOpener !== null && $this->fenced->isCodeFenceCloser($line['rest'], $codeOpener['char'], $codeOpener['length']))
+                ||
                 ($fence->closes !== null && ($fence->closes)($line['rest'], $line['col']))
                 || ($fence->kind === 'colon' && preg_match('/^:{' . $fence->run . '}[ \t]*$/D', $line['rest']) === 1)
             ) {
