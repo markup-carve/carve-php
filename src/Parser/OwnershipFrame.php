@@ -25,9 +25,17 @@ final class OwnershipFrame
     public int $runEnd = 0;
 
     /**
-     * A `+` attached code fence with no closer its host reaches ends at its first blank (PART 9 §17 L3).
+     * A `+` attached fence or colon block with no reachable closer ends at its first blank (PART 9 §17 L3).
      */
     public bool $endsAtBlank = false;
+
+    /**
+     * A marker-line attachment can move its opener outside the host's content column.
+     * Keep that host for the trace when the attached container ends at a blank.
+     *
+     * @var list<\MarkupCarve\Carve\Parser\OwnershipFrame>|null
+     */
+    public ?array $blankHostFrames = null;
 
     /**
      * On an item: a term or description in it closed and no block opened in the item since (PART 0 S4, carve#5320).

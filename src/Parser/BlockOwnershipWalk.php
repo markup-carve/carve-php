@@ -234,6 +234,13 @@ final class BlockOwnershipWalk
     private ?array $attachedTo = null;
 
     /**
+     * Trace owner restored after an attached colon block ends at a blank.
+     *
+     * @var array{owner: string, column: int}|null
+     */
+    private ?array $traceBlankHost = null;
+
+    /**
      * The item released before S5 sees the next sibling marker.
      */
     private int $releasedSibling = 0;
@@ -373,6 +380,7 @@ final class BlockOwnershipWalk
         $this->commentColumnOwners = [];
         $this->lineBlockLazyLines = [];
         $this->attachedFenceBlankEnds = [];
+        $this->traceBlankHost = null;
         $this->attachedFenceScans = [];
         $this->refusedKeptLines = [];
         $this->fenceOpenerLines = [];
@@ -605,6 +613,12 @@ final class BlockOwnershipWalk
                 continue;
             }
             if (!$missed && $this->blankEndsAttachedFence($at, $inner)) {
+                if ($this->trace !== null && $inner->blankHostFrames !== null) {
+                    $saved = $this->frames;
+                    $this->frames = $inner->blankHostFrames;
+                    $this->traceBlankHost = ['owner' => $this->ownerPath(), 'column' => $this->frames[count($this->frames) - 1]->col];
+                    $this->frames = $saved;
+                }
                 $missed = true;
                 $reached = $innerIndex - 1;
             }
@@ -1276,6 +1290,13 @@ final class BlockOwnershipWalk
      */
     private function emitApplied(int $at, OwnershipForm $form, string $owner, int $closed, ?string $reached, bool $plusFollower): void
     {
+        if ($this->traceBlankHost !== null) {
+            if ($form->kind === 'blank' || ($form->kind === 'text' && $this->m['col'] >= $this->traceBlankHost['column'])) {
+                $owner = $this->traceBlankHost['owner'];
+            } else {
+                $this->traceBlankHost = null;
+            }
+        }
         $kind = match ($form->kind) {
             'colon-close' => 'closer',
             'colon' => 'div',
@@ -1341,11 +1362,11 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * The blank that ends a `+` attached fence with no closer is the host's, not payload (§17 L3).
+     * The blank that ends a `+` attached container with no closer is the host's (§17 L3).
      */
     private function blankEndsAttachedFence(int $at, OwnershipFrame $inner): bool
     {
-        if ($inner->kind !== 'fence' || !$inner->endsAtBlank || $this->m['rest'] !== '') {
+        if (!in_array($inner->kind, ['fence', 'colon'], true) || !$inner->endsAtBlank || $this->m['rest'] !== '') {
             return false;
         }
         $this->attachedFenceBlankEnds[$at] = true;
@@ -1354,10 +1375,20 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * An item-hosted code fence a `+` attached ends at its blank unless its host reaches a closer (carve#5304).
+     * An attached colon block or item-hosted code fence ends at its blank unless it has a reachable closer.
      */
     private function markAttachedFence(int $at, int $host, OwnershipForm $form, bool $plusFollower): void
     {
+        if ($plusFollower && $form->kind === 'colon') {
+            $container = $this->frames[count($this->frames) - 1];
+            if ($host === 0 && $this->sibling !== null && $this->sibling->plus === $at - 1) {
+                $container->blankHostFrames = [$this->frames[0], $this->sibling];
+            }
+            $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $container->col;
+            $container->endsAtBlank = !$this->attachedFenceClosed($at, $container, $key);
+
+            return;
+        }
         if (!$plusFollower || $form->kind !== 'fence' || $form->family !== 'code' || $this->frames[$host]->kind !== 'item') {
             return;
         }
@@ -1450,7 +1481,10 @@ final class BlockOwnershipWalk
             if ($line['col'] < $fence->col) {
                 return ($this->attachedFenceScans[$key] = [$k, false])[1];
             }
-            if ($fence->closes !== null && ($fence->closes)($line['rest'], $line['col'])) {
+            if (
+                ($fence->closes !== null && ($fence->closes)($line['rest'], $line['col']))
+                || ($fence->kind === 'colon' && preg_match('/^:{' . $fence->run . '}[ \t]*$/D', $line['rest']) === 1)
+            ) {
                 return ($this->attachedFenceScans[$key] = [$k, true])[1];
             }
         }
