@@ -39,7 +39,7 @@ class AnOpenFenceKeepsTheBlankRunBeforeItsBodyEndsTest extends TestCase
             'a description fence after a plus attached paragraph keeps its run' => [":: t\n: +\nhello\n\n  ```\n  code\n\nout\n", "code\n\n"],
             'a note fence a plus attached ends at its first blank' => ["[^a]: +\n```\nhi\n\n  ~~~\n  code\n\nout\n\nx[^a]\n", "hi\n"],
             'a description fence a plus attached ends at its first blank' => [":: t\n: +\n```\nhi\n\n  ~~~\n  c\n\nout\n", "hi\n"],
-            'a note fence opened after the attached one closed keeps its run' => ["[^a]: +\n```\nhi\n\n  ```\n  code\n  ```\n\nout\n\nx[^a]\n", "\n"],
+            'a note fence at the body column after the attached one ended is a fence of its own' => ["[^a]: +\n```\nhi\n\n  ```\n  code\n  ```\n\nout\n\nx[^a]\n", "code\n"],
         ];
     }
 

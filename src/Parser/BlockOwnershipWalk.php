@@ -1619,7 +1619,7 @@ final class BlockOwnershipWalk
                 }
             }
             if (
-                ($codeOpener !== null && ($line['col'] === $fence->col || $afterBlank)
+                ($codeOpener !== null && $line['col'] === $fence->col
                     && $this->fenced->isCodeFenceCloser($line['rest'], $codeOpener['char'], $codeOpener['length']))
                 ||
                 ($fence->closes !== null && ($fence->closes)($line['rest'], $line['col']))

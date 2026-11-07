@@ -1702,7 +1702,7 @@ class CarveCorpusTest extends TestCase
      */
     protected const KNOWN_GAPS = [
         '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',
-        '967-an-outer-item-s-paragraph-after-a-nested-attached-fence-loosens-it' => 'carve#5410: whether an attached fence whose closer follows its first blank ends at that blank',
+        '967-an-outer-item-s-paragraph-after-a-nested-attached-fence-loosens-it' => 'carve#5433: whether a nested item\'s attached fence closes on a closer at the inner item\'s content column past a blank',
     ];
 
     /**
@@ -1722,6 +1722,10 @@ class CarveCorpusTest extends TestCase
         '971-an-ended-definition-list-releases-its-marker-boundary-3' => [
             'reason' => 'carve#5411: the ruling on carve#5373 folds the marker-column line into the released paragraph',
             'html' => "<ul>\n  <li><p>a</p>\n    <dl>\n      <dt>m</dt>\n      <dd>d</dd>\n    </dl>\n    <p>p</p>\n    <p>: x\n: l</p>\n  </li>\n</ul>\n",
+        ],
+        '868-a-paragraph-after-a-note-attached-fence-closed-past-a-blank-takes-a-lazy-line' => [
+            'reason' => 'carve#5410: an attached fence closes only at its host column, so the indented fence line opens a second fence',
+            'html' => "<p>see</p>\n<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <pre><code>a\n</code></pre>\n      <pre><code>c\n</code></pre>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>\n",
         ],
     ];
 
