@@ -3783,6 +3783,11 @@ class BlockParser
                 $endsAtBlank = true;
             }
         }
+        if (!$firstBlockAttached && trim($content, " \t") === '+') {
+            // An unanswered marker on the definition line contributes no body text.
+            $bodyLines = [];
+            $bodyLineMap = [];
+        }
         // Tracked for the same reason the list-item collectors track it: inside
         // an open fence a whitespace-only source line is a verbatim line, so
         // what lies past the body column is content rather than a blank
