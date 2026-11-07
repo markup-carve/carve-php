@@ -3746,6 +3746,7 @@ class BlockParser
                 $i,
                 $count,
                 invisibleLineEndsParagraph: true,
+                blockColumn: self::FOOTNOTE_BODY_COLUMN,
             );
             if ($attached !== []) {
                 $bodyLines = $attached;
