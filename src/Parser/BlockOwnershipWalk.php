@@ -2448,10 +2448,17 @@ final class BlockOwnershipWalk
             return;
         }
         $level = $this->levelOf($this->src, $held['depth']);
-        if ($level !== null && $level['rest'] === '') {
-            $this->frames = array_slice($held['frames'], 0, -1);
-            $this->attachedTo = null;
+        if ($level === null || $level['rest'] !== '') {
+            return;
         }
+        // A blank inside an open fence, comment span or div is its payload.
+        for ($k = count($held['frames']) - 1, $n = count($this->frames); $k < $n; $k++) {
+            if (in_array($this->frames[$k]->kind, ['fence', 'colon'], true)) {
+                return;
+            }
+        }
+        $this->frames = array_slice($held['frames'], 0, -1);
+        $this->attachedTo = null;
     }
 
     private function holdAttachedTo(int $host, int $from): void
