@@ -1443,12 +1443,15 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * An attached colon block or item-hosted code fence ends at its blank unless it has a reachable closer.
+     * An attached colon block or code fence ends at its blank unless it has a reachable closer.
      */
     private function markAttachedFence(int $at, int $host, OwnershipForm $form, bool $plusFollower): void
     {
         if ($plusFollower && $form->kind === 'colon') {
             $container = $this->frames[count($this->frames) - 1];
+            if (in_array($this->frames[$host]->kind, ['note', 'dd'], true)) {
+                $container->blankHostFrames = array_slice($this->frames, 0, $host + 1);
+            }
             if ($this->sibling !== null && $this->sibling->plus === $at - 1) {
                 $container->blankHostFrames = [...array_slice($this->frames, 0, $host + 1), $this->sibling];
             }
@@ -1461,7 +1464,13 @@ final class BlockOwnershipWalk
             return;
         }
         $fence = $this->frames[count($this->frames) - 1];
-        if ($this->sibling?->kind === 'item' && $this->sibling->plus === $at - 1) {
+        if (in_array($this->frames[$host]->kind, ['note', 'dd'], true)) {
+            $fence->blankHostFrames = array_slice($this->frames, 0, $host + 1);
+        }
+        if (
+            $this->sibling !== null && in_array($this->sibling->kind, ['item', 'note', 'dd'], true)
+            && $this->sibling->plus === $at - 1
+        ) {
             $fence->blankHostFrames = [...array_slice($this->frames, 0, $host + 1), $this->sibling];
         }
         if ($this->frames[$host]->kind !== 'item' && $fence->blankHostFrames === null) {
@@ -1548,6 +1557,12 @@ final class BlockOwnershipWalk
         }
         $n = count($this->lines);
         $code = null;
+        $afterBlank = false;
+        $hostFrame = $fence->blankHostFrames === null ? null
+            : $fence->blankHostFrames[count($fence->blankHostFrames) - 1];
+        $codeOpener = $fence->kind === 'fence' && $fence->family === 'code'
+            && $hostFrame !== null && in_array($hostFrame->kind, ['note', 'dd'], true)
+            ? $this->fenced->parseCodeFenceOpener(ltrim($this->lines[$at], " \t")) : null;
         for ($k = $at + 1; $k < $n; $k++) {
             $line = self::indentCols($this->lines[$k]);
             while (preg_match(self::QUOTE, $line['rest'], $q) === 1) {
@@ -1561,7 +1576,15 @@ final class BlockOwnershipWalk
                 continue;
             }
             if ($line['rest'] === '') {
+                $afterBlank = true;
+
                 continue;
+            }
+            if (
+                $afterBlank && $hostFrame !== null && in_array($hostFrame->kind, ['note', 'dd'], true)
+                && $line['col'] < $fence->blankHostFrames[count($fence->blankHostFrames) - 1]->col
+            ) {
+                return ($this->attachedFenceScans[$key] = [$k, false])[1];
             }
             if ($line['col'] < $fence->col) {
                 return ($this->attachedFenceScans[$key] = [$k, false])[1];
@@ -1580,11 +1603,15 @@ final class BlockOwnershipWalk
                 }
             }
             if (
+                ($codeOpener !== null && ($line['col'] === $fence->col || $afterBlank)
+                    && $this->fenced->isCodeFenceCloser($line['rest'], $codeOpener['char'], $codeOpener['length']))
+                ||
                 ($fence->closes !== null && ($fence->closes)($line['rest'], $line['col']))
                 || ($fence->kind === 'colon' && preg_match('/^:{' . $fence->run . '}[ \t]*$/D', $line['rest']) === 1)
             ) {
                 return ($this->attachedFenceScans[$key] = [$k, true])[1];
             }
+            $afterBlank = false;
         }
 
         return ($this->attachedFenceScans[$key] = [$n, false])[1];
