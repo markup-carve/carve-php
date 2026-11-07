@@ -1492,11 +1492,7 @@ final class BlockOwnershipWalk
         }
         if ($form->kind === 'term' && $this->frames[$owner]->kind === 'item') {
             $this->frames[$owner]->descriptionLeft = true;
-            $this->frames[$owner]->termOnly = true;
-            $this->frames[$owner]->described = true;
-        } elseif ($form->kind === 'dd' && $this->frames[$owner]->kind === 'item') {
-            $this->frames[$owner]->termOnly = false;
-        } elseif ($this->frames[$owner]->kind === 'item' && $this->frames[$owner]->last === $form->kind) {
+        } elseif ($form->kind !== 'dd' && $this->frames[$owner]->kind === 'item' && $this->frames[$owner]->last === $form->kind) {
             $this->leaveClosedDescription($owner);
         }
         $this->frames[$owner]->tableLine = $form->table ? $this->at : null;
@@ -2885,21 +2881,12 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * A block after a closed description leaves the item no open one for the marker-column boundary
-     * (PART 0 S4, carve#5363). A term still waiting for its description keeps it.
+     * A block outside the item's definition list ends that list, and the marker-column boundary with it
+     * (PART 0 S4, carve#5368, carve#5373).
      */
     private function leaveClosedDescription(int $owner): void
     {
-        $item = $this->frames[$owner];
-        if (!$item->described) {
-            return;
-        }
-        // A paragraph opened by a released `: ` line keeps the boundary standing.
-        if (preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $this->m['rest']) === 1) {
-            $item->descriptionLeft = true;
-        } elseif (!$item->termOnly) {
-            $item->descriptionLeft = false;
-        }
+        $this->frames[$owner]->descriptionLeft = false;
     }
 
     /**

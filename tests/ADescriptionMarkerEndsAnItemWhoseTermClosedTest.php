@@ -9,7 +9,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * carve#5320: a `: ` line at an item's marker column ends the item once a term or description in it has closed.
+ * carve#5320: a `: ` line at an item's marker column ends the item whose term is open; once a block
+ * has ended the definition list it folds instead (carve#5368, carve#5373).
  */
 final class ADescriptionMarkerEndsAnItemWhoseTermClosedTest extends TestCase
 {
@@ -21,19 +22,19 @@ final class ADescriptionMarkerEndsAnItemWhoseTermClosedTest extends TestCase
         return [
             'an open term in the nested item' => [
                 "- - a\n    :: t\n  : b\n: c\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>a\n        <dl>\n          <dt>t</dt>\n        </dl>\n      </li>\n    </ul>\n    : b\n  </li>\n</ul>\n<p>: c</p>",
+                "<ul>\n  <li>\n    <ul>\n      <li>a\n        <dl>\n          <dt>t</dt>\n        </dl>\n      </li>\n    </ul>\n    : b\n: c\n  </li>\n</ul>",
             ],
             'a term directly in the item, then a paragraph' => [
                 "- o\n  :: t\n\n  para\n: c\n",
-                "<ul>\n  <li><p>o</p>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <p>para</p>\n  </li>\n</ul>\n<p>: c</p>",
+                "<ul>\n  <li><p>o</p>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <p>para\n: c</p>\n  </li>\n</ul>",
             ],
             'a term on the item marker line' => [
                 "- :: t\n   a\n  : x\n: z\n",
-                "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    a\n: x\n  </li>\n</ul>\n<p>: z</p>",
+                "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    a\n: x\n: z\n  </li>\n</ul>",
             ],
             'a marker-line task item' => [
                 "- - [ ] a\n        :: t\n  : b\n: c\n",
-                "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"a\"> a\n        <dl>\n          <dt>t</dt>\n        </dl>\n      </li>\n    </ul>\n    : b\n  </li>\n</ul>\n<p>: c</p>",
+                "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li><input type=\"checkbox\" disabled aria-label=\"a\"> a\n        <dl>\n          <dt>t</dt>\n        </dl>\n      </li>\n    </ul>\n    : b\n: c\n  </li>\n</ul>",
             ],
             'a list after a nested description keeps the lazy line' => [
                 "- - a\n    :: t\n    : u\n    1. n\n: c\n",
@@ -45,7 +46,7 @@ final class ADescriptionMarkerEndsAnItemWhoseTermClosedTest extends TestCase
             ],
             'a fence and a description after the term end the item (carve#5341)' => [
                 "- a\n  :: t\n  ```\n  :: x\n  ```\n  : w\n: z\n",
-                "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <pre><code>:: x\n</code></pre>\n    : w\n  </li>\n</ul>\n<p>: z</p>",
+                "<ul>\n  <li>a\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <pre><code>:: x\n</code></pre>\n    : w\n: z\n  </li>\n</ul>",
             ],
             'a stanza after the term ends the item' => [
                 "- a\n  :: t\n  :::\n  in\n  :::\n: z\n",

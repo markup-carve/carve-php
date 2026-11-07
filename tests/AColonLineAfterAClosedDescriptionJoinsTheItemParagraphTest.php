@@ -35,9 +35,9 @@ final class AColonLineAfterAClosedDescriptionJoinsTheItemParagraphTest extends T
                 "1. a\n   :: t\n   : u\n   ---\n   w\n: z\n",
                 "<ol>\n  <li>a\n    <dl>\n      <dt>t</dt>\n      <dd>u</dd>\n    </dl>\n    <hr>\n    w\n: z\n  </li>\n</ol>",
             ],
-            'a term with no description still ends the item' => [
+            'a term with no description folds too (carve#5352)' => [
                 "- a\n  :: t\n\n  # H\n  w\n: z\n",
-                "<ul>\n  <li><p>a</p>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <h1 id=\"H\">H</h1>\n    <p>w</p>\n  </li>\n</ul>\n<p>: z</p>",
+                "<ul>\n  <li><p>a</p>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <h1 id=\"H\">H</h1>\n    <p>w\n: z</p>\n  </li>\n</ul>",
             ],
             'an open description still ends the item' => [
                 "- a\n  :: t\n  : u\n: z\n",

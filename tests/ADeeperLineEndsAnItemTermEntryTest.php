@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A term holds no body, so a deeper line ends its entry and a later `: ` line is paragraph text (PART 0 S4, carve#5289, carve#5317).
+ * A term holds no body, so a deeper line ends its entry and later `: ` lines are paragraph text (PART 0 S4, carve#5289, carve#5368).
  */
 class ADeeperLineEndsAnItemTermEntryTest extends TestCase
 {
@@ -21,7 +21,7 @@ class ADeeperLineEndsAnItemTermEntryTest extends TestCase
         return [
             'marker-line term, deeper line, then a description-shaped line (carve#5317)' => [
                 "- :: t\n   a\n  : x\n: z\n",
-                "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    a\n: x\n  </li>\n</ul>\n<p>: z</p>\n",
+                "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    a\n: x\n: z\n  </li>\n</ul>\n",
             ],
             'no term: the line folds as before' => [
                 "- u\n  : x\n: z\n",
