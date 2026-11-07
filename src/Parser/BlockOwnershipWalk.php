@@ -621,7 +621,7 @@ final class BlockOwnershipWalk
             }
             if (!$missed && $this->blankEndsAttachedFence($at, $inner)) {
                 $this->recordAttachedBlankHost($inner);
-                $missed = !$this->resumeAttachedColonHost($inner);
+                $missed = !$this->resumeAttachedHost($inner);
                 $innerIndex = count($this->frames) - 1;
                 $inner = $this->frames[$innerIndex];
                 $reached = $innerIndex - (int)$missed;
@@ -632,7 +632,7 @@ final class BlockOwnershipWalk
                 $this->markedQuotedItemSpanBlank = $this->verseSpanBlankMissedOwner
                     && $this->frames[1]->kind === 'quote' && str_contains($lines[$at], '>');
                 // S1: an open payload tests its closer first (B-<family>-keep, B-<family>-end).
-                $payloadPath = $this->trace !== null ? $this->ownerPath() : '';
+                $payloadPath = $this->trace !== null ? $this->traceFenceOwner($inner) : '';
                 $payloadForm = 'payload';
                 $this->lead(max($this->m['col'] - $inner->cut, $inner->canon));
                 $rest = $this->m['rest'];
@@ -1405,9 +1405,9 @@ final class BlockOwnershipWalk
     /**
      * The host the colon's opener left resumes, so later lines keep their columns (carve#5396).
      */
-    private function resumeAttachedColonHost(OwnershipFrame $inner): bool
+    private function resumeAttachedHost(OwnershipFrame $inner): bool
     {
-        if ($inner->kind !== 'colon' || $inner->blankHostFrames === null) {
+        if ($inner->blankHostFrames === null || ($inner->kind !== 'colon' && $this->trace === null)) {
             return false;
         }
         $this->frames = $inner->blankHostFrames;
@@ -1416,6 +1416,19 @@ final class BlockOwnershipWalk
         $host->last = 'block';
 
         return true;
+    }
+
+    private function traceFenceOwner(OwnershipFrame $inner): string
+    {
+        if ($inner->kind !== 'fence' || $inner->blankHostFrames === null) {
+            return $this->ownerPath();
+        }
+        $saved = $this->frames;
+        $this->frames = $inner->blankHostFrames;
+        $path = $this->ownerPath() . '/' . $inner->family . ':' . (($inner->opened ?? $inner->line ?? 0) + 1);
+        $this->frames = $saved;
+
+        return $path;
     }
 
     private function recordAttachedBlankHost(OwnershipFrame $inner): void
@@ -1444,16 +1457,39 @@ final class BlockOwnershipWalk
 
             return;
         }
-        if (!$plusFollower || $form->kind !== 'fence' || $form->family !== 'code' || $this->frames[$host]->kind !== 'item') {
+        if (!$plusFollower || $form->kind !== 'fence' || $form->family !== 'code') {
             return;
         }
         $fence = $this->frames[count($this->frames) - 1];
+        if ($this->trace !== null && $this->sibling?->kind === 'item' && $this->sibling->plus === $at - 1 && $this->quoteDepth($host + 1) === 0) {
+            $fence->blankHostFrames = [...array_slice($this->frames, 0, $host + 1), $this->sibling];
+        }
+        if ($this->frames[$host]->kind !== 'item' && $fence->blankHostFrames === null) {
+            return;
+        }
         $opener = $this->fenced->parseCodeFenceOpener($this->m['rest']);
         if ($opener !== null && $this->attachedCodeFenceBlankAhead($at, (int)$this->frames[$host]->markerCol, $opener['char'], $opener['length'])) {
             $fence->col = $this->m['col'];
         }
         $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $fence->col;
-        $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key);
+        $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key)
+            && ($fence->blankHostFrames === null || $this->nextAfterAttachedFenceBlankReachesHost($at, $fence));
+    }
+
+    private function nextAfterAttachedFenceBlankReachesHost(int $at, OwnershipFrame $fence): bool
+    {
+        $sawBlank = false;
+        $host = $fence->blankHostFrames[count($fence->blankHostFrames) - 1];
+        for ($k = $at + 1, $n = count($this->lines); $k < $n; $k++) {
+            $line = self::indentCols($this->lines[$k]);
+            if ($line['rest'] === '') {
+                $sawBlank = true;
+            } elseif ($sawBlank) {
+                return $line['col'] >= $host->col;
+            }
+        }
+
+        return false;
     }
 
     private function attachedCodeFenceBlankAhead(int $at, int $column, string $char, int $length): bool
