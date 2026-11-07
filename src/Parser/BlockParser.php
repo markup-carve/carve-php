@@ -3706,8 +3706,10 @@ class BlockParser
      * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
      * @param int $start
+     * @param int|null $afterEarlierClaim
+     * @param bool $collectAfterClaim
      */
-    protected function tryParseFootnoteDefinition(Node $parent, array $lines, int $start): ?int
+    protected function tryParseFootnoteDefinition(Node $parent, array $lines, int $start, ?int $afterEarlierClaim = null, bool $collectAfterClaim = true): ?int
     {
         $line = $lines[$start];
 
@@ -3727,10 +3729,19 @@ class BlockParser
         }
 
         // Skip the footnote definition and any continuation lines
-        $i = $start + 1;
+        $i = $collectAfterClaim ? ($afterEarlierClaim ?? $start + 1) : $start + 1;
         $count = count($lines);
 
-        $bodyLines = [$content];
+        $preludeSource = $this->sourceLineFor($start);
+        while ($preludeSource > 0 && isset($this->state->source->attachedPreludeLines[$preludeSource])) {
+            $preludeSource--;
+        }
+        $preludeMarker = trim($content, " \t") === '+'
+            && isset($this->state->source->attachedPreludeLines[$this->sourceLineFor($start)])
+            && ($this->state->source->plusHosts[$preludeSource]['kind'] ?? null) === 'footnote';
+        $bodyLines = [$preludeMarker ? '{empty}' : $content];
+        $preludeDefinitions = [];
+        $claimedBlockEnd = null;
         // A block a `+` attached ends at a blank, even with its fence open (PART 9 section 17 L3).
         $endsAtBlank = false;
         $termScan = null;
@@ -3738,7 +3749,7 @@ class BlockParser
         $bodyLineMap = [$this->sourceLineFor($start)];
         $firstBlockAttached = false;
         if (
-            trim($content, " \t") === '+' && isset($lines[$i])
+            !$preludeMarker && trim($content, " \t") === '+' && isset($lines[$i])
             && !IndentationHelper::isBlankLine($lines[$i])
             && $this->continuationFollowerIsEligible($i)
         ) {
@@ -3750,9 +3761,24 @@ class BlockParser
                 blockColumn: self::FOOTNOTE_BODY_COLUMN,
             );
             if ($attached !== []) {
-                $bodyLines = $attached;
-                $bodyLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedLineMap);
+                $bodyLines = [];
+                $bodyLineMap = [];
+                foreach ($attachedLineMap as $offset => $raw) {
+                    $sourceLine = $this->sourceLineFor($raw);
+                    if (
+                        isset($this->state->source->attachedPreludeLines[$sourceLine])
+                        && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $attached[$offset], $prelude) === 1
+                        && trim($prelude[2], " \t") === '+'
+                    ) {
+                        $preludeDefinitions[] = $raw;
+
+                        continue;
+                    }
+                    $bodyLines[] = $attached[$offset];
+                    $bodyLineMap[] = $sourceLine;
+                }
                 $i = $end;
+                $claimedBlockEnd = $end;
                 $firstBlockAttached = true;
                 $endsAtBlank = true;
             }
@@ -3776,7 +3802,7 @@ class BlockParser
             IndentedContainerCollector::admissions(
                 $lines,
                 $i,
-                $count,
+                !$collectAfterClaim ? $start + 1 : ($preludeDefinitions !== [] ? $i : $count),
                 $footnoteColumn,
             ) as $admission
         ) {
@@ -4014,6 +4040,10 @@ class BlockParser
             array_pop($bodyLines);
             array_pop($bodyLineMap);
         }
+        if ($preludeMarker && count($bodyLines) > 1) {
+            array_shift($bodyLines);
+            array_shift($bodyLineMap);
+        }
 
         $bodyLines = $this->alignMarkerLineFootnoteItem($bodyLines, $bodyLineMap, $content, $label, $start);
 
@@ -4067,6 +4097,15 @@ class BlockParser
                 'lines' => $bodyLines,
                 'lineMap' => $bodyLineMap,
             ];
+        }
+        if ($this->state->session->discoveringDefinitions) {
+            $lastPrelude = array_key_last($preludeDefinitions);
+            foreach ($preludeDefinitions as $index => $definitionLine) {
+                $consumed = $this->tryParseFootnoteDefinition($parent, $lines, $definitionLine, $claimedBlockEnd, $index === $lastPrelude);
+                if ($consumed !== null) {
+                    $i = max($i, $definitionLine + $consumed);
+                }
+            }
         }
 
         return $i - $start;

@@ -2449,10 +2449,14 @@ final class BlockOwnershipWalk
                 for ($j = $opener; $j < min($k, $n); $j++) {
                     $fenced[$j] = true;
                 }
-            } elseif (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $rest) === 1) {
+            } elseif (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $rest, $definition) === 1) {
+                $offered = trim($definition[2], " \t") === '+' && $at === $column;
                 $fenced[$k] = false;
                 $k++;
-                while ($k < $n && $quoted($k) && $this->foldsAsPlainText(rtrim($view($k), " \t"))) {
+                while (
+                    $k < $n && $quoted($k) && $this->foldsAsPlainText(rtrim($view($k), " \t"))
+                    && (!$offered || self::docColumn($this->lines[$k], $view($k)) !== $column)
+                ) {
                     $noteBodies[$k] = true;
                     $k++;
                 }
