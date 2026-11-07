@@ -447,33 +447,7 @@ final class BlockOwnershipWalk
                 }
             }
             $this->endQuoteGrantAtBlank($at);
-            // A first-block `+` reads its quote where it stands, outside the
-            // host's ordinary content column. Once that quote ends, a line at
-            // the host's content column resumes the host rather than the
-            // quote's parent. The quote's contents do not decide this boundary.
-            if ($this->attachedTo !== null && $at > $this->attachedTo['from'] && ($this->attachedTo['item'] || $this->attachedTo['kind'] === 'note')) {
-                $held = $this->attachedTo;
-                $host = $held['frames'][count($held['frames']) - 1];
-                $level = $this->levelOf($this->src, $held['depth']);
-                // A marker at the attached item's authored marker column is
-                // its sibling, even when the one attached block was a quote.
-                if ($held['item']) {
-                    $this->releaseAttachedItemAtSibling($at, $held, $level);
-                }
-                if (
-                    $this->attachedTo !== null && $level !== null && $level['rest'] !== '' && $level['col'] >= $host->col
-                    && $this->levelOf($this->src, $held['depth'] + 1) === null
-                    && (
-                        ($this->quoteDepth(count($this->frames) - 1) > $held['depth'] && ($held['item'] || !$this->foldsIntoAttachedQuote($level['rest'])))
-                        || $this->endsAttachedQuote($held, $level['rest'])
-                    )
-                    && $this->attachedBlockEndsAt($at)
-                ) {
-                    $this->attachedQuoteEnds[$at] = true;
-                    $this->frames = $held['frames'];
-                    $this->attachedTo = null;
-                }
-            }
+            $this->resumeHostAfterAttachedQuote($at);
             $reached = 0;
             $plus = null;
             $plusAccepted = false;
@@ -712,7 +686,7 @@ final class BlockOwnershipWalk
                 }
             }
             // S3: the line's form, the record's `form` field.
-            $form = $this->classifyLine($this->m['rest'], $this->frames[$reached], $this->m['col']);
+            $form = $this->classifyLine($this->m['rest'], $this->attachedQuoteHost($reached) ?? $this->frames[$reached], $this->m['col']);
             $topIndex = count($this->frames) - 1;
             if ($this->m['rest'] !== '' && ($form->kind === 'dd' || ($reached === $topIndex && $this->frames[$reached] === $this->ddSiblingOwner))) {
                 $this->ddSiblingOwner = null;
@@ -2553,6 +2527,67 @@ final class BlockOwnershipWalk
         return $top === count($held['frames']) - 1 && $this->frames[$top]->kind === 'quote' && !$this->foldsIntoAttachedQuote($rest);
     }
 
+    /**
+     * The description a marker-line `+` quote stands in for, when the line reaches its column past the quote (carve#4871).
+     */
+    private function attachedQuoteHost(int $reached): ?OwnershipFrame
+    {
+        $held = $this->attachedTo;
+        if ($held === null || $held['kind'] !== 'dd' || $this->at <= $held['from'] || $reached !== count($held['frames']) - 2) {
+            return null;
+        }
+        $quote = $this->frames[$reached + 1] ?? null;
+        $host = $held['frames'][count($held['frames']) - 1];
+
+        return $quote !== null && $quote->kind === 'quote' && $quote->line === $held['from'] && $this->m['col'] >= $host->col ? $host : null;
+    }
+
+    /**
+     * A first-block `+` reads its quote where it stands, outside the host's ordinary content column.
+     * Once that quote ends, a line at the host's content column resumes the host rather than the
+     * quote's parent. The quote's contents do not decide this boundary.
+     */
+    private function resumeHostAfterAttachedQuote(int $at): void
+    {
+        $held = $this->attachedTo;
+        if (
+            $held === null || $at <= $held['from']
+            || !($held['item'] || $held['kind'] === 'note' || ($held['kind'] === 'dd' && $this->heldOnMarkerLine($held)))
+        ) {
+            return;
+        }
+        $host = $held['frames'][count($held['frames']) - 1];
+        $level = $this->levelOf($this->src, $held['depth']);
+        // A marker at the attached item's authored marker column is
+        // its sibling, even when the one attached block was a quote.
+        if ($held['item']) {
+            $this->releaseAttachedItemAtSibling($at, $held, $level);
+        }
+        if (
+            $this->attachedTo !== null && $level !== null && $level['rest'] !== '' && $level['col'] >= $host->col
+            && $this->levelOf($this->src, $held['depth'] + 1) === null
+            && (
+                ($this->quoteDepth(count($this->frames) - 1) > $held['depth'] && ($held['item'] || !$this->foldsIntoAttachedQuote($level['rest'])))
+                || $this->endsAttachedQuote($held, $level['rest'])
+            )
+            && $this->attachedBlockEndsAt($at)
+        ) {
+            $this->attachedQuoteEnds[$at] = true;
+            $this->frames = $held['frames'];
+            $this->attachedTo = null;
+        }
+    }
+
+    /**
+     * Whether the held `+` stood on its host's marker line.
+     *
+     * @param array{frames: array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>, column: int, depth: int, from: int, item: bool, kind: string} $held
+     */
+    private function heldOnMarkerLine(array $held): bool
+    {
+        return $held['frames'][count($held['frames']) - 1]->line === $held['from'] - 1;
+    }
+
     private function foldsIntoAttachedQuote(string $rest): bool
     {
         return $this->foldsAsPlainText($rest) || preg_match('/^(\^ |: )/', $rest) === 1;
@@ -2687,7 +2722,9 @@ final class BlockOwnershipWalk
     private function releaseAttachedItemAtSibling(int $at, array $held, ?array $level): void
     {
         if (
-            $level === null || $level['col'] !== $held['column']
+            $level === null || $level['col'] < $held['column']
+            || ($level['col'] !== $held['column'] && !$this->heldOnMarkerLine($held))
+            || $level['col'] >= $held['frames'][count($held['frames']) - 1]->col
             || $this->listParser->parseListItemMarker($level['rest']) === null
             || !$this->attachedBlockEndsAt($at)
         ) {
@@ -3074,6 +3111,14 @@ final class BlockOwnershipWalk
             }
             $host = $this->frames[$k - 1];
             if ($frame->kind === 'quote' && ($host->kind === 'item' || $host->kind === 'dd') && $host->plus !== null && $host->plus === ($frame->line ?? -2) - 1) {
+                return true;
+            }
+            // The quote a marker-line `+` took stands in its host's place, so it still stands for that host (carve#4871).
+            if (
+                $frame->kind === 'quote' && $this->attachedTo !== null && $this->attachedTo['from'] === $frame->line
+                && in_array($this->attachedTo['kind'], ['item', 'dd'], true) && $this->heldOnMarkerLine($this->attachedTo)
+                && $this->m['col'] < $this->attachedTo['frames'][count($this->attachedTo['frames']) - 1]->col
+            ) {
                 return true;
             }
         }
