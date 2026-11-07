@@ -5992,6 +5992,21 @@ class BlockParser
 
         // Handle BlockQuote - wrap in figure
         if ($lastChild instanceof BlockQuote) {
+            // A blank ends an attached quote's scope. A follower at its marker
+            // host column is a new block there, even when it looks like a caption.
+            if ($blankLines > 0 && $sourceBeforeLine >= 0) {
+                $sourceLines = $this->state->source->sourceLines;
+                for ($at = $sourceBeforeLine; $at >= 0; $at--) {
+                    $visible = ltrim($sourceLines[$at], " \t");
+                    if ($visible === '') {
+                        break;
+                    }
+                    if (str_starts_with($visible, '>') && ($this->state->source->plusHosts[$at - 1]['kind'] ?? null) === 'list') {
+                        return null;
+                    }
+                }
+            }
+
             // PART 9 §4d: a quote built out of nothing but structural-only `>`
             // lines is not a captionable host. It holds nothing the caption
             // could be about, and taking one binds the caption across the
