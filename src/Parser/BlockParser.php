@@ -4055,9 +4055,6 @@ class BlockParser
                 'lines' => $bodyLines,
                 'lineMap' => $bodyLineMap,
             ];
-            foreach ($preludeDefinitions as $definitionLine) {
-                $this->tryParseFootnoteDefinition($parent, $lines, $definitionLine);
-            }
         } elseif ($this->state->session->discoveringDefinitions && array_key_exists($key, $this->state->session->footnotes)) {
             $bodyLines = $this->footnoteBodyDefinitionReach(
                 $this->rebaseOverindentedItemBlocks(
@@ -4087,6 +4084,11 @@ class BlockParser
                 'lines' => $bodyLines,
                 'lineMap' => $bodyLineMap,
             ];
+        }
+        if ($this->state->session->discoveringDefinitions) {
+            foreach ($preludeDefinitions as $definitionLine) {
+                $this->tryParseFootnoteDefinition($parent, $lines, $definitionLine);
+            }
         }
 
         return $i - $start;
