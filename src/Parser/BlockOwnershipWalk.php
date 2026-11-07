@@ -236,7 +236,7 @@ final class BlockOwnershipWalk
     /**
      * The frames at the last accepted `+`, its host's marker column and quote depth, and where its block starts.
      *
-     * @var array{frames: array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>, column: int, depth: int, from: int, item: bool, kind: string}|null
+     * @var array{frames: array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>, column: int, depth: int, from: int, item: bool, kind: string, parent?: \MarkupCarve\Carve\Parser\AttachmentParent|null}|null
      */
     private ?array $attachedTo = null;
 
@@ -434,6 +434,23 @@ final class BlockOwnershipWalk
             $this->src = $lines[$at];
             $this->out = '';
             $this->m = self::indentCols($this->src);
+            // An attachment inside an attached quote can end with that quote.
+            // Recover the enclosing offer before deciding who reads this line.
+            while (
+                $this->attachedTo !== null && isset($this->attachedTo['parent'])
+                && $this->levelOf($this->src, $this->attachedTo['depth']) === null
+            ) {
+                $this->attachedTo = $this->attachedTo['parent']->host;
+            }
+            if ($this->attachedTo !== null && count($this->frames) < count($this->attachedTo['frames'])) {
+                $held = $this->attachedTo;
+                $level = $this->levelOf($this->src, $held['depth']);
+                $host = $held['frames'][count($held['frames']) - 1];
+                if ($level !== null && $level['rest'] !== '' && $level['col'] >= $host->col && $this->attachedBlockEndsAt($at)) {
+                    $this->frames = $held['frames'];
+                    $this->attachedTo = ($held['parent'] ?? null)?->host;
+                }
+            }
             $this->recordCommentPayloadHostColumn($at);
             // A `+` right after the block a `+` attached reaches the same host, whose
             // frames the walk closed when it read that block where it stands.
@@ -2718,13 +2735,16 @@ final class BlockOwnershipWalk
 
     private function holdAttachedTo(int $host, int $from): void
     {
+        $depth = $this->quoteDepth($host);
+        $parent = $this->attachedTo !== null && $depth > $this->attachedTo['depth'] ? new AttachmentParent($this->attachedTo) : null;
         $this->attachedTo = [
             'frames' => array_slice($this->frames, 0, $host + 1),
             'column' => (int)$this->frames[$host]->markerCol,
-            'depth' => $this->quoteDepth($host),
+            'depth' => $depth,
             'from' => $from,
             'item' => $this->frames[$host]->kind === 'item',
             'kind' => $this->frames[$host]->kind,
+            'parent' => $parent,
         ];
     }
 
@@ -2760,7 +2780,7 @@ final class BlockOwnershipWalk
             return false;
         }
         $last = $at;
-        while ($held['item'] && $last > $held['from']) {
+        while ($last > $held['from']) {
             $level = $this->levelOf($this->lines[$last - 1], $held['depth']);
             if ($level === null || trim($level['rest']) !== '') {
                 break;
