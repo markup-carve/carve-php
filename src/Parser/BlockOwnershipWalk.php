@@ -700,20 +700,7 @@ final class BlockOwnershipWalk
             }
             // S3: the line's form, the record's `form` field.
             $form = $this->classifyLine($this->m['rest'], $this->attachedQuoteHost($reached) ?? $this->frames[$reached], $this->m['col']);
-            $owner = $this->frames[$reached];
-            if ($this->endedAttachedFence !== null && $at > $this->endedAttachedFence['at']) {
-                if ($form->kind === 'blank' || ($form->kind !== 'text' && $form->family !== 'code')) {
-                    $this->endedAttachedFence = null;
-                } elseif (
-                    $form->family === 'code' && $owner->para
-                    && $this->m['col'] > $this->endedAttachedFence['col']
-                    && $this->m['col'] >= $this->endedAttachedFence['host']
-                    && !$this->hasLaterFenceCloser($at, $reached, $form)
-                ) {
-                    $form = new OwnershipForm('text', false, kept: true);
-                    $this->foldedFenceAfterAttachedBlank[$at] = true;
-                }
-            }
+            $form = $this->foldFenceAfterAttachedBlank($at, $reached, $form);
             $topIndex = count($this->frames) - 1;
             if ($this->m['rest'] !== '' && ($form->kind === 'dd' || ($reached === $topIndex && $this->frames[$reached] === $this->ddSiblingOwner))) {
                 $this->ddSiblingOwner = null;
@@ -1446,6 +1433,30 @@ final class BlockOwnershipWalk
         }
 
         return false;
+    }
+
+    private function foldFenceAfterAttachedBlank(int $at, int $reached, OwnershipForm $form): OwnershipForm
+    {
+        if ($this->endedAttachedFence === null || $at <= $this->endedAttachedFence['at']) {
+            return $form;
+        }
+        if ($form->kind === 'blank' || ($form->kind !== 'text' && $form->family !== 'code')) {
+            $this->endedAttachedFence = null;
+
+            return $form;
+        }
+        if (
+            $form->family === 'code' && $this->frames[$reached]->para
+            && $this->m['col'] > $this->endedAttachedFence['col']
+            && $this->m['col'] >= $this->endedAttachedFence['host']
+            && !$this->hasLaterFenceCloser($at, $reached, $form)
+        ) {
+            $this->foldedFenceAfterAttachedBlank[$at] = true;
+
+            return new OwnershipForm('text', false, kept: true);
+        }
+
+        return $form;
     }
 
     /**
