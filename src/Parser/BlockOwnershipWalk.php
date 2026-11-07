@@ -1436,7 +1436,7 @@ final class BlockOwnershipWalk
     {
         if ($plusFollower && $form->kind === 'colon') {
             $container = $this->frames[count($this->frames) - 1];
-            if ($this->sibling !== null && $this->sibling->plus === $at - 1 && $this->quoteDepth($host + 1) === 0) {
+            if ($this->sibling !== null && $this->sibling->plus === $at - 1) {
                 $container->blankHostFrames = [...array_slice($this->frames, 0, $host + 1), $this->sibling];
             }
             $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $container->col . '|' . ($this->sibling->markerCol ?? -1);
