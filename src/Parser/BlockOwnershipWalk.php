@@ -423,14 +423,7 @@ final class BlockOwnershipWalk
                     $this->attachedTo = null;
                 }
             }
-            // A blank ends a quote, and with it the block its `+` attached (PART 9 §17 L3, carve#5381).
-            if ($this->attachedTo !== null && $this->attachedTo['kind'] === 'quote' && $at >= $this->attachedTo['from']) {
-                $level = $this->levelOf($this->src, $this->attachedTo['depth']);
-                if ($level !== null && $level['rest'] === '') {
-                    $this->frames = array_slice($this->attachedTo['frames'], 0, -1);
-                    $this->attachedTo = null;
-                }
-            }
+            $this->endQuoteGrantAtBlank($at);
             // A first-block `+` reads its quote where it stands, outside the
             // host's ordinary content column. Once that quote ends, a line at
             // the host's content column resumes the host rather than the
@@ -2443,6 +2436,22 @@ final class BlockOwnershipWalk
     private static function spanPad(OwnershipFrame $host): int
     {
         return in_array($host->kind, ['item', 'dd', 'note'], true) ? max(0, $host->canon - (int)$host->markerCanon) : 0;
+    }
+
+    /**
+     * A blank ends a quote, and with it the block its `+` attached (PART 9 §17 L3, carve#5381).
+     */
+    private function endQuoteGrantAtBlank(int $at): void
+    {
+        $held = $this->attachedTo;
+        if ($held === null || $held['kind'] !== 'quote' || $at < $held['from']) {
+            return;
+        }
+        $level = $this->levelOf($this->src, $held['depth']);
+        if ($level !== null && $level['rest'] === '') {
+            $this->frames = array_slice($held['frames'], 0, -1);
+            $this->attachedTo = null;
+        }
     }
 
     private function holdAttachedTo(int $host, int $from): void
