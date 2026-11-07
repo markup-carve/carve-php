@@ -23,6 +23,7 @@ final class AHostResumesAfterAnEndedAttachedColonTest extends TestCase
             yield "top-level item, {$next}" => ["- +\n%s\n\n  {$next}\n", $next];
             yield "nested item, {$next}" => ["- a\n  * +\n  %s\n\n    {$next}\n", $next];
             yield "ordered item, {$next}" => ["1. +\n%s\n\n   {$next}\n", $next];
+            yield "quoted item, {$next}" => ["> - +\n> %s\n>\n>   {$next}\n", $next];
         }
     }
 
@@ -49,6 +50,14 @@ final class AHostResumesAfterAnEndedAttachedColonTest extends TestCase
         self::assertSame(
             "<ul>\n  <li>a\n    <ul>\n      <li>\n        <aside class=\"admonition note\" aria-label=\"Note\">\n\n        </aside>\n        <ul>\n          <li>q</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
             $converter->convert("- a\n  * +\n  ::: note\n\n    - q\n"),
+        );
+    }
+
+    public function testQuotedHostResumesAfterAttachedColon(): void
+    {
+        self::assertSame(
+            "<blockquote>\n  <ul>\n    <li>\n      <aside class=\"admonition note\" aria-label=\"Note\">\n\n      </aside>\n      <ul>\n        <li>q</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>",
+            (new CarveConverter())->convert("> - +\n> ::: note\n>\n>   - q\n"),
         );
     }
 }
