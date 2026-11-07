@@ -496,6 +496,7 @@ final class BlockQuoteBuilder
                 $content !== null
                 && ($parent instanceof ListItem || $parent instanceof Footnote)
                 && !$lazyState['paragraphOpen']
+                && $lazyState['mode'] === BlockQuoteLazyMode::Content
                 && $this->authoredQuoteMarkerColumn($i, $currentLine) !== $this->authoredQuoteMarkerColumn($start, $line)
             ) {
                 break;
