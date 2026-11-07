@@ -1198,6 +1198,10 @@ trait BlockListMethods
                 ) {
                     return false;
                 }
+                // The walk ended the attached quote here (carve#5427).
+                if (isset($this->state->source->attachedQuoteEnds[$this->sourceLineFor($index)])) {
+                    return true;
+                }
                 // A refused brace run and the line its paragraph keeps are text (CARVE-P2-035).
                 if (
                     $attachedKind !== self::ATTACHED_PENDING && $trailingState->fence === null
@@ -1366,7 +1370,7 @@ trait BlockListMethods
                     !($leadFenceOpen && $trailingState->fence !== null
                         // With a blank or closer ahead, a sibling marker or a `+` still ends the run.
                         && $this->listParser->parseListItemMarker($trimmed) === null && !$this->isContinuationMarker($trimmed))
-                    && !($trailingState->quoteParagraph && $lineIndent > $baseIndent && !isset($this->state->source->attachedQuoteEnds[$this->sourceLineFor($index)]))
+                    && !($trailingState->quoteParagraph && $lineIndent > $baseIndent)
                     && $index !== $refusedFollower
                     && $this->trailingBlockHasEnded($attachedKind, $trimmed, $lines, $index, $trailingState)
                 ) {
