@@ -1702,7 +1702,6 @@ class CarveCorpusTest extends TestCase
      */
     protected const KNOWN_GAPS = [
         '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',
-        '967-an-outer-item-s-paragraph-after-a-nested-attached-fence-loosens-it' => 'carve#5433: whether a nested item\'s attached fence closes on a closer at the inner item\'s content column past a blank',
     ];
 
     /**

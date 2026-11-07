@@ -229,6 +229,12 @@ final class BlockContinuationScanner
         $collectedComment = new CollectedCommentSpan();
         while ($i < $count) {
             $nextLine = $lines[$i];
+            if (
+                isset($this->state->source->foldedFenceAfterAttachedBlank[$this->sourceLineFor($i) - 1])
+                && IndentationHelper::getLeadingColumns($nextLine, $contentIndent) < $contentIndent
+            ) {
+                break;
+            }
             $priorSourceLine = $this->sourceLineFor($i) - 1;
             if (IndentationHelper::isBlankLine($nextLine)) {
                 $openDivTerm = false;
@@ -916,6 +922,13 @@ final class BlockContinuationScanner
         ?int $hostContentColumn = null,
     ): int {
         $opaque = $this->opaqueSpanEnd($lines, $i, $count, $transform);
+        if ($opaque !== -1 && ($this->state->source->plusHosts[$this->sourceLineFor($i - 1)]['kind'] ?? null) === 'list') {
+            for ($at = $i + 1; $at <= $opaque; $at++) {
+                if (isset($this->state->source->attachedFenceBlankEnds[$this->sourceLineFor($at)])) {
+                    return -1;
+                }
+            }
+        }
         if ($opaque !== -1) {
             return $opaque;
         }

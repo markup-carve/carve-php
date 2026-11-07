@@ -121,6 +121,16 @@ final class BlockOwnershipWalk
     public array $attachedFenceBlankEnds = [];
 
     /**
+     * @var array<int, true>
+     */
+    public array $foldedFenceAfterAttachedBlank = [];
+
+    /**
+     * @var array{col: int, host: int, at: int}|null
+     */
+    private ?array $endedAttachedFence = null;
+
+    /**
      * Lines without `>` that end a `+` attached quote and resume its host (PART 0 S4, carve#5427), keyed by line index.
      *
      * @var array<int, true>
@@ -394,6 +404,8 @@ final class BlockOwnershipWalk
         $this->commentColumnOwners = [];
         $this->lineBlockLazyLines = [];
         $this->attachedFenceBlankEnds = [];
+        $this->foldedFenceAfterAttachedBlank = [];
+        $this->endedAttachedFence = null;
         $this->attachedQuoteEnds = [];
         $this->traceBlankHost = null;
         $this->attachedFenceScans = [];
@@ -688,6 +700,20 @@ final class BlockOwnershipWalk
             }
             // S3: the line's form, the record's `form` field.
             $form = $this->classifyLine($this->m['rest'], $this->attachedQuoteHost($reached) ?? $this->frames[$reached], $this->m['col']);
+            $owner = $this->frames[$reached];
+            if ($this->endedAttachedFence !== null && $at > $this->endedAttachedFence['at']) {
+                if ($form->kind === 'blank' || ($form->kind !== 'text' && $form->family !== 'code')) {
+                    $this->endedAttachedFence = null;
+                } elseif (
+                    $form->family === 'code' && $owner->para
+                    && $this->m['col'] > $this->endedAttachedFence['col']
+                    && $this->m['col'] >= $this->endedAttachedFence['host']
+                    && !$this->hasLaterFenceCloser($at, $reached, $form)
+                ) {
+                    $form = new OwnershipForm('text', false, kept: true);
+                    $this->foldedFenceAfterAttachedBlank[$at] = true;
+                }
+            }
             $topIndex = count($this->frames) - 1;
             if ($this->m['rest'] !== '' && ($form->kind === 'dd' || ($reached === $topIndex && $this->frames[$reached] === $this->ddSiblingOwner))) {
                 $this->ddSiblingOwner = null;
@@ -1394,8 +1420,32 @@ final class BlockOwnershipWalk
             return false;
         }
         $this->attachedFenceBlankEnds[$at] = true;
+        if ($inner->kind === 'fence' && $inner->family === 'code') {
+            $host = $this->frames[count($this->frames) - 2];
+            $this->endedAttachedFence = ['col' => $inner->col, 'host' => (int)($host->markerCol ?? $host->col), 'at' => $at];
+        }
 
         return true;
+    }
+
+    private function hasLaterFenceCloser(int $at, int $reached, OwnershipForm $form): bool
+    {
+        $depth = $this->quoteDepth($reached + 1);
+        $ownerColumn = $this->frames[$reached]->col;
+        for ($next = $at + 1, $count = count($this->lines); $next < $count; $next++) {
+            $line = $this->levelOf($this->lines[$next], $depth);
+            if ($line === null) {
+                return false;
+            }
+            if ($line['rest'] !== '' && $line['col'] < $ownerColumn) {
+                return false;
+            }
+            if ($line['rest'] !== '' && $form->closes !== null && ($form->closes)($line['rest'], $line['col'])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1480,7 +1530,7 @@ final class BlockOwnershipWalk
             $fence->col = $this->m['col'];
         }
         $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $fence->col;
-        $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key);
+        $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key, $this->frames[$host]->kind === 'item' ? $this->frames[$host]->col : null);
     }
 
     private function attachedCodeFenceBlankAhead(int $at, int $column, string $char, int $length): bool
@@ -1557,7 +1607,7 @@ final class BlockOwnershipWalk
      *
      * A later fence of the same shape below the last scan's stop reuses its answer, so the walk stays linear.
      */
-    private function attachedFenceClosed(int $at, OwnershipFrame $fence, string $key): bool
+    private function attachedFenceClosed(int $at, OwnershipFrame $fence, string $key, ?int $itemContentColumn = null): bool
     {
         $last = $this->attachedFenceScans[$key] ?? null;
         if ($last !== null && $last[0] > $at) {
@@ -1593,6 +1643,12 @@ final class BlockOwnershipWalk
             if (
                 $afterBlank && $hostFrame !== null && in_array($hostFrame->kind, ['note', 'dd'], true)
                 && $line['col'] < $fence->blankHostFrames[count($fence->blankHostFrames) - 1]->col
+            ) {
+                return ($this->attachedFenceScans[$key] = [$k, false])[1];
+            }
+            if (
+                $afterBlank && $itemContentColumn !== null && $line['col'] < $itemContentColumn
+                && !($fence->closes !== null && ($fence->closes)($line['rest'], $line['col']))
             ) {
                 return ($this->attachedFenceScans[$key] = [$k, false])[1];
             }
