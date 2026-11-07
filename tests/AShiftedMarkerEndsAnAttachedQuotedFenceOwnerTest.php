@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test;
 
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\DecisionTrace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -22,6 +23,14 @@ final class AShiftedMarkerEndsAnAttachedQuotedFenceOwnerTest extends TestCase
         yield 'description host' => [":: t\n: +\n> ```\n  > code\n> ```\n", 3, 'doc/dd:2/quote:4', 'quote'];
 
         yield 'ordinary quote keeps its fence' => ["> ```\n  > code\n> ```\n", 1, 'doc/quote:1/code:1', 'payload'];
+    }
+
+    public function testTheShiftedQuoteRendersOutsideTheOpenFence(): void
+    {
+        $source = "- +\n> ```\n  > code\n> ```\n";
+        $expected = "<ul>\n  <li>\n    <blockquote>\n      <pre><code></code></pre>\n    </blockquote>\n    <blockquote><p>code</p></blockquote>\n  </li>\n</ul>\n<blockquote>\n  <pre><code></code></pre>\n</blockquote>";
+
+        self::assertSame($expected, CarveConverter::create()->convert($source));
     }
 
     #[DataProvider('owners')]

@@ -496,7 +496,8 @@ final class BlockQuoteBuilder
                 $content !== null
                 && ($parent instanceof ListItem || $parent instanceof Footnote)
                 && !$lazyState['paragraphOpen']
-                && $lazyState['mode'] === BlockQuoteLazyMode::Content
+                && ($lazyState['mode'] === BlockQuoteLazyMode::Content
+                    || isset($this->state->source->attachedQuoteEnds[$this->sourceLineFor($i)]))
                 && $this->isAttachedFlushLeftQuote($start, $line)
                 && $this->authoredQuoteMarkerColumn($i, $currentLine) !== $this->authoredQuoteMarkerColumn($start, $line)
             ) {
