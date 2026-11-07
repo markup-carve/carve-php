@@ -833,7 +833,11 @@ final class BlockOwnershipWalk
             } elseif ($form->kind === 'colon-close') {
                 $this->lead($this->frames[$form->frame]->canon);
                 $closerPath = $this->trace !== null ? $this->ownerPath($form->frame) : null;
+                $closedColon = $this->frames[$form->frame];
                 $this->truncate($form->frame);
+                if ($closedColon->blankHostFrames !== null) {
+                    $this->resumeAttachedHost($closedColon);
+                }
                 $t = count($this->frames) - 1;
                 $this->frames[$t]->para = false;
                 $this->frames[$t]->last = 'block';
