@@ -131,6 +131,13 @@ final class BlockOwnershipWalk
     private ?array $endedAttachedFence = null;
 
     /**
+     * Reuse a closer search until the boundary where its answer can change.
+     *
+     * @var array<string, array{through: int, paired: bool}>
+     */
+    private array $laterFenceClosers = [];
+
+    /**
      * Lines without `>` that end a `+` attached quote and resume its host (PART 0 S4, carve#5427), keyed by line index.
      *
      * @var array<int, true>
@@ -406,6 +413,7 @@ final class BlockOwnershipWalk
         $this->attachedFenceBlankEnds = [];
         $this->foldedFenceAfterAttachedBlank = [];
         $this->endedAttachedFence = null;
+        $this->laterFenceClosers = [];
         $this->attachedQuoteEnds = [];
         $this->traceBlankHost = null;
         $this->attachedFenceScans = [];
@@ -1410,6 +1418,8 @@ final class BlockOwnershipWalk
         if ($inner->kind === 'fence' && $inner->family === 'code') {
             $host = $this->frames[count($this->frames) - 2];
             $this->endedAttachedFence = ['col' => $inner->col, 'host' => (int)($host->markerCol ?? $host->col), 'at' => $at];
+            // Its one attached block has ended, so later lines must not re-test that offer.
+            $this->attachedTo = ($this->attachedTo['parent'] ?? null)?->host;
         }
 
         return true;
@@ -1419,18 +1429,32 @@ final class BlockOwnershipWalk
     {
         $depth = $this->quoteDepth($reached + 1);
         $ownerColumn = $this->frames[$reached]->col;
+        preg_match('/^(`{3,}|~{3,})/', $this->m['rest'], $run);
+        $key = $depth . ':' . $ownerColumn . ':' . $this->m['col'] . ':' . ($run[1] ?? '');
+        $cached = $this->laterFenceClosers[$key] ?? null;
+        if ($cached !== null && $at < $cached['through']) {
+            return $cached['paired'];
+        }
         for ($next = $at + 1, $count = count($this->lines); $next < $count; $next++) {
             $line = $this->levelOf($this->lines[$next], $depth);
             if ($line === null) {
+                $this->laterFenceClosers[$key] = ['through' => $next, 'paired' => false];
+
                 return false;
             }
             if ($line['rest'] !== '' && $line['col'] < $ownerColumn) {
+                $this->laterFenceClosers[$key] = ['through' => $next, 'paired' => false];
+
                 return false;
             }
             if ($line['rest'] !== '' && $form->closes !== null && ($form->closes)($line['rest'], $line['col'])) {
+                $this->laterFenceClosers[$key] = ['through' => $next, 'paired' => true];
+
                 return true;
             }
         }
+
+        $this->laterFenceClosers[$key] = ['through' => count($this->lines), 'paired' => false];
 
         return false;
     }
