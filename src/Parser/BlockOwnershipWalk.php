@@ -2725,12 +2725,15 @@ final class BlockOwnershipWalk
         $this->letterPlus[$at] = true;
     }
 
+    /**
+     * A refused `+` opens no paragraph (PART 9 §17 L3); a note body still takes the next line lazily.
+     * A quoted description keeps the spec model's HTML reading, which its trace does not share (carve#5415).
+     */
     private function consumedLeavesNoParagraph(int $frame): bool
     {
-        $kind = $this->frames[$frame]->kind;
         $parent = $this->frames[$frame - 1]->kind ?? 'doc';
 
-        return !$this->framesHoldNote() && ($kind === 'item' || $kind === 'quote' || ($kind === 'dd' && $parent === 'item'));
+        return !$this->framesHoldNote() && !($this->frames[$frame]->kind === 'dd' && $parent === 'quote');
     }
 
     private function framesHoldNote(): bool
