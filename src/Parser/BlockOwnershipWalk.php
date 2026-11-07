@@ -1558,6 +1558,8 @@ final class BlockOwnershipWalk
         $n = count($this->lines);
         $code = null;
         $afterBlank = false;
+        // Colon blocks of the same run opened past the attached one, each waiting for its own closer.
+        $nested = 0;
         $hostFrame = $fence->blankHostFrames === null ? null
             : $fence->blankHostFrames[count($fence->blankHostFrames) - 1];
         $codeOpener = $fence->kind === 'fence' && $fence->family === 'code'
@@ -1599,6 +1601,18 @@ final class BlockOwnershipWalk
             if ($fence->kind === 'colon') {
                 $code = $this->fenced->parseCodeFenceOpener($line['rest']);
                 if ($code !== null) {
+                    continue;
+                }
+                if (preg_match('/^:{' . $fence->run . '}(?!:)[ \t]*\S/', $line['rest']) === 1) {
+                    $nested++;
+                    $afterBlank = false;
+
+                    continue;
+                }
+                if ($nested > 0 && preg_match('/^:{' . $fence->run . '}[ \t]*$/D', $line['rest']) === 1) {
+                    $nested--;
+                    $afterBlank = false;
+
                     continue;
                 }
             }
