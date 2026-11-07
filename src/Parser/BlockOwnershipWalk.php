@@ -2772,11 +2772,6 @@ final class BlockOwnershipWalk
         if (!$this->heldOnMarkerLine($held)) {
             return;
         }
-        // An item-hosted note can offer a block at the item's column while its
-        // own body starts deeper. That first block still belongs to the item.
-        if ($held['kind'] === 'note' && count($held['frames']) > 2) {
-            return;
-        }
         $first = $this->levelOf($this->lines[$held['from']] ?? '', $held['depth']);
         // A definition has its own body boundary, including invisible spans;
         // it is not a single closed block merely because a later line appears.
