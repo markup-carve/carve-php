@@ -1603,7 +1603,7 @@ final class BlockOwnershipWalk
                     continue;
                 }
                 $bare = preg_match('/^:{' . $fence->run . '}[ \t]*$/D', $line['rest']) === 1;
-                if ($bare ? $nested > 0 : ($this->fenced->parseDivFenceOpener($line['rest'])['length'] ?? null) === $fence->run) {
+                if (!$fence->lineBlock && ($bare ? $nested > 0 : ($this->fenced->parseDivFenceOpener($line['rest'])['length'] ?? null) === $fence->run)) {
                     $nested += $bare ? -1 : 1;
                     $afterBlank = false;
 

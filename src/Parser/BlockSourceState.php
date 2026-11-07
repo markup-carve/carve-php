@@ -84,6 +84,13 @@ final class BlockSourceState
     public array $lineBlockLazyLines = [];
 
     /**
+     * Structural columns removed from a closed attached line block's lines after a blank, by source line.
+     *
+     * @var array<int, int>
+     */
+    public array $attachedLineBlockDedents = [];
+
+    /**
      * Blanks that end a `+` attached code fence with no closer (PART 9 §17 L3).
      *
      * @var array<int, true>
