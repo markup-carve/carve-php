@@ -389,11 +389,7 @@ final class BlockOwnershipWalk
         $count = count($lines);
         $start = $this->ownFrontmatter($lines, $result);
         for ($at = $start; $at < $count; $at++) {
-            $refusedAttributeReach = $this->refusedAttributeHost === null ? null : $this->refusedAttributeHost - 1;
-            if ($refusedAttributeReach !== null) {
-                $this->refusedAttributeHost = null;
-                $this->skipped = null;
-            }
+            $refusedAttributeReach = $this->resumeRefusedAttribute();
             if ($this->carrySkippedPrelude($at, $result)) {
                 continue;
             }
@@ -450,7 +446,8 @@ final class BlockOwnershipWalk
             $stripped = null;
             $segment = 1;
             // S2: the deepest open frame the line reaches.
-            for ($k = 1; $k < $frameCount && $refusedAttributeReach === null; $k++) {
+            $frameLimit = $refusedAttributeReach === null ? $frameCount : $refusedAttributeReach + 1;
+            for ($k = 1; $k < $frameLimit; $k++) {
                 $f = $this->frames[$k];
                 // A lone `+` reaches the marker column of an open marker container.
                 if (
@@ -1023,6 +1020,18 @@ final class BlockOwnershipWalk
 
             break;
         }
+    }
+
+    private function resumeRefusedAttribute(): ?int
+    {
+        if ($this->refusedAttributeHost === null) {
+            return null;
+        }
+        $parent = $this->refusedAttributeHost - 1;
+        $this->refusedAttributeHost = null;
+        $this->skipped = null;
+
+        return $parent;
     }
 
     /**
