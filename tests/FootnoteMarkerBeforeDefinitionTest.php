@@ -24,6 +24,6 @@ final class FootnoteMarkerBeforeDefinitionTest extends TestCase
         $html = CarveConverter::create()->convert("[^a]: +\n[^b]: +\n\nsee[^a] [^b]\n");
 
         self::assertStringContainsString('<li id="fn1">' . "\n" . '      <p><a', $html);
-        self::assertStringContainsString('<li id="fn2">' . "\n" . '      <p>+<a', $html);
+        self::assertStringContainsString('<li id="fn2">' . "\n" . '      <p><a', $html);
     }
 }
