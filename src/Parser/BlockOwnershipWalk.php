@@ -217,6 +217,11 @@ final class BlockOwnershipWalk
     private ?array $skipped = null;
 
     /**
+     * The frame a refused marker-line plus closes before its attribute follower.
+     */
+    private ?int $refusedAttributeHost = null;
+
+    /**
      * The private byte a refused `+` is written as until the tree is built.
      */
     private string $letter = "\x01";
@@ -376,6 +381,7 @@ final class BlockOwnershipWalk
         $this->plusHosts = [];
         $this->ddSiblingOwner = null;
         $this->skipped = null;
+        $this->refusedAttributeHost = null;
         $this->attachedTo = null;
         $this->frames = [new OwnershipFrame('doc', 0, 0, 0)];
         $result = [];
@@ -383,6 +389,7 @@ final class BlockOwnershipWalk
         $count = count($lines);
         $start = $this->ownFrontmatter($lines, $result);
         for ($at = $start; $at < $count; $at++) {
+            $refusedAttributeReach = $this->resumeRefusedAttribute();
             if ($this->carrySkippedPrelude($at, $result)) {
                 continue;
             }
@@ -439,7 +446,8 @@ final class BlockOwnershipWalk
             $stripped = null;
             $segment = 1;
             // S2: the deepest open frame the line reaches.
-            for ($k = 1; $k < $frameCount; $k++) {
+            $frameLimit = $refusedAttributeReach === null ? $frameCount : $refusedAttributeReach + 1;
+            for ($k = 1; $k < $frameLimit; $k++) {
                 $f = $this->frames[$k];
                 // A lone `+` reaches the marker column of an open marker container.
                 if (
@@ -489,7 +497,7 @@ final class BlockOwnershipWalk
                 continue;
             }
             $this->recordCommentColumnOwner($at, $reached);
-            $reached = $this->standInvisibleLine($reached, $plus !== null);
+            $reached = $refusedAttributeReach ?? $this->standInvisibleLine($reached, $plus !== null);
             // A lone `+` nothing took is a plain letter and ends nothing (carve#4396). Payload stays as written.
             if (
                 $plus === null && self::isPlus($this->m['rest'])
@@ -1012,6 +1020,18 @@ final class BlockOwnershipWalk
 
             break;
         }
+    }
+
+    private function resumeRefusedAttribute(): ?int
+    {
+        if ($this->refusedAttributeHost === null) {
+            return null;
+        }
+        $parent = $this->refusedAttributeHost - 1;
+        $this->refusedAttributeHost = null;
+        $this->skipped = null;
+
+        return $parent;
     }
 
     /**
@@ -1639,6 +1659,11 @@ final class BlockOwnershipWalk
                     $this->refusedPlus[$this->at] = $this->plusFinding($this->at, $f->kind, (int)$f->docMarker, $frame);
                     $this->consumePlus();
                     $this->skipInvisible($frame, $this->at, (int)$f->docMarker, true);
+                    $next = $this->lines[$this->at + 1] ?? '';
+                    $attribute = $this->throughQuotes($next, $frame, $this->frames);
+                    if ($this->trace !== null && $attribute !== null && ($attribute['col'] ?? null) === $f->markerCol && ($this->isAttributeLine)($attribute['rest'])) {
+                        $this->refusedAttributeHost = $frame;
+                    }
                     if ($this->skipped !== null) {
                         $this->skipped['spanPad'] = self::spanPad($f);
                     }
