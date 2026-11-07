@@ -48,7 +48,7 @@ final class HostedNoteBoundaryTest extends TestCase
     {
         $source = "- see[^n]\n  [^n]: +\n  # h\n    - z\n\nsee[^n]\n";
         $html = (new CarveConverter())->convert($source);
-        self::assertStringContainsString("<h1 id=\"h\">h</h1>\n      <p><a href=\"#fnref1\"", $html);
-        self::assertStringContainsString("<li>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>\n    <ul>\n      <li>z</li>", $html);
+        self::assertStringContainsString("<h1 id=\"h\">h</h1>\n      <ul>\n        <li>z</li>", $html);
+        self::assertStringContainsString('<li>see<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></li>', $html);
     }
 }

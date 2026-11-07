@@ -1526,6 +1526,18 @@ final class BlockOwnershipWalk
     private function attachedItemFollowerReach(int $reached, bool $plusFollower): int
     {
         $item = $this->frames[count($this->frames) - 1];
+        $held = $this->attachedTo;
+        if (
+            $plusFollower && $held !== null && $held['kind'] === 'note'
+            && $held['from'] === $this->at && $this->heldOnMarkerLine($held)
+            && $item->kind === 'note' && $this->m['col'] === $item->markerCol
+        ) {
+            $parent = $this->frames[count($this->frames) - 2];
+            $form = $this->classifyLine($this->m['rest'], $parent, $this->m['col']);
+            if ($form->kind === 'leaf' && $form->interrupts) {
+                return count($this->frames) - 1;
+            }
+        }
         $opener = $this->fenced->parseCodeFenceOpener($this->m['rest']);
         if (
             $plusFollower && $reached < count($this->frames) - 1
