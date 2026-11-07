@@ -613,12 +613,7 @@ final class BlockOwnershipWalk
                 continue;
             }
             if (!$missed && $this->blankEndsAttachedFence($at, $inner)) {
-                if ($this->trace !== null && $inner->blankHostFrames !== null) {
-                    $saved = $this->frames;
-                    $this->frames = $inner->blankHostFrames;
-                    $this->traceBlankHost = ['owner' => $this->ownerPath(), 'column' => $this->frames[count($this->frames) - 1]->col];
-                    $this->frames = $saved;
-                }
+                $this->recordAttachedBlankHost($inner);
                 $missed = true;
                 $reached = $innerIndex - 1;
             }
@@ -1372,6 +1367,17 @@ final class BlockOwnershipWalk
         $this->attachedFenceBlankEnds[$at] = true;
 
         return true;
+    }
+
+    private function recordAttachedBlankHost(OwnershipFrame $inner): void
+    {
+        if ($this->trace === null || $inner->blankHostFrames === null) {
+            return;
+        }
+        $saved = $this->frames;
+        $this->frames = $inner->blankHostFrames;
+        $this->traceBlankHost = ['owner' => $this->ownerPath(), 'column' => $this->frames[count($this->frames) - 1]->col];
+        $this->frames = $saved;
     }
 
     /**
