@@ -236,7 +236,7 @@ final class BlockOwnershipWalk
     /**
      * The frames at the last accepted `+`, its host's marker column and quote depth, and where its block starts.
      *
-     * @var array{frames: array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>, column: int, depth: int, from: int, item: bool, kind: string}|null
+     * @var array{frames: array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>, column: int, depth: int, from: int, item: bool, kind: string, parent?: \MarkupCarve\Carve\Parser\AttachmentParent|null}|null
      */
     private ?array $attachedTo = null;
 
@@ -434,6 +434,7 @@ final class BlockOwnershipWalk
             $this->src = $lines[$at];
             $this->out = '';
             $this->m = self::indentCols($this->src);
+            $this->restoreEnclosingAttachedHost($at);
             $this->recordCommentPayloadHostColumn($at);
             // A `+` right after the block a `+` attached reaches the same host, whose
             // frames the walk closed when it read that block where it stands.
@@ -2718,14 +2719,60 @@ final class BlockOwnershipWalk
 
     private function holdAttachedTo(int $host, int $from): void
     {
+        $depth = $this->quoteDepth($host);
+        $parent = $this->attachedTo !== null && $depth > $this->attachedTo['depth'] ? new AttachmentParent($this->attachedTo) : null;
         $this->attachedTo = [
             'frames' => array_slice($this->frames, 0, $host + 1),
             'column' => (int)$this->frames[$host]->markerCol,
-            'depth' => $this->quoteDepth($host),
+            'depth' => $depth,
             'from' => $from,
             'item' => $this->frames[$host]->kind === 'item',
             'kind' => $this->frames[$host]->kind,
+            'parent' => $parent,
         ];
+    }
+
+    /**
+     * Restore the outer offer when a nested attachment or its quote has ended.
+     */
+    private function restoreEnclosingAttachedHost(int $at): void
+    {
+        while (
+            $this->attachedTo !== null && isset($this->attachedTo['parent'])
+            && $this->levelOf($this->src, $this->attachedTo['depth']) === null
+        ) {
+            $this->attachedTo = $this->attachedTo['parent']->host;
+        }
+        if (
+            $this->attachedTo === null
+            || !in_array($this->attachedTo['kind'], ['item', 'note', 'dd'], true)
+            || count($this->frames) >= count($this->attachedTo['frames'])
+        ) {
+            return;
+        }
+        $held = $this->attachedTo;
+        // A first-block offer can leave its host before the next block.
+        // Only marker-line offers use this restoration boundary.
+        if (!$this->heldOnMarkerLine($held)) {
+            return;
+        }
+        // An item-hosted note can offer a block at the item's column while its
+        // own body starts deeper. That first block still belongs to the item.
+        if ($held['kind'] === 'note' && count($held['frames']) > 2) {
+            return;
+        }
+        $first = $this->levelOf($this->lines[$held['from']] ?? '', $held['depth']);
+        // A definition has its own body boundary, including invisible spans;
+        // it is not a single closed block merely because a later line appears.
+        if ($first !== null && str_starts_with($first['rest'], ':: ')) {
+            return;
+        }
+        $level = $this->levelOf($this->src, $held['depth']);
+        $host = $held['frames'][count($held['frames']) - 1];
+        if ($level !== null && $level['rest'] !== '' && $level['col'] >= $host->col && $this->attachedBlockEndsAt($at)) {
+            $this->frames = $held['frames'];
+            $this->attachedTo = ($held['parent'] ?? null)?->host;
+        }
     }
 
     /**
@@ -2760,7 +2807,7 @@ final class BlockOwnershipWalk
             return false;
         }
         $last = $at;
-        while ($held['item'] && $last > $held['from']) {
+        while (in_array($held['kind'], ['item', 'note', 'dd'], true) && $last > $held['from']) {
             $level = $this->levelOf($this->lines[$last - 1], $held['depth']);
             if ($level === null || trim($level['rest']) !== '') {
                 break;
