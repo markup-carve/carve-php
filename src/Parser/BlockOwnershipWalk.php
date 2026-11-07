@@ -2515,16 +2515,16 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * A line without `>` ends the `+`-attached quote unless it folds into its paragraph or captions it (PART 0 S4, carve#5427).
+     * A line without `>` ends the `+`-attached quote unless it folds into its paragraph (PART 0 S4, carve#5427).
      *
      * @param array{frames: array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>, column: int, depth: int, from: int, item: bool, kind: string} $held
-     * @param string $rest
+     * @param array{col: int, rest: string} $level
      */
-    private function endsAttachedQuote(array $held, string $rest): bool
+    private function endsAttachedQuote(array $held, array $level): bool
     {
         $top = count($this->frames) - 1;
 
-        return $top === count($held['frames']) - 1 && $this->frames[$top]->kind === 'quote' && !$this->foldsIntoAttachedQuote($rest);
+        return $top === count($held['frames']) - 1 && $this->frames[$top]->kind === 'quote' && !$this->foldsIntoAttachedQuote($held, $level);
     }
 
     /**
@@ -2567,12 +2567,14 @@ final class BlockOwnershipWalk
             $this->attachedTo !== null && $level !== null && $level['rest'] !== '' && $level['col'] >= $host->col
             && $this->levelOf($this->src, $held['depth'] + 1) === null
             && (
-                ($this->quoteDepth(count($this->frames) - 1) > $held['depth'] && ($held['item'] || !$this->foldsIntoAttachedQuote($level['rest'])))
-                || $this->endsAttachedQuote($held, $level['rest'])
+                ($this->quoteDepth(count($this->frames) - 1) > $held['depth'] && ($held['item'] || !$this->foldsIntoAttachedQuote($held, $level)))
+                || $this->endsAttachedQuote($held, $level)
             )
             && $this->attachedBlockEndsAt($at)
         ) {
-            $this->attachedQuoteEnds[$at] = true;
+            if (!$this->foldsIntoAttachedQuote($held, $level)) {
+                $this->attachedQuoteEnds[$at] = true;
+            }
             $this->frames = $held['frames'];
             $this->attachedTo = null;
         }
@@ -2588,9 +2590,17 @@ final class BlockOwnershipWalk
         return $held['frames'][count($held['frames']) - 1]->line === $held['from'] - 1;
     }
 
-    private function foldsIntoAttachedQuote(string $rest): bool
+    /**
+     * A caption captions a marker-line `+` quote only at the host's content column (carve#5432).
+     *
+     * @param array{frames: array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>, column: int, depth: int, from: int, item: bool, kind: string} $held
+     * @param array{col: int, rest: string} $level
+     */
+    private function foldsIntoAttachedQuote(array $held, array $level): bool
     {
-        return $this->foldsAsPlainText($rest) || preg_match('/^(\^ |: )/', $rest) === 1;
+        return $this->foldsAsPlainText($level['rest']) || str_starts_with($level['rest'], ': ')
+            || (str_starts_with($level['rest'], '^ ')
+                && (!$this->heldOnMarkerLine($held) || $level['col'] !== $held['frames'][count($held['frames']) - 1]->col));
     }
 
     /**
