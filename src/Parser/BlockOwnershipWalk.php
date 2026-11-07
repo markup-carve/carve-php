@@ -1468,7 +1468,10 @@ final class BlockOwnershipWalk
             return;
         }
         $opener = $this->fenced->parseCodeFenceOpener($this->m['rest']);
-        if ($opener !== null && $this->attachedCodeFenceBlankAhead($at, (int)$this->frames[$host]->markerCol, $opener['char'], $opener['length'])) {
+        if (
+            $this->frames[$host]->kind === 'item' && $opener !== null
+            && $this->attachedCodeFenceBlankAhead($at, (int)$this->frames[$host]->markerCol, $opener['char'], $opener['length'])
+        ) {
             $fence->col = $this->m['col'];
         }
         $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $fence->col;

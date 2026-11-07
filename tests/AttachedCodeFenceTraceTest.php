@@ -49,4 +49,17 @@ final class AttachedCodeFenceTraceTest extends TestCase
     {
         self::assertSame($expected, array_slice(DecisionTrace::records($source), -2));
     }
+
+    public function testAnEarlierPayloadLineStaysInTheFence(): void
+    {
+        $source = "  - +\n  ```\nx\n\n    tail\n";
+        $records = DecisionTrace::records($source);
+
+        self::assertSame(
+            ['line' => 3, 'step' => 'S1', 'owner' => 'doc/item:1/code:2', 'rule' => 'CARVE-P0-005', 'form' => 'payload', 'cell' => 'B-code-keep'],
+            $records[2],
+        );
+        self::assertSame('doc/item:1', $records[3]['owner']);
+        self::assertSame('doc/item:1', $records[4]['owner']);
+    }
 }
