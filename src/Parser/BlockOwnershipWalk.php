@@ -1478,6 +1478,9 @@ final class BlockOwnershipWalk
 
     private function nextAfterAttachedFenceBlankReachesHost(int $at, OwnershipFrame $fence): bool
     {
+        if ($fence->blankHostFrames === null) {
+            return false;
+        }
         $sawBlank = false;
         $host = $fence->blankHostFrames[count($fence->blankHostFrames) - 1];
         for ($k = $at + 1, $n = count($this->lines); $k < $n; $k++) {
