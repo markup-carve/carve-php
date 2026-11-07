@@ -1226,6 +1226,16 @@ final class BlockContinuationScanner
                         continue;
                     }
                     if ($isBoundary($line, $i + $take)) {
+                        if (
+                            IndentationHelper::isBlankLine($line)
+                            && $opener < $count
+                            && (($this->getFencedBlockParser)()->parseDivFenceOpener(
+                                $transform === null ? $lines[$opener] : $transform($lines[$opener]),
+                            )['className'] ?? null) === '|'
+                        ) {
+                            $this->state->source->attachedFenceBlankEnds[$this->sourceLineFor($i + $take)] = true;
+                        }
+
                         break;
                     }
                     $take++;
