@@ -234,6 +234,11 @@ final class BlockOwnershipWalk
     private ?array $attachedTo = null;
 
     /**
+     * The item released before S5 sees the next sibling marker.
+     */
+    private int $releasedSibling = 0;
+
+    /**
      * @var array{widest: array<string, array<int, int>>, lastComment: array<int, int>, commentPositions: array<int, list<int>>, nextBlank: array<int, int>}|null
      */
     private ?array $runs = null;
@@ -383,12 +388,14 @@ final class BlockOwnershipWalk
         $this->skipped = null;
         $this->refusedAttributeHost = null;
         $this->attachedTo = null;
+        $this->releasedSibling = 0;
         $this->frames = [new OwnershipFrame('doc', 0, 0, 0)];
         $result = [];
         $afterPlus = false;
         $count = count($lines);
         $start = $this->ownFrontmatter($lines, $result);
         for ($at = $start; $at < $count; $at++) {
+            $this->releasedSibling = 0;
             $refusedAttributeReach = $this->resumeRefusedAttribute();
             if ($this->carrySkippedPrelude($at, $result)) {
                 continue;
@@ -795,7 +802,7 @@ final class BlockOwnershipWalk
                 $this->closingLines[$at] = true;
             }
             // S5: apply the line, the boundary table T of CARVE-P0-003.
-            $closed = count($this->frames) - 1 - $reached;
+            $closed = count($this->frames) - 1 - $reached + $this->releasedSibling;
             $this->recordItemBoundary($at, $reached, $form);
             $reachedPath = $this->trace !== null && $closed > 0 ? $this->ownerPath($reached) : null;
             $closerPath = null;
@@ -2459,6 +2466,7 @@ final class BlockOwnershipWalk
         $this->frames = array_slice($held['frames'], 0, -1);
         $this->attachedTo = null;
         $this->closingLines[$at] = true;
+        $this->releasedSibling = 1;
     }
 
     /**
