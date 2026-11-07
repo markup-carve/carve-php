@@ -1047,6 +1047,7 @@ final class BlockContinuationScanner
                 // A block at the host's content column ends the attached paragraph and opens in the host (CARVE-P0-011, carve#5331).
                 if (
                     $blockColumn !== null && $attachedKind === BlockGrammar::ATTACHED_PARAGRAPH
+                    && $attachedState->fence === null && !$attachedState->hasOpenDiv()
                     && IndentationHelper::getLeadingColumns($line) >= $blockColumn
                     && !$this->isCommentLineOrFence($line)
                     && (
