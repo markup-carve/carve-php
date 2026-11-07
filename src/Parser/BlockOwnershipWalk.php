@@ -121,6 +121,13 @@ final class BlockOwnershipWalk
     public array $attachedFenceBlankEnds = [];
 
     /**
+     * Lines without `>` that end a `+` attached quote and resume its host (PART 0 S4, carve#5427), keyed by line index.
+     *
+     * @var array<int, true>
+     */
+    public array $attachedQuoteEnds = [];
+
+    /**
      * Per fence shape, the line the last closer scan stopped at and its answer.
      *
      * @var array<string, array{int, bool}>
@@ -387,6 +394,7 @@ final class BlockOwnershipWalk
         $this->commentColumnOwners = [];
         $this->lineBlockLazyLines = [];
         $this->attachedFenceBlankEnds = [];
+        $this->attachedQuoteEnds = [];
         $this->traceBlankHost = null;
         $this->attachedFenceScans = [];
         $this->refusedKeptLines = [];
@@ -443,19 +451,25 @@ final class BlockOwnershipWalk
             // host's ordinary content column. Once that quote ends, a line at
             // the host's content column resumes the host rather than the
             // quote's parent. The quote's contents do not decide this boundary.
-            if ($this->attachedTo !== null && $at > $this->attachedTo['from'] && $this->attachedTo['item']) {
+            if ($this->attachedTo !== null && $at > $this->attachedTo['from'] && ($this->attachedTo['item'] || $this->attachedTo['kind'] === 'note')) {
                 $held = $this->attachedTo;
                 $host = $held['frames'][count($held['frames']) - 1];
                 $level = $this->levelOf($this->src, $held['depth']);
                 // A marker at the attached item's authored marker column is
                 // its sibling, even when the one attached block was a quote.
-                $this->releaseAttachedItemAtSibling($at, $held, $level);
+                if ($held['item']) {
+                    $this->releaseAttachedItemAtSibling($at, $held, $level);
+                }
                 if (
                     $this->attachedTo !== null && $level !== null && $level['rest'] !== '' && $level['col'] >= $host->col
                     && $this->levelOf($this->src, $held['depth'] + 1) === null
-                    && $this->quoteDepth(count($this->frames) - 1) > $held['depth']
+                    && (
+                        ($this->quoteDepth(count($this->frames) - 1) > $held['depth'] && ($held['item'] || !$this->foldsIntoAttachedQuote($level['rest'])))
+                        || $this->endsAttachedQuote($held, $level['rest'])
+                    )
                     && $this->attachedBlockEndsAt($at)
                 ) {
+                    $this->attachedQuoteEnds[$at] = true;
                     $this->frames = $held['frames'];
                     $this->attachedTo = null;
                 }
@@ -2524,6 +2538,24 @@ final class BlockOwnershipWalk
         $end = ($this->commentOnlyParagraphEnd)($run, 0, $frames[$hostIndex]->kind === 'item');
 
         return $end === -1 ? -1 : $k + $end;
+    }
+
+    /**
+     * A line without `>` ends the `+`-attached quote unless it folds into its paragraph or captions it (PART 0 S4, carve#5427).
+     *
+     * @param array{frames: array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>, column: int, depth: int, from: int, item: bool, kind: string} $held
+     * @param string $rest
+     */
+    private function endsAttachedQuote(array $held, string $rest): bool
+    {
+        $top = count($this->frames) - 1;
+
+        return $top === count($held['frames']) - 1 && $this->frames[$top]->kind === 'quote' && !$this->foldsIntoAttachedQuote($rest);
+    }
+
+    private function foldsIntoAttachedQuote(string $rest): bool
+    {
+        return $this->foldsAsPlainText($rest) || preg_match('/^(\^ |: )/', $rest) === 1;
     }
 
     /**

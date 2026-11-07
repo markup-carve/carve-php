@@ -12,10 +12,10 @@ final class QuotedListLazyHeadingTest extends TestCase
 {
     use RuleATodo;
 
-    public function testIndentedHeadingShapeStaysInQuotedParagraph(): void
+    public function testIndentedHeadingAfterTheQuoteOpensInTheItem(): void
     {
         self::assertSame(
-            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n<section id=\"a\">\n  <h1>a</h1>\n  <p>b</p>\n</section>\n"),
+            preg_replace('/\n\z/', '', "<ul>\n  <li>\n    <blockquote>\n\n    </blockquote>\n    <h1 id=\"a\">a</h1>\n  </li>\n</ul>\n<p>b</p>\n"),
             CarveConverter::create()->convert("- +\n> +\n  # a\nb\n"),
         );
     }
