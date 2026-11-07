@@ -4309,12 +4309,13 @@ class BlockParser
                 $content = $line;
             }
         }
-        $codeIncludeLine = IncludeDirectiveSyntax::codeIncludeLine(explode("\n", $content, 2)[0]);
+        $firstContentLine = explode("\n", $content, 2)[0];
+        $codeIncludeLine = IncludeDirectiveSyntax::codeIncludeLine($firstContentLine);
         $standaloneCodeInclude = $codeIncludeLine !== null;
         /** @var list<string> $contentParts */
         $contentParts = [$content];
         $foldedFenceColumn = null;
-        if (self::isFoldedFenceLine(explode("\n", $content, 2)[0])) {
+        if (self::isFoldedFenceLine($firstContentLine)) {
             $foldedFenceColumn = $this->authoredColumnOf($start, $line)
                 ?? IndentationHelper::getLeadingColumns($line);
         }

@@ -335,6 +335,10 @@ class HeadingIdTracker
      */
     protected function foldCase(string $text): string
     {
+        if (!preg_match('/[\x80-\xFF]/', $text)) {
+            return strtolower($text);
+        }
+
         return (string)preg_replace_callback(
             '/./us',
             static fn (array $m): string => mb_strtolower($m[0], 'UTF-8'),

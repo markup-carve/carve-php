@@ -4010,7 +4010,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     protected function getRenderableAttributes(Node $node, array $exclude = [], array $consumed = []): array
     {
-        $attrs = array_diff_key($node->getAttributeEntries(), array_flip($consumed));
+        $attrs = $node->getAttributeEntries();
+        if ($attrs && $consumed !== []) {
+            $attrs = array_diff_key($attrs, array_flip($consumed));
+        }
         if (!$attrs) {
             return [];
         }
