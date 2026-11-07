@@ -474,6 +474,15 @@ final class BlockOwnershipWalk
                     break;
                 }
                 if ($f->kind === 'quote') {
+                    $markerColumn = self::docColumn($lines[$at], $this->m['rest']);
+                    if (
+                        $this->attachedTo !== null && $f->line === $this->attachedTo['from']
+                        && $f->docMarker !== null
+                        && ($markerColumn < $f->docMarker
+                            || ($markerColumn > $f->docMarker && !$this->frames[$frameCount - 1]->para))
+                    ) {
+                        break;
+                    }
                     // An own-line `+` at a descendant quote's marker column reaches that quote without the quote markers between.
                     if (self::isPlus($this->m['rest']) && $this->descendantQuoteTakesPlus($k, self::docColumn($lines[$at], $this->m['rest']))) {
                         $child = $this->frames[$k + 1];
@@ -2563,6 +2572,20 @@ final class BlockOwnershipWalk
         }
         $host = $held['frames'][count($held['frames']) - 1];
         $level = $this->levelOf($this->src, $held['depth']);
+        $quote = $this->frames[count($held['frames']) - 1] ?? null;
+        if (
+            $quote !== null && $quote->kind === 'quote' && $quote->line === $held['from']
+            && $level !== null && $level['rest'] !== '' && $level['col'] >= $host->col
+            && $quote->docMarker !== null && $level['col'] > $quote->docMarker
+            && !$this->frames[count($this->frames) - 1]->para
+            && preg_match(self::QUOTE, $level['rest']) === 1
+        ) {
+            $this->attachedQuoteEnds[$at] = true;
+            $this->frames = $held['frames'];
+            $this->attachedTo = null;
+
+            return;
+        }
         // A marker at the attached item's authored marker column is
         // its sibling, even when the one attached block was a quote.
         if ($held['item']) {
