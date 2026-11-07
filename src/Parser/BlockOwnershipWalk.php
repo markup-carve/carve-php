@@ -614,8 +614,10 @@ final class BlockOwnershipWalk
             }
             if (!$missed && $this->blankEndsAttachedFence($at, $inner)) {
                 $this->recordAttachedBlankHost($inner);
-                $missed = true;
-                $reached = $innerIndex - 1;
+                $missed = !$this->resumeAttachedColonHost($inner);
+                $innerIndex = count($this->frames) - 1;
+                $inner = $this->frames[$innerIndex];
+                $reached = $innerIndex - (int)$missed;
             }
             if ($inner->kind === 'fence' && !$missed) {
                 $this->verseSpanBlankMissedOwner = $inner->lineBlock && $inner->span !== null && $inner->span[0] === '%'
@@ -1369,6 +1371,22 @@ final class BlockOwnershipWalk
         return true;
     }
 
+    /**
+     * The host the colon's opener left resumes, so later lines keep their columns (carve#5396).
+     */
+    private function resumeAttachedColonHost(OwnershipFrame $inner): bool
+    {
+        if ($inner->kind !== 'colon' || $inner->blankHostFrames === null) {
+            return false;
+        }
+        $this->frames = $inner->blankHostFrames;
+        $host = $this->frames[count($this->frames) - 1];
+        $host->para = false;
+        $host->last = 'block';
+
+        return true;
+    }
+
     private function recordAttachedBlankHost(OwnershipFrame $inner): void
     {
         if ($this->trace === null || $inner->blankHostFrames === null) {
@@ -1387,8 +1405,8 @@ final class BlockOwnershipWalk
     {
         if ($plusFollower && $form->kind === 'colon') {
             $container = $this->frames[count($this->frames) - 1];
-            if ($host === 0 && $this->sibling !== null && $this->sibling->plus === $at - 1) {
-                $container->blankHostFrames = [$this->frames[0], $this->sibling];
+            if ($this->sibling !== null && $this->sibling->plus === $at - 1 && $this->quoteDepth($host + 1) === 0) {
+                $container->blankHostFrames = [...array_slice($this->frames, 0, $host + 1), $this->sibling];
             }
             $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $container->col . '|' . ($this->sibling->markerCol ?? -1);
             $container->endsAtBlank = !$this->attachedFenceClosed($at, $container, $key);

@@ -17,7 +17,7 @@ final class AnAttachedUnclosedColonEndsAtItsFirstBlankTraceTest extends TestCase
     public static function unclosedContainers(): iterable
     {
         yield 'item' => ["- +\n::: note\n\n  tail\n", 'doc/item:1', 'doc/item:1'];
-        yield 'nested item' => ["- a\n  * +\n  ::: note\n\n    - q\n", 'doc/item:1', 'doc/item:1/item:5'];
+        yield 'nested item' => ["- a\n  * +\n  ::: note\n\n    - q\n", 'doc/item:1/item:2', 'doc/item:1/item:2/item:5'];
     }
 
     #[DataProvider('unclosedContainers')]
