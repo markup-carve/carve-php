@@ -965,16 +965,22 @@ final class BlockContinuationScanner
         $commentThrough = -1;
         // Last index of an attached quote's lazy extent, read once from its first line, or null.
         $quoteEnd = null;
+        // Whether the host's next block has taken over from the attached one through $continuesBody.
+        $restarted = false;
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd, $blockColumn): bool {
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd, $blockColumn, &$restarted): bool {
                 if ($index < $commentThrough) {
                     return false;
                 }
                 if ($attachedKind === BlockGrammar::ATTACHED_PENDING && str_starts_with(ltrim($line, " \t"), '{')) {
                     $refusedFollower = ($this->refusedBraceRunEndCallback)($lines, $index) ?? -1;
+                }
+                // The host's own fence or div spans a blank (PART 9 §6).
+                if ($restarted && ($attachedState->fence !== null || $attachedState->hasOpenDiv()) && IndentationHelper::isBlankLine($line)) {
+                    return false;
                 }
                 if (
                     IndentationHelper::isBlankLine($line)
@@ -983,6 +989,12 @@ final class BlockContinuationScanner
                     || ($markerEnds && $attachedState->fence === null && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null)
                     || ($bodyColumn !== null && $attachedKind === BlockGrammar::ATTACHED_SPANNING . ':definition'
                         && $this->markerLeavesAttachedDescription($line, $bodyColumn, $attachedState))
+                    // A block the host reads at its column holds only lines at that column, or a lazy line of its paragraph.
+                    || (
+                        $restarted && $continuesBody !== null && !$continuesBody($line, $index)
+                        && !($attachedState->openParagraph && $attachedState->fence === null && !$attachedState->hasOpenDiv()
+                            && !$this->startsNewBlock(ltrim($line, " \t"), $lines, $index))
+                    )
                 ) {
                     return true;
                 }
@@ -1032,6 +1044,7 @@ final class BlockContinuationScanner
                     $attachedState = new TrailingBlockState();
                     $bodyColumn = null;
                     $quoteEnd = null;
+                    $restarted = true;
                 }
                 $attachedKind = $this->advanceAttachedKind($attachedKind, $pendingThrough, $line, $lines, $index);
                 if ($quoteEnd === null && $attachedKind === BlockGrammar::ATTACHED_SPANNING . ':quote') {
