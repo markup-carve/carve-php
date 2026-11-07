@@ -5998,10 +5998,10 @@ class BlockParser
                 $sourceLines = $this->state->source->sourceLines;
                 for ($at = $sourceBeforeLine; $at >= 0; $at--) {
                     $visible = ltrim($sourceLines[$at], " \t");
-                    if (!str_starts_with($visible, '>')) {
+                    if ($visible === '') {
                         break;
                     }
-                    if (($this->state->source->plusHosts[$at - 1]['kind'] ?? null) === 'list') {
+                    if (str_starts_with($visible, '>') && ($this->state->source->plusHosts[$at - 1]['kind'] ?? null) === 'list') {
                         return null;
                     }
                 }

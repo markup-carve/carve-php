@@ -20,6 +20,11 @@ final class ABlankEndsAttachedQuoteCaptionScopeTest extends TestCase
             "<ul>\n  <li>\n    <blockquote><p>q</p></blockquote>\n    <p>^ cap</p>\n  </li>\n</ul>",
         ];
 
+        yield 'lazy line then blank in item' => [
+            "- +\n> q\nr\n\n  ^ cap\n",
+            "<ul>\n  <li>\n    <blockquote><p>q\nr</p></blockquote>\n    <p>^ cap</p>\n  </li>\n</ul>",
+        ];
+
         yield 'blank then heading in item' => [
             "- +\n> q\n\n  # g\n",
             "<ul>\n  <li>\n    <blockquote><p>q</p></blockquote>\n    <h1 id=\"g\">g</h1>\n  </li>\n</ul>",
