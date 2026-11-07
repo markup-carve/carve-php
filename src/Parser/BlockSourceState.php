@@ -98,6 +98,11 @@ final class BlockSourceState
     public array $attachedFenceBlankEnds = [];
 
     /**
+     * @var array<int, true> Fence-shaped paragraph lines after an ended attached block.
+     */
+    public array $foldedFenceAfterAttachedBlank = [];
+
+    /**
      * Lines without `>` that end a `+` attached quote and resume its host (carve#5427).
      *
      * @var array<int, true>
