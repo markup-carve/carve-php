@@ -497,6 +497,7 @@ final class BlockQuoteBuilder
                 && ($parent instanceof ListItem || $parent instanceof Footnote)
                 && !$lazyState['paragraphOpen']
                 && $lazyState['mode'] === BlockQuoteLazyMode::Content
+                && $this->isAttachedFlushLeftQuote($start, $line)
                 && $this->authoredQuoteMarkerColumn($i, $currentLine) !== $this->authoredQuoteMarkerColumn($start, $line)
             ) {
                 break;
@@ -788,6 +789,20 @@ final class BlockQuoteBuilder
         }
 
         return strlen($source) - strlen($marker);
+    }
+
+    /**
+     * A host's plus may pull a flush-left quote into its body.
+     */
+    private function isAttachedFlushLeftQuote(int $index, string $line): bool
+    {
+        $sourceLine = $this->sourceLineFor($index);
+        $source = $this->state->source->authoredLines[$sourceLine] ?? '';
+        $previous = $this->state->source->authoredLines[$sourceLine - 1] ?? '';
+
+        return str_starts_with($source, '> ')
+            && $this->authoredQuoteMarkerColumn($index, $line) === 0
+            && preg_match('/(?:^|[ \t])\+$/', rtrim($previous, " \t")) === 1;
     }
 
     private function continuationMarkerSitsAtQuoteColumn(int $index, int $column): bool
