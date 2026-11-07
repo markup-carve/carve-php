@@ -3780,6 +3780,15 @@ class BlockParser
         ) {
             $nextLine = $admission['line'];
             if (IndentationHelper::isBlankLine($nextLine)) {
+                if (isset($this->state->source->attachedFenceBlankEnds[$this->sourceLineFor($i)])) {
+                    $closer = $trailingState->attachmentCloser();
+                    if ($closer !== null) {
+                        $bodyLines[] = $closer;
+                        $bodyLineMap[] = -1;
+                        $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $closer);
+                    }
+                    $endsAtBlank = false;
+                }
                 $retainedBelowComment = false;
                 // A blank inside a live span is payload; a comment line below the column still closes it (PART 9 §28).
                 $look = $i;

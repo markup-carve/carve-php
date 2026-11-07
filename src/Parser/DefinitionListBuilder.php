@@ -2166,6 +2166,16 @@ final class DefinitionListBuilder
         // later line still continues the definition; otherwise leave
         // it for the entry separator / outer block stream.
         if (IndentationHelper::isBlankLine($l->contLine)) {
+            if (isset($this->state->source->attachedFenceBlankEnds[$this->sourceLineFor($b->i)])) {
+                $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+                $closer = $b->bodyNestedState->attachmentCloser();
+                if ($closer !== null) {
+                    $b->body[] = $closer;
+                    $b->bodyMap[] = -1;
+                    $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
+                }
+                $b->attachedBlockOpen = false;
+            }
             $look = $b->i;
             while ($look < $b->count && IndentationHelper::isBlankLine($b->lines[$look])) {
                 $look++;

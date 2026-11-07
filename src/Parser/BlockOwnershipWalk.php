@@ -1443,12 +1443,13 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * An attached colon block or item-hosted code fence ends at its blank unless it has a reachable closer.
+     * An attached colon block or code fence ends at its blank unless it has a reachable closer.
      */
     private function markAttachedFence(int $at, int $host, OwnershipForm $form, bool $plusFollower): void
     {
         if ($plusFollower && $form->kind === 'colon') {
             $container = $this->frames[count($this->frames) - 1];
+            $container->blankHostFrames = array_slice($this->frames, 0, $host + 1);
             if ($this->sibling !== null && $this->sibling->plus === $at - 1) {
                 $container->blankHostFrames = [...array_slice($this->frames, 0, $host + 1), $this->sibling];
             }
@@ -1461,11 +1462,9 @@ final class BlockOwnershipWalk
             return;
         }
         $fence = $this->frames[count($this->frames) - 1];
-        if ($this->sibling?->kind === 'item' && $this->sibling->plus === $at - 1) {
+        $fence->blankHostFrames = array_slice($this->frames, 0, $host + 1);
+        if ($this->sibling !== null && $this->sibling->plus === $at - 1) {
             $fence->blankHostFrames = [...array_slice($this->frames, 0, $host + 1), $this->sibling];
-        }
-        if ($this->frames[$host]->kind !== 'item' && $fence->blankHostFrames === null) {
-            return;
         }
         $opener = $this->fenced->parseCodeFenceOpener($this->m['rest']);
         if (
