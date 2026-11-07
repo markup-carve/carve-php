@@ -3707,8 +3707,9 @@ class BlockParser
      * @param array<string> $lines
      * @param int $start
      * @param int|null $afterEarlierClaim
+     * @param bool $collectAfterClaim
      */
-    protected function tryParseFootnoteDefinition(Node $parent, array $lines, int $start, ?int $afterEarlierClaim = null): ?int
+    protected function tryParseFootnoteDefinition(Node $parent, array $lines, int $start, ?int $afterEarlierClaim = null, bool $collectAfterClaim = true): ?int
     {
         $line = $lines[$start];
 
@@ -3728,7 +3729,7 @@ class BlockParser
         }
 
         // Skip the footnote definition and any continuation lines
-        $i = $afterEarlierClaim ?? $start + 1;
+        $i = $collectAfterClaim ? ($afterEarlierClaim ?? $start + 1) : $start + 1;
         $count = count($lines);
 
         $preludeSource = $this->sourceLineFor($start);
@@ -3801,7 +3802,7 @@ class BlockParser
             IndentedContainerCollector::admissions(
                 $lines,
                 $i,
-                $preludeDefinitions !== [] ? $i : $count,
+                !$collectAfterClaim ? $start + 1 : ($preludeDefinitions !== [] ? $i : $count),
                 $footnoteColumn,
             ) as $admission
         ) {
@@ -4098,8 +4099,9 @@ class BlockParser
             ];
         }
         if ($this->state->session->discoveringDefinitions) {
-            foreach ($preludeDefinitions as $definitionLine) {
-                $consumed = $this->tryParseFootnoteDefinition($parent, $lines, $definitionLine, $claimedBlockEnd);
+            $lastPrelude = array_key_last($preludeDefinitions);
+            foreach ($preludeDefinitions as $index => $definitionLine) {
+                $consumed = $this->tryParseFootnoteDefinition($parent, $lines, $definitionLine, $claimedBlockEnd, $index === $lastPrelude);
                 if ($consumed !== null) {
                     $i = max($i, $definitionLine + $consumed);
                 }

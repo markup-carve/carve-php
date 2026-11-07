@@ -12,6 +12,17 @@ use PHPUnit\Framework\TestCase;
  */
 final class AEarlierQuotedNoteClaimsPastALaterDefinitionTest extends TestCase
 {
+    public function testOnlyLastPreludeNoteKeepsItsLaterIndentedBody(): void
+    {
+        $source = "[^a]: +\n[^b]: +\n[^c]: +\npara\n\n  own\n\n[^a] [^b] [^c]\n";
+        $html = (new CarveConverter())->convert($source);
+
+        self::assertStringContainsString('<p>para<a href="#fnref1"', $html);
+        self::assertStringContainsString('<li id="fn2">' . "\n      <p><a href=\"#fnref2\"", $html);
+        self::assertStringContainsString('<p>own<a href="#fnref3"', $html);
+        self::assertSame(1, substr_count($html, '<p>own'));
+    }
+
     public function testLaterNoteKeepsItsOwnIndentedBodyAfterTheEarlierClaim(): void
     {
         $source = "[^a]: +\n[^b]: +\npara\n\n  own\n\n[^a] [^b]\n";
