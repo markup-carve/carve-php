@@ -3730,7 +3730,10 @@ class BlockParser
         $i = $start + 1;
         $count = count($lines);
 
-        $bodyLines = [$content];
+        $preludeMarker = trim($content, " \t") === '+'
+            && isset($this->state->source->attachedPreludeLines[$this->sourceLineFor($start)]);
+        $bodyLines = [$preludeMarker ? '{empty}' : $content];
+        $preludeDefinitions = [];
         // A block a `+` attached ends at a blank, even with its fence open (PART 9 section 17 L3).
         $endsAtBlank = false;
         $termScan = null;
@@ -3738,7 +3741,7 @@ class BlockParser
         $bodyLineMap = [$this->sourceLineFor($start)];
         $firstBlockAttached = false;
         if (
-            trim($content, " \t") === '+' && isset($lines[$i])
+            !$preludeMarker && trim($content, " \t") === '+' && isset($lines[$i])
             && !IndentationHelper::isBlankLine($lines[$i])
             && $this->continuationFollowerIsEligible($i)
         ) {
@@ -3750,8 +3753,22 @@ class BlockParser
                 blockColumn: self::FOOTNOTE_BODY_COLUMN,
             );
             if ($attached !== []) {
-                $bodyLines = $attached;
-                $bodyLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedLineMap);
+                $bodyLines = [];
+                $bodyLineMap = [];
+                foreach ($attachedLineMap as $offset => $raw) {
+                    $sourceLine = $this->sourceLineFor($raw);
+                    if (
+                        isset($this->state->source->attachedPreludeLines[$sourceLine])
+                        && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $attached[$offset], $prelude) === 1
+                        && trim($prelude[2], " \t") === '+'
+                    ) {
+                        $preludeDefinitions[] = $raw;
+
+                        continue;
+                    }
+                    $bodyLines[] = $attached[$offset];
+                    $bodyLineMap[] = $sourceLine;
+                }
                 $i = $end;
                 $firstBlockAttached = true;
                 $endsAtBlank = true;
@@ -3776,7 +3793,7 @@ class BlockParser
             IndentedContainerCollector::admissions(
                 $lines,
                 $i,
-                $count,
+                $preludeMarker ? $start + 1 : $count,
                 $footnoteColumn,
             ) as $admission
         ) {
@@ -4038,6 +4055,9 @@ class BlockParser
                 'lines' => $bodyLines,
                 'lineMap' => $bodyLineMap,
             ];
+            foreach ($preludeDefinitions as $definitionLine) {
+                $this->tryParseFootnoteDefinition($parent, $lines, $definitionLine);
+            }
         } elseif ($this->state->session->discoveringDefinitions && array_key_exists($key, $this->state->session->footnotes)) {
             $bodyLines = $this->footnoteBodyDefinitionReach(
                 $this->rebaseOverindentedItemBlocks(
