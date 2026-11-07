@@ -434,23 +434,7 @@ final class BlockOwnershipWalk
             $this->src = $lines[$at];
             $this->out = '';
             $this->m = self::indentCols($this->src);
-            // An attachment inside an attached quote can end with that quote.
-            // Recover the enclosing offer before deciding who reads this line.
-            while (
-                $this->attachedTo !== null && isset($this->attachedTo['parent'])
-                && $this->levelOf($this->src, $this->attachedTo['depth']) === null
-            ) {
-                $this->attachedTo = $this->attachedTo['parent']->host;
-            }
-            if ($this->attachedTo !== null && count($this->frames) < count($this->attachedTo['frames'])) {
-                $held = $this->attachedTo;
-                $level = $this->levelOf($this->src, $held['depth']);
-                $host = $held['frames'][count($held['frames']) - 1];
-                if ($level !== null && $level['rest'] !== '' && $level['col'] >= $host->col && $this->attachedBlockEndsAt($at)) {
-                    $this->frames = $held['frames'];
-                    $this->attachedTo = ($held['parent'] ?? null)?->host;
-                }
-            }
+            $this->restoreEnclosingAttachedHost($at);
             $this->recordCommentPayloadHostColumn($at);
             // A `+` right after the block a `+` attached reaches the same host, whose
             // frames the walk closed when it read that block where it stands.
@@ -2746,6 +2730,29 @@ final class BlockOwnershipWalk
             'kind' => $this->frames[$host]->kind,
             'parent' => $parent,
         ];
+    }
+
+    /**
+     * Restore the outer offer when a nested attachment or its quote has ended.
+     */
+    private function restoreEnclosingAttachedHost(int $at): void
+    {
+        while (
+            $this->attachedTo !== null && isset($this->attachedTo['parent'])
+            && $this->levelOf($this->src, $this->attachedTo['depth']) === null
+        ) {
+            $this->attachedTo = $this->attachedTo['parent']->host;
+        }
+        if ($this->attachedTo === null || count($this->frames) >= count($this->attachedTo['frames'])) {
+            return;
+        }
+        $held = $this->attachedTo;
+        $level = $this->levelOf($this->src, $held['depth']);
+        $host = $held['frames'][count($held['frames']) - 1];
+        if ($level !== null && $level['rest'] !== '' && $level['col'] >= $host->col && $this->attachedBlockEndsAt($at)) {
+            $this->frames = $held['frames'];
+            $this->attachedTo = ($held['parent'] ?? null)?->host;
+        }
     }
 
     /**
