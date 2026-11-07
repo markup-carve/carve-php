@@ -682,6 +682,7 @@ final class DefinitionListBuilder
                 $colonHostBoundary,
                 $foldDeepParagraphLines ? $continuationColumn : null,
                 fn (string $a, int $at): bool => $this->reachesBodyColumn($a, $at, $authoredDefinitionColumn, $continuationColumn),
+                $continuationColumn,
             );
             $bodyMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $bodyRawMap);
             $firstBlockAttached = true;
@@ -2919,6 +2920,7 @@ final class DefinitionListBuilder
      * @param (callable(string, int): bool)|null $colonHostBoundary
      * @param int|null $paragraphFoldColumn
      * @param (callable(string, int): bool)|null $continuesBody
+     * @param int|null $blockColumn
      *
      * @return array{0: int, 1: array<string>, 2: array<int>}
      */
@@ -2930,6 +2932,7 @@ final class DefinitionListBuilder
         ?callable $colonHostBoundary = null,
         ?int $paragraphFoldColumn = null,
         ?callable $continuesBody = null,
+        ?int $blockColumn = null,
     ): array {
         return $this->continuations->attachedFlushLeftBlock(
             $lines,
@@ -2940,6 +2943,7 @@ final class DefinitionListBuilder
             invisibleLineEndsParagraph: true,
             paragraphFoldColumn: $paragraphFoldColumn,
             continuesBody: $continuesBody,
+            blockColumn: $blockColumn,
         );
     }
 

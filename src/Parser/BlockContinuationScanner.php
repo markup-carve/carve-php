@@ -933,6 +933,7 @@ final class BlockContinuationScanner
      * @param bool $invisibleLineEndsParagraph
      * @param int|null $paragraphFoldColumn
      * @param (callable(string, int): bool)|null $continuesBody Names a line that opens the host's next block once the attached one ends.
+     * @param int|null $blockColumn A block at or past this column ends an attached paragraph, and the host reads it.
      *
      * @return array{0: int, 1: array<string>, 2: array<int>}
      */
@@ -945,6 +946,7 @@ final class BlockContinuationScanner
         bool $invisibleLineEndsParagraph = false,
         ?int $paragraphFoldColumn = null,
         ?callable $continuesBody = null,
+        ?int $blockColumn = null,
     ): array {
         $attachedKind = BlockGrammar::ATTACHED_PENDING;
         $pendingThrough = -1;
@@ -967,7 +969,7 @@ final class BlockContinuationScanner
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd): bool {
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd, $blockColumn): bool {
                 if ($index < $commentThrough) {
                     return false;
                 }
@@ -989,11 +991,25 @@ final class BlockContinuationScanner
                     && IndentationHelper::getLeadingColumns($line) >= $paragraphFoldColumn
                     && !$this->isCommentLineOrFence($line)
                     && !$this->startsNewBlock(ltrim($line, " \t"), $lines, $index)
+                    && !$this->isBlockAttributeLine(ltrim($line, " \t"))
                 ) {
                     $foldedLines[$index] = true;
                     $attachedState = $this->advanceTrailingState($attachedState, 'text');
 
                     return false;
+                }
+                // A block at the host's content column ends the attached paragraph and opens in the host (CARVE-P0-011, carve#5331).
+                if (
+                    $blockColumn !== null && $attachedKind === BlockGrammar::ATTACHED_PARAGRAPH
+                    && IndentationHelper::getLeadingColumns($line) >= $blockColumn
+                    && !$this->isCommentLineOrFence($line)
+                    && (
+                        $paragraphFoldColumn !== null
+                        || $this->startsNewBlock(ltrim($line, " \t"), $lines, $index)
+                        || $this->isBlockAttributeLine(ltrim($line, " \t"))
+                    )
+                ) {
+                    return true;
                 }
                 if (
                     ($index !== $refusedFollower && $this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState))
