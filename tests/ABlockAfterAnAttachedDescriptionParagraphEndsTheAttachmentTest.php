@@ -53,6 +53,26 @@ final class ABlockAfterAnAttachedDescriptionParagraphEndsTheAttachmentTest exten
             "- item\n  - sub\n    :: t\n    : +\n    h\n      # H\n    z\n",
             "<ul>\n  <li>item\n    <ul>\n      <li>sub\n        <dl>\n          <dt>t</dt>\n          <dd>\n            <p>h</p>\n            <h1 id=\"H\">H</h1>\n          </dd>\n        </dl>\n        z\n      </li>\n    </ul>\n  </li>\n</ul>",
         ];
+
+        yield 'an attribute in a loose item with a wide separator applies inside the description only' => [
+            "- item\n\n  :: t\n  :  +\n  h\n     {.c}\n  z\n",
+            "<ul>\n  <li><p>item</p>\n    <dl>\n      <dt>t</dt>\n      <dd>h</dd>\n    </dl>\n    <p>z</p>\n  </li>\n</ul>",
+        ];
+
+        yield 'a fence in a loose item with a wide separator holds no line below the column' => [
+            "- item\n\n  :: t\n  :  +\n  h\n     ```\n  z\n",
+            "<ul>\n  <li><p>item</p>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>h</p>\n        <pre><code></code></pre>\n      </dd>\n    </dl>\n    <p>z</p>\n  </li>\n</ul>",
+        ];
+
+        yield 'a fence in a loose item with a wide separator keeps its trailing blank' => [
+            "- item\n\n  :: t\n  :  +\n  h\n     ```\n\nz\n",
+            "<ul>\n  <li><p>item</p>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>h</p>\n        <pre><code>\n</code></pre>\n      </dd>\n    </dl>\n  </li>\n</ul>\n<p>z</p>",
+        ];
+
+        yield 'a div in a loose item with a wide separator spans a blank to a line at the column' => [
+            "- item\n\n  :: t\n  :  +\n  h\n     ::: note\n\n     z\n",
+            "<ul>\n  <li><p>item</p>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>h</p>\n        <aside class=\"admonition note\" aria-label=\"Note\">\n          <p>z</p>\n        </aside>\n      </dd>\n    </dl>\n  </li>\n</ul>",
+        ];
     }
 
     #[DataProvider('documents')]
