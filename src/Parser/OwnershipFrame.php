@@ -35,16 +35,6 @@ final class OwnershipFrame
     public bool $descriptionLeft = false;
 
     /**
-     * On an item: its latest term has no description yet.
-     */
-    public bool $termOnly = false;
-
-    /**
-     * On an item: a term opened in it.
-     */
-    public bool $described = false;
-
-    /**
      * A definition term opened inside this item, including a term whose list has since ended.
      */
     public bool $hasDefinition = false;

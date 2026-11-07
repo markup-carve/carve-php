@@ -1536,6 +1536,7 @@ final class BlockContinuationScanner
             if (
                 $run->pendingDefinitionTerm && $itemMarkerColumn !== null
                 && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($nextLine, " \t")) === 1
+                && !isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
                 && in_array(IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
                     $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 )), $baseIndent === self::TASK_BOX_WIDTH ? [$itemMarkerColumn, $itemMarkerColumn - self::TASK_BOX_WIDTH] : [$itemMarkerColumn], true)
@@ -2178,10 +2179,12 @@ final class BlockContinuationScanner
             $run->openTermColumn = null;
         }
 
+        // Once a block has ended the definition list, the walk reads the line as lazy (PART 0 S4, carve#5368).
         if (
             $nextIndent <= $baseIndent
             && ($run->openTermColumn !== null || ($run->recentDefinitionBodyColumn !== null && $run->definitionBodyHasTerm))
             && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed) === 1
+            && !isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
             && !$trailingState->quoteParagraph
             && !$isBlockQuoteLazyLine
             && $trailingState->fence === null

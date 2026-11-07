@@ -9,7 +9,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * carve#5320: a `: ` line at an item's marker column ends the item once a description in it has closed.
+ * carve#5320: a `: ` line at an item's marker column ends the item whose description is open; past the
+ * paragraph that line opens in the outer item, the next one folds (carve#5373).
  */
 final class ADescriptionMarkerEndsAnItemWhoseDescriptionClosedTest extends TestCase
 {
@@ -21,28 +22,28 @@ final class ADescriptionMarkerEndsAnItemWhoseDescriptionClosedTest extends TestC
         return [
             'the ticket reproduction' => [
                 "- - a\n    :: t\n    : u\n      ::: |\n        x\n  : b\n: c\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>a\n        <dl>\n          <dt>t</dt>\n          <dd>\n            <p>u</p>\n            <div class=\"line-block\">\n              <p>&nbsp;&nbsp;x</p>\n            </div>\n          </dd>\n        </dl>\n      </li>\n    </ul>\n    : b\n  </li>\n</ul>\n<p>: c</p>",
+                "<ul>\n  <li>\n    <ul>\n      <li>a\n        <dl>\n          <dt>t</dt>\n          <dd>\n            <p>u</p>\n            <div class=\"line-block\">\n              <p>&nbsp;&nbsp;x</p>\n            </div>\n          </dd>\n        </dl>\n      </li>\n    </ul>\n    : b\n: c\n  </li>\n</ul>",
             ],
             'a plain description' => [
                 "- - a\n    :: t\n    : u\n  : b\n: c\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>a\n        <dl>\n          <dt>t</dt>\n          <dd>u</dd>\n        </dl>\n      </li>\n    </ul>\n    : b\n  </li>\n</ul>\n<p>: c</p>",
+                "<ul>\n  <li>\n    <ul>\n      <li>a\n        <dl>\n          <dt>t</dt>\n          <dd>u</dd>\n        </dl>\n      </li>\n    </ul>\n    : b\n: c\n  </li>\n</ul>",
             ],
             'paragraph text after the first marker line' => [
                 "- - a\n    :: t\n    : u\n  : b\n  more\n: c\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>a\n        <dl>\n          <dt>t</dt>\n          <dd>u</dd>\n        </dl>\n      </li>\n    </ul>\n    : b\nmore\n  </li>\n</ul>\n<p>: c</p>",
+                "<ul>\n  <li>\n    <ul>\n      <li>a\n        <dl>\n          <dt>t</dt>\n          <dd>u</dd>\n        </dl>\n      </li>\n    </ul>\n    : b\nmore\n: c\n  </li>\n</ul>",
             ],
             'an ordered outer item' => [
                 "1. - a\n     :: t\n     : u\n   : b\n: c\n",
-                "<ol>\n  <li>\n    <ul>\n      <li>a\n        <dl>\n          <dt>t</dt>\n          <dd>u</dd>\n        </dl>\n      </li>\n    </ul>\n    : b\n  </li>\n</ol>\n<p>: c</p>",
+                "<ol>\n  <li>\n    <ul>\n      <li>a\n        <dl>\n          <dt>t</dt>\n          <dd>u</dd>\n        </dl>\n      </li>\n    </ul>\n    : b\n: c\n  </li>\n</ol>",
             ],
             // A paragraph after the closed description leaves no open one (carve#5323, carve#5363).
             'a description directly in the item' => [
                 "- o\n  :: t\n  : u\n\n  para\n: c\n",
                 "<ul>\n  <li><p>o</p>\n    <dl>\n      <dt>t</dt>\n      <dd>u</dd>\n    </dl>\n    <p>para\n: c</p>\n  </li>\n</ul>",
             ],
-            'three levels end in turn' => [
+            'three levels: only the innermost ends' => [
                 "- - - a\n      :: t\n      : u\n    : b\n  : c\n: d\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>a\n            <dl>\n              <dt>t</dt>\n              <dd>u</dd>\n            </dl>\n          </li>\n        </ul>\n        : b\n      </li>\n    </ul>\n    : c\n  </li>\n</ul>\n<p>: d</p>",
+                "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>a\n            <dl>\n              <dt>t</dt>\n              <dd>u</dd>\n            </dl>\n          </li>\n        </ul>\n        : b\n: c\n: d\n      </li>\n    </ul>\n  </li>\n</ul>",
             ],
             'a new item after the description keeps the lazy line' => [
                 "- o\n  - a\n    :: t\n    : u\n  - b\n: c\n",

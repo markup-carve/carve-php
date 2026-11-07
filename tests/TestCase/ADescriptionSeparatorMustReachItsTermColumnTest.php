@@ -30,7 +30,7 @@ class ADescriptionSeparatorMustReachItsTermColumnTest extends TestCase
 
         yield 'wrapped term at outer marker column' => [
             "- a\n  :: m\n  more\n: x\n",
-            '<ul> <li>a <dl> <dt>m</dt> </dl> more </li> </ul> <p>: x</p>',
+            '<ul> <li>a <dl> <dt>m</dt> </dl> more : x </li> </ul>',
         ];
 
         yield 'open ordered term one column in' => [
@@ -105,7 +105,7 @@ class ADescriptionSeparatorMustReachItsTermColumnTest extends TestCase
 
         yield 'no open term after a completed description' => [
             "- a\n  :: m\n  : d\n\n  p\n\n  : x\n: l\n",
-            '<ul> <li><p>a</p> <dl> <dt>m</dt> <dd>d</dd> </dl> <p>p</p> <p>: x</p> </li> </ul> <p>: l</p>',
+            '<ul> <li><p>a</p> <dl> <dt>m</dt> <dd>d</dd> </dl> <p>p</p> <p>: x : l</p> </li> </ul>',
         ];
 
         yield 'quoted list' => [
