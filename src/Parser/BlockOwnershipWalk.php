@@ -477,7 +477,7 @@ final class BlockOwnershipWalk
                 if (
                     $f->markerCol !== null && $this->m['col'] === $f->markerCol && ($f->kind === 'quote' || $this->m['col'] < $f->col)
                     && self::isPlus($this->m['rest'])
-                    && !($f->kind === 'quote' && $quotesRead > 0 && $f->para && $quotesRead < $this->quoteDepth($k + 1))
+                    && !($f->kind === 'quote' && $this->hasAttachedQuoteAncestor($k) && $quotesRead > 0 && $f->para && $quotesRead < $this->quoteDepth($k + 1))
                 ) {
                     $plus = $k;
                     $plusAccepted = !isset($this->claimedMarkers[$at]) && $this->attachesAt($f->kind, $at, self::docColumn($lines[$at], $this->m['rest']), $k);
@@ -2938,6 +2938,17 @@ final class BlockOwnershipWalk
         }
 
         return $depth;
+    }
+
+    private function hasAttachedQuoteAncestor(int $below): bool
+    {
+        for ($k = 1; $k < $below; $k++) {
+            if ($this->frames[$k]->kind === 'quote' && $this->frames[$k]->plus !== null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
