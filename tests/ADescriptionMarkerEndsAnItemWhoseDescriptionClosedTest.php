@@ -35,9 +35,10 @@ final class ADescriptionMarkerEndsAnItemWhoseDescriptionClosedTest extends TestC
                 "1. - a\n     :: t\n     : u\n   : b\n: c\n",
                 "<ol>\n  <li>\n    <ul>\n      <li>a\n        <dl>\n          <dt>t</dt>\n          <dd>u</dd>\n        </dl>\n      </li>\n    </ul>\n    : b\n  </li>\n</ol>\n<p>: c</p>",
             ],
+            // A paragraph after the closed description leaves no open one (carve#5323, carve#5363).
             'a description directly in the item' => [
                 "- o\n  :: t\n  : u\n\n  para\n: c\n",
-                "<ul>\n  <li><p>o</p>\n    <dl>\n      <dt>t</dt>\n      <dd>u</dd>\n    </dl>\n    <p>para</p>\n  </li>\n</ul>\n<p>: c</p>",
+                "<ul>\n  <li><p>o</p>\n    <dl>\n      <dt>t</dt>\n      <dd>u</dd>\n    </dl>\n    <p>para\n: c</p>\n  </li>\n</ul>",
             ],
             'three levels end in turn' => [
                 "- - - a\n      :: t\n      : u\n    : b\n  : c\n: d\n",
