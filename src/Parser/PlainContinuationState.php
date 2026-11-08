@@ -120,6 +120,13 @@ final class PlainContinuationState
 
     public int $noteSourceCursor = 0;
 
+    /**
+     * Source cursor for leaving the item below its column; it reads a marker-line `+` block as note body (carve#5512).
+     */
+    public int $leaveSourceCursor = 0;
+
+    public bool $leaveSourceBroken = false;
+
     public int $leaveCursor = 1;
 
     public int $blockCursor = 1;
