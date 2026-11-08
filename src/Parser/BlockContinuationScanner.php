@@ -293,6 +293,11 @@ final class BlockContinuationScanner
                 $nextIndent < $contentIndent && str_starts_with($first, '%%')
                 && ($this->collectedLinesLeaveACommentSpanOpenCallback)($itemLines, $collectedComment)
             ) {
+                // The lead span's closer may sit below the column too; it ends the span (PART 9 §28).
+                if ($openCommentLength !== null && ($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($first, $openCommentLength)) {
+                    $openCommentLength = null;
+                    $trailingState->openParagraph = false;
+                }
                 $itemLines[] = ($this->keptCommentDelimiterCallback)($nextLine);
                 $itemLineMap[] = $this->sourceLineFor($i);
                 $i++;
@@ -551,6 +556,8 @@ final class BlockContinuationScanner
                 } elseif (
                     $openCommentLength !== null
                     && IndentationHelper::getLeadingColumns($stripped, $openCommentColumn + 1) < $openCommentColumn
+                    // A comment line below the opener's column is span payload (carve#5021).
+                    && !str_starts_with(ltrim($stripped, " \t"), '%%')
                 ) {
                     // Payload below the opener's own column: no span formed.
                     $openCommentLength = null;
