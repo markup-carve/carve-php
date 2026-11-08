@@ -344,6 +344,15 @@ final class BlockOwnershipWalk
 
     private bool $onMarkerLine = false;
 
+    /**
+     * Note labels defined so far, by normalized key; a later definition of one loses (PART 9R R2).
+     *
+     * @var array<string, true>
+     */
+    private array $noteLabels = [];
+
+    private bool $losingNoteLine = false;
+
     private int $nextVisible = -1;
 
     private int $refusedKeptStart = -1;
@@ -427,6 +436,7 @@ final class BlockOwnershipWalk
         $this->claimedMarkers = [];
         $this->overindented = [];
         $this->plusHosts = [];
+        $this->noteLabels = [];
         $this->ddSiblingOwner = null;
         $this->skipped = null;
         $this->refusedAttributeHost = null;
@@ -1834,9 +1844,15 @@ final class BlockOwnershipWalk
             // Content behind a lead tab is paragraph text, whatever it spells (corpus 684, 736, 840).
             $leadTab = str_contains(substr($this->src, 0, $form->head), "\t")
                 || ($this->src[$form->head] ?? '') === "\t";
+            if ($form->kind === 'note' && preg_match('/^\[\^([^\]]+)\]:/', $this->m['rest'], $note) === 1) {
+                $key = LabelKey::normalize($note[1]);
+                $this->losingNoteLine = isset($this->noteLabels[$key]);
+                $this->noteLabels[$key] = true;
+            }
             $this->take($form->head);
             $this->m = self::indentCols($this->src);
             $this->content(count($this->frames) - 1, $col + $form->head, $canon + $form->head, $leadTab);
+            $this->losingNoteLine = false;
         }
     }
 
@@ -1919,8 +1935,12 @@ final class BlockOwnershipWalk
         if ($form->kind === 'text') {
             $plus = false;
             $consumed = false;
+            $losing = false;
             if ($leadTab && self::isPlus($this->m['rest'])) {
                 $this->refusePlus($this->at, null);
+            } elseif ($this->losingNoteLine && self::isPlus($this->m['rest'])) {
+                // A losing duplicate's `+` takes nothing and leaves no paragraph (carve#5474).
+                $losing = true;
             } elseif (self::isPlus($this->m['rest'])) {
                 // Past the one space after a `>` the `+` is the quote's text (corpus 646).
                 $f = $this->frames[$frame];
@@ -1954,7 +1974,7 @@ final class BlockOwnershipWalk
                 $this->plusHosts[$this->at] = $this->hostRecord($frame, self::columnOf($this->out), true);
             }
             // A consumed item marker leaves no paragraph a lazy line continues; past a note the note folds it (PART 0 S4).
-            $this->frames[$frame]->para = !$plus && !($consumed && $this->consumedLeavesNoParagraph($frame));
+            $this->frames[$frame]->para = !$plus && !$losing && !($consumed && $this->consumedLeavesNoParagraph($frame));
             $this->frames[$frame]->last = 'para';
 
             return;
