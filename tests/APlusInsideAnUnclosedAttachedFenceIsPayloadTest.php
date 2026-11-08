@@ -52,9 +52,10 @@ class APlusInsideAnUnclosedAttachedFenceIsPayloadTest extends TestCase
                 "- +\n```\n- z\n+\n\ny\n",
                 "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n  <li>z</li>\n</ul>\n<p>y</p>",
             ],
+            // The sibling marker is payload too (carve#5499 ruling, option 2).
             'nested sibling then plus' => [
                 "- - +\n  ```\n  - z\n  +\n\ny\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n      <li>z</li>\n    </ul>\n  </li>\n</ul>\n<p>y</p>",
+                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>- z\n+\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>y</p>",
             ],
         ];
     }

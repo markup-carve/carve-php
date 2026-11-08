@@ -1648,7 +1648,10 @@ final class BlockOwnershipWalk
             && $this->attachedCodeFenceBlankAhead($at, (int)$this->frames[$host]->markerCol, $opener['fence'][0], $opener['length'])
         ) {
             $fence->col = $this->m['col'];
-            $fence->siblingEndsAt = (int)$this->frames[$host]->markerCol;
+            // A nested item's sibling marker stays payload (carve#5499).
+            if (($this->frames[$host - 1]->kind ?? null) !== 'item') {
+                $fence->siblingEndsAt = (int)$this->frames[$host]->markerCol;
+            }
         } elseif (
             $opener !== null && $this->attachedTo !== null && $this->attachedTo['item'] && $this->attachedTo['from'] === $at
             && $this->attachedCodeFenceBlankAhead($at, $this->attachedTo['column'], $opener['fence'][0], $opener['length'])
@@ -1658,6 +1661,10 @@ final class BlockOwnershipWalk
         }
         $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $fence->col;
         $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key, $this->frames[$host]->kind === 'item' ? $this->frames[$host]->col : null);
+        // A closer past the blank keeps the blank and any marker before it as payload.
+        if (!$fence->endsAtBlank) {
+            $fence->siblingEndsAt = null;
+        }
     }
 
     /**
