@@ -56,6 +56,11 @@ final class BlockParseFrame
     public bool $markerBody = false;
 
     /**
+     * A list item's body: a sibling marker inside a nested item's attached fence is payload (carve#5499).
+     */
+    public bool $listItemBody = false;
+
+    /**
      * Where THIS level's content begins on each source line, in bytes.
      *
      * @var array<int, int>
