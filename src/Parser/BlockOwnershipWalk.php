@@ -1641,21 +1641,20 @@ final class BlockOwnershipWalk
         if ($this->frames[$host]->kind !== 'item' && $fence->blankHostFrames === null) {
             return;
         }
-        $opener = $this->fenced->parseCodeFenceOpener($this->m['rest']);
+        $opener = $this->fenced->parseCodeFenceOpener($this->m['rest'])
+            ?? $this->fenced->parseRawBlockOpener($this->m['rest']);
         if (
             $this->frames[$host]->kind === 'item' && $opener !== null
-            && $this->attachedCodeFenceBlankAhead($at, (int)$this->frames[$host]->markerCol, $opener['char'], $opener['length'])
+            && $this->attachedCodeFenceBlankAhead($at, (int)$this->frames[$host]->markerCol, $opener['fence'][0], $opener['length'])
         ) {
             $fence->col = $this->m['col'];
             $fence->siblingEndsAt = (int)$this->frames[$host]->markerCol;
-            $fence->siblingAxes = $this->frames[$host]->axes;
         } elseif (
             $opener !== null && $this->attachedTo !== null && $this->attachedTo['item'] && $this->attachedTo['from'] === $at
-            && $this->attachedCodeFenceBlankAhead($at, $this->attachedTo['column'], $opener['char'], $opener['length'])
+            && $this->attachedCodeFenceBlankAhead($at, $this->attachedTo['column'], $opener['fence'][0], $opener['length'])
         ) {
             // A fence pulled to column 0 stands outside its item's frame; the item's marker column still bounds it.
             $fence->siblingEndsAt = $this->attachedTo['column'];
-            $fence->siblingAxes = $this->attachedTo['frames'][count($this->attachedTo['frames']) - 1]->axes;
         }
         $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $fence->col;
         $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key, $this->frames[$host]->kind === 'item' ? $this->frames[$host]->col : null);
@@ -1670,12 +1669,7 @@ final class BlockOwnershipWalk
         if ($top->siblingEndsAt === null || $top->kind !== 'fence' || $this->m['col'] > $top->siblingEndsAt) {
             return;
         }
-        $marker = $this->listParser->parseListItemMarker($this->m['rest']);
-        if ($marker === null) {
-            return;
-        }
-        $axes = $marker['type'] === 'ordered' ? substr($marker['marker'], -1) : substr($marker['marker'], 0, 1);
-        if ($axes === $top->siblingAxes) {
+        if ($this->listParser->parseListItemMarker($this->m['rest']) !== null) {
             $this->truncate(count($this->frames) - 1);
         }
     }
