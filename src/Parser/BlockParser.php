@@ -4368,9 +4368,8 @@ class BlockParser
         bool $topLevel = false,
         bool $itemBody = false,
     ): int {
-        $line = self::stripLazyFrame($lines[$start]);
         // A collector may have joined a framed lazy line into this one.
-        $line = str_replace("\n" . BlockGrammar::LAZY_FRAME, "\n", $line);
+        $line = BlockGrammar::stripFramedLazyPrefix($lines[$start]);
         $content = ltrim($line, " \t");
         if (str_starts_with($line, "\t")) {
             // A tab after a marker's space belongs to its content. The body
@@ -4489,7 +4488,7 @@ class BlockParser
             }
 
             // Strip leading whitespace from continuation lines (matching JS reference)
-            $rawNextLine = self::stripLazyFrame($nextLine);
+            $rawNextLine = BlockGrammar::stripFramedLazyPrefix($nextLine);
             $nextLine = ltrim($rawNextLine, " \t");
             if ($foldedFenceColumn === null && self::isFoldedFenceLine($nextLine)) {
                 $foldedFenceColumn = $this->authoredColumnOf($i, $rawNextLine)

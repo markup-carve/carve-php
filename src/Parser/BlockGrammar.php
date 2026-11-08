@@ -148,6 +148,20 @@ final class BlockGrammar
     }
 
     /**
+     * The line with its lazy frame removed, together with the quote prefixes
+     * the walk wrote in front of it: a paragraph that reads them took no quote,
+     * so they are not the author's text (carve#5511). Applies per physical line.
+     */
+    public static function stripFramedLazyPrefix(string $text): string
+    {
+        if (!str_contains($text, self::LAZY_FRAME)) {
+            return $text;
+        }
+
+        return (string)preg_replace('/^([ \t]*)(?:>[ \t]*)*(?:\x00L\x00)+/m', '$1', $text);
+    }
+
+    /**
      * Depth bound for the heading-index walk.
      *
      * Matches `CrossReferenceResolver`'s own bound, because this walk has to
