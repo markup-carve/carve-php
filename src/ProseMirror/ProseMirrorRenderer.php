@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\ProseMirror;
 
+use Closure;
 use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockExtension;
@@ -109,6 +110,31 @@ class ProseMirrorRenderer
     protected array $degraded = [];
 
     /**
+     * @var array<int, array{0: \Closure(\MarkupCarve\Carve\Node\Node): bool, 1: \Closure(\MarkupCarve\Carve\Node\Node, \Closure(): array<int, array<string, mixed>>): (array<string, mixed>|null)}>
+     */
+    private array $factories = [];
+
+    /**
+     * Render an application's own nodes, the counterpart of
+     * `ProseMirrorToCarve::register()`.
+     *
+     * `$matches` picks the node, usually by class and attributes, because an
+     * application node arrives as an ordinary span, div or paragraph. `$render`
+     * returns the ProseMirror node, or null to leave it out; its second argument
+     * renders the node's children. The first matching registration wins, and a
+     * matched node is never reported in `droppedTypes()` or `degradedTypes()`.
+     *
+     * @param \Closure(\MarkupCarve\Carve\Node\Node): bool $matches
+     * @param \Closure(\MarkupCarve\Carve\Node\Node, \Closure(): array<int, array<string, mixed>>): (array<string, mixed>|null) $render
+     */
+    public function register(Closure $matches, Closure $render): static
+    {
+        $this->factories[] = [$matches, $render];
+
+        return $this;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function render(Document $document): array
@@ -167,6 +193,39 @@ class ProseMirrorRenderer
     }
 
     /**
+     * @return \Closure(\MarkupCarve\Carve\Node\Node, \Closure(): array<int, array<string, mixed>>): (array<string, mixed>|null)|null
+     */
+    private function factoryFor(Node $node): ?Closure
+    {
+        foreach ($this->factories as [$matches, $render]) {
+            if ($matches($node)) {
+                return $render;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * A registered node's children: blocks when it holds blocks, inline
+     * content otherwise.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param array<int, array<string, mixed>> $marks
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function renderChildren(Node $node, array $marks): array
+    {
+        $children = $node->getChildren();
+        if ($children !== [] && $children[0] instanceof BlockNode) {
+            return array_values($this->renderBlocks($children));
+        }
+
+        return array_values($this->renderInlines($children, $marks));
+    }
+
+    /**
      * @param array<\MarkupCarve\Carve\Node\Node> $nodes
      *
      * @return array<int, array<string, mixed>>
@@ -189,6 +248,11 @@ class ProseMirrorRenderer
      */
     protected function renderBlock(Node $node): ?array
     {
+        $factory = $this->factoryFor($node);
+        if ($factory !== null) {
+            return $factory($node, fn (): array => $this->renderChildren($node, []));
+        }
+
         $type = $node->getType();
         $this->noteUnrepresentableState($node);
 
@@ -467,6 +531,16 @@ class ProseMirrorRenderer
                 continue;
             }
 
+            $factory = $this->factoryFor($node);
+            if ($factory !== null) {
+                $rendered = $factory($node, fn (): array => $this->renderChildren($node, $marks));
+                if ($rendered !== null) {
+                    $out[] = $rendered;
+                }
+
+                continue;
+            }
+
             $type = $node->getType();
             $this->noteUnrepresentableState($node);
 
@@ -673,6 +747,11 @@ class ProseMirrorRenderer
     {
         $previous = null;
         foreach ($nodes as $node) {
+            if ($this->factoryFor($node) !== null) {
+                $previous = null;
+
+                continue;
+            }
             if (
                 $previous !== null
                 && SchemaMap::isMark($node->getType())

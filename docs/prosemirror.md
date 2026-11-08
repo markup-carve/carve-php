@@ -198,6 +198,26 @@ back with them intact. Nodes that subclass `Node` instead can be registered with
 `AstCodec::register()` for the JSON codec; the bridge itself needs the upstream map
 to know the name, so a genuinely new editor node belongs in carve-grammars first.
 
+An editor node the application registered on `ProseMirrorToCarve` arrives in
+Carve as an ordinary span, div or paragraph, told apart by its class. Register
+the way back on the renderer, or it comes out as a `carveSpan` mark or a classed
+paragraph:
+
+```php
+$renderer = (new ProseMirrorRenderer())->register(
+    fn (Node $node): bool => $node instanceof Span && $node->hasClass('placeholder-token'),
+    fn (Node $node): array => [
+        'type' => 'placeholderToken',
+        'attrs' => ['label' => $node->getAttribute('label')],
+    ],
+);
+```
+
+The first matching registration wins. The render closure returns the node, or
+null to leave it out, and its second argument renders the node's children for a
+container. A matched node is not reported in `droppedTypes()` or
+`degradedTypes()`.
+
 ## Shape differences worth knowing
 
 - **Marks.** Carve nests emphasis as elements (`Strong > Text`); ProseMirror hangs

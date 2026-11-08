@@ -9,6 +9,10 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Improvements
+
+- `ProseMirrorRenderer::register()` renders an application's own nodes, the counterpart of `ProseMirrorToCarve::register()` (#4947).
+
 ## [0.1.17] - 2026-11-08
 
 The block reader now follows the spec model's ownership walk (rule A) and the one attach rule for `+`. Markdown import follows CommonMark 0.31, and lint gains suppression comments and Markdown-habit rules.
