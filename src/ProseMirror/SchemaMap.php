@@ -23,7 +23,7 @@ use RuntimeException;
 final class SchemaMap
 {
     /**
-     * @var array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>, preservationNodes?: array<string, mixed>, markCarrierNodes?: array<string, mixed>}|null
+     * @var array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>, preservationNodes?: array<string, mixed>, markCarrierNodes?: array<string, mixed>, layoutAttributes?: array<string, string>}|null
      */
     private static ?array $data = null;
 
@@ -172,6 +172,15 @@ final class SchemaMap
     }
 
     /**
+     * Whether a ProseMirror attribute is editor layout: written to Carve as
+     * nothing and reported as no loss (`layoutAttributes` in the map).
+     */
+    public static function isLayoutAttribute(string $name): bool
+    {
+        return $name !== 'about' && array_key_exists($name, self::data()['layoutAttributes'] ?? []);
+    }
+
+    /**
      * @return array<string, string> type => reason
      */
     public static function unmapped(): array
@@ -190,7 +199,7 @@ final class SchemaMap
     /**
      * @throws \RuntimeException
      *
-     * @return array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>, preservationNodes?: array<string, mixed>, markCarrierNodes?: array<string, mixed>}
+     * @return array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>, preservationNodes?: array<string, mixed>, markCarrierNodes?: array<string, mixed>, layoutAttributes?: array<string, string>}
      */
     private static function data(): array
     {
@@ -204,7 +213,7 @@ final class SchemaMap
             throw new RuntimeException(sprintf('Cannot read the ProseMirror schema map at %s', $path));
         }
 
-        /** @var array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>, preservationNodes?: array<string, mixed>, markCarrierNodes?: array<string, mixed>} $data */
+        /** @var array{types: array<string, array{kind: string, pm: string|array<string>, accepts?: array<string>, notes?: string}>, unmapped: array<string, string>, preservationNodes?: array<string, mixed>, markCarrierNodes?: array<string, mixed>, layoutAttributes?: array<string, string>} $data */
         $data = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
         self::$data = $data;
 

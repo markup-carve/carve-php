@@ -639,20 +639,49 @@ class ProseMirrorBridgeTest extends TestCase
 
     /**
      * A Carve attribute holds a string, so a non-scalar value has no form here
-     * and used to fall off the end of the passthrough loop without a word.
-     * Tiptap's resizable table stores `colwidth` as an array, which is the case
-     * with a real producer behind it (carve-php#541).
+     * and used to fall off the end of the passthrough loop without a word
+     * (carve-php#541).
      */
     public function testANonScalarAttributeIsReportedRatherThanDiscarded(): void
     {
         $this->converter->convert($this->cellWithAttributes([
             'colspan' => 1,
             'rowspan' => 1,
-            'colwidth' => [220],
+            'data-widths' => [220],
         ]));
 
-        $this->assertArrayHasKey('colwidth', $this->converter->droppedAttributes());
-        $this->assertNotSame('', $this->converter->droppedAttributes()['colwidth']);
+        $this->assertArrayHasKey('data-widths', $this->converter->droppedAttributes());
+        $this->assertNotSame('', $this->converter->droppedAttributes()['data-widths']);
+    }
+
+    /**
+     * `colwidth` is editor layout in the schema map: Tiptap's column resizing
+     * writes it, and Carve neither carries it nor counts it as lost
+     * (carve-php#4948).
+     *
+     * @param mixed $value
+     */
+    #[DataProvider('columnWidthProvider')]
+    public function testAColumnWidthIsLayoutAndNeitherCarriedNorReported(mixed $value): void
+    {
+        $document = $this->converter->convert($this->cellWithAttributes([
+            'colspan' => 1,
+            'rowspan' => 1,
+            'colwidth' => $value,
+        ]));
+
+        $cell = $document->getChildren()[0]->getChildren()[0]->getChildren()[0];
+        $this->assertNull($cell->getAttribute('colwidth'));
+        $this->assertSame([], $this->converter->droppedAttributes());
+    }
+
+    public static function columnWidthProvider(): array
+    {
+        return [
+            'resized' => [[220]],
+            'two columns' => [[120, 80]],
+            'scalar' => [220],
+        ];
     }
 
     /**
@@ -667,7 +696,7 @@ class ProseMirrorBridgeTest extends TestCase
         $this->converter->convert($this->cellWithAttributes([
             'colspan' => 1,
             'rowspan' => 1,
-            'colwidth' => $value,
+            'data-width' => $value,
         ]));
 
         $this->assertSame([], $this->converter->droppedAttributes());
@@ -692,7 +721,7 @@ class ProseMirrorBridgeTest extends TestCase
         $this->converter->convert($this->cellWithAttributes([
             'colspan' => 1,
             'rowspan' => 1,
-            'colwidth' => [220],
+            'data-widths' => [220],
         ]));
         $this->assertNotSame([], $this->converter->droppedAttributes());
 

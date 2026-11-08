@@ -1859,7 +1859,7 @@ class ProseMirrorToCarve
 
                 continue;
             }
-            if (($consumed[$key] ?? false) === true) {
+            if (($consumed[$key] ?? false) === true || SchemaMap::isLayoutAttribute((string)$key)) {
                 continue;
             }
             if ($key === 'class' && is_array($value) && !$node instanceof Mention) {
@@ -1880,14 +1880,10 @@ class ProseMirrorToCarve
             // A Carve attribute value is a string, so a non-scalar has no form
             // here. `null` is the editor's way of saying "unset", so it carries
             // nothing to lose; anything else does, and used to fall off the end
-            // of this loop without a word. Tiptap's resizable table stores
-            // `colwidth` as an array, which is the case with a real producer
-            // behind it.
-            //
-            // Reported rather than encoded: a joined string would come back as
-            // a string and not an array, and a JSON-encoded one would put an
-            // unauthorable value in source. Which of those is right is a design
-            // question (carve-php#541); being silent is not.
+            // of this loop without a word. Tiptap's `colwidth` array is editor
+            // layout and skipped above (carve-php#4948); any other array is
+            // reported rather than encoded, since neither a joined nor a
+            // JSON-encoded string reads back as what the editor held.
             if ($value !== null) {
                 $this->droppedAttributes[(string)$key] = sprintf(
                     'a Carve attribute holds a string, and this value is of type %s',

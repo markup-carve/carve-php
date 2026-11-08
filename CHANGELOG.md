@@ -12,6 +12,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ### Improvements
 
 - `ProseMirrorRenderer::register()` renders an application's own nodes, the counterpart of `ProseMirrorToCarve::register()` (#4947).
+- `ProseMirrorToCarve` leaves Tiptap's `colwidth` out of Carve without reporting it in `droppedAttributes()`; the schema map now lists it as editor layout (#4948).
 
 ## [0.1.17] - 2026-11-08
 
