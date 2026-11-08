@@ -234,7 +234,22 @@ final class ListBodyRebaser
         $noteBodyColumn = IndentationHelper::getLeadingColumns($lines[$start]) + BlockGrammar::FOOTNOTE_BODY_COLUMN;
         // A definition-shaped line inside the note's code fence is payload.
         $fence = null;
-        for ($j = $start + 1; $j < $count; $j++) {
+        $from = $start + 1;
+        // A marker-line `+` takes the run below it at any column (CARVE-P9-013 point 3);
+        // the note resumes at its body column after it (carve#5512).
+        if (
+            preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($lines[$start], " \t"), $definition) === 1
+            && trim($definition[2], " \t") === '+'
+        ) {
+            while (
+                $from < $count && !IndentationHelper::isBlankLine($lines[$from])
+                && IndentationHelper::getLeadingColumns($lines[$from], $noteBodyColumn) < $noteBodyColumn
+                && !($stopAtDefinition && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($lines[$from], " \t")) === 1)
+            ) {
+                $end = $from++;
+            }
+        }
+        for ($j = $from; $j < $count; $j++) {
             $candidate = $lines[$j];
             $column = IndentationHelper::getLeadingColumns($candidate);
             if ($fence !== null) {
