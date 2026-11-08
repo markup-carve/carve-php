@@ -728,7 +728,9 @@ final class BlockOwnershipWalk
             }
             // A line leaving a line block's open `%%%` span keeps the opener base (carve#4994).
             $leftLineBlockSpan = $inner->kind === 'fence' && $inner->lineBlock && $inner->span !== null && $inner->span[0] === '%';
-            if ($inner->kind === 'fence' && !($inner->lineBlock && $inner->para && $this->m['rest'] !== '')) {
+            // An open payload span cannot carry the stanza past a quote the line missed (carve#5062).
+            $spanLeavesQuote = $inner->span !== null && $inner->span[0] !== '%' && $this->quoteBelow($reached);
+            if ($inner->kind === 'fence' && !($inner->lineBlock && $inner->para && $this->m['rest'] !== '' && !$spanLeavesQuote)) {
                 array_pop($this->frames);
                 $opener = $inner->opened ?? $inner->line;
                 if ($inner->family === 'comment' && $this->m['rest'] !== '' && $opener !== null && preg_match('/%{3,}/', $lines[$opener] ?? '', $run) === 1) {

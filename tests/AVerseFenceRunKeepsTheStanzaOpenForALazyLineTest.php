@@ -46,4 +46,11 @@ final class AVerseFenceRunKeepsTheStanzaOpenForALazyLineTest extends TestCase
         self::assertMatchesRegularExpression('~<div class="line-block">\n\s*<p>[^\n]*\n:</(code|p)>~', $html, $source);
         self::assertStringNotContainsString('<p>:</p>', $html, $source);
     }
+
+    public function testAnOpenSpanDoesNotCarryTheStanzaPastAMissedQuote(): void
+    {
+        $html = (new CarveConverter())->convert("> - ::: |\n>   ```\n>   :::\nlazy\n>   ```\n>   :::\n- tail\n");
+
+        self::assertStringContainsString("</blockquote>\n<p>lazy</p>\n<blockquote>", $html);
+    }
 }
