@@ -40,11 +40,6 @@ final class OwnershipFrame
     public bool $plusAttached = false;
 
     /**
-     * The marker axes of the item whose sibling ends this fence.
-     */
-    public ?string $siblingAxes = null;
-
-    /**
      * A marker-line attachment can move its opener outside the host's content column.
      * Keep that host for the trace when the attached container ends at a blank.
      *
