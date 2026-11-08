@@ -421,7 +421,10 @@ final class ListBlockBuilder
             // A comment line or `%%%` opener after the blank is invisible as well (PART 0 recovery table).
             $firstSubInvisible = $firstSubLine !== false
                 && ($this->isFoldableInvisibleLine(ltrim($firstSubLine, " \t")) || str_starts_with(ltrim($firstSubLine, " \t"), '%%'));
-            if ($lastItemHadBlankAfter && ($subRetainedMarker || $firstSubInvisible)) {
+            if (
+                $lastItemHadBlankAfter && ($subRetainedMarker || $firstSubInvisible)
+                && $this->firstVisible(array_slice($children, 0, $before)) !== null
+            ) {
                 foreach (array_slice($lastItem->getChildren(), $before) as $child) {
                     if (self::rendersNothing($child)) {
                         continue;
