@@ -42,4 +42,11 @@ HTML;
 
         self::assertStringNotContainsString('<p>body</p>', $html);
     }
+
+    public function testRepeatedMarkerReleasesParagraphInsideDiv(): void
+    {
+        $html = (new CarveConverter())->convert("::: note\n[^a]: +\n[^a]: +\n kept\n\nsee[^a]\n:::\n");
+
+        self::assertStringContainsString("<p>kept</p>\n  <p>see", $html);
+    }
 }
