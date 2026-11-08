@@ -1628,6 +1628,7 @@ final class BlockOwnershipWalk
             return;
         }
         $fence = $this->frames[count($this->frames) - 1];
+        $fence->plusAttached = true;
         if (in_array($this->frames[$host]->kind, ['note', 'dd'], true)) {
             $fence->blankHostFrames = array_slice($this->frames, 0, $host + 1);
         }
@@ -1686,7 +1687,7 @@ final class BlockOwnershipWalk
     {
         $top = $this->frames[$frameCount - 1];
 
-        return $top->kind === 'fence' && $top->family === 'code' && $this->m['col'] >= $top->col;
+        return $top->kind === 'fence' && $top->plusAttached && $this->m['col'] >= $top->col;
     }
 
     private function attachedCodeFenceBlankAhead(int $at, int $column, string $char, int $length): bool

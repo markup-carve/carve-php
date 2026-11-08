@@ -35,6 +35,11 @@ final class OwnershipFrame
     public ?int $siblingEndsAt = null;
 
     /**
+     * Whether a `+` attached this code fence, so a `+` inside it is payload (PART 9 §17 L3).
+     */
+    public bool $plusAttached = false;
+
+    /**
      * The marker axes of the item whose sibling ends this fence.
      */
     public ?string $siblingAxes = null;
