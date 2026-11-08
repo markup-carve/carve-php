@@ -4986,7 +4986,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
         }
 
-        return ['content' => trim($html), 'endsInParagraph' => $endsInParagraph];
+        // Only the wrapper's line breaks are disposable. Raw blocks carry
+        // authored spaces at either edge of their payload (carve-php#4925).
+        return ['content' => trim($html, "\n"), 'endsInParagraph' => $endsInParagraph];
     }
 
     /**
