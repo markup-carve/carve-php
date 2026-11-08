@@ -216,7 +216,7 @@ final class ListBlockBuilder
         $contentIndent = $baseIndent + $this->listMarkerWidth(ltrim($lines[$j], " \t"), $lead);
         $noteBodyFloor = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $lead['content'], $leadNote) === 1
             ? $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN : null;
-        // A note's `+` takes the run below it into the note at any column (CARVE-P9-013 point 3).
+        // A note's `+` takes the run below it into the note body at any column (CARVE-P9-013 point 3).
         $plusTakes = $noteBodyFloor !== null && $this->leadBottomIsContinuationMarker($leadNote[2]) ? $j + 1 : null;
         $itemLines = [];
         $noteLines = [];
@@ -225,6 +225,7 @@ final class ListBlockBuilder
         foreach ($below as $offset => $line) {
             if ($plusTakes !== null && $j + 1 + $offset === $plusTakes) {
                 $plusTakes++;
+                $noteLines[$offset] = ltrim($line, " \t");
 
                 continue;
             }

@@ -2355,6 +2355,15 @@ class BlockParser
             return;
         }
         $children = $parent->getChildren();
+        // A lead of only invisible lines is no first block, so the blank separates nothing (CARVE-P9-013 point 3).
+        $visibleBefore = array_filter(
+            array_slice($children, 0, $childrenBeforeBlank),
+            static fn (Node $child): bool => !self::rendersNothing($child)
+                && !$child instanceof AbbreviationDefinition && !$child instanceof LinkReferenceDefinition,
+        );
+        if ($visibleBefore === []) {
+            return;
+        }
         $next = $children[$childrenBeforeBlank] ?? null;
         // A blank an open fence in a child list carries stays that list's before a block (PART 9 §17 L1).
         if (
