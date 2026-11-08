@@ -844,6 +844,7 @@ class BlockParser
         $this->state->source->resetItemMarkerIndex();
         $this->state->source->lazyLines = $walk->lazyLines;
         $this->state->source->attachedPreludeLines = $walk->attachedPreludeLines;
+        $this->state->source->losingNoteLines = $walk->losingNoteLines;
         $this->state->source->attachedPreludeContentColumns = $walk->attachedPreludeContentColumns;
         $this->state->source->commentPayloadHostColumns = $walk->commentPayloadHostColumns;
         $this->state->source->lineBlockLazyLines = $walk->lineBlockLazyLines;
@@ -3729,14 +3730,10 @@ class BlockParser
             return null;
         }
 
-        // A losing marker-line definition has no host for a pulled block.
-        // Its ordinary indented body still belongs to the definition.
+        // A losing marker-line definition takes nothing: the block below is not its body (PART 9R R2, carve#5474).
         if (
-            isset($this->state->session->footnotes[$key])
-            && trim($content, " \t") === '+'
-            && isset($lines[$start + 1])
-            && !IndentationHelper::isBlankLine($lines[$start + 1])
-            && IndentationHelper::getLeadingColumns($lines[$start + 1]) < self::FOOTNOTE_BODY_COLUMN
+            trim($content, " \t") === '+'
+            && (isset($this->state->session->footnotes[$key]) || isset($this->state->source->losingNoteLines[$this->sourceLineFor($start)]))
         ) {
             return 1;
         }

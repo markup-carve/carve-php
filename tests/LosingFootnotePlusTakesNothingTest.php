@@ -59,11 +59,11 @@ HTML;
         self::assertStringContainsString($needle, substr($html, 0, $notes));
     }
 
-    public function testLosingPlusKeepsItsOrdinaryBodyInvisible(): void
+    public function testLosingPlusHasNoIndentedBodyEither(): void
     {
         $html = (new CarveConverter())->convert("[^a]: x\n[^a]: +\n  body\n\nsee[^a]\n");
 
-        self::assertStringNotContainsString('body', $html);
+        self::assertStringStartsWith('<p>body</p>', $html);
     }
 
     public function testDistinctLabelStillTakesTheBlock(): void
