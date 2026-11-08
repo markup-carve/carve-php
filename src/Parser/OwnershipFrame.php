@@ -30,11 +30,6 @@ final class OwnershipFrame
     public bool $endsAtBlank = false;
 
     /**
-     * The marker column at which a sibling marker ends this `+` attached code fence, set when a blank follows it (carve#3421).
-     */
-    public ?int $siblingEndsAt = null;
-
-    /**
      * Whether a `+` attached this code fence, so a `+` inside it is payload (PART 9 §17 L3).
      */
     public bool $plusAttached = false;

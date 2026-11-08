@@ -63,10 +63,13 @@ class ANestedItemSiblingMarkerInAnAttachedFenceIsPayloadTest extends TestCase
         );
     }
 
-    public function testCarve5509NewItemKeepsItsParagraph(): void
+    /**
+     * The carve#5509 shape at the top level: the marker is payload there too (carve#5531).
+     */
+    public function testCarve5509TopLevelMarkerIsPayload(): void
     {
         self::assertSame(
-            "<ol>\n  <li>\n    <pre><code></code></pre>\n  </li>\n</ol>\n<ul>\n  <li><p>z</p>\n    <p>y</p>\n  </li>\n</ul>",
+            "<ol>\n  <li>\n    <pre><code>- z\n</code></pre>\n  </li>\n</ol>\n<p>y</p>",
             CarveConverter::create()->convert("1. +\n```\n- z\n\n  y\n"),
         );
     }
