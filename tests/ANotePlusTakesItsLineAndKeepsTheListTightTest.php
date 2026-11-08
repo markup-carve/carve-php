@@ -48,9 +48,19 @@ final class ANotePlusTakesItsLineAndKeepsTheListTightTest extends TestCase
             "<ul>\n  <li>see<a id=\"fnref1\"",
         ];
 
-        yield 'a taken heading ends the note on a block, as an indented note body does' => [
+        yield 'a note that ends on a heading' => [
             "- [^a]: +\n  # H\n\n  see[^a]\n",
-            "<ul>\n  <li><p>see<a id=\"fnref1\"",
+            "<ul>\n  <li>see<a id=\"fnref1\"",
+        ];
+
+        yield 'shape C: a blank inside the note body' => [
+            "- [^a]: d\n\n    para\n\n  see[^a]\n",
+            "<ul>\n  <li>see<a id=\"fnref1\"",
+        ];
+
+        yield 'a later note that ends on a quote' => [
+            "- [^a]: x\n  [^b]: d\n    > q\n\n  see[^a][^b]\n",
+            "<ul>\n  <li>see<a id=\"fnref1\"",
         ];
 
         yield 'shape E: a comment lead before a definition' => [

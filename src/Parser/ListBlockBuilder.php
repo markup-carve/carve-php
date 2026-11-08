@@ -219,13 +219,9 @@ final class ListBlockBuilder
         // A note's `+` takes the run below it into the note body at any column (CARVE-P9-013 point 3).
         $plusTakes = $noteBodyFloor !== null && $this->leadBottomIsContinuationMarker($leadNote[2]) ? $j + 1 : null;
         $itemLines = [];
-        $noteLines = [];
-        $noteStart = 0;
-        $noteBody = $leadNote[2] ?? '';
         foreach ($below as $offset => $line) {
             if ($plusTakes !== null && $j + 1 + $offset === $plusTakes) {
                 $plusTakes++;
-                $noteLines[$offset] = ltrim($line, " \t");
 
                 continue;
             }
@@ -237,56 +233,21 @@ final class ListBlockBuilder
             if ($noteBodyFloor !== null && IndentationHelper::getLeadingColumns($line) < $noteBodyFloor) {
                 $noteBodyFloor = null;
             }
-            // A line the note's body reaches renders in the note, a list it opens included (carve#4860).
+            // A note body renders in the note, so it is no item block either (carve#5466).
             if ($noteBodyFloor !== null) {
-                $noteLines[$offset] = ltrim($line, " \t");
-
                 continue;
             }
             $rebased = IndentationHelper::stripLeadingColumns($line, $contentIndent);
             if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($rebased, " \t"), $note) === 1) {
                 $noteBodyFloor = IndentationHelper::getLeadingColumns($line) + BlockGrammar::FOOTNOTE_BODY_COLUMN;
                 $plusTakes = $this->leadBottomIsContinuationMarker($note[2]) ? $j + 2 + $offset : null;
-                // Only the last note's body decides the blank below it.
-                $noteLines = [];
-                $noteStart = $offset + 1;
-                $noteBody = $note[2];
 
                 continue;
             }
             $itemLines[] = $line;
         }
 
-        // A note that ends on a block leaves the blank to part the item's blocks; one that ends
-        // on its paragraph, or on a list under that paragraph, keeps it (PART 9 §17 L1b).
-        if ($noteLines !== [] && $this->noteEndsOnBlock($noteLines, $noteStart, $noteBody)) {
-            return false;
-        }
-
         return $this->tailRendersNothing([...$commentLead, ...$itemLines]);
-    }
-
-    /**
-     * @param array<int, string> $noteLines
-     * @param int $start
-     * @param string $noteBody
-     */
-    private function noteEndsOnBlock(array $noteLines, int $start, string $noteBody): bool
-    {
-        $offsets = array_keys($noteLines);
-        // A blank inside the note parts the item's blocks as it parts the note's.
-        if ($offsets[0] !== $start || end($offsets) - $offsets[0] + 1 !== count($offsets)) {
-            return true;
-        }
-        $runs = array_values($noteLines);
-        $last = (string)end($runs);
-        if (($this->getListParser)()->parseListItemMarker($last) === null) {
-            return $this->isBlockElementStart($last) && !str_starts_with($last, '>');
-        }
-        $above = count($runs) > 1 ? $runs[count($runs) - 2] : $noteBody;
-
-        return $this->isBlockElementStart($above) && ($this->getListParser)()->parseListItemMarker($above) === null
-            && !str_starts_with($above, '>') && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $above) !== 1;
     }
 
     private function holdsAdjacentParagraphs(ListItem $item): bool
