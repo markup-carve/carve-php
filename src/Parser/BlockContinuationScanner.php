@@ -1595,6 +1595,14 @@ final class BlockContinuationScanner
         // Track the note's blank and a marker released to the item separately.
         // Both stop mattering once a line leaves the item's content column.
         $run->noteSourceCursor = $i;
+        // A marker-line `+` takes the run below it at any column; the note resumes at its body column after it (carve#5512).
+        if ($run->markerNoteItem && trim((string)preg_replace(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, '$2', $itemLines[0]), " \t") === '+') {
+            $noteBody = $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN;
+            for ($j = $i; $j < $count && !IndentationHelper::isBlankLine($lines[$j]) && IndentationHelper::getLeadingColumns($lines[$j], $noteBody) < $noteBody; $j++) {
+                $run->noteSourceCursor++;
+                $run->markerRunCursor++;
+            }
+        }
         // Seeded over the lead for the same reason the comment fence is: the
         // item's `- :: t` / `  : d` spelling writes the body on a line this
         // collector never sees.
