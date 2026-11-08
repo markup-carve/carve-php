@@ -29,6 +29,7 @@ The block reader now follows the spec model's ownership walk (rule A) and the on
 
 ### Fixes
 
+- A paragraph after a repeated `+` footnote definition is no longer dropped (#4905).
 - Comment spans and verse blocks retain their authored content and release following lines to the right container, including empty spans, quoted spans, and blanks (#4748, #4750, #4751, #4759, #4772, #4773, #4774, #4775, #4776, #4779, #4783, #4785, #4790, #4794, #4796, #4797, #4799, #4800, #4801, #4803, #4805, #4813, #4827, #4834, #4900).
 - Attached quotes, colon blocks, and fences stay with their hosts through closers. Closed fences keep blank payload; unclosed ones end at their first blank. Refused continuations leave surrounding content in place (#4761, #4762, #4763, #4802, #4806, #4807, #4810, #4815, #4826, #4828, #4829, #4835, #4836, #4838, #4841, #4842, #4843, #4844, #4847, #4849, #4851, #4852, #4853, #4854, #4855, #4858, #4863, #4864, #4865, #4866, #4867, #4869, #4870, #4872, #4873, #4874, #4877, #4879, #4887, #4888, #4889, #4890, #4892, #4893, #4895, #4901).
 - Lists, descriptions, notes, and quotes keep nested lines with their authored owner and end at the correct sibling or document boundary (#4757, #4769, #4778, #4780, #4795, #4804, #4812, #4816, #4817, #4818, #4819, #4821, #4823, #4825, #4833, #4861, #4875, #4878, #4891).
