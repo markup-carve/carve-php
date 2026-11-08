@@ -1201,8 +1201,16 @@ final class BlockOwnershipWalk
      * @param array<int, string> $lines
      * @param array<int, string> $result
      */
-    private static function standSkippedRunInHost(OwnershipFrame $host, int $from, int $at, string $lead, array $fenced, array $losing, array $lines, array &$result): void
-    {
+    private static function standSkippedRunInHost(
+        OwnershipFrame $host,
+        int $from,
+        int $at,
+        string $lead,
+        array $fenced,
+        array $losing,
+        array $lines,
+        array &$result,
+    ): void {
         $pad = str_repeat(' ', self::spanPad($host));
         if ($pad === '') {
             return;
