@@ -2929,12 +2929,13 @@ final class BlockOwnershipWalk
         }
         $basis = isset($this->lines[$end]) && $this->throughQuotes($this->lines[$end], $hostIndex, $this->frames) !== null ? $this->lines[$end] : $this->lines[$at];
         $raw = $this->throughQuotes($basis, $hostIndex, $this->frames, true)['rest'] ?? $basis;
-        $lead = substr($basis, 0, strlen($basis) - strlen($raw)) . str_repeat(' ', $this->frames[$hostIndex]->markerCanon);
-        // A bare quote blank contributes `>` but the carried definition still
-        // needs the quote's content separator to stay inside that quote.
-        if (str_ends_with($lead, '>')) {
-            $lead .= ' ';
+        $prefix = substr($basis, 0, strlen($basis) - strlen($raw));
+        // A quoted prelude carries the quote's content separator before its
+        // host-relative marker column, even when that column is nonzero.
+        if (str_ends_with($prefix, '>')) {
+            $prefix .= ' ';
         }
+        $lead = $prefix . str_repeat(' ', $this->frames[$hostIndex]->markerCanon);
         $this->skipped = [
             'host' => $this->frames[$hostIndex],
             'at' => $at,
