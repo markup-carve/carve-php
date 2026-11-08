@@ -79,6 +79,13 @@ final class BlockOwnershipWalk
     public array $losingNoteLines = [];
 
     /**
+     * Per skipped run (keyed by its `+` line): the first line not yet moved to the host's content column.
+     *
+     * @var array<int, int>
+     */
+    private array $skippedRunShiftedTo = [];
+
+    /**
      * The content column of the host that kept each prelude line.
      *
      * @var array<int, int>
@@ -422,6 +429,7 @@ final class BlockOwnershipWalk
         $this->lazyLines = [];
         $this->attachedPreludeLines = [];
         $this->losingNoteLines = [];
+        $this->skippedRunShiftedTo = [];
         $this->attachedPreludeContentColumns = [];
         $this->commentPayloadHostColumns = [];
         $this->skippedCommentLines = [];
@@ -1132,7 +1140,12 @@ final class BlockOwnershipWalk
                 // Like any note marker line it ends the paragraph open before it.
                 $this->losingNoteLines[$at] = true;
                 $skipped['host']->para = false;
-                self::standSkippedRunInHost($skipped['host'], $skipped['at'] + 1, $at, $skipped['lead'], $skipped['fenced'], $this->losingNoteLines, $result);
+                // Only while the block below still stands in the host; each skipped line moves once.
+                if ($this->throughQuotes($this->lines[$skipped['end']] ?? '', $skipped['hostIndex'], $this->frames) !== null) {
+                    $from = max($skipped['at'] + 1, $this->skippedRunShiftedTo[$skipped['at']] ?? 0);
+                    self::standSkippedRunInHost($skipped['host'], $from, $at, $skipped['lead'], $skipped['fenced'], $this->losingNoteLines, $this->lines, $result);
+                    $this->skippedRunShiftedTo[$skipped['at']] = $at + 1;
+                }
             }
             $this->noteLabels[$key] = true;
         }
@@ -1185,16 +1198,26 @@ final class BlockOwnershipWalk
      * @param string $lead
      * @param array<int, bool> $fenced
      * @param array<int, true> $losing
+     * @param array<int, string> $lines
      * @param array<int, string> $result
      */
-    private static function standSkippedRunInHost(OwnershipFrame $host, int $from, int $at, string $lead, array $fenced, array $losing, array &$result): void
-    {
+    private static function standSkippedRunInHost(
+        OwnershipFrame $host,
+        int $from,
+        int $at,
+        string $lead,
+        array $fenced,
+        array $losing,
+        array $lines,
+        array &$result,
+    ): void {
         $pad = str_repeat(' ', self::spanPad($host));
         if ($pad === '') {
             return;
         }
         for ($k = $from; $k < $at; $k++) {
-            if (isset($losing[$k]) || ($fenced[$k] ?? false) || !isset($result[$k]) || !str_starts_with($result[$k], $lead)) {
+            // A line whose own prefix is not the host's lead stands outside it.
+            if (isset($losing[$k]) || ($fenced[$k] ?? false) || !isset($result[$k]) || !str_starts_with($lines[$k] ?? '', $lead) || !str_starts_with($result[$k], $lead)) {
                 continue;
             }
             $result[$k] = $lead . $pad . substr($result[$k], strlen($lead));
