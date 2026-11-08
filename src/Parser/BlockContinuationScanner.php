@@ -4397,7 +4397,8 @@ final class BlockContinuationScanner
             if (
                 $column > 0
                 && preg_match('/^`{3,}|^~{3,}/', $text, $fence) === 1
-                && ($this->getFencedBlockParser)()->parseCodeFenceOpener($text) !== null
+                && (($this->getFencedBlockParser)()->parseCodeFenceOpener($text) !== null
+                    || ($this->getFencedBlockParser)()->parseRawBlockOpener($text) !== null)
             ) {
                 $run->markerLineFence = ['char' => $fence[0][0], 'length' => strlen($fence[0]), 'column' => $column, 'base' => $column];
 
@@ -4423,7 +4424,11 @@ final class BlockContinuationScanner
                 $bodyColumn += $this->listMarkerWidth($body, $marker);
                 $body = $marker['content'];
             }
-            if (preg_match('/^`{3,}|^~{3,}/', $body, $fence) === 1 && ($this->getFencedBlockParser)()->parseCodeFenceOpener($body) !== null) {
+            if (
+                preg_match('/^`{3,}|^~{3,}/', $body, $fence) === 1
+                && (($this->getFencedBlockParser)()->parseCodeFenceOpener($body) !== null
+                    || ($this->getFencedBlockParser)()->parseRawBlockOpener($body) !== null)
+            ) {
                 $run->markerLineFence = [
                     'char' => $fence[0][0],
                     'length' => strlen($fence[0]),
