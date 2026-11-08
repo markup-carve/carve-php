@@ -21,6 +21,7 @@ use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
 use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\Ruby;
@@ -735,12 +736,11 @@ class HeadingIdTracker
 
             // LINKS NEVER NEST (PART 12 section 3a). A derived label rendered
             // inside an anchor may not carry one, so a link unwraps to its
-            // display content - and a Mention is a Link, so a mention and a tag
-            // unwrap here too, which is the answer this engine already gives for
-            // `[see @bob](/u)`. An UNRESOLVED reference is not a link the reader
-            // ever sees: it is literal source, so it keeps that source rather
-            // than printing its label.
-            if ($insideLink && $child instanceof Link) {
+            // display content. A mention or tag with no destination renders as
+            // an inert span (19 section 8), not a link, so it stays (carve-php#4944).
+            // An UNRESOLVED reference is not a link the reader ever sees: it is
+            // literal source, so it keeps that source rather than printing its label.
+            if ($insideLink && $child instanceof Link && !self::isInertMention($child)) {
                 if ($this->isUnresolvedReferenceLink($child)) {
                     $nodes[] = new Text($child->getRawReferenceLabel() ?? '');
 
@@ -774,6 +774,11 @@ class HeadingIdTracker
             }
             $nodes[] = $clone;
         }
+    }
+
+    private static function isInertMention(Link $node): bool
+    {
+        return $node instanceof Mention && ($node->getDestination() ?? '') === '';
     }
 
     /**

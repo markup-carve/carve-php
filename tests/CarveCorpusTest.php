@@ -1708,9 +1708,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        '872-the-third-confirmation-round-s-model-findings-5' => 'carve#4616: a caption number lands after the tag or mention before it',
-    ];
+    protected const KNOWN_GAPS = [];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED
