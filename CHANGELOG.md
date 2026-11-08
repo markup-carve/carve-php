@@ -9,15 +9,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
-### Fixed
-
-- A blank before an unclosed comment span's payload now keeps sibling list items loose (carve#5266).
-- A blank within an open verse comment span now keeps description stanzas open and returns a quoted nested item's following line to the outer quote (carve#5267, carve#5269).
-- A comment span opened on a nested list marker line now ends at a line below that item's content column, so the lazy line after it stays in the outer item (carve#5274).
-- A description-shaped line that misses a quote now folds into an open verse stanza of a quoted item's description instead of ending the item (carve#5273).
-- A missed line after a quoted empty verse span now leaves nested quotes and item-hosted quotes at the document boundary (carve#5265, carve#5268).
-
-## [0.1.17] - 2026-11-06
+## [0.1.17] - 2026-11-08
 
 The block reader now follows the spec model's ownership walk (rule A) and the one attach rule for `+`. Markdown import follows CommonMark 0.31, and lint gains suppression comments and Markdown-habit rules.
 
@@ -37,6 +29,16 @@ The block reader now follows the spec model's ownership walk (rule A) and the on
 
 ### Fixes
 
+- Comment spans and verse blocks retain their authored content and release following lines to the right container, including empty spans, quoted spans, and blanks (#4748, #4750, #4751, #4759, #4772, #4773, #4774, #4775, #4776, #4779, #4783, #4785, #4790, #4794, #4796, #4797, #4799, #4800, #4801, #4803, #4805, #4813, #4827, #4834, #4900).
+- Attached quotes, colon blocks, and fences stay with their hosts through closers. Closed fences keep blank payload; unclosed ones end at their first blank. Refused continuations leave surrounding content in place (#4761, #4762, #4763, #4802, #4806, #4807, #4810, #4815, #4826, #4828, #4829, #4835, #4836, #4838, #4841, #4842, #4843, #4844, #4847, #4849, #4851, #4852, #4853, #4854, #4855, #4858, #4863, #4864, #4865, #4866, #4867, #4869, #4870, #4872, #4873, #4874, #4877, #4879, #4887, #4888, #4889, #4890, #4892, #4893, #4895, #4901).
+- Lists, descriptions, notes, and quotes keep nested lines with their authored owner and end at the correct sibling or document boundary (#4757, #4769, #4778, #4780, #4795, #4804, #4812, #4816, #4817, #4818, #4819, #4821, #4823, #4825, #4833, #4861, #4875, #4878, #4891).
+- Line blocks preserve authored spacing and columns, then end at the first blank or the end of their host (#4768, #4771, #4788, #4882, #4885, #4886).
+- Description paragraph handling returns to the previous reading after an interim change was reverted (#4789, #4793).
+- AST output omits invisible comment-only paragraphs, keeps numeric footnote labels, and assigns visible footnote heading ids in definition order (#4742, #4752, #4754, #4786).
+- Lint reports one warning per overindented list opener, excludes child payload from colon closer checks, and respects table alignment and list ownership (#4746, #4755, #4758, #4760).
+- Plain text, ANSI, and unresolved-reference output retain line and image fallback content (#4732, #4747, #4756).
+- Attributed bracket spans use the shared inline nesting limit (#4744).
+- Tables retain authored column metadata and place cell text after marker attributes (#4733, #4741).
 - Recent container fixes keep nested descriptions, lists, fences, captions, and comment runs with their owner, including lazy lines, refused `+` markers, and erased lines (#4643, #4645, #4649, #4659, #4663, #4664, #4665, #4666, #4668, #4675, #4676, #4677, #4678, #4679, #4680, #4682, #4685, #4686, #4688, #4690, #4691, #4692, #4693, #4694, #4695, #4696, #4697, #4698, #4700, #4701, #4702, #4703, #4705, #4712).
 - Authored AST spans now follow comments, definitions, line blocks, captions, and list markers through nested layouts (#4710, #4711, #4726).
 - Markdown alert labels and references keep their literal or escaped form on import, export, and lint; table wraps precede verbatim joins (#4717, #4718, #4719, #4720, #4727).
@@ -62,6 +64,8 @@ The block reader now follows the spec model's ownership walk (rule A) and the on
 
 ### Improvements
 
+- Rendering and ownership scans avoid repeated work on small documents, separated comments, and completed attached fences (#4743, #4777, #4846, #4897).
+- Markdown fidelity reports assess list and paragraph constructs (#4731).
 - The ownership walk, erasure pass, lint traversal, and loose-list writer avoid repeated work on common inputs (#4648, #4652, #4653, #4655, #4662, #4667, #4689).
 - `carve trace <file>` and `DecisionTrace::records()` print the block decision trace as JSON lines (#4294).
 - Lint suppression comments `%% carve-lint-disable`, `-enable`, `-disable-line` and `-disable-next-line`, plus `unused-link-reference-definition` (#4192).
