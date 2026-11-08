@@ -1,9 +1,4 @@
 {
   "comment": "Conformance pack cases this engine renders differently from the spec model, one entry per cause with its open ticket. See tests/ConformancePackTest.php.",
-  "entries": [
-    {
-      "ticket": "markup-carve/carve#5465",
-      "cases": ["notes-ab5ed6124fb2"]
-    }
-  ]
+  "entries": []
 }

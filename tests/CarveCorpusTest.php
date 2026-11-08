@@ -52,6 +52,14 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'adjacent-invalid-includes-keep-their-tokens-literal',
+        'an-attached-fence-closes-only-at-its-host-column-carve-5410',
+        'a-block-at-a-pulled-footnote-column-opens-in-the-note',
+        'a-skipped-note-definition-cannot-claim-an-earlier-plus',
+        'a-block-at-the-host-column-after-a-plus-attached-quote-stays-in-the-host',
+        'a-nested-item-resumes-after-its-attached-fence-with-an-empty-line',
+        'an-outer-plus-host-resumes-after-a-quote-holding-a-plus-host',
+        'a-caption-at-the-host-column-captions-a-plus-attached-quote',
         'a-deprecated-cell-alignment-prefix-reads-as-its-braced-run',
         'a-line-after-a-comment-block-in-a-line-block-reads-the-stanza-without-it',
         'a-braced-comment-before-a-flag-opener-counts-as-nothing',
@@ -1717,24 +1725,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '758-a-hosted-footnote-keeps-a-heading-at-its-body-floor' => [
-            'reason' => 'carve#5407 and carve#5455: a hosted note keeps its attached heading and following body-column heading',
-            'html' => "<ul>\n  <li>a</li>\n</ul>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <h1 id=\"h\">h</h1>\n      <h1 id=\"h-2\">h</h1>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>\n",
-        ],
-        '851-a-first-block-plus-shape-reads-the-one-attach-rule-6' => [
-            'reason' => 'carve#5415: a refused description marker leaves no paragraph to continue the quote',
-            'html' => "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd></dd>\n  </dl>\n</blockquote>\n<p>para</p>\n",
-        ],
-        '971-an-ended-definition-list-releases-its-marker-boundary-3' => [
-            'reason' => 'carve#5411: the ruling on carve#5373 folds the marker-column line into the released paragraph',
-            'html' => "<ul>\n  <li><p>a</p>\n    <dl>\n      <dt>m</dt>\n      <dd>d</dd>\n    </dl>\n    <p>p</p>\n    <p>: x\n: l</p>\n  </li>\n</ul>\n",
-        ],
-        '868-a-paragraph-after-a-note-attached-fence-closed-past-a-blank-takes-a-lazy-line' => [
-            'reason' => 'carve#5410: an attached fence closes only at its host column, so the indented fence line opens a second fence',
-            'html' => "<p>see</p>\n<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <pre><code>a\n</code></pre>\n      <pre><code>c\n</code></pre>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>\n",
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 
