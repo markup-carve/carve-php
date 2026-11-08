@@ -3749,6 +3749,25 @@ final class BlockContinuationScanner
             $closesMetadataSameBaseFence,
             $inlineAuthoredFence,
         );
+        // The enclosing list may have retained part of an item's authored
+        // indentation while passing a nested item to this collector. A note
+        // definition at this item's own content column still starts a block,
+        // even when a prior note's plus took the preceding line.
+        if (
+            $column > $contentIndent
+            && $trailingState->fence === null && !$trailingState->hasOpenDiv()
+            && $run->openCommentLength === null
+            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $nextTrimmed) === 1
+        ) {
+            [, $authoredContentColumn] = $this->authoredItemColumns(
+                $this->state->source->authoredLines[$itemLineMap[0] ?? -1] ?? '',
+                $itemLines[0] ?? '',
+            );
+            $authored = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$this->sourceLineFor($i)] ?? '');
+            if ($authoredContentColumn !== null && IndentationHelper::getLeadingColumns($authored) === $authoredContentColumn) {
+                $contentLine = $nextTrimmed;
+            }
+        }
         [$inCommentSpan, $trackedContent] = $this->pushPlainContentLine(
             $run,
             $lines,
