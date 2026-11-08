@@ -484,6 +484,7 @@ final class BlockOwnershipWalk
             $this->out = '';
             $this->m = self::indentCols($this->src);
             $this->restoreEnclosingAttachedHost($at);
+            $this->endAttachedFenceAtSibling();
             $this->recordCommentPayloadHostColumn($at);
             // A `+` right after the block a `+` attached reaches the same host, whose
             // frames the walk closed when it read that block where it stands.
@@ -515,6 +516,7 @@ final class BlockOwnershipWalk
                 if (
                     $f->markerCol !== null && $this->m['col'] === $f->markerCol && ($f->kind === 'quote' || $this->m['col'] < $f->col)
                     && self::isPlus($this->m['rest'])
+                    && !$this->openCodeFenceKeepsPlus($frameCount)
                     && !($f->kind === 'quote' && $this->hasAttachedQuoteAncestor($k) && $quotesRead > 0 && $f->para && $quotesRead < $this->quoteDepth($k + 1))
                 ) {
                     $plus = $k;
@@ -1644,9 +1646,47 @@ final class BlockOwnershipWalk
             && $this->attachedCodeFenceBlankAhead($at, (int)$this->frames[$host]->markerCol, $opener['char'], $opener['length'])
         ) {
             $fence->col = $this->m['col'];
+            $fence->siblingEndsAt = (int)$this->frames[$host]->markerCol;
+            $fence->siblingAxes = $this->frames[$host]->axes;
+        } elseif (
+            $opener !== null && $this->attachedTo !== null && $this->attachedTo['item'] && $this->attachedTo['from'] === $at
+            && $this->attachedCodeFenceBlankAhead($at, $this->attachedTo['column'], $opener['char'], $opener['length'])
+        ) {
+            // A fence pulled to column 0 stands outside its item's frame; the item's marker column still bounds it.
+            $fence->siblingEndsAt = $this->attachedTo['column'];
+            $fence->siblingAxes = $this->attachedTo['frames'][count($this->attachedTo['frames']) - 1]->axes;
         }
         $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $fence->col;
         $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key, $this->frames[$host]->kind === 'item' ? $this->frames[$host]->col : null);
+    }
+
+    /**
+     * With a blank ahead, a sibling marker ends the unclosed fence a `+` attached; a `+` does not (PART 9 §17 L3).
+     */
+    private function endAttachedFenceAtSibling(): void
+    {
+        $top = $this->frames[count($this->frames) - 1];
+        if ($top->siblingEndsAt === null || $top->kind !== 'fence' || $this->m['col'] > $top->siblingEndsAt) {
+            return;
+        }
+        $marker = $this->listParser->parseListItemMarker($this->m['rest']);
+        if ($marker === null) {
+            return;
+        }
+        $axes = $marker['type'] === 'ordered' ? substr($marker['marker'], -1) : substr($marker['marker'], 0, 1);
+        if ($axes === $top->siblingAxes) {
+            $this->truncate(count($this->frames) - 1);
+        }
+    }
+
+    /**
+     * A `+` at an open code fence's content column stays payload (PART 9 §17 L3, carve#5494).
+     */
+    private function openCodeFenceKeepsPlus(int $frameCount): bool
+    {
+        $top = $this->frames[$frameCount - 1];
+
+        return $top->kind === 'fence' && $top->family === 'code' && $this->m['col'] >= $top->col;
     }
 
     private function attachedCodeFenceBlankAhead(int $at, int $column, string $char, int $length): bool

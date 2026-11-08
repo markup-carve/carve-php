@@ -1361,10 +1361,11 @@ trait BlockListMethods
                 }
                 // An unmarked indented line continues the open quoted
                 // paragraph. Its block-shaped text is not a new block here.
-                // With a blank or closer ahead, an unclosed lead fence ends at a sibling marker or a `+` (carve#3421).
+                // With a blank or closer ahead, an unclosed lead fence ends at a sibling marker (carve#3421);
+                // a `+` stays payload (PART 9 §17 L3, carve#5494).
                 if (
                     $leadFenceOpen && $trailingState->fence !== null && $lineIndent <= $baseIndent
-                    && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed))
+                    && $this->listParser->parseListItemMarker($trimmed) !== null
                 ) {
                     return true;
                 }
@@ -1373,8 +1374,8 @@ trait BlockListMethods
                     && ($this->fencedBlockParser->parseCodeFenceOpener($trimmed) !== null || $this->fencedBlockParser->parseRawBlockOpener($trimmed) !== null);
                 if (
                     !($leadFenceOpen && $trailingState->fence !== null
-                        // With a blank or closer ahead, a sibling marker or a `+` still ends the run.
-                        && $this->listParser->parseListItemMarker($trimmed) === null && !$this->isContinuationMarker($trimmed))
+                        // With a blank or closer ahead, a sibling marker still ends the run.
+                        && $this->listParser->parseListItemMarker($trimmed) === null)
                     && !($trailingState->quoteParagraph && $lineIndent > $baseIndent)
                     && $index !== $refusedFollower
                     && $this->trailingBlockHasEnded($attachedKind, $trimmed, $lines, $index, $trailingState)

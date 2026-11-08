@@ -30,6 +30,16 @@ final class OwnershipFrame
     public bool $endsAtBlank = false;
 
     /**
+     * The marker column at which a sibling marker ends this `+` attached code fence, set when a blank follows it (carve#3421).
+     */
+    public ?int $siblingEndsAt = null;
+
+    /**
+     * The marker axes of the item whose sibling ends this fence.
+     */
+    public ?string $siblingAxes = null;
+
+    /**
      * A marker-line attachment can move its opener outside the host's content column.
      * Keep that host for the trace when the attached container ends at a blank.
      *
