@@ -291,9 +291,14 @@ final class BlockOwnershipWalk
     private int $releasedSibling = 0;
 
     /**
-     * @var array{widest: array<string, array<int, int>>, lastComment: array<int, int>, commentPositions: array<int, list<int>>, nextBlank: array<int, int>}|null
+     * @var array{widest: array<string, array<int, int>>, depths: array<int, int>, fenceRuns: array<int, string>, lastComment: array<int, int>, commentPositions: array<int, list<int>>, nextBlank: array<int, int>}|null
      */
     private ?array $runs = null;
+
+    /**
+     * @var array<string, array{int, int, int}>
+     */
+    private array $verseRunMisses = [];
 
     /**
      * Fence-shaped lines the walk read as paragraph text: result index to owner column.
@@ -412,6 +417,7 @@ final class BlockOwnershipWalk
         $this->letter = $letter;
         $this->lines = $lines;
         $this->runs = null;
+        $this->verseRunMisses = [];
         $this->textFences = [];
         $this->closingLines = [];
         $this->outerQuoteLines = [];
@@ -702,7 +708,7 @@ final class BlockOwnershipWalk
                     if (
                         preg_match('/^(`{3,}|~{3,})(.*)$/D', $rest, $f) === 1
                         && ($this->fenced->parseCodeFenceOpener($rest) !== null || $this->fenced->parseRawBlockOpener($rest) !== null)
-                        && ($this->closerRuns()['widest'][$f[1][0]][$at + 1] ?? 0) >= strlen($f[1])
+                        && $this->verseRunPairs($at, $f[1])
                     ) {
                         $this->frames[$innerIndex]->span = $f[1];
                     } elseif ($this->m['col'] - $inner->col <= 3 && preg_match('/^(%{3,})/', $rest, $c) === 1) {
@@ -2440,7 +2446,43 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * @return array{widest: array<string, array<int, int>>, lastComment: array<int, int>, commentPositions: array<int, list<int>>, nextBlank: array<int, int>}
+     * A verse run pairs with a later run of its kind; in a quote only before the first line that leaves it (carve#5062).
+     */
+    private function verseRunPairs(int $at, string $run): bool
+    {
+        $runs = $this->closerRuns();
+        if (($runs['widest'][$run[0]][$at + 1] ?? 0) < strlen($run)) {
+            return false;
+        }
+        $depth = 0;
+        foreach ($this->frames as $frame) {
+            $depth += (int)($frame->kind === 'quote');
+        }
+        if ($depth === 0) {
+            return true;
+        }
+        $key = $run[0] . $depth;
+        $miss = $this->verseRunMisses[$key] ?? null;
+        if ($miss !== null && $at >= $miss[0] && $at < $miss[1] && strlen($run) > $miss[2]) {
+            return false;
+        }
+        $widest = 0;
+        for ($j = $at + 1, $n = count($this->lines); $j < $n && $runs['depths'][$j] >= $depth; $j++) {
+            $found = $runs['fenceRuns'][$j] ?? '';
+            if ($found !== '' && $found[0] === $run[0]) {
+                if (strlen($found) >= strlen($run)) {
+                    return true;
+                }
+                $widest = max($widest, strlen($found));
+            }
+        }
+        $this->verseRunMisses[$key] = [$at, $j, $widest];
+
+        return false;
+    }
+
+    /**
+     * @return array{widest: array<string, array<int, int>>, depths: array<int, int>, fenceRuns: array<int, string>, lastComment: array<int, int>, commentPositions: array<int, list<int>>, nextBlank: array<int, int>}
      */
     private function closerRuns(): array
     {
@@ -2449,6 +2491,8 @@ final class BlockOwnershipWalk
         }
         $n = count($this->lines);
         $widest = ['`' => array_fill(0, $n + 1, 0), '~' => array_fill(0, $n + 1, 0)];
+        $depths = array_fill(0, $n, 0);
+        $fenceRuns = [];
         $lastComment = [];
         $commentPositions = [];
         $nextBlank = [$n => $n];
@@ -2456,12 +2500,14 @@ final class BlockOwnershipWalk
             $rest = self::indentCols($this->lines[$j])['rest'];
             while (preg_match(self::QUOTE, $rest, $q) === 1) {
                 $rest = self::indentCols($q[1] ?? '')['rest'];
+                $depths[$j]++;
             }
             $nextBlank[$j] = $rest === '' ? $j : $nextBlank[$j + 1];
             $widest['`'][$j] = $widest['`'][$j + 1];
             $widest['~'][$j] = $widest['~'][$j + 1];
             if (preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $rest, $c) === 1) {
                 $widest[$c[1][0]][$j] = max($widest[$c[1][0]][$j], strlen($c[1]));
+                $fenceRuns[$j] = $c[1];
             }
             if (preg_match('/^(%{3,})/', $rest, $c) === 1) {
                 $width = strlen($c[1]);
@@ -2476,6 +2522,8 @@ final class BlockOwnershipWalk
 
         return $this->runs = [
             'widest' => $widest,
+            'depths' => $depths,
+            'fenceRuns' => $fenceRuns,
             'lastComment' => $lastComment,
             'commentPositions' => $commentPositions,
             'nextBlank' => $nextBlank,
