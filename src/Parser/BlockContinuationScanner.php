@@ -1037,7 +1037,8 @@ final class BlockContinuationScanner
                 }
                 if (
                     IndentationHelper::isBlankLine($line)
-                    || $this->isContinuationMarker($line)
+                    // An open code fence keeps a `+` as payload (PART 9 §17 L3, carve#5494).
+                    || ($this->isContinuationMarker($line) && $attachedState->fence === null)
                     || isset($this->state->source->attachedQuoteEnds[$this->sourceLineFor($index)])
                     || ($attachedState->fence === null && $endsAtSibling !== null && $endsAtSibling($line, $index))
                     || ($markerEnds && $attachedState->fence === null && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null)
