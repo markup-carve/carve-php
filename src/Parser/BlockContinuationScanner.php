@@ -3762,8 +3762,17 @@ final class BlockContinuationScanner
         ) {
             $authoredLead = $this->state->source->authoredLines[$itemLineMap[0] ?? -1] ?? '';
             $leadContent = $itemLines[0] ?? '';
-            if (!str_ends_with(ContainerPrefix::stripQuoteMarkers($authoredLead), $leadContent)) {
-                $leadContent = $this->markerFreeContent(ltrim(ContainerPrefix::stripQuoteMarkers($authoredLead), " \t"));
+            $leadNote = $this->markerFreeContent(ltrim(ContainerPrefix::stripQuoteMarkers($authoredLead), " \t"));
+            preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $leadNote, $leadMatch);
+            preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $nextTrimmed, $nextMatch);
+            // A duplicate of the lead note may be a skipped line in the
+            // winner's plus run; its existing ownership path must stay intact.
+            if (
+                !str_ends_with(ContainerPrefix::stripQuoteMarkers($authoredLead), $leadContent)
+                && !isset($this->state->source->losingNoteLines[$this->sourceLineFor($i)])
+                && (!isset($leadMatch[1], $nextMatch[1]) || $leadMatch[1] !== $nextMatch[1])
+            ) {
+                $leadContent = $leadNote;
             }
             [, $authoredContentColumn] = $this->authoredItemColumns($authoredLead, $leadContent);
             $authored = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$this->sourceLineFor($i)] ?? '');
