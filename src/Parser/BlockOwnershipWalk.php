@@ -250,7 +250,7 @@ final class BlockOwnershipWalk
     /**
      * The invisible lines between a taken `+` and its block, read where that block stands (CARVE-P9-013).
      *
-     * @var array{host: \MarkupCarve\Carve\Parser\OwnershipFrame, at: int, end: int, hostIndex: int, fenced: array<int, bool>, noteBodies: array<int, true>, column: int, lead: string, spanPad?: int, runColumn?: int|null}|null
+     * @var array{host: \MarkupCarve\Carve\Parser\OwnershipFrame, at: int, end: int, hostIndex: int, fenced: array<int, bool>, noteBodies: array<int, true>, column: int, lead: string, spanPad?: int, runColumn?: int|null, offered?: bool}|null
      */
     private ?array $skipped = null;
 
@@ -1142,11 +1142,17 @@ final class BlockOwnershipWalk
                 $this->losingNoteLines[$at] = true;
                 $skipped['host']->para = false;
                 // Only while the block below still stands in the host; each skipped line moves once.
-                if ($this->throughQuotes($this->lines[$skipped['end']] ?? '', $skipped['hostIndex'], $this->frames) !== null) {
+                // A live `+` definition skipped before it is offered that block, as if the losing line were not there (carve#5528).
+                if (
+                    !($skipped['offered'] ?? false)
+                    && $this->throughQuotes($this->lines[$skipped['end']] ?? '', $skipped['hostIndex'], $this->frames) !== null
+                ) {
                     $from = max($skipped['at'] + 1, $this->skippedRunShiftedTo[$skipped['at']] ?? 0);
                     self::standSkippedRunInHost($skipped['host'], $from, $at, $skipped['lead'], $skipped['fenced'], $this->losingNoteLines, $this->lines, $result);
                     $this->skippedRunShiftedTo[$skipped['at']] = $at + 1;
                 }
+            } else {
+                $this->skipped['offered'] = self::isPlus($note[2]) && self::docColumn($this->lines[$at], $rest) === $skipped['column'];
             }
             $this->noteLabels[$key] = true;
         }
