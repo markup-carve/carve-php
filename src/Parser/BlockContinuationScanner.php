@@ -2544,6 +2544,7 @@ final class BlockContinuationScanner
                     $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 );
         }
+        $attachedChildFollower = $attachedChildFollower || $this->notePlusTakesFollower($i);
         if (
             $trailingState->fence === null
             && (!$trailingState->hasOpenDiv() || ($run->minimumFenceBase && $run->floorParagraphWitness && !$run->floorExistingDiv && !$run->floorSawFenceState && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + $trailingState->divColumn) < $contentIndent + $trailingState->divColumn))
@@ -5867,6 +5868,26 @@ final class BlockContinuationScanner
             $this->listMarkerWidth(...),
             $this->isContinuationMarker(...),
         );
+    }
+
+    /**
+     * A marker-line note's live `+` takes the block below it, past the walk's skipped prelude (PART 9 §17 L3, carve-php#4909).
+     */
+    private function notePlusTakesFollower(int $i): bool
+    {
+        $source = $this->state->source;
+        $follower = $this->sourceLineFor($i);
+        $at = $this->sourceLineFor($i - 1);
+        while ($at > 0 && isset($source->attachedPreludeLines[$at])) {
+            $at--;
+        }
+        $host = $this->state->session->firstBlockMarkerOwner($source, ($this->getListParser)(), $at);
+        if ($host === null || $host['kind'] !== 'footnote' || isset($source->losingNoteLines[$at])) {
+            return false;
+        }
+
+        return str_ends_with(rtrim($source->sourceLines[$at] ?? '', " \t"), ']: +')
+            && $host['column'] >= IndentationHelper::getLeadingColumns($source->sourceLines[$follower] ?? '');
     }
 
     /**

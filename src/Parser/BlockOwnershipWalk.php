@@ -1132,6 +1132,7 @@ final class BlockOwnershipWalk
                 // Like any note marker line it ends the paragraph open before it.
                 $this->losingNoteLines[$at] = true;
                 $skipped['host']->para = false;
+                self::standSkippedRunInHost($skipped['host'], $skipped['at'] + 1, $at, $skipped['lead'], $skipped['fenced'], $this->losingNoteLines, $result);
             }
             $this->noteLabels[$key] = true;
         }
@@ -1173,6 +1174,31 @@ final class BlockOwnershipWalk
         }
 
         return true;
+    }
+
+    /**
+     * A losing line ends the definitions skipped before it, so the host keeps them and the block below (PART 9R R2, carve-php#4909).
+     *
+     * @param \MarkupCarve\Carve\Parser\OwnershipFrame $host
+     * @param int $from
+     * @param int $at
+     * @param string $lead
+     * @param array<int, bool> $fenced
+     * @param array<int, true> $losing
+     * @param array<int, string> $result
+     */
+    private static function standSkippedRunInHost(OwnershipFrame $host, int $from, int $at, string $lead, array $fenced, array $losing, array &$result): void
+    {
+        $pad = str_repeat(' ', self::spanPad($host));
+        if ($pad === '') {
+            return;
+        }
+        for ($k = $from; $k < $at; $k++) {
+            if (isset($losing[$k]) || ($fenced[$k] ?? false) || !isset($result[$k]) || !str_starts_with($result[$k], $lead)) {
+                continue;
+            }
+            $result[$k] = $lead . $pad . substr($result[$k], strlen($lead));
+        }
     }
 
     /**
