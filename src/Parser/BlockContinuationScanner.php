@@ -1829,6 +1829,14 @@ final class BlockContinuationScanner
         $run->blankRun->end();
         $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
         $nextTrimmed = ltrim($nextLine, " \t");
+        // The ownership walk may have ended this item's open fence at a lower
+        // column. Let the enclosing parser read that line in its new owner.
+        if (
+            $trailingState->fence !== null && $nextIndent < $contentIndent
+            && !isset($this->state->source->fenceBodyLines[$this->sourceLineFor($i)])
+        ) {
+            return false;
+        }
         // A successive run's placeholder renders nothing, so the state stays as its marker left it (carve#5013).
         if ($nextIndent >= $contentIndent && $this->state->source->isConsumedMarker($this->sourceLineFor($i))) {
             $itemLines[] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
