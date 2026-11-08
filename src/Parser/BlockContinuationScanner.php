@@ -3760,10 +3760,12 @@ final class BlockContinuationScanner
             && $run->openCommentLength === null
             && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $nextTrimmed) === 1
         ) {
-            [, $authoredContentColumn] = $this->authoredItemColumns(
-                $this->state->source->authoredLines[$itemLineMap[0] ?? -1] ?? '',
-                $itemLines[0] ?? '',
-            );
+            $authoredLead = $this->state->source->authoredLines[$itemLineMap[0] ?? -1] ?? '';
+            $leadContent = $itemLines[0] ?? '';
+            if (!str_ends_with(ContainerPrefix::stripQuoteMarkers($authoredLead), $leadContent)) {
+                $leadContent = $this->markerFreeContent(ltrim(ContainerPrefix::stripQuoteMarkers($authoredLead), " \t"));
+            }
+            [, $authoredContentColumn] = $this->authoredItemColumns($authoredLead, $leadContent);
             $authored = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$this->sourceLineFor($i)] ?? '');
             if ($authoredContentColumn !== null && IndentationHelper::getLeadingColumns($authored) === $authoredContentColumn) {
                 $contentLine = $nextTrimmed;
