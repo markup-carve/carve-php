@@ -678,6 +678,7 @@ final class BlockOwnershipWalk
                 $payloadForm = 'payload';
                 $this->lead(max($this->m['col'] - $inner->cut, $inner->canon));
                 $rest = $this->m['rest'];
+                $inCommentSpan = $inner->span !== null && $inner->span[0] === '%';
                 if ($rest !== '' && $inner->span !== null) {
                     $span = $inner->span;
                     $comment = $span[0] === '%';
@@ -686,10 +687,6 @@ final class BlockOwnershipWalk
                         && ($comment ? strlen($c[1]) === strlen($span) : strlen($c[1]) >= strlen($span))
                     ) {
                         $this->frames[$innerIndex]->span = null;
-                        // A fence-shaped verse run is stanza text, so a lazy line folds after its closer (PART 0 S4).
-                        if (!$comment && $inner->lineBlock) {
-                            $this->frames[$innerIndex]->para = true;
-                        }
                     }
                 } elseif ($rest !== '' && $inner->closes !== null && ($inner->closes)($rest, $this->m['col'])) {
                     array_pop($this->frames);
@@ -712,10 +709,12 @@ final class BlockOwnershipWalk
                         // A deeper percent run is verse text, not a span opener.
                         // A comment span leaves nothing: the stanza stays as it was before it (carve#4956).
                         $this->frames[$innerIndex]->span = $c[1];
-                    } else {
-                        // A blank payload line ends the stanza, so no lazy line folds past it (PART 0 S4).
-                        $this->frames[$innerIndex]->para = $rest !== '';
                     }
+                }
+                // Verse text, a fence-shaped run included, keeps the stanza open for a lazy line; a blank ends it (PART 0 S4).
+                // A `%%%` span leaves nothing, so the stanza stays as it was before it (carve#4956).
+                if ($inner->lineBlock && !$inCommentSpan && !($inner->span !== null && $inner->span[0] === '%')) {
+                    $inner->para = $rest !== '';
                 }
                 $this->recordFenceBodyLine($at, $inner);
                 $result[] = $this->out . $this->src;
