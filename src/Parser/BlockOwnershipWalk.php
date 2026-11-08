@@ -2811,6 +2811,19 @@ final class BlockOwnershipWalk
             }
             $this->frames = $held['frames'];
             $this->attachedTo = null;
+
+            return;
+        }
+        // Below a note's column a line that cannot fold ends the attached quote and the note with it (PART 0 S4, carve#5427).
+        if (
+            $this->attachedTo !== null && $held['kind'] === 'note' && $level !== null && $level['rest'] !== ''
+            && $level['col'] < $host->col
+            && $this->levelOf($this->src, $held['depth'] + 1) === null
+            && $this->endsAttachedQuote($held, $level)
+        ) {
+            $this->attachedQuoteEnds[$at] = true;
+            $this->frames = array_slice($held['frames'], 0, -1);
+            $this->attachedTo = null;
         }
     }
 
