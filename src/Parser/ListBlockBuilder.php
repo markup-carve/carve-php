@@ -214,11 +214,21 @@ final class ListBlockBuilder
             $below = array_filter($below, static fn (int $offset): bool => $offset >= $leadParagraphEnd - 1, ARRAY_FILTER_USE_KEY);
         }
         $contentIndent = $baseIndent + $this->listMarkerWidth(ltrim($lines[$j], " \t"), $lead);
-        $noteBodyFloor = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $lead['content']) === 1
+        $noteBodyFloor = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $lead['content'], $leadNote) === 1
             ? $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN : null;
+        // A note's `+` takes the run below it into the note at any column (CARVE-P9-013 point 3).
+        $plusTakes = $noteBodyFloor !== null && $this->leadBottomIsContinuationMarker($leadNote[2]) ? $j + 1 : null;
         $itemLines = [];
         $noteLines = [];
+        $noteStart = 0;
+        $noteBody = $leadNote[2] ?? '';
         foreach ($below as $offset => $line) {
+            if ($plusTakes !== null && $j + 1 + $offset === $plusTakes) {
+                $plusTakes++;
+
+                continue;
+            }
+            $plusTakes = null;
             // A lazy line folded into the note is not visible item content.
             if ($noteBodyFloor !== null && str_contains($line, BlockGrammar::LAZY_FRAME)) {
                 continue;
@@ -233,8 +243,13 @@ final class ListBlockBuilder
                 continue;
             }
             $rebased = IndentationHelper::stripLeadingColumns($line, $contentIndent);
-            if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($rebased, " \t")) === 1) {
+            if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($rebased, " \t"), $note) === 1) {
                 $noteBodyFloor = IndentationHelper::getLeadingColumns($line) + BlockGrammar::FOOTNOTE_BODY_COLUMN;
+                $plusTakes = $this->leadBottomIsContinuationMarker($note[2]) ? $j + 2 + $offset : null;
+                // Only the last note's body decides the blank below it.
+                $noteLines = [];
+                $noteStart = $offset + 1;
+                $noteBody = $note[2];
 
                 continue;
             }
@@ -243,7 +258,7 @@ final class ListBlockBuilder
 
         // A note that ends on a block leaves the blank to part the item's blocks; one that ends
         // on its paragraph, or on a list under that paragraph, keeps it (PART 9 §17 L1b).
-        if ($noteLines !== [] && $this->noteEndsOnBlock($noteLines, $lines[$j])) {
+        if ($noteLines !== [] && $this->noteEndsOnBlock($noteLines, $noteStart, $noteBody)) {
             return false;
         }
 
@@ -251,14 +266,15 @@ final class ListBlockBuilder
     }
 
     /**
-     * @param array<string> $noteLines
-     * @param string $leadLine
+     * @param array<int, string> $noteLines
+     * @param int $start
+     * @param string $noteBody
      */
-    private function noteEndsOnBlock(array $noteLines, string $leadLine): bool
+    private function noteEndsOnBlock(array $noteLines, int $start, string $noteBody): bool
     {
         $offsets = array_keys($noteLines);
         // A blank inside the note parts the item's blocks as it parts the note's.
-        if ($offsets[0] !== 0 || end($offsets) - $offsets[0] + 1 !== count($offsets)) {
+        if ($offsets[0] !== $start || end($offsets) - $offsets[0] + 1 !== count($offsets)) {
             return true;
         }
         $runs = array_values($noteLines);
@@ -266,8 +282,7 @@ final class ListBlockBuilder
         if (($this->getListParser)()->parseListItemMarker($last) === null) {
             return $this->isBlockElementStart($last) && !str_starts_with($last, '>');
         }
-        $above = count($runs) > 1 ? $runs[count($runs) - 2]
-            : (string)preg_replace(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, '$2', (string)(($this->getListParser)()->parseListItemMarker(ltrim($leadLine, " \t"))['content'] ?? ''));
+        $above = count($runs) > 1 ? $runs[count($runs) - 2] : $noteBody;
 
         return $this->isBlockElementStart($above) && ($this->getListParser)()->parseListItemMarker($above) === null
             && !str_starts_with($above, '>') && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $above) !== 1;
