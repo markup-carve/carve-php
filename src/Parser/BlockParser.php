@@ -3729,6 +3729,18 @@ class BlockParser
             return null;
         }
 
+        // A losing marker-line definition has no host for a pulled block.
+        // Its ordinary indented body still belongs to the definition.
+        if (
+            isset($this->state->session->footnotes[$key])
+            && trim($content, " \t") === '+'
+            && isset($lines[$start + 1])
+            && !IndentationHelper::isBlankLine($lines[$start + 1])
+            && IndentationHelper::getLeadingColumns($lines[$start + 1]) < self::FOOTNOTE_BODY_COLUMN
+        ) {
+            return 1;
+        }
+
         // Skip the footnote definition and any continuation lines
         $i = $collectAfterClaim ? ($afterEarlierClaim ?? $start + 1) : $start + 1;
         $count = count($lines);
