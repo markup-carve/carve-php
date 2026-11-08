@@ -2814,6 +2814,20 @@ final class BlockOwnershipWalk
 
             return;
         }
+        // Once the attached block has closed, the next line is read against the note itself, so a line
+        // below its column closes it at its authored column as it would without the `+` (carve-php#4942).
+        if (
+            $this->attachedTo !== null && $held['kind'] === 'note' && $level !== null && $level['rest'] !== ''
+            && count($this->frames) < count($held['frames'])
+            && $level['col'] >= (int)$host->markerCol && (int)$host->markerCol !== (int)$host->markerCanon
+            && $this->heldOnMarkerLine($held)
+            && $this->levelOf($this->src, $held['depth'] + 1) === null
+        ) {
+            $this->frames = $held['frames'];
+            $this->attachedTo = null;
+
+            return;
+        }
         // Below a note's column a line that cannot fold ends the attached quote and the note with it (PART 0 S4, carve#5427).
         if (
             $this->attachedTo !== null && $held['kind'] === 'note' && $level !== null && $level['rest'] !== ''
