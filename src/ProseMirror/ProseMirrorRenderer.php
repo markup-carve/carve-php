@@ -109,6 +109,20 @@ class ProseMirrorRenderer
      */
     protected array $degraded = [];
 
+    private bool $sourcePositions = false;
+
+    /**
+     * Write each block's source position as `carvePos`. Off by default, as in
+     * carve-grammars; turn it on when the document goes back through the Carve
+     * writer, which places collected definitions by these positions.
+     */
+    public function withSourcePositions(bool $enabled = true): static
+    {
+        $this->sourcePositions = $enabled;
+
+        return $this;
+    }
+
     /**
      * @var array<int, array{0: \Closure(\MarkupCarve\Carve\Node\Node): bool, 1: \Closure(\MarkupCarve\Carve\Node\Node, \Closure(): array<int, array<string, mixed>>): (array<string, mixed>|null)}>
      */
@@ -264,7 +278,7 @@ class ProseMirrorRenderer
                 return null;
             }
             $section = ['type' => 'carveSection', 'content' => $children];
-            if ($node->getPos() !== null) {
+            if ($this->sourcePositions && $node->getPos() !== null) {
                 $section['attrs'] = ['carvePos' => $node->getPos()->toWireArray()];
             }
             if ($node->getAttributes() !== []) {
@@ -868,7 +882,7 @@ class ProseMirrorRenderer
     {
         $attrs = [];
 
-        if ($node instanceof BlockNode && $node->getPos() !== null) {
+        if ($this->sourcePositions && $node instanceof BlockNode && $node->getPos() !== null) {
             $attrs['carvePos'] = $node->getPos()->toWireArray();
         }
 

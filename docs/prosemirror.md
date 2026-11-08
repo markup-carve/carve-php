@@ -220,6 +220,11 @@ container. A matched node is not reported in `droppedTypes()` or
 
 ## Shape differences worth knowing
 
+- **Source positions.** The renderer leaves `carvePos` out, as carve-grammars
+  does, so a stored editor document does not change when text above a block
+  moves. Call `withSourcePositions()` when the document comes back through the
+  Carve writer and was parsed with position tracking (`CarveConverter::carve()`):
+  the writer places collected definitions by those positions.
 - **Marks.** Carve nests emphasis as elements (`Strong > Text`); ProseMirror hangs
   marks off the text node. Coming back, adjacent runs of the same mark are merged,
   or `*bold with /italic/ inside*` would return as three `<strong>` elements.
