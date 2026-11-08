@@ -1926,7 +1926,6 @@ class BlockParser
         $frame->listHostedColonFences = $previousFrame->listHostedColonFences || $parent->getType() === 'list_item';
         $frame->noteHostedColonFences = $previousFrame->noteHostedColonFences || $parent->getType() === 'footnote';
         $frame->markerBody = $itemBody;
-        $frame->listItemBody = $parent->getType() === 'list_item';
         $unchangedColonBody = $this->pendingColonView !== null;
         if ($unchangedColonBody) {
             $frame->colonFenceIndex = $this->pendingColonView['index'];

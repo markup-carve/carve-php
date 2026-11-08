@@ -47,12 +47,11 @@ class APlusInsideAnUnclosedAttachedFenceIsPayloadTest extends TestCase
                 . "      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n"
                 . "    </li>\n  </ol>\n</section>",
             ],
-            // A sibling marker still ends the fence when a blank follows; its own `+` then takes nothing.
+            // The sibling marker is payload too, at every level (carve#5499, carve#5531).
             'sibling then plus' => [
                 "- +\n```\n- z\n+\n\ny\n",
-                "<ul>\n  <li>\n    <pre><code></code></pre>\n  </li>\n  <li>z</li>\n</ul>\n<p>y</p>",
+                "<ul>\n  <li>\n    <pre><code>- z\n+\n</code></pre>\n  </li>\n</ul>\n<p>y</p>",
             ],
-            // The sibling marker is payload too (carve#5499 ruling, option 2).
             'nested sibling then plus' => [
                 "- - +\n  ```\n  - z\n  +\n\ny\n",
                 "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>- z\n+\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>y</p>",

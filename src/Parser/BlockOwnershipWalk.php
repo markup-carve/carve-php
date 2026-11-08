@@ -484,7 +484,6 @@ final class BlockOwnershipWalk
             $this->out = '';
             $this->m = self::indentCols($this->src);
             $this->restoreEnclosingAttachedHost($at);
-            $this->endAttachedFenceAtSibling();
             $this->recordCommentPayloadHostColumn($at);
             // A `+` right after the block a `+` attached reaches the same host, whose
             // frames the walk closed when it read that block where it stands.
@@ -1648,37 +1647,9 @@ final class BlockOwnershipWalk
             && $this->attachedCodeFenceBlankAhead($at, (int)$this->frames[$host]->markerCol, $opener['fence'][0], $opener['length'])
         ) {
             $fence->col = $this->m['col'];
-            // A nested item's sibling marker stays payload (carve#5499).
-            if (($this->frames[$host - 1]->kind ?? null) !== 'item') {
-                $fence->siblingEndsAt = (int)$this->frames[$host]->markerCol;
-            }
-        } elseif (
-            $opener !== null && $this->attachedTo !== null && $this->attachedTo['item'] && $this->attachedTo['from'] === $at
-            && $this->attachedCodeFenceBlankAhead($at, $this->attachedTo['column'], $opener['fence'][0], $opener['length'])
-        ) {
-            // A fence pulled to column 0 stands outside its item's frame; the item's marker column still bounds it.
-            $fence->siblingEndsAt = $this->attachedTo['column'];
         }
         $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $fence->col;
         $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key, $this->frames[$host]->kind === 'item' ? $this->frames[$host]->col : null);
-        // A closer past the blank keeps the blank and any marker before it as payload.
-        if (!$fence->endsAtBlank) {
-            $fence->siblingEndsAt = null;
-        }
-    }
-
-    /**
-     * With a blank ahead, a sibling marker ends the unclosed fence a `+` attached; a `+` does not (PART 9 §17 L3).
-     */
-    private function endAttachedFenceAtSibling(): void
-    {
-        $top = $this->frames[count($this->frames) - 1];
-        if ($top->siblingEndsAt === null || $top->kind !== 'fence' || $this->m['col'] > $top->siblingEndsAt) {
-            return;
-        }
-        if ($this->listParser->parseListItemMarker($this->m['rest']) !== null) {
-            $this->truncate(count($this->frames) - 1);
-        }
     }
 
     /**
