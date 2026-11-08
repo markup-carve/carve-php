@@ -67,6 +67,13 @@ final class BlockSourceState
     public array $attachedPreludeLines = [];
 
     /**
+     * Losing duplicate note lines whose lone `+` took nothing (carve#5474).
+     *
+     * @var array<int, true>
+     */
+    public array $losingNoteLines = [];
+
+    /**
      * @var array<int, int>
      */
     public array $attachedPreludeContentColumns = [];

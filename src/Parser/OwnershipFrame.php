@@ -48,6 +48,11 @@ final class OwnershipFrame
     public bool $hasDefinition = false;
 
     /**
+     * On a note: a losing duplicate whose lone `+` took nothing; the frame closes at the next line (carve#5474).
+     */
+    public bool $losing = false;
+
+    /**
      * @param string $kind
      * @param int $col
      * @param int $canon

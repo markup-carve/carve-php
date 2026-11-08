@@ -72,6 +72,13 @@ final class BlockOwnershipWalk
     public array $attachedPreludeLines = [];
 
     /**
+     * Losing duplicate note lines whose lone `+` took nothing (PART 9R R2, carve#5474).
+     *
+     * @var array<int, true>
+     */
+    public array $losingNoteLines = [];
+
+    /**
      * The content column of the host that kept each prelude line.
      *
      * @var array<int, int>
@@ -414,6 +421,7 @@ final class BlockOwnershipWalk
         $this->movedSpanEnd = -1;
         $this->lazyLines = [];
         $this->attachedPreludeLines = [];
+        $this->losingNoteLines = [];
         $this->attachedPreludeContentColumns = [];
         $this->commentPayloadHostColumns = [];
         $this->skippedCommentLines = [];
@@ -448,6 +456,9 @@ final class BlockOwnershipWalk
         $count = count($lines);
         $start = $this->ownFrontmatter($lines, $result);
         for ($at = $start; $at < $count; $at++) {
+            if ($this->frames[count($this->frames) - 1]->losing) {
+                $this->truncate(count($this->frames) - 1);
+            }
             $this->releasedSibling = 0;
             $refusedAttributeReach = $this->resumeRefusedAttribute();
             if ($this->carrySkippedPrelude($at, $result)) {
@@ -1115,6 +1126,15 @@ final class BlockOwnershipWalk
         }
         $level = $this->throughQuotes($this->lines[$at], $skipped['hostIndex'], $this->frames);
         $rest = $level['rest'] ?? '';
+        if (!($skipped['fenced'][$at] ?? false) && preg_match('/^[ \t]*\[\^([^\]]+)\]: (.*)$/D', $rest, $note) === 1) {
+            $key = LabelKey::normalize($note[1]);
+            if (isset($this->noteLabels[$key]) && self::isPlus($note[2])) {
+                // Like any note marker line it ends the paragraph open before it.
+                $this->losingNoteLines[$at] = true;
+                $skipped['host']->para = false;
+            }
+            $this->noteLabels[$key] = true;
+        }
         // A second marker in a skipped definition cannot claim the block the earlier marker took (carve#5013).
         if (!($skipped['fenced'][$at] ?? false) && $abbreviation === null && self::isPlus(trim($rest, " \t"))) {
             if (self::docColumn($this->lines[$at], ltrim($rest, " \t")) === $skipped['column']) {
@@ -1137,6 +1157,8 @@ final class BlockOwnershipWalk
         }
         $result[] = $skipped['lead'] . match (true) {
             $inSpan => str_repeat(' ', $skipped['spanPad'] ?? 0) . '%%',
+            // A losing duplicate takes nothing and stands in the host, so the host keeps the lines below (carve#5474).
+            isset($this->losingNoteLines[$at]) => str_repeat(' ', self::spanPad($skipped['host'])) . '%%',
             $abbreviation !== null => '%%',
             default => str_repeat(' ', $pad) . $rest,
         };
@@ -1939,8 +1961,10 @@ final class BlockOwnershipWalk
             if ($leadTab && self::isPlus($this->m['rest'])) {
                 $this->refusePlus($this->at, null);
             } elseif ($this->losingNoteLine && self::isPlus($this->m['rest'])) {
-                // A losing duplicate's `+` takes nothing and leaves no paragraph (carve#5474).
+                // A losing duplicate's `+` takes nothing, leaves no paragraph and closes the note (carve#5474).
                 $losing = true;
+                $this->frames[$frame]->losing = true;
+                $this->losingNoteLines[$this->at] = true;
             } elseif (self::isPlus($this->m['rest'])) {
                 // Past the one space after a `>` the `+` is the quote's text (corpus 646).
                 $f = $this->frames[$frame];
@@ -2550,6 +2574,7 @@ final class BlockOwnershipWalk
         $view = fn (int $k): string => $this->throughQuotes($this->lines[$k], $hostIndex, $frames)['rest'] ?? "\u{E000}";
         $k = $from;
         $quoted = fn (int $j): bool => $this->throughQuotes($this->lines[$j], $hostIndex, $frames) !== null;
+        $labels = $this->noteLabels;
         while ($k < $n) {
             // A line without the host's quote prefixes ends the quote, so no skipped construct reads it as text.
             if (!$quoted($k)) {
@@ -2581,6 +2606,14 @@ final class BlockOwnershipWalk
             } elseif (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $rest, $definition) === 1) {
                 $offered = trim($definition[2], " \t") === '+' && $at === $column;
                 $fenced[$k] = false;
+                $key = LabelKey::normalize($definition[1]);
+                // A losing duplicate's `+` takes nothing, so no line below is its body (carve#5474).
+                if (trim($definition[2], " \t") === '+' && isset($labels[$key])) {
+                    $k++;
+
+                    continue;
+                }
+                $labels[$key] = true;
                 $k++;
                 while (
                     $k < $n && $quoted($k) && $this->foldsAsPlainText(rtrim($view($k), " \t"))
