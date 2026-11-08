@@ -6,7 +6,9 @@ namespace MarkupCarve\Carve\Test\TestCase\ProseMirror;
 
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\Section;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
@@ -55,11 +57,50 @@ class UpstreamWireContractTest extends TestCase
         $document = new Document();
         $document->appendChild($paragraph);
 
-        $pm = (new ProseMirrorRenderer())->render($document);
+        $pm = (new ProseMirrorRenderer())->withSourcePositions()->render($document);
         $this->assertSame($span->toWireArray(), $pm['content'][0]['attrs']['carvePos']);
         $back = (new ProseMirrorToCarve())->convert($pm)->getChildren()[0];
         $this->assertSame($span->toWireArray(), $back->getPos()?->toWireArray());
         $this->assertNull($back->getAttribute('carvePos'));
+    }
+
+    public function testBlockPositionIsLeftOutByDefault(): void
+    {
+        $document = CarveConverter::carve()->parse("# Titel\n\nEin *b* Absatz.\n");
+
+        $pm = (new ProseMirrorRenderer())->render($document);
+
+        $this->assertSame([
+            'type' => 'doc',
+            'content' => [
+                ['type' => 'heading', 'attrs' => ['level' => 1], 'content' => [['type' => 'text', 'text' => 'Titel']]],
+                [
+                    'type' => 'paragraph',
+                    'content' => [
+                        ['type' => 'text', 'text' => 'Ein '],
+                        ['type' => 'text', 'text' => 'b', 'marks' => [['type' => 'bold']]],
+                        ['type' => 'text', 'text' => ' Absatz.'],
+                    ],
+                ],
+            ],
+        ], $pm);
+    }
+
+    public function testASectionWrapperKeepsItsPositionOnlyWhenAsked(): void
+    {
+        $section = new Section(1);
+        $section->setPos(new SourceSpan(1, 3, 1, 5, 0, 20));
+        $heading = new Heading(1);
+        $heading->appendChild(new Text('Titel'));
+        $section->appendChild($heading);
+        $document = new Document();
+        $document->appendChild($section);
+
+        $this->assertArrayNotHasKey('attrs', (new ProseMirrorRenderer())->render($document)['content'][0]);
+        $this->assertSame(
+            ['carvePos' => (new SourceSpan(1, 3, 1, 5, 0, 20))->toWireArray()],
+            (new ProseMirrorRenderer())->withSourcePositions()->render($document)['content'][0]['attrs'],
+        );
     }
 
     public function testInheritedColumnAlignmentIsPresentationOnly(): void
