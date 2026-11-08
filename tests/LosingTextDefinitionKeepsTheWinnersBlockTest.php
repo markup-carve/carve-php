@@ -70,7 +70,7 @@ HTML;
             'inside a quote' => ["> [^n]: +\n> [^n]: d1\n> [^n]: +\n>   - item\n\nsee[^n]\n", "<li id=\"fn1\">\n      <ul>\n        <li>item</li>"],
             'item note takes a list directly' => ["* [^n]: +\n  - item\n\nsee[^n]\n", "<li id=\"fn1\">\n      <ul>\n        <li>item</li>"],
             'item note takes an ordered list' => ["* [^n]: +\n  1. item\n\nsee[^n]\n", "<li id=\"fn1\">\n      <ol>\n        <li>item</li>"],
-            'several losing pluses move the skipped note once' => ["[^n]: +\n[^m]: d1\n[^n]: +\n[^n]: +\n[^n]: +\n  - item\n\nsee[^m][^n]\n", "<p>d1<a"],
+            'several losing pluses move the skipped note once' => ["[^n]: +\n[^m]: d1\n[^n]: +\n[^n]: +\n[^n]: +\n  - item\n\nsee[^m][^n]\n", '<p>d1<a'],
             'item note past another label' => ["* [^n]: +\n  [^m]: d1\n  - item\n\nsee[^n][^m]\n", "<li id=\"fn1\">\n      <ul>\n        <li>item</li>"],
         ];
     }
