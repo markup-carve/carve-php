@@ -1262,6 +1262,27 @@ class BlockParser
     }
 
     /**
+     * The fence a `+` attached as its block (or inside its colon body), or null when that block is a list or quote holding one (PART 0 S1, carve#5539).
+     *
+     * @param array<string> $attached
+     * @param \MarkupCarve\Carve\Parser\TrailingBlockState $state
+     */
+    private function attachedBlockOwnFence(array $attached, TrailingBlockState $state): ?TrailingCodeFence
+    {
+        $head = ltrim((string)reset($attached), " \t");
+        // An attached colon body also ends at its first blank, and a fence inside it with it (PART 0 FAMILIES).
+        if (
+            $this->fencedBlockParser->parseCodeFenceOpener($head) === null
+            && $this->fencedBlockParser->parseRawBlockOpener($head) === null
+            && $this->fencedBlockParser->parseDivFenceOpener($head) === null
+        ) {
+            return null;
+        }
+
+        return $state->fence;
+    }
+
+    /**
      * @param string $label
      * @param array{lines: array<string>, lineMap: array<int, int>} $body
      */
@@ -3817,7 +3838,8 @@ class BlockParser
             $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
         }
         // The attached block lasts while its own fence, if any, is still the open one.
-        $attachedFence = $trailingState->fence;
+        // A fence nested in an attached list or quote is not that block's own (PART 0 S1, carve#5539).
+        $attachedFence = $firstBlockAttached ? $this->attachedBlockOwnFence($bodyLines, $trailingState) : $trailingState->fence;
         // A first-block `+` body takes lazy lines like a standalone one's attached block (PART 0 S4).
         $plusContinuationOpen = $firstBlockAttached || trim($content, " \t") === '+';
         $childFence = new PlainContinuationState();
@@ -3950,7 +3972,7 @@ class BlockParser
                         $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $attachedLine);
                     }
                     $endsAtBlank = true;
-                    $attachedFence = $trailingState->fence;
+                    $attachedFence = $this->attachedBlockOwnFence($attached, $trailingState);
                 }
 
                 continue;
