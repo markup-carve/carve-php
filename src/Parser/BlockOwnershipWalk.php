@@ -2883,6 +2883,12 @@ final class BlockOwnershipWalk
         }
         $basis = isset($this->lines[$end]) && $this->throughQuotes($this->lines[$end], $hostIndex, $this->frames) !== null ? $this->lines[$end] : $this->lines[$at];
         $raw = $this->throughQuotes($basis, $hostIndex, $this->frames, true)['rest'] ?? $basis;
+        $lead = substr($basis, 0, strlen($basis) - strlen($raw)) . str_repeat(' ', $this->frames[$hostIndex]->markerCanon);
+        // A bare quote blank contributes `>` but the carried definition still
+        // needs the quote's content separator to stay inside that quote.
+        if (str_ends_with($lead, '>')) {
+            $lead .= ' ';
+        }
         $this->skipped = [
             'host' => $this->frames[$hostIndex],
             'at' => $at,
@@ -2891,7 +2897,7 @@ final class BlockOwnershipWalk
             'fenced' => $fenced,
             'noteBodies' => $noteBodies,
             'column' => $column,
-            'lead' => substr($basis, 0, strlen($basis) - strlen($raw)) . str_repeat(' ', $this->frames[$hostIndex]->markerCanon),
+            'lead' => $lead,
         ];
     }
 
