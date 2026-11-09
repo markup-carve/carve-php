@@ -788,7 +788,7 @@ final class BlockOwnershipWalk
             $endsMissedItem = $missed && $next !== null && $this->descriptionEndsMissedItem($at, $reached, $missedQuote);
             $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts && !$captionsQuote && $form->kind !== 'dd'
                 && !$endsMissedItem
-                && !($missedNote && $this->refusedNotePlusPrecedesBraceRun($at, $topIndex))
+                && !($missedNote && ($this->refusedNotePlusMissesBody($at, $topIndex) || $this->refusedNotePlusPrecedesBraceRun($at, $topIndex)))
                 // A marker that a marker body owns, or that misses one, opens a list (PART 0 S3, carve#4860).
                 && !($form->kind === 'item' && $this->marksBodyList($reached))
                 && !($this->verseSpanBlankMissedOwner && $this->frames[$topIndex]->lineBlock
@@ -3403,8 +3403,21 @@ final class BlockOwnershipWalk
     }
 
     /**
+     * A refused marker-line plus grants no body below the note's ordinary content column.
+     */
+    private function refusedNotePlusMissesBody(int $at, int $topIndex): bool
+    {
+        $note = $this->frames[$topIndex];
+
+        return $note->kind === 'note' && $note->line === $at - 1
+            && $this->quoteDepth($topIndex) > 0
+            && preg_match('/\[\^[^]]+\]:[ \t]+\+[ \t]*$/D', $this->lines[$note->line] ?? '') === 1
+            && $this->m['col'] < $note->col;
+    }
+
+    /**
      * A wrapped brace run below a refused marker-line note `+` is read where
-     * its opener stands. Plain text still folds lazily into the note (CARVE-P9-067).
+     * its opener stands. Plain text reaching the note body still folds lazily (CARVE-P9-067).
      */
     private function refusedNotePlusPrecedesBraceRun(int $at, int $topIndex): bool
     {

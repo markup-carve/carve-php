@@ -20,6 +20,15 @@ final class ARefusedNotePlusLeavesNoLazyParagraphTest extends TestCase
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
 
+    public function testQuotedNotePlainFollowerShortOfBodyStaysInQuote(): void
+    {
+        $source = "> [^a]: +\n>  v0\n\nsee[^a]\n";
+        $html = (new CarveConverter())->convert($source);
+
+        self::assertStringContainsString('<blockquote><p>v0</p></blockquote>', $html);
+        self::assertStringNotContainsString('<p>v0<a href="#fnref1"', $html);
+    }
+
     public function testInlineBraceTextStillFoldsIntoNote(): void
     {
         $source = "[^a]: +\n {^word^}\n\nsee[^a]\n";
