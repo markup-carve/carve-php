@@ -856,6 +856,7 @@ class BlockParser
         $this->state->source->attachedQuoteEnds = $walk->attachedQuoteEnds;
         $this->state->source->refusedKeptLines = $walk->refusedKeptLines;
         $this->state->source->shiftedOpeners = $walk->shiftedOpeners;
+        $this->state->source->pastColumnDescriptionLines = $walk->pastColumnDescriptionLines;
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
         $this->state->source->commentEndLines = $walk->commentEndLines;
         $this->state->source->commentCloserLines = $walk->commentCloserLines;

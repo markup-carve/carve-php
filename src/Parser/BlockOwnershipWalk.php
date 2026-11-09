@@ -181,6 +181,13 @@ final class BlockOwnershipWalk
     public array $shiftedOpeners = [];
 
     /**
+     * Description-shaped lines the nested reader must keep as text.
+     *
+     * @var array<int, true>
+     */
+    public array $pastColumnDescriptionLines = [];
+
+    /**
      * Lines the walk opened a code fence on, keyed by line index.
      *
      * @var array<int, true>
@@ -479,6 +486,7 @@ final class BlockOwnershipWalk
         $this->attachedFenceScans = [];
         $this->refusedKeptLines = [];
         $this->shiftedOpeners = [];
+        $this->pastColumnDescriptionLines = [];
         $this->fenceOpenerLines = [];
         $this->commentEndLines = [];
         $this->commentCloserLines = [];
@@ -926,7 +934,8 @@ final class BlockOwnershipWalk
                 $this->closedAtBlank = max($this->closedAtBlank, $this->blankClosedColumn());
                 $this->lead($this->m['col']);
             } elseif ($form->kind === 'colon-close') {
-                $this->lead($this->frames[$form->frame]->canon);
+                // A closer is checked at its authored base before the handoff.
+                $this->lead($this->frames[$form->frame]->canon, contentTab: true);
                 $closerPath = $this->trace !== null ? $this->ownerPath($form->frame) : null;
                 $closedColon = $this->frames[$form->frame];
                 $this->truncate($form->frame);
@@ -943,7 +952,7 @@ final class BlockOwnershipWalk
                 $owner = $this->frames[$o];
                 $this->lead($owner->para || !$this->opensBelowClosedColumn($closedColumn) || $plusFollower
                     ? max($this->m['col'] - $owner->cut, $owner->canon)
-                    : $owner->canon);
+                    : $owner->canon, contentTab: true);
                 if ($owner->para && !$form->kept && preg_match('/^(`{3,}|~{3,})/', $this->m['rest']) === 1) {
                     $this->textFences[count($result)] = $owner->canon;
                 }
@@ -957,7 +966,14 @@ final class BlockOwnershipWalk
                 }
                 $shift = $this->strippedColumn($this->src, $segment, $this->m) - $this->m['col'];
                 $this->noteShiftedOpener($at, $shift);
-                $this->lead($this->frames[$o]->canon, $form->kind === 'term' || $form->kind === 'dd');
+                $definitionMarker = $form->kind === 'term' || $form->kind === 'dd';
+                if (
+                    $segment > 1 && $shift > 0 && $form->kind === 'dd' && $this->frames[$o]->kind === 'dd' && $this->frames[$o]->last === 'term'
+                    && str_contains(substr($this->src, 0, strlen($this->src) - strlen($this->m['rest'])), "\t")
+                ) {
+                    $this->pastColumnDescriptionLines[$at] = true;
+                }
+                $this->lead($this->frames[$o]->canon, $definitionMarker, definitionMarker: $definitionMarker && $this->frames[$o]->kind === 'dd');
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon, inHost: !$leftLineBlockSpan);
                 $this->markAttachedFence($at, $o, $form, $plusFollower);
                 // A marker opened on an off-stop tab run has its C5 columns that far right.
@@ -2177,7 +2193,7 @@ final class BlockOwnershipWalk
                     $consumed = true;
                 }
             }
-            $this->lead($this->m['col']);
+            $this->lead($this->m['col'], contentTab: true);
             if ($plus) {
                 $this->plusHosts[$this->at] = $this->hostRecord($frame, self::columnOf($this->out), true);
             }
@@ -2255,11 +2271,41 @@ final class BlockOwnershipWalk
         }
     }
 
-    private function lead(int $target, bool $spaces = false): void
+    private function lead(int $target, bool $spaces = false, bool $contentTab = false, bool $definitionMarker = false): void
     {
-        $col = min($target, $this->m['col']);
         $authored = substr($this->src, 0, strlen($this->src) - strlen($this->m['rest']));
-        $this->out .= $col === $this->m['col'] && !($spaces && $this->out === '' && str_contains($authored, "\t"))
+        // The block readers peel each reached frame before measuring the next
+        // tab. Keep an authored run only when that second reading lands at the
+        // same column the ownership walk handed over (PART 0 S2, §24 C5).
+        $hasTab = str_contains($authored, "\t");
+        $segment = 1;
+        $insideVerbatimBlock = false;
+        if ($hasTab && !$contentTab) {
+            for ($index = count($this->frames) - 1; $index > 0; $index--) {
+                $frame = $this->frames[$index];
+                if ($frame->kind === 'fence') {
+                    if ($frame->lineBlock || $frame->family === 'comment' || $frame->cut === 0) {
+                        $insideVerbatimBlock = true;
+
+                        continue;
+                    }
+                    $opener = ContainerPrefix::stripQuoteMarkers($this->lines[$frame->opened ?? -1] ?? '');
+                    $openerLead = substr($opener, 0, strlen($opener) - strlen(ltrim($opener, " \t")));
+                    $insideVerbatimBlock = $insideVerbatimBlock || $authored !== $openerLead;
+
+                    continue;
+                }
+                if ($frame->kind === 'quote') {
+                    $segment = $index + 1;
+
+                    break;
+                }
+            }
+        }
+        $frameLocalTab = $hasTab && count($this->frames) > $segment + 1 && !$insideVerbatimBlock && !$contentTab
+            && (!$definitionMarker || $this->strippedColumn($this->src, $segment, $this->m) === $this->m['col']);
+        $col = $frameLocalTab ? $target : min($target, $this->m['col']);
+        $this->out .= $col === $this->m['col'] && !$frameLocalTab && !($spaces && $this->out === '' && $hasTab)
             ? $authored
             : str_repeat(' ', $col);
         $this->src = $this->m['rest'];

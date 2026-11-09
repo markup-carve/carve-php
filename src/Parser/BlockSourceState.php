@@ -132,6 +132,14 @@ final class BlockSourceState
     public array $shiftedOpeners = [];
 
     /**
+     * Description-shaped lines that reached a description body past the term's
+     * frame-local column and stay paragraph text there (PART 0 S2, S3).
+     *
+     * @var array<int, true>
+     */
+    public array $pastColumnDescriptionLines = [];
+
+    /**
      * Top-level lines the ownership walk opened a code fence on.
      *
      * @var array<int, true>
