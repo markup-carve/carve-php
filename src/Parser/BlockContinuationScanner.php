@@ -1150,12 +1150,11 @@ final class BlockContinuationScanner
                     $attachedListMarker = ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t"));
                     $attachedListColumn = IndentationHelper::getLeadingColumns($line);
                 }
-                if (
-                    $attachedListColumn !== null && $attachedState->fence === null
+                $itemMarker = $attachedListColumn !== null && $attachedState->fence === null
                     && IndentationHelper::getLeadingColumns($line) === $attachedListColumn
-                    && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null
-                ) {
-                    $attachedItemColumn = $attachedListColumn + strcspn(ltrim($line, " \t"), " \t") + 1;
+                    ? ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) : null;
+                if ($itemMarker !== null) {
+                    $attachedItemColumn = $attachedListColumn + $this->listMarkerWidth(ltrim($line, " \t"), $itemMarker);
                 }
                 if ($quoteEnd === null && $attachedKind === BlockGrammar::ATTACHED_SPANNING . ':quote') {
                     $quoteEnd = ($this->getBlockQuoteBuilder)()->blockQuoteLazyExtentEnd($lines, $index);
