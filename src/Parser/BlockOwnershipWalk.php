@@ -3413,10 +3413,11 @@ final class BlockOwnershipWalk
             return false;
         }
         $markerLine = $this->lines[$note->line] ?? '';
-        if (
-            preg_match('/^((?:> ?)+)/', $markerLine, $quotePrefix) !== 1
-            || !str_starts_with($this->lines[$at], $quotePrefix[1])
-        ) {
+        if (preg_match('/^((?:>[ \t]*)+)/', $markerLine, $quotePrefix) !== 1) {
+            return false;
+        }
+        $depth = substr_count($quotePrefix[1], '>');
+        if (preg_match('/^(?:>[ \t]*){' . $depth . '}/', $this->lines[$at]) !== 1) {
             return false;
         }
 
