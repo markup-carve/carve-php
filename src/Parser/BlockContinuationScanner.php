@@ -1126,6 +1126,16 @@ final class BlockContinuationScanner
                     && $attachedState->fence === null && !$attachedState->hasOpenDiv()
                     && !IndentationHelper::isBlankLine($line)
                     && (IndentationHelper::getLeadingColumns($line) >= $attachedItemColumn || $this->isHostPlaceholder($line, $index));
+                // A block opener left of the item's content column leaves the attached list (PART 0 S3).
+                if (
+                    $attachedKind === BlockGrammar::ATTACHED_SPANNING . ':list'
+                    && $attachedItemColumn !== null && !IndentationHelper::isBlankLine($line)
+                    && IndentationHelper::getLeadingColumns($line) < $attachedItemColumn
+                    && $attachedState->fence === null && !$attachedState->hasOpenDiv()
+                    && $this->startsNewBlock(ltrim($line, " \t"), $lines, $index)
+                ) {
+                    return true;
+                }
                 if (
                     ($index !== $refusedFollower && !$inItemBody && $this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState))
                     // An unmarked line continues an attached quote only within its lazy extent (PART 1 S4).
