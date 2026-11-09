@@ -3291,6 +3291,19 @@ final class BlockOwnershipWalk
             $own[] = $level;
         }
         $first = $own[0]['rest'];
+        if ($held['kind'] === 'note' && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $first) === 1) {
+            foreach ($own as $line) {
+                if (
+                    preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $line['rest']) !== 1
+                    && preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $line['rest']) !== 1
+                    && $line['col'] === 0
+                ) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
         if (preg_match('/^(`{3,}|~{3,}|%{3,})/', $first, $open) === 1) {
             for ($k = 1, $n = count($own); $k < $n; $k++) {
                 if (str_starts_with($own[$k]['rest'], $open[1]) && rtrim($own[$k]['rest'], " \t" . $open[1][0]) === '') {
