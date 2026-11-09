@@ -73,6 +73,7 @@ final class DefinitionListBuilder
      * @param \Closure(string, array<string>|null, int|null): (bool) $startsNewBlockCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int): (?int) $tryParseCommentCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int): (?int) $tryParseFencedCommentCallback
+     * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int): (?int) $tryParseFootnoteDefinitionCallback
      * @param \Closure(array<string>, int): (?int) $wrappedBlockAttributeLengthCallback
      */
     public function __construct(
@@ -102,6 +103,7 @@ final class DefinitionListBuilder
         private Closure $startsNewBlockCallback,
         private Closure $tryParseCommentCallback,
         private Closure $tryParseFencedCommentCallback,
+        private Closure $tryParseFootnoteDefinitionCallback,
         private Closure $wrappedBlockAttributeLengthCallback,
     ) {
         $this->wrappedAttributeScanner = new WrappedAttributeRunScanner($state, $source, $isBlockAttributeLineCallback, $wrappedBlockAttributeLengthCallback);
@@ -542,15 +544,26 @@ final class DefinitionListBuilder
                 $consumed = $paragraphEnd - $at;
                 $paragraphSkipped = true;
             }
+            $insideDescription = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) === 1
+                && $lastDescription instanceof DefinitionDescription
+                && isset($this->descriptionContentColumns[$lastDescription])
+                && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
+                    $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? '',
+                )) >= $this->descriptionContentColumns[$lastDescription];
+            if ($consumed === null && $insideDescription) {
+                $nextLine = $lines[$at + 1] ?? null;
+                $continued = $nextLine !== null && (
+                    IndentationHelper::isBlankLine($nextLine)
+                    || IndentationHelper::getLeadingColumns($nextLine) > 0
+                    || isset($this->state->source->lazyLines[$this->sourceLineFor($at + 1)])
+                    || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed, $note) === 1
+                        && trim($note[2], " \t") === '+'
+                );
+                $consumed = $continued ? ($this->tryParseFootnoteDefinitionCallback)($holder, $lines, $at) : 1;
+            }
             if (
                 $consumed === null && !$this->isDocumentAbbreviation($parent, $trimmed)
-                && (!$this->isReferenceDefinitionLine($trimmed) || (
-                    preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) === 1
-                    && !($lastDescription instanceof DefinitionDescription
-                        && isset($this->descriptionContentColumns[$lastDescription])
-                        && IndentationHelper::getLeadingColumns($this->state->source->sourceLines[$this->sourceLineFor($at)] ?? '')
-                            >= $this->descriptionContentColumns[$lastDescription])
-                ))
+                && (!$this->isReferenceDefinitionLine($trimmed) || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) === 1)
             ) {
                 break;
             }
