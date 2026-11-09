@@ -2292,7 +2292,10 @@ final class BlockOwnershipWalk
         ) {
             $this->refusedKeptThrough = $at - 1;
         }
-        if ($at > $this->refusedKeptStart && $at <= $this->refusedKeptThrough && !$this->invisibleSibling($rest)) {
+        if (
+            $at > $this->refusedKeptStart && $at <= $this->refusedKeptThrough
+            && (!$this->invisibleSibling($rest) || $this->insideRefusedFencePayload($at))
+        ) {
             $this->refusedKeptLines[$at] = $this->refusedKeptStart;
 
             return new OwnershipForm(kind: 'text', interrupts: false, kept: true);
@@ -2359,6 +2362,21 @@ final class BlockOwnershipWalk
     private function refusedRunMissesItsContainer(int $start): bool
     {
         return isset($this->lazyLines[$start]) || isset($this->closingLines[$start]);
+    }
+
+    private function insideRefusedFencePayload(int $at): bool
+    {
+        for ($line = $this->refusedKeptStart + 1; $line < $at; $line++) {
+            $rest = ltrim($this->lines[$line] ?? '', " \t");
+            if (
+                preg_match('/^(`{3,}|~{3,})/', $rest) === 1
+                && $this->fenced->parseCodeFenceOpener($rest) !== null
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function invisibleSibling(string $rest): bool
