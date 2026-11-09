@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -34,5 +35,12 @@ final class CarveWriterKeepsAuthoredTypedDivClassTest extends TestCase
         self::assertSame($classes, $before->getChildren()[0]->getClassEntries());
         self::assertSame($classes, $after->getChildren()[0]->getClassEntries());
         self::assertSame($converter->convert($source), $converter->convert($written));
+    }
+
+    public function testAdmonitionCarrierKeepsAnUnrelatedHtmlClass(): void
+    {
+        $html = '<div class="admonition extra" data-carve-admonition-type="note"><p>x</p></div>';
+
+        self::assertSame("{.extra}\n::: note\nx\n:::\n", (new HtmlToCarve())->convert($html));
     }
 }
