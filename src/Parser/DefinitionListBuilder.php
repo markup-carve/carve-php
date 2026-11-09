@@ -2263,6 +2263,15 @@ final class DefinitionListBuilder
                 return true;
             }
             $after = $b->lines[$look] ?? null;
+            // A marker-column `+` reaches the description even after a blank (PART 9 section 17 L3/L4, carve#5639).
+            if ($after !== null && trim($after, " \t") === '+' && $this->descriptionMarkerAttaches($look)) {
+                for (; $b->i < $look; $b->i++) {
+                    $b->body[] = '';
+                    $b->bodyMap[] = $this->sourceLineFor($b->i);
+                }
+
+                return true;
+            }
             // The SECOND spelling of the same rule, with a different
             // job: this one decides whether the blank is an internal
             // paragraph break or the end of the body. It has to read

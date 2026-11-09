@@ -3907,6 +3907,21 @@ class BlockParser
 
                     continue;
                 }
+                // A marker-column `+` reaches the note even after a blank (PART 9 section 17 L3/L4, carve#5639).
+                if (
+                    isset($lines[$look]) && trim($lines[$look], " \t") === '+'
+                    && $footnoteColumn->ownsContinuation(
+                        $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($look)),
+                        'footnote',
+                    )
+                ) {
+                    for (; $i < $look; $i++) {
+                        $bodyLines[] = '';
+                        $bodyLineMap[] = $this->sourceLineFor($i);
+                    }
+
+                    continue;
+                }
                 // A BLANK RUN continues the footnote when the body resumes
                 // after it. Must mirror the body-collection logic so a line is
                 // never skipped here without being collected there (grammar
