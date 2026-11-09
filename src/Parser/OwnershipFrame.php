@@ -35,6 +35,16 @@ final class OwnershipFrame
     public bool $plusAttached = false;
 
     /**
+     * The `+` item's content column: past an interior blank, a closer below it closes at the fence's column (carve-php#4961).
+     * `closerShifts` says whether such a closer is still read; in the item's own body a payload line after the blank ends that.
+     */
+    public ?int $closerBelow = null;
+
+    public ?bool $closerShifts = null;
+
+    public bool $closerShiftStrict = false;
+
+    /**
      * A marker-line attachment can move its opener outside the host's content column.
      * Keep that host for the trace when the attached container ends at a blank.
      *

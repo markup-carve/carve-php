@@ -682,7 +682,8 @@ final class BlockOwnershipWalk
                 // S1: an open payload tests its closer first (B-<family>-keep, B-<family>-end).
                 $payloadPath = $this->trace !== null ? $this->traceFenceOwner($inner) : '';
                 $payloadForm = 'payload';
-                $this->lead(max($this->m['col'] - $inner->cut, $inner->canon));
+                $shiftedCloser = $this->readsShiftedCloser($inner);
+                $this->lead($shiftedCloser ? $inner->col : max($this->m['col'] - $inner->cut, $inner->canon));
                 $rest = $this->m['rest'];
                 $inCommentSpan = $inner->span !== null && $inner->span[0] === '%';
                 if ($rest !== '' && $inner->span !== null) {
@@ -694,7 +695,7 @@ final class BlockOwnershipWalk
                     ) {
                         $this->frames[$innerIndex]->span = null;
                     }
-                } elseif ($rest !== '' && $inner->closes !== null && ($inner->closes)($rest, $this->m['col'])) {
+                } elseif ($shiftedCloser || ($rest !== '' && $inner->closes !== null && ($inner->closes)($rest, $this->m['col']))) {
                     array_pop($this->frames);
                     // A matched comment span is invisible: its host keeps the form it had (§10 I5).
                     if ($inner->family !== 'comment') {
@@ -1662,7 +1663,12 @@ final class BlockOwnershipWalk
             $fence->col = $this->m['col'];
         }
         $key = rtrim($this->m['rest']) . '|' . $this->m['col'] . '|' . $fence->col;
-        $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key, $this->frames[$host]->kind === 'item' ? $this->frames[$host]->col : null);
+        $plusItem = $this->frames[$host]->kind === 'item' ? $this->frames[$host]
+            : ($this->sibling?->kind === 'item' && $this->sibling->plus === $at - 1 ? $this->sibling : null);
+        $strict = $this->frames[$host]->kind === 'item';
+        $fence->endsAtBlank = !$this->attachedFenceClosed($at, $fence, $key . '|' . (int)$strict, $plusItem?->col, $strict);
+        $fence->closerBelow = !$fence->endsAtBlank && $plusItem !== null && $fence->col < $plusItem->col ? $plusItem->col : null;
+        $fence->closerShiftStrict = $strict;
     }
 
     /**
@@ -1749,7 +1755,7 @@ final class BlockOwnershipWalk
      *
      * A later fence of the same shape below the last scan's stop reuses its answer, so the walk stays linear.
      */
-    private function attachedFenceClosed(int $at, OwnershipFrame $fence, string $key, ?int $itemContentColumn = null): bool
+    private function attachedFenceClosed(int $at, OwnershipFrame $fence, string $key, ?int $itemContentColumn = null, bool $strictShift = false): bool
     {
         $last = $this->attachedFenceScans[$key] ?? null;
         if ($last !== null && $last[0] > $at) {
@@ -1765,6 +1771,9 @@ final class BlockOwnershipWalk
         $codeOpener = $fence->kind === 'fence' && $fence->family === 'code'
             && $hostFrame !== null && in_array($hostFrame->kind, ['note', 'dd'], true)
             ? $this->fenced->parseCodeFenceOpener(ltrim($this->lines[$at], " \t")) : null;
+        // Past an interior blank the item reads a closer below its content column at the fence's (§17 L3, carve-php#4961).
+        $shifts = null;
+        $shiftBelow = $itemContentColumn !== null && $fence->kind === 'fence' && $fence->family === 'code' ? $itemContentColumn : -1;
         for ($k = $at + 1; $k < $n; $k++) {
             $line = self::indentCols($this->lines[$k]);
             while (preg_match(self::QUOTE, $line['rest'], $q) === 1) {
@@ -1779,6 +1788,7 @@ final class BlockOwnershipWalk
             }
             if ($line['rest'] === '') {
                 $afterBlank = true;
+                $shifts = self::closerShiftsAfter($shifts, true, $strictShift);
 
                 continue;
             }
@@ -1829,15 +1839,44 @@ final class BlockOwnershipWalk
                 ($codeOpener !== null && $line['col'] === $fence->col
                     && $this->fenced->isCodeFenceCloser($line['rest'], $codeOpener['char'], $codeOpener['length']))
                 ||
-                ($fence->closes !== null && ($fence->closes)($line['rest'], $line['col']))
+                ($fence->closes !== null && ($fence->closes)($line['rest'], $shifts === true && $line['col'] < $shiftBelow ? min($line['col'], $fence->col) : $line['col']))
                 || ($fence->kind === 'colon' && preg_match('/^:{' . $fence->run . '}[ \t]*$/D', $line['rest']) === 1)
             ) {
                 return ($this->attachedFenceScans[$key] = [$k, true])[1];
             }
             $afterBlank = false;
+            $shifts = self::closerShiftsAfter($shifts, false, $strictShift);
         }
 
         return ($this->attachedFenceScans[$key] = [$n, false])[1];
+    }
+
+    /**
+     * Whether this payload line closes the fence at its column from below the `+` item's content column (carve-php#4961).
+     */
+    private function readsShiftedCloser(OwnershipFrame $fence): bool
+    {
+        if ($fence->closerBelow === null) {
+            return false;
+        }
+        $reads = $fence->closerShifts === true && $fence->closes !== null
+            && $this->m['col'] > $fence->col && $this->m['col'] < $fence->closerBelow
+            && ($fence->closes)($this->m['rest'], $fence->col);
+        $fence->closerShifts = self::closerShiftsAfter($fence->closerShifts, $this->m['rest'] === '', $fence->closerShiftStrict);
+
+        return $reads;
+    }
+
+    /**
+     * A shifted closer is read after a blank; in an item's own body a payload line past the blank ends that (carve-php#4961).
+     */
+    private static function closerShiftsAfter(?bool $shifts, bool $blank, bool $strict): ?bool
+    {
+        if ($blank) {
+            return $shifts ?? true;
+        }
+
+        return $shifts === true && $strict ? false : $shifts;
     }
 
     private function recordFenceBodyLine(int $at, OwnershipFrame $fence): void
