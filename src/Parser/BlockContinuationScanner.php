@@ -1725,6 +1725,23 @@ final class BlockContinuationScanner
         );
         while ($i < $count) {
             $nextLine = $lines[$i];
+            $sourceLine = $this->sourceLineFor($i);
+            if (
+                $this->isContinuationMarker(ltrim($nextLine, " \t"))
+                && $trailingState->fence === null
+                && $run->openCommentLength === null
+                && !$trailingState->hasOpenDiv()
+                && ($this->state->source->plusHosts[$sourceLine]['kind'] ?? null) === 'description'
+                && isset($lines[$i + 1])
+                && IndentationHelper::getLeadingColumns($lines[$i + 1]) === $baseIndent
+                && ($this->getListParser)()->parseListItemMarker(ltrim($lines[$i + 1], " \t")) !== null
+            ) {
+                // The description has already left this item. Its refused
+                // marker cannot become this item's lazy paragraph text.
+                $i++;
+
+                continue;
+            }
             // The source marker column ends the nested item even when its
             // term is still open. The collected line has lost that column.
             // A task marker's checkbox adds a stripped column pair: its bullet's content column ends the item too.
