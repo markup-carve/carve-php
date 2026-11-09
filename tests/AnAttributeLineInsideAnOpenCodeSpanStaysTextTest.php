@@ -21,6 +21,8 @@ final class AnAttributeLineInsideAnOpenCodeSpanStaysTextTest extends TestCase
         yield 'one-line attribute' => ["p\n`open\n{.x}\nclose`\nz\n", "<p>p\n<code>open\n{.x}\nclose</code>\nz</p>"];
         yield 'longer code delimiter' => ["p\n``open\n{#id}\nclose``\nz\n", "<p>p\n<code>open\n{#id}\nclose</code>\nz</p>"];
         yield 'closed code before attribute' => ["p\n`open`\n{.x}\nz\n", "<p>p\n<code>open</code></p>\n<p class=\"x\">z</p>"];
+        yield 'backtick in inline attribute is opaque' => ["[a]{title=\"`\"} text\n{.x}\nz\n", "<p><span title=\"`\">a</span> text</p>\n<p class=\"x\">z</p>"];
+        yield 'unclosed inline comment opener is literal' => ["{%%%:fr}\ny\n{.x}\nz\n", "<p>{%%%:fr}\ny</p>\n<p class=\"x\">z</p>"];
     }
 
     #[DataProvider('documents')]

@@ -5071,6 +5071,13 @@ class BlockParser
                 if ($state['code'] !== 0) {
                     continue;
                 }
+                // Attribute payloads are opaque to inline pairing. A quote
+                // inside one can contain backticks without opening code.
+                if ($line[$k] === '{' && preg_match('/^\{(?:[^{}"\\\\]|\\\\.|"(?:[^"\\\\]|\\\\.)*")*\}/', substr($line, $k), $attribute) === 1) {
+                    $k += strlen($attribute[0]) - 1;
+
+                    continue;
+                }
                 if ($line[$k] === '\\') {
                     $width = strspn($line, '\\', $k);
                     $next = $line[$k + $width] ?? '';
@@ -5216,7 +5223,8 @@ class BlockParser
         // A brace line held by an open inline span is paragraph text, whether
         // its attribute spelling is one line or wrapped (carve#5638).
         if (str_starts_with(ltrim($line, " \t"), '{')) {
-            if (self::inlineSpanOpen($contentLines, $inlineSpan, $literalLines)) {
+            self::inlineSpanOpen($contentLines, $inlineSpan, $literalLines);
+            if ($inlineSpan['code'] !== 0) {
                 return false;
             }
         }
