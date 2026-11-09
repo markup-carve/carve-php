@@ -25,7 +25,7 @@ final class BlockContinuationScanner
     private ?TrailingBlockStateScanner $trailingStateService = null;
 
     /**
-     * Fence closers that stand in for a refused marker's placeholder, by source line.
+     * Lines that stand in for a refused marker's placeholder or its follower, by source line.
      *
      * @var array<int, string>
      */
@@ -1029,11 +1029,13 @@ final class BlockContinuationScanner
         $restarted = false;
         $attachedListMarker = null;
         $attachedListColumn = null;
+        // Body column of the attached list's latest top-level item, or null.
+        $attachedItemColumn = null;
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd, $blockColumn, &$restarted, &$attachedListMarker, &$attachedListColumn): bool {
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd, $blockColumn, &$restarted, &$attachedListMarker, &$attachedListColumn, &$attachedItemColumn): bool {
                 $sourceLine = $this->sourceLineFor($index);
                 if (
                     $attachedKind === BlockGrammar::ATTACHED_PARAGRAPH
@@ -1070,7 +1072,7 @@ final class BlockContinuationScanner
                         && !($attachedKind === BlockGrammar::ATTACHED_SPANNING . ':list' && $attachedState->fence !== null))
                     // An open code fence keeps a `+` as payload (PART 9 §17 L3, carve#5494).
                     || ($this->isContinuationMarker($line) && $attachedState->fence === null)
-                    || $this->hostConsumedMarker($line, $index, $attachedState)
+                    || $this->hostConsumedMarker($line, $index, $attachedState, $lines, $attachedListMarker, $attachedListColumn, $attachedItemColumn)
                     || isset($this->state->source->attachedQuoteEnds[$this->sourceLineFor($index)])
                     || ($attachedState->fence === null && $endsAtSibling !== null && $endsAtSibling($line, $index))
                     // An open colon block or line block holds a marker: it is the block's content (carve#5578).
@@ -1114,8 +1116,14 @@ final class BlockContinuationScanner
                 ) {
                     return true;
                 }
+                // A line at an item's body column stays in the item though its last block closed (PART 0 S3);
+                // a refused marker's placeholder renders nothing, and hostConsumedMarker() decides where it ends the list.
+                $inItemBody = $attachedKind === BlockGrammar::ATTACHED_SPANNING . ':list' && $attachedItemColumn !== null
+                    && $attachedState->fence === null && !$attachedState->hasOpenDiv()
+                    && !IndentationHelper::isBlankLine($line)
+                    && (IndentationHelper::getLeadingColumns($line) >= $attachedItemColumn || $this->isHostPlaceholder($line, $index));
                 if (
-                    ($index !== $refusedFollower && $this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState))
+                    ($index !== $refusedFollower && !$inItemBody && $this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState))
                     // An unmarked line continues an attached quote only within its lazy extent (PART 1 S4).
                     || ($quoteEnd !== null && $index > $quoteEnd && !str_starts_with(ltrim($line, " \t"), '>'))
                     // In a note or description an invisible line ends the attached paragraph, or a container it stands left of (PART 9 §10 I5).
@@ -1141,6 +1149,13 @@ final class BlockContinuationScanner
                 if ($attachedKind === BlockGrammar::ATTACHED_SPANNING . ':list' && $attachedListMarker === null) {
                     $attachedListMarker = ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t"));
                     $attachedListColumn = IndentationHelper::getLeadingColumns($line);
+                }
+                if (
+                    $attachedListColumn !== null && $attachedState->fence === null
+                    && IndentationHelper::getLeadingColumns($line) === $attachedListColumn
+                    && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null
+                ) {
+                    $attachedItemColumn = $attachedListColumn + strcspn(ltrim($line, " \t"), " \t") + 1;
                 }
                 if ($quoteEnd === null && $attachedKind === BlockGrammar::ATTACHED_SPANNING . ':quote') {
                     $quoteEnd = ($this->getBlockQuoteBuilder)()->blockQuoteLazyExtentEnd($lines, $index);
@@ -5712,23 +5727,50 @@ final class BlockContinuationScanner
     }
 
     /**
-     * The walk's placeholder for a `+` the note, description or quote host refused, where the next line leaves the attached block (PART 9 §17 L3).
+     * Whether the line is the walk's placeholder for a `+` a note, description or quote host refused.
      *
-     * A sibling item or term there continues the attached list; an open fence still ends at the marker (CARVE-P0-013).
+     * @param string $line
+     * @param int $index
      */
-    private function hostConsumedMarker(string $line, int $index, TrailingBlockState $state): bool
+    private function isHostPlaceholder(string $line, int $index): bool
     {
         if (!str_starts_with(ltrim($line, " \t"), '%%')) {
             return false;
         }
         $source = $this->state->source;
         $sourceLine = $this->sourceLineFor($index);
-        if (
-            !$source->isConsumedMarker($sourceLine)
-            || !in_array($source->refusedPlus[$sourceLine]['host'] ?? null, ['footnote body', 'definition description', 'block quote'], true)
-        ) {
+
+        return $source->isConsumedMarker($sourceLine)
+            && in_array($source->refusedPlus[$sourceLine]['host'] ?? null, ['footnote body', 'definition description', 'block quote'], true);
+    }
+
+    /**
+     * The walk's placeholder for a `+` the note, description or quote host refused, where the next line leaves the attached block (PART 9 §17 L3).
+     *
+     * A sibling item or term there continues the attached list; an open fence still ends at the marker (CARVE-P0-013).
+     *
+     * @param string $line
+     * @param int $index
+     * @param \MarkupCarve\Carve\Parser\TrailingBlockState $state
+     * @param array<string> $lines
+     * @param array<string, mixed>|null $listMarker The attached list's first marker.
+     * @param int|null $listColumn
+     * @param int|null $itemColumn
+     */
+    private function hostConsumedMarker(
+        string $line,
+        int $index,
+        TrailingBlockState $state,
+        array $lines = [],
+        ?array $listMarker = null,
+        ?int $listColumn = null,
+        ?int $itemColumn = null,
+    ): bool {
+        if (!$this->isHostPlaceholder($line, $index)) {
             return false;
         }
+        $source = $this->state->source;
+        $sourceLine = $this->sourceLineFor($index);
         $next = $source->sourceLines[$sourceLine + 1] ?? null;
         if ($next === null || IndentationHelper::isBlankLine($next)) {
             return true;
@@ -5744,8 +5786,36 @@ final class BlockContinuationScanner
 
             return false;
         }
+        $this->rebaseSiblingPastPlaceholder($lines, $index, $listMarker, $listColumn, $itemColumn);
 
         return !$sibling && isset($source->closingLines[$sourceLine + 1]);
+    }
+
+    /**
+     * A sibling marker left of the item's body column reads at the list's column, as it does with no placeholder (carve#5013).
+     *
+     * @param array<string> $lines
+     * @param int $index
+     * @param array<string, mixed>|null $listMarker
+     * @param int|null $listColumn
+     * @param int|null $itemColumn
+     */
+    private function rebaseSiblingPastPlaceholder(array $lines, int $index, ?array $listMarker, ?int $listColumn, ?int $itemColumn): void
+    {
+        $next = $lines[$index + 1] ?? null;
+        if ($next === null || $listMarker === null || $listColumn === null || $itemColumn === null) {
+            return;
+        }
+        $column = IndentationHelper::getLeadingColumns($next);
+        $candidate = ($this->getListParser)()->parseListItemMarker(ltrim($next, " \t"));
+        if (
+            $column <= $listColumn || $column >= $itemColumn || $candidate === null
+            || $candidate['type'] !== $listMarker['type'] || $candidate['marker'] !== $listMarker['marker']
+            || ($candidate['style'] ?? null) !== ($listMarker['style'] ?? null)
+        ) {
+            return;
+        }
+        $this->placeholderClosers[$this->sourceLineFor($index + 1)] = str_repeat(' ', $listColumn) . ltrim($next, " \t");
     }
 
     private function isContinuationMarker(string $line): bool
