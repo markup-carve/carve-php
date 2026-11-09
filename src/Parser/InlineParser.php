@@ -3901,6 +3901,7 @@ class InlineParser
         $lastOpener = [];
         $passedOpeners = [];
         $literalEnd = 0;
+        $socialNameEnd = 0;
         $searchPos = $searchStart;
         while ($searchPos < $length) {
             if (isset($destinationEnds[$searchPos])) {
@@ -3921,6 +3922,14 @@ class InlineParser
                 break;
             }
             $char = $text[$searchPos];
+            if (($char === '@' || $char === '#') && ($searchPos === $pos + 1 || $searchPos === 0 || !preg_match('/[A-Za-z0-9_]/', $text[$searchPos - 1]))) {
+                if (
+                    preg_match('/\G[@#]([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)/A', $text, $socialMatch, 0, $searchPos)
+                    && preg_match('/[A-Za-z]/', $socialMatch[1])
+                ) {
+                    $socialNameEnd = $searchPos + strlen($socialMatch[0]);
+                }
+            }
             // A literal directive's tokens open nothing, but a closer inside it closes (CARVE-P6-001, CARVE-P9-043).
             if ($searchPos < $literalEnd) {
                 if ($char !== $delimiter) {
@@ -4133,7 +4142,11 @@ class InlineParser
                     // opener's left boundary, `_` does NOT block a closer.
                     $afterCloseAt = CommentFlank::after($text, $actualClose + 1);
                     if ($this->wordAfter($text, $afterCloseAt) || $this->hasGraphemeExtender($text, $afterCloseAt)) {
-                        if (!$openerIsBraced && $innerDelimiter === null && $this->wordAfter($text, $afterCloseAt) && $this->wordBefore($text, $beforeCloseAt)) {
+                        if (
+                            !$openerIsBraced && $innerDelimiter === null && $this->wordAfter($text, $afterCloseAt)
+                            && $this->wordBefore($text, $beforeCloseAt)
+                            && !($delimiter === '_' && $searchPos < $socialNameEnd)
+                        ) {
                             $innerDelimiter = $actualClose;
                         }
                         $failedStarts[] = $actualClose + 1;
