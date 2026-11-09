@@ -574,7 +574,11 @@ final class BlockContinuationScanner
             if ($inCommentSpan && !$trailingState->hasLiteralDiv()) {
                 // Opaque payload, or the closer that travels with its opener.
                 $trailingState->openParagraph = false;
-            } elseif (isset($this->state->session->blockQuoteInlineFenceSourceLines[$this->sourceLineFor($i)])) {
+            } elseif (
+                isset($this->state->session->blockQuoteInlineFenceSourceLines[$this->sourceLineFor($i)])
+                // A refused brace run and the line its paragraph keeps are text (CARVE-P2-035).
+                || ($trailingState->fence === null && isset($this->state->source->refusedKeptLines[$this->sourceLineFor($i)]))
+            ) {
                 $trailingState = $this->advanceTrailingState($trailingState, 'x', true);
             } else {
                 $trailingState = $trailingState->hasLiteralDiv()
