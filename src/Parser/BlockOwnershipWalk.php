@@ -3789,10 +3789,14 @@ final class BlockOwnershipWalk
             if ($frame->kind === 'quote' && ($host->kind === 'item' || $host->kind === 'dd') && $host->plus !== null && $host->plus === ($frame->line ?? -2) - 1) {
                 return true;
             }
-            // The quote a marker-line `+` took stands in its host's place, so it still stands for that host (carve#4871).
+            // An attached quote stands in its host's place after the host
+            // leaves the frame stack. A description can also leave through
+            // an own-line `+`; item hosts take their own sibling path
+            // (carve#4871, carve#5644).
             if (
                 $frame->kind === 'quote' && $this->attachedTo !== null && $this->attachedTo['from'] === $frame->line
-                && in_array($this->attachedTo['kind'], ['item', 'dd'], true) && $this->heldOnMarkerLine($this->attachedTo)
+                && in_array($this->attachedTo['kind'], ['item', 'dd'], true)
+                && ($this->attachedTo['kind'] === 'dd' || $this->heldOnMarkerLine($this->attachedTo))
                 && $this->m['col'] < $this->attachedTo['frames'][count($this->attachedTo['frames']) - 1]->col
             ) {
                 return true;
