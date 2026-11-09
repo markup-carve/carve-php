@@ -518,6 +518,8 @@ final class DefinitionListBuilder
     private function skipInvisibleBeforeEntry(Node $parent, DefinitionList $dl, array &$lines, int $i, int $count, string $pattern): int
     {
         $holder = new Document();
+        $children = $dl->getChildren();
+        $lastDescription = $children[count($children) - 1] ?? null;
         $blanks = 0;
         $end = $i;
         $at = $i;
@@ -542,7 +544,13 @@ final class DefinitionListBuilder
             }
             if (
                 $consumed === null && !$this->isDocumentAbbreviation($parent, $trimmed)
-                && (!$this->isReferenceDefinitionLine($trimmed) || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) === 1)
+                && (!$this->isReferenceDefinitionLine($trimmed) || (
+                    preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) === 1
+                    && !($lastDescription instanceof DefinitionDescription
+                        && isset($this->descriptionContentColumns[$lastDescription])
+                        && IndentationHelper::getLeadingColumns($this->state->source->sourceLines[$this->sourceLineFor($at)] ?? '')
+                            >= $this->descriptionContentColumns[$lastDescription])
+                ))
             ) {
                 break;
             }
@@ -2873,7 +2881,6 @@ final class DefinitionListBuilder
             // A marker body opens a list at its column 0 as an item does (PART 0 S3, carve#4860).
             $this->parseBlocks($dd, $b->body, 0, $b->bodyMap, itemBody: true);
         }
-        unset($this->descriptionContentColumns[$dd]);
         // The description is a container too, and its boundary ends the
         // pending run for the same reason a quote's does.
         $this->endContainerAttributeScope();
