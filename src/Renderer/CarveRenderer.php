@@ -3423,7 +3423,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $structural = array_flip($structuralClasses);
         $parts = [];
         $seen = [];
-        $emit = function (string $slot) use (&$parts, &$seen, $attrs, $structural): void {
+        $emit = function (string $slot) use (&$parts, &$seen, $attrs, &$structural): void {
             if ($slot === '#id') {
                 if (isset($seen['id']) || !array_key_exists('id', $attrs)) {
                     return;
@@ -3444,6 +3444,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $seen['class'] = true;
                 foreach ((array)($attrs['class'] ?? []) as $class) {
                     if (isset($structural[$class])) {
+                        // Only the first occurrence comes from the opener;
+                        // later equal entries were authored attributes.
+                        unset($structural[$class]);
+
                         continue;
                     }
                     $parts[] = $this->isExplicitIdOrClassIdentifier($class)

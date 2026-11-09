@@ -40,7 +40,7 @@ class AClassWithoutAShorthandKeepsItsValueTest extends TestCase
 
     public function testStructuralClassesAreFilteredBeforeChoosingTheSpelling(): void
     {
-        foreach (['-col' => '{class="-col"}', 'a' => '{.a}'] as $class => $attrs) {
+        foreach (['-col' => '{.note class="-col"}', 'a' => '{.note .a}'] as $class => $attrs) {
             $written = CarveConverter::carve()->convert('{.note class="' . $class . '"}' . "\n::: note\nx\n:::\n");
 
             $this->assertStringContainsString($attrs, $written);

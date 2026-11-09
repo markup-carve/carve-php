@@ -3654,7 +3654,8 @@ final class HtmlAstBuilder
         // never from `class="line-block"` alone, which the admonition renders too.
         $carriedLineBlock = $tag === 'div' && CarrierNames::consumePresence($node, 'data-carve-line-block');
         $carriedDiv = $tag === 'div' && !$carriedLineBlock && CarrierNames::consumePresence($node, 'data-carve-div');
-        $kindIndex = $tag === 'aside' && ($classes[0] ?? null) === 'admonition' && isset($classes[1]) ? 1 : 0;
+        $kindIndex = ($tag === 'aside' || ($structuralKind !== '' && ($classes[1] ?? null) === $structuralKind))
+            && ($classes[0] ?? null) === 'admonition' && isset($classes[1]) ? 1 : 0;
         $lineBlockIndex = $carriedLineBlock ? array_search('line-block', $classes, true) : false;
         if ($lineBlockIndex !== false) {
             $kindIndex = $lineBlockIndex;
@@ -3671,7 +3672,7 @@ final class HtmlAstBuilder
             if ($classKind !== '') {
                 unset($classes[$kindIndex]);
             }
-            if ($tag === 'aside' && ($classes[0] ?? null) === 'admonition') {
+            if (($tag === 'aside' || $structuralKind !== '') && ($classes[0] ?? null) === 'admonition') {
                 unset($classes[0]);
             }
             $classes = array_values($classes);
