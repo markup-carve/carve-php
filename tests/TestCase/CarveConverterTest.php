@@ -3229,6 +3229,12 @@ DJOT;
         $this->assertSame(substr("<p><a></p>\n", 0, -1), $result);
     }
 
+    public function testRawInlineFormatNameAllowsUnderscore(): void
+    {
+        $this->assertSame('<p></p>', $this->converter->convert('`x`{=a_b}'));
+        $this->assertSame('<p></p>', $this->converter->convert('`x`{=m_}'));
+    }
+
     // ==================== Bare Backticks as Inline Code ====================
 
     public function testBareBackticksAtEndOfParagraphOpenAnEmptyCodeBlock(): void

@@ -2971,7 +2971,7 @@ class InlineParser
                 if ($formatEnd !== false) {
                     $format = substr($text, $afterClose + 2, $formatEnd - $afterClose - 2);
                     // Only accept pure format (alphanumeric/hyphen), reject if mixed with other attributes
-                    if (preg_match('/^[a-zA-Z0-9-]+$/', $format)) {
+                    if (preg_match('/^[a-zA-Z0-9_-]+$/', $format)) {
                         $endPos = $formatEnd + 1;
 
                         return [
@@ -4044,7 +4044,7 @@ class InlineParser
                 $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
                 if ($codeEnd !== null) {
                     // A raw inline's `{=format}` belongs to it, not to a `{=` highlight.
-                    if (preg_match('/\G\{=[a-zA-Z0-9-]+\}/', $text, $rawFormat, 0, $codeEnd) === 1) {
+                    if (preg_match('/\G\{=[a-zA-Z0-9_-]+\}/', $text, $rawFormat, 0, $codeEnd) === 1) {
                         $codeEnd += strlen($rawFormat[0]);
                     }
                     $searchPos = $this->bracedPairIndex?->afterAttributes($codeEnd) ?? $codeEnd;
@@ -4436,7 +4436,7 @@ class InlineParser
             if ($char === '`') {
                 $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
                 if ($codeEnd !== null) {
-                    if (preg_match('/\G\{=[a-zA-Z0-9-]+\}/', $text, $rawFormat, 0, $codeEnd) === 1) {
+                    if (preg_match('/\G\{=[a-zA-Z0-9_-]+\}/', $text, $rawFormat, 0, $codeEnd) === 1) {
                         $codeEnd += strlen($rawFormat[0]);
                     }
                     $searchPos = $this->bracedPairIndex?->afterAttributes($codeEnd) ?? $codeEnd;
@@ -6018,7 +6018,7 @@ class InlineParser
                 }
                 if ($char === '`') {
                     $codes[$at] = $this->findCodeSpanEnd($text, $at);
-                    if ($codes[$at] !== null && preg_match('/\G\{=[a-zA-Z0-9-]+\}/', $text, $rawFormat, 0, $codes[$at]) === 1) {
+                    if ($codes[$at] !== null && preg_match('/\G\{=[a-zA-Z0-9_-]+\}/', $text, $rawFormat, 0, $codes[$at]) === 1) {
                         $codes[$at] += strlen($rawFormat[0]);
                     }
                     $end = $codes[$at];
