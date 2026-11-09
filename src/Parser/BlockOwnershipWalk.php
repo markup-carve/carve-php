@@ -2358,7 +2358,7 @@ final class BlockOwnershipWalk
             $open = ($this->inlineSpanOpen)($parts, $owner->paragraphSpanState);
             $owner->paragraphSpanNext = $at;
             if ($open) {
-                return null;
+                return new OwnershipForm(kind: 'text', interrupts: false);
             }
         }
         $depth = 0;

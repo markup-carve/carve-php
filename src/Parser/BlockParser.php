@@ -5209,6 +5209,15 @@ class BlockParser
             return $this->isCaptionableParagraphContent(implode("\n", $contentLines), $sourceLine);
         }
 
+        // A brace line held by an open inline span is paragraph text, whether
+        // its attribute spelling is one line or wrapped (carve#5638).
+        if (str_starts_with(ltrim($line, " \t"), '{')) {
+            $span = ['scanned' => 0, 'code' => 0, 'comment' => false];
+            if (self::inlineSpanOpen($contentLines, $span, [])) {
+                return false;
+            }
+        }
+
         if ($this->startsNewBlock($line, $lines, $i)) {
             return true;
         }
