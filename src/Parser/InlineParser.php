@@ -23,6 +23,7 @@ use MarkupCarve\Carve\Node\Inline\Highlight;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
+use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\LiteralInline;
@@ -2223,6 +2224,85 @@ class InlineParser
             }
             if ($child->hasChildren()) {
                 $this->expandLateAbbreviations($child, $abbreviations, $depth + 1);
+            }
+        }
+        if ($depth === 0) {
+            $this->pruneAbbreviationsAcrossInlineEdges($node);
+        }
+    }
+
+    /**
+     * R3 tests the rendered neighbor, even when an inline element separates
+     * that neighbor from the text run in which an abbreviation was found.
+     */
+    private function pruneAbbreviationsAcrossInlineEdges(Node $node): void
+    {
+        $leaves = [];
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof InlineNode) {
+                $this->collectAbbreviationFlow($child, $leaves);
+            } else {
+                $this->pruneAbbreviationsAcrossInlineEdges($child);
+            }
+        }
+        foreach ($leaves as $index => [$leaf, $text]) {
+            if (!$leaf instanceof Abbreviation) {
+                continue;
+            }
+            $before = $leaves[$index - 1][1] ?? '';
+            $after = $leaves[$index + 1][1] ?? '';
+            if (preg_match('/[\p{L}\p{N}]\z/u', $before) !== 1 && preg_match('/\A[\p{L}\p{N}]/u', $after) !== 1) {
+                continue;
+            }
+            $label = $leaf->getChildren()[0] ?? null;
+            if ($label instanceof Text) {
+                $leaf->getParent()?->replaceChildNode($leaf, $label);
+            }
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Inline\InlineNode $node
+     * @param list<array{\MarkupCarve\Carve\Node\Node, string}> $leaves
+     */
+    private function collectAbbreviationFlow(InlineNode $node, array &$leaves): void
+    {
+        if ($node instanceof Text) {
+            $leaves[] = [$node, $node->getContent()];
+
+            return;
+        }
+        if ($node instanceof Abbreviation) {
+            $label = $node->getChildren()[0] ?? null;
+            if ($label instanceof Text) {
+                $leaves[] = [$node, $label->getContent()];
+            }
+
+            return;
+        }
+        if (
+            $node instanceof Code || $node instanceof LiteralInline || $node instanceof Math || $node instanceof RawInline
+            || $node instanceof Mention || $node instanceof FootnoteRef || $node instanceof InlineFootnote || $node instanceof HeadingRef
+            || ($node instanceof Link && $node->isAutolink())
+        ) {
+            // The node's display text is not eligible authored inline text.
+            $leaves[] = [$node, ' '];
+
+            return;
+        }
+        if ($node instanceof EscapedText) {
+            $leaves[] = [$node, $node->getContent()];
+
+            return;
+        }
+        if (!$node->hasChildren()) {
+            $leaves[] = [$node, ' '];
+
+            return;
+        }
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof InlineNode) {
+                $this->collectAbbreviationFlow($child, $leaves);
             }
         }
     }
