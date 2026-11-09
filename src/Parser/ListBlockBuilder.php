@@ -3226,10 +3226,11 @@ final class ListBlockBuilder
         $j = $i;
         $k = $i;
         while ($k < $count) {
-            // The walk ended an item's comment when this line missed its owner.
-            // A local delimiter scan must not carry that line and a later root
-            // comment back into the item merely because a sibling follows.
-            if (isset($this->state->source->commentEndLines[$this->sourceLineFor($k)])) {
+            // The walk ended an item's comment when this visible line missed
+            // its owner. A local scan that calls the line payload cannot carry
+            // it and a later root comment back into the item. A new root
+            // comment opener is still invisible and can precede a sibling.
+            if (($roles[$k] ?? null) === 'payload' && isset($this->state->source->commentEndLines[$this->sourceLineFor($k)])) {
                 return null;
             }
             if (IndentationHelper::isBlankLine($lines[$k]) && !isset($roles[$k])) {
