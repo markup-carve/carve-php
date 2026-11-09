@@ -619,7 +619,7 @@ final class BlockOwnershipWalk
                 // A refused marker is consumed and renders nothing (carve#5013). Its placeholder stays
                 // inside the host, so the next line keeps the same owner.
                 $keepMarkerColumn = count($this->frames) > $plus + 1 || isset($this->claimedMarkers[$at]);
-                $closer = $this->openCodeRunAbove($plus);
+                [$closer, $afterNestedBlank] = $this->refusedItemContext($plus, $at);
                 $this->truncate($plus + 1);
                 $host = $this->frames[$plus];
                 $host->para = false;
@@ -632,7 +632,7 @@ final class BlockOwnershipWalk
                     $this->skipped['spanPad'] = self::spanPad($host);
                 }
                 $this->lead((int)$host->markerCanon);
-                $result[] = $this->out . $this->refusedPlaceholder($host, $at, $keepMarkerColumn, $closer);
+                $result[] = $this->out . $this->refusedPlaceholder($host, $at, $keepMarkerColumn, $closer, $afterNestedBlank);
                 if ($this->trace !== null) {
                     $this->emit($at, 'S2', $this->ownerPath(), 'CARVE-P9-067', 'plus', ['cell' => 'B-plus-start']);
                 }
@@ -3301,27 +3301,42 @@ final class BlockOwnershipWalk
      * The placeholder a refused marker leaves in its host. An item keeps the next line, so its placeholder
      * stands at the content column, as the closer of the item's open code fence (CARVE-P9-067, carve#5637).
      */
-    private function refusedPlaceholder(OwnershipFrame $host, int $at, bool $keepMarkerColumn, ?string $closer): string
+    private function refusedPlaceholder(OwnershipFrame $host, int $at, bool $keepMarkerColumn, ?string $closer, bool $afterNestedBlank): string
     {
-        $keepsItem = $host->kind === 'item' && in_array($this->refusedPlus[$at]['reason'] ?? null, ['right', 'blank'], true);
+        $keepsItem = $host->kind === 'item' && !$afterNestedBlank
+            && in_array($this->refusedPlus[$at]['reason'] ?? null, ['right', 'blank'], true);
         $pad = $keepMarkerColumn && !$keepsItem ? 0 : max(0, $host->canon - (int)$host->markerCanon);
 
         return str_repeat(' ', $pad) . ($keepsItem && $closer !== null ? $closer : '%%');
     }
 
     /**
-     * The run of the innermost open code fence above frame `$host`, or null.
+     * Read before the frames above the host close: the run of the open code fence directly in it,
+     * and whether a blank before the marker follows a nested item, which the marker leaves as before.
+     *
+     * @return array{0: ?string, 1: bool}
+     */
+    private function refusedItemContext(int $host, int $at): array
+    {
+        $above = $this->frames[$host + 1] ?? null;
+
+        return [
+            $this->openCodeRunAbove($host),
+            $at > 0 && trim($this->lines[$at - 1]) === '' && $above?->kind === 'item',
+        ];
+    }
+
+    /**
+     * The run of the open code fence directly in frame `$host`, or null.
      */
     private function openCodeRunAbove(int $host): ?string
     {
-        for ($k = count($this->frames) - 1; $k > $host; $k--) {
-            $f = $this->frames[$k];
-            if (
-                $f->kind === 'fence' && $f->family === 'code' && $f->opened !== null
-                && preg_match('/(`{3,}|~{3,})/', $this->lines[$f->opened] ?? '', $run) === 1
-            ) {
-                return $run[1];
-            }
+        $f = $this->frames[$host + 1] ?? null;
+        if (
+            $f !== null && $f->kind === 'fence' && $f->family === 'code' && $f->opened !== null
+            && preg_match('/(`{3,}|~{3,})/', $this->lines[$f->opened] ?? '', $run) === 1
+        ) {
+            return $run[1];
         }
 
         return null;
@@ -3478,6 +3493,43 @@ final class BlockOwnershipWalk
     }
 
     /**
+     * An attached colon block ends at its closer; with none, a marker-line one ends at its first blank
+     * and an own-line one holds every later line, a `+` included (carve#5658).
+     *
+     * @param int $at
+     * @param array{frames: array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>, column: int, depth: int, from: int, item: bool, kind: string, parent?: \MarkupCarve\Carve\Parser\AttachmentParent|null, ownLine?: bool} $held
+     * @param int $run
+     */
+    private function attachedColonEndsBefore(int $at, array $held, int $run): bool
+    {
+        $nested = 0;
+        for ($k = $held['from'] + 1; $k < $at; $k++) {
+            $level = $this->levelOf($this->lines[$k], $held['depth']);
+            if ($level === null) {
+                return false;
+            }
+            $rest = rtrim($level['rest'], " \t");
+            if ($rest === '') {
+                if (!($held['ownLine'] ?? false)) {
+                    return true;
+                }
+
+                continue;
+            }
+            if (preg_match('/^:{' . $run . '}$/D', $rest) === 1) {
+                if ($nested === 0) {
+                    return true;
+                }
+                $nested--;
+            } elseif (($this->fenced->parseDivFenceOpener($rest)['length'] ?? null) === $run) {
+                $nested++;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Whether the lines since the last accepted `+` hold exactly one block.
      */
     private function attachedBlockEndsAt(int $at): bool
@@ -3506,6 +3558,9 @@ final class BlockOwnershipWalk
             $own[] = $level;
         }
         $first = $own[0]['rest'];
+        if (preg_match('/^(:{3,})/', $first, $colon) === 1 && $this->fenced->parseDivFenceOpener($first) !== null) {
+            return $this->attachedColonEndsBefore($at, $held, strlen($colon[1]));
+        }
         if ($held['kind'] === 'note' && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $first) === 1) {
             foreach ($own as $line) {
                 if (
