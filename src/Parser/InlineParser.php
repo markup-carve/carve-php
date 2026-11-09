@@ -165,6 +165,13 @@ class InlineParser
     protected array $customPatterns = [];
 
     /**
+     * Sigils whose core social-name matchers are registered.
+     *
+     * @var array<string, string>
+     */
+    private array $socialNamePatternSigils = [];
+
+    /**
      * Registered scanner-function inline matchers.
      *
      * `pattern` is the source regex (when registered via addInlinePattern), used
@@ -509,11 +516,15 @@ class InlineParser
      * @param string $pattern Regex pattern (without anchors)
      * @param callable(string, array<string>, self): ?\MarkupCarve\Carve\Node\Node $callback
      * @param string|null $requiredSubstring Literal that must occur in the inline input for this pattern to match
+     * @param string|null $socialNameSigil The registered mention or tag sigil, when this pattern parses one
      */
-    public function addInlinePattern(string $pattern, callable $callback, ?string $requiredSubstring = null): void
+    public function addInlinePattern(string $pattern, callable $callback, ?string $requiredSubstring = null, ?string $socialNameSigil = null): void
     {
         $this->removeInlinePattern($pattern);
         $this->customPatterns[$pattern] = $callback;
+        if ($socialNameSigil !== null) {
+            $this->socialNamePatternSigils[$pattern] = $socialNameSigil;
+        }
 
         $anchored = $pattern[0] . '\G' . substr($pattern, 1);
         $this->registerInlineMatcher(
@@ -540,6 +551,7 @@ class InlineParser
     public function removeInlinePattern(string $pattern): void
     {
         unset($this->customPatterns[$pattern]);
+        unset($this->socialNamePatternSigils[$pattern]);
         $this->inlineMatchers = array_values(array_filter(
             $this->inlineMatchers,
             static fn (array $entry): bool => $entry['pattern'] !== $pattern,
@@ -3901,6 +3913,7 @@ class InlineParser
         $lastOpener = [];
         $passedOpeners = [];
         $literalEnd = 0;
+        $socialNameEnd = 0;
         $searchPos = $searchStart;
         while ($searchPos < $length) {
             if (isset($destinationEnds[$searchPos])) {
@@ -3921,6 +3934,17 @@ class InlineParser
                 break;
             }
             $char = $text[$searchPos];
+            if (
+                in_array($char, $this->socialNamePatternSigils, true)
+                && ($searchPos === $pos + 1 || $searchPos === 0 || !preg_match('/[A-Za-z0-9_]/', $text[$searchPos - 1]))
+            ) {
+                if (
+                    preg_match('/\G[@#]([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)/A', $text, $socialMatch, 0, $searchPos)
+                    && preg_match('/[A-Za-z]/', $socialMatch[1])
+                ) {
+                    $socialNameEnd = $searchPos + strlen($socialMatch[0]);
+                }
+            }
             // A literal directive's tokens open nothing, but a closer inside it closes (CARVE-P6-001, CARVE-P9-043).
             if ($searchPos < $literalEnd) {
                 if ($char !== $delimiter) {
@@ -4133,7 +4157,11 @@ class InlineParser
                     // opener's left boundary, `_` does NOT block a closer.
                     $afterCloseAt = CommentFlank::after($text, $actualClose + 1);
                     if ($this->wordAfter($text, $afterCloseAt) || $this->hasGraphemeExtender($text, $afterCloseAt)) {
-                        if (!$openerIsBraced && $innerDelimiter === null && $this->wordAfter($text, $afterCloseAt) && $this->wordBefore($text, $beforeCloseAt)) {
+                        if (
+                            !$openerIsBraced && $innerDelimiter === null && $this->wordAfter($text, $afterCloseAt)
+                            && $this->wordBefore($text, $beforeCloseAt)
+                            && !($delimiter === '_' && $searchPos < $socialNameEnd)
+                        ) {
                             $innerDelimiter = $actualClose;
                         }
                         $failedStarts[] = $actualClose + 1;

@@ -97,6 +97,7 @@ class MentionsExtension implements BeforeRenderExtensionInterface
 
                 return $node;
             },
+            socialNameSigil: '@',
         );
 
         $tagUrl = $this->tagUrl;
@@ -122,6 +123,7 @@ class MentionsExtension implements BeforeRenderExtensionInterface
 
                 return $node;
             },
+            socialNameSigil: '#',
         );
     }
 
