@@ -173,6 +173,14 @@ final class BlockOwnershipWalk
     public array $refusedKeptLines = [];
 
     /**
+     * Block openers spelled on an off-stop tab run: a nested parse reads them past the body's
+     * column, where they still open their block rather than fold into a paragraph (PART 0 S2, S3).
+     *
+     * @var array<int, true>
+     */
+    public array $shiftedOpeners = [];
+
+    /**
      * Lines the walk opened a code fence on, keyed by line index.
      *
      * @var array<int, true>
@@ -470,6 +478,7 @@ final class BlockOwnershipWalk
         $this->traceBlankHost = null;
         $this->attachedFenceScans = [];
         $this->refusedKeptLines = [];
+        $this->shiftedOpeners = [];
         $this->fenceOpenerLines = [];
         $this->commentEndLines = [];
         $this->commentCloserLines = [];
@@ -947,6 +956,7 @@ final class BlockOwnershipWalk
                     $this->noteOpener($o, $form, $this->frames[$o]->col);
                 }
                 $shift = $this->strippedColumn($this->src, $segment, $this->m) - $this->m['col'];
+                $this->noteShiftedOpener($at, $shift);
                 $this->lead($this->frames[$o]->canon, $form->kind === 'term' || $form->kind === 'dd');
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon, inHost: !$leftLineBlockSpan);
                 $this->markAttachedFence($at, $o, $form, $plusFollower);
@@ -2236,6 +2246,13 @@ final class BlockOwnershipWalk
             'contentColumn' => $contentColumn,
             'authoredColumn' => $this->m['col'],
         ];
+    }
+
+    private function noteShiftedOpener(int $at, int $shift): void
+    {
+        if ($shift !== 0) {
+            $this->shiftedOpeners[$at] = true;
+        }
     }
 
     private function lead(int $target, bool $spaces = false): void
