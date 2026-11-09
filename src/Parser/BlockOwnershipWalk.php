@@ -3570,6 +3570,18 @@ final class BlockOwnershipWalk
 
                 continue;
             }
+            // A code fence in the block keeps its payload, colon lines included.
+            $code = $this->fenced->parseCodeFenceOpener($rest);
+            if ($code !== null) {
+                for ($k++; $k < $at; $k++) {
+                    $payload = $this->levelOf($this->lines[$k], $held['depth']);
+                    if ($payload !== null && $this->fenced->isCodeFenceCloser($payload['rest'], $code['fence'][0], $code['length'])) {
+                        break;
+                    }
+                }
+
+                continue;
+            }
             if (preg_match('/^:{' . $run . '}$/D', $rest) === 1) {
                 if ($nested === 0) {
                     return true;
