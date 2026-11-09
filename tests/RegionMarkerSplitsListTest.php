@@ -18,6 +18,8 @@ final class RegionMarkerSplitsListTest extends TestCase
         $twoLists = "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>";
 
         yield 'region opener' => ["- a\n%% #region x\n- b\n", $twoLists];
+        yield 'region prefix followed by punctuation' => ["- a\n%% #region!\n- b\n", $twoLists];
+        yield 'region prefix followed by an invalid include name' => ["- a\n%% #region 9\n- b\n", $twoLists];
         yield 'region closer after an ordinary comment' => ["- a\n%% note\n%% #endregion x\n- b\n", $twoLists];
         yield 'indented marker in item remains a child' => ["- a\n  %% #region x\n- b\n", "<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>"];
     }
