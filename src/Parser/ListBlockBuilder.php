@@ -3755,7 +3755,10 @@ final class ListBlockBuilder
         for ($at = 1; $at < $count; $at++) {
             $line = $itemLines[$at];
             if (IndentationHelper::isBlankLine($line)) {
-                if (($code === null && $colon === null) || isset($this->state->source->attachedFenceBlankEnds[$itemLineMap[$at] ?? -1])) {
+                if (
+                    ($code === null && $colon === null) || isset($this->state->source->attachedFenceBlankEnds[$itemLineMap[$at] ?? -1])
+                    || !$this->closerFollows(array_slice($itemLines, $at + 1), $code, $colon)
+                ) {
                     return $at;
                 }
 
@@ -3784,6 +3787,28 @@ final class ListBlockBuilder
         }
 
         return $count;
+    }
+
+    /**
+     * Whether a closer for the attached fence or colon block is among `$lines`, so a blank before it is interior.
+     *
+     * @param array<string> $lines
+     * @param array{char: string, length: int}|null $code
+     * @param array{length: int}|null $colon
+     */
+    private function closerFollows(array $lines, ?array $code, ?array $colon): bool
+    {
+        $fenced = ($this->getFencedBlockParser)();
+        foreach ($lines as $line) {
+            if ($code !== null && $fenced->isCodeFenceCloser(ltrim($line, " \t"), $code['char'], $code['length'])) {
+                return true;
+            }
+            if ($colon !== null && preg_match('/^[ \t]*:{' . $colon['length'] . '}[ \t]*$/D', $line) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function sourceContentColumn(int $sourceLine): int

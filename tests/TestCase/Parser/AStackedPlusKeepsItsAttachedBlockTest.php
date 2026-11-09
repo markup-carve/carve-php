@@ -89,6 +89,16 @@ final class AStackedPlusKeepsItsAttachedBlockTest extends TestCase
             "- [ ] - +\n      ```\n      y\n\n  q\n",
             "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>\n        <pre><code>y\n</code></pre>\n      </li>\n    </ul>\n    <p>q</p>\n  </li>\n</ul>",
         ];
+
+        yield 'task box head with an unclosed colon and a line below the task column' => [
+            "- [ ] - +\n      ::: note\n  x\n",
+            "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>\n        <aside class=\"admonition note\" aria-label=\"Note\">\n          <p>x</p>\n        </aside>\n      </li>\n    </ul>\n  </li>\n</ul>",
+        ];
+
+        yield 'task box head with an unclosed fence ending at its blank' => [
+            "- [ ] - +\n      ```\n  x\n\n      y\n",
+            "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>\n        <pre><code>x\n</code></pre>\n      </li>\n    </ul>\n    <p>y</p>\n  </li>\n</ul>",
+        ];
     }
 
     #[DataProvider('cases')]
