@@ -3145,6 +3145,7 @@ final class BlockOwnershipWalk
             || $level['col'] >= $held['frames'][count($held['frames']) - 1]->col
             || $this->listParser->parseListItemMarker($level['rest']) === null
             || !$this->attachedBlockEndsAt($at)
+            || ($level['col'] !== $held['column'] && $this->attachedBlockKeepsMarker($held))
         ) {
             return;
         }
@@ -3152,6 +3153,24 @@ final class BlockOwnershipWalk
         $this->attachedTo = null;
         $this->closingLines[$at] = true;
         $this->releasedSibling = 1;
+    }
+
+    /**
+     * Whether the item's attached block reads a marker past the item's column as its own text: an open colon paragraph or a line block (carve-php#4968).
+     *
+     * @param array{frames: array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>, column: int, depth: int, from: int, item: bool, kind: string} $held
+     */
+    private function attachedBlockKeepsMarker(array $held): bool
+    {
+        $para = $this->frames[count($this->frames) - 1]->para;
+        // A column-0 block stands where the held item stood, so its frame sits at the item's depth.
+        foreach (array_slice($this->frames, count($held['frames']) - 1) as $frame) {
+            if (($frame->kind === 'colon' && $para) || ($frame->kind === 'fence' && $frame->lineBlock)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

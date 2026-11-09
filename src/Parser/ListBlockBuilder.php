@@ -3680,7 +3680,7 @@ final class ListBlockBuilder
         $attachedEnd = preg_match('/[ \t]\+[ \t]*$/D', $lead) === 1 ? $this->taskChildAttachedEnd($itemLines, $itemLineMap) : 1;
         foreach ($itemLines as $at => $line) {
             if ($at > 0 && $at < $attachedEnd) {
-                if (!IndentationHelper::isBlankLine($line) && $line[0] !== ' ') {
+                if (!IndentationHelper::isBlankLine($line) && !str_contains($line, "\n") && !str_starts_with($line, BlockGrammar::LAZY_FRAME)) {
                     $itemLines[$at] = str_repeat(' ', $boxWidth) . $line;
                 }
 
@@ -3745,13 +3745,20 @@ final class ListBlockBuilder
     {
         $fenced = ($this->getFencedBlockParser)();
         $first = $itemLines[1] ?? '';
+        // A block the collector already placed at the child's column needs no move.
+        if ($first === '' || $first[0] === ' ' || $first[0] === "\t") {
+            return 1;
+        }
         $code = $fenced->parseCodeFenceOpener($first);
         $colon = $code === null ? $fenced->parseDivFenceOpener($first) : null;
         $count = count($itemLines);
         for ($at = 1; $at < $count; $at++) {
             $line = $itemLines[$at];
             if (IndentationHelper::isBlankLine($line)) {
-                if (($code === null && $colon === null) || isset($this->state->source->attachedFenceBlankEnds[$itemLineMap[$at] ?? -1])) {
+                if (
+                    ($code === null && $colon === null) || isset($this->state->source->attachedFenceBlankEnds[$itemLineMap[$at] ?? -1])
+                    || !$this->closerFollows(array_slice($itemLines, $at + 1), $code, $colon)
+                ) {
                     return $at;
                 }
 
@@ -3780,6 +3787,28 @@ final class ListBlockBuilder
         }
 
         return $count;
+    }
+
+    /**
+     * Whether a closer for the attached fence or colon block is among `$lines`, so a blank before it is interior.
+     *
+     * @param array<string> $lines
+     * @param array{char: string, length: int}|null $code
+     * @param array{length: int}|null $colon
+     */
+    private function closerFollows(array $lines, ?array $code, ?array $colon): bool
+    {
+        $fenced = ($this->getFencedBlockParser)();
+        foreach ($lines as $line) {
+            if ($code !== null && $fenced->isCodeFenceCloser(ltrim($line, " \t"), $code['char'], $code['length'])) {
+                return true;
+            }
+            if ($colon !== null && preg_match('/^[ \t]*:{' . $colon['length'] . '}[ \t]*$/D', $line) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function sourceContentColumn(int $sourceLine): int
