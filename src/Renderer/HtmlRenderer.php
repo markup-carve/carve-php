@@ -4312,7 +4312,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     private static function hasDangerousCss(string $value): bool
     {
-        $compact = strtolower((string)preg_replace('/\s+/', '', self::decodedStyleValue($value)));
+        $stripped = preg_replace('/[\s\p{Z}]+/u', '', self::decodedStyleValue($value));
+        if ($stripped === null) {
+            return true;
+        }
+        $compact = strtolower($stripped);
 
         return str_contains($compact, 'expression(')
             || str_contains($compact, 'url(')
