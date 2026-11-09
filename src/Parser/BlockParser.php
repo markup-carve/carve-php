@@ -854,6 +854,7 @@ class BlockParser
         $this->state->source->foldedFenceAfterAttachedBlank = $walk->foldedFenceAfterAttachedBlank;
         $this->state->source->attachedQuoteEnds = $walk->attachedQuoteEnds;
         $this->state->source->refusedKeptLines = $walk->refusedKeptLines;
+        $this->state->source->shiftedOpeners = $walk->shiftedOpeners;
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
         $this->state->source->commentEndLines = $walk->commentEndLines;
         $this->state->source->commentCloserLines = $walk->commentCloserLines;
@@ -5235,6 +5236,13 @@ class BlockParser
             && $line[0] !== ' '
             && $line[0] !== "\t"
             && $this->listParser->parseListItemMarker($line) !== null
+        ) {
+            return true;
+        }
+        if (
+            $itemBody
+            && isset($this->state->source->shiftedOpeners[$this->sourceLineFor($i)])
+            && ($this->listParser->parseListItemMarker(ltrim($line, ' ')) !== null || $this->startsNewBlock(ltrim($line, ' '), $lines, $i))
         ) {
             return true;
         }

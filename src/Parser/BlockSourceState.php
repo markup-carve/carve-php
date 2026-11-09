@@ -124,6 +124,14 @@ final class BlockSourceState
     public array $refusedKeptLines = [];
 
     /**
+     * Block openers spelled on an off-stop tab run: a nested parse reads them past the body's
+     * column, where they still open their block rather than fold into a paragraph (PART 0 S2, S3).
+     *
+     * @var array<int, true>
+     */
+    public array $shiftedOpeners = [];
+
+    /**
      * Top-level lines the ownership walk opened a code fence on.
      *
      * @var array<int, true>
