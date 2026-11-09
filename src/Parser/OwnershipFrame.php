@@ -36,13 +36,11 @@ final class OwnershipFrame
 
     /**
      * The `+` item's content column: past an interior blank, a closer below it closes at the fence's column (carve-php#4961).
-     * `closerShifts` says whether such a closer is still read; in the item's own body a payload line after the blank ends that.
+     * `closerShifts` turns on at the first blank; a payload line after it does not end it (carve#5587).
      */
     public ?int $closerBelow = null;
 
-    public ?bool $closerShifts = null;
-
-    public bool $closerShiftStrict = false;
+    public bool $closerShifts = false;
 
     public ?int $paragraphStart = null;
 
