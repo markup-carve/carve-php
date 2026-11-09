@@ -333,6 +333,12 @@ final class BlockOwnershipWalk
     public bool $frontmatter = false;
 
     /**
+     * False when an erased line (a `%%` comment, a definition) precedes the visible first line,
+     * so no opener stands on authored line one (PART 1).
+     */
+    public bool $firstLineAuthored = true;
+
+    /**
      * Whether the line just read was an abbreviation under a paragraph or a
      * caption with no block before it: the readers fold the next line there.
      */
@@ -977,7 +983,7 @@ final class BlockOwnershipWalk
     private function ownFrontmatter(array $lines, array &$result): int
     {
         $count = count($lines);
-        if ($count === 0 || preg_match(self::FRONTMATTER_OPENER, $lines[0]) !== 1) {
+        if ($count === 0 || !$this->firstLineAuthored || preg_match(self::FRONTMATTER_OPENER, $lines[0]) !== 1) {
             return 0;
         }
         $start = $count;
