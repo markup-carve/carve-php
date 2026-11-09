@@ -2689,6 +2689,7 @@ final class BlockOwnershipWalk
             ? (int)$host->docMarker + $host->col - (int)$host->markerCol
             : PHP_INT_MAX;
         $view = fn (int $k): string => $this->throughQuotes($this->lines[$k], $hostIndex, $frames)['rest'] ?? "\u{E000}";
+        $rawView = fn (int $k): string => $this->throughQuotes($this->lines[$k], $hostIndex, $frames, true)['rest'] ?? "\u{E000}";
         $k = $from;
         $quoted = fn (int $j): bool => $this->throughQuotes($this->lines[$j], $hostIndex, $frames) !== null;
         $labels = $this->noteLabels;
@@ -2756,7 +2757,11 @@ final class BlockOwnershipWalk
                 }
                 $run = [];
                 for ($j = $k; $j < $n && $j < $k + 64 && trim($view($j)) !== ''; $j++) {
-                    $run[] = rtrim($view($j), " \t");
+                    $part = rtrim($rawView($j), " \t");
+                    $run[] = $part;
+                    if ($j > $k && !WrappedBlockAttributeScanner::endsInsideBlock($part, true)) {
+                        break;
+                    }
                 }
                 $length = count($run) > 1 ? ($this->wrappedAttributeLength)($run) : null;
                 if ($length === null || $length < 2) {
