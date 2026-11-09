@@ -740,6 +740,7 @@ class BlockParser
                 $more,
             ),
             fn (array $lines, int $start): ?int => RefusedBraceRun::end($lines, $start, $this->inlineParser),
+            self::paragraphSpanOpen(...),
         );
     }
 
@@ -4831,9 +4832,13 @@ class BlockParser
     {
         $lines = explode("\n", $part);
         $count = count($lines);
+        $inlineSpan = ['scanned' => 0, 'code' => 0, 'comment' => false];
         for ($k = 0; $k < $count; $k++) {
             $line = ltrim($lines[$k], " \t");
             if (!str_starts_with($line, '{') || str_starts_with($line, '{%')) {
+                continue;
+            }
+            if (self::inlineSpanOpen($lines, $inlineSpan, [], $k)) {
                 continue;
             }
             $end = RefusedBraceRun::end($lines, $k, $this->inlineParser);
@@ -4868,6 +4873,8 @@ class BlockParser
     ): void {
         $physical = 0;
         $found = false;
+        $inlineSpan = ['scanned' => 0, 'code' => 0, 'comment' => false];
+        $spanLines = null;
         foreach ($parts as $part) {
             $width = substr_count($part, "\n") + 1;
             for ($k = $physical; $k < $physical + $width; $k++) {
@@ -4875,6 +4882,9 @@ class BlockParser
                 $sourceLine = $contentLines[$k][0] ?? $this->sourceLineFor($start) + $k;
                 $walkKept = ($this->state->source->refusedKeptLines[$sourceLine] ?? null) === $sourceLine;
                 if (isset($literalLines[$k]) || !str_starts_with($line, '{') || (str_starts_with($line, '{%') && !$walkKept)) {
+                    continue;
+                }
+                if (self::inlineSpanOpen($spanLines ??= array_values($physicalLines), $inlineSpan, $literalLines, $k)) {
                     continue;
                 }
                 $limit = $walkKept ? count($physicalLines) : $physical + $width;
@@ -5027,11 +5037,15 @@ class BlockParser
      * @param list<string> $parts
      * @param array{scanned: int, code: int, comment: bool} $state
      * @param array<int, true> $literalLines
+     * @param int|null $through
      */
-    private static function inlineSpanOpen(array $parts, array &$state, array $literalLines): bool
+    private static function inlineSpanOpen(array $parts, array &$state, array $literalLines, ?int $through = null): bool
     {
-        $count = count($parts);
+        $count = $through ?? count($parts);
         for (; $state['scanned'] < $count; $state['scanned']++) {
+            if (isset($literalLines[$state['scanned']])) {
+                continue;
+            }
             $line = $parts[$state['scanned']];
             $length = strlen($line);
             for ($k = 0; $k < $length; $k++) {
@@ -5072,6 +5086,19 @@ class BlockParser
         }
 
         return $state['code'] !== 0 || $state['comment'];
+    }
+
+    /**
+     * Carry the inline pairing state across the ownership walk's paragraph segments.
+     *
+     * @param list<string> $parts
+     * @param array{scanned: int, code: int, comment: bool} $state
+     */
+    private static function paragraphSpanOpen(array $parts, array &$state): bool
+    {
+        $state['scanned'] = 0;
+
+        return self::inlineSpanOpen($parts, $state, []);
     }
 
     private function deriveContainerSpans(Node $node): ?SourceSpan

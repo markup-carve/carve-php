@@ -414,6 +414,7 @@ final class BlockOwnershipWalk
         private readonly Closure $commentOnlyParagraphEnd,
         private readonly ?Closure $refusedRunKeptThrough = null,
         private readonly ?Closure $refusedBraceRunEnd = null,
+        private readonly ?Closure $inlineSpanOpen = null,
     ) {
     }
 
@@ -846,6 +847,9 @@ final class BlockOwnershipWalk
                 $result[] = $this->out . $this->src;
                 $this->holdAttachedBraceRun($at, (int)$lonePlus->markerCanon);
                 $lonePlus->para = true;
+                $lonePlus->paragraphStart = $at;
+                $lonePlus->paragraphSpanNext = $at;
+                $lonePlus->paragraphSpanState = ['scanned' => 0, 'code' => 0, 'comment' => false];
                 $lonePlus->last = 'para';
                 if ($this->trace !== null) {
                     $this->emit($at, 'S5', $this->ownerPath(), 'CARVE-P0-024', 'text', ['plus' => $at]);
@@ -929,7 +933,7 @@ final class BlockOwnershipWalk
                     $this->textFences[count($result)] = $owner->canon;
                 }
                 $opensParagraph = !$owner->para;
-                $this->frames[$o]->para = true;
+                $this->openParagraph($this->frames[$o], $at, $opensParagraph);
                 $this->frames[$o]->last = 'para';
                 $this->clearItemDefinitionAtParagraph($o, $opensParagraph);
             } else {
@@ -1027,6 +1031,11 @@ final class BlockOwnershipWalk
         $this->reach = 0;
         $form = $this->classify($line, $doc, 0);
         if ($form === self::$textForm) {
+            if (!$doc->para) {
+                $doc->paragraphStart = $at;
+                $doc->paragraphSpanNext = $at;
+                $doc->paragraphSpanState = ['scanned' => 0, 'code' => 0, 'comment' => false];
+            }
             $doc->para = true;
             $doc->last = 'para';
 
@@ -2154,6 +2163,11 @@ final class BlockOwnershipWalk
             }
             // A consumed item marker leaves no paragraph a lazy line continues; past a note the note folds it (PART 0 S4).
             $this->frames[$frame]->para = !$plus && !$losing && !($consumed && $this->consumedLeavesNoParagraph($frame));
+            if ($this->frames[$frame]->para) {
+                $this->frames[$frame]->paragraphStart = $this->at;
+                $this->frames[$frame]->paragraphSpanNext = $this->at;
+                $this->frames[$frame]->paragraphSpanState = ['scanned' => 0, 'code' => 0, 'comment' => false];
+            }
             $this->frames[$frame]->last = 'para';
 
             return;
@@ -2285,6 +2299,16 @@ final class BlockOwnershipWalk
         return $this->keptByRefusedRun($rest, $owner, $col) ?? $this->classify($rest, $owner, $col);
     }
 
+    private function openParagraph(OwnershipFrame $frame, int $at, bool $new): void
+    {
+        $frame->para = true;
+        if ($new) {
+            $frame->paragraphStart = $at;
+            $frame->paragraphSpanNext = $at;
+            $frame->paragraphSpanState = ['scanned' => 0, 'code' => 0, 'comment' => false];
+        }
+    }
+
     /**
      * A refused brace run and the line its paragraph keeps are text (CARVE-P2-035).
      */
@@ -2320,6 +2344,18 @@ final class BlockOwnershipWalk
         }
         if ($at === $this->refusedKeptStart) {
             return $at <= $this->refusedKeptThrough ? new OwnershipForm(kind: 'text', interrupts: false, kept: true) : null;
+        }
+        if ($owner->para && $owner->paragraphStart !== null && $this->inlineSpanOpen !== null) {
+            $from = $owner->paragraphSpanNext ?? $owner->paragraphStart;
+            $parts = array_map(
+                static fn (string $line): string => ltrim($line, " \t"),
+                array_slice($this->lines, $from, $at - $from),
+            );
+            $open = ($this->inlineSpanOpen)($parts, $owner->paragraphSpanState);
+            $owner->paragraphSpanNext = $at;
+            if ($open) {
+                return null;
+            }
         }
         $depth = 0;
         foreach ($this->frames as $index => $frame) {
