@@ -2240,11 +2240,13 @@ final class BlockOwnershipWalk
             }
         }
         $top = $this->frames[count($this->frames) - 1];
-        // A description body reads its refused runs itself (DefinitionListBuilder).
-        if ($top->kind === 'dd' || $top->kind === 'note') {
+        // Description and note bodies normally read their own refused runs.
+        // A first-block marker's follower stands at its source column, before
+        // the body reader has a chance to keep the run's next line.
+        if (($top->kind === 'dd' || $top->kind === 'note') && $top->plus !== $at - 1) {
             return null;
         }
-        $column = in_array($top->kind, ['doc', 'quote'], true) ? 0 : $top->col;
+        $column = in_array($top->kind, ['doc', 'quote'], true) || $top->plus === $at - 1 ? $col : $top->col;
         // The window doubles only while the answer reaches its edge, so a run of one-line attributes stays linear.
         $window = [str_repeat(' ', $col) . $rest];
         $count = count($this->lines);
