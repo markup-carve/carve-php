@@ -135,6 +135,13 @@ final class BlockOwnershipWalk
     public array $attachedFenceBlankEnds = [];
 
     /**
+     * Lines after a blank that missed the host of an own-line attached fence and ended it.
+     *
+     * @var array<int, true>
+     */
+    public array $attachedFenceMisses = [];
+
+    /**
      * @var array<int, true>
      */
     public array $foldedFenceAfterAttachedBlank = [];
@@ -471,6 +478,7 @@ final class BlockOwnershipWalk
         $this->commentColumnOwners = [];
         $this->lineBlockLazyLines = [];
         $this->attachedFenceBlankEnds = [];
+        $this->attachedFenceMisses = [];
         $this->foldedFenceAfterAttachedBlank = [];
         $this->endedAttachedFence = null;
         $this->laterFenceClosers = [];
@@ -519,6 +527,7 @@ final class BlockOwnershipWalk
             $this->src = $lines[$at];
             $this->out = '';
             $this->m = self::indentCols($this->src);
+            $this->endOwnLineFenceAtMiss($at, $lines);
             $this->restoreEnclosingAttachedHost($at);
             $this->recordCommentPayloadHostColumn($at);
             // A `+` right after the block a `+` attached reaches the same host, whose
@@ -633,7 +642,7 @@ final class BlockOwnershipWalk
                 $this->truncate($plus + 1);
                 $this->frames[$plus]->para = false;
                 $this->skipInvisible($plus, $at, self::docColumn($lines[$at], $this->m['rest']));
-                $this->holdAttachedTo($plus, $this->skipped['end'] ?? $at + 1);
+                $this->holdAttachedTo($plus, $this->skipped['end'] ?? $at + 1, true);
                 $this->lead($this->frames[$plus]->markerCanon);
                 $this->plusHosts[$at] = $this->hostRecord($plus, self::columnOf($this->out), false);
                 $result[] = $this->out . $this->src;
@@ -3248,7 +3257,7 @@ final class BlockOwnershipWalk
         $this->attachedTo = null;
     }
 
-    private function holdAttachedTo(int $host, int $from): void
+    private function holdAttachedTo(int $host, int $from, bool $ownLine = false): void
     {
         $depth = $this->quoteDepth($host);
         $parent = $this->attachedTo !== null && $depth > $this->attachedTo['depth'] ? new AttachmentParent($this->attachedTo) : null;
@@ -3260,7 +3269,38 @@ final class BlockOwnershipWalk
             'item' => $this->frames[$host]->kind === 'item',
             'kind' => $this->frames[$host]->kind,
             'parent' => $parent,
+            'ownLine' => $ownLine,
         ];
+    }
+
+    /**
+     * After a blank, a line that misses the host of an own-line attached fence ends that fence
+     * unless it closes it (PART 0 S1 step 2, carve#5635).
+     *
+     * @param array<string> $lines
+     */
+    private function endOwnLineFenceAtMiss(int $at, array $lines): void
+    {
+        $held = $this->attachedTo;
+        $top = $this->frames[count($this->frames) - 1];
+        if (
+            $held === null || !($held['ownLine'] ?? false) || $top->kind !== 'fence' || $at === 0
+            || !IndentationHelper::isBlankLine($lines[$at - 1]) || IndentationHelper::isBlankLine($this->src)
+        ) {
+            return;
+        }
+        $host = $held['frames'][count($held['frames']) - 1];
+        $through = $this->levelOf($this->src, $held['depth']);
+        $col = $through === null ? -1 : $through['col'];
+        if ($col >= $host->col || ($col === $host->markerCol && self::isPlus($through['rest'] ?? ''))) {
+            return;
+        }
+        if ($through !== null && $top->closes !== null && ($top->closes)($through['rest'], $col)) {
+            return;
+        }
+        $this->attachedFenceMisses[$at] = true;
+        $this->frames = array_slice($held['frames'], 0, count($held['frames']) - 1);
+        $this->attachedTo = null;
     }
 
     /**

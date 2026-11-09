@@ -947,6 +947,11 @@ final class BlockContinuationScanner
                 }
             }
         }
+        for ($at = $i + 1; $opaque !== -1 && $at <= $opaque; $at++) {
+            if (isset($this->state->source->attachedFenceMisses[$this->sourceLineFor($at)])) {
+                return -1;
+            }
+        }
         if ($opaque !== -1) {
             return $opaque;
         }
@@ -1041,6 +1046,10 @@ final class BlockContinuationScanner
             $count,
             function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd, $blockColumn, &$restarted, &$attachedListMarker, &$attachedListColumn, &$attachedItemColumn): bool {
                 $sourceLine = $this->sourceLineFor($index);
+                // The line missed the host of an own-line attached fence, which ends there (PART 0 S1).
+                if (isset($this->state->source->attachedFenceMisses[$sourceLine])) {
+                    return true;
+                }
                 if (
                     $attachedKind === BlockGrammar::ATTACHED_PARAGRAPH
                     && isset($this->state->source->refusedKeptLines[$sourceLine])

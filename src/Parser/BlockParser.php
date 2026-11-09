@@ -852,6 +852,7 @@ class BlockParser
         $this->state->source->commentPayloadHostColumns = $walk->commentPayloadHostColumns;
         $this->state->source->lineBlockLazyLines = $walk->lineBlockLazyLines;
         $this->state->source->attachedFenceBlankEnds = $walk->attachedFenceBlankEnds;
+        $this->state->source->attachedFenceMisses = $walk->attachedFenceMisses;
         $this->state->source->foldedFenceAfterAttachedBlank = $walk->foldedFenceAfterAttachedBlank;
         $this->state->source->attachedQuoteEnds = $walk->attachedQuoteEnds;
         $this->state->source->refusedKeptLines = $walk->refusedKeptLines;
@@ -3912,7 +3913,7 @@ class BlockParser
                 // PART 9 §16, §17) - see
                 // {@see self::footnoteBodyResumesAfter()} for why the whole run
                 // has to be measured rather than the line after the blank.
-                $resumes = $this->footnoteBodyResumesAfter(
+                $resumes = isset($this->state->source->attachedFenceMisses[$this->sourceLineFor($look)]) ? null : $this->footnoteBodyResumesAfter(
                     $lines,
                     $i,
                     $count,
