@@ -2862,6 +2862,8 @@ final class BlockOwnershipWalk
                 $k++;
                 while (
                     $k < $n && $quoted($k) && $this->foldsAsPlainText(rtrim($view($k), " \t"))
+                    && (!str_starts_with(ltrim($view($k), " \t"), '{')
+                        || $this->skippedWrappedAttributeLength($k, $hostIndex, $frames) === null)
                     && (!$offered || self::docColumn($this->lines[$k], $view($k)) !== $column)
                 ) {
                     $noteBodies[$k] = true;
@@ -2882,20 +2884,8 @@ final class BlockOwnershipWalk
 
                     continue;
                 }
-                $run = [];
-                $openerColumn = IndentationHelper::getLeadingColumns($rawView($k));
-                for ($j = $k; $j < $n && $j < $k + 64 && trim($view($j)) !== ''; $j++) {
-                    $part = rtrim($rawView($j), " \t");
-                    // The matcher receives host-relative lines. Keep each continuation's
-                    // column offset from the opener, including when tabs make the
-                    // number of leading bytes differ from the visual column.
-                    $run[] = str_repeat(' ', max(0, IndentationHelper::getLeadingColumns($part) - $openerColumn)) . ltrim($part, " \t");
-                    if ($j > $k && !WrappedBlockAttributeScanner::endsInsideBlock($part, true)) {
-                        break;
-                    }
-                }
-                $length = count($run) > 1 ? ($this->wrappedAttributeLength)($run) : null;
-                if ($length === null || $length < 2) {
+                $length = $this->skippedWrappedAttributeLength($k, $hostIndex, $frames);
+                if ($length === null) {
                     return $k;
                 }
                 $k += $length;
@@ -2905,6 +2895,35 @@ final class BlockOwnershipWalk
         }
 
         return $n;
+    }
+
+    /**
+     * Classify a wrapped attribute run before a skipped note can take its opener as lazy text.
+     *
+     * @param int $at
+     * @param int $hostIndex
+     * @param array<int, \MarkupCarve\Carve\Parser\OwnershipFrame> $frames
+     */
+    private function skippedWrappedAttributeLength(int $at, int $hostIndex, array $frames): ?int
+    {
+        $view = fn (int $k): string => $this->throughQuotes($this->lines[$k], $hostIndex, $frames)['rest'] ?? "\u{E000}";
+        $rawView = fn (int $k): string => $this->throughQuotes($this->lines[$k], $hostIndex, $frames, true)['rest'] ?? "\u{E000}";
+        if (!isset($this->lines[$at]) || !str_starts_with(ltrim($view($at), " \t"), '{')) {
+            return null;
+        }
+        $run = [];
+        $openerColumn = IndentationHelper::getLeadingColumns($rawView($at));
+        for ($j = $at, $n = count($this->lines); $j < $n && $j < $at + 64 && trim($view($j)) !== ''; $j++) {
+            $part = rtrim($rawView($j), " \t");
+            $run[] = str_repeat(' ', max(0, IndentationHelper::getLeadingColumns($part) - $openerColumn)) . ltrim($part, " \t");
+            if ($j > $at && !WrappedBlockAttributeScanner::endsInsideBlock($part, true)) {
+                break;
+            }
+        }
+
+        $length = count($run) > 1 ? ($this->wrappedAttributeLength)($run) : null;
+
+        return $length !== null && $length >= 2 ? $length : null;
     }
 
     /**
