@@ -47,6 +47,15 @@ final class DefinitionListBuilder
     private WeakMap $pendingTermComments;
 
     /**
+     * Footnote extent by authored source line during this document.
+     *
+     * @var array<int, int>
+     */
+    private array $footnoteExtents = [];
+
+    private string $footnoteExtentSource = '';
+
+    /**
      * @param \MarkupCarve\Carve\Parser\BlockParserState $state
      * @param \MarkupCarve\Carve\Parser\BlockSourceMapper $source
      * @param \MarkupCarve\Carve\Parser\BlockContinuationScanner $continuations
@@ -519,6 +528,10 @@ final class DefinitionListBuilder
      */
     private function skipInvisibleBeforeEntry(Node $parent, DefinitionList $dl, array &$lines, int $i, int $count, string $pattern): int
     {
+        if ($this->footnoteExtentSource !== $this->state->source->originalSource) {
+            $this->footnoteExtentSource = $this->state->source->originalSource;
+            $this->footnoteExtents = [];
+        }
         $holder = new Document();
         $children = $dl->getChildren();
         $lastDescription = $children[count($children) - 1] ?? null;
@@ -526,6 +539,7 @@ final class DefinitionListBuilder
         $end = $i;
         $at = $i;
         $paragraphSkipped = false;
+        $parsedFootnoteLines = [];
         while ($at < $count) {
             $line = $lines[$at];
             if (IndentationHelper::isBlankLine($line)) {
@@ -559,7 +573,18 @@ final class DefinitionListBuilder
                     || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed, $note) === 1
                         && trim($note[2], " \t") === '+'
                 );
-                $consumed = $continued ? ($this->tryParseFootnoteDefinitionCallback)($holder, $lines, $at) : 1;
+                $sourceLine = $this->sourceLineFor($at);
+                $consumed = $continued
+                    ? ($this->footnoteExtents[$sourceLine] ?? ($this->tryParseFootnoteDefinitionCallback)($holder, $lines, $at))
+                    : 1;
+                if ($continued && $consumed !== null) {
+                    $this->footnoteExtents[$sourceLine] = $consumed;
+                }
+                if ($continued && $consumed !== null) {
+                    for ($line = $at; $line < $at + $consumed; $line++) {
+                        $parsedFootnoteLines[$line] = true;
+                    }
+                }
             }
             if (
                 $consumed === null && !$this->isDocumentAbbreviation($parent, $trimmed)
@@ -582,6 +607,11 @@ final class DefinitionListBuilder
         $run = [];
         $map = [];
         for ($k = $i; $k < $end; $k++) {
+            // The extent reader already registered this definition. Parsing it
+            // again would turn a marker-style footnote's body into visible text.
+            if (isset($parsedFootnoteLines[$k])) {
+                continue;
+            }
             // A comment span's payload keeps its columns (PART 0 S1).
             $line = $lines[$k];
             $trimmed = ltrim($line, " \t");
