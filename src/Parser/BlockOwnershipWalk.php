@@ -247,6 +247,13 @@ final class BlockOwnershipWalk
      */
     private ?OwnershipFrame $sibling = null;
 
+    private int $closedAtBlank = -1;
+
+    /**
+     * @var array<int, \MarkupCarve\Carve\Parser\OwnershipFrame> The frames after the last line the boundary step applied.
+     */
+    private array $lineFrames = [];
+
     /**
      * The invisible lines between a taken `+` and its block, read where that block stands (CARVE-P9-013).
      *
@@ -416,6 +423,8 @@ final class BlockOwnershipWalk
     {
         $this->letter = $letter;
         $this->lines = $lines;
+        $this->closedAtBlank = -1;
+        $this->lineFrames = [];
         $this->runs = null;
         $this->verseRunMisses = [];
         $this->textFences = [];
@@ -888,6 +897,7 @@ final class BlockOwnershipWalk
             $o = $reached;
             if ($this->m['rest'] === '') {
                 $this->frames[$o]->para = false;
+                $this->closedAtBlank = max($this->closedAtBlank, $this->blankClosedColumn());
                 $this->lead($this->m['col']);
             } elseif ($form->kind === 'colon-close') {
                 $this->lead($this->frames[$form->frame]->canon);
@@ -905,7 +915,7 @@ final class BlockOwnershipWalk
                     $this->noteOpener($o, $form, $this->frames[$o]->col);
                 }
                 $owner = $this->frames[$o];
-                $this->lead($owner->para || !$closedColumn || $plusFollower
+                $this->lead($owner->para || !$this->opensBelowClosedColumn($closedColumn) || $plusFollower
                     ? max($this->m['col'] - $owner->cut, $owner->canon)
                     : $owner->canon);
                 if ($owner->para && !$form->kept && preg_match('/^(`{3,}|~{3,})/', $this->m['rest']) === 1) {
@@ -931,6 +941,7 @@ final class BlockOwnershipWalk
                 }
             }
             $this->sibling = null;
+            $this->endAppliedLine();
             $result[] = $this->out . $this->src;
             if ($this->trace !== null) {
                 $this->emitApplied($at, $form, $closerPath ?? $this->ownerPath(), $closed, $reachedPath, $plusFollower);
@@ -3153,6 +3164,39 @@ final class BlockOwnershipWalk
         $this->attachedTo = null;
         $this->closingLines[$at] = true;
         $this->releasedSibling = 1;
+    }
+
+    private function opensBelowClosedColumn(bool $closedColumn): bool
+    {
+        return $closedColumn || $this->m['col'] < $this->closedAtBlank;
+    }
+
+    private function endAppliedLine(): void
+    {
+        if ($this->m['rest'] !== '') {
+            $this->closedAtBlank = -1;
+        }
+        $this->lineFrames = $this->frames;
+    }
+
+    /**
+     * The content column of the innermost container gone at this blank, a held `+` host included; -1 when none.
+     */
+    private function blankClosedColumn(): int
+    {
+        $column = -1;
+        foreach ($this->lineFrames as $frame) {
+            if ($frame->kind !== 'quote' && !in_array($frame, $this->frames, true)) {
+                $column = max($column, $frame->col);
+            }
+        }
+        $held = $this->attachedTo['frames'] ?? [];
+        $host = $held === [] ? null : $held[count($held) - 1];
+        if ($host !== null && $host->kind !== 'quote' && !in_array($host, $this->frames, true)) {
+            $column = max($column, $host->col);
+        }
+
+        return $column;
     }
 
     /**
