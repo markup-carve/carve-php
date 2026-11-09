@@ -619,6 +619,7 @@ final class BlockOwnershipWalk
                 // A refused marker is consumed and renders nothing (carve#5013). Its placeholder stays
                 // inside the host, so the next line keeps the same owner.
                 $keepMarkerColumn = count($this->frames) > $plus + 1 || isset($this->claimedMarkers[$at]);
+                $closer = $this->openCodeRunAbove($plus);
                 $this->truncate($plus + 1);
                 $host = $this->frames[$plus];
                 $host->para = false;
@@ -631,7 +632,11 @@ final class BlockOwnershipWalk
                     $this->skipped['spanPad'] = self::spanPad($host);
                 }
                 $this->lead((int)$host->markerCanon);
-                $result[] = $this->out . str_repeat(' ', $keepMarkerColumn ? 0 : max(0, $host->canon - (int)$host->markerCanon)) . '%%';
+                // A refused marker closes the item's open fence but keeps the item, so its placeholder
+                // stands at the content column and the next line stays the item's (CARVE-P9-067, carve#5637).
+                $keepsItem = $host->kind === 'item' && in_array($this->refusedPlus[$at]['reason'] ?? null, ['right', 'blank'], true);
+                $result[] = $this->out . str_repeat(' ', $keepMarkerColumn && !$keepsItem ? 0 : max(0, $host->canon - (int)$host->markerCanon))
+                    . ($keepsItem && $closer !== null ? $closer : '%%');
                 if ($this->trace !== null) {
                     $this->emit($at, 'S2', $this->ownerPath(), 'CARVE-P9-067', 'plus', ['cell' => 'B-plus-start']);
                 }
@@ -3271,6 +3276,22 @@ final class BlockOwnershipWalk
             'parent' => $parent,
             'ownLine' => $ownLine,
         ];
+    }
+
+    /**
+     * The run of the innermost open code fence above frame `$host`, or null.
+     */
+    private function openCodeRunAbove(int $host): ?string
+    {
+        for ($k = count($this->frames) - 1; $k > $host; $k--) {
+            $f = $this->frames[$k];
+            if ($f->kind === 'fence' && $f->family === 'code' && $f->opened !== null
+                && preg_match('/(`{3,}|~{3,})/', $this->lines[$f->opened] ?? '', $run) === 1) {
+                return $run[1];
+            }
+        }
+
+        return null;
     }
 
     /**
