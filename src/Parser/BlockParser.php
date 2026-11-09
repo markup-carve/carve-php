@@ -5240,7 +5240,7 @@ class BlockParser
         }
 
         if ($this->isCaptionLine($line)) {
-            if (isset($this->state->source->lazyLines[$this->sourceLineFor($i)])) {
+            if ($this->isUnattachedLazyCaption($i)) {
                 return false;
             }
 
@@ -5885,6 +5885,29 @@ class BlockParser
     }
 
     /**
+     * A lazy caret normally continues its paragraph. An accepted `+` can give
+     * its attached block a caption across the host's content column, so that
+     * attachment remains eligible until a blank ends the contiguous run.
+     */
+    private function isUnattachedLazyCaption(int $index): bool
+    {
+        $sourceLine = $this->sourceLineFor($index);
+        if (!isset($this->state->source->lazyLines[$sourceLine])) {
+            return false;
+        }
+        for ($at = $sourceLine - 1; $at >= 0; $at--) {
+            if (isset($this->state->source->plusHosts[$at])) {
+                return false;
+            }
+            if (IndentationHelper::isBlankLine($this->state->source->authoredLines[$at] ?? '')) {
+                break;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Try to parse a caption line (^ caption text).
      *
      * Captions apply to the immediately preceding block:
@@ -5900,10 +5923,10 @@ class BlockParser
     {
         $line = $lines[$start];
 
-        // A line folded through a missed container continues its paragraph.
-        // The normalized item chunk can put it beside a captionable block,
-        // but the ownership walk has already ruled out a caption slot there.
-        if (isset($this->state->source->lazyLines[$this->sourceLineFor($start)])) {
+        // A folded line normally continues its paragraph. The normalized item
+        // chunk can put it beside a captionable block, but only an accepted
+        // attachment can give that block a caption across the host column.
+        if ($this->isUnattachedLazyCaption($start)) {
             return null;
         }
 

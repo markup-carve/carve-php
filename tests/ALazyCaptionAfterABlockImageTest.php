@@ -43,6 +43,11 @@ final class ALazyCaptionAfterABlockImageTest extends TestCase
             "- a\n\n  ![a](x.png)\n  ^ cap\n",
             "<ul>\n  <li><p>a</p>\n    <figure>\n      <img src=\"x.png\" alt=\"a\">\n      <figcaption>cap</figcaption>\n    </figure>\n  </li>\n</ul>",
         ];
+
+        yield 'accepted plus lets the image keep its caption' => [
+            "- a\n+\n![a](x.png)\n^ cap\n",
+            "<ul>\n  <li>a\n    <figure>\n      <img src=\"x.png\" alt=\"a\">\n      <figcaption>cap</figcaption>\n    </figure>\n  </li>\n</ul>",
+        ];
     }
 
     #[DataProvider('documents')]
