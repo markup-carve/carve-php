@@ -1187,6 +1187,8 @@ final class BlockContinuationScanner
             },
             null,
             $colonHostBoundary,
+            null,
+            $blockColumn,
         );
         foreach ($attachedRawLineMap as $offset => $raw) {
             if (isset($foldedLines[$raw], $attached[$offset])) {
@@ -1263,6 +1265,7 @@ final class BlockContinuationScanner
      * @param int $i
      * @param (callable(string, int): bool)|null $colonHostBoundary
      * @param int|null $hostContentColumn
+     * @param int|null $blockColumn The host column used to recognize an attached fence.
      *
      * @return array{0: int, 1: array<string>, 2: array<int, int>}
      */
@@ -1274,6 +1277,7 @@ final class BlockContinuationScanner
         ?callable $transform = null,
         ?callable $colonHostBoundary = null,
         ?int $hostContentColumn = null,
+        ?int $blockColumn = null,
     ): array {
         if (!$this->continuationFollowerIsEligible($i)) {
             return [$i, [], []];
@@ -1304,7 +1308,10 @@ final class BlockContinuationScanner
             while ($opener < $count && isset($this->state->source->attachedPreludeLines[$this->sourceLineFor($opener)])) {
                 $opener = $this->skipLeadingAttributeLines($lines, $opener + 1, $count, $transform);
             }
-            $fenced = $this->attachedFencedBlockEnd($lines, $opener, $count, $transform, $colonHostBoundary, $hostContentColumn);
+            $fenceView = $transform ?? ($blockColumn === null ? null
+                : static fn (string $line): string => IndentationHelper::stripLeadingColumns($line, $blockColumn));
+            // Recognize the fence at the host's column, but preserve authored lines in the result.
+            $fenced = $this->attachedFencedBlockEnd($lines, $opener, $count, $fenceView, $colonHostBoundary, $hostContentColumn);
             if ($fenced !== -1) {
                 $take = $fenced - $i + 1;
             } else {
