@@ -25,6 +25,13 @@ final class BlockContinuationScanner
     private ?TrailingBlockStateScanner $trailingStateService = null;
 
     /**
+     * Fence closers that stand in for a refused marker's placeholder, by source line.
+     *
+     * @var array<int, string>
+     */
+    private array $placeholderClosers = [];
+
+    /**
      * Track the active definition body column across collected item lines.
      *
      * @param int|null $openColumn
@@ -1063,7 +1070,7 @@ final class BlockContinuationScanner
                         && !($attachedKind === BlockGrammar::ATTACHED_SPANNING . ':list' && $attachedState->fence !== null))
                     // An open code fence keeps a `+` as payload (PART 9 §17 L3, carve#5494).
                     || ($this->isContinuationMarker($line) && $attachedState->fence === null)
-                    || $this->hostConsumedMarker($line, $index, $attachedState->fence !== null)
+                    || $this->hostConsumedMarker($line, $index, $attachedState)
                     || isset($this->state->source->attachedQuoteEnds[$this->sourceLineFor($index)])
                     || ($attachedState->fence === null && $endsAtSibling !== null && $endsAtSibling($line, $index))
                     // An open colon block or line block holds a marker: it is the block's content (carve#5578).
@@ -1306,6 +1313,15 @@ final class BlockContinuationScanner
                 LayoutWork::$markerExtentWork++;
             }
             $rawIndex = $i + $j;
+            $closer = $this->placeholderClosers[$this->sourceLineFor($rawIndex)] ?? null;
+            if ($closer !== null) {
+                // The refused marker's placeholder closes the fence it would otherwise sit in as payload.
+                unset($this->placeholderClosers[$this->sourceLineFor($rawIndex)]);
+                $collected[] = $closer;
+                $rawLineMap[] = $rawIndex;
+
+                continue;
+            }
             $collected[] = $transform === null ? $lines[$rawIndex] : $transform($lines[$rawIndex]);
             $rawLineMap[] = $rawIndex;
         }
@@ -5695,15 +5711,16 @@ final class BlockContinuationScanner
 
     /**
      * The walk's placeholder for a `+` the note or description host refused, where the next line leaves the attached block (PART 9 §17 L3).
+     *
+     * A sibling item or term there continues the attached list; an open fence still ends at the marker (CARVE-P0-013).
      */
-    private function hostConsumedMarker(string $line, int $index, bool $inFence): bool
+    private function hostConsumedMarker(string $line, int $index, TrailingBlockState $state): bool
     {
         if (!str_starts_with(ltrim($line, " \t"), '%%')) {
             return false;
         }
         $source = $this->state->source;
         $sourceLine = $this->sourceLineFor($index);
-
         if (
             !$source->isConsumedMarker($sourceLine)
             || !in_array($source->refusedPlus[$sourceLine]['host'] ?? null, ['footnote body', 'definition description'], true)
@@ -5711,12 +5728,22 @@ final class BlockContinuationScanner
             return false;
         }
         $next = $source->sourceLines[$sourceLine + 1] ?? null;
+        if ($next === null || IndentationHelper::isBlankLine($next)) {
+            return true;
+        }
+        $nextRest = ltrim($next, " \t");
+        $sibling = ($this->getListParser)()->parseListItemMarker($nextRest) !== null
+            || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $nextRest) === 1;
+        if ($state->fence !== null) {
+            if (!$sibling) {
+                return true;
+            }
+            $this->placeholderClosers[$sourceLine] = $state->attachmentCloser() ?? $line;
 
-        // A list marker there is read by the attached list's own sibling rules.
-        // An open fence takes no line below its owner, so the marker ends it either way (CARVE-P0-013).
-        return $inFence || $next === null || IndentationHelper::isBlankLine($next)
-            || (isset($source->closingLines[$sourceLine + 1])
-                && ($this->getListParser)()->parseListItemMarker(ltrim($next, " \t")) === null);
+            return false;
+        }
+
+        return !$sibling && isset($source->closingLines[$sourceLine + 1]);
     }
 
     private function isContinuationMarker(string $line): bool

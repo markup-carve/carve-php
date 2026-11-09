@@ -50,6 +50,18 @@ final class AHostRefusedPlusEndsTheAttachedListTest extends TestCase
             "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>li\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>",
         ];
 
+        yield 'note: a sibling item after the fence stays in the list' => [
+            "[^a]: +\n- li\n  ```\n+\n - sib\n\nsee[^a]\n",
+            self::NOTE_HEAD . "      <ul>\n        <li>li\n          <pre><code></code></pre>\n        </li>\n        <li>sib</li>\n      </ul>\n"
+                . self::NOTE_TAIL,
+        ];
+
+        yield 'note: a sibling term stays in the description list' => [
+            "[^a]: +\n:: term\n: desc\n+\n:: t\n: d\n\nsee[^a]\n",
+            self::NOTE_HEAD . "      <dl>\n        <dt>term</dt>\n        <dd>desc</dd>\n        <dt>t</dt>\n        <dd>d</dd>\n      </dl>\n"
+                . self::NOTE_TAIL,
+        ];
+
         yield 'note: a sibling item stays in the list' => [
             "[^a]: +\n- li\n+\n - sib\n\nsee[^a]\n",
             self::NOTE_HEAD . "      <ul>\n        <li>li</li>\n        <li>sib</li>\n      </ul>\n" . self::NOTE_TAIL,
