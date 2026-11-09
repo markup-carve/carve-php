@@ -1953,7 +1953,11 @@ final class BlockOwnershipWalk
                 }
             }
         }
-        $this->frames[$owner]->para = $form->caption;
+        if ($form->caption) {
+            $this->openParagraph($this->frames[$owner], $this->at, true);
+        } else {
+            $this->frames[$owner]->para = false;
+        }
         // An invisible line between siblings leaves the host's last form standing (carve#4716).
         if (
             $form->family !== 'comment' && ($form->kind !== 'leaf' || ((!str_starts_with($this->m['rest'], '%%') || str_starts_with($this->m['rest'], '%%%')) && !($this->isDefinition)($this->m['rest'])
