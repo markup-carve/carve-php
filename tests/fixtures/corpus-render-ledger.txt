@@ -1,5 +1,5 @@
-# carve-php non-HTML render ledger.
-# <slug> md:<digest> txt:<digest> ansi:<digest>, sha-256 truncated to 16 hex.
+# Regenerate with `php bin/render-ledger.php`.
+# Regenerate with `php bin/render-ledger.php`.
 # Regenerate with `php bin/render-ledger.php`.
 01-emphasis md:d5d7ee17615105e9 txt:80a8419726311419 ansi:683288d5c9760c62
 01-emphasis-10 md:30b8aa92efc67d28 txt:30b8aa92efc67d28 ansi:30b8aa92efc67d28
@@ -668,12 +668,12 @@
 279-a-boundary-line-inside-an-open-fence-does-not-end-the-container md:df3372c62f7dda4d txt:c7c1f839d9f7b321 ansi:84618226a4aac6dd
 279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-10 md:d58f28e8d2d9164f txt:d58f28e8d2d9164f ansi:803fb924121700b5
 279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-11 md:d58f28e8d2d9164f txt:d58f28e8d2d9164f ansi:803fb924121700b5
-279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-2 md:29e780249d8382bd txt:74222f0c6ca65727 ansi:c2d924badd08e970
-279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-3 md:1f3c34f6f64fb9a0 txt:2d8b6deff0bfc4d5 ansi:f136b19e54a7c6af
+279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-2 md:511436bb4070b49c txt:fba0a30a3dd54dfc ansi:5fceda37bc20d8d0
+279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-3 md:a4040cbc782f252a txt:2d8b6deff0bfc4d5 ansi:88ac9d8752044a0f
 279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-4 md:03cf85194dd79b3d txt:7b2d7a65c3af4e7c ansi:8049802ddd1d0b2b
 279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-5 md:11e4bed8de3eeaf7 txt:c9a10b65ddbdeb9b ansi:1c4fb5f2bafff730
 279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-6 md:61d1954b9aba0c9a txt:61d1954b9aba0c9a ansi:51244b55fad9b8fd
-279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-7 md:2c7c392f2ddd3522 txt:c1f4ae091b065e7a ansi:0532047dc67aa7cc
+279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-7 md:de49f8f121861805 txt:8978d1a7958c06d5 ansi:a649fe0e4b7d3b77
 279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-8 md:606744feec146aa1 txt:606744feec146aa1 ansi:79f53842a87f26f4
 279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-9 md:fc2cc0b3e3612539 txt:fc2cc0b3e3612539 ansi:5d981ebe83024014
 28-hard-line-breaks md:53059cda77138787 txt:e9024f1a07d29d52 ansi:e9024f1a07d29d52
@@ -1154,7 +1154,7 @@
 384-a-continuation-marker-attaches-a-block-only-at-its-owner-s-marker-column-4 md:606744feec146aa1 txt:606744feec146aa1 ansi:79f53842a87f26f4
 384-a-continuation-marker-attaches-a-block-only-at-its-owner-s-marker-column-5 md:606744feec146aa1 txt:606744feec146aa1 ansi:79f53842a87f26f4
 384-a-continuation-marker-attaches-a-block-only-at-its-owner-s-marker-column-6 md:83d70918e3560bed txt:83d70918e3560bed ansi:5926103398346dee
-384-a-continuation-marker-attaches-a-block-only-at-its-owner-s-marker-column-7 md:daebacf89a97a6c6 txt:daebacf89a97a6c6 ansi:c37498b0ff77bc5c
+384-a-continuation-marker-attaches-a-block-only-at-its-owner-s-marker-column-7 md:80344acf1669269a txt:80344acf1669269a ansi:41c3adcca54b1072
 384-a-continuation-marker-attaches-a-block-only-at-its-owner-s-marker-column-8 md:6b39500f76fb5543 txt:151314ff45dd3b7e ansi:0538238b1b51f738
 385-a-hyphen-run-opening-a-word-after-whitespace-is-a-flag md:3384d61500ae0294 txt:3384d61500ae0294 ansi:3384d61500ae0294
 385-a-hyphen-run-opening-a-word-after-whitespace-is-a-flag-2 md:2e9463721798562b txt:a8c294fdd01b706f ansi:a8c294fdd01b706f
@@ -2621,9 +2621,9 @@
 626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-6 md:f10ddcf07c7b351f txt:44388b95e99a1cd0 ansi:ade08b58253252b1
 626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-7 md:ff4b72c13bca7e04 txt:a2da04d2728f3f9c ansi:a60e063ecb486592
 626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-8 md:77207c795c107d5f txt:ff8dcae3f0e609f2 ansi:ab01f5ed3975d5b2
-627-a-refused-marker-leaves-an-open-fence-s-blank-payload md:289fab2d75c8afc2 txt:f2f3159e4e364eb2 ansi:49a563bfc458560c
-627-a-refused-marker-leaves-an-open-fence-s-blank-payload-2 md:289fab2d75c8afc2 txt:f2f3159e4e364eb2 ansi:49a563bfc458560c
-627-a-refused-marker-leaves-an-open-fence-s-blank-payload-3 md:72f6d1ac7e468485 txt:3498db7fd7b28d0b ansi:c776e8c3e24c916e
+627-a-refused-marker-leaves-an-open-fence-s-blank-payload md:39a3db7aeafbea41 txt:606744feec146aa1 ansi:79f53842a87f26f4
+627-a-refused-marker-leaves-an-open-fence-s-blank-payload-2 md:a98e52b8b7ba8858 txt:606744feec146aa1 ansi:79f53842a87f26f4
+627-a-refused-marker-leaves-an-open-fence-s-blank-payload-3 md:8ceb11e78b932507 txt:56af876592824558 ansi:4c2db8b2fbb56d65
 627-a-refused-marker-leaves-an-open-fence-s-blank-payload-4 md:144b4d9b4ac3b3d8 txt:d3ffb11f01d3a1b0 ansi:488d539a381bb078
 627-a-refused-marker-leaves-an-open-fence-s-blank-payload-5 md:f7ca50d10e7bcd04 txt:9f019c0209075664 ansi:1677dcf8ea4a486d
 627-a-refused-marker-leaves-an-open-fence-s-blank-payload-6 md:a3aa51cdd9b244aa txt:29a6acfa412fc83e ansi:ec3036539e268c25

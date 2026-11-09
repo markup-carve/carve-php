@@ -19,7 +19,7 @@ class ARuledContainerBoundariesRemainStableTest extends TestCase
     public static function examples(): iterable
     {
         yield '3638 note item' => [". d\n   [^n]: e\n     - a\n", "<ol>\n<li>d</li>\n</ol>"];
-        yield '3653 refused marker after list' => ["- outer\n  - first\n  - second\n+\n  paragraph\n", "<ul>\n<li>outer\n<ul>\n<li>first</li>\n<li>second</li>\n</ul>\n</li>\n</ul>\n<p>paragraph</p>"];
+        yield '3653 refused marker after list' => ["- outer\n  - first\n  - second\n+\n  paragraph\n", "<ul>\n<li>outer\n<ul>\n<li>first</li>\n<li>second</li>\n</ul>\nparagraph\n</li>\n</ul>"];
         yield '3653 refused marker in quote' => ["> quote\n  ```\n+\n  ```\nnext\n", "<blockquote><p>quote</p></blockquote>\n<pre><code>+\n</code></pre>\n<p>next</p>"];
         yield '3653 marker in fence' => ["- outer\n  - inner\n  ```\n  +\n  ```\nnext\n", "<ul>\n<li>outer\n<ul>\n<li>inner</li>\n</ul>\n<pre><code>+\n</code></pre>\n</li>\n</ul>\n<p>next</p>"];
         yield '3653 quoted marker is fence payload' => ["- outer\n  - inner\n  ```\n  > +\n  ```\nnext\n", "<ul>\n<li>outer\n<ul>\n<li>inner</li>\n</ul>\n<pre><code>&gt; +\n</code></pre>\n</li>\n</ul>\n<p>next</p>"];

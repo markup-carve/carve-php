@@ -35,9 +35,9 @@ final class AStackedPlusKeepsItsAttachedBlockTest extends TestCase
             "<ul>\n  <li>\n    <pre><code>x\n ```\n</code></pre>\n  </li>\n</ul>",
         ];
 
-        yield 'a payload line past the blank in a stacked item ends the fence' => [
+        yield 'a payload line past the blank keeps the shifted closer in a stacked item (carve#5587)' => [
             "- - +\n  ```\n\n  x\n   ```\n",
-            "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    <p>x\n<code></code></p>\n  </li>\n</ul>",
+            "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>\nx\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
         ];
 
         yield 'task box head with an unclosed colon' => [
