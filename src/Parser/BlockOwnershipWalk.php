@@ -3409,9 +3409,18 @@ final class BlockOwnershipWalk
     {
         $note = $this->frames[$topIndex];
 
-        return $note->kind === 'note' && $note->line === $at - 1
-            && $this->quoteDepth($topIndex) > 0
-            && preg_match('/\[\^[^]]+\]:[ \t]+\+[ \t]*$/D', $this->lines[$note->line] ?? '') === 1
+        if ($note->kind !== 'note' || $note->line !== $at - 1) {
+            return false;
+        }
+        $markerLine = $this->lines[$note->line] ?? '';
+        if (
+            preg_match('/^((?:> ?)+)/', $markerLine, $quotePrefix) !== 1
+            || !str_starts_with($this->lines[$at], $quotePrefix[1])
+        ) {
+            return false;
+        }
+
+        return preg_match('/\[\^[^]]+\]:[ \t]+\+[ \t]*$/D', $markerLine) === 1
             && $this->m['col'] < $note->col;
     }
 
