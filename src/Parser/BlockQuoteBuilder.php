@@ -441,6 +441,7 @@ final class BlockQuoteBuilder
                 }
                 $i++; // consume the `+` marker
                 [$i, $attached, $attachedRawLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
+                [$i, $attached, $attachedRawLineMap] = $this->extendOwnLineQuoteFence($lines, $i, $count, $attached, $attachedRawLineMap);
                 $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
                 if ($attached !== []) {
                     if ($lazyState['mode'] === BlockQuoteLazyMode::CodeFence && $lazyState['divDepth'] === 0) {
@@ -2315,6 +2316,48 @@ final class BlockQuoteBuilder
      * @param array<int, int> $lineMap
      * @param array<string> $lines
      */
+    /**
+     * A fence an own-line `+` attaches keeps its blank in a quote too: it goes on through
+     * the lines that still carry the quote's prefix (PART 0 S1, carve#5560 and carve#5635).
+     *
+     * @param array<string> $lines
+     * @param array<string> $attached
+     * @param array<int> $rawLineMap
+     *
+     * @return array{0: int, 1: array<string>, 2: array<int>}
+     */
+    private function extendOwnLineQuoteFence(array $lines, int $i, int $count, array $attached, array $rawLineMap): array
+    {
+        $opener = $attached === [] ? null : ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($attached[0], " \t"));
+        if (
+            $opener === null || $i >= $count || !IndentationHelper::isBlankLine($lines[$i])
+            || !$this->leavesFenceOpen($attached, $rawLineMap, $lines)
+        ) {
+            return [$i, $attached, $rawLineMap];
+        }
+        for (; $i < $count; $i++) {
+            if (IndentationHelper::isBlankLine($lines[$i])) {
+                $attached[] = '';
+                $rawLineMap[] = $i;
+
+                continue;
+            }
+            $payload = $this->blockQuoteLineContent($lines[$i]);
+            if ($payload === null) {
+                break;
+            }
+            $attached[] = $payload;
+            $rawLineMap[] = $i;
+            if (($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($payload, " \t"), $opener['fence'][0], $opener['length'])) {
+                $i++;
+
+                break;
+            }
+        }
+
+        return [$i, $attached, $rawLineMap];
+    }
+
     private function leavesFenceOpen(array $attached, array $lineMap, array $lines): bool
     {
         $state = self::initialBlockQuoteLazyState();
