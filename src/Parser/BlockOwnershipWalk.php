@@ -414,6 +414,7 @@ final class BlockOwnershipWalk
         private readonly Closure $commentOnlyParagraphEnd,
         private readonly ?Closure $refusedRunKeptThrough = null,
         private readonly ?Closure $refusedBraceRunEnd = null,
+        private readonly ?Closure $inlineSpanOpen = null,
     ) {
     }
 
@@ -930,6 +931,11 @@ final class BlockOwnershipWalk
                 }
                 $opensParagraph = !$owner->para;
                 $this->frames[$o]->para = true;
+                if ($opensParagraph) {
+                    $this->frames[$o]->paragraphStart = $at;
+                    $this->frames[$o]->paragraphSpanNext = $at;
+                    $this->frames[$o]->paragraphSpanState = ['scanned' => 0, 'code' => 0, 'comment' => false];
+                }
                 $this->frames[$o]->last = 'para';
                 $this->clearItemDefinitionAtParagraph($o, $opensParagraph);
             } else {
@@ -1027,6 +1033,11 @@ final class BlockOwnershipWalk
         $this->reach = 0;
         $form = $this->classify($line, $doc, 0);
         if ($form === self::$textForm) {
+            if (!$doc->para) {
+                $doc->paragraphStart = $at;
+                $doc->paragraphSpanNext = $at;
+                $doc->paragraphSpanState = ['scanned' => 0, 'code' => 0, 'comment' => false];
+            }
             $doc->para = true;
             $doc->last = 'para';
 
@@ -2320,6 +2331,18 @@ final class BlockOwnershipWalk
         }
         if ($at === $this->refusedKeptStart) {
             return $at <= $this->refusedKeptThrough ? new OwnershipForm(kind: 'text', interrupts: false, kept: true) : null;
+        }
+        if ($owner->para && $owner->paragraphStart !== null && $this->inlineSpanOpen !== null) {
+            $from = $owner->paragraphSpanNext ?? $owner->paragraphStart;
+            $parts = array_map(
+                static fn (string $line): string => ltrim($line, " \t"),
+                array_slice($this->lines, $from, $at - $from),
+            );
+            $open = ($this->inlineSpanOpen)($parts, $owner->paragraphSpanState);
+            $owner->paragraphSpanNext = $at;
+            if ($open) {
+                return null;
+            }
         }
         $depth = 0;
         foreach ($this->frames as $index => $frame) {

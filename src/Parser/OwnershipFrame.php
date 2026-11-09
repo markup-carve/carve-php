@@ -44,6 +44,15 @@ final class OwnershipFrame
 
     public bool $closerShiftStrict = false;
 
+    public ?int $paragraphStart = null;
+
+    public ?int $paragraphSpanNext = null;
+
+    /**
+     * @var array{scanned: int, code: int, comment: bool}
+     */
+    public array $paragraphSpanState = ['scanned' => 0, 'code' => 0, 'comment' => false];
+
     /**
      * A marker-line attachment can move its opener outside the host's content column.
      * Keep that host for the trace when the attached container ends at a blank.
