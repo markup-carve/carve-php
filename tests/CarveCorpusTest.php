@@ -1723,7 +1723,36 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-2' => [
+            'reason' => 'carve#5635: an own-line plus fence ends where a line misses its note',
+            'html' => "<p>b</p>\n<pre><code>\nsee[^f]\n</code></pre>",
+        ],
+        '279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-3' => [
+            'reason' => 'carve#5635: an own-line plus fence ends where a line misses its description',
+            'html' => "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <pre><code>a\n\n</code></pre>\n  </dd>\n</dl>\n<p>b</p>\n<pre><code></code></pre>",
+        ],
+        '279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-7' => [
+            'reason' => 'carve#5635: an own-line plus fence ends where a line misses its item',
+            'html' => "<ul>\n  <li>x\n    <pre><code>a\n\n</code></pre>\n  </li>\n</ul>\n<p>b</p>\n<pre><code>\nz\n</code></pre>",
+        ],
+        '384-a-continuation-marker-attaches-a-block-only-at-its-owner-s-marker-column-7' => [
+            'reason' => 'carve#5637: a refused plus keeps its item',
+            'html' => "<ul>\n  <li>x\n    <ul>\n      <li>L</li>\n    </ul>\n    p\n  </li>\n</ul>",
+        ],
+        '627-a-refused-marker-leaves-an-open-fence-s-blank-payload' => [
+            'reason' => 'carve#5637: a refused plus keeps its item',
+            'html' => "<ul>\n  <li>\n    <pre><code></code></pre>\n    x\n  </li>\n</ul>",
+        ],
+        '627-a-refused-marker-leaves-an-open-fence-s-blank-payload-2' => [
+            'reason' => 'carve#5637: a refused plus keeps its item',
+            'html' => "<ul>\n  <li>\n    <pre><code></code></pre>\n    <p>x</p>\n  </li>\n</ul>",
+        ],
+        '627-a-refused-marker-leaves-an-open-fence-s-blank-payload-3' => [
+            'reason' => 'carve#5637: a refused plus keeps its item',
+            'html' => "<ul>\n  <li>\n    <pre><code>a\n</code></pre>\n    x\n  </li>\n</ul>",
+        ],
+    ];
 
     protected CarveConverter $converter;
 
