@@ -2282,7 +2282,7 @@ class InlineParser
         }
         if (
             $node instanceof Code || $node instanceof LiteralInline || $node instanceof Math || $node instanceof RawInline
-            || $node instanceof Mention || $node instanceof FootnoteRef || $node instanceof HeadingRef
+            || $node instanceof Mention || $node instanceof FootnoteRef || $node instanceof InlineFootnote || $node instanceof HeadingRef
             || ($node instanceof Link && $node->isAutolink())
         ) {
             // The node's display text is not eligible authored inline text.
