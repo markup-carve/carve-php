@@ -1036,6 +1036,12 @@ final class ListBlockBuilder
                 $attachedParagraphAfterNoteSeparator,
             );
 
+            if (
+                ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
+                && $this->markerAfterShiftedAttachedFence($sourceLine, $lastItemContentIndent)
+            ) {
+                break;
+            }
             if ($this->attachNestedLazyContinuation($list, $lines, $i, $baseIndent, $priorBody, $priorText)) {
                 $i++;
 
@@ -1324,6 +1330,7 @@ final class ListBlockBuilder
                 } elseif (
                     $attached !== [] && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])
                     && IndentationHelper::getLeadingColumns($lines[$i]) >= $lastItemContentIndent
+                    && !$this->markerAfterShiftedAttachedFence($this->sourceLineFor($i), $lastItemContentIndent)
                 ) {
                     // The attached block has ended, but the item can still
                     // own a later block at its ordinary content column.
@@ -2996,6 +3003,38 @@ final class ListBlockBuilder
     private function blockQuoteLineContent(string $line): ?string
     {
         return ($this->blockQuoteLineContentCallback)($line);
+    }
+
+    /**
+     * A marker at the old item column starts a new list after a shifted closer.
+     */
+    private function markerAfterShiftedAttachedFence(int $sourceLine, int $contentColumn): bool
+    {
+        $source = $this->state->source;
+        $closerLine = $sourceLine - 1;
+        $closer = $source->authoredLines[$closerLine] ?? '';
+        $line = $source->authoredLines[$sourceLine] ?? '';
+        if (
+            IndentationHelper::getLeadingColumns($line, $contentColumn + 1) !== $contentColumn
+            || isset($source->lazyLines[$sourceLine])
+            || !isset($source->fenceBodyLines[$closerLine])
+            || isset($source->fenceBodyLines[$sourceLine])
+            || IndentationHelper::getLeadingColumns($closer) >= $contentColumn
+            || preg_match('/^[`~]{3,}[ \t]*$/D', ltrim($closer, " \t")) !== 1
+        ) {
+            return false;
+        }
+
+        for ($at = $closerLine - 1; $at >= 0; $at--) {
+            if (!isset($source->fenceOpenerLines[$at])) {
+                continue;
+            }
+            $opener = $source->authoredLines[$at] ?? '';
+
+            return IndentationHelper::getLeadingColumns($closer) > IndentationHelper::getLeadingColumns($opener);
+        }
+
+        return false;
     }
 
     /**
