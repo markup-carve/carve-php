@@ -3676,7 +3676,16 @@ final class ListBlockBuilder
         $siblingBody = false;
         $afterBlank = false;
         $nestedMarkerColumns = [];
+        // The block a marker-line `+` takes moves with its child (§17 L3, carve-php#4961).
+        $attachedEnd = preg_match('/[ \t]\+[ \t]*$/D', $lead) === 1 ? $this->taskChildAttachedEnd($itemLines, $itemLineMap) : 1;
         foreach ($itemLines as $at => $line) {
+            if ($at > 0 && $at < $attachedEnd) {
+                if (!IndentationHelper::isBlankLine($line) && $line[0] !== ' ') {
+                    $itemLines[$at] = str_repeat(' ', $boxWidth) . $line;
+                }
+
+                continue;
+            }
             if (IndentationHelper::isBlankLine($line)) {
                 $afterBlank = true;
 
@@ -3723,6 +3732,54 @@ final class ListBlockBuilder
         }
 
         return $itemLines;
+    }
+
+    /**
+     * End of the block a task item's marker-line `+` child takes: through its first blank,
+     * or through the closer of a fence or colon block the walk kept past its blanks.
+     *
+     * @param array<string> $itemLines
+     * @param array<int, int> $itemLineMap
+     */
+    private function taskChildAttachedEnd(array $itemLines, array $itemLineMap): int
+    {
+        $fenced = ($this->getFencedBlockParser)();
+        $first = $itemLines[1] ?? '';
+        $code = $fenced->parseCodeFenceOpener($first);
+        $colon = $code === null ? $fenced->parseDivFenceOpener($first) : null;
+        $count = count($itemLines);
+        for ($at = 1; $at < $count; $at++) {
+            $line = $itemLines[$at];
+            if (IndentationHelper::isBlankLine($line)) {
+                if (($code === null && $colon === null) || isset($this->state->source->attachedFenceBlankEnds[$itemLineMap[$at] ?? -1])) {
+                    return $at;
+                }
+
+                continue;
+            }
+            if ($at === 1) {
+                continue;
+            }
+            if ($code !== null) {
+                if ($fenced->isCodeFenceCloser(ltrim($line, " \t"), $code['char'], $code['length'])) {
+                    return $at + 1;
+                }
+
+                continue;
+            }
+            if ($colon !== null) {
+                if (preg_match('/^:{' . $colon['length'] . '}[ \t]*$/D', $line) === 1) {
+                    return $at + 1;
+                }
+
+                continue;
+            }
+            if ($line[0] === ' ' || str_contains($line, "\n") || str_starts_with($line, BlockGrammar::LAZY_FRAME) || ($this->getListParser)()->parseListItemMarker($line) !== null) {
+                return $at;
+            }
+        }
+
+        return $count;
     }
 
     private function sourceContentColumn(int $sourceLine): int
