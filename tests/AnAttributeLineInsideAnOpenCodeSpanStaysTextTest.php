@@ -28,4 +28,15 @@ final class AnAttributeLineInsideAnOpenCodeSpanStaysTextTest extends TestCase
     {
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
+
+    public function testTheWriterCanSpellAnAttributeLineInsideCode(): void
+    {
+        $source = "``\n{:grc}\nΜῆνιν ἄειδε θεά\n";
+        $written = CarveConverter::toCarve($source);
+
+        self::assertSame(
+            trim((new CarveConverter())->convert($source)),
+            trim((new CarveConverter())->convert($written)),
+        );
+    }
 }

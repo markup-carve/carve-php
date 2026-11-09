@@ -6394,7 +6394,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $closed = $i === $last ? $line . '`' : $line;
             if (
                 preg_match(self::VERBATIM_LINE_OPENER, $closed) === 1
-                || $i < $last && preg_match(self::VERBATIM_INNER_LINE_OPENER, $line) === 1 && $this->verbatimLineEndsAParagraph($line)
+                || $i < $last && preg_match(self::VERBATIM_INNER_LINE_OPENER, $line) === 1
+                    && !($node instanceof Code && str_starts_with($line, '{'))
+                    && $this->verbatimLineEndsAParagraph($line)
                 || str_starts_with($line, '[') && $this->verbatimLineIsADefinition($i < $last ? [$line] : [$line . '`', $line . ' `'])
                 || $markerBody && preg_match(self::VERBATIM_MARKER_BODY_OPENER, $closed) === 1 && $this->verbatimLineOpensAnItem($closed)
             ) {
