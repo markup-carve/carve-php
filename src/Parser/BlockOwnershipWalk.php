@@ -1741,6 +1741,18 @@ final class BlockOwnershipWalk
     {
         $item = $this->frames[count($this->frames) - 1];
         $held = $this->attachedTo;
+        // A marker-line plus offers the entire table at the nested item's
+        // marker column. Once its first row is read, following rows have the
+        // same owner even though they remain left of the content column.
+        if (
+            $reached < count($this->frames) - 1
+            && $item->kind === 'item' && $item->markerCol > 0
+            && $this->m['col'] === $item->markerCol
+            && ($this->tables->isTableRow($this->m['rest']) || $this->tables->isContinuationRow($this->m['rest']))
+            && ($plusFollower || $item->tableLine === $this->at - 1)
+        ) {
+            return count($this->frames) - 1;
+        }
         if (
             $plusFollower && $held !== null && $held['kind'] === 'note'
             && $held['from'] === $this->at && $this->heldOnMarkerLine($held)
