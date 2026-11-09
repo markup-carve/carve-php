@@ -6176,6 +6176,14 @@ class BlockParser
                 // figure is not decided until every definition is known.
                 if (UnresolvedReference::sourceOf($image) !== null) {
                     $rawLines = array_slice($lines, $start, $linesConsumed);
+                    $rawSpans = $this->givenBackLineSpans($start, $rawLines);
+                    // A returned slot is ordinary paragraph text. Its continuation
+                    // lines shed leading indentation just as they do without a slot.
+                    foreach ($rawLines as $offset => $rawLine) {
+                        if ($offset > 0) {
+                            $rawLines[$offset] = ltrim($rawLine, " \t");
+                        }
+                    }
                     $this->deferredImageCaptions ??= new WeakMap();
                     $this->deferredImageCaptions[$lastChild] = [
                         'image' => $image,
@@ -6187,7 +6195,7 @@ class BlockParser
                         // Measured HERE, not where the slot settles: settling
                         // runs after the walk, when the line map these indices
                         // resolve through belongs to some other container.
-                        'rawSpans' => $this->givenBackLineSpans($start, $rawLines),
+                        'rawSpans' => $rawSpans,
                     ];
 
                     return $linesConsumed;
