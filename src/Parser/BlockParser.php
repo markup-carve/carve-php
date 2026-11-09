@@ -4872,11 +4872,11 @@ class BlockParser
             $width = substr_count($part, "\n") + 1;
             for ($k = $physical; $k < $physical + $width; $k++) {
                 $line = ltrim($physicalLines[$k], " \t");
-                if (isset($literalLines[$k]) || !str_starts_with($line, '{') || str_starts_with($line, '{%')) {
-                    continue;
-                }
                 $sourceLine = $contentLines[$k][0] ?? $this->sourceLineFor($start) + $k;
                 $walkKept = ($this->state->source->refusedKeptLines[$sourceLine] ?? null) === $sourceLine;
+                if (isset($literalLines[$k]) || !str_starts_with($line, '{') || (str_starts_with($line, '{%') && !$walkKept)) {
+                    continue;
+                }
                 $limit = $walkKept ? count($physicalLines) : $physical + $width;
                 $end = RefusedBraceRun::end($physicalLines, $k, $this->inlineParser, $limit);
                 if ($end === null) {
