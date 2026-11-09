@@ -788,6 +788,7 @@ final class BlockOwnershipWalk
             $endsMissedItem = $missed && $next !== null && $this->descriptionEndsMissedItem($at, $reached, $missedQuote);
             $lazy = $missed && $next !== null && $this->m['rest'] !== '' && $this->frames[$topIndex]->para && !$form->interrupts && !$captionsQuote && $form->kind !== 'dd'
                 && !$endsMissedItem
+                && !($missedNote && $this->refusedNotePlusPrecedesBraceRun($at, $topIndex))
                 // A marker that a marker body owns, or that misses one, opens a list (PART 0 S3, carve#4860).
                 && !($form->kind === 'item' && $this->marksBodyList($reached))
                 && !($this->verseSpanBlankMissedOwner && $this->frames[$topIndex]->lineBlock
@@ -3399,6 +3400,37 @@ final class BlockOwnershipWalk
         $this->m = self::indentCols($this->src);
         $this->refusedPlus[$at] = $finding;
         $this->letterPlus[$at] = true;
+    }
+
+    /**
+     * A wrapped brace run below a refused marker-line note `+` is read where
+     * its opener stands. Plain text still folds lazily into the note (CARVE-P9-067).
+     */
+    private function refusedNotePlusPrecedesBraceRun(int $at, int $topIndex): bool
+    {
+        $note = $this->frames[$topIndex];
+        if (
+            $note->kind !== 'note' || $note->line !== $at - 1 || $this->refusedBraceRunEnd === null
+            || preg_match('/\[\^[^]]+\]:[ \t]+\+[ \t]*$/D', $this->lines[$note->line] ?? '') !== 1
+            || !str_starts_with($this->m['rest'], '{')
+        ) {
+            return false;
+        }
+        $run = [str_repeat(' ', self::docColumn($this->lines[$at], $this->m['rest'])) . $this->m['rest']];
+        for ($line = $at + 1, $count = count($this->lines); $line < $count; $line++) {
+            $view = $this->throughQuotes($this->lines[$line], $topIndex, $this->frames);
+            $run[] = $view === null ? $this->lines[$line]
+                : str_repeat(' ', self::docColumn($this->lines[$line], $view['rest'])) . $view['rest'];
+            $continuation = $run[count($run) - 1];
+            if (str_contains($continuation, '}') && ($this->refusedBraceRunEnd)($run, 0) !== null) {
+                return true;
+            }
+            if (trim($continuation, " \t") === '' || preg_match('/^\s*(?:>\s*)*\[\^[^]]+\]:/', $this->lines[$line]) === 1) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     /**
