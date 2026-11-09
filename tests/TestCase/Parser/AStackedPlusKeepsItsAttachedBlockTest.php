@@ -74,6 +74,21 @@ final class AStackedPlusKeepsItsAttachedBlockTest extends TestCase
             "- [ ] - +\n      | a |\n      | b |\n\n      q\n",
             "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>\n        <table>\n          <tbody>\n            <tr><td>a</td></tr>\n            <tr><td>b</td></tr>\n          </tbody>\n        </table>\n      </li>\n    </ul>\n    <p>q</p>\n  </li>\n</ul>",
         ];
+
+        yield 'task box head with indented fence payload' => [
+            "- [ ] - +\n      ```\n      x\n       y\n",
+            "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>\n        <pre><code>x\n y\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
+        ];
+
+        yield 'task box head with indented payload in a closed fence' => [
+            "- [ ] - +\n      ```\n      x\n        y\n      ```\n",
+            "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>\n        <pre><code>x\n  y\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
+        ];
+
+        yield 'task box head with a fence the collector already placed' => [
+            "- [ ] - +\n      ```\n      y\n\n  q\n",
+            "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <ul>\n      <li>\n        <pre><code>y\n</code></pre>\n      </li>\n    </ul>\n    <p>q</p>\n  </li>\n</ul>",
+        ];
     }
 
     #[DataProvider('cases')]

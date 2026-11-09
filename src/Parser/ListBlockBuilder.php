@@ -3680,7 +3680,7 @@ final class ListBlockBuilder
         $attachedEnd = preg_match('/[ \t]\+[ \t]*$/D', $lead) === 1 ? $this->taskChildAttachedEnd($itemLines, $itemLineMap) : 1;
         foreach ($itemLines as $at => $line) {
             if ($at > 0 && $at < $attachedEnd) {
-                if (!IndentationHelper::isBlankLine($line) && $line[0] !== ' ') {
+                if (!IndentationHelper::isBlankLine($line) && !str_contains($line, "\n") && !str_starts_with($line, BlockGrammar::LAZY_FRAME)) {
                     $itemLines[$at] = str_repeat(' ', $boxWidth) . $line;
                 }
 
@@ -3745,6 +3745,10 @@ final class ListBlockBuilder
     {
         $fenced = ($this->getFencedBlockParser)();
         $first = $itemLines[1] ?? '';
+        // A block the collector already placed at the child's column needs no move.
+        if ($first === '' || $first[0] === ' ' || $first[0] === "\t") {
+            return 1;
+        }
         $code = $fenced->parseCodeFenceOpener($first);
         $colon = $code === null ? $fenced->parseDivFenceOpener($first) : null;
         $count = count($itemLines);
