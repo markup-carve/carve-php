@@ -3291,7 +3291,7 @@ final class BlockOwnershipWalk
             $own[] = $level;
         }
         $first = $own[0]['rest'];
-        if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $first) === 1) {
+        if ($held['kind'] === 'note' && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $first) === 1) {
             foreach ($own as $line) {
                 if (
                     preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $line['rest']) !== 1
