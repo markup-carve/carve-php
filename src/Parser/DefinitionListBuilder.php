@@ -2097,6 +2097,7 @@ final class DefinitionListBuilder
             if (
                 (!$l->termPastTheColumn || $leadMarker !== null)
                 && ($ownerColumn === 0 || IndentationHelper::getLeadingColumns($entry, $ownerColumn) < $ownerColumn)
+                && !$this->entryReachesNestedContainer($b, $entry)
             ) {
                 $entry = ltrim($entry, " \t");
             }
@@ -3220,6 +3221,41 @@ final class DefinitionListBuilder
         $previous = $this->sourceLineFor($index - 1);
 
         return isset($this->state->source->fenceOpenerLines[$previous]) || isset($this->state->source->fenceBodyLines[$previous]);
+    }
+
+    /**
+     * Whether a definition past the body's column stands at the content column of a
+     * description or item opened inside the body. The walk placed it there because that
+     * container owns it (PART 0 S2), so it keeps the column.
+     *
+     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param string $entry
+     */
+    private function entryReachesNestedContainer(DescriptionBodyCollection $b, string $entry): bool
+    {
+        $column = IndentationHelper::getLeadingColumns($entry);
+        if ($column === 0) {
+            return false;
+        }
+        [$scanned, $nearest] = $b->shallowerEntry[$column] ?? [0, null];
+        for ($n = count($b->body); $scanned < $n; $scanned++) {
+            $line = explode("\n", $b->body[$scanned] ?? '', 2)[0];
+            if (!IndentationHelper::isBlankLine($line) && IndentationHelper::getLeadingColumns($line) < $column) {
+                $nearest = $scanned;
+            }
+        }
+        $b->shallowerEntry[$column] = [$scanned, $nearest];
+        if ($nearest === null) {
+            return false;
+        }
+        $line = explode("\n", $b->body[$nearest] ?? '', 2)[0];
+        $rest = ltrim($line, " \t");
+        $marker = ($this->getListParser)()->parseListItemMarker($rest);
+        $content = $marker !== null
+            ? strlen($rest) - strlen($marker['content'])
+            : (preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $rest, $m) === 1 ? strlen($m[0]) : null);
+
+        return $content !== null && IndentationHelper::getLeadingColumns($line) + $content === $column;
     }
 
     /**

@@ -80,6 +80,13 @@ final class DescriptionBodyCollection
 
     public int $bodyNestedCursor = 0;
 
+    /**
+     * Per column: body entries scanned so far, and the latest one standing left of that column.
+     *
+     * @var array<int, array{int, ?int}>
+     */
+    public array $shallowerEntry = [];
+
     public ?PlainContinuationState $childFence = null;
 
     /**
