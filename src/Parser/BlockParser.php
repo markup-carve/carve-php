@@ -35,6 +35,7 @@ use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Math;
+use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
@@ -4558,7 +4559,7 @@ class BlockParser
                 substr($lineText, 0, max(0, strlen($lineText) - $shrink)),
             ];
         }
-        $this->refuseJoinedBraceRuns($contentParts, $physicalLines, $contentLines, $literalLines, $literalRuns);
+        $this->refuseJoinedBraceRuns($contentParts, $physicalLines, $contentLines, $literalLines, $literalRuns, $start);
         foreach ($literalLines as $index => $_) {
             $physicalLines[$index] = RefusedBraceRun::escape($physicalLines[$index]);
         }
@@ -4853,19 +4854,29 @@ class BlockParser
      * @param list<array{int, int, int, string}> $contentLines
      * @param array<int, true> $literalLines
      * @param list<array{int, int}> $literalRuns
+     * @param int $start
      */
-    private function refuseJoinedBraceRuns(array $parts, array &$physicalLines, array &$contentLines, array &$literalLines, array &$literalRuns): void
-    {
+    private function refuseJoinedBraceRuns(
+        array $parts,
+        array &$physicalLines,
+        array &$contentLines,
+        array &$literalLines,
+        array &$literalRuns,
+        int $start,
+    ): void {
         $physical = 0;
         $found = false;
         foreach ($parts as $part) {
             $width = substr_count($part, "\n") + 1;
-            for ($k = $physical; $width > 1 && $k < $physical + $width; $k++) {
+            for ($k = $physical; $k < $physical + $width; $k++) {
                 $line = ltrim($physicalLines[$k], " \t");
                 if (isset($literalLines[$k]) || !str_starts_with($line, '{') || str_starts_with($line, '{%')) {
                     continue;
                 }
-                $end = RefusedBraceRun::end($physicalLines, $k, $this->inlineParser, $physical + $width);
+                $sourceLine = $contentLines[$k][0] ?? $this->sourceLineFor($start) + $k;
+                $walkKept = ($this->state->source->refusedKeptLines[$sourceLine] ?? null) === $sourceLine;
+                $limit = $walkKept ? count($physicalLines) : $physical + $width;
+                $end = RefusedBraceRun::end($physicalLines, $k, $this->inlineParser, $limit);
                 if ($end === null) {
                     continue;
                 }
@@ -4936,6 +4947,9 @@ class BlockParser
                     $breaks[] = $node;
                 } elseif ($node instanceof Text || $node instanceof EscapedText) {
                     $values[count($values) - 1] .= $node->getContent();
+                } elseif ($node instanceof Mention) {
+                    $label = $node->getChildren()[0] ?? null;
+                    $values[count($values) - 1] .= $label instanceof Text ? $label->getContent() : '';
                 } else {
                     $plain = false;
                 }

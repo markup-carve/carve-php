@@ -2331,9 +2331,11 @@ final class BlockOwnershipWalk
         }
         $top = $this->frames[count($this->frames) - 1];
         // Description and note bodies normally read their own refused runs.
-        // A first-block marker's follower stands at its source column, before
-        // the body reader has a chance to keep the run's next line.
-        if (($top->kind === 'dd' || $top->kind === 'note') && $top->plus !== $at - 1) {
+        // Their first-block marker is on the lead line, not in the frame's
+        // plus slot, so the ownership walk must keep that run's follower.
+        $firstBlockLead = $top->line === $at - 1
+            && preg_match('/^(?:[ \t]*:[ \t]+|[ \t]*\[\^[^]]+\]:[ \t]+)\+[ \t]*$/D', $this->lines[$top->line] ?? '') === 1;
+        if (($top->kind === 'dd' || $top->kind === 'note') && $top->plus !== $at - 1 && !$firstBlockLead) {
             return null;
         }
         $column = in_array($top->kind, ['doc', 'quote'], true) || $top->plus === $at - 1 ? $col : $top->col;
@@ -2358,6 +2360,20 @@ final class BlockOwnershipWalk
         }
         if ($kept === null) {
             return null;
+        }
+        if ($firstBlockLead && $top->plus !== $at - 1) {
+            $next = $at + $kept + 1;
+            $nextLine = $this->lines[$next] ?? '';
+            $nextColumn = IndentationHelper::getLeadingColumns($nextLine);
+            $nextRest = ltrim($nextLine, " \t");
+            // Otherwise the body reader already handles this run; avoid
+            // changing how it escapes ordinary paragraph text.
+            if (
+                $kept < 0 || $nextRest === '' || $nextColumn <= $top->col
+                || $this->classify($nextRest, $top, $nextColumn)->kind === 'text'
+            ) {
+                return null;
+            }
         }
         $this->refusedKeptStart = $at;
         $this->refusedKeptThrough = $at + $kept;
