@@ -4933,7 +4933,7 @@ class InlineParser
         }
 
         if ($previous instanceof Symbol) {
-            return ':';
+            return $previous->getAttributes() === [] ? ':' : 'x';
         }
 
         // Any other flushed state with prior output is word-adjacent, i.e.
