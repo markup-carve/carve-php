@@ -54,4 +54,13 @@ final class ARefusedNotePlusLeavesNoLazyParagraphTest extends TestCase
         self::assertStringContainsString('<p lang="foo" class="y">see', $html);
         self::assertStringContainsString("<li id=\"fn1\">\n      <p><a href=\"#fnref1\"", $html);
     }
+
+    public function testWrappedBooleanAttributeUsesTheSameOwner(): void
+    {
+        $source = "[^a]: +\n {disabled\n .y}\n\nsee[^a]\n";
+        $html = (new CarveConverter())->convert($source);
+
+        self::assertStringContainsString('<p disabled="" class="y">see', $html);
+        self::assertStringContainsString("<li id=\"fn1\">\n      <p><a href=\"#fnref1\"", $html);
+    }
 }

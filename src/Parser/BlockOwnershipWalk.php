@@ -3412,7 +3412,7 @@ final class BlockOwnershipWalk
         if (
             $note->kind !== 'note' || $note->line !== $at - 1 || $this->refusedBraceRunEnd === null
             || preg_match('/\[\^[^]]+\]:[ \t]+\+[ \t]*$/D', $this->lines[$note->line] ?? '') !== 1
-            || preg_match('/^\{(?:[#.:]|[A-Za-z_][A-Za-z0-9_-]*=)/', $this->m['rest']) !== 1
+            || !str_starts_with($this->m['rest'], '{')
         ) {
             return false;
         }
