@@ -3015,7 +3015,8 @@ final class ListBlockBuilder
         $closer = $source->authoredLines[$closerLine] ?? '';
         $line = $source->authoredLines[$sourceLine] ?? '';
         if (
-            IndentationHelper::getLeadingColumns($line, $contentColumn + 1) !== $contentColumn
+            ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) === null
+            || IndentationHelper::getLeadingColumns($line, $contentColumn + 1) !== $contentColumn
             || isset($source->lazyLines[$sourceLine])
             || !isset($source->fenceBodyLines[$closerLine])
             || isset($source->fenceBodyLines[$sourceLine])
