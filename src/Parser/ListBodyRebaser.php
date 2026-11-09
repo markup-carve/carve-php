@@ -1464,9 +1464,10 @@ final class ListBodyRebaser
             if (preg_match('/^(?:#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '|(?:([-*_])\1{2,}|-(?: -){2,}|\*(?: \*){2,})[ \t]*$)/', $line) === 1) {
                 $unclosedFenceBase = null;
             }
-            if ($i > $minimumColonEnd && $eligible !== null && ($line[0] ?? '') === ':') {
+            if ($i > $minimumColonEnd && ($line[0] ?? '') === ':') {
                 $minimumDiv = ($this->getFencedBlockParser)()->parseDivFenceOpener($line);
-                if ($minimumDiv !== null) {
+                // A line block's payload is verse at any rebase; a div's only where the minimum column was stripped.
+                if ($minimumDiv !== null && ($eligible !== null || $minimumDiv['className'] === '|')) {
                     $closer = ($this->colonFenceEndCallback)($lines, $i, $minimumDiv['length'], $count, null);
                     $minimumColonEnd = $closer === -1 ? $count - 1 : $closer;
                     $minimumColonIsLiteral = $minimumDiv['className'] === '|';

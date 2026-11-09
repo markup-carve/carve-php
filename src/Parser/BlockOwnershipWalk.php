@@ -711,6 +711,7 @@ final class BlockOwnershipWalk
                     }
                 } elseif ($shiftedCloser || ($rest !== '' && $inner->closes !== null && ($inner->closes)($rest, $this->m['col']))) {
                     array_pop($this->frames);
+                    $this->resumeLineBlockHost($inner);
                     // A matched comment span is invisible: its host keeps the form it had (§10 I5).
                     if ($inner->family !== 'comment') {
                         $this->frames[count($this->frames) - 1]->last = 'block';
@@ -1610,6 +1611,16 @@ final class BlockOwnershipWalk
         $host->last = 'block';
 
         return true;
+    }
+
+    /**
+     * A closed attached line block hands the line after it back to its host, as a colon block does (carve#5396).
+     */
+    private function resumeLineBlockHost(OwnershipFrame $inner): void
+    {
+        if ($inner->lineBlock) {
+            $this->resumeAttachedHost($inner);
+        }
     }
 
     private function traceFenceOwner(OwnershipFrame $inner): string
