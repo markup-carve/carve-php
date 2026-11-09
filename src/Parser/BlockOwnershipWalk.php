@@ -3421,12 +3421,16 @@ final class BlockOwnershipWalk
             $view = $this->throughQuotes($this->lines[$line], $topIndex, $this->frames);
             $run[] = $view === null ? $this->lines[$line]
                 : str_repeat(' ', self::docColumn($this->lines[$line], $view['rest'])) . $view['rest'];
-            if (trim($run[count($run) - 1], " \t") === '') {
-                break;
+            $continuation = $run[count($run) - 1];
+            if (str_contains($continuation, '}') && ($this->refusedBraceRunEnd)($run, 0) !== null) {
+                return true;
+            }
+            if (trim($continuation, " \t") === '' || preg_match('/^\s*(?:>\s*)*\[\^[^]]+\]:/', $this->lines[$line]) === 1) {
+                return false;
             }
         }
 
-        return ($this->refusedBraceRunEnd)($run, 0) !== null;
+        return false;
     }
 
     /**
