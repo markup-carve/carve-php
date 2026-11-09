@@ -261,6 +261,13 @@ class InlineParser
 
     protected ?string $emphNoCloseText = null;
 
+    private ?string $comparisonAtomText = null;
+
+    /**
+     * @var array<int, true>
+     */
+    private array $comparisonAtomEnds = [];
+
     private ?BareDeclines $bareDeclines = null;
 
     /**
@@ -4211,6 +4218,26 @@ class InlineParser
     {
         if ($at === 0 || !str_contains('!<>', $text[$at - 1]) || $this->isEscapedAt($text, $at - 1)) {
             return false;
+        }
+
+        if ($text[$at - 1] === '>') {
+            if ($this->comparisonAtomText !== $text) {
+                $this->comparisonAtomText = $text;
+                $this->comparisonAtomEnds = [];
+                $open = strpos($text, '<');
+                while ($open !== false) {
+                    if (!$this->isEscapedAt($text, $open)) {
+                        $end = $this->findCrossrefEnd($text, $open) ?? $this->findAutolinkEnd($text, $open);
+                        if ($end !== null) {
+                            $this->comparisonAtomEnds[$end] = true;
+                        }
+                    }
+                    $open = strpos($text, '<', $open + 1);
+                }
+            }
+            if (isset($this->comparisonAtomEnds[$at])) {
+                return false;
+            }
         }
 
         // `<==` and `<=>` are arrows, which give their `=` to a closer.
