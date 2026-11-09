@@ -261,6 +261,13 @@ class InlineParser
 
     protected ?string $emphNoCloseText = null;
 
+    private ?string $comparisonAtomText = null;
+
+    /**
+     * @var array<int, true>
+     */
+    private array $comparisonAtomEnds = [];
+
     private ?BareDeclines $bareDeclines = null;
 
     /**
@@ -4214,12 +4221,21 @@ class InlineParser
         }
 
         if ($text[$at - 1] === '>') {
-            $open = strrpos(substr($text, 0, $at - 1), '<');
-            if (
-                $open !== false && !$this->isEscapedAt($text, $open)
-                && ($this->findCrossrefEnd($text, $open) === $at
-                    || $this->findAutolinkEnd($text, $open) === $at)
-            ) {
+            if ($this->comparisonAtomText !== $text) {
+                $this->comparisonAtomText = $text;
+                $this->comparisonAtomEnds = [];
+                $open = strpos($text, '<');
+                while ($open !== false) {
+                    if (!$this->isEscapedAt($text, $open)) {
+                        $end = $this->findCrossrefEnd($text, $open) ?? $this->findAutolinkEnd($text, $open);
+                        if ($end !== null) {
+                            $this->comparisonAtomEnds[$end] = true;
+                        }
+                    }
+                    $open = strpos($text, '<', $open + 1);
+                }
+            }
+            if (isset($this->comparisonAtomEnds[$at])) {
                 return false;
             }
         }
