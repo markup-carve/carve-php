@@ -5240,6 +5240,10 @@ class BlockParser
         }
 
         if ($this->isCaptionLine($line)) {
+            if (isset($this->state->source->lazyLines[$this->sourceLineFor($i)])) {
+                return false;
+            }
+
             return $this->isCaptionableParagraphContent(implode("\n", $contentLines), $sourceLine);
         }
 
@@ -5895,6 +5899,13 @@ class BlockParser
     protected function tryParseCaption(Node $parent, array $lines, int $start): ?int
     {
         $line = $lines[$start];
+
+        // A line folded through a missed container continues its paragraph.
+        // The normalized item chunk can put it beside a captionable block,
+        // but the ownership walk has already ruled out a caption slot there.
+        if (isset($this->state->source->lazyLines[$this->sourceLineFor($start)])) {
+            return null;
+        }
 
         // Caption syntax: `^ caption text` (caret followed by space)
         // Mirror tryParseHeading: `^` + one-or-more spaces (a space, not a tab) +
