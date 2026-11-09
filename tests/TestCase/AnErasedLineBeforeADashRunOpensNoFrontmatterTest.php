@@ -44,6 +44,6 @@ class AnErasedLineBeforeADashRunOpensNoFrontmatterTest extends TestCase
 
     public function testAnOpenerOnLineOneStillClaims(): void
     {
-        $this->assertSame("<p>y</p>", (new CarveConverter())->convert("---\n%% c\n---\ny\n"));
+        $this->assertSame('<p>y</p>', (new CarveConverter())->convert("---\n%% c\n---\ny\n"));
     }
 }
