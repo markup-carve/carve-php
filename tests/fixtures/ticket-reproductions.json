@@ -218,5 +218,15 @@
         "ticket": "carve#5658",
         "source": "- a\n  - ```\n    x\n\n+\n  > q\n",
         "html": "<ul>\n  <li>a\n    <ul>\n      <li>\n        <pre><code>x\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>&gt; q</p>"
+    },
+    {
+        "ticket": "carve#5658",
+        "source": "- +\n{.x\n.y}\n+\n  zq\n",
+        "html": "<ul>\n  <li>{.x\n.y}\n+\nzq</li>\n</ul>"
+    },
+    {
+        "ticket": "carve#5658",
+        "source": "> - +\n> {.x\n> .y}\n  > +\n>   zq\n",
+        "html": "<blockquote>\n  <ul>\n    <li>{.x\n.y}\n      zq\n    </li>\n  </ul>\n</blockquote>"
     }
 ]
