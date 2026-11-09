@@ -1233,8 +1233,20 @@ final class DefinitionListBuilder
         $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
         if ($attached) {
             $this->closeDescriptionFenceBeforeAttachment($b);
-            $b->body[] = '';
-            $b->bodyMap[] = -1;
+            // A marker refused between sibling items contributes no blank to
+            // their list. Keep the separator for a genuinely new block.
+            $previousKey = array_key_last($b->body);
+            $previous = $previousKey === null ? '' : $b->body[$previousKey];
+            $first = $attached[0];
+            $previousMarker = ($this->getListParser)()->parseListItemMarker(ltrim($previous, " \t"));
+            $nextMarker = ($this->getListParser)()->parseListItemMarker(ltrim($first, " \t"));
+            $sameList = $previousMarker !== null && $nextMarker !== null
+                && IndentationHelper::getLeadingColumns($previous) === IndentationHelper::getLeadingColumns($first)
+                && ($this->getListParser)()->itemMatchesList($previousMarker, $nextMarker);
+            if (!$sameList) {
+                $b->body[] = '';
+                $b->bodyMap[] = -1;
+            }
             foreach ($attached as $attachedIndex => $a) {
                 $b->body[] = $a;
                 $b->bodyMap[] = $attachedLineMap[$attachedIndex];
