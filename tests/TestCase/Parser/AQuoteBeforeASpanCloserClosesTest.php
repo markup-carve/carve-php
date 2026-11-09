@@ -21,6 +21,7 @@ class AQuoteBeforeASpanCloserClosesTest extends TestCase
     public static function cases(): array
     {
         return [
+            'empty attributed span' => ['[]{}"', '<p><span></span>”</p>'],
             'strong' => ['*"Wait-"*', '<p><strong>“Wait-”</strong></p>'],
             'underline' => ['_"Wait-"_', '<p><u>“Wait-”</u></p>'],
             'insert' => ['{+"Wait-"+}', '<p><ins>“Wait-”</ins></p>'],
