@@ -143,6 +143,17 @@ final class RefusedBraceRun
             if ($blank < 0 && trim($line, " \t") === '') {
                 $blank = $j;
             }
+            // A block opener short of this paragraph's owner ends its span.
+            // Its later fence lines belong to the surviving owner, not to the
+            // refused run's protected follower.
+            if (
+                $blank < 0 && IndentationHelper::getLeadingColumns($lines[$j]) < $column
+                && (preg_match('/^(?:>|#{1,6}(?:[ \t]|$))/', $line) === 1
+                    || $fenced->parseCodeFenceOpener($line) !== null
+                    || $fenced->parseRawBlockOpener($line) !== null)
+            ) {
+                return $j - 1;
+            }
             if (
                 preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $line, $closer) === 1
                 && $closer[1][0] === $fence[1][0] && strlen($closer[1]) >= strlen($fence[1])
