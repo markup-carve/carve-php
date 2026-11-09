@@ -968,7 +968,12 @@ final class BlockOwnershipWalk
                 $this->noteShiftedOpener($at, $shift);
                 $definitionMarker = $form->kind === 'term' || $form->kind === 'dd';
                 $this->recordPastColumnDescriptionLine($at, $segment, $shift, $o, $form);
-                $this->lead($this->frames[$o]->canon, $definitionMarker, definitionMarker: $definitionMarker && $this->frames[$o]->kind === 'dd');
+                $this->lead(
+                    $this->frames[$o]->canon,
+                    $definitionMarker,
+                    contentTab: $form->kind === 'fence' || $form->kind === 'colon',
+                    definitionMarker: $definitionMarker && $this->frames[$o]->kind === 'dd',
+                );
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon, inHost: !$leftLineBlockSpan);
                 $this->markAttachedFence($at, $o, $form, $plusFollower);
                 // A marker opened on an off-stop tab run has its C5 columns that far right.
@@ -2294,14 +2299,7 @@ final class BlockOwnershipWalk
             for ($index = count($this->frames) - 1; $index > 0; $index--) {
                 $frame = $this->frames[$index];
                 if ($frame->kind === 'fence') {
-                    if ($frame->lineBlock || $frame->family === 'comment' || $frame->cut === 0) {
-                        $insideVerbatimBlock = true;
-
-                        continue;
-                    }
-                    $opener = ContainerPrefix::stripQuoteMarkers($this->lines[$frame->opened ?? -1] ?? '');
-                    $openerLead = substr($opener, 0, strlen($opener) - strlen(ltrim($opener, " \t")));
-                    $insideVerbatimBlock = $insideVerbatimBlock || $authored !== $openerLead;
+                    $insideVerbatimBlock = true;
 
                     continue;
                 }

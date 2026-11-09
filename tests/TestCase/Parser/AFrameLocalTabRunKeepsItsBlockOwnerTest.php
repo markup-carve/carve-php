@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -40,6 +41,10 @@ final class AFrameLocalTabRunKeepsItsBlockOwnerTest extends TestCase
                 ":: a\n: a\n  :: t\n  : a\n  \t :: t\n  \t: a\n",
                 "<dl>\n  <dt>a</dt>\n  <dd>\n    <p>a</p>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>a</p>\n        <dl>\n          <dt>t</dt>\n          <dd>a</dd>\n        </dl>\n      </dd>\n    </dl>\n  </dd>\n</dl>",
             ],
+            'a rewritten fence opener keeps its matching closer' => [
+                "- a\n  - b\n  \t```\n  \ttext\n  \t```\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <pre><code>text\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
+            ],
         ];
     }
 
@@ -47,5 +52,25 @@ final class AFrameLocalTabRunKeepsItsBlockOwnerTest extends TestCase
     public function testOwnedBlockUsesItsFrameLocalColumn(string $source, string $expected): void
     {
         self::assertSame($expected, (new CarveConverter())->convert($source));
+    }
+
+    public function testRewrittenQuoteKeepsItsAuthoredSourceStart(): void
+    {
+        $source = "- x\n  - y\n    - a\n\t+\n\t> q\n";
+        $document = (new BlockParser(trackPositions: true))->parse($source);
+        $quote = null;
+        $visit = static function ($node) use (&$visit, &$quote): void {
+            if ($node->getType() === 'block_quote') {
+                $quote = $node;
+            }
+            foreach ($node->getChildren() as $child) {
+                $visit($child);
+            }
+        };
+        $visit($document);
+
+        self::assertNotNull($quote);
+        self::assertSame(22, $quote->getPos()?->startOffset);
+        self::assertSame(25, $quote->getPos()?->endOffset);
     }
 }

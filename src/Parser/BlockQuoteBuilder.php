@@ -751,6 +751,14 @@ final class BlockQuoteBuilder
         $sourceTail = rtrim($this->state->source->sourceLines[$quoteSourceLine] ?? '', " \t");
         $lineTail = rtrim(explode("\n", $line, 2)[0], " \t");
         $markerTail = ltrim($lineTail, " \t");
+        if ($forSpan && $markerTail !== '') {
+            // The ownership walk can re-spell a tab before `>` as spaces for
+            // parsing. A source span starts at the authored marker byte.
+            $authoredTail = rtrim($this->state->source->authoredLines[$quoteSourceLine] ?? '', " \t");
+            if (str_ends_with($authoredTail, $markerTail)) {
+                return strlen($authoredTail) - strlen($markerTail);
+            }
+        }
         $authored = $forSpan ? $this->state->frame->currentContentColumns[$quoteSourceLine] ?? 0 : 0;
         $quoteOpeningColumn = str_ends_with($sourceTail, $markerTail)
             ? strlen($sourceTail) - strlen($markerTail)
