@@ -47,6 +47,11 @@ final class AnAttachedListKeepsItsItemPastAClosedBlockAndARefusedPlusTest extend
             ":: t\n: +\n1. li\n+\n  - sib\n",
             "<dl>\n  <dt>t</dt>\n  <dd>\n    <ol>\n      <li>li</li>\n    </ol>\n    <ul>\n      <li>sib</li>\n    </ul>\n  </dd>\n</dl>",
         ];
+
+        yield 'an attributed marker keeps its body column for a nested item' => [
+            ":: t\n: +\n-{.a} li\n+\n  - sib\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li class=\"a\">li\n        <ul>\n          <li>sib</li>\n        </ul>\n      </li>\n    </ul>\n  </dd>\n</dl>",
+        ];
     }
 
     #[DataProvider('examples')]
