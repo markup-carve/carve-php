@@ -1074,7 +1074,9 @@ final class BlockContinuationScanner
                     || isset($this->state->source->attachedQuoteEnds[$this->sourceLineFor($index)])
                     || ($attachedState->fence === null && $endsAtSibling !== null && $endsAtSibling($line, $index))
                     // An open colon block or line block holds a marker: it is the block's content (carve#5578).
-                    || ($markerEnds && $attachedState->fence === null && !$this->openDivKeepsMarker($attachedState) && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null)
+                    || ($markerEnds && $attachedState->fence === null && !$this->openDivKeepsMarker($attachedState)
+                        && ($bodyColumn === null || IndentationHelper::getLeadingColumns($line) < $bodyColumn)
+                        && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null)
                     || ($bodyColumn !== null && $attachedKind === BlockGrammar::ATTACHED_SPANNING . ':definition'
                         && $this->markerLeavesAttachedDescription($line, $bodyColumn, $attachedState))
                     // A block the host reads at its column holds only lines at that column, or a lazy line of its paragraph.
