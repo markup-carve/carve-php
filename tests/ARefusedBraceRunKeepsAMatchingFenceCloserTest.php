@@ -15,6 +15,11 @@ final class ARefusedBraceRunKeepsAMatchingFenceCloserTest extends TestCase
      */
     public static function examples(): iterable
     {
+        yield 'comment payload remains inside the kept fence' => [
+            ":: t\n: +\n{.x\n.y}\n```\nwa\n%% c\n```\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>{.x\n.y}\n<code>\nwa\n%% c\n</code></dd>\n</dl>",
+        ];
+
         foreach (['```', '~~~~'] as $fence) {
             yield "description $fence" => [
                 ":: t\n: +\n{.x\n.y}\n$fence\nwa\n$fence\n",
