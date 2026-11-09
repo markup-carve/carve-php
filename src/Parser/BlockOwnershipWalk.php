@@ -378,6 +378,10 @@ final class BlockOwnershipWalk
 
     private int $refusedKeptThrough = -1;
 
+    private ?OwnershipFrame $refusedKeptOwner = null;
+
+    private int $refusedKeptColumn = 0;
+
     private int $movedSpanEnd = -1;
 
     /**
@@ -431,6 +435,7 @@ final class BlockOwnershipWalk
         $this->nextVisible = -1;
         $this->refusedKeptStart = -1;
         $this->refusedKeptThrough = -1;
+        $this->refusedKeptOwner = null;
         $this->movedSpanEnd = -1;
         $this->lazyLines = [];
         $this->attachedPreludeLines = [];
@@ -2256,6 +2261,14 @@ final class BlockOwnershipWalk
         if ($at > $this->refusedKeptStart && $this->refusedRunMissesItsContainer($this->refusedKeptStart)) {
             $this->refusedKeptThrough = -1;
         }
+        // A line that misses the run's container, or a sibling description marker, ends its paragraph (PART 0 S2).
+        if (
+            $at > $this->refusedKeptStart && $at <= $this->refusedKeptThrough
+            && ($owner !== $this->refusedKeptOwner || $col < $this->refusedKeptColumn
+                || ($rest[0] === ':' && $this->classify($rest, $owner, $col)->kind === 'dd'))
+        ) {
+            $this->refusedKeptThrough = $at - 1;
+        }
         if ($at > $this->refusedKeptStart && $at <= $this->refusedKeptThrough && !$this->invisibleSibling($rest)) {
             $this->refusedKeptLines[$at] = $this->refusedKeptStart;
 
@@ -2310,6 +2323,8 @@ final class BlockOwnershipWalk
         }
         $this->refusedKeptStart = $at;
         $this->refusedKeptThrough = $at + $kept;
+        $this->refusedKeptOwner = $owner;
+        $this->refusedKeptColumn = $column;
         $this->refusedKeptLines[$at] = $at;
 
         return new OwnershipForm(kind: 'text', interrupts: false, kept: true);
