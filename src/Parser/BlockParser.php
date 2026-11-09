@@ -4514,7 +4514,7 @@ class BlockParser
             // span lines in any engine.
             $sourceLine = $this->sourceLineFor($i);
             $protectedRefusedFollower = ($this->state->source->refusedKeptLines[$sourceLine] ?? null) === $this->sourceLineFor($start);
-            if (!$forced && !$protectedRefusedFollower && $this->interruptsParagraph($lines, $i, $contentParts, $start, $topLevel, $itemBody)) {
+            if (!$forced && !$protectedRefusedFollower && $this->interruptsParagraph($lines, $i, $contentParts, $start, $topLevel, $itemBody, $inlineSpan, $literalLines)) {
                 break;
             }
 
@@ -5071,6 +5071,16 @@ class BlockParser
                 if ($state['code'] !== 0) {
                     continue;
                 }
+                // Attribute payloads are opaque to inline pairing. A quote
+                // inside one can contain backticks without opening code.
+                if (
+                    $line[$k] === '{' && ($line[$k + 1] ?? '') !== '%'
+                    && preg_match('/^\{(?:[^{}"\\\\]|\\\\.|"(?:[^"\\\\]|\\\\.)*")*\}/', substr($line, $k), $attribute) === 1
+                ) {
+                    $k += strlen($attribute[0]) - 1;
+
+                    continue;
+                }
                 if ($line[$k] === '\\') {
                     $width = strspn($line, '\\', $k);
                     $next = $line[$k + $width] ?? '';
@@ -5175,6 +5185,8 @@ class BlockParser
      * @param int $sourceLine
      * @param bool $topLevel
      * @param bool $itemBody
+     * @param array{scanned: int, code: int, comment: bool} $inlineSpan
+     * @param array<int, true> $literalLines
      */
     protected function interruptsParagraph(
         array $lines,
@@ -5183,6 +5195,8 @@ class BlockParser
         int $sourceLine,
         bool $topLevel = false,
         bool $itemBody = false,
+        array &$inlineSpan = ['scanned' => 0, 'code' => 0, 'comment' => false],
+        array $literalLines = [],
     ): bool {
         $line = $lines[$i];
 
@@ -5207,6 +5221,15 @@ class BlockParser
 
         if ($this->isCaptionLine($line)) {
             return $this->isCaptionableParagraphContent(implode("\n", $contentLines), $sourceLine);
+        }
+
+        // A brace line held by an open inline span is paragraph text, whether
+        // its attribute spelling is one line or wrapped (carve#5638).
+        if (str_starts_with(ltrim($line, " \t"), '{')) {
+            self::inlineSpanOpen($contentLines, $inlineSpan, $literalLines);
+            if ($inlineSpan['code'] !== 0) {
+                return false;
+            }
         }
 
         if ($this->startsNewBlock($line, $lines, $i)) {
