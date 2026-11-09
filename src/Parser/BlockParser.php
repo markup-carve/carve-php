@@ -5073,7 +5073,10 @@ class BlockParser
                 }
                 // Attribute payloads are opaque to inline pairing. A quote
                 // inside one can contain backticks without opening code.
-                if ($line[$k] === '{' && preg_match('/^\{(?:[^{}"\\\\]|\\\\.|"(?:[^"\\\\]|\\\\.)*")*\}/', substr($line, $k), $attribute) === 1) {
+                if (
+                    $line[$k] === '{' && ($line[$k + 1] ?? '') !== '%'
+                    && preg_match('/^\{(?:[^{}"\\\\]|\\\\.|"(?:[^"\\\\]|\\\\.)*")*\}/', substr($line, $k), $attribute) === 1
+                ) {
                     $k += strlen($attribute[0]) - 1;
 
                     continue;
