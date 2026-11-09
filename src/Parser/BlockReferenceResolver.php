@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Parser;
 
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
@@ -47,7 +48,11 @@ final class BlockReferenceResolver
         if ($depth >= BlockGrammar::MAX_HEADING_WALK_DEPTH) {
             return;
         }
-        foreach ($node->getChildren() as $child) {
+        $children = $node->getChildren();
+        if ($node instanceof Div) {
+            $children = [...$node->getHeaderNodes(), ...$children];
+        }
+        foreach ($children as $child) {
             if ($child instanceof Link && UnresolvedReference::sourceOf($child) !== null) {
                 $label = $child->getReferenceLabel();
                 $definition = $label !== null ? $this->getReference($label) : null;
@@ -100,7 +105,7 @@ final class BlockReferenceResolver
             } elseif ($child instanceof FootnoteRef && $child->isUnresolved() && $this->hasFootnote($child->getLabel())) {
                 $child->setUnresolved(false);
             }
-            if ($child->hasChildren()) {
+            if ($child->hasChildren() || ($child instanceof Div && $child->getHeaderNodes() !== [])) {
                 $this->resolveForwardReferences($child, $depth + 1);
             }
         }
