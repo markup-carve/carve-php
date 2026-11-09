@@ -12,7 +12,7 @@ namespace MarkupCarve\Carve\Parser;
 final class AttachmentParent
 {
     /**
-     * @param array{frames: array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>, column: int, depth: int, from: int, item: bool, kind: string, parent?: self|null} $host
+     * @param array{frames: array<int, \MarkupCarve\Carve\Parser\OwnershipFrame>, column: int, depth: int, from: int, item: bool, kind: string, parent?: self|null, ownLine?: bool} $host
      */
     public function __construct(public array $host)
     {

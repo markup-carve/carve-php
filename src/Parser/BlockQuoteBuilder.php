@@ -2310,17 +2310,12 @@ final class BlockQuoteBuilder
     }
 
     /**
-     * Whether the attached block, read on its own, leaves a code fence open, where a separator blank would be payload.
-     *
-     * @param array<string> $attached
-     * @param array<int, int> $lineMap
-     * @param array<string> $lines
-     */
-    /**
      * A fence an own-line `+` attaches keeps its blank in a quote too: it goes on through
      * the lines that still carry the quote's prefix (PART 0 S1, carve#5560 and carve#5635).
      *
      * @param array<string> $lines
+     * @param int $count
+     * @param int $i
      * @param array<string> $attached
      * @param array<int> $rawLineMap
      *
@@ -2358,6 +2353,13 @@ final class BlockQuoteBuilder
         return [$i, $attached, $rawLineMap];
     }
 
+    /**
+     * Whether the attached block, read on its own, leaves a code fence open, where a separator blank would be payload.
+     *
+     * @param array<string> $attached
+     * @param array<int, int> $lineMap
+     * @param array<string> $lines
+     */
     private function leavesFenceOpen(array $attached, array $lineMap, array $lines): bool
     {
         $state = self::initialBlockQuoteLazyState();

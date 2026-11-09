@@ -785,6 +785,7 @@ final class DefinitionListBuilder
      * Records the fence open at the end of a block a `+` attached.
      *
      * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param bool $ownLine
      */
     private function markDescriptionAttachment(DescriptionBodyCollection $b, bool $ownLine = false): void
     {

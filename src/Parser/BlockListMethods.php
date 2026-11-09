@@ -59,6 +59,11 @@ trait BlockListMethods
      * opener's column below the item ends it (PART 0 S1, carve#5560 and carve#5635).
      *
      * @param array<string> $lines
+     * @param int $contentIndent
+     * @param int $baseIndent
+     * @param int $count
+     * @param int $next
+     * @param int $start
      * @param array<string> $attached
      * @param array<int, int> $lineMap
      *
@@ -107,7 +112,7 @@ trait BlockListMethods
             $end = $k + 1;
         }
         for ($k = $next; $k < $end; $k++) {
-            $attached[] = IndentationHelper::isBlankLine($lines[$k]) ? '' : IndentationHelper::stripLeadingColumns($lines[$k], $baseIndent);
+            $attached[] = IndentationHelper::stripLeadingColumns($lines[$k], $baseIndent);
             $lineMap[] = $this->sourceLineFor($k);
         }
 

@@ -947,9 +947,10 @@ final class BlockContinuationScanner
                 }
             }
         }
+        // An own-line fence ends before the line that missed its host (PART 0 S1).
         for ($at = $i + 1; $opaque !== -1 && $at <= $opaque; $at++) {
             if (isset($this->state->source->attachedFenceMisses[$this->sourceLineFor($at)])) {
-                return -1;
+                return $at - 1;
             }
         }
         if ($opaque !== -1) {
