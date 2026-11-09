@@ -102,8 +102,9 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
 
     public function testTheListItemPlusCollectorKeepsACodeFenceWhole(): void
     {
+        // Past the blank, `b` misses the item and ends the own-line fence; the closer opens a new one (carve#5635).
         $this->assertSame(
-            '<ul><li>x ' . self::CODE_HTML . '</li></ul><p>z</p>',
+            '<ul><li>x <pre><code>a </code></pre></li></ul><p>b</p><pre><code> z </code></pre>',
             $this->html("- x\n+\n" . self::CODE . "\n\nz\n"),
         );
     }
@@ -174,8 +175,9 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
 
     public function testTheFootnoteCollectorKeepsACodeFenceWhole(): void
     {
+        // Past the blank, `b` misses the note and ends the own-line fence (carve#5635).
         $this->assertSame(
-            $this->note(self::CODE_HTML),
+            '<p>b</p><pre><code> see[^f] </code></pre>',
             $this->html("[^f]: n\n+\n" . self::CODE . "\n\nsee[^f]\n"),
         );
     }
@@ -210,8 +212,9 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
 
     public function testTheDefinitionBodyCollectorKeepsACodeFenceWhole(): void
     {
+        // Past the blank, `b` misses the description and ends the own-line fence (carve#5635).
         $this->assertSame(
-            '<dl><dt>t</dt><dd><p>d</p>' . self::CODE_HTML . '</dd></dl><p>z</p>',
+            '<dl><dt>t</dt><dd><p>d</p><pre><code>a </code></pre></dd></dl><p>b</p><pre><code> z </code></pre>',
             $this->html(":: t\n:  d\n+\n" . self::CODE . "\n\nz\n"),
         );
     }
@@ -482,9 +485,9 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
      */
     public function testTwoAttachedCodeFencesOfDifferentWidthsBothStayWhole(): void
     {
+        // Past the blank, `b` misses the item and ends the first fence (carve#5635).
         $this->assertSame(
-            '<ul><li><p>x</p><pre><code>a b </code></pre></li><li><p>y</p><pre><code>c d </code></pre>'
-                . '</li></ul><p>z</p>',
+            '<ul><li>x <pre><code>a </code></pre></li></ul><p>b</p><pre><code> - y + ``` c d ``` z </code></pre>',
             $this->html("- x\n+\n`````\na\n\nb\n`````\n\n- y\n+\n```\nc\n\nd\n```\n\nz\n"),
         );
     }
@@ -602,7 +605,7 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
     public function testACloserPaddedWithASpaceOrTabStillClosesTheAttachedFence(): void
     {
         $this->assertSame(
-            '<ul><li>x ' . self::CODE_HTML . '</li></ul><p>z</p>',
+            '<ul><li>x <pre><code>a </code></pre></li></ul><p>b</p><pre><code> z </code></pre>',
             $this->html("- x\n+\n```\na\n\nb\n```  \n\nz\n"),
         );
         $this->assertSame(

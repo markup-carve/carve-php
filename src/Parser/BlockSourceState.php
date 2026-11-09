@@ -105,6 +105,13 @@ final class BlockSourceState
     public array $attachedFenceBlankEnds = [];
 
     /**
+     * Lines that end an own-line attached fence by missing its host after a blank (PART 0 S1).
+     *
+     * @var array<int, true>
+     */
+    public array $attachedFenceMisses = [];
+
+    /**
      * @var array<int, true> Fence-shaped paragraph lines after an ended attached block.
      */
     public array $foldedFenceAfterAttachedBlank = [];

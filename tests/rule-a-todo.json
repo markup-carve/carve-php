@@ -2,6 +2,34 @@
     "about": "Tests the rule A port (#4216) still fails, each with its ticket. tests/RuleATodo.php runs them as expected failures.",
     "entries": [
         {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-2\"",
+            "ticket": "carve#5658"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-2\"",
+            "ticket": "carve#5658"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-2\"",
+            "ticket": "carve#5658"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testFormatMatchesThePinnedCanonicalForm with data set \"279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-3\"",
+            "ticket": "carve#5658"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-3\"",
+            "ticket": "carve#5658"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-3\"",
+            "ticket": "carve#5658"
+        },
+        {
+            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testThePartElevenOneCCeilingIsNoLongerReached",
+            "ticket": "carve#5658"
+        },
+        {
             "test": "MarkupCarve\\Carve\\Test\\ACommentAfterARefusedPlusDoesNotFoldIntoTheItemTest::testTheCommentStaysOutOfTheItem with data set \"shifted nested item (#4280)\"",
             "ticket": "carve#4483"
         },
@@ -127,18 +155,6 @@
         },
         {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Ast\\ADroppedFenceBlankLeavesTheSpanTest::testTheCodeBlockAndItsInnerListEndAfterThePayload with data set \"626-6\"",
-            "ticket": "carve-php#4328"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\NestedFenceBlankOwnershipTest::testNestedFenceOwnsOnlyBlanksAtItsContentColumn with data set \"child content column\"",
-            "ticket": "carve-php#4328"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\NestedFenceBlankOwnershipTest::testNestedFenceOwnsOnlyBlanksAtItsContentColumn with data set \"child content column without final LF\"",
-            "ticket": "carve-php#4328"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\NestedFenceBlankOwnershipTest::testNestedFenceOwnsOnlyBlanksAtItsContentColumn with data set \"child content column after two blanks\"",
             "ticket": "carve-php#4328"
         },
         {

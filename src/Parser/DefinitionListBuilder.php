@@ -788,11 +788,13 @@ final class DefinitionListBuilder
      * Records the fence open at the end of a block a `+` attached.
      *
      * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
+     * @param bool $ownLine
      */
-    private function markDescriptionAttachment(DescriptionBodyCollection $b): void
+    private function markDescriptionAttachment(DescriptionBodyCollection $b, bool $ownLine = false): void
     {
         $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
         $b->attachedBlockOpen = true;
+        $b->attachedOwnLine = $ownLine;
         $b->attachedFence = $b->bodyNestedState->fence;
     }
 
@@ -1305,7 +1307,7 @@ final class DefinitionListBuilder
                 $b->body[] = $a;
                 $b->bodyMap[] = $attachedLineMap[$attachedIndex];
             }
-            $this->markDescriptionAttachment($b);
+            $this->markDescriptionAttachment($b, true);
         }
 
         return true;
@@ -2269,6 +2271,15 @@ final class DefinitionListBuilder
                 return true;
             }
             $after = $b->lines[$look] ?? null;
+            // A marker-column `+` reaches the description even after a blank (PART 9 section 17 L3/L4, carve#5639).
+            if ($after !== null && trim($after, " \t") === '+' && $this->descriptionMarkerAttaches($look)) {
+                for (; $b->i < $look; $b->i++) {
+                    $b->body[] = '';
+                    $b->bodyMap[] = $this->sourceLineFor($b->i);
+                }
+
+                return true;
+            }
             // The SECOND spelling of the same rule, with a different
             // job: this one decides whether the blank is an internal
             // paragraph break or the end of the body. It has to read
@@ -2320,7 +2331,7 @@ final class DefinitionListBuilder
             // A blank reaches every frame, so an open fence keeps the run before the line that ends the body.
             $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
             $b->childFence ??= new PlainContinuationState();
-            $inAttachedBlock = $b->attachedBlockOpen && $b->bodyNestedState->fence === $b->attachedFence;
+            $inAttachedBlock = $b->attachedBlockOpen && !$b->attachedOwnLine && $b->bodyNestedState->fence === $b->attachedFence;
             if (
                 !$inAttachedBlock
                 && ($b->bodyNestedState->fence !== null || $this->continuations->childMarkerLineFenceOpen($b->childFence, $b->body))

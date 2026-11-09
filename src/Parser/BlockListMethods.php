@@ -45,11 +45,78 @@ trait BlockListMethods
         }
 
         [$next, $attached, $lineMap] = $this->collectListContinuationAtColumn($lines, $i + 1, $count, $baseIndent, $contentIndent);
+        [$next, $attached, $lineMap] = $this->extendOwnLineAttachedFence($lines, $i + 1, $next, $count, $baseIndent, $contentIndent, $attached, $lineMap);
         if ($attached !== []) {
             $this->parseItemBlocks($lastItem, $attached, $lineMap);
         }
 
         return $next;
+    }
+
+    /**
+     * An own-line `+` gives its unclosed fence the blank payload of a body fence: lines that reach
+     * the item and the blanks before a line that leaves it stay in the fence, and a closer at the
+     * opener's column below the item ends it (PART 0 S1, carve#5560 and carve#5635).
+     *
+     * @param array<string> $lines
+     * @param int $contentIndent
+     * @param int $baseIndent
+     * @param int $count
+     * @param int $next
+     * @param int $start
+     * @param array<string> $attached
+     * @param array<int, int> $lineMap
+     *
+     * @return array{0: int, 1: array<string>, 2: array<int, int>}
+     */
+    private function extendOwnLineAttachedFence(
+        array $lines,
+        int $start,
+        int $next,
+        int $count,
+        int $baseIndent,
+        int $contentIndent,
+        array $attached,
+        array $lineMap,
+    ): array {
+        if ($attached === [] || $next >= $count || !IndentationHelper::isBlankLine($lines[$next])) {
+            return [$next, $attached, $lineMap];
+        }
+        $opener = $this->fencedBlockParser->parseCodeFenceOpener($attached[0]);
+        if ($opener === null) {
+            return [$next, $attached, $lineMap];
+        }
+        $char = $opener['fence'][0];
+        $length = $opener['length'];
+        foreach (array_slice($attached, 1) as $payload) {
+            if ($this->fencedBlockParser->isCodeFenceCloser(ltrim($payload, " \t"), $char, $length)) {
+                return [$next, $attached, $lineMap];
+            }
+        }
+        $openerColumn = IndentationHelper::getLeadingColumns($lines[$start]);
+        $end = $next;
+        for ($k = $next; $k < $count && !isset($this->state->source->attachedFenceMisses[$this->sourceLineFor($k)]); $k++) {
+            if (IndentationHelper::isBlankLine($lines[$k])) {
+                $end = $k + 1;
+
+                continue;
+            }
+            $column = IndentationHelper::getLeadingColumns($lines[$k], $contentIndent);
+            if ($column < $contentIndent) {
+                if ($column === $openerColumn && $this->fencedBlockParser->isCodeFenceCloser(ltrim($lines[$k], " \t"), $char, $length)) {
+                    $end = $k + 1;
+                }
+
+                break;
+            }
+            $end = $k + 1;
+        }
+        for ($k = $next; $k < $end; $k++) {
+            $attached[] = IndentationHelper::stripLeadingColumns($lines[$k], $baseIndent);
+            $lineMap[] = $this->sourceLineFor($k);
+        }
+
+        return [$end, $attached, $lineMap];
     }
 
     /**
@@ -1203,8 +1270,11 @@ trait BlockListMethods
                 ) {
                     return false;
                 }
-                // The walk ended the attached quote here (carve#5427).
-                if (isset($this->state->source->attachedQuoteEnds[$this->sourceLineFor($index)])) {
+                // The walk ended the attached quote, or an own-line fence whose host the line missed, here (carve#5427, PART 0 S1).
+                if (
+                    isset($this->state->source->attachedQuoteEnds[$this->sourceLineFor($index)])
+                    || isset($this->state->source->attachedFenceMisses[$this->sourceLineFor($index)])
+                ) {
                     return true;
                 }
                 // A refused brace run and the line its paragraph keeps are text (CARVE-P2-035).

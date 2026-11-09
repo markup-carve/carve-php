@@ -127,7 +127,7 @@
     {
         "ticket": "carve-php#4282",
         "source": "- x\n+\n```\na\n\nb\n",
-        "html": "<ul>\n  <li>x\n    <pre><code>a\n</code></pre>\n  </li>\n</ul>\n<p>b</p>"
+        "html": "<ul>\n  <li>x\n    <pre><code>a\n\n</code></pre>\n  </li>\n</ul>\n<p>b</p>"
     },
     {
         "ticket": "carve-php#4282",

@@ -852,6 +852,7 @@ class BlockParser
         $this->state->source->commentPayloadHostColumns = $walk->commentPayloadHostColumns;
         $this->state->source->lineBlockLazyLines = $walk->lineBlockLazyLines;
         $this->state->source->attachedFenceBlankEnds = $walk->attachedFenceBlankEnds;
+        $this->state->source->attachedFenceMisses = $walk->attachedFenceMisses;
         $this->state->source->foldedFenceAfterAttachedBlank = $walk->foldedFenceAfterAttachedBlank;
         $this->state->source->attachedQuoteEnds = $walk->attachedQuoteEnds;
         $this->state->source->refusedKeptLines = $walk->refusedKeptLines;
@@ -3907,13 +3908,28 @@ class BlockParser
 
                     continue;
                 }
+                // A marker-column `+` reaches the note even after a blank (PART 9 section 17 L3/L4, carve#5639).
+                if (
+                    isset($lines[$look]) && trim($lines[$look], " \t") === '+'
+                    && $footnoteColumn->ownsContinuation(
+                        $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($look)),
+                        'footnote',
+                    )
+                ) {
+                    for (; $i < $look; $i++) {
+                        $bodyLines[] = '';
+                        $bodyLineMap[] = $this->sourceLineFor($i);
+                    }
+
+                    continue;
+                }
                 // A BLANK RUN continues the footnote when the body resumes
                 // after it. Must mirror the body-collection logic so a line is
                 // never skipped here without being collected there (grammar
                 // PART 9 §16, §17) - see
                 // {@see self::footnoteBodyResumesAfter()} for why the whole run
                 // has to be measured rather than the line after the blank.
-                $resumes = $this->footnoteBodyResumesAfter(
+                $resumes = isset($this->state->source->attachedFenceMisses[$this->sourceLineFor($look)]) ? null : $this->footnoteBodyResumesAfter(
                     $lines,
                     $i,
                     $count,
@@ -3922,7 +3938,8 @@ class BlockParser
                 );
                 if ($resumes === null) {
                     // A blank reaches every frame, so an open fence keeps the run before the line that ends the body.
-                    $keepsRun = !($endsAtBlank && $trailingState->fence === $attachedFence)
+                    // Only a marker-line `+` grant ends at the blank; an own-line one keeps it (carve#5560).
+                    $keepsRun = !($endsAtBlank && $firstBlockAttached && $trailingState->fence === $attachedFence)
                         && ($trailingState->fence !== null || $this->continuationsMapper()->childMarkerLineFenceOpen($childFence, $bodyLines));
                     for (; $keepsRun && $i < $count && IndentationHelper::isBlankLine($lines[$i]); $i++) {
                         $bodyLines[] = $this->blankLineResidue($lines[$i], self::FOOTNOTE_BODY_COLUMN, $trailingState);
@@ -4117,7 +4134,7 @@ class BlockParser
             }
         }
 
-        while ((($endsAtBlank && $trailingState->fence === $attachedFence) || ($trailingState->fence === null && $childFence->markerLineFence === null)) && $bodyLines !== [] && end($bodyLines) === '') {
+        while ((($endsAtBlank && $firstBlockAttached && $trailingState->fence === $attachedFence) || ($trailingState->fence === null && $childFence->markerLineFence === null)) && $bodyLines !== [] && end($bodyLines) === '') {
             array_pop($bodyLines);
             array_pop($bodyLineMap);
         }

@@ -96,6 +96,8 @@ final class DescriptionBodyCollection
 
     public ?TrailingCodeFence $attachedFence = null;
 
+    public bool $attachedOwnLine = false;
+
     public int $bodyAttributeThrough = -1;
 
     public bool $bodyEndsWithAttribute = false;
