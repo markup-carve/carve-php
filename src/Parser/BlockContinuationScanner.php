@@ -1822,6 +1822,35 @@ final class BlockContinuationScanner
             && isset($this->state->source->closingLines[$this->sourceLineFor($i)]);
     }
 
+    private function lineAfterShiftedAttachedCloserLeavesItem(int $sourceLine, int $contentColumn): bool
+    {
+        $source = $this->state->source;
+        $closerLine = $sourceLine - 1;
+        $closer = $source->authoredLines[$closerLine] ?? '';
+        $line = $source->authoredLines[$sourceLine] ?? '';
+        if (
+            IndentationHelper::getLeadingColumns($line, $contentColumn + 1) !== $contentColumn
+            || isset($source->lazyLines[$sourceLine])
+            || !isset($source->fenceBodyLines[$closerLine])
+            || isset($source->fenceBodyLines[$sourceLine])
+            || IndentationHelper::getLeadingColumns($closer) >= $contentColumn
+            || preg_match('/^[`~]{3,}[ \t]*$/D', ltrim($closer, " \t")) !== 1
+        ) {
+            return false;
+        }
+
+        for ($at = $closerLine - 1; $at >= 0; $at--) {
+            if (!isset($source->fenceOpenerLines[$at])) {
+                continue;
+            }
+            $opener = $source->authoredLines[$at] ?? '';
+
+            return IndentationHelper::getLeadingColumns($closer) > IndentationHelper::getLeadingColumns($opener);
+        }
+
+        return false;
+    }
+
     /**
      * Collect one non-blank line of the item; false ends the item.
      *
@@ -1856,6 +1885,9 @@ final class BlockContinuationScanner
         $run->blankRun->end();
         $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
         $nextTrimmed = ltrim($nextLine, " \t");
+        if ($this->lineAfterShiftedAttachedCloserLeavesItem($this->sourceLineFor($i), $contentIndent)) {
+            return false;
+        }
         // The ownership walk may have ended this item's open fence at a lower
         // column. Let the enclosing parser read that line in its new owner.
         if (
