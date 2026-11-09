@@ -16,5 +16,4 @@ final class TitleFootnoteRegressionTest extends TestCase
         self::assertSame(1, substr_count($html, 'id="fnref1"'));
         self::assertStringNotContainsString('fn2', $html);
     }
-
 }
