@@ -3226,6 +3226,12 @@ final class ListBlockBuilder
         $j = $i;
         $k = $i;
         while ($k < $count) {
+            // The walk ended an item's comment when this line missed its owner.
+            // A local delimiter scan must not carry that line and a later root
+            // comment back into the item merely because a sibling follows.
+            if (isset($this->state->source->commentEndLines[$this->sourceLineFor($k)])) {
+                return null;
+            }
             if (IndentationHelper::isBlankLine($lines[$k]) && !isset($roles[$k])) {
                 $blanks++;
                 $k++;
