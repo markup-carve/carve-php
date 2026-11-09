@@ -4511,7 +4511,9 @@ class BlockParser
             // written for, and PART 9 §10's I1 says nothing about brace state.
             // It protected nothing either - an inline attribute block cannot
             // span lines in any engine.
-            if (!$forced && $this->interruptsParagraph($lines, $i, $contentParts, $start, $topLevel, $itemBody)) {
+            $sourceLine = $this->sourceLineFor($i);
+            $protectedRefusedFollower = ($this->state->source->refusedKeptLines[$sourceLine] ?? null) === $this->sourceLineFor($start);
+            if (!$forced && !$protectedRefusedFollower && $this->interruptsParagraph($lines, $i, $contentParts, $start, $topLevel, $itemBody)) {
                 break;
             }
 

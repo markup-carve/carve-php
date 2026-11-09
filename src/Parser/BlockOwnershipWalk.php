@@ -2362,6 +2362,8 @@ final class BlockOwnershipWalk
             return null;
         }
         if ($firstBlockLead && $top->plus !== $at - 1) {
+            $runEnd = $this->refusedBraceRunEnd !== null ? ($this->refusedBraceRunEnd)($window, 0) : null;
+            $protectedCloser = $runEnd !== null && $kept > $runEnd;
             $next = $at + $kept + 1;
             $nextLine = $this->lines[$next] ?? '';
             $nextColumn = IndentationHelper::getLeadingColumns($nextLine);
@@ -2369,8 +2371,8 @@ final class BlockOwnershipWalk
             // Otherwise the body reader already handles this run; avoid
             // changing how it escapes ordinary paragraph text.
             if (
-                $kept < 0 || $nextRest === '' || $nextColumn <= $top->col
-                || $this->classify($nextRest, $top, $nextColumn)->kind === 'text'
+                !$protectedCloser && ($kept < 0 || $nextRest === '' || $nextColumn <= $top->col
+                    || $this->classify($nextRest, $top, $nextColumn)->kind === 'text')
             ) {
                 return null;
             }
