@@ -2662,9 +2662,12 @@ final class BlockContinuationScanner
                 ($this->getListParser)(),
                 $priorLine,
             );
-            $attachedChildFollower = $priorDecision['owner'] !== null
-                && $priorDecision['owner']['kind'] !== 'list'
-                && $priorDecision['owner']['column'] >= IndentationHelper::getLeadingColumns(
+            $childHost = $priorDecision['owner']
+                ?? $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $priorLine);
+            // First-block markers have their own owner record; both forms can attach a child block here.
+            $attachedChildFollower = $childHost !== null
+                && $childHost['kind'] !== 'list'
+                && $childHost['column'] >= IndentationHelper::getLeadingColumns(
                     $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
                 );
         }
