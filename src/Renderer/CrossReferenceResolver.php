@@ -6,10 +6,12 @@ namespace MarkupCarve\Carve\Renderer;
 
 use InvalidArgumentException;
 use MarkupCarve\Carve\Node\Block\Caption;
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
@@ -215,6 +217,11 @@ class CrossReferenceResolver
             $hasNestedLink = true;
         }
         $childInsideLink = $node instanceof InlineFootnote ? false : $insideLink || $node instanceof Link;
+        if ($node instanceof Div) {
+            foreach ($node->getHeaderNodes() as $headerNode) {
+                $this->scanForRender($headerNode, $tracker, $headings, $references, $hasNumberedTarget, $hasNestedLink, $depth + 1);
+            }
+        }
         foreach ($this->visibleChildren($node, definitionOrder: true) as $child) {
             $this->scanForRender(
                 $child,
@@ -335,6 +342,13 @@ class CrossReferenceResolver
             return;
         }
 
+        if ($node instanceof Div && $node->getHeaderNodes() !== []) {
+            $header = new Paragraph();
+            $header->setChildren($node->getHeaderNodes());
+            $this->enforceNoNesting($header, $tracker, false, $depth + 1);
+            $node->setHeaderNodes($header->getChildren());
+        }
+
         $children = array_values($node->getChildren());
         $rewritten = null;
         $replacements = [];
@@ -417,7 +431,7 @@ class CrossReferenceResolver
             // Any other node (emphasis, strong, span, ins/del, extensions,
             // block containers, footnote definition bodies, …) is recursed with
             // the inside-link flag carried unchanged.
-            if ($child->hasChildren()) {
+            if ($child->hasChildren() || ($child instanceof Div && $child->getHeaderNodes() !== [])) {
                 $this->enforceNoNesting($child, $tracker, $insideLink, $depth + 1);
             }
             if ($rewritten !== null) {
