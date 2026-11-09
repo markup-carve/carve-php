@@ -29,4 +29,12 @@ final class RegionMarkerSplitsListTest extends TestCase
     {
         self::assertSame($expected, (new CarveConverter())->convert($source));
     }
+
+    public function testBlankBeforeNestedRegionMarkerDoesNotLoosenOuterItem(): void
+    {
+        $source = "- outer\n  - a\n  \n  %% #region x\n  - b\n";
+        $expected = "<ul>\n  <li>outer\n    <ul>\n      <li>a</li>\n    </ul>\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>";
+
+        self::assertSame($expected, (new CarveConverter())->convert($source));
+    }
 }

@@ -2410,6 +2410,15 @@ class BlockParser
             }
         }
         $previous = $children[$childrenBeforeBlank - 1] ?? null;
+        // A region marker after a nested list splits that list. The blank
+        // before the invisible marker belongs to the nested list sequence,
+        // not to a new visible block of the enclosing item (CARVE-P11-073(a)).
+        if (
+            $previous instanceof ListBlock && $next instanceof Comment && $next->getFenceLength() === null
+            && preg_match('/^[ \t]*#(?:end)?region(?![A-Za-z0-9_])/', $next->getContent()) === 1
+        ) {
+            return;
+        }
         if ($previous instanceof Paragraph && $followerColumn !== null) {
             $fenceColumn = $this->state->session->foldedFenceColumn($previous);
             $itemContentColumn = $this->state->session->listItemContentColumn($parent);
