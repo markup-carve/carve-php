@@ -152,6 +152,9 @@ class AttributeHardeningTest extends TestCase
         $this->assertStringContainsString('style=""', $this->render('[x]{style="@import url(evil.css)"}'));
         $this->assertStringContainsString('style=""', $this->render('[x]{style="behavior:url(x.htc)"}'));
         $this->assertStringContainsString('style="color:red"', $this->render('[x]{style="color:red"}'));
+        foreach (["\u{00A0}", "\u{2003}", "\u{202F}"] as $space) {
+            $this->assertStringContainsString('style=""', $this->render('[x]{style="u' . $space . 'rl(x)"}'));
+        }
     }
 
     public function testDropsInvalidProgrammaticAttributeNames(): void
