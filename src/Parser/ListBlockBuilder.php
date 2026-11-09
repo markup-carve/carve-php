@@ -946,6 +946,11 @@ final class ListBlockBuilder
             // Get indentation of current line
             $currentIndent = IndentationHelper::getLeadingColumns($currentLine);
             $sourceLine = $this->sourceLineFor($i);
+            // CARVE-P11-073(a): at the list's column a region marker is its
+            // sibling, so no following item can continue this list.
+            if ($currentIndent === $baseIndent && preg_match('/^%%[ \t]*#(?:end)?region(?![A-Za-z0-9_])/', ltrim($currentLine, " \t")) === 1) {
+                break;
+            }
             $afterComments = $this->carryCommentRunToLastItem($list, $lines, $i, $count, $baseIndent, $lastItemContentIndent, $listInfo, $firstItem, $parent instanceof ListItem);
             if ($afterComments !== null) {
                 $i = $afterComments;
