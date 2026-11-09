@@ -1020,16 +1020,29 @@ final class BlockContinuationScanner
         $quoteEnd = null;
         // Whether the host's next block has taken over from the attached one through $continuesBody.
         $restarted = false;
+        $attachedListMarker = null;
+        $attachedListColumn = null;
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd, $blockColumn, &$restarted): bool {
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd, $blockColumn, &$restarted, &$attachedListMarker, &$attachedListColumn): bool {
                 if ($index < $commentThrough) {
                     return false;
                 }
                 if ($attachedKind === BlockGrammar::ATTACHED_PENDING && str_starts_with(ltrim($line, " \t"), '{')) {
                     $refusedFollower = ($this->refusedBraceRunEndCallback)($lines, $index) ?? -1;
+                }
+                if ($attachedKind === BlockGrammar::ATTACHED_SPANNING . ':list' && $attachedListMarker !== null) {
+                    $candidate = ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t"));
+                    if (
+                        $candidate !== null && IndentationHelper::getLeadingColumns($line) === $attachedListColumn
+                        && ($candidate['type'] !== $attachedListMarker['type']
+                            || $candidate['marker'] !== $attachedListMarker['marker']
+                            || ($candidate['style'] ?? null) !== ($attachedListMarker['style'] ?? null))
+                    ) {
+                        return true;
+                    }
                 }
                 // The host's own fence or div spans a blank (PART 9 §6).
                 if ($restarted && ($attachedState->fence !== null || $attachedState->hasOpenDiv()) && IndentationHelper::isBlankLine($line)) {
@@ -1104,6 +1117,10 @@ final class BlockContinuationScanner
                     $restarted = true;
                 }
                 $attachedKind = $this->advanceAttachedKind($attachedKind, $pendingThrough, $line, $lines, $index);
+                if ($attachedKind === BlockGrammar::ATTACHED_SPANNING . ':list' && $attachedListMarker === null) {
+                    $attachedListMarker = ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t"));
+                    $attachedListColumn = IndentationHelper::getLeadingColumns($line);
+                }
                 if ($quoteEnd === null && $attachedKind === BlockGrammar::ATTACHED_SPANNING . ':quote') {
                     $quoteEnd = ($this->getBlockQuoteBuilder)()->blockQuoteLazyExtentEnd($lines, $index);
                 }
