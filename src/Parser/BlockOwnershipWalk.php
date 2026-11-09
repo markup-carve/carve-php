@@ -2758,12 +2758,13 @@ final class BlockOwnershipWalk
                     continue;
                 }
                 $run = [];
-                $openerIndent = strlen($rawView($k)) - strlen(ltrim($rawView($k), " \t"));
+                $openerColumn = IndentationHelper::getLeadingColumns($rawView($k));
                 for ($j = $k; $j < $n && $j < $k + 64 && trim($view($j)) !== ''; $j++) {
                     $part = rtrim($rawView($j), " \t");
                     // The matcher receives host-relative lines. Keep each continuation's
-                    // offset from the opener while removing the host's own indent.
-                    $run[] = substr($part, min($openerIndent, strlen($part)));
+                    // column offset from the opener, including when tabs make the
+                    // number of leading bytes differ from the visual column.
+                    $run[] = str_repeat(' ', max(0, IndentationHelper::getLeadingColumns($part) - $openerColumn)) . ltrim($part, " \t");
                     if ($j > $k && !WrappedBlockAttributeScanner::endsInsideBlock($part, true)) {
                         break;
                     }

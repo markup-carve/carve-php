@@ -18,6 +18,7 @@ final class AWrappedAttributeBeforeAQuotedNoteFirstBlockTest extends TestCase
         yield 'wrapped run' => ["> [^a]: +\n>   {.x\n>    .y}\n> para\n\nsee[^a]\n", 'x y'];
         yield 'three-line run' => ["> [^a]: +\n>   {.x\n>    .y\n>    #z}\n> para\n\nsee[^a]\n", 'x y" id="z'];
         yield 'one-line control' => ["> [^a]: +\n>   {.x .y}\n> para\n\nsee[^a]\n", 'x y'];
+        yield 'tabbed continuation' => ["> [^a]: +\n>   {.x\n> \t.y}\n> para\n\nsee[^a]\n", 'x y'];
     }
 
     #[DataProvider('documents')]
