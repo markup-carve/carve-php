@@ -2202,7 +2202,11 @@ final class DefinitionListBuilder
         if ($entryMarker !== null) {
             $b->bodyFrames->addListContentColumn($entryColumn + $this->continuations->listMarkerWidth($l->trimmedCont, $entryMarker));
         }
-        if ($l->termPastTheColumn && $l->definitionPastTheColumn) {
+        if (
+            $l->termPastTheColumn && $l->definitionPastTheColumn
+            // A term at an open item's content column is that item's own block, with no paragraph to end.
+            && !$b->bodyFrames->hasListContentColumn($entryColumn)
+        ) {
             // CARVE-P2-017: end the folded paragraph before parsing the reached term.
             $b->body[] = '';
             $b->bodyMap[] = -1;
