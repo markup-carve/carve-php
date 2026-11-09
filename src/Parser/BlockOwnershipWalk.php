@@ -839,7 +839,13 @@ final class BlockOwnershipWalk
                         }
                     }
                     $leaf = $this->frames[$topIndex];
-                    $result[] = $this->out . str_repeat(' ', $leaf->kind === 'quote' ? 0 : (int)$leaf->reader) . BlockGrammar::LAZY_FRAME . $this->src;
+                    $braceColumn = $this->openBraceRunColumn($leaf, $at);
+                    if ($braceColumn !== null && $this->m['col'] > $braceColumn) {
+                        // A lazy line of a quoted note's brace run keeps its written column, so the run stays a block attribute (CARVE-P2-035, carve#5619).
+                        $result[] = $this->out . str_repeat(' ', $this->m['col']) . $this->m['rest'];
+                    } else {
+                        $result[] = $this->out . str_repeat(' ', $leaf->kind === 'quote' ? 0 : (int)$leaf->reader) . BlockGrammar::LAZY_FRAME . $this->src;
+                    }
                     $this->lazyLines[$at] = true;
                     if ($leaf->kind === 'fence' && $leaf->lineBlock) {
                         $this->lineBlockLazyLines[$at] = true;
@@ -3269,6 +3275,28 @@ final class BlockOwnershipWalk
             'parent' => $parent,
             'ownLine' => $ownLine,
         ];
+    }
+
+    /**
+     * The quote-local column of an unclosed `{` run that opens the frame's paragraph, or null.
+     */
+    private function openBraceRunColumn(OwnershipFrame $frame, int $at): ?int
+    {
+        $start = $frame->paragraphStart;
+        if ($start === null) {
+            return null;
+        }
+        $level = $this->levelOf($this->lines[$start], $this->quoteDepth(count($this->frames)));
+        if ($level === null || !str_starts_with($level['rest'], '{')) {
+            return null;
+        }
+        for ($k = $start; $k < $at; $k++) {
+            if (str_contains($this->lines[$k], '}')) {
+                return null;
+            }
+        }
+
+        return $level['col'];
     }
 
     /**
