@@ -147,7 +147,7 @@ final class BlockOwnershipWalk
     public array $foldedFenceAfterAttachedBlank = [];
 
     /**
-     * @var array{col: int, host: int, at: int, closes: \Closure}|null
+     * @var array{min: int, at: int}|null
      */
     private ?array $endedAttachedFence = null;
 
@@ -1569,8 +1569,17 @@ final class BlockOwnershipWalk
         }
         $this->attachedFenceBlankEnds[$at] = true;
         if ($inner->kind === 'fence' && $inner->family === 'code' && $inner->closes !== null) {
-            $host = $this->frames[count($this->frames) - 2];
-            $this->endedAttachedFence = ['col' => $inner->col, 'host' => (int)($host->markerCol ?? $host->col), 'at' => $at, 'closes' => $inner->closes];
+            $hostIndex = count($this->frames) - 2;
+            $host = $this->frames[$hostIndex];
+            $stacked = false;
+            for ($k = 1; $k < $hostIndex; $k++) {
+                $stacked = $stacked || ($host->line !== null && $this->frames[$k]->line === $host->line);
+            }
+            // The fold belongs to the paragraph's owner however many hosts the blank released; the line must pass the host's reach (carve#5606, carve#5636).
+            $this->endedAttachedFence = [
+                'min' => $host->kind === 'item' && !$stacked ? $host->col : $inner->col + ($stacked ? 1 : 2),
+                'at' => $at,
+            ];
             // Its one attached block has ended, so later lines must not re-test that offer.
             $this->attachedTo = ($this->attachedTo['parent'] ?? null)?->host;
         }
@@ -1624,9 +1633,7 @@ final class BlockOwnershipWalk
         }
         if (
             $form->family === 'code' && $this->frames[$reached]->para
-            && $this->m['col'] > $this->endedAttachedFence['col']
-            && $this->m['col'] >= $this->endedAttachedFence['host']
-            && ($this->endedAttachedFence['closes'])($this->m['rest'], $this->endedAttachedFence['col'])
+            && $this->m['col'] >= $this->endedAttachedFence['min']
             && !$this->hasLaterFenceCloser($at, $reached, $form)
         ) {
             $this->foldedFenceAfterAttachedBlank[$at] = true;
