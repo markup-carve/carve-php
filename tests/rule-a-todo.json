@@ -22,10 +22,6 @@
             "ticket": "carve#4483"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"858-a-typed-div-s-directive-classes-lead-its-attributes-4\"",
-            "ticket": "carve#4531"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\Parser\\QuotedDescendantLiteralSpansTest::testPairedSpansShieldPayloadClosersWithoutOpeningUnmatchedRuns",
             "ticket": "carve-php#4242"
         },
