@@ -1063,6 +1063,7 @@ final class BlockContinuationScanner
                         && !($attachedKind === BlockGrammar::ATTACHED_SPANNING . ':list' && $attachedState->fence !== null))
                     // An open code fence keeps a `+` as payload (PART 9 §17 L3, carve#5494).
                     || ($this->isContinuationMarker($line) && $attachedState->fence === null)
+                    || $this->hostConsumedMarker($line, $index, $attachedState->fence !== null)
                     || isset($this->state->source->attachedQuoteEnds[$this->sourceLineFor($index)])
                     || ($attachedState->fence === null && $endsAtSibling !== null && $endsAtSibling($line, $index))
                     // An open colon block or line block holds a marker: it is the block's content (carve#5578).
@@ -5690,6 +5691,32 @@ final class BlockContinuationScanner
     private function isCommentLineOrFence(string $line, int $at = 0): bool
     {
         return ($this->isCommentLineOrFenceCallback)($line, $at);
+    }
+
+    /**
+     * The walk's placeholder for a `+` the note or description host refused, where the next line leaves the attached block (PART 9 §17 L3).
+     */
+    private function hostConsumedMarker(string $line, int $index, bool $inFence): bool
+    {
+        if (!str_starts_with(ltrim($line, " \t"), '%%')) {
+            return false;
+        }
+        $source = $this->state->source;
+        $sourceLine = $this->sourceLineFor($index);
+
+        if (
+            !$source->isConsumedMarker($sourceLine)
+            || !in_array($source->refusedPlus[$sourceLine]['host'] ?? null, ['footnote body', 'definition description'], true)
+        ) {
+            return false;
+        }
+        $next = $source->sourceLines[$sourceLine + 1] ?? null;
+
+        // A list marker there is read by the attached list's own sibling rules.
+        // An open fence takes no line below its owner, so the marker ends it either way (CARVE-P0-013).
+        return $inFence || $next === null || IndentationHelper::isBlankLine($next)
+            || (isset($source->closingLines[$sourceLine + 1])
+                && ($this->getListParser)()->parseListItemMarker(ltrim($next, " \t")) === null);
     }
 
     private function isContinuationMarker(string $line): bool

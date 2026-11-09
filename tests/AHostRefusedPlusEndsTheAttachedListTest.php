@@ -1,0 +1,64 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test;
+
+use MarkupCarve\Carve\CarveConverter;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * A lone `+` the note or description refuses after its attached list ends that list (PART 9 §17 L3, carve#5583, carve#5588).
+ */
+final class AHostRefusedPlusEndsTheAttachedListTest extends TestCase
+{
+    /**
+     * @var string
+     */
+    private const NOTE_HEAD = "<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n"
+        . "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n";
+
+    /**
+     * @var string
+     */
+    private const NOTE_TAIL = "      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n"
+        . "    </li>\n  </ol>\n</section>";
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function examples(): iterable
+    {
+        yield 'note: a paragraph past the marker column' => [
+            "[^a]: +\n- li\n+\n p\n\nsee[^a]\n",
+            "<p>p</p>\n" . self::NOTE_HEAD . "      <ul>\n        <li>li</li>\n      </ul>\n" . self::NOTE_TAIL,
+        ];
+
+        yield 'description: a paragraph past the marker column' => [
+            ":: t\n: +\n- li\n+\n p\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>li</li>\n    </ul>\n  </dd>\n</dl>\n<p>p</p>",
+        ];
+
+        yield 'note: a fence in the attached list' => [
+            "[^a]: +\n- li\n  ```\n+\n\nsee[^a]\n",
+            self::NOTE_HEAD . "      <ul>\n        <li>li\n          <pre><code></code></pre>\n        </li>\n      </ul>\n" . self::NOTE_TAIL,
+        ];
+
+        yield 'description: a fence in the attached list' => [
+            ":: t\n: +\n- li\n  ```\n+\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>li\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>",
+        ];
+
+        yield 'note: a sibling item stays in the list' => [
+            "[^a]: +\n- li\n+\n - sib\n\nsee[^a]\n",
+            self::NOTE_HEAD . "      <ul>\n        <li>li</li>\n        <li>sib</li>\n      </ul>\n" . self::NOTE_TAIL,
+        ];
+    }
+
+    #[DataProvider('examples')]
+    public function testTheRefusedMarkerEndsTheAttachedList(string $source, string $expected): void
+    {
+        self::assertSame($expected, (new CarveConverter())->convert($source));
+    }
+}
