@@ -3412,7 +3412,8 @@ final class BlockOwnershipWalk
 
         return $note->kind === 'note' && $note->line === $at - 1
             && preg_match('/\[\^[^]]+\]:[ \t]+\+[ \t]*$/D', $this->lines[$note->line] ?? '') === 1
-            && str_starts_with($this->m['rest'], '{') && !str_contains($this->m['rest'], '}');
+            && preg_match('/^\{(?:[#.]|[A-Za-z_][A-Za-z0-9_-]*=)/', $this->m['rest']) === 1
+            && !str_contains($this->m['rest'], '}');
     }
 
     /**

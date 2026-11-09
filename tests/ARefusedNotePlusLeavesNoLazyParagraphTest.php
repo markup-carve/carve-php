@@ -19,4 +19,13 @@ final class ARefusedNotePlusLeavesNoLazyParagraphTest extends TestCase
 
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
+
+    public function testInlineBraceTextStillFoldsIntoNote(): void
+    {
+        $source = "[^a]: +\n {^word^}\n\nsee[^a]\n";
+        $html = (new CarveConverter())->convert($source);
+
+        self::assertStringContainsString('<p><sup>word</sup><a href="#fnref1"', $html);
+        self::assertStringNotContainsString('<p><sup>word</sup></p>', $html);
+    }
 }
