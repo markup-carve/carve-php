@@ -153,6 +153,10 @@ carve-rs and carve-grammars key and word each row the same way, so an
 application can compare the reports of two engines
 (markup-carve/carve-php#2167).
 
+Editor layout is not content and appears in neither report. The schema map's
+`layoutAttributes` names it, currently Tiptap's `colwidth`: the converter leaves
+it out of the Carve tree, as carve-grammars does.
+
 ## Fidelity
 
 `ProseMirrorCorpusTest` sweeps the whole spec corpus. The strict gate is narrow on
