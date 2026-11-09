@@ -1170,7 +1170,7 @@ class InlineParser
         $index = $quoteContextIndex;
         while ($index > 0) {
             $previous = $children[--$index];
-            if ($previous instanceof Comment || ($previous instanceof Span && $previous->getChildren() === [])) {
+            if ($previous instanceof Comment) {
                 continue;
             }
             $quoteContext = $this->lastEmittedGlyph($previous);
@@ -4879,7 +4879,7 @@ class InlineParser
         $childCount = count($children);
         while ($index < $childCount) {
             $previous = $children[$index++];
-            if ($previous instanceof Comment || ($previous instanceof Span && $previous->getChildren() === [])) {
+            if ($previous instanceof Comment) {
                 continue;
             }
             $context = $this->lastEmittedGlyph($previous);
