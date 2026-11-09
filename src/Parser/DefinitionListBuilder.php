@@ -376,6 +376,9 @@ final class DefinitionListBuilder
         );
         // A separator at a note body's own column describes a deeper term there.
         $atNoteBodyColumn = $inNoteBody && !$folded && $lines[$i] === ltrim($lines[$i], " \t");
+        if (isset($this->state->source->pastColumnDescriptionLines[$bodySource])) {
+            return null;
+        }
         if ($termHasOwnColumn && $termColumn !== null && $bodyColumn !== null && $bodyColumn < $termColumn && !$atNoteBodyColumn) {
             return null;
         }
