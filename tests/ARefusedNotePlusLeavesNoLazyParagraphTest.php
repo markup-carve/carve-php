@@ -36,4 +36,13 @@ final class ARefusedNotePlusLeavesNoLazyParagraphTest extends TestCase
 
         self::assertStringContainsString('<p>{<span class="tag"><strong>#i</strong></span><a href="#fnref1"', $html);
     }
+
+    public function testQuotedClosingBraceInWrappedAttributeDoesNotDecideTheRun(): void
+    {
+        $source = "[^a]: +\n {key=\"}\"\n .y}\n\nsee[^a]\n";
+        $html = (new CarveConverter())->convert($source);
+
+        self::assertStringContainsString('<p key="}" class="y">see', $html);
+        self::assertStringContainsString("<li id=\"fn1\">\n      <p><a href=\"#fnref1\"", $html);
+    }
 }
