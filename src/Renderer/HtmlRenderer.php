@@ -2669,7 +2669,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // HTML attribute on the wrapper. Applies to both tiers.
         $titleAttr = $node->getHeader();
         $titleLine = '';
-        if (is_string($titleAttr)) {
+        if (is_string($titleAttr) && !($node->isTyped() && in_array($classes[0] ?? '', Div::ADMONITION_TYPES, true))) {
             $titleLine = '  <p class="admonition-title">'
                 . $this->renderInlineNodesFragment($node->getHeaderNodes()) . "</p>\n";
         }
