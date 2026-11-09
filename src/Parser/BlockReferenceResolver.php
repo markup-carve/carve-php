@@ -50,7 +50,7 @@ final class BlockReferenceResolver
         }
         $children = $node->getChildren();
         if ($node instanceof Div) {
-            $children = [...$node->getHeaderNodes(), ...$node->getLabelNodes(), ...$children];
+            $children = [...$node->getHeaderNodes(), ...$children];
         }
         foreach ($children as $child) {
             if ($child instanceof Link && UnresolvedReference::sourceOf($child) !== null) {
@@ -105,7 +105,7 @@ final class BlockReferenceResolver
             } elseif ($child instanceof FootnoteRef && $child->isUnresolved() && $this->hasFootnote($child->getLabel())) {
                 $child->setUnresolved(false);
             }
-            if ($child->hasChildren() || ($child instanceof Div && ($child->getHeaderNodes() !== [] || $child->getLabelNodes() !== []))) {
+            if ($child->hasChildren() || ($child instanceof Div && $child->getHeaderNodes() !== [])) {
                 $this->resolveForwardReferences($child, $depth + 1);
             }
         }
