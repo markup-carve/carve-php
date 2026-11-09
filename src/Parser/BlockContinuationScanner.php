@@ -1027,6 +1027,16 @@ final class BlockContinuationScanner
             $i,
             $count,
             function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd, $blockColumn, &$restarted, &$attachedListMarker, &$attachedListColumn): bool {
+                $sourceLine = $this->sourceLineFor($index);
+                if (
+                    $attachedKind === BlockGrammar::ATTACHED_PARAGRAPH
+                    && isset($this->state->source->refusedKeptLines[$sourceLine])
+                    && $this->state->source->refusedKeptLines[$sourceLine] < $sourceLine
+                ) {
+                    $foldedLines[$index] = true;
+
+                    return false;
+                }
                 if ($index < $commentThrough) {
                     return false;
                 }
