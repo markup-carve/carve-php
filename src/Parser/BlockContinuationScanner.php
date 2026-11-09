@@ -1308,7 +1308,8 @@ final class BlockContinuationScanner
             while ($opener < $count && isset($this->state->source->attachedPreludeLines[$this->sourceLineFor($opener)])) {
                 $opener = $this->skipLeadingAttributeLines($lines, $opener + 1, $count, $transform);
             }
-            $fenceView = $transform ?? ($blockColumn === null ? null
+            $fenceView = $transform ?? ($blockColumn === null
+                || IndentationHelper::getLeadingColumns($lines[$opener] ?? '') !== $blockColumn ? null
                 : static fn (string $line): string => IndentationHelper::stripLeadingColumns($line, $blockColumn));
             // Recognize the fence at the host's column, but preserve authored lines in the result.
             $fenced = $this->attachedFencedBlockEnd($lines, $opener, $count, $fenceView, $colonHostBoundary, $hostContentColumn);
