@@ -4514,7 +4514,7 @@ class BlockParser
             // span lines in any engine.
             $sourceLine = $this->sourceLineFor($i);
             $protectedRefusedFollower = ($this->state->source->refusedKeptLines[$sourceLine] ?? null) === $this->sourceLineFor($start);
-            if (!$forced && !$protectedRefusedFollower && $this->interruptsParagraph($lines, $i, $contentParts, $start, $topLevel, $itemBody)) {
+            if (!$forced && !$protectedRefusedFollower && $this->interruptsParagraph($lines, $i, $contentParts, $start, $topLevel, $itemBody, $inlineSpan, $literalLines)) {
                 break;
             }
 
@@ -5175,6 +5175,8 @@ class BlockParser
      * @param int $sourceLine
      * @param bool $topLevel
      * @param bool $itemBody
+     * @param array{scanned: int, code: int, comment: bool} $inlineSpan
+     * @param array<int, true> $literalLines
      */
     protected function interruptsParagraph(
         array $lines,
@@ -5183,6 +5185,8 @@ class BlockParser
         int $sourceLine,
         bool $topLevel = false,
         bool $itemBody = false,
+        array &$inlineSpan = ['scanned' => 0, 'code' => 0, 'comment' => false],
+        array $literalLines = [],
     ): bool {
         $line = $lines[$i];
 
@@ -5212,8 +5216,7 @@ class BlockParser
         // A brace line held by an open inline span is paragraph text, whether
         // its attribute spelling is one line or wrapped (carve#5638).
         if (str_starts_with(ltrim($line, " \t"), '{')) {
-            $span = ['scanned' => 0, 'code' => 0, 'comment' => false];
-            if (self::inlineSpanOpen($contentLines, $span, [])) {
+            if (self::inlineSpanOpen($contentLines, $inlineSpan, $literalLines)) {
                 return false;
             }
         }
