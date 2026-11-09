@@ -831,6 +831,7 @@ class BlockParser
         $walk = $this->newOwnershipWalk();
         // Only the root document is traced; a parse re-entered from it is not.
         $walk->trace = $this->traceNext ? [] : null;
+        $walk->firstLineAuthored = ($lineMap[0] ?? 0) === 0;
         $this->traceNext = false;
         $plusLetter = PlusLetter::for($input);
         $this->state->session->plusLetter = $plusLetter;
