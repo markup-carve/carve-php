@@ -3921,7 +3921,8 @@ class BlockParser
                 );
                 if ($resumes === null) {
                     // A blank reaches every frame, so an open fence keeps the run before the line that ends the body.
-                    $keepsRun = !($endsAtBlank && $trailingState->fence === $attachedFence)
+                    // Only a marker-line `+` grant ends at the blank; an own-line one keeps it (carve#5560).
+                    $keepsRun = !($endsAtBlank && $firstBlockAttached && $trailingState->fence === $attachedFence)
                         && ($trailingState->fence !== null || $this->continuationsMapper()->childMarkerLineFenceOpen($childFence, $bodyLines));
                     for (; $keepsRun && $i < $count && IndentationHelper::isBlankLine($lines[$i]); $i++) {
                         $bodyLines[] = $this->blankLineResidue($lines[$i], self::FOOTNOTE_BODY_COLUMN, $trailingState);
@@ -4116,7 +4117,7 @@ class BlockParser
             }
         }
 
-        while ((($endsAtBlank && $trailingState->fence === $attachedFence) || ($trailingState->fence === null && $childFence->markerLineFence === null)) && $bodyLines !== [] && end($bodyLines) === '') {
+        while ((($endsAtBlank && $firstBlockAttached && $trailingState->fence === $attachedFence) || ($trailingState->fence === null && $childFence->markerLineFence === null)) && $bodyLines !== [] && end($bodyLines) === '') {
             array_pop($bodyLines);
             array_pop($bodyLineMap);
         }

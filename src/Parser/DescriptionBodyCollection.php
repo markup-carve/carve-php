@@ -96,6 +96,9 @@ final class DescriptionBodyCollection
 
     public ?TrailingCodeFence $attachedFence = null;
 
+    /** Whether an own-line `+` attached the block; its fence keeps a trailing blank (carve#5560). */
+    public bool $attachedOwnLine = false;
+
     public int $bodyAttributeThrough = -1;
 
     public bool $bodyEndsWithAttribute = false;

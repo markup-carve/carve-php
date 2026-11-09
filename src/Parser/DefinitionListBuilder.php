@@ -786,10 +786,11 @@ final class DefinitionListBuilder
      *
      * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
      */
-    private function markDescriptionAttachment(DescriptionBodyCollection $b): void
+    private function markDescriptionAttachment(DescriptionBodyCollection $b, bool $ownLine = false): void
     {
         $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
         $b->attachedBlockOpen = true;
+        $b->attachedOwnLine = $ownLine;
         $b->attachedFence = $b->bodyNestedState->fence;
     }
 
@@ -1302,7 +1303,7 @@ final class DefinitionListBuilder
                 $b->body[] = $a;
                 $b->bodyMap[] = $attachedLineMap[$attachedIndex];
             }
-            $this->markDescriptionAttachment($b);
+            $this->markDescriptionAttachment($b, true);
         }
 
         return true;
@@ -2313,7 +2314,7 @@ final class DefinitionListBuilder
             // A blank reaches every frame, so an open fence keeps the run before the line that ends the body.
             $this->descriptionBodyNestedColumn($b->bodyNestedState, $b->bodyNestedCursor, $b->body, $b->bodyLazy);
             $b->childFence ??= new PlainContinuationState();
-            $inAttachedBlock = $b->attachedBlockOpen && $b->bodyNestedState->fence === $b->attachedFence;
+            $inAttachedBlock = $b->attachedBlockOpen && !$b->attachedOwnLine && $b->bodyNestedState->fence === $b->attachedFence;
             if (
                 !$inAttachedBlock
                 && ($b->bodyNestedState->fence !== null || $this->continuations->childMarkerLineFenceOpen($b->childFence, $b->body))
