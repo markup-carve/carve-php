@@ -4512,7 +4512,7 @@ class BlockParser
             // It protected nothing either - an inline attribute block cannot
             // span lines in any engine.
             $sourceLine = $this->sourceLineFor($i);
-            $protectedRefusedFollower = ($this->state->source->refusedKeptLines[$sourceLine] ?? null) !== null;
+            $protectedRefusedFollower = ($this->state->source->refusedKeptLines[$sourceLine] ?? null) === $this->sourceLineFor($start);
             if (!$forced && !$protectedRefusedFollower && $this->interruptsParagraph($lines, $i, $contentParts, $start, $topLevel, $itemBody)) {
                 break;
             }
