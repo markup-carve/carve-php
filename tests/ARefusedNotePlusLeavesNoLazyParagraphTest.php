@@ -28,4 +28,12 @@ final class ARefusedNotePlusLeavesNoLazyParagraphTest extends TestCase
         self::assertStringContainsString('<p><sup>word</sup><a href="#fnref1"', $html);
         self::assertStringNotContainsString('<p><sup>word</sup></p>', $html);
     }
+
+    public function testIncompleteAttributeOpenerStillFoldsIntoNote(): void
+    {
+        $source = "[^a]: +\n {#i\n\nsee[^a]\n";
+        $html = (new CarveConverter())->convert($source);
+
+        self::assertStringContainsString('<p>{<span class="tag"><strong>#i</strong></span><a href="#fnref1"', $html);
+    }
 }

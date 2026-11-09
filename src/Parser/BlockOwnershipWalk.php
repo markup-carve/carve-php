@@ -3409,11 +3409,25 @@ final class BlockOwnershipWalk
     private function refusedNotePlusPrecedesBraceRun(int $at, int $topIndex): bool
     {
         $note = $this->frames[$topIndex];
+        if (
+            $note->kind !== 'note' || $note->line !== $at - 1 || $this->refusedBraceRunEnd === null
+            || preg_match('/\[\^[^]]+\]:[ \t]+\+[ \t]*$/D', $this->lines[$note->line] ?? '') !== 1
+            || preg_match('/^\{(?:[#.]|[A-Za-z_][A-Za-z0-9_-]*=)/', $this->m['rest']) !== 1
+            || str_contains($this->m['rest'], '}')
+        ) {
+            return false;
+        }
+        $run = [str_repeat(' ', self::docColumn($this->lines[$at], $this->m['rest'])) . $this->m['rest']];
+        for ($line = $at + 1, $count = count($this->lines); $line < $count; $line++) {
+            $view = $this->throughQuotes($this->lines[$line], $topIndex, $this->frames);
+            $run[] = $view === null ? $this->lines[$line]
+                : str_repeat(' ', self::docColumn($this->lines[$line], $view['rest'])) . $view['rest'];
+            if (trim($run[count($run) - 1], " \t") === '') {
+                break;
+            }
+        }
 
-        return $note->kind === 'note' && $note->line === $at - 1
-            && preg_match('/\[\^[^]]+\]:[ \t]+\+[ \t]*$/D', $this->lines[$note->line] ?? '') === 1
-            && preg_match('/^\{(?:[#.]|[A-Za-z_][A-Za-z0-9_-]*=)/', $this->m['rest']) === 1
-            && !str_contains($this->m['rest'], '}');
+        return ($this->refusedBraceRunEnd)($run, 0) !== null;
     }
 
     /**
