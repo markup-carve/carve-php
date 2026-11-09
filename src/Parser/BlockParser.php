@@ -3994,6 +3994,11 @@ class BlockParser
             $originalLine = $this->state->source->authoredLines[$this->sourceLineFor($i)] ?? null;
             if ($parent->getType() === 'list_item' && $originalLine !== null && str_ends_with($originalLine, ltrim($nextLine, " \t"))) {
                 $authoredNext = max($authoredNext ?? 0, IndentationHelper::getLeadingColumns($originalLine));
+                // The note's own line is measured the same way, so a block at its column stays outside it.
+                $originalDefinition = $this->state->source->authoredLines[$this->sourceLineFor($start)] ?? null;
+                if ($authoredFloor !== null && $originalDefinition !== null && str_ends_with($originalDefinition, ltrim($lines[$start], " \t"))) {
+                    $authoredFloor = max($authoredFloor, IndentationHelper::getLeadingColumns($originalDefinition) + self::FOOTNOTE_BODY_COLUMN);
+                }
             }
             if (
                 $authoredFloor !== null && $authoredFloor > self::FOOTNOTE_BODY_COLUMN
