@@ -3403,8 +3403,8 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * A brace run below a refused marker-line note `+` is read where its opener
-     * stands. Plain text still folds lazily into the note (CARVE-P9-067).
+     * A wrapped brace run below a refused marker-line note `+` is read where
+     * its opener stands. Plain text still folds lazily into the note (CARVE-P9-067).
      */
     private function refusedNotePlusPrecedesBraceRun(int $at, int $topIndex): bool
     {
@@ -3412,7 +3412,7 @@ final class BlockOwnershipWalk
 
         return $note->kind === 'note' && $note->line === $at - 1
             && preg_match('/\[\^[^]]+\]:[ \t]+\+[ \t]*$/D', $this->lines[$note->line] ?? '') === 1
-            && str_starts_with($this->m['rest'], '{');
+            && str_starts_with($this->m['rest'], '{') && !str_contains($this->m['rest'], '}');
     }
 
     /**
