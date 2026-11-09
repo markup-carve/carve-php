@@ -3990,10 +3990,14 @@ class BlockParser
             // written at.
             $authoredFloor = $parent->getType() === 'list_item' && $start === 0
                 ? null : $this->authoredFootnoteBodyFloor($start, $lines[$start]);
+            $definitionAuthored = $this->state->source->authoredLines[$this->sourceLineFor($start)] ?? null;
+            if ($parent->getType() === 'list_item' && $start > 0 && $definitionAuthored !== null && ltrim($definitionAuthored, " \t") === ltrim($lines[$start], " \t")) {
+                $authoredFloor = IndentationHelper::getLeadingColumns($definitionAuthored) + self::FOOTNOTE_BODY_COLUMN;
+            }
             $authoredNext = $this->authoredColumnOf($i, $nextLine);
             $originalLine = $this->state->source->authoredLines[$this->sourceLineFor($i)] ?? null;
-            if ($parent->getType() === 'list_item' && $originalLine !== null && str_ends_with($originalLine, ltrim($nextLine, " \t"))) {
-                $authoredNext = max($authoredNext ?? 0, IndentationHelper::getLeadingColumns($originalLine));
+            if ($parent->getType() === 'list_item' && $originalLine !== null && ltrim($originalLine, " \t") === ltrim($nextLine, " \t")) {
+                $authoredNext = IndentationHelper::getLeadingColumns($originalLine);
             }
             if (
                 $authoredFloor !== null && $authoredFloor > self::FOOTNOTE_BODY_COLUMN
