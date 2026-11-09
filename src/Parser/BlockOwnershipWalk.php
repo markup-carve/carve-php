@@ -967,12 +967,7 @@ final class BlockOwnershipWalk
                 $shift = $this->strippedColumn($this->src, $segment, $this->m) - $this->m['col'];
                 $this->noteShiftedOpener($at, $shift);
                 $definitionMarker = $form->kind === 'term' || $form->kind === 'dd';
-                if (
-                    $segment > 1 && $shift > 0 && $form->kind === 'dd' && $this->frames[$o]->kind === 'dd' && $this->frames[$o]->last === 'term'
-                    && str_contains(substr($this->src, 0, strlen($this->src) - strlen($this->m['rest'])), "\t")
-                ) {
-                    $this->pastColumnDescriptionLines[$at] = true;
-                }
+                $this->recordPastColumnDescriptionLine($at, $segment, $shift, $o, $form);
                 $this->lead($this->frames[$o]->canon, $definitionMarker, definitionMarker: $definitionMarker && $this->frames[$o]->kind === 'dd');
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon, inHost: !$leftLineBlockSpan);
                 $this->markAttachedFence($at, $o, $form, $plusFollower);
@@ -2268,6 +2263,21 @@ final class BlockOwnershipWalk
     {
         if ($shift !== 0) {
             $this->shiftedOpeners[$at] = true;
+        }
+    }
+
+    /**
+     * A quoted description's tab can reach its parent body while putting the
+     * separator past the term's column in that body's local coordinates.
+     */
+    private function recordPastColumnDescriptionLine(int $at, int $segment, int $shift, int $owner, OwnershipForm $form): void
+    {
+        if (
+            $segment > 1 && $shift > 0 && $form->kind === 'dd' && $this->frames[$owner]->kind === 'dd'
+            && $this->frames[$owner]->last === 'term'
+            && str_contains(substr($this->src, 0, strlen($this->src) - strlen($this->m['rest'])), "\t")
+        ) {
+            $this->pastColumnDescriptionLines[$at] = true;
         }
     }
 
