@@ -5439,7 +5439,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof Insert => $withAttrs($this->spellSameKind($node, '+', '{+' . $this->guardGraphemeContent('insert', $this->renderMarked('insert', $node)) . '+}')),
             $node instanceof Delete => $withAttrs($this->spellSameKind($node, '-', '{-' . $this->guardGraphemeContent('delete', $this->renderMarked('delete', $node)) . '-}')),
             $node instanceof Substitution => '{~' . $this->guardGraphemeContent('substitution', $this->renderInlines($node->getOld()->getChildren())) . '~>' . $this->renderInlines($node->getNew()->getChildren()) . '~}',
-            $node instanceof HeadingRef => '</#' . $this->escapeCrossrefTarget($node->getTargetId()) . '>',
+            $node instanceof HeadingRef => '</#' . $this->escapeCrossrefTarget($node->getAuthoredTargetId()) . '>',
             $node instanceof CaptionNumber => '#',
             $node instanceof CitationGroup => $node->getRaw(),
             $node instanceof Ruby => $this->renderRuby($node),

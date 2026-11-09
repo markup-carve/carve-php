@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node\Inline;
 
+use MarkupCarve\Carve\Node\Block\TableCell;
+
 /**
  * Heading cross-reference (Carve: </#id>).
  *
@@ -25,7 +27,25 @@ class HeadingRef extends InlineNode
     {
     }
 
+    /**
+     * The target read by resolution and renderers. A table cell unescapes its
+     * pipes before the inline pass, while the authored target stays on the AST.
+     */
     public function getTargetId(): string
+    {
+        for ($parent = $this->getParent(); $parent !== null; $parent = $parent->getParent()) {
+            if ($parent instanceof TableCell) {
+                return str_replace('\\|', '|', $this->targetId);
+            }
+        }
+
+        return $this->targetId;
+    }
+
+    /**
+     * The target as written, for source-preserving output.
+     */
+    public function getAuthoredTargetId(): string
     {
         return $this->targetId;
     }
