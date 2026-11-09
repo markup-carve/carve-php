@@ -7045,6 +7045,7 @@ class BlockParser
             startsNewBlockCallback: $this->startsNewBlock(...),
             tryParseCommentCallback: $this->tryParseComment(...),
             tryParseFencedCommentCallback: $this->tryParseFencedComment(...),
+            tryParseFootnoteDefinitionCallback: $this->tryParseFootnoteDefinition(...),
             wrappedBlockAttributeLengthCallback: $this->wrappedBlockAttributeLength(...),
         );
     }

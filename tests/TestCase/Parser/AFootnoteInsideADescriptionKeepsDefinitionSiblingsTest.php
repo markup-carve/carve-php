@@ -24,6 +24,21 @@ final class AFootnoteInsideADescriptionKeepsDefinitionSiblingsTest extends TestC
             ":: t\n: a\n  :: t\n  : a\n  [^n]: a\n  :: u\n",
             "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <dl>\n      <dt>t</dt>\n      <dd>a</dd>\n    </dl>\n    <dl>\n      <dt>u</dt>\n    </dl>\n  </dd>\n</dl>",
         ];
+
+        yield 'quoted description owns the footnote' => [
+            "> :: t\n> : a\n>   :: t\n>   : a\n>     [^n]: a\n>   :: u\n",
+            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>\n      <p>a</p>\n      <dl>\n        <dt>t</dt>\n        <dd>a</dd>\n        <dt>u</dt>\n      </dl>\n    </dd>\n  </dl>\n</blockquote>",
+        ];
+
+        yield 'multiline footnote remains one invisible run' => [
+            ":: t\n: a\n  :: t\n  : a\n    [^n]: a\n      more\n  :: u\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <dl>\n      <dt>t</dt>\n      <dd>a</dd>\n      <dt>u</dt>\n    </dl>\n  </dd>\n</dl>",
+        ];
+
+        yield 'attached multiline footnote does not expose its body' => [
+            ":: t\n: a\n  :: t\n  : a\n    [^n]: +\n    more\n  :: u\n\nsee [^n]\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <dl>\n      <dt>t</dt>\n      <dd>a</dd>\n      <dt>u</dt>\n    </dl>\n  </dd>\n</dl>\n<p>see <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>more<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
+        ];
     }
 
     #[DataProvider('documents')]

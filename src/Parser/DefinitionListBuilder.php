@@ -47,6 +47,15 @@ final class DefinitionListBuilder
     private WeakMap $pendingTermComments;
 
     /**
+     * Footnote extent by authored source line during this document.
+     *
+     * @var array<int, int>
+     */
+    private array $footnoteExtents = [];
+
+    private string $footnoteExtentSource = '';
+
+    /**
      * @param \MarkupCarve\Carve\Parser\BlockParserState $state
      * @param \MarkupCarve\Carve\Parser\BlockSourceMapper $source
      * @param \MarkupCarve\Carve\Parser\BlockContinuationScanner $continuations
@@ -73,6 +82,7 @@ final class DefinitionListBuilder
      * @param \Closure(string, array<string>|null, int|null): (bool) $startsNewBlockCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int): (?int) $tryParseCommentCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int): (?int) $tryParseFencedCommentCallback
+     * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int): (?int) $tryParseFootnoteDefinitionCallback
      * @param \Closure(array<string>, int): (?int) $wrappedBlockAttributeLengthCallback
      */
     public function __construct(
@@ -102,6 +112,7 @@ final class DefinitionListBuilder
         private Closure $startsNewBlockCallback,
         private Closure $tryParseCommentCallback,
         private Closure $tryParseFencedCommentCallback,
+        private Closure $tryParseFootnoteDefinitionCallback,
         private Closure $wrappedBlockAttributeLengthCallback,
     ) {
         $this->wrappedAttributeScanner = new WrappedAttributeRunScanner($state, $source, $isBlockAttributeLineCallback, $wrappedBlockAttributeLengthCallback);
@@ -517,6 +528,10 @@ final class DefinitionListBuilder
      */
     private function skipInvisibleBeforeEntry(Node $parent, DefinitionList $dl, array &$lines, int $i, int $count, string $pattern): int
     {
+        if ($this->footnoteExtentSource !== $this->state->source->originalSource) {
+            $this->footnoteExtentSource = $this->state->source->originalSource;
+            $this->footnoteExtents = [];
+        }
         $holder = new Document();
         $children = $dl->getChildren();
         $lastDescription = $children[count($children) - 1] ?? null;
@@ -524,6 +539,7 @@ final class DefinitionListBuilder
         $end = $i;
         $at = $i;
         $paragraphSkipped = false;
+        $parsedFootnoteLines = [];
         while ($at < $count) {
             $line = $lines[$at];
             if (IndentationHelper::isBlankLine($line)) {
@@ -542,15 +558,37 @@ final class DefinitionListBuilder
                 $consumed = $paragraphEnd - $at;
                 $paragraphSkipped = true;
             }
+            $insideDescription = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) === 1
+                && $lastDescription instanceof DefinitionDescription
+                && isset($this->descriptionContentColumns[$lastDescription])
+                && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers(
+                    $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? '',
+                )) >= $this->descriptionContentColumns[$lastDescription];
+            if ($consumed === null && $insideDescription) {
+                $nextLine = $lines[$at + 1] ?? null;
+                $continued = $nextLine !== null && (
+                    IndentationHelper::isBlankLine($nextLine)
+                    || IndentationHelper::getLeadingColumns($nextLine) > 0
+                    || isset($this->state->source->lazyLines[$this->sourceLineFor($at + 1)])
+                    || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed, $note) === 1
+                        && trim($note[2], " \t") === '+'
+                );
+                $sourceLine = $this->sourceLineFor($at);
+                $consumed = $continued
+                    ? ($this->footnoteExtents[$sourceLine] ?? ($this->tryParseFootnoteDefinitionCallback)($holder, $lines, $at))
+                    : 1;
+                if ($continued && $consumed !== null) {
+                    $this->footnoteExtents[$sourceLine] = $consumed;
+                }
+                if ($continued && $consumed !== null) {
+                    for ($line = $at; $line < $at + $consumed; $line++) {
+                        $parsedFootnoteLines[$line] = true;
+                    }
+                }
+            }
             if (
                 $consumed === null && !$this->isDocumentAbbreviation($parent, $trimmed)
-                && (!$this->isReferenceDefinitionLine($trimmed) || (
-                    preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) === 1
-                    && !($lastDescription instanceof DefinitionDescription
-                        && isset($this->descriptionContentColumns[$lastDescription])
-                        && IndentationHelper::getLeadingColumns($this->state->source->sourceLines[$this->sourceLineFor($at)] ?? '')
-                            >= $this->descriptionContentColumns[$lastDescription])
-                ))
+                && (!$this->isReferenceDefinitionLine($trimmed) || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) === 1)
             ) {
                 break;
             }
@@ -569,6 +607,11 @@ final class DefinitionListBuilder
         $run = [];
         $map = [];
         for ($k = $i; $k < $end; $k++) {
+            // The extent reader already registered this definition. Parsing it
+            // again would turn a marker-style footnote's body into visible text.
+            if (isset($parsedFootnoteLines[$k])) {
+                continue;
+            }
             // A comment span's payload keeps its columns (PART 0 S1).
             $line = $lines[$k];
             $trimmed = ltrim($line, " \t");
