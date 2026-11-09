@@ -3598,6 +3598,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             } elseif ($value !== '' && $name === 'time') {
                 $mapsTo = 'datetime';
             }
+            $value = self::baselineAttributeValue($name, $value);
             // A DERIVED ATTRIBUTE YIELDS ITS VALUE TO AN AUTHORED ONE of the same
             // name, keeping its own position and spelling (PART 10 §1).
             $mapped = '';

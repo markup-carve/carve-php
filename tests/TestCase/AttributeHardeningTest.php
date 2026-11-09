@@ -158,6 +158,12 @@ class AttributeHardeningTest extends TestCase
         }
     }
 
+    public function testAuthoredSemanticValuesAreProbedBeforeMapping(): void
+    {
+        $this->assertSame('<p><abbr title="">x</abbr></p>', $this->render('[x]{abbr="javascript:x"}'));
+        $this->assertSame('<p><time datetime="">x</time></p>', $this->render('[x]{time="javascript:x"}'));
+    }
+
     public function testDropsInvalidProgrammaticAttributeNames(): void
     {
         $doc = new Document();
