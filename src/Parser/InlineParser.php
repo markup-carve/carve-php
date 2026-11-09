@@ -4213,6 +4213,17 @@ class InlineParser
             return false;
         }
 
+        if ($text[$at - 1] === '>') {
+            $open = strrpos(substr($text, 0, $at - 1), '<');
+            if (
+                $open !== false && !$this->isEscapedAt($text, $open)
+                && ($this->findCrossrefEnd($text, $open) === $at
+                    || $this->findAutolinkEnd($text, $open) === $at)
+            ) {
+                return false;
+            }
+        }
+
         // `<==` and `<=>` are arrows, which give their `=` to a closer.
         return $text[$at - 1] !== '<' || !in_array($text[$at + 1] ?? '', ['=', '>'], true);
     }
