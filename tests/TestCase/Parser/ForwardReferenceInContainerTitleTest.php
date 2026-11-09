@@ -9,6 +9,15 @@ use PHPUnit\Framework\TestCase;
 
 class ForwardReferenceInContainerTitleTest extends TestCase
 {
+    public function testFootnoteReferenceInEmptyAdmonitionTitleResolves(): void
+    {
+        $source = "::: note \"[^1]\"\n:::\n\n[^1]: y\n";
+        $html = (new CarveConverter())->convert($source);
+
+        self::assertStringContainsString('<p class="admonition-title" id="adm-1"><a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>', $html);
+        self::assertStringContainsString('<section role="doc-endnotes" aria-label="Footnotes">', $html);
+    }
+
     public function testFootnoteReferenceInAdmonitionTitleResolvesAfterDefinition(): void
     {
         $source = "::: note \"[^1]\"\nx\n:::\n\n[^1]: y\n";

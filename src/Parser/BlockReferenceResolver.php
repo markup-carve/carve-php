@@ -105,7 +105,7 @@ final class BlockReferenceResolver
             } elseif ($child instanceof FootnoteRef && $child->isUnresolved() && $this->hasFootnote($child->getLabel())) {
                 $child->setUnresolved(false);
             }
-            if ($child->hasChildren()) {
+            if ($child->hasChildren() || ($child instanceof Div && ($child->getHeaderNodes() !== [] || $child->getLabelNodes() !== []))) {
                 $this->resolveForwardReferences($child, $depth + 1);
             }
         }
