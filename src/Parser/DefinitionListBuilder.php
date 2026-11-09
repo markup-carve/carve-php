@@ -2287,13 +2287,31 @@ final class DefinitionListBuilder
             // whatever the answer is, so the scan buys nothing -
             // and once this arms a fence, every later entry is
             // inside it and asks nothing at all.
-            $closerKnownAhead = isset($b->bodyFenceSource[$b->bodyStateCursor])
+            $sourceLine = $b->bodyMap[$b->bodyStateCursor] ?? -1;
+            $refusedFollower = isset($this->state->source->refusedKeptLines[$sourceLine])
+                && $this->state->source->refusedKeptLines[$sourceLine] < $sourceLine;
+            if (!$refusedFollower && isset($b->bodyFenceSource[$b->bodyStateCursor])) {
+                for ($start = $b->bodyStateCursor - 1; $start >= 0; $start--) {
+                    if (IndentationHelper::isBlankLine($b->body[$start])) {
+                        break;
+                    }
+                    if (
+                        str_starts_with(ltrim($b->body[$start], " \t"), '{')
+                        && RefusedBraceRun::end($b->body, $start, ($this->getInlineParser)(), $b->bodyStateCursor) === $b->bodyStateCursor
+                    ) {
+                        $refusedFollower = true;
+
+                        break;
+                    }
+                }
+            }
+            $closerKnownAhead = !$refusedFollower && isset($b->bodyFenceSource[$b->bodyStateCursor])
                 && $wasOpenParagraph
                 && !$wasInFence
                 && ($b->bodyFenceSource[$b->bodyStateCursor]['columns'] <= $b->continuationColumn
                     || $b->bodyFenceSource[$b->bodyStateCursor]['eligible']);
             $trackerLine = $bodyLine;
-            if (!$closerKnownAhead && $wasOpenParagraph && !$wasInFence && $useIndexedBodyFence) {
+            if (!$refusedFollower && !$closerKnownAhead && $wasOpenParagraph && !$wasInFence && $useIndexedBodyFence) {
                 $fenceAt = IndentationHelper::pastLeadingWhitespace($bodyLine);
                 $subject = $bodyLine;
                 $column = $b->bodyOpenerBase ?? 0;
@@ -2309,6 +2327,9 @@ final class DefinitionListBuilder
                         $trackerLine = 'text';
                     }
                 }
+            }
+            if ($refusedFollower && $wasOpenParagraph && !$wasInFence) {
+                $trackerLine = 'text';
             }
             $b->bodyState = $this->advanceTrailingStateWithFenceLookahead(
                 $b->bodyState,
