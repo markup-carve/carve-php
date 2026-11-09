@@ -662,11 +662,18 @@ final class DefinitionListBuilder
                 && IndentationHelper::getLeadingColumns($lines[$i]) === 0
                 && !$this->startsInterruptingBlock($lines[$i], $lines, $i)
                 && ($this->getListParser)()->parseListItemMarker($lines[$i]) === null;
-            $endsBody = function (string $a, int $at) use ($continuationColumn, $definitionColumn, $markerEnds): bool {
+            // An open colon block or line block holds a marker: it is the block's content (carve#5578).
+            $openDiv = ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($lines[$i] ?? '', " \t"))['length'] ?? null;
+            $divStart = $i;
+            $endsBody = function (string $a, int $at) use ($continuationColumn, $definitionColumn, $markerEnds, &$openDiv, $divStart): bool {
                 $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($at));
+                $inDiv = $openDiv !== null && $at > $divStart;
+                if ($inDiv && preg_match('/^[ \t]*:{' . $openDiv . '}[ \t]*$/D', $a) === 1) {
+                    $openDiv = null;
+                }
 
                 return IndentationHelper::isBlankLine($a)
-                    || ($markerEnds && ($this->getListParser)()->parseListItemMarker(ltrim($a, " \t")) !== null)
+                    || ($markerEnds && !$inDiv && ($this->getListParser)()->parseListItemMarker(ltrim($a, " \t")) !== null)
                     || $decision['column'] >= 0 && $decision['owner'] !== null
                     || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
                     || $this->opensDescriptionBelowBody($a, $at, $definitionColumn, $continuationColumn);

@@ -1065,7 +1065,8 @@ final class BlockContinuationScanner
                     || ($this->isContinuationMarker($line) && $attachedState->fence === null)
                     || isset($this->state->source->attachedQuoteEnds[$this->sourceLineFor($index)])
                     || ($attachedState->fence === null && $endsAtSibling !== null && $endsAtSibling($line, $index))
-                    || ($markerEnds && $attachedState->fence === null && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null)
+                    // An open colon block or line block holds a marker: it is the block's content (carve#5578).
+                    || ($markerEnds && $attachedState->fence === null && !$this->openDivKeepsMarker($attachedState) && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null)
                     || ($bodyColumn !== null && $attachedKind === BlockGrammar::ATTACHED_SPANNING . ':definition'
                         && $this->markerLeavesAttachedDescription($line, $bodyColumn, $attachedState))
                     // A block the host reads at its column holds only lines at that column, or a lazy line of its paragraph.
@@ -1170,6 +1171,11 @@ final class BlockContinuationScanner
         return $state->fence === null && !$state->hasOpenDiv()
             && IndentationHelper::getLeadingColumns($line) < $bodyColumn
             && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null;
+    }
+
+    private function openDivKeepsMarker(TrailingBlockState $state): bool
+    {
+        return $state->hasOpenDiv();
     }
 
     /**
