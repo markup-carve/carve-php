@@ -4832,9 +4832,13 @@ class BlockParser
     {
         $lines = explode("\n", $part);
         $count = count($lines);
+        $inlineSpan = ['scanned' => 0, 'code' => 0, 'comment' => false];
         for ($k = 0; $k < $count; $k++) {
             $line = ltrim($lines[$k], " \t");
             if (!str_starts_with($line, '{') || str_starts_with($line, '{%')) {
+                continue;
+            }
+            if (self::inlineSpanOpen($lines, $inlineSpan, [], $k)) {
                 continue;
             }
             $end = RefusedBraceRun::end($lines, $k, $this->inlineParser);

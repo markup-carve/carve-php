@@ -847,6 +847,9 @@ final class BlockOwnershipWalk
                 $result[] = $this->out . $this->src;
                 $this->holdAttachedBraceRun($at, (int)$lonePlus->markerCanon);
                 $lonePlus->para = true;
+                $lonePlus->paragraphStart = $at;
+                $lonePlus->paragraphSpanNext = $at;
+                $lonePlus->paragraphSpanState = ['scanned' => 0, 'code' => 0, 'comment' => false];
                 $lonePlus->last = 'para';
                 if ($this->trace !== null) {
                     $this->emit($at, 'S5', $this->ownerPath(), 'CARVE-P0-024', 'text', ['plus' => $at]);
@@ -930,12 +933,7 @@ final class BlockOwnershipWalk
                     $this->textFences[count($result)] = $owner->canon;
                 }
                 $opensParagraph = !$owner->para;
-                $this->frames[$o]->para = true;
-                if ($opensParagraph) {
-                    $this->frames[$o]->paragraphStart = $at;
-                    $this->frames[$o]->paragraphSpanNext = $at;
-                    $this->frames[$o]->paragraphSpanState = ['scanned' => 0, 'code' => 0, 'comment' => false];
-                }
+                $this->openParagraph($this->frames[$o], $at, $opensParagraph);
                 $this->frames[$o]->last = 'para';
                 $this->clearItemDefinitionAtParagraph($o, $opensParagraph);
             } else {
@@ -2165,6 +2163,11 @@ final class BlockOwnershipWalk
             }
             // A consumed item marker leaves no paragraph a lazy line continues; past a note the note folds it (PART 0 S4).
             $this->frames[$frame]->para = !$plus && !$losing && !($consumed && $this->consumedLeavesNoParagraph($frame));
+            if ($this->frames[$frame]->para) {
+                $this->frames[$frame]->paragraphStart = $this->at;
+                $this->frames[$frame]->paragraphSpanNext = $this->at;
+                $this->frames[$frame]->paragraphSpanState = ['scanned' => 0, 'code' => 0, 'comment' => false];
+            }
             $this->frames[$frame]->last = 'para';
 
             return;
@@ -2294,6 +2297,16 @@ final class BlockOwnershipWalk
     private function classifyLine(string $rest, OwnershipFrame $owner, int $col): OwnershipForm
     {
         return $this->keptByRefusedRun($rest, $owner, $col) ?? $this->classify($rest, $owner, $col);
+    }
+
+    private function openParagraph(OwnershipFrame $frame, int $at, bool $new): void
+    {
+        $frame->para = true;
+        if ($new) {
+            $frame->paragraphStart = $at;
+            $frame->paragraphSpanNext = $at;
+            $frame->paragraphSpanState = ['scanned' => 0, 'code' => 0, 'comment' => false];
+        }
     }
 
     /**

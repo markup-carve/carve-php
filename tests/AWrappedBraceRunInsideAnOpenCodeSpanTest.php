@@ -30,6 +30,11 @@ final class AWrappedBraceRunInsideAnOpenCodeSpanTest extends TestCase
             "<blockquote>\n  <p>p\n<code>open\n{.x\n.y}</code></p>\n  <pre><code>z\n</code></pre>\n</blockquote>",
         ];
 
+        yield 'shifted description body' => [
+            ":: t\n: p\n  `open\n   {.x\n   .y}\n  ```\n  z\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>p\n<code>open\n{.x\n.y}</code></p>\n    <pre><code>z\n</code></pre>\n  </dd>\n</dl>",
+        ];
+
         yield 'closed span still refuses the run' => [
             "p\n `open`\n {.x\n .y}\n ```\n z\n",
             "<p>p\n<code>open</code>\n{.x\n.y}\n<code>\nz</code></p>",
