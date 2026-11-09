@@ -5710,7 +5710,7 @@ final class BlockContinuationScanner
     }
 
     /**
-     * The walk's placeholder for a `+` the note or description host refused, where the next line leaves the attached block (PART 9 §17 L3).
+     * The walk's placeholder for a `+` the note, description or quote host refused, where the next line leaves the attached block (PART 9 §17 L3).
      *
      * A sibling item or term there continues the attached list; an open fence still ends at the marker (CARVE-P0-013).
      */
@@ -5723,7 +5723,7 @@ final class BlockContinuationScanner
         $sourceLine = $this->sourceLineFor($index);
         if (
             !$source->isConsumedMarker($sourceLine)
-            || !in_array($source->refusedPlus[$sourceLine]['host'] ?? null, ['footnote body', 'definition description'], true)
+            || !in_array($source->refusedPlus[$sourceLine]['host'] ?? null, ['footnote body', 'definition description', 'block quote'], true)
         ) {
             return false;
         }

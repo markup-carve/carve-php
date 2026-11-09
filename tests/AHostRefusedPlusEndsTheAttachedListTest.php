@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A lone `+` the note or description refuses after its attached list ends that list (PART 9 §17 L3, carve#5583, carve#5588).
+ * A lone `+` the note, description or quote refuses after its attached list ends that list (PART 9 §17 L3, carve#5583, carve#5588).
  */
 final class AHostRefusedPlusEndsTheAttachedListTest extends TestCase
 {
@@ -60,6 +60,11 @@ final class AHostRefusedPlusEndsTheAttachedListTest extends TestCase
             "[^a]: +\n:: term\n: desc\n+\n:: t\n: d\n\nsee[^a]\n",
             self::NOTE_HEAD . "      <dl>\n        <dt>term</dt>\n        <dd>desc</dd>\n        <dt>t</dt>\n        <dd>d</dd>\n      </dl>\n"
                 . self::NOTE_TAIL,
+        ];
+
+        yield 'quote: a line past the marker column' => [
+            "> +\n- li\n+\n p\n",
+            "<blockquote>\n  <ul>\n    <li>li</li>\n  </ul>\n</blockquote>\n<p>p</p>",
         ];
 
         yield 'note: a sibling item stays in the list' => [
