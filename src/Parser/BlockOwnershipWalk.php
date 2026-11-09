@@ -140,7 +140,7 @@ final class BlockOwnershipWalk
     public array $foldedFenceAfterAttachedBlank = [];
 
     /**
-     * @var array{col: int, host: int, at: int}|null
+     * @var array{col: int, host: int, at: int, closes: \Closure}|null
      */
     private ?array $endedAttachedFence = null;
 
@@ -1527,9 +1527,9 @@ final class BlockOwnershipWalk
             return false;
         }
         $this->attachedFenceBlankEnds[$at] = true;
-        if ($inner->kind === 'fence' && $inner->family === 'code') {
+        if ($inner->kind === 'fence' && $inner->family === 'code' && $inner->closes !== null) {
             $host = $this->frames[count($this->frames) - 2];
-            $this->endedAttachedFence = ['col' => $inner->col, 'host' => (int)($host->markerCol ?? $host->col), 'at' => $at];
+            $this->endedAttachedFence = ['col' => $inner->col, 'host' => (int)($host->markerCol ?? $host->col), 'at' => $at, 'closes' => $inner->closes];
             // Its one attached block has ended, so later lines must not re-test that offer.
             $this->attachedTo = ($this->attachedTo['parent'] ?? null)?->host;
         }
@@ -1585,6 +1585,7 @@ final class BlockOwnershipWalk
             $form->family === 'code' && $this->frames[$reached]->para
             && $this->m['col'] > $this->endedAttachedFence['col']
             && $this->m['col'] >= $this->endedAttachedFence['host']
+            && ($this->endedAttachedFence['closes'])($this->m['rest'], $this->endedAttachedFence['col'])
             && !$this->hasLaterFenceCloser($at, $reached, $form)
         ) {
             $this->foldedFenceAfterAttachedBlank[$at] = true;
