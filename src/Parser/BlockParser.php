@@ -5000,7 +5000,11 @@ class BlockParser
                 if (self::inlineSpanOpen($spanLines ??= array_values($physicalLines), $inlineSpan, $literalLines, $k)) {
                     continue;
                 }
-                $limit = $walkKept ? count($physicalLines) : $physical + $width;
+                $authored = ContainerPrefix::stripQuoteMarkers(ltrim($this->state->source->authoredLines[$sourceLine] ?? '', " \t"));
+                $markerLineRun = preg_match('/^(?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)*(?::|\[\^[^\]]+\]:)[ \t]+\{/', $authored) === 1;
+                // A marker-line run can be split across pre-joined parts by a
+                // description or note reader. Check its physical lines as one run.
+                $limit = $walkKept || $markerLineRun ? count($physicalLines) : $physical + $width;
                 $end = RefusedBraceRun::end($physicalLines, $k, $this->inlineParser, $limit);
                 if ($end === null) {
                     continue;
