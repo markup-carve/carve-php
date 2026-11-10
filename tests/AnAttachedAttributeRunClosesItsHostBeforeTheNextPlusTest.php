@@ -28,6 +28,11 @@ final class AnAttachedAttributeRunClosesItsHostBeforeTheNextPlusTest extends Tes
             "<ul>\n  <li></li>\n</ul>\n<p class=\"x\">+\nz</p>",
         ];
 
+        yield 'outer item still receives its marker-column plus' => [
+            "- parent\n  - +\n  {.x}\n+\nz\n",
+            "<ul>\n  <li>parent\n    <ul>\n      <li></li>\n    </ul>\n    <p class=\"x\">z</p>\n  </li>\n</ul>",
+        ];
+
         yield 'ordinary attached paragraph still keeps the item' => [
             "- +\np\n+\n  z\n",
             "<ul>\n  <li>p\n    z\n  </li>\n</ul>",

@@ -321,8 +321,10 @@ final class BlockOwnershipWalk
 
     /**
      * A marker-column attribute block closed its host on the previous line (A02).
+     *
+     * @var array{line: int, column: int|null}|null
      */
-    private int $literalPlusAfterAttribute = -1;
+    private ?array $literalPlusAfterAttribute = null;
 
     /**
      * Trace owner restored after an attached colon block ends at a blank.
@@ -554,7 +556,7 @@ final class BlockOwnershipWalk
         $this->skipped = null;
         $this->refusedAttributeHost = null;
         $this->attachedTo = null;
-        $this->literalPlusAfterAttribute = -1;
+        $this->literalPlusAfterAttribute = null;
         $this->releasedSibling = 0;
         $this->frames = [new OwnershipFrame('doc', 0, 0, 0)];
         $result = [];
@@ -614,7 +616,8 @@ final class BlockOwnershipWalk
                 if (
                     $f->markerCol !== null && $this->m['col'] === $f->markerCol && ($f->kind === 'quote' || $this->m['col'] < $f->col)
                     && self::isPlus($this->m['rest'])
-                    && $at !== $this->literalPlusAfterAttribute
+                    && !($this->literalPlusAfterAttribute !== null && $at === $this->literalPlusAfterAttribute['line']
+                        && $f->markerCol === $this->literalPlusAfterAttribute['column'])
                     && !$this->openCodeFenceKeepsPlus($frameCount)
                     && !($f->kind === 'quote' && $this->hasAttachedQuoteAncestor($k) && $quotesRead > 0 && $f->para && $quotesRead < $this->quoteDepth($k + 1))
                 ) {
@@ -1324,7 +1327,7 @@ final class BlockOwnershipWalk
             }
             if ($this->skippedAttributeClosesHost($skipped)) {
                 $this->truncate($skipped['hostIndex']);
-                $this->literalPlusAfterAttribute = $skipped['end'];
+                $this->literalPlusAfterAttribute = ['line' => $skipped['end'], 'column' => $skipped['host']->markerCol];
             }
             $this->skipped = null;
         }
