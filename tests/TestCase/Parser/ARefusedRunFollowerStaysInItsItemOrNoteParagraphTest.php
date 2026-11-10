@@ -64,11 +64,6 @@ final class ARefusedRunFollowerStaysInItsItemOrNoteParagraphTest extends TestCas
             "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>p\n{% a\n%}\n&gt; q\nafter<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
         ];
 
-        yield 'a note marker line comment measures from the note body column' => [
-            "[^n]: {% a\n   %}\n  z\n\nx[^n]\n",
-            "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>\nz<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
-        ];
-
         yield 'a note marker line comment at the body column is refused' => [
             "[^n]: {% a\n  %}\n  z\n\nx[^n]\n",
             "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>{% a\n%}\nz<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
@@ -77,6 +72,16 @@ final class ARefusedRunFollowerStaysInItsItemOrNoteParagraphTest extends TestCas
         yield 'a fence follower in a description body leaves a column zero line outside' => [
             ":: t\n: a\n  {% x\n  %}\n  ```\nafter\n",
             "<dl>\n  <dt>t</dt>\n  <dd>a\n{% x\n%}\n<code></code></dd>\n</dl>\n<p>after</p>",
+        ];
+
+        yield 'a lazy closer in a description body keeps the run before a fence' => [
+            ":: t\n: a\n  {% x\n%}\n  ```\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>a\n{% x\n%}\n<code></code></dd>\n</dl>",
+        ];
+
+        yield 'a fence follower in a description body ends before a column zero line after its payload' => [
+            ":: t\n: a\n  {% x\n  %}\n  ```\n  b\nafter\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>a\n{% x\n%}\n<code>\nb</code></dd>\n</dl>\n<p>after</p>",
         ];
 
         yield 'a comment run does not reach a sibling item' => [

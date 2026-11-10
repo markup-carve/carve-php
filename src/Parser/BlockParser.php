@@ -730,7 +730,7 @@ class BlockParser
             fn (string $line): bool => $this->isBlockAttributeLine($line),
             fn (array $run, int $column = 0): ?int => WrappedBlockAttributeScanner::scan($run, 0, $this->inlineParser, $column)['length'] ?? null,
             $this->commentOnlyParagraphEnd(...),
-            fn (array $lines, int $start, int $column, bool $more): ?int => RefusedBraceRun::keptThrough(
+            fn (array $lines, int $start, int $column, bool $more, bool $bodyBound = false): ?int => RefusedBraceRun::keptThrough(
                 $lines,
                 $start,
                 $this->inlineParser,
@@ -738,6 +738,7 @@ class BlockParser
                 $this->fencedBlockParser,
                 $column,
                 $more,
+                $bodyBound,
             ),
             fn (array $lines, int $start): ?int => RefusedBraceRun::end($lines, $start, $this->inlineParser),
             self::paragraphSpanOpen(...),
@@ -4819,8 +4820,6 @@ class BlockParser
                 $prefix = (string)preg_replace('/^[ \t]+(?=>)/', '', $prefix);
             }
             $prefix = str_replace('> ', '', $prefix);
-            // A note's marker-line opener stands at the note body's column, not past its label.
-            $prefix = (string)preg_replace('/\[\^[^\]]+\]:[ \t]+$/D', '  ', $prefix);
             $column = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
             $probe[] = str_repeat(' ', $column) . $text;
             if ($comment && str_contains($line, '%}')) {

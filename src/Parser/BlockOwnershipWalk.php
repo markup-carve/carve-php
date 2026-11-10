@@ -2493,11 +2493,8 @@ final class BlockOwnershipWalk
         // A first-block marker sits on the lead line, not in the frame's plus slot.
         $firstBlockLead = $top->line === $at - 1
             && preg_match('/^(?:[ \t]*:[ \t]+|[ \t]*\[\^[^]]+\]:[ \t]+)\+[ \t]*$/D', $this->lines[$top->line] ?? '') === 1;
-        // A description body reads its own runs; a note's marker-line run is measured in body coordinates by its reader.
-        if (
-            (($top->kind === 'dd' && $top->plus !== $at - 1 && !$firstBlockLead)
-            || ($top->kind === 'note' && $top->line === $at))
-        ) {
+        // A run on a description or note marker line is measured in its body's coordinates by that body's reader.
+        if (($top->kind === 'dd' || $top->kind === 'note') && $top->line === $at) {
             return null;
         }
         $column = in_array($top->kind, ['doc', 'quote'], true) || $top->plus === $at - 1 ? $col : $top->col;
@@ -2515,7 +2512,7 @@ final class BlockOwnershipWalk
                 $window[] = $line ?? '';
                 $ended = $line === null || trim($line, " \t") === '';
             }
-            $kept = ($this->refusedRunKeptThrough)($window, 0, $column, !$ended && $j < $count);
+            $kept = ($this->refusedRunKeptThrough)($window, 0, $column, !$ended && $j < $count, $top->kind === 'dd');
             if ($kept !== -1) {
                 break;
             }
