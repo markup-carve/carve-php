@@ -606,6 +606,7 @@ final class BlockContinuationScanner
                 && str_starts_with(ltrim($stripped, " \t"), '[^')
                 && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($stripped, " \t")) === 1
                 && IndentationHelper::getLeadingColumns($nextLine) >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                && !$this->isRefusedRunFollower($i)
             ) {
                 $trailingState->openParagraph = false;
             }
@@ -2734,7 +2735,8 @@ final class BlockContinuationScanner
             && $run->rejectedColonFenceLength === null
             && !$attachedChildFollower
             && $run->refusedBraceEnd !== $i
-            && !isset($this->state->source->refusedKeptLines[$this->sourceLineFor($i)])
+            // A run opened on this marker's line leaves the marker a marker; only its followers are text (CARVE-P2-035).
+            && !$this->isRefusedRunFollower($i)
             && !($run->nestedNoteBodyColumn !== null && IndentationHelper::getLeadingColumns($nextLine, $run->nestedNoteBodyColumn) >= $run->nestedNoteBodyColumn)
             && !($trailingState->inFootnoteBody && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN) >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN && $this->leadNoteExtendsThrough($itemLines, $run->noteCursor, $run->noteBroken))
             && !(
@@ -3289,6 +3291,8 @@ final class BlockContinuationScanner
             )
             && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
             && !$run->inlineCodeParagraph && !$releasedNoteFenceText
+            // A refused run's fence-shaped follower is paragraph text, so it opens no fence on its authored base (CARVE-P2-035).
+            && !$this->isRefusedRunFollower($i)
         ) {
             $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
                 ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
@@ -3321,6 +3325,19 @@ final class BlockContinuationScanner
                 }
             }
         }
+    }
+
+    /**
+     * Whether the walk keeps line `$i` as text after the first line of a refused brace run.
+     *
+     * @param int $i
+     */
+    private function isRefusedRunFollower(int $i): bool
+    {
+        $sourceLine = $this->sourceLineFor($i);
+        $runStart = $this->state->source->refusedKeptLines[$sourceLine] ?? null;
+
+        return $runStart !== null && $runStart < $sourceLine;
     }
 
     /**
