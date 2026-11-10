@@ -2943,6 +2943,7 @@ final class BlockOwnershipWalk
         if ($closer === null) {
             return;
         }
+        $openerColumn = IndentationHelper::getLeadingColumns($window[0]);
         $shallowest = PHP_INT_MAX;
         $lazy = false;
         for ($index = $closer; $index > 0; $index--) {
@@ -2950,8 +2951,8 @@ final class BlockOwnershipWalk
             $content = BlockGrammar::stripLazyFrame($line);
             $lineColumn = IndentationHelper::getLeadingColumns($content);
             if (
-                $index < $closer && $lineColumn === $col && str_starts_with(ltrim($content, " \t"), '{%')
-                && !str_contains($content, '%}') && ($shallowest <= $col || $lazy)
+                $index < $closer && $lineColumn === $openerColumn && str_starts_with(ltrim($content, " \t"), '{%')
+                && !str_contains($content, '%}') && ($shallowest <= $openerColumn || $lazy)
             ) {
                 $this->commentRunLookaheads[$at + $index] = [
                     'owner' => $owner,
