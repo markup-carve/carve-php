@@ -31,10 +31,14 @@ final class RefusedBraceRun
         }
         $first = ContainerPrefix::stripQuoteMarkers($authoredLines[$start] ?? '');
         $brace = strrpos($first, $content);
-        if ($brace === false || preg_match('/(?:^|[ \t])(?::|\[\^[^]]+\]:)[ \t]+$/', substr($first, 0, $brace)) !== 1) {
+        if ($brace === false || preg_match('/(?:^|[ \t])(?::|(\[\^[^]]+\]:))[ \t]+$/', substr($first, 0, $brace), $marker, PREG_OFFSET_CAPTURE) !== 1) {
             return null;
         }
-        $probe = [str_repeat(' ', ContinuationMarkerClassifier::columnAt($first, $brace)) . $content];
+        // A note's marker-line run opens at the note body column, not at its written brace.
+        $column = isset($marker[1]) && $marker[1][1] >= 0
+            ? ContinuationMarkerClassifier::columnAt($first, $marker[1][1]) + BlockGrammar::FOOTNOTE_BODY_COLUMN
+            : ContinuationMarkerClassifier::columnAt($first, $brace);
+        $probe = [str_repeat(' ', $column) . $content];
         for ($at = $start + 1, $count = count($authoredLines); $at < $count; $at++) {
             $line = ContainerPrefix::stripQuoteMarkers($authoredLines[$at]);
             if (IndentationHelper::isBlankLine($line)) {
