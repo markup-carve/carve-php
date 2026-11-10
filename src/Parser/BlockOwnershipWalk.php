@@ -2415,9 +2415,6 @@ final class BlockOwnershipWalk
     {
         $depth = 0;
         foreach ($this->frames as $frame) {
-            if ($this->onMarkerLine && $frame->kind !== 'quote' && $frame->kind !== 'doc') {
-                return false;
-            }
             $depth += $frame->kind === 'quote' ? 1 : 0;
             if ($frame === $owner) {
                 break;
@@ -2446,7 +2443,11 @@ final class BlockOwnershipWalk
             }
         }
         $length = count($run);
-        $openerColumn = IndentationHelper::getLeadingColumns($opener);
+        // A marker-line block starts at its host's continuation threshold;
+        // using column zero would accept refused runs with a shallow closer.
+        $openerColumn = $this->onMarkerLine && $owner->kind !== 'quote'
+            ? (int)$owner->markerCol + 2
+            : IndentationHelper::getLeadingColumns($opener);
         if ($length < 2 || ($this->wrappedAttributeLength)($run, $openerColumn) !== $length) {
             return false;
         }
