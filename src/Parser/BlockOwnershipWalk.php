@@ -3586,12 +3586,9 @@ final class BlockOwnershipWalk
 
                 continue;
             }
-            // Inside an unclosed code fence only the blank that ends it counts.
-            if ($openCode) {
-                continue;
-            }
-            // A closed code fence in the block keeps its payload, colon lines included.
-            $code = $this->fenced->parseCodeFenceOpener($rest);
+            // A closed code fence in the block keeps its payload, colon lines included; past an
+            // unclosed one, which ends at its first blank, no opener is searched again.
+            $code = $openCode ? null : $this->fenced->parseCodeFenceOpener($rest);
             if ($code !== null) {
                 $closer = $k + 1;
                 while ($closer < $at) {
