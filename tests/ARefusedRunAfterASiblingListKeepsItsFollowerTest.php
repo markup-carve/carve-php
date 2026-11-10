@@ -33,6 +33,10 @@ final class ARefusedRunAfterASiblingListKeepsItsFollowerTest extends TestCase
             "<ul>\n  <li>p\n    <ol>\n      <li>q</li>\n    </ol>\n    <ul>\n      <li>{% a\n%}\n# h\nplain</li>\n    </ul>\n  </li>\n</ul>",
         ];
 
+        $boundary = "- p\n  1. q\n  - {% a\n  %}\n    # h\nplain\n";
+        $boundaryHtml = "<li><p>p</p>\n    <ol>\n      <li>q</li>\n    </ol>\n    <ul>\n      <li>{% a\n%}\n# h\nplain</li>\n    </ul>\n  </li>";
+
+        yield 'two runs past boundaries' => [$boundary . "\n" . $boundary, "<ul>\n  " . $boundaryHtml . "\n  " . $boundaryHtml . "\n</ul>"];
         yield 'list marker follower stays text' => [
             "- p\n  1. q\n  - {.x\n  }\n    - r\nplain\n",
             "<ul>\n  <li>p\n    <ol>\n      <li>q</li>\n    </ol>\n    <ul>\n      <li>{.x\n}\n- r\nplain</li>\n    </ul>\n  </li>\n</ul>",

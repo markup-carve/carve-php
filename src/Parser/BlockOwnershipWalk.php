@@ -371,6 +371,13 @@ final class BlockOwnershipWalk
     private array $itemBoundaryLines = [];
 
     /**
+     * Refused runs opened in the item such a marker line opens, by first line: that closing missed nothing of theirs.
+     *
+     * @var array<int, true>
+     */
+    private array $runsPastItemBoundary = [];
+
+    /**
      * @var array<int, true> Unmarked lines released from a quoted item span to its outer quote.
      */
     public array $outerQuoteLines = [];
@@ -491,6 +498,7 @@ final class BlockOwnershipWalk
         $this->textFences = [];
         $this->closingLines = [];
         $this->itemBoundaryLines = [];
+        $this->runsPastItemBoundary = [];
         $this->outerQuoteLines = [];
         $this->frontmatter = false;
         $this->softLeaf = false;
@@ -2753,6 +2761,9 @@ final class BlockOwnershipWalk
         $this->refusedKeptStart = $at;
         $this->refusedKeptThrough = $at + $kept;
         $this->refusedKeptOwner = $owner;
+        if (isset($this->itemBoundaryLines[$at]) && $owner->line === $at) {
+            $this->runsPastItemBoundary[$at] = true;
+        }
         $this->refusedKeptLazyNoteHost = $lazyNoteParagraph ? $top : null;
         $this->refusedKeptColumn = $column;
         $this->refusedKeptLines[$at] = $at;
@@ -2768,8 +2779,7 @@ final class BlockOwnershipWalk
     private function refusedRunMissesItsContainer(int $start): bool
     {
         return isset($this->lazyLines[$start])
-            || (isset($this->closingLines[$start])
-                && !(isset($this->itemBoundaryLines[$start]) && $this->refusedKeptOwner?->line === $start));
+            || (isset($this->closingLines[$start]) && !isset($this->runsPastItemBoundary[$start]));
     }
 
     private function insideRefusedFencePayload(int $at): bool
