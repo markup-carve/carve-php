@@ -27,6 +27,18 @@ class ARefusedMarkerLineRunKeepsItsDescriptionAndNoteParagraphTest extends TestC
             HTML,
         ];
 
+        yield 'tab before description marker' => [
+            ":: t\n\t: {% a\n    %}\nz\n",
+            <<<'HTML'
+            <dl>
+              <dt>t</dt>
+              <dd>{% a
+            %}
+            z</dd>
+            </dl>
+            HTML,
+        ];
+
         yield 'note marker line in an item' => [
             "- [^q]: {.x\n}\n[^m]: n\n  z\n\nx[^q]\n",
             <<<'HTML'

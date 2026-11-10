@@ -34,7 +34,7 @@ final class RefusedBraceRun
         if ($brace === false || preg_match('/(?:^|[ \t])(?::|\[\^[^]]+\]:)[ \t]+$/', substr($first, 0, $brace)) !== 1) {
             return null;
         }
-        $probe = [str_repeat(' ', $brace) . $content];
+        $probe = [str_repeat(' ', ContinuationMarkerClassifier::columnAt($first, $brace)) . $content];
         for ($at = $start + 1, $count = count($authoredLines); $at < $count; $at++) {
             $line = ContainerPrefix::stripQuoteMarkers($authoredLines[$at]);
             if (IndentationHelper::isBlankLine($line)) {
