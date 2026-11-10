@@ -2541,7 +2541,9 @@ final class BlockOwnershipWalk
         $this->src = (string)substr($this->src, $count);
     }
 
-    /** The authored brace column for a marker-line run, with the note exception. */
+    /**
+     * The authored brace column for a marker-line run, with the note exception.
+     */
     private function braceRunColumn(string $opener, string $rest, OwnershipFrame $owner): int
     {
         if (!$this->onMarkerLine || $owner->kind === 'quote') {
@@ -2605,7 +2607,10 @@ final class BlockOwnershipWalk
             return false;
         }
         $this->wrappedAttributeEnd = $this->at + $length - 1;
-        $this->wrappedAttributeColumn = $openerColumn;
+        // The item content column remains the rebasing origin even when bytes
+        // before the brace move the acceptance column to the right.
+        $this->wrappedAttributeColumn = $this->onMarkerLine && $owner->kind !== 'note' && $owner->kind !== 'quote'
+            ? $owner->col : $openerColumn;
 
         return true;
     }
@@ -2648,7 +2653,8 @@ final class BlockOwnershipWalk
             }
             if (str_contains($line, '%}')) {
                 $this->wrappedAttributeEnd = $j;
-                $this->wrappedAttributeColumn = $openerColumn;
+                $this->wrappedAttributeColumn = $this->onMarkerLine && $owner->kind !== 'note' && $owner->kind !== 'quote'
+                    ? $owner->col : $openerColumn;
                 for ($k = $this->at + 1; $k <= $j; $k++) {
                     $this->heldCommentLines[$k] = $this->at;
                 }
