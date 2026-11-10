@@ -32,6 +32,10 @@ class ALazyBlockCommentRunStaysVisibleTest extends TestCase
                 ":: t\n: pre\n{% b\n  b %}\n",
                 "<dl>\n  <dt>t</dt>\n  <dd>pre\n</dd>\n</dl>",
             ],
+            'earlier list does not change a reached description run' => [
+                "- old\n\n:: t\n: pre\n {% b\n  b %}\n",
+                "<ul>\n  <li>old</li>\n</ul>\n<dl>\n  <dt>t</dt>\n  <dd>pre\n</dd>\n</dl>",
+            ],
         ];
     }
 

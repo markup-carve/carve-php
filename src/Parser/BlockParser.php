@@ -5010,6 +5010,9 @@ class BlockParser
                     if ($openerColumn > 0 && $openerColumn < $hostColumn) {
                         for ($prior = $sourceLine - 1; $prior >= 0; $prior--) {
                             $priorLine = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$prior] ?? '');
+                            if (trim($priorLine) === '' || preg_match('/^[ \t]*:{1,2} /', $priorLine) === 1) {
+                                break;
+                            }
                             $priorIndent = IndentationHelper::getLeadingColumns($priorLine);
                             if ($priorIndent >= $markerColumn || ($this->listParser->parseListItemMarker(ltrim($priorLine, " \t")) === null)) {
                                 continue;
