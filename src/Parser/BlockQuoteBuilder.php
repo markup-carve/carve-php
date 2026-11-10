@@ -618,7 +618,11 @@ final class BlockQuoteBuilder
                 // The run is one block even when its continuation omits the quote prefix.
                 // It opens no paragraph for the next unmarked line to continue (CARVE-P2-035, S4).
                 $openerIndex = count($innerLines) - count($lazyState['attrRun'] ?? []);
-                if (isset($innerLines[$openerIndex])) {
+                if (
+                    isset($innerLines[$openerIndex])
+                    && ($lazyState['hosts']['kinds'] ?? []) === []
+                    && !isset($lazyState['hosts']['descriptionColumn'])
+                ) {
                     $innerLines[$openerIndex] = ltrim($innerLines[$openerIndex], " \t");
                 }
                 $this->appendUnprefixedAttributeRun($lines, $i, $runLength, $innerLines, $innerLineMap);

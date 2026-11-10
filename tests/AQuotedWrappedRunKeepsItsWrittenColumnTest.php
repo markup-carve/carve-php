@@ -30,6 +30,11 @@ final class AQuotedWrappedRunKeepsItsWrittenColumnTest extends TestCase
             "<blockquote>\n\n</blockquote>\n<p>plain</p>",
         ];
 
+        yield 'quoted list item keeps its own indentation' => [
+            "> - x\n>   {.x\n      .y}\n>   z\n",
+            "<blockquote>\n  <ul>\n    <li>x\n      <p class=\"x y\">z</p>\n    </li>\n  </ul>\n</blockquote>",
+        ];
+
         yield 'tab continuation at brace column stays literal' => [
             "> \t{.x\n    .y}\nplain\n",
             "<blockquote><p>{.x\n.y}\nplain</p></blockquote>",
