@@ -519,9 +519,25 @@ final class ListBlockBuilder
         // A span opened after an item or description marker pairs too (carve#5030).
         $runs = [];
         $spanRuns = [];
+        $commentParagraphLines = [];
         for ($k = $head; $k < $at; $k++) {
             $runs[$k] = strspn(ltrim($lines[$k], " \t"), '%');
             $spanRuns[$k] = strspn((string)preg_replace(self::SPAN_LEAD_MARKERS, '', $lines[$k]), '%');
+            if (
+                isset($this->state->source->fenceBodyLines[$this->sourceLineFor($k)])
+                || !str_starts_with(ltrim($lines[$k], " \t"), '{%')
+            ) {
+                continue;
+            }
+            // A held run owns block-shaped payload lines before they are
+            // classified as blocks; the paragraph probe alone stops there.
+            $paragraphEnd = RefusedBraceRun::heldCommentEnd($lines, $k)
+                ?? $this->commentOnlyParagraphEnd($lines, $k, true);
+            if ($paragraphEnd > $k) {
+                for ($line = $k; $line < min($paragraphEnd, $at); $line++) {
+                    $commentParagraphLines[$line] = true;
+                }
+            }
         }
         $next = [];
         $seen = [];
@@ -546,6 +562,7 @@ final class ListBlockBuilder
         $skipped = false;
         while ($k > $head && !IndentationHelper::isBlankLine($lines[$k])) {
             $visible = !isset($inSpan[$k]) && $runs[$k] < 2
+                && !isset($commentParagraphLines[$k])
                 && !($this->isInvisibleSiblingLineCallback)(ltrim($lines[$k], " \t"));
             if ($visible) {
                 return false;
