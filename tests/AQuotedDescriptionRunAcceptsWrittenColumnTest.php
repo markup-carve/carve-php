@@ -50,6 +50,11 @@ final class AQuotedDescriptionRunAcceptsWrittenColumnTest extends TestCase
             "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>{.x\n.y\n}\n# H</dd>\n  </dl>\n</blockquote>",
         ];
 
+        yield 'shallower quoted heading leaves a refused description' => [
+            "> > :: t\n> > :  {.x\n    .y}\n> # H\n",
+            "<blockquote>\n  <blockquote>\n    <dl>\n      <dt>t</dt>\n      <dd>{.x\n.y}</dd>\n    </dl>\n  </blockquote>\n  <h1 id=\"H\">H</h1>\n</blockquote>",
+        ];
+
         yield 'description shaped text inside code stays code' => [
             "> ```\n> :   {.x\n        .y}\n> ```\n",
             "<blockquote>\n  <pre><code>:   {.x\n</code></pre>\n</blockquote>\n<p>.y}</p>\n<blockquote>\n  <pre><code></code></pre>\n</blockquote>",

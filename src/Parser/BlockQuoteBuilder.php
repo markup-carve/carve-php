@@ -869,6 +869,13 @@ final class BlockQuoteBuilder
             }
             $sourceLine = $innerLineMap[$k] ?? -1;
             $opener = $this->state->source->sourceLines[$sourceLine] ?? '';
+            $next = $this->state->source->sourceLines[$nextSourceLine] ?? '';
+            if (
+                ContainerPrefix::countLeadingQuoteMarkers(ltrim($next, " \t"))
+                < ContainerPrefix::countLeadingQuoteMarkers(ltrim($opener, " \t"))
+            ) {
+                return false;
+            }
             $brace = strpos($opener, '{');
             if ($brace === false || $nextSourceLine <= $sourceLine + 1) {
                 return false;
