@@ -617,6 +617,10 @@ final class BlockQuoteBuilder
             } elseif ($runLength > 0) {
                 // The run is one block even when its continuation omits the quote prefix.
                 // It opens no paragraph for the next unmarked line to continue (CARVE-P2-035, S4).
+                $openerIndex = count($innerLines) - count($lazyState['attrRun'] ?? []);
+                if (isset($innerLines[$openerIndex])) {
+                    $innerLines[$openerIndex] = ltrim($innerLines[$openerIndex], " \t");
+                }
                 $this->appendUnprefixedAttributeRun($lines, $i, $runLength, $innerLines, $innerLineMap);
                 $lazyState['attrRun'] = null;
                 $lazyState['paragraphOpen'] = false;
@@ -2368,7 +2372,11 @@ final class BlockQuoteBuilder
                     break;
                 }
             }
-            $attributeContent = $reachesMarkerBody ? ltrim($content, " \t") : $content;
+            // The quote prefix has already been read. Leading whitespace before
+            // a new brace opener affects its source column, not its block kind.
+            $attributeContent = $reachesMarkerBody || $state['attrRun'] === null
+                ? ltrim($content, " \t")
+                : $content;
             if ($this->trackWrappedAttributeRun($state, $attributeContent)) {
                 $state['paragraphOpen'] = false;
 
