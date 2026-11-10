@@ -320,6 +320,11 @@ final class BlockOwnershipWalk
     private ?array $attachedTo = null;
 
     /**
+     * A marker-column attribute block closed its host on the previous line (A02).
+     */
+    private int $literalPlusAfterAttribute = -1;
+
+    /**
      * Trace owner restored after an attached colon block ends at a blank.
      *
      * @var array{owner: string, column: int}|null
@@ -549,6 +554,7 @@ final class BlockOwnershipWalk
         $this->skipped = null;
         $this->refusedAttributeHost = null;
         $this->attachedTo = null;
+        $this->literalPlusAfterAttribute = -1;
         $this->releasedSibling = 0;
         $this->frames = [new OwnershipFrame('doc', 0, 0, 0)];
         $result = [];
@@ -608,6 +614,7 @@ final class BlockOwnershipWalk
                 if (
                     $f->markerCol !== null && $this->m['col'] === $f->markerCol && ($f->kind === 'quote' || $this->m['col'] < $f->col)
                     && self::isPlus($this->m['rest'])
+                    && $at !== $this->literalPlusAfterAttribute
                     && !$this->openCodeFenceKeepsPlus($frameCount)
                     && !($f->kind === 'quote' && $this->hasAttachedQuoteAncestor($k) && $quotesRead > 0 && $f->para && $quotesRead < $this->quoteDepth($k + 1))
                 ) {
@@ -1315,10 +1322,39 @@ final class BlockOwnershipWalk
             if ($skipped['host']->plus === $skipped['at']) {
                 $skipped['host']->plus = $at;
             }
+            if ($this->skippedAttributeClosesHost($skipped)) {
+                $this->truncate($skipped['hostIndex']);
+                $this->literalPlusAfterAttribute = $skipped['end'];
+            }
             $this->skipped = null;
         }
 
         return true;
+    }
+
+    /**
+     * A valid marker-column attribute block in the skipped prelude closes its
+     * host before the next line is owned (plus ownership A02).
+     *
+     * @param array{at: int, end: int, hostIndex: int, column: int, host: \MarkupCarve\Carve\Parser\OwnershipFrame} $skipped
+     */
+    private function skippedAttributeClosesHost(array $skipped): bool
+    {
+        for ($start = $skipped['at'] + 1; $start < $skipped['end']; $start++) {
+            $line = $this->throughQuotes($this->lines[$start], $skipped['hostIndex'], $this->frames);
+            if ($line === null || ($line['col'] ?? null) !== $skipped['host']->markerCol || !str_starts_with($line['rest'], '{')) {
+                continue;
+            }
+            if ($start + 1 === $skipped['end'] && ($this->isAttributeLine)($line['rest'])) {
+                return true;
+            }
+            $length = $this->skippedWrappedAttributeLength($start, $skipped['hostIndex'], $this->frames);
+            if ($length !== null && $start + $length === $skipped['end']) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
