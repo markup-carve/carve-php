@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Lint;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\RawBlock;
+use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 
 final class FenceAndContinuationLinter
@@ -93,13 +94,51 @@ final class FenceAndContinuationLinter
             );
         }
         array_push($warnings, ...$this->unclosedCommentFences($document, $rows));
+        $visiblePlusSpans = [];
+        $offsetMap = SourceOffsets::map($source);
+        $pending = [$document];
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            array_push($pending, ...$node->getChildren());
+            if (!$node instanceof Text || !str_contains($node->getContent(), '+') || $node->getPos() === null) {
+                continue;
+            }
+            $pos = $node->getPos();
+            $visiblePlusSpans[] = [
+                SourceOffsets::toByte($pos->startOffset, $offsetMap, strlen($source)),
+                SourceOffsets::toByte($pos->endOffset, $offsetMap, strlen($source)),
+            ];
+        }
         $seen = [];
         foreach ($parser->getRefusedContinuationMarkers() as $marker) {
             $key = $marker['line'] . ':' . $marker['column'];
-            if (isset($seen[$key])) {
+            // PART 0 S2 reads an unclaimed or off-column plus as a letter, not
+            // as a discarded P6 offer.
+            if (isset($seen[$key]) || in_array($marker['reason'], ['wrong-column', 'unclaimed'], true)) {
                 continue;
             }
             $seen[$key] = true;
+            $line = $rows[$marker['line'] - 1][0] ?? '';
+            $before = mb_substr($line, 0, $marker['column'] - 1, 'UTF-8');
+            preg_match('/^(?:[ \t]*> ?)+/', $before, $quotePrefix);
+            $quoteDepth = substr_count($quotePrefix[0] ?? '', '>');
+            $previous = $rows[$marker['line'] - 2][0] ?? '';
+            preg_match('/^(?:[ \t]*> ?)+/', $previous, $previousQuotePrefix);
+            $previousDepth = trim($previous) === '' ? 0 : substr_count($previousQuotePrefix[0] ?? '', '>');
+            $bodyPrefix = substr($before, strlen($quotePrefix[0] ?? ''));
+            $ownLine = trim($bodyPrefix) === '' && $quoteDepth <= $previousDepth;
+            $start = $this->warning($rows, $marker['line'], $marker['column'], 1, '', '')->start;
+            $visible = false;
+            foreach ($visiblePlusSpans as [$from, $to]) {
+                if ($from <= $start && $start < $to) {
+                    $visible = true;
+
+                    break;
+                }
+            }
+            if ($ownLine && $visible) {
+                continue;
+            }
             $following = match ($marker['reason']) {
                 'blank' => 'a blank line',
                 'document' => 'the end of the document',
@@ -129,13 +168,13 @@ final class FenceAndContinuationLinter
                 $marker['line'],
                 $marker['column'],
                 1,
-                'continuation-marker-refused',
+                $ownLine ? 'refused-continuation-marker' : 'continuation-marker-refused',
                 sprintf(
                     $lead,
                     $following,
                     $marker['host'],
                     $marker['reason'] === 'wrong-column' ? sprintf('It remains text in the %s.', $marker['host']) : 'It renders nothing.',
-                    $remedy,
+                    $ownLine ? 'The marker can be removed.' : $remedy,
                 ),
             );
         }

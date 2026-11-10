@@ -21,8 +21,8 @@ final class ARefusedPlusBelowAStackedFenceOrPastAQuoteColumnIsReportedTest exten
     public static function provider(): array
     {
         return [
-            'stacked fence, end of input' => ["- - ```\n  +\n", ['2:3']],
-            'stacked fence, column-0 follower' => ["- - ```\n  +\n{.c\n}\n~~~\ny\n~~~\n", ['2:3']],
+            'stacked fence, end of input' => ["- - ```\n  +\n", []],
+            'stacked fence, column-0 follower' => ["- - ```\n  +\n{.c\n}\n~~~\ny\n~~~\n", []],
             'stacked fence, payload column' => ["- - ```\n    +\n", []],
             'quote, past its column' => ["> q\n>   +\n> para\n", []],
             'quote, past its column at the end' => ["> q\n>   +\n", []],

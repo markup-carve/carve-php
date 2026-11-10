@@ -27,13 +27,13 @@ final class ContinuationMarkerOwnerGateTest extends TestCase
         yield 'past quoted paragraph' => ["> q\n>   +\n> para\n", []];
         yield 'missing quote prefix' => ["> - a\n  +\n", []];
         yield 'missing inner quote prefix' => ["> > - a\n>   +\n>   - b\n", []];
-        yield 'quote lazy literal plus at end' => ["- x\n  > q\n  +\n", [[3, 3]]];
+        yield 'quote lazy literal plus at end' => ["- x\n  > q\n  +\n", []];
         yield 'nested list content column' => ["- a\n  - b\n    +\n    c\n", []];
         yield 'stacked first block quote at ancestor column' => ["- a\n  - - +\n  > b\n", [[2, 7]]];
         yield 'task checkbox column sibling' => ["- foo\n  - [ ] task\n    +\n  - x\n", []];
         yield 'task checkbox column paragraph' => ["- foo\n  - [ ] task\n    +\n    q\n", []];
-        yield 'footnote blank follower' => ["x[^a]\n\n[^a]: note\n+\n\npara\n", [[4, 1]]];
-        yield 'quoted footnote blank follower' => ["> [^a]: n\n> +\n\npara\n", [[2, 3]]];
+        yield 'footnote blank follower' => ["x[^a]\n\n[^a]: note\n+\n\npara\n", []];
+        yield 'quoted footnote blank follower' => ["> [^a]: n\n> +\n\npara\n", []];
         yield 'stacked quote follower at its line column' => ["- a\n  - > +\n  b\n", [[2, 7]]];
         yield 'stacked quote heading at its line column' => ["- a\n  - > +\n  # h\n", [[2, 7]]];
         yield 'stacked quote follower at an inner item column' => ["- - > +\n  b\n", [[1, 7]]];
