@@ -2427,13 +2427,26 @@ final class BlockOwnershipWalk
         if ($at > $this->refusedKeptStart && $this->refusedRunMissesItsContainer($this->refusedKeptStart)) {
             $this->refusedKeptThrough = -1;
         }
-        // A line that misses the run's container, or a sibling description marker, ends its paragraph (PART 0 S2).
-        if (
-            $at > $this->refusedKeptStart && $at <= $this->refusedKeptThrough
-            && ($owner !== $this->refusedKeptOwner || $col < $this->refusedKeptColumn
-                || ($rest[0] === ':' && $this->classify($rest, $owner, $col)->kind === 'dd'))
-        ) {
-            $this->refusedKeptThrough = $at - 1;
+        // A block that misses the run's container, or a sibling description marker, ends its paragraph (PART 0 S2).
+        // A lazy text line there is read as usual and keeps the follower protected; a note definition is that follower.
+        if ($at > $this->refusedKeptStart && $at <= $this->refusedKeptThrough) {
+            $missed = $owner !== $this->refusedKeptOwner || $col < $this->refusedKeptColumn;
+            $form = $missed || $rest[0] === ':' ? $this->classify($rest, $owner, $col) : null;
+            if ($missed && $form?->kind === 'note') {
+                $this->refusedKeptLines[$at] = $this->refusedKeptStart;
+
+                return new OwnershipForm(kind: 'text', interrupts: false, kept: true);
+            }
+            if ($missed && $form?->kind === 'text') {
+                return null;
+            }
+            if ($missed || $form?->kind === 'dd') {
+                $this->refusedKeptThrough = $at - 1;
+                // A run whose first continuation is that block was never a run: its line is read as usual.
+                if ($at - 1 === $this->refusedKeptStart) {
+                    unset($this->refusedKeptLines[$this->refusedKeptStart]);
+                }
+            }
         }
         if (
             $at > $this->refusedKeptStart && $at <= $this->refusedKeptThrough
@@ -2443,9 +2456,7 @@ final class BlockOwnershipWalk
 
             return new OwnershipForm(kind: 'text', interrupts: false, kept: true);
         }
-        // A comment beginning on its owner's marker line belongs to that
-        // marker's reader; only a later opener can hold a paragraph follower.
-        if ($rest[0] !== '{' || (str_starts_with($rest, '{%') && $owner->line === $at)) {
+        if ($rest[0] !== '{') {
             return null;
         }
         if ($at === $this->refusedKeptStart) {
@@ -2473,14 +2484,13 @@ final class BlockOwnershipWalk
             }
         }
         $top = $this->frames[count($this->frames) - 1];
-        // Description and note bodies normally read their own refused runs.
-        // Their first-block marker is on the lead line, not in the frame's
-        // plus slot, so the ownership walk must keep that run's follower.
-        $firstBlockLead = $top->line === $at - 1
-            && preg_match('/^(?:[ \t]*:[ \t]+|[ \t]*\[\^[^]]+\]:[ \t]+)\+[ \t]*$/D', $this->lines[$top->line] ?? '') === 1;
-        if (($top->kind === 'dd' || $top->kind === 'note') && $top->plus !== $at - 1 && !$firstBlockLead) {
+        // A run on a description or note marker line is measured in its body's coordinates by that body's reader.
+        if (($top->kind === 'dd' || $top->kind === 'note') && $top->line === $at) {
             return null;
         }
+        // A first-block marker sits on the lead line, not in the frame's plus slot.
+        $firstBlockLead = $top->line === $at - 1
+            && preg_match('/^(?:[ \t]*:[ \t]+|[ \t]*\[\^[^]]+\]:[ \t]+)\+[ \t]*$/D', $this->lines[$top->line] ?? '') === 1;
         $column = in_array($top->kind, ['doc', 'quote'], true) || $top->plus === $at - 1 ? $col : $top->col;
         // The window doubles only while the answer reaches its edge, so a run of one-line attributes stays linear.
         $window = [str_repeat(' ', $col) . $rest];
