@@ -857,6 +857,7 @@ class BlockParser
         $this->state->source->foldedFenceAfterAttachedBlank = $walk->foldedFenceAfterAttachedBlank;
         $this->state->source->attachedQuoteEnds = $walk->attachedQuoteEnds;
         $this->state->source->refusedKeptLines = $walk->refusedKeptLines;
+        $this->state->source->heldCommentLines = $walk->heldCommentLines;
         $this->state->source->shiftedOpeners = $walk->shiftedOpeners;
         $this->state->source->pastColumnDescriptionLines = $walk->pastColumnDescriptionLines;
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
@@ -4507,6 +4508,9 @@ class BlockParser
         if ($refusedEnd === null && str_contains($content, "\n")) {
             $forced = $this->endsInRefusedBraceRun($content);
         }
+        // Past-closer index of a valid block `{%` run: its lines interrupt nothing (CARVE-P2-035).
+        $heldThrough = $refusedEnd === null && str_starts_with($content, '{%') && !$standaloneCodeInclude
+            ? $this->heldCommentRunEnd($lines, $start) ?? -1 : -1;
         if ($refusedEnd !== null) {
             $literalLines[0] = true;
             $literalRuns[] = [0, $refusedEnd - $start];
@@ -4542,6 +4546,9 @@ class BlockParser
 
                     continue;
                 }
+                if ($heldThrough <= $i) {
+                    $heldThrough = $this->heldCommentRunEnd($lines, $i) ?? -1;
+                }
             }
             if ($forced && $forcedThrough < $i) {
                 $forcedThrough = $this->refusedFollowerFenceEnd($lines, $i) ?? $i;
@@ -4559,7 +4566,7 @@ class BlockParser
             // span lines in any engine.
             $sourceLine = $this->sourceLineFor($i);
             $protectedRefusedFollower = ($this->state->source->refusedKeptLines[$sourceLine] ?? null) === $this->sourceLineFor($start);
-            if (!$forced && !$protectedRefusedFollower && $this->interruptsParagraph($lines, $i, $contentParts, $start, $topLevel, $itemBody, $inlineSpan, $literalLines, $commentCloser)) {
+            if (!$forced && !$protectedRefusedFollower && $heldThrough <= $i && $this->interruptsParagraph($lines, $i, $contentParts, $start, $topLevel, $itemBody, $inlineSpan, $literalLines, $commentCloser)) {
                 break;
             }
 
@@ -4797,7 +4804,42 @@ class BlockParser
      */
     private function refusedRunEndInSourceColumns(array $lines, int $start): ?int
     {
-        $end = RefusedBraceRun::end($lines, $start, $this->inlineParser);
+        $probe = $this->braceRunInSourceColumns($lines, $start);
+        if ($probe === null) {
+            return RefusedBraceRun::end($lines, $start, $this->inlineParser);
+        }
+        $sourceEnd = RefusedBraceRun::end($probe, 0, $this->inlineParser);
+
+        return $sourceEnd === null ? null : $start + $sourceEnd;
+    }
+
+    /**
+     * The index past the closer of a block `{%` run at $start whose continuations all pass its `{`, in source columns.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     */
+    private function heldCommentRunEnd(array $lines, int $start): ?int
+    {
+        $probe = $this->braceRunInSourceColumns($lines, $start);
+        if ($probe === null) {
+            return RefusedBraceRun::heldCommentEnd($lines, $start);
+        }
+        $sourceEnd = RefusedBraceRun::heldCommentEnd($probe, 0);
+
+        return $sourceEnd === null ? null : $start + $sourceEnd;
+    }
+
+    /**
+     * The lines of the brace run at $start at their source columns, or null when a line has no authored source.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     *
+     * @return array<string>|null
+     */
+    private function braceRunInSourceColumns(array $lines, int $start): ?array
+    {
         $comment = str_starts_with(ltrim(self::stripLazyFrame($lines[$start]), " \t"), '{%');
         $probe = [];
         for ($at = $start, $count = count($lines); $at < $count; $at++) {
@@ -4811,7 +4853,7 @@ class BlockParser
             }
             $source = $this->state->source->authoredLines[$this->sourceLineFor($at)] ?? null;
             if ($source === null || !str_ends_with($source, $text)) {
-                return $end;
+                return null;
             }
             $prefix = substr($source, 0, strlen($source) - strlen($text));
             // Marker-line openers already sit past the list marker. Quote
@@ -4827,9 +4869,7 @@ class BlockParser
             }
         }
 
-        $sourceEnd = RefusedBraceRun::end($probe, 0, $this->inlineParser);
-
-        return $sourceEnd === null ? null : $start + $sourceEnd;
+        return $probe;
     }
 
     /**
