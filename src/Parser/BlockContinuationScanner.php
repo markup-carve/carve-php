@@ -1736,6 +1736,7 @@ final class BlockContinuationScanner
             $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
             $itemLines[0] ?? '',
         );
+        $refusedMarkerNoteParagraph = false;
         while ($i < $count) {
             $nextLine = $lines[$i];
             $sourceLine = $this->sourceLineFor($i);
@@ -1796,6 +1797,7 @@ final class BlockContinuationScanner
             }
 
             if (IndentationHelper::isBlankLine($nextLine)) {
+                $refusedMarkerNoteParagraph = false;
                 if ($run->lowComment && $run->openCommentLength === null) {
                     break;
                 }
@@ -1848,6 +1850,25 @@ final class BlockContinuationScanner
 
                 continue;
             }
+
+            if (
+                $run->markerNoteItem && $i > 0
+                && ($refusedMarkerNoteParagraph
+                    || $this->noteFollowsMarkerLineRun($lines, $i - 1, ltrim($lines[$i - 1], " \t")))
+                && IndentationHelper::getLeadingColumns($nextLine) < $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                && ($this->getListParser)()->parseListItemMarker(ltrim($nextLine, " \t")) === null
+                && !$this->startsNewBlock(ltrim($nextLine, " \t"), $lines, $i)
+            ) {
+                // The refused run's protected follower is in the marker-line note.
+                // Keep the next lazy line in that same collected entry so the note
+                // reader sees the deepest paragraph before the item reader does.
+                $itemLines[count($itemLines) - 1] .= "\n" . BlockGrammar::LAZY_FRAME . ltrim($nextLine, " \t");
+                $refusedMarkerNoteParagraph = true;
+                $i++;
+
+                continue;
+            }
+            $refusedMarkerNoteParagraph = false;
 
             if ($run->captionOpen && isset($this->state->source->lazyLines[$this->sourceLineFor($i)])) {
                 $itemLines[] = BlockGrammar::LAZY_FRAME . ltrim($nextLine, " \t");

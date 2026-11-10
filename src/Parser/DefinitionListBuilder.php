@@ -784,6 +784,17 @@ final class DefinitionListBuilder
             termColumn: $termColumn,
             termHasOwnColumn: $termHasOwnColumn,
         );
+        if (str_starts_with($body[0] ?? '', '{%')) {
+            $end = RefusedBraceRun::markerLineEnd(
+                $this->state->source->authoredLines,
+                $this->sourceLineFor($definitionStart),
+                $body[0],
+                ($this->getInlineParser)(),
+            );
+            if ($end !== null) {
+                $b->refusedBraceThrough = $definitionStart + $end;
+            }
+        }
         if ($firstBlockAttached) {
             $this->markDescriptionAttachment($b);
         } elseif (count($body) > 1) {

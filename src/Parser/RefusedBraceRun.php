@@ -17,6 +17,39 @@ use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 final class RefusedBraceRun
 {
     /**
+     * Index past a refused run opened on a description or note marker line, in authored source columns.
+     *
+     * @param array<string> $authoredLines
+     * @param int $start
+     * @param string $content
+     * @param \MarkupCarve\Carve\Parser\InlineParser $inlineParser
+     */
+    public static function markerLineEnd(array $authoredLines, int $start, string $content, InlineParser $inlineParser): ?int
+    {
+        if (!str_starts_with($content, '{')) {
+            return null;
+        }
+        $first = ContainerPrefix::stripQuoteMarkers($authoredLines[$start] ?? '');
+        $brace = strrpos($first, $content);
+        if ($brace === false || preg_match('/(?:^|[ \t])(?::|\[\^[^]]+\]:)[ \t]+$/', substr($first, 0, $brace)) !== 1) {
+            return null;
+        }
+        $probe = [str_repeat(' ', ContinuationMarkerClassifier::columnAt($first, $brace)) . $content];
+        for ($at = $start + 1, $count = count($authoredLines); $at < $count; $at++) {
+            $line = ContainerPrefix::stripQuoteMarkers($authoredLines[$at]);
+            if (IndentationHelper::isBlankLine($line)) {
+                break;
+            }
+            $probe[] = $line;
+            if (str_contains($line, str_starts_with($content, '{%') ? '%}' : '}')) {
+                break;
+            }
+        }
+
+        return self::end($probe, 0, $inlineParser);
+    }
+
+    /**
      * The last closer scan: from a line to the first closer or blank line at or after it.
      *
      * @var array{lines: array<string>, from: int, stop: int, closes: bool}|null
