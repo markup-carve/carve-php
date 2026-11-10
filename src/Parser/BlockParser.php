@@ -5065,6 +5065,7 @@ class BlockParser
                 // inside one can contain backticks without opening code.
                 if (
                     $line[$k] === '{' && ($line[$k + 1] ?? '') !== '%'
+                    && self::inlineAttributeHostBefore($line, $k)
                     && preg_match('/^\{(?:[^{}"\\\\]|\\\\.|"(?:[^"\\\\]|\\\\.)*")*\}/', substr($line, $k), $attribute) === 1
                 ) {
                     $k += strlen($attribute[0]) - 1;
@@ -5086,6 +5087,18 @@ class BlockParser
         }
 
         return $state['code'] !== 0 || $state['comment'];
+    }
+
+    private static function inlineAttributeHostBefore(string $line, int $at): bool
+    {
+        $before = substr($line, 0, $at);
+        if (preg_match('/(?<!\\\\)\[[^\]\n]+\](?:\([^\)\n]*\))?$/', $before) === 1) {
+            return true;
+        }
+
+        // Bare words have no inline attribute slot. A paired delimiter can
+        // receive one only when its opener was not intraword.
+        return preg_match('/(?<![[:alnum:]])([*_=~\/^:])[^\n]*?\1$/', $before) === 1;
     }
 
     /**
@@ -7098,7 +7111,6 @@ class BlockParser
             continuations: $this->continuationsMapper(),
             getFencedBlockParser: fn (): FencedBlockParser => $this->fencedBlockParser,
             getListParser: fn (): ListParser => $this->listParser,
-            getInlineParser: fn (): InlineParser => $this->inlineParser,
             getTableParser: fn (): TableParser => $this->tableParser,
             endContainerAttributeScopeCallback: $this->endContainerAttributeScope(...),
             endsBlockQuoteCallback: $this->endsBlockQuote(...),

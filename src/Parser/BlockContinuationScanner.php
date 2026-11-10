@@ -3417,7 +3417,10 @@ final class BlockContinuationScanner
                 $trailingState->fence->char,
                 $trailingState->fence->length,
             );
-        $stripColumn = ($trailingState->fence === null || $fenceCloser) && $run->authoredCodeColumn !== null
+        $nestedTabPayload = $trailingState->fence !== null && !$fenceCloser
+            && $run->authoredCodeColumn !== null && $run->authoredCodeColumn > $contentIndent
+            && preg_match('/^ +\t/', $nextLine) === 1;
+        $stripColumn = !$nestedTabPayload && $run->authoredCodeColumn !== null
             && IndentationHelper::getLeadingColumns($nextLine, $run->authoredCodeColumn) >= $run->authoredCodeColumn
             ? $run->authoredCodeColumn : $contentIndent;
         $contentLine = $inlineAuthoredFence && !$termContinuation

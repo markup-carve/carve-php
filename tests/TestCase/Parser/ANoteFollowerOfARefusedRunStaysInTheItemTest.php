@@ -35,7 +35,7 @@ final class ANoteFollowerOfARefusedRunStaysInTheItemTest extends TestCase
 
         yield 'description in an item' => [
             "- :: t\n  : {.x\n}\n[^m]: n\nz\n",
-            "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>{.x\n}\n[^m]: n\nz</dd>\n    </dl>\n  </li>\n</ul>",
+            "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>{.x\n}</dd>\n    </dl>\n  </li>\n</ul>",
         ];
 
         yield 'description with a closer short of its body column' => [

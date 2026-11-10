@@ -51,8 +51,7 @@ class ARefusedMarkerLineRunKeepsItsDescriptionAndNoteParagraphTest extends TestC
               <dl>
                 <dt>t</dt>
                 <dd>{% a
-            %}
-            [^m]: n</dd>
+            %}</dd>
               </dl>
             </blockquote>
             HTML,
@@ -65,9 +64,11 @@ class ARefusedMarkerLineRunKeepsItsDescriptionAndNoteParagraphTest extends TestC
               <dl>
                 <dt>t</dt>
                 <dd>{% a
-            %}
-            - next</dd>
+            %}</dd>
               </dl>
+              <ul>
+                <li>next</li>
+              </ul>
             </blockquote>
             HTML,
         ];

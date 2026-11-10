@@ -33,7 +33,6 @@ final class BlockQuoteBuilder
      * @param \MarkupCarve\Carve\Parser\BlockContinuationScanner $continuations
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\FencedBlockParser $getFencedBlockParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\ListParser $getListParser
-     * @param \Closure(): \MarkupCarve\Carve\Parser\InlineParser $getInlineParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\TableParser $getTableParser
      * @param \Closure(): (void) $endContainerAttributeScopeCallback
      * @param \Closure(string, bool, array<string>|null, int|null): (bool) $endsBlockQuoteCallback
@@ -56,7 +55,6 @@ final class BlockQuoteBuilder
         private BlockContinuationScanner $continuations,
         private Closure $getFencedBlockParser,
         private Closure $getListParser,
-        private Closure $getInlineParser,
         private Closure $getTableParser,
         private Closure $endContainerAttributeScopeCallback,
         private Closure $endsBlockQuoteCallback,
@@ -820,50 +818,6 @@ final class BlockQuoteBuilder
         }
 
         return 0;
-    }
-
-    /**
-     * Check the authored columns when an interrupted description run is text.
-     * The local quote body has already lost the prefix width.
-     *
-     * @param array<string> $innerLines
-     * @param array<int, int> $innerLineMap
-     * @param int $nextSourceLine
-     */
-    private function followsRefusedQuotedDescriptionRun(array $innerLines, array $innerLineMap, int $nextSourceLine): bool
-    {
-        if (!str_contains($innerLines[array_key_last($innerLines) ?? 0] ?? '', '}')) {
-            return false;
-        }
-        for ($k = count($innerLines) - 1; $k >= 0 && !IndentationHelper::isBlankLine($innerLines[$k]); $k--) {
-            $lead = ContainerPrefix::afterLeadingQuoteMarkers($innerLines[$k]);
-            if (preg_match('/^: +(?=\{)/', $lead) !== 1) {
-                continue;
-            }
-            $sourceLine = $innerLineMap[$k] ?? -1;
-            $opener = $this->state->source->sourceLines[$sourceLine] ?? '';
-            $next = $this->state->source->sourceLines[$nextSourceLine] ?? '';
-            if (
-                ContainerPrefix::countLeadingQuoteMarkers(ltrim($next, " \t"))
-                < ContainerPrefix::countLeadingQuoteMarkers(ltrim($opener, " \t"))
-            ) {
-                return false;
-            }
-            $brace = strpos($opener, '{');
-            if ($brace === false || $nextSourceLine <= $sourceLine + 1) {
-                return false;
-            }
-            $run = [str_repeat(' ', WrappedBlockAttributeScanner::columnAt($opener, $brace)) . substr($opener, $brace)];
-            for ($at = $sourceLine + 1; $at < $nextSourceLine; $at++) {
-                $line = $this->state->source->sourceLines[$at] ?? '';
-                $content = ContainerPrefix::afterLeadingQuoteMarkers($line);
-                $run[] = str_repeat(' ', strlen($line) - strlen($content)) . $content;
-            }
-
-            return RefusedBraceRun::end($run, 0, ($this->getInlineParser)()) === count($run);
-        }
-
-        return false;
     }
 
     /**
