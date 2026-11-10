@@ -364,6 +364,20 @@ final class BlockOwnershipWalk
     public array $closingLines = [];
 
     /**
+     * Marker lines that closed an item of another list kind or column before opening their own item.
+     *
+     * @var array<int, true>
+     */
+    private array $itemBoundaryLines = [];
+
+    /**
+     * Refused runs opened in the item such a marker line opens, by first line: that closing missed nothing of theirs.
+     *
+     * @var array<int, true>
+     */
+    private array $runsPastItemBoundary = [];
+
+    /**
      * @var array<int, true> Unmarked lines released from a quoted item span to its outer quote.
      */
     public array $outerQuoteLines = [];
@@ -483,6 +497,8 @@ final class BlockOwnershipWalk
         $this->verseRunMisses = [];
         $this->textFences = [];
         $this->closingLines = [];
+        $this->itemBoundaryLines = [];
+        $this->runsPastItemBoundary = [];
         $this->outerQuoteLines = [];
         $this->frontmatter = false;
         $this->softLeaf = false;
@@ -1135,6 +1151,7 @@ final class BlockOwnershipWalk
             $frame = $this->frames[$k];
             if ($frame->kind === 'item' && ($frame->axes !== $form->axes || $frame->markerCol !== $this->m['col'])) {
                 $this->closingLines[$at] = true;
+                $this->itemBoundaryLines[$at] = true;
 
                 return;
             }
@@ -2744,6 +2761,9 @@ final class BlockOwnershipWalk
         $this->refusedKeptStart = $at;
         $this->refusedKeptThrough = $at + $kept;
         $this->refusedKeptOwner = $owner;
+        if (isset($this->itemBoundaryLines[$at]) && $owner->line === $at) {
+            $this->runsPastItemBoundary[$at] = true;
+        }
         $this->refusedKeptLazyNoteHost = $lazyNoteParagraph ? $top : null;
         $this->refusedKeptColumn = $column;
         $this->refusedKeptLines[$at] = $at;
@@ -2753,10 +2773,13 @@ final class BlockOwnershipWalk
 
     /**
      * A run that misses its container, as a lazy line or by closing it, keeps nothing.
+     *
+     * A marker line that only ends a sibling item of another list closes nothing of the item it opens for the run.
      */
     private function refusedRunMissesItsContainer(int $start): bool
     {
-        return isset($this->lazyLines[$start]) || isset($this->closingLines[$start]);
+        return isset($this->lazyLines[$start])
+            || (isset($this->closingLines[$start]) && !isset($this->runsPastItemBoundary[$start]));
     }
 
     private function insideRefusedFencePayload(int $at): bool
