@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Parser;
 
 use Closure;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
+use MarkupCarve\Carve\Parser\Block\ListParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 
 /**
@@ -84,6 +85,35 @@ final class RefusedBraceRun
         }
 
         return $more ? -1 : null;
+    }
+
+    /**
+     * Whether line $i directly follows a refused run opened on a description's or note's marker line.
+     *
+     * The walk leaves those runs to the body's reader, so it keeps no range for them.
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param \Closure(array<string>, int): ?int $end
+     * @param \MarkupCarve\Carve\Parser\Block\ListParser $lists
+     */
+    public static function followsMarkerLineRun(array $lines, int $i, Closure $end, ListParser $lists): bool
+    {
+        for ($k = $i - 1; $k >= 0 && !IndentationHelper::isBlankLine($lines[$k]); $k--) {
+            $line = BlockGrammar::stripLazyFrame($lines[$k]);
+            if (preg_match('/^[ \t]*(?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)*(?::|\[\^[^\]]+\]:)[ \t]+(?=\{)/', $line, $m) === 1) {
+                $window = array_map(BlockGrammar::stripLazyFrame(...), array_slice($lines, $k, $i - $k + 1));
+                $window[0] = str_repeat(' ', strlen($m[0])) . substr($line, strlen($m[0]));
+
+                return $end($window, 0) === $i - $k;
+            }
+            // A marker or note line between ends the search, so a run of note lines is scanned once.
+            if ($lists->parseListItemMarker(ltrim($line, " \t")) !== null || str_starts_with(ltrim($line, " \t"), '[^')) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     /**
