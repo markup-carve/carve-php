@@ -264,7 +264,8 @@ final class LineBlockBuilder
         $opener = ltrim($lines[$start], " \t");
         $authored = $this->state->source->authoredLines[$this->sourceLineFor($start)] ?? '';
         $openerColumn = strrpos($authored, $opener);
-        if ($openerColumn === false || $openerColumn === 0) {
+        // A byte offset is a column only when no tab precedes the opener.
+        if ($openerColumn === false || $openerColumn === 0 || str_contains(substr($authored, 0, $openerColumn), "\t")) {
             return $lines;
         }
         $codeRun = 0;

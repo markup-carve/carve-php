@@ -57,6 +57,11 @@ final class BlockOwnershipWalk
     private int $reach = 0;
 
     /**
+     * Whether the last lead() wrote its run out as spaces instead of as authored.
+     */
+    private bool $leadRewrote = false;
+
+    /**
      * Lines the walk read as lazy paragraph text, keyed by line index.
      *
      * @var array<int, true>
@@ -731,7 +736,14 @@ final class BlockOwnershipWalk
                 $payloadPath = $this->trace !== null ? $this->traceFenceOwner($inner) : '';
                 $payloadForm = 'payload';
                 $shiftedCloser = $this->readsShiftedCloser($inner);
-                $this->lead($shiftedCloser ? $inner->col : max($this->m['col'] - $inner->cut, $inner->canon));
+                $payloadColumn = max($this->m['col'] - $inner->cut, $inner->canon);
+                if ($this->rewritesTabbedPayload($inner, $shiftedCloser, $segment, $payloadColumn)) {
+                    // The rewritten opener gives the reader no authored run to re-measure this one against (§24 C5).
+                    $this->out .= str_repeat(' ', $payloadColumn);
+                    $this->src = $this->m['rest'];
+                } else {
+                    $this->lead($shiftedCloser ? $inner->col : $payloadColumn);
+                }
                 $rest = $this->m['rest'];
                 $inCommentSpan = $inner->span !== null && $inner->span[0] === '%';
                 if ($rest !== '' && $inner->span !== null) {
@@ -987,11 +999,16 @@ final class BlockOwnershipWalk
                 $this->lead(
                     $this->frames[$o]->canon,
                     $definitionMarker,
-                    contentTab: $form->kind === 'fence' || $form->kind === 'colon',
+                    // A bare `:::` kept on its tab run would reach a nested reader $shift columns right,
+                    // where it can pair with an earlier opener's closer.
+                    contentTab: $form->kind === 'fence' || ($form->kind === 'colon' && ($form->lineBlock || $shift === 0)),
                     definitionMarker: $definitionMarker && $this->frames[$o]->kind === 'dd',
                 );
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon, inHost: !$leftLineBlockSpan);
                 $this->markAttachedFence($at, $o, $form, $plusFollower);
+                if (($form->kind === 'fence' || $form->kind === 'colon') && $this->leadRewrote) {
+                    $this->frames[count($this->frames) - 1]->openerTabShift = $shift;
+                }
                 // A marker opened on an off-stop tab run has its C5 columns that far right.
                 for ($k = $o + 1, $n = count($this->frames); $k < $n && $this->frames[$k]->kind !== 'quote'; $k++) {
                     if (in_array($this->frames[$k]->kind, self::BODY_FRAMES, true)) {
@@ -2314,6 +2331,24 @@ final class BlockOwnershipWalk
         }
     }
 
+    /**
+     * A tabbed payload line under an opener the walk rewrote goes out as spaces
+     * too, when the walk column and the per-frame column agree on it.
+     */
+    private function rewritesTabbedPayload(OwnershipFrame $inner, bool $shiftedCloser, int $segment, int $payloadColumn): bool
+    {
+        if (
+            $shiftedCloser || $inner->openerTabShift === null || $inner->family === 'comment'
+            || !str_contains(substr($this->src, 0, strlen($this->src) - strlen($this->m['rest'])), "\t")
+            || preg_match('/^(?:`{3,}|~{3,}|:{3,}|%{3,})[ \t]*$/D', $this->m['rest']) === 1
+        ) {
+            return false;
+        }
+        $frameShift = $this->strippedColumn($this->src, $segment, $this->m) - $this->m['col'];
+
+        return max($this->m['col'] + $frameShift - $inner->openerTabShift - $inner->cut, $inner->canon) === $payloadColumn;
+    }
+
     private function lead(int $target, bool $spaces = false, bool $contentTab = false, bool $definitionMarker = false): void
     {
         $authored = substr($this->src, 0, strlen($this->src) - strlen($this->m['rest']));
@@ -2341,9 +2376,9 @@ final class BlockOwnershipWalk
         $frameLocalTab = $hasTab && count($this->frames) > $segment + 1 && !$insideVerbatimBlock && !$contentTab
             && (!$definitionMarker || $this->strippedColumn($this->src, $segment, $this->m) === $this->m['col']);
         $col = $frameLocalTab ? $target : min($target, $this->m['col']);
-        $this->out .= $col === $this->m['col'] && !$frameLocalTab && !($spaces && $this->out === '' && $hasTab)
-            ? $authored
-            : str_repeat(' ', $col);
+        $keep = $col === $this->m['col'] && !$frameLocalTab && !($spaces && $this->out === '' && $hasTab);
+        $this->leadRewrote = !$keep;
+        $this->out .= $keep ? $authored : str_repeat(' ', $col);
         $this->src = $this->m['rest'];
     }
 
