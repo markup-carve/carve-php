@@ -4974,7 +4974,11 @@ class BlockParser
                 $markerCommentEnd = str_starts_with($line, '{%') && !$walkKept
                     ? RefusedBraceRun::markerLineEnd($this->state->source->authoredLines, $sourceLine, $line, $this->inlineParser)
                     : null;
-                $lazyOpener = isset($this->state->source->lazyLines[$sourceLine]);
+                // The quote reader owns a line that omitted its `>` prefix;
+                // this paragraph probe must not turn its literal opener into
+                // an invisible run merely because a later line is prefixed.
+                $lazyOpener = isset($this->state->source->lazyLines[$sourceLine])
+                    && !isset($this->state->session->blockQuoteLazySourceLines[$sourceLine]);
                 if (str_starts_with($line, '{%') && !$walkKept && $markerCommentEnd === null && !$lazyOpener) {
                     continue;
                 }
