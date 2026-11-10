@@ -541,7 +541,10 @@ final class BlockQuoteBuilder
                     count($innerLines),
                     fn (array $run, int $at): ?int => RefusedBraceRun::end($run, $at, ($this->getInlineParser)()),
                     ($this->getListParser)(),
-                )
+                ) || ($content !== null
+                    && preg_match('/^#{1,6} +\S/', ltrim($content, " \t")) === 1
+                    && isset($lazyState['hosts']['descriptionColumn'])
+                    && $this->followsRefusedQuotedDescriptionRun($innerLines, $innerLineMap, $this->sourceLineFor($i)))
             ) {
                 $innerLines[] = BlockGrammar::LAZY_FRAME . $content;
                 $innerLineMap[] = $this->sourceLineFor($i);
@@ -730,7 +733,7 @@ final class BlockQuoteBuilder
     private function appendUnprefixedAttributeRun(array $lines, int &$at, int $length, array &$innerLines, array &$innerLineMap): void
     {
         for ($tail = 0; $tail < $length; $tail++) {
-            $innerLines[] = $lines[$at];
+            $innerLines[] = $this->blockQuoteLineContent($lines[$at]) ?? $lines[$at];
             $innerLineMap[] = $this->sourceLineFor($at);
             $at++;
         }
@@ -753,7 +756,7 @@ final class BlockQuoteBuilder
     }
 
     /**
-     * @param array{attrRun: list<string>|null, hosts?: array{kinds: list<string>}} $state
+     * @param array{mode: \MarkupCarve\Carve\Parser\BlockQuoteLazyMode, attrRun: list<string>|null, hosts?: array{kinds: list<string>, descriptionColumn?: int}} $state
      * @param array<string> $lines
      * @param int $start
      * @param array<string> $innerLines
@@ -762,8 +765,21 @@ final class BlockQuoteBuilder
     private function quotedAttributeRunLength(array $state, array $lines, int $start, array $innerLines, array $innerLineMap): int
     {
         $length = $this->unprefixedAttributeRunLength($state, $lines, $start, $innerLineMap);
-        if ($length > 0 || $state['attrRun'] !== null || !in_array('item', $state['hosts']['kinds'] ?? [], true)) {
+        if ($length > 0 || $state['attrRun'] !== null || $state['mode'] !== BlockQuoteLazyMode::Content) {
             return $length;
+        }
+
+        $last = array_key_last($innerLines) ?? 0;
+        $descriptionLength = isset($state['hosts']['descriptionColumn'])
+            ? $this->descriptionLineAttributeRunLength(
+                $innerLines[$last] ?? '',
+                $lines,
+                $start,
+                $innerLineMap[$last] ?? -1,
+            )
+            : 0;
+        if ($descriptionLength > 0 || !in_array('item', $state['hosts']['kinds'] ?? [], true)) {
+            return $descriptionLength;
         }
 
         return $this->markerLineQuoteAttributeRunLength(
@@ -772,6 +788,109 @@ final class BlockQuoteBuilder
             $start,
             $innerLineMap[array_key_last($innerLineMap) ?? 0] ?? -1,
         );
+    }
+
+    /**
+     * A description marker can open a block attribute in its body. The next
+     * line may omit the quote prefix but still continue from the written brace.
+     *
+     * @param string $lead
+     * @param array<string> $lines
+     * @param int $sourceLine
+     * @param int $start
+     */
+    private function descriptionLineAttributeRunLength(string $lead, array $lines, int $start, int $sourceLine): int
+    {
+        $lead = ContainerPrefix::afterLeadingQuoteMarkers($lead);
+        if (preg_match('/^: +(?=\{)/', $lead, $match) !== 1) {
+            return 0;
+        }
+        $content = substr($lead, strlen($match[0]));
+        if (!WrappedBlockAttributeScanner::endsInsideBlock($content, false)) {
+            return 0;
+        }
+        $opener = $this->state->source->sourceLines[$sourceLine] ?? '';
+        $brace = strpos($opener, '{');
+        if ($brace === false) {
+            return 0;
+        }
+        $openingColumn = WrappedBlockAttributeScanner::columnAt($opener, $brace);
+        $quoteOpener = ContainerPrefix::afterLeadingQuoteMarkers($opener);
+        $quoteBrace = strpos($quoteOpener, '{');
+        $quoteOpeningColumn = $quoteBrace === false ? $openingColumn : WrappedBlockAttributeScanner::columnAt($quoteOpener, $quoteBrace);
+        $quoteDepth = ContainerPrefix::countLeadingQuoteMarkers($opener);
+        $state = self::initialBlockQuoteLazyState();
+        $state['attrRun'] = [$content];
+        for ($at = $start, $count = count($lines); $at < $count; $at++) {
+            $line = $lines[$at];
+            if (IndentationHelper::isBlankLine($line)) {
+                break;
+            }
+            $authored = $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? $line;
+            $quoted = ContainerPrefix::afterLeadingQuoteMarkers($line);
+            $hasQuote = $quoted !== $line;
+            if ($hasQuote && ContainerPrefix::countLeadingQuoteMarkers($line) < $quoteDepth) {
+                break;
+            }
+            $contentColumn = $hasQuote
+                ? IndentationHelper::getLeadingColumns($quoted)
+                : IndentationHelper::getLeadingColumns($authored);
+            if ($contentColumn <= ($hasQuote ? $quoteOpeningColumn : $openingColumn)) {
+                break;
+            }
+            if ($this->trackWrappedAttributeRun($state, $hasQuote ? $quoted : $line)) {
+                return $at - $start + 1;
+            }
+            if ($state['attrRun'] === null) {
+                break;
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Check the authored columns when an interrupted description run is text.
+     * The local quote body has already lost the prefix width.
+     *
+     * @param array<string> $innerLines
+     * @param array<int, int> $innerLineMap
+     * @param int $nextSourceLine
+     */
+    private function followsRefusedQuotedDescriptionRun(array $innerLines, array $innerLineMap, int $nextSourceLine): bool
+    {
+        if (!str_contains($innerLines[array_key_last($innerLines) ?? 0] ?? '', '}')) {
+            return false;
+        }
+        for ($k = count($innerLines) - 1; $k >= 0 && !IndentationHelper::isBlankLine($innerLines[$k]); $k--) {
+            $lead = ContainerPrefix::afterLeadingQuoteMarkers($innerLines[$k]);
+            if (preg_match('/^: +(?=\{)/', $lead) !== 1) {
+                continue;
+            }
+            $sourceLine = $innerLineMap[$k] ?? -1;
+            $opener = $this->state->source->sourceLines[$sourceLine] ?? '';
+            $next = $this->state->source->sourceLines[$nextSourceLine] ?? '';
+            if (
+                ContainerPrefix::countLeadingQuoteMarkers(ltrim($next, " \t"))
+                < ContainerPrefix::countLeadingQuoteMarkers(ltrim($opener, " \t"))
+            ) {
+                return false;
+            }
+            $brace = strpos($opener, '{');
+            if ($brace === false || $nextSourceLine <= $sourceLine + 1) {
+                return false;
+            }
+            $run = [str_repeat(' ', WrappedBlockAttributeScanner::columnAt($opener, $brace)) . substr($opener, $brace)];
+            for ($at = $sourceLine + 1; $at < $nextSourceLine; $at++) {
+                $line = $this->state->source->sourceLines[$at] ?? '';
+                $content = ContainerPrefix::afterLeadingQuoteMarkers($line);
+                $run[] = str_repeat(' ', strlen($line) - strlen($content)) . $content;
+            }
+
+            return RefusedBraceRun::end($run, 0, ($this->getInlineParser)()) === count($run);
+        }
+
+        return false;
     }
 
     /**
