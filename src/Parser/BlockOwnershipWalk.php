@@ -320,6 +320,13 @@ final class BlockOwnershipWalk
     private ?array $attachedTo = null;
 
     /**
+     * A marker-column attribute block closed its host on the previous line (A02).
+     *
+     * @var array{line: int, column: int|null, hostIndex: int}|null
+     */
+    private ?array $literalPlusAfterAttribute = null;
+
+    /**
      * Trace owner restored after an attached colon block ends at a blank.
      *
      * @var array{owner: string, column: int}|null
@@ -549,6 +556,7 @@ final class BlockOwnershipWalk
         $this->skipped = null;
         $this->refusedAttributeHost = null;
         $this->attachedTo = null;
+        $this->literalPlusAfterAttribute = null;
         $this->releasedSibling = 0;
         $this->frames = [new OwnershipFrame('doc', 0, 0, 0)];
         $result = [];
@@ -578,6 +586,7 @@ final class BlockOwnershipWalk
             $this->endOwnLineFenceAtMiss($at, $lines);
             $this->restoreEnclosingAttachedHost($at);
             $this->recordCommentPayloadHostColumn($at);
+            $this->closeAttributeHostBeforeLiteralPlus($at);
             // A `+` right after the block a `+` attached reaches the same host, whose
             // frames the walk closed when it read that block where it stands.
             if ($this->attachedTo !== null && str_contains($this->src, '+')) {
@@ -1315,10 +1324,45 @@ final class BlockOwnershipWalk
             if ($skipped['host']->plus === $skipped['at']) {
                 $skipped['host']->plus = $at;
             }
+            if ($this->skippedAttributeClosesHost($skipped)) {
+                $this->literalPlusAfterAttribute = [
+                    'line' => $skipped['end'],
+                    'column' => $skipped['host']->markerCol,
+                    'hostIndex' => $skipped['hostIndex'],
+                ];
+            }
             $this->skipped = null;
         }
 
         return true;
+    }
+
+    /**
+     * A valid marker-column attribute block in the skipped prelude closes its
+     * host before the next line is owned (plus ownership A02).
+     *
+     * @param array{at: int, end: int, hostIndex: int, column: int, host: \MarkupCarve\Carve\Parser\OwnershipFrame} $skipped
+     */
+    private function skippedAttributeClosesHost(array $skipped): bool
+    {
+        if (!in_array($skipped['host']->kind, ['item', 'dd', 'note'], true)) {
+            return false;
+        }
+        for ($start = $skipped['at'] + 1; $start < $skipped['end']; $start++) {
+            $line = $this->throughQuotes($this->lines[$start], $skipped['hostIndex'], $this->frames);
+            if ($line === null || ($line['col'] ?? null) !== $skipped['host']->markerCol || !str_starts_with($line['rest'], '{')) {
+                continue;
+            }
+            if ($start + 1 === $skipped['end'] && ($this->isAttributeLine)($line['rest'])) {
+                return true;
+            }
+            $length = $this->skippedWrappedAttributeLength($start, $skipped['hostIndex'], $this->frames);
+            if ($length !== null && $start + $length === $skipped['end']) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -3697,6 +3741,30 @@ final class BlockOwnershipWalk
         $this->attachedFenceMisses[$at] = true;
         $this->frames = array_slice($held['frames'], 0, $last);
         $this->attachedTo = null;
+    }
+
+    /**
+     * Keep an attribute's host only when the next plus can attach a block there.
+     */
+    private function closeAttributeHostBeforeLiteralPlus(int $at): void
+    {
+        $closedAttribute = $this->literalPlusAfterAttribute;
+        if ($closedAttribute === null || $at !== $closedAttribute['line'] || !isset($this->frames[$closedAttribute['hostIndex']])) {
+            return;
+        }
+
+        $view = $this->throughQuotes($this->src, $closedAttribute['hostIndex'], $this->frames);
+        if ($view !== null && self::isPlus($view['rest']) && ($view['col'] ?? null) === $closedAttribute['column']) {
+            $claimed = $this->claimedMarkers;
+            unset($this->claimedMarkers[$at]);
+            $host = $this->frames[$closedAttribute['hostIndex']];
+            $attaches = $this->attachesAt($host->kind, $at, self::docColumn($this->src, $view['rest']), $closedAttribute['hostIndex']);
+            $this->claimedMarkers = $claimed;
+            if (!$attaches) {
+                $this->truncate($closedAttribute['hostIndex']);
+                $this->attachedTo = null;
+            }
+        }
     }
 
     /**
