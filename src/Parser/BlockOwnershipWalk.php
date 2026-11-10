@@ -420,6 +420,8 @@ final class BlockOwnershipWalk
 
     private ?OwnershipFrame $refusedKeptOwner = null;
 
+    private ?OwnershipFrame $refusedKeptLazyNoteHost = null;
+
     private int $refusedKeptColumn = 0;
 
     private int $movedSpanEnd = -1;
@@ -479,6 +481,7 @@ final class BlockOwnershipWalk
         $this->refusedKeptStart = -1;
         $this->refusedKeptThrough = -1;
         $this->refusedKeptOwner = null;
+        $this->refusedKeptLazyNoteHost = null;
         $this->movedSpanEnd = -1;
         $this->lazyLines = [];
         $this->attachedPreludeLines = [];
@@ -2481,13 +2484,20 @@ final class BlockOwnershipWalk
             return null;
         }
         $at = $this->at;
-        if ($at > $this->refusedKeptStart && $this->refusedRunMissesItsContainer($this->refusedKeptStart)) {
+        // A refused run written lazily reaches the note paragraph through S4.
+        // Its source owner is the document, but its single protected follower
+        // still belongs to the note.
+        if (
+            $at > $this->refusedKeptStart && $this->refusedRunMissesItsContainer($this->refusedKeptStart)
+            && $this->refusedKeptLazyNoteHost === null
+        ) {
             $this->refusedKeptThrough = -1;
         }
         // A block that misses the run's container, or a sibling description marker, ends its paragraph (PART 0 S2).
         // A lazy text line there is read as usual and keeps the follower protected; a note definition is that follower.
         if ($at > $this->refusedKeptStart && $at <= $this->refusedKeptThrough) {
-            $missed = $owner !== $this->refusedKeptOwner || $col < $this->refusedKeptColumn;
+            $missed = ($owner !== $this->refusedKeptOwner && $owner !== $this->refusedKeptLazyNoteHost)
+                || $col < $this->refusedKeptColumn;
             $form = $missed || $rest[0] === ':' ? $this->classify($rest, $owner, $col) : null;
             if ($missed && $form?->kind === 'note') {
                 $this->refusedKeptLines[$at] = $this->refusedKeptStart;
@@ -2544,6 +2554,7 @@ final class BlockOwnershipWalk
             }
         }
         $top = $this->frames[count($this->frames) - 1];
+        $lazyNoteParagraph = $top->kind === 'note' && $top->para && $owner !== $top && $col < $top->col;
         // A first-block marker sits on the lead line, not in the frame's plus slot.
         $firstBlockLead = $top->line === $at - 1
             && preg_match('/^(?:[ \t]*:[ \t]+|[ \t]*\[\^[^]]+\]:[ \t]+)\+[ \t]*$/D', $this->lines[$top->line] ?? '') === 1;
@@ -2574,6 +2585,14 @@ final class BlockOwnershipWalk
         if ($kept === null) {
             return null;
         }
+        if ($lazyNoteParagraph) {
+            $follower = ltrim($this->lines[$at + $kept] ?? '', " \t");
+            if ($this->fenced->parseCodeFenceOpener($follower) !== null) {
+                // A fence-shaped follower has its own span boundary. The note
+                // reader stops that span before a later column-zero block.
+                $lazyNoteParagraph = false;
+            }
+        }
         if ($firstBlockLead && $top->plus !== $at - 1) {
             $runEnd = $this->refusedBraceRunEnd !== null ? ($this->refusedBraceRunEnd)($window, 0) : null;
             $protectedCloser = $runEnd !== null && $kept > $runEnd;
@@ -2593,6 +2612,7 @@ final class BlockOwnershipWalk
         $this->refusedKeptStart = $at;
         $this->refusedKeptThrough = $at + $kept;
         $this->refusedKeptOwner = $owner;
+        $this->refusedKeptLazyNoteHost = $lazyNoteParagraph ? $top : null;
         $this->refusedKeptColumn = $column;
         $this->refusedKeptLines[$at] = $at;
 
