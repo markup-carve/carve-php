@@ -48,7 +48,7 @@ class ContinuationMarkerRuling3482Test extends TestCase
     public function testRefusedSecondMarkerReportsItsPhysicalColumn(): void
     {
         $warnings = (new FenceAndContinuationLinter())->lint("- a\n\n  ```\n+\n+\n\ntail\n");
-        $refusals = array_values(array_filter($warnings, static fn ($warning): bool => $warning->rule === 'continuation-marker-refused'));
+        $refusals = array_values(array_filter($warnings, static fn ($warning): bool => $warning->rule === 'refused-continuation-marker'));
         self::assertSame([[4, 1], [5, 1]], array_map(static fn ($warning): array => [$warning->line, $warning->column], $refusals));
         self::assertStringContainsString('a blank line', $refusals[0]->message);
     }
