@@ -57,8 +57,8 @@ class FinalCarrierContractTest extends TestCase
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
             foreach (
                 [
-                    '<section id="mine" data-carve-explicit-id data-djot-generated-id><h1>H</h1></section>',
-                    '<p><span data-carve-escaped data-djot-raw="latex">*</span></p>',
+                    '<section id="mine" data-carve-explicit-id data-carve-generated-id><h1>H</h1></section>',
+                    '<p><span data-carve-escaped data-carve-raw="latex">*</span></p>',
                 ] as $html
             ) {
                 $report = (new HtmlToCarve(importMode: $mode))->convertWithReport($html);

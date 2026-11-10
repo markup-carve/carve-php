@@ -3769,7 +3769,7 @@ final class HtmlAstBuilder
     private function carriedSubstitution(DOMElement $node): ?array
     {
         foreach ($node->attributes as $attribute) {
-            if (CarrierNames::canonicalName(DomLoader::attributeName($attribute)) !== 'data-carve-substitution') {
+            if (strtolower(DomLoader::attributeName($attribute)) !== 'data-carve-substitution') {
                 return null;
             }
         }
@@ -4357,7 +4357,7 @@ final class HtmlAstBuilder
         if ($tag === 'span' && CarrierNames::peekPresence($node, 'data-carve-caption-number')) {
             $bare = true;
             foreach ($node->attributes as $attribute) {
-                $bare = $bare && CarrierNames::canonicalName($attribute->name) === 'data-carve-caption-number';
+                $bare = $bare && strtolower($attribute->name) === 'data-carve-caption-number';
             }
             foreach ($node->childNodes as $child) {
                 $bare = $bare && $child instanceof DOMText;

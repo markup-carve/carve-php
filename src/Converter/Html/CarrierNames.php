@@ -9,7 +9,7 @@ use SplObjectStorage;
 use WeakMap;
 
 /**
- * The reserved roundtrip carrier names, and the deprecated spelling of each.
+ * The reserved roundtrip carrier names.
  *
  * PART 10 section 13a reserves a SET, not a prefix: a `data-carve-` name this
  * enumeration does not list is an ordinary authored attribute and reaches the
@@ -25,13 +25,6 @@ final class CarrierNames
      * @var string
      */
     public const PREFIX = 'data-carve-';
-
-    /**
-     * The spelling released versions exported, accepted on import only.
-     *
-     * @var string
-     */
-    public const LEGACY_PREFIX = 'data-djot-';
 
     /**
      * Every reserved carrier that carries the prefix, without it.
@@ -89,7 +82,7 @@ final class CarrierNames
 
     public static function isReserved(string $name): bool
     {
-        $lower = self::canonicalName($name);
+        $lower = strtolower($name);
 
         return $lower !== 'data-carve-ext' && str_starts_with($lower, self::PREFIX)
             && in_array(substr($lower, strlen(self::PREFIX)), self::SUFFIXES, true);
@@ -97,20 +90,7 @@ final class CarrierNames
 
     public static function isStoredSourceMarker(string $name): bool
     {
-        return in_array(strtolower($name), ['data-carve-src', 'data-djot-src'], true);
-    }
-
-    public static function canonicalName(string $name): string
-    {
-        $lower = strtolower($name);
-        if (str_starts_with($lower, self::LEGACY_PREFIX)) {
-            $canonical = self::PREFIX . substr($lower, strlen(self::LEGACY_PREFIX));
-            if (in_array(substr($canonical, strlen(self::PREFIX)), self::SUFFIXES, true)) {
-                return $canonical;
-            }
-        }
-
-        return $lower;
+        return strtolower($name) === 'data-carve-src';
     }
 
     /**
@@ -123,7 +103,6 @@ final class CarrierNames
 
     private static function markUsed(DOMElement $element, string $name): void
     {
-        $name = self::readName($element, $name);
         $document = $element->ownerDocument;
         if ($document === null || !$element->hasAttribute($name)) {
             return;
@@ -180,21 +159,11 @@ final class CarrierNames
 
     public static function peekAttribute(DOMElement $element, string $name): string
     {
-        return $element->getAttribute(self::readName($element, $name));
+        return $element->getAttribute($name);
     }
 
     public static function peekPresence(DOMElement $element, string $name): bool
     {
-        return $element->hasAttribute(self::readName($element, $name));
-    }
-
-    private static function readName(DOMElement $element, string $name): string
-    {
-        // Canonical carriers win without changing the attributes serialized as raw HTML.
-        if ($element->hasAttribute($name) || (!self::isReserved($name) && $name !== 'data-carve-ext')) {
-            return $name;
-        }
-
-        return self::LEGACY_PREFIX . substr($name, strlen(self::PREFIX));
+        return $element->hasAttribute($name);
     }
 }

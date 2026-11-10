@@ -2368,9 +2368,9 @@ class HtmlToCarve
         }
         foreach ($node->attributes as $attribute) {
             $name = strtolower(DomLoader::attributeName($attribute));
-            $canonical = CarrierNames::canonicalName($name);
+            $canonical = strtolower($name);
             if (
-                !$preserved && $tag === 'a' && (CarrierNames::wasUsed($node, 'data-carve-xref') || CarrierNames::wasUsed($node, 'data-djot-xref'))
+                !$preserved && $tag === 'a' && CarrierNames::wasUsed($node, 'data-carve-xref')
                 && !isset($this->contradictoryLinkCarriers[$node]) && CarrierNames::wasUsed($node, $name)
             ) {
                 continue;
@@ -2423,15 +2423,15 @@ class HtmlToCarve
             } elseif ($tag === 'ol' && $name === 'start' && filter_var($attribute->value, FILTER_VALIDATE_INT) === 1) {
                 // The native default preserves this value without an attribute.
                 continue;
-            } elseif (CarrierNames::canonicalName($name) === 'data-carve-footnote-label' && !HtmlAstBuilder::hasConflictingEndnoteCarriers($node) && !HtmlAstBuilder::isValidFootnoteCarrierLabel($attribute->value)) {
+            } elseif (strtolower($name) === 'data-carve-footnote-label' && !HtmlAstBuilder::hasConflictingEndnoteCarriers($node) && !HtmlAstBuilder::isValidFootnoteCarrierLabel($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid footnote carrier label on <' . $tag . '>', 'warning', $path);
-            } elseif (CarrierNames::canonicalName($name) === 'data-carve-label' && !HtmlAstBuilder::isValidCodeLabel($attribute->value)) {
+            } elseif (strtolower($name) === 'data-carve-label' && !HtmlAstBuilder::isValidCodeLabel($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid code block label on <' . $tag . '>', 'warning', $path);
-            } elseif (CarrierNames::canonicalName($name) === 'data-carve-col-widths' && !HtmlAstBuilder::isValidSeparatorWidthCarrier($attribute->value)) {
+            } elseif (strtolower($name) === 'data-carve-col-widths' && !HtmlAstBuilder::isValidSeparatorWidthCarrier($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid table separator width carrier on <' . $tag . '>', 'warning', $path);
-            } elseif (CarrierNames::canonicalName($name) === 'data-carve-raw' && !HtmlAstBuilder::isValidRawCarrierFormat($attribute->value)) {
+            } elseif (strtolower($name) === 'data-carve-raw' && !HtmlAstBuilder::isValidRawCarrierFormat($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid raw format carrier on <' . $tag . '>', 'warning', $path);
-            } elseif (CarrierNames::canonicalName($name) === 'data-carve-id-slot' && !CarrierNames::wasUsed($node, $name)) {
+            } elseif (strtolower($name) === 'data-carve-id-slot' && !CarrierNames::wasUsed($node, $name)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid heading id slot carrier on <' . $tag . '>', 'info', $path);
             } elseif (CarrierNames::isReserved($name)) {
                 if (!CarrierNames::wasUsed($node, $name)) {

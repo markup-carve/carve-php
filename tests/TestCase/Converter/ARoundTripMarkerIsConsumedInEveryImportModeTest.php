@@ -65,7 +65,7 @@ class ARoundTripMarkerIsConsumedInEveryImportModeTest extends TestCase
     #[DataProvider('modes')]
     public function testLegacySourceNeverSuppliesSourceOrAuthoredAttributes(string $mode): void
     {
-        foreach (['data-carve-src', 'data-djot-src', 'DATA-CARVE-SRC', 'DATA-DJOT-SRC'] as $name) {
+        foreach (['data-carve-src', 'DATA-CARVE-SRC'] as $name) {
             foreach (['<p %s="*stored*">shown</p>', '<p>lead</p><div %s="*stored*"><p>shown</p></div>'] as $template) {
                 $importer = new HtmlToCarve(importMode: $mode);
                 $html = sprintf($template, $name);

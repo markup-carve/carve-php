@@ -61,7 +61,14 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
      *
      * @var list<string>
      */
-    private const RETIRED = ['data-carve-src', 'data-djot-src'];
+    private const RETIRED = ['data-carve-src'];
+
+    /**
+     * Pinned rows that asserted the `data-djot-` alias carve#5735 retired.
+     *
+     * @var array<string>
+     */
+    private const RETIRED_ALIAS_ROWS = ['canonical-carrier-beats-deprecated', 'retired-source-alias-consumed', 'deprecated-alias-name-dropped'];
 
     /**
      * Rows still marked ahead of the pin that this engine already implements (carve-js 3c98f9fb).
@@ -122,6 +129,9 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
             self::assertIsString($fixture['html']);
             self::assertIsString($fixture['expectedSource']);
             self::assertIsString($fixture['name']);
+            if (RetiredInputAliasesTest::pinPredatesAliasRetirement() && str_contains($fixture['html'], 'data-djot-')) {
+                continue;
+            }
             $importer = new HtmlToCarve(importMode: $fixture['mode']);
             $result = $importer->convertWithReport($fixture['html']);
             self::assertSame($fixture['expectedSource'], $result->value, $fixture['name']);
@@ -138,7 +148,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
     public function testRecoveredCarriersArePublishedAstFields(): void
     {
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
-            foreach (['data-carve-', 'data-djot-'] as $prefix) {
+            foreach (['data-carve-'] as $prefix) {
                 $converter = new HtmlToCarve(importMode: $mode);
                 $html = '<p><span ' . $prefix . 'escaped>é</span> ordinary</p><img src="/a.png" alt="alt" title="title" ' . $prefix . 'ref="r">';
                 $tree = $converter->convertToAstWithReport($html)->value;
@@ -160,7 +170,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
     public function testReferenceImageRecoveryPreservesDestinationsTitlesAndAltText(): void
     {
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
-            foreach (['data-carve-', 'data-djot-'] as $prefix) {
+            foreach (['data-carve-'] as $prefix) {
                 foreach (['alt', 'a[b', 'a]', 'a\\'] as $alt) {
                     $html = '<p>lead <img src="/a.png" alt="' . $alt . '" title="T" ' . $prefix . 'ref="r"> tail</p>';
                     $tree = (new HtmlToCarve(importMode: $mode))->convertToAstWithReport($html)->value;
@@ -272,7 +282,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
     public function testEscapedCarriersDoNotBreakIntermediateTreesOrAttributeReports(): void
     {
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
-            foreach (['data-carve-', 'data-djot-'] as $prefix) {
+            foreach (['data-carve-'] as $prefix) {
                 foreach (
                     [
                         '<details><summary>s<span CARRIER>*</span></summary><p>x</p></details>',
@@ -295,7 +305,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
     public function testImageReferenceRecoveryMatchesTheExistingLinkLabelChecks(): void
     {
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
-            foreach (['data-carve-', 'data-djot-'] as $prefix) {
+            foreach (['data-carve-'] as $prefix) {
                 $converter = new HtmlToCarve(importMode: $mode);
                 $collapsed = $converter->convertToAstWithReport('<img src="/a.png" alt="alt" ' . $prefix . 'ref="">')->value;
                 self::assertTrue(self::matchesProjection($collapsed, [['type' => 'image', 'ref' => 'alt']]));
@@ -353,6 +363,10 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
                 if (($raw[$kind][$index]['aheadOfPin'] ?? false) === true && !in_array($fixture['id'], self::PORTED_AHEAD_OF_PIN, true)) {
                     continue;
                 }
+                // carve#5738 rewrote these rows after the pin; RetiredInputAliasesTest carries the new reading.
+                if (in_array($fixture['id'], self::RETIRED_ALIAS_ROWS, true)) {
+                    continue;
+                }
                 foreach ($kind === 'importNegative' ? $fixture['importModes'] : [null] as $mode) {
                     yield $kind . '/' . $fixture['id'] . ($mode === null ? '' : '/' . $mode) => [$kind, $fixture, $mode];
                 }
@@ -382,7 +396,6 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
         $attrs = self::attributes($exported);
         foreach ($attrs as $attribute) {
             if (self::reserved($attribute['name'])) {
-                self::assertFalse(str_starts_with($attribute['name'], 'data-djot-'));
                 self::assertArrayHasKey($attribute['name'], $fixture['carriers']);
             }
         }
@@ -426,9 +439,6 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
             self::assertFalse($declined && $fixture['fallbackNodes'] === []);
             self::assertNoReservedAttributes($imported);
             self::assertAbsentFields($imported, $fixture['expectedAbsentFields']);
-            $legacy = $importer->convertToAstWithReport(self::deprecatedHtml($exported))->value;
-            self::assertTrue(self::matchesProjection($legacy, $fixture['expectedNodes']) || ($fixture['fallbackNodes'] !== [] && self::matchesProjection($legacy, $fixture['fallbackNodes'])));
-            self::assertNoReservedAttributes($legacy);
             $source = $importer->convertWithReport($exported)->value;
             self::assertSame(trim($declined ? $fixture['fallbackHtml'] : $ordinary), trim($ordinaryConverter->convert($source)), $mode);
         }
@@ -739,7 +749,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
         if (in_array($name, ['data-marker', 'data-char', ...self::RETIRED], true)) {
             return true;
         }
-        foreach (['data-carve-', 'data-djot-'] as $prefix) {
+        foreach (['data-carve-'] as $prefix) {
             if (str_starts_with($name, $prefix) && in_array(substr($name, strlen($prefix)), self::INVENTORY, true)) {
                 return true;
             }
@@ -875,51 +885,5 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
         }
 
         return $attributes;
-    }
-
-    private static function deprecatedHtml(string $html): string
-    {
-        $root = DomLoader::load($html);
-        $uris = [];
-        $uriToken = 'CARVEDEPRECATEDURI';
-        while (str_contains($html, $uriToken)) {
-            $uriToken .= 'X';
-        }
-        $walk = static function (DOMNode $node) use (&$walk, &$uris, $uriToken): void {
-            if ($node instanceof DOMElement) {
-                if ($node->hasAttribute('href') && preg_match('/[^\x00-\x7f]/', $node->getAttribute('href')) === 1) {
-                    $token = $uriToken . count($uris) . 'Z';
-                    $uris[$token] = htmlspecialchars($node->getAttribute('href'), ENT_QUOTES, 'UTF-8');
-                    $node->setAttribute('href', $token);
-                }
-                foreach (self::INVENTORY as $name) {
-                    $canonical = 'data-carve-' . $name;
-                    if ($node->hasAttribute($canonical)) {
-                        $node->setAttribute('data-djot-' . $name, $node->getAttribute($canonical));
-                        $node->removeAttribute($canonical);
-                    }
-                }
-            }
-            foreach ($node->childNodes as $child) {
-                $walk($child);
-            }
-        };
-        $walk($root);
-
-        $body = $root->getElementsByTagName('body')->item(0);
-        if ($body === null) {
-            $html = $root->saveHTML();
-            self::assertIsString($html);
-
-            return strtr($html, $uris);
-        }
-        $html = '';
-        foreach ($body->childNodes as $child) {
-            $fragment = $root->saveHTML($child);
-            self::assertIsString($fragment);
-            $html .= $fragment;
-        }
-
-        return strtr($html, $uris);
     }
 }
