@@ -617,6 +617,7 @@ final class BlockQuoteBuilder
             } elseif ($runLength > 0) {
                 // The run is one block even when its continuation omits the quote prefix.
                 // It opens no paragraph for the next unmarked line to continue (CARVE-P2-035, S4).
+                $this->normalizeUnhostedQuotedAttributeOpener($innerLines, $lazyState);
                 $this->appendUnprefixedAttributeRun($lines, $i, $runLength, $innerLines, $innerLineMap);
                 $lazyState['attrRun'] = null;
                 $lazyState['paragraphOpen'] = false;
@@ -732,6 +733,22 @@ final class BlockQuoteBuilder
             $innerLines[] = $lines[$at];
             $innerLineMap[] = $this->sourceLineFor($at);
             $at++;
+        }
+    }
+
+    /**
+     * @param array<string> $innerLines
+     * @param array{attrRun: list<string>|null, hosts?: array{kinds: list<string>, descriptionColumn?: int}} $state
+     */
+    private function normalizeUnhostedQuotedAttributeOpener(array &$innerLines, array $state): void
+    {
+        $openerIndex = count($innerLines) - count($state['attrRun'] ?? []);
+        if (
+            isset($innerLines[$openerIndex])
+            && ($state['hosts']['kinds'] ?? []) === []
+            && !isset($state['hosts']['descriptionColumn'])
+        ) {
+            $innerLines[$openerIndex] = ltrim($innerLines[$openerIndex], " \t");
         }
     }
 
@@ -2368,7 +2385,11 @@ final class BlockQuoteBuilder
                     break;
                 }
             }
-            $attributeContent = $reachesMarkerBody ? ltrim($content, " \t") : $content;
+            // The quote prefix has already been read. Leading whitespace before
+            // a new brace opener affects its source column, not its block kind.
+            $attributeContent = $reachesMarkerBody || $state['attrRun'] === null
+                ? ltrim($content, " \t")
+                : $content;
             if ($this->trackWrappedAttributeRun($state, $attributeContent)) {
                 $state['paragraphOpen'] = false;
 
