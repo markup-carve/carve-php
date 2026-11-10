@@ -1513,16 +1513,19 @@ final class BlockContinuationScanner
 
                 continue;
             }
-            if ($aboveColumn < $column || $deeperLine) {
+            if ($aboveColumn < $column) {
                 return null;
             }
             $head = ltrim($above, " \t");
             if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $head) === 1) {
-                return strlen($m[0]);
+                return $deeperLine ? null : strlen($m[0]);
             }
             if (preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $head) !== 1) {
                 return null;
             }
+            // Deeper content after a description belongs to that body. Only
+            // content between a bare term and its first body ends the term.
+            $deeperLine = false;
         }
 
         return null;
