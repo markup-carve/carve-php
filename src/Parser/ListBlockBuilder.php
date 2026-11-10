@@ -1528,6 +1528,7 @@ final class ListBlockBuilder
             $leadNestedColumn = $leadMarker === null
                 ? null
                 : $this->listMarkerWidth(ltrim($itemContent, " \t"), $leadMarker);
+            $itemLines = $this->keepTaskBoxBeforeBraceRun($itemLines, $markerHead, $trimmedLine, $itemInfo);
             $this->callParseItemBlocks(
                 $listItem,
                 $itemLines,
@@ -3693,6 +3694,42 @@ final class ListBlockBuilder
         $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($index));
 
         return $decision['owner'] !== null;
+    }
+
+    /**
+     * A marker-line brace run after a task box opens at its `{` source column, past the box (CARVE-P2-035, CARVE-P9-083).
+     *
+     * The body reads the lead at column 0, so the run's continuations lose the box's width.
+     *
+     * @param array<string> $itemLines
+     * @param string $markerHead
+     * @param string $trimmedLine
+     * @param array{type: string, content: string, attributesWidth?: int, taskMarker?: string} $itemInfo
+     *
+     * @return array<string>
+     */
+    private function keepTaskBoxBeforeBraceRun(array $itemLines, string $markerHead, string $trimmedLine, array $itemInfo): array
+    {
+        $lead = $itemLines[0] ?? '';
+        if (
+            ($itemInfo['taskMarker'] ?? null) === null || count($itemLines) < 2
+            || !str_starts_with($lead, '{') || str_starts_with($lead, '{%') || str_contains($markerHead, "\t")
+        ) {
+            return $itemLines;
+        }
+        $boxWidth = strlen($markerHead) - $this->listMarkerWidth($trimmedLine, $itemInfo);
+        $count = count($itemLines);
+        for ($at = 1; $at < $count && WrappedBlockAttributeScanner::endsInsideBlock($itemLines[$at - 1], $at > 1); $at++) {
+            $line = $itemLines[$at];
+            if (IndentationHelper::isBlankLine($line) || str_contains($line, "\n") || str_starts_with($line, BlockGrammar::LAZY_FRAME)) {
+                break;
+            }
+            $itemLines[$at] = IndentationHelper::getLeadingColumns($line, $boxWidth) < $boxWidth
+                ? ltrim($line, " \t")
+                : IndentationHelper::stripLeadingColumns($line, $boxWidth);
+        }
+
+        return $itemLines;
     }
 
     /**
