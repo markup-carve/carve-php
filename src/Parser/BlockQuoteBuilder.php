@@ -818,6 +818,9 @@ final class BlockQuoteBuilder
      */
     public function markerLineQuoteAttributeRunLength(string $lead, array $lines, int $start, int $sourceLine): int
     {
+        if (!str_contains($lead, '>') || !str_contains($lead, '{')) {
+            return 0;
+        }
         $content = $lead;
         $sawQuote = false;
         while (true) {
