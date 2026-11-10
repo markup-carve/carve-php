@@ -138,6 +138,7 @@ final class RefusedBraceRun
      * @param \MarkupCarve\Carve\Parser\Block\FencedBlockParser $fenced
      * @param int $column The container's content column; a follower short of it misses the container.
      * @param bool $more Whether lines follow $lines.
+     * @param bool $bodyBound Whether the container is a description body, which ends at any line short of its column.
      */
     public static function keptThrough(
         array $lines,
@@ -147,6 +148,7 @@ final class RefusedBraceRun
         FencedBlockParser $fenced,
         int $column = 0,
         bool $more = false,
+        bool $bodyBound = false,
     ): ?int {
         $runEnd = self::end($lines, $start, $inlineParser, null, $more);
         if ($runEnd === null || $runEnd === -1) {
@@ -182,6 +184,10 @@ final class RefusedBraceRun
             // A block opener short of this paragraph's owner ends its span.
             // Its later fence lines belong to the surviving owner, not to the
             // refused run's protected follower.
+            // A description body ends at a line short of its column, and the fence-shaped follower is read there as usual.
+            if ($bodyBound && $blank < 0 && trim($line, " \t") !== '' && IndentationHelper::getLeadingColumns($lines[$j]) < $column) {
+                return $runEnd - 1;
+            }
             if (
                 $blank < 0 && IndentationHelper::getLeadingColumns($lines[$j]) < $column
                 && (preg_match('/^(?:>|#{1,6}(?:[ \t]|$))/', $line) === 1

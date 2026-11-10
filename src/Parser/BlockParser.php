@@ -730,7 +730,7 @@ class BlockParser
             fn (string $line): bool => $this->isBlockAttributeLine($line),
             fn (array $run, int $column = 0): ?int => WrappedBlockAttributeScanner::scan($run, 0, $this->inlineParser, $column)['length'] ?? null,
             $this->commentOnlyParagraphEnd(...),
-            fn (array $lines, int $start, int $column, bool $more): ?int => RefusedBraceRun::keptThrough(
+            fn (array $lines, int $start, int $column, bool $more, bool $bodyBound = false): ?int => RefusedBraceRun::keptThrough(
                 $lines,
                 $start,
                 $this->inlineParser,
@@ -738,6 +738,7 @@ class BlockParser
                 $this->fencedBlockParser,
                 $column,
                 $more,
+                $bodyBound,
             ),
             fn (array $lines, int $start): ?int => RefusedBraceRun::end($lines, $start, $this->inlineParser),
             self::paragraphSpanOpen(...),

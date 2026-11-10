@@ -79,6 +79,16 @@ final class ARefusedRunFollowerStaysInItsItemOrNoteParagraphTest extends TestCas
             "<dl>\n  <dt>t</dt>\n  <dd>a\n{% x\n%}\n<code></code></dd>\n</dl>\n<p>after</p>",
         ];
 
+        yield 'a lazy closer in a description body keeps the run before a fence' => [
+            ":: t\n: a\n  {% x\n%}\n  ```\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>a\n{% x\n%}\n<code></code></dd>\n</dl>",
+        ];
+
+        yield 'a fence follower in a description body ends before a column zero line after its payload' => [
+            ":: t\n: a\n  {% x\n  %}\n  ```\n  b\nafter\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>a\n{% x\n%}\n<code>\nb</code></dd>\n</dl>\n<p>after</p>",
+        ];
+
         yield 'a comment run does not reach a sibling item' => [
             "- a\n  - {% x\n  - y %}\n  - c\n",
             "<ul>\n  <li>a\n    <ul>\n      <li>{% x</li>\n      <li>y %}</li>\n      <li>c</li>\n    </ul>\n  </li>\n</ul>",
