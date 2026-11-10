@@ -54,6 +54,16 @@ final class AQuotedDescriptionRunAcceptsWrittenColumnTest extends TestCase
             "> ```\n> :   {.x\n        .y}\n> ```\n",
             "<blockquote>\n  <pre><code>:   {.x\n</code></pre>\n</blockquote>\n<p>.y}</p>\n<blockquote>\n  <pre><code></code></pre>\n</blockquote>",
         ];
+
+        yield 'colon without a term stays paragraph text' => [
+            "> : {.x\n      .y}\nplain\n",
+            "<blockquote><p>: {.x\n.y}\nplain</p></blockquote>",
+        ];
+
+        yield 'colon paragraph does not hold a following heading' => [
+            "> : {.x\n  .y}\n> # H\n",
+            "<blockquote>\n  <p>: {.x\n.y}</p>\n  <h1 id=\"H\">H</h1>\n</blockquote>",
+        ];
     }
 
     #[DataProvider('documents')]

@@ -535,7 +535,6 @@ final class BlockQuoteBuilder
             if (
                 $content !== null
                 && (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($content, " \t")) === 1
-                    || preg_match('/^#{1,6} +\S/', ltrim($content, " \t")) === 1
                     || ($this->getListParser)()->parseListItemMarker(ltrim($content, " \t")) !== null)
                 && RefusedBraceRun::followsMarkerLineRun(
                     [...$innerLines, $content],
@@ -544,6 +543,7 @@ final class BlockQuoteBuilder
                     ($this->getListParser)(),
                 ) || ($content !== null
                     && preg_match('/^#{1,6} +\S/', ltrim($content, " \t")) === 1
+                    && isset($lazyState['hosts']['descriptionColumn'])
                     && $this->followsRefusedQuotedDescriptionRun($innerLines, $innerLineMap, $this->sourceLineFor($i)))
             ) {
                 $innerLines[] = BlockGrammar::LAZY_FRAME . $content;
@@ -756,7 +756,7 @@ final class BlockQuoteBuilder
     }
 
     /**
-     * @param array{mode: \MarkupCarve\Carve\Parser\BlockQuoteLazyMode, attrRun: list<string>|null, hosts?: array{kinds: list<string>}} $state
+     * @param array{mode: \MarkupCarve\Carve\Parser\BlockQuoteLazyMode, attrRun: list<string>|null, hosts?: array{kinds: list<string>, descriptionColumn?: int}} $state
      * @param array<string> $lines
      * @param int $start
      * @param array<string> $innerLines
@@ -770,12 +770,14 @@ final class BlockQuoteBuilder
         }
 
         $last = array_key_last($innerLines) ?? 0;
-        $descriptionLength = $this->descriptionLineAttributeRunLength(
-            $innerLines[$last] ?? '',
-            $lines,
-            $start,
-            $innerLineMap[$last] ?? -1,
-        );
+        $descriptionLength = isset($state['hosts']['descriptionColumn'])
+            ? $this->descriptionLineAttributeRunLength(
+                $innerLines[$last] ?? '',
+                $lines,
+                $start,
+                $innerLineMap[$last] ?? -1,
+            )
+            : 0;
         if ($descriptionLength > 0 || !in_array('item', $state['hosts']['kinds'] ?? [], true)) {
             return $descriptionLength;
         }
