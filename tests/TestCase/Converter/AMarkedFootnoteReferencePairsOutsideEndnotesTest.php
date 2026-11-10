@@ -1,0 +1,95 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\TestCase\Converter;
+
+use MarkupCarve\Carve\Converter\HtmlToCarve;
+use PHPUnit\Framework\TestCase;
+
+class AMarkedFootnoteReferencePairsOutsideEndnotesTest extends TestCase
+{
+    public function testMarkedReferencePairsWithAnAside(): void
+    {
+        $html = '<p><a href="#n1" role="doc-noteref">1</a></p>'
+            . '<aside id="n1" role="doc-footnote"><p>body</p></aside>';
+
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $result = (new HtmlToCarve(importMode: $mode))->convertWithReport($html);
+            self::assertSame(
+                "[^1]\n\n[^1]: body\n",
+                $result->value,
+            );
+            self::assertSame([], $result->report()['diagnostics']);
+        }
+    }
+
+    public function testMarkedReferencePairsWithAnOrdinaryListItem(): void
+    {
+        $html = '<p><a href="#fn1" role="doc-noteref">1</a></p>'
+            . '<ol><li id="fn1"><p>body</p><p>more</p></li></ol>';
+
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $result = (new HtmlToCarve(importMode: $mode))->convertWithReport($html);
+            self::assertSame(
+                "[^1]\n\n[^1]: body\n\n  more\n",
+                $result->value,
+            );
+            self::assertSame([], $result->report()['diagnostics']);
+        }
+    }
+
+    public function testConsumedListKeepsTheFootnotePlacementBeforeFollowingContent(): void
+    {
+        $html = '<p><a href="#n1" role="doc-noteref">1</a></p>'
+            . '<ol><li id="n1"><p>body</p></li></ol><p>after</p>';
+
+        self::assertSame(
+            "[^1]\n\n::: footnotes\n\n:::\n\nafter\n\n[^1]: body\n",
+            (new HtmlToCarve())->convert($html),
+        );
+    }
+
+    public function testConsumedTargetInsideWrapperKeepsTheFootnotePlacement(): void
+    {
+        $html = '<p><a href="#n1" role="doc-noteref">1</a></p>'
+            . '<div><aside id="n1" role="doc-footnote"><p>body</p></aside></div><p>after</p>';
+
+        self::assertSame(
+            "[^1]\n\n::: footnotes\n\n:::\n\nafter\n\n[^1]: body\n",
+            (new HtmlToCarve())->convert($html),
+        );
+    }
+
+    public function testInlineTargetUsesItsContainingBlock(): void
+    {
+        $html = '<p><a href="#n1" role="doc-noteref">1</a></p>'
+            . '<p><span id="n1" role="doc-footnote">body</span></p>';
+
+        self::assertSame(
+            "[^1]\n\n[^1]: [body]{#n1 role=doc-footnote}\n",
+            (new HtmlToCarve())->convert($html),
+        );
+    }
+
+    public function testUncollectableInlineTargetLeavesARegularLink(): void
+    {
+        $html = '<p><a href="#n1" role="doc-noteref">1</a></p>'
+            . '<span id="n1" role="doc-footnote">body</span>';
+
+        self::assertSame(
+            "[1](#n1){role=doc-noteref}\n\n[body]{#n1 role=doc-footnote}\n",
+            (new HtmlToCarve())->convert($html),
+        );
+    }
+
+    public function testReferenceInsideItsCandidateDefinitionDoesNotPairWithItself(): void
+    {
+        $html = '<p><a href="#n1" role="doc-noteref">1</a><span id="n1" role="doc-footnote">body</span></p>';
+
+        self::assertSame(
+            "[1](#n1){role=doc-noteref}[body]{#n1 role=doc-footnote}\n",
+            (new HtmlToCarve())->convert($html),
+        );
+    }
+}

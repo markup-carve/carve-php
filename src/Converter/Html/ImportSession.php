@@ -155,6 +155,27 @@ final class ImportSession
     public SplObjectStorage $referencedEndnoteItems;
 
     /**
+     * Referenced definitions outside a canonical endnotes section.
+     *
+     * @var \SplObjectStorage<\DOMElement, true>
+     */
+    public SplObjectStorage $externalFootnoteItems;
+
+    /**
+     * Marked references paired with an external definition.
+     *
+     * @var \SplObjectStorage<\DOMElement, true>
+     */
+    public SplObjectStorage $externalFootnoteReferences;
+
+    /**
+     * Marked references whose fragment exists but cannot be collected as a definition.
+     *
+     * @var \SplObjectStorage<\DOMElement, true>
+     */
+    public SplObjectStorage $unpairedExternalFootnoteReferences;
+
+    /**
      * @var \SplObjectStorage<\DOMElement, true>
      */
     public SplObjectStorage $droppedFootnoteLabelCarriers;
@@ -244,6 +265,9 @@ final class ImportSession
         $this->contradictoryLinkCarriers = new SplObjectStorage();
         $this->endnoteItemLabels = new SplObjectStorage();
         $this->referencedEndnoteItems = new SplObjectStorage();
+        $this->externalFootnoteItems = new SplObjectStorage();
+        $this->externalFootnoteReferences = new SplObjectStorage();
+        $this->unpairedExternalFootnoteReferences = new SplObjectStorage();
         $this->retainedListTypes = new SplObjectStorage();
         $this->supFootnoteTargets = new SplObjectStorage();
         $this->pathSiblingIndices = new SplObjectStorage();

@@ -580,6 +580,64 @@ final class HtmlAstBuilder
                 $this->session->footnoteTargets[substr($href, 1)] = true;
             }
         }
+        // A marked reference identifies its definition by fragment, even when
+        // the definition is not inside a generated endnotes section.
+        $externalFragments = [];
+        foreach ($footnoteAnchors as $anchor) {
+            if (strtolower($anchor->getAttribute('role')) !== 'doc-noteref') {
+                continue;
+            }
+            $href = $anchor->getAttribute('href');
+            $fragment = str_starts_with($href, '#') ? substr($href, 1) : '';
+            if ($fragment !== '' && !isset($this->session->endnoteItems[$fragment])) {
+                $externalFragments[$fragment] = true;
+            }
+        }
+        $targetsById = [];
+        if ($externalFragments !== []) {
+            foreach ($root->getElementsByTagName('*') as $element) {
+                $id = $element->getAttribute('id');
+                if (isset($externalFragments[$id]) && !isset($targetsById[$id])) {
+                    $targetsById[$id] = $element;
+                }
+            }
+        }
+        $externalItems = [];
+        foreach ($footnoteAnchors as $anchor) {
+            if (strtolower($anchor->getAttribute('role')) !== 'doc-noteref') {
+                continue;
+            }
+            $href = $anchor->getAttribute('href');
+            $fragment = str_starts_with($href, '#') ? substr($href, 1) : '';
+            $target = isset($targetsById[$fragment]) ? $this->externalFootnoteBlock($targetsById[$fragment]) : null;
+            if ($target === null || (isset($this->session->endnoteItems[$fragment]) && !isset($this->session->externalFootnoteItems[$target]))) {
+                if (isset($targetsById[$fragment]) && !isset($this->session->endnoteItems[$fragment])) {
+                    $this->session->unpairedExternalFootnoteReferences[$anchor] = true;
+                }
+
+                continue;
+            }
+            $insideTarget = false;
+            for ($parent = $anchor; $parent instanceof DOMElement; $parent = $parent->parentNode) {
+                if ($parent === $target) {
+                    $insideTarget = true;
+
+                    break;
+                }
+            }
+            if ($insideTarget) {
+                $this->session->unpairedExternalFootnoteReferences[$anchor] = true;
+
+                continue;
+            }
+            $this->session->externalFootnoteReferences[$anchor] = true;
+            if (isset($this->session->externalFootnoteItems[$target])) {
+                continue;
+            }
+            $this->session->endnoteItems[$fragment] = $target;
+            $this->session->externalFootnoteItems[$target] = true;
+            $externalItems[] = $target;
+        }
         $reservedLabels = [];
         foreach ($allEndnoteItems as $item) {
             $label = CarrierNames::consumeAttribute($item, 'data-carve-footnote-label');
@@ -651,6 +709,15 @@ final class HtmlAstBuilder
             if ($id !== '' && ($this->session->endnoteItems[$id] ?? null) === $item) {
                 $this->session->endnoteLabels[$id] = $this->session->endnoteItemLabels[$item];
             }
+        }
+        foreach ($externalItems as $item) {
+            while (isset($reservedLabels['label:' . $nextLabel])) {
+                $nextLabel++;
+            }
+            $label = (string)$nextLabel++;
+            $this->session->endnoteItemLabels[$item] = $label;
+            $reservedLabels['label:' . $label] = true;
+            $this->session->endnoteLabels[$item->getAttribute('id')] = $label;
         }
         foreach ($targetItems as $target => $item) {
             if (isset($this->session->endnoteItemLabels[$item])) {
@@ -956,6 +1023,11 @@ final class HtmlAstBuilder
         if (!$node instanceof DOMElement) {
             return [];
         }
+        if (isset($this->session->externalFootnoteItems[$node])) {
+            $this->collectExternalFootnote($node);
+
+            return [];
+        }
         $tag = strtolower(DomLoader::elementName($node));
         if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
             return [];
@@ -1128,7 +1200,7 @@ final class HtmlAstBuilder
             return $this->container($node);
         }
         if (in_array($tag, ['article', 'main', 'header', 'footer', 'nav', 'aside'], true)) {
-            return $this->blocks($this->children($node));
+            return $this->withExternalFootnotePlacement($node, $this->blocks($this->children($node)));
         }
         if ($tag === 'div') {
             return $this->container($node);
@@ -1174,7 +1246,7 @@ final class HtmlAstBuilder
      */
     private function section(DOMElement $node): array
     {
-        $blocks = $this->blocks($this->children($node));
+        $blocks = $this->withExternalFootnotePlacement($node, $this->blocks($this->children($node)));
         if ($node->hasAttribute('id')) {
             CarrierNames::consumeAttribute($node, 'data-carve-explicit-id');
         }
@@ -2243,6 +2315,11 @@ final class HtmlAstBuilder
             if (!$child instanceof DOMElement || strtolower(DomLoader::elementName($child)) !== 'li') {
                 continue;
             }
+            if (isset($this->session->externalFootnoteItems[$child])) {
+                $this->collectExternalFootnote($child);
+
+                continue;
+            }
             $task = $this->taskCheckbox($child);
             $taskState = $child->getAttribute('data-task-state');
             $checkboxChecked = $task !== null && (
@@ -2293,6 +2370,9 @@ final class HtmlAstBuilder
         $tight = true;
         foreach ($node->childNodes as $itemElement) {
             if (!$itemElement instanceof DOMElement || strtolower(DomLoader::elementName($itemElement)) !== 'li') {
+                continue;
+            }
+            if (isset($this->session->externalFootnoteItems[$itemElement])) {
                 continue;
             }
             if ($this->holdsAParagraph($itemElement)) {
@@ -2374,7 +2454,68 @@ final class HtmlAstBuilder
             $blocks[] = $list;
         }
 
-        return $blocks;
+        return $this->withExternalFootnotePlacement($node, $blocks);
+    }
+
+    /**
+     * Keep a consumed definition's position when its wrapper has no other blocks.
+     *
+     * @param \DOMElement $node
+     * @param list<ImportedNode> $blocks
+     *
+     * @return list<ImportedNode>
+     */
+    private function withExternalFootnotePlacement(DOMElement $node, array $blocks): array
+    {
+        if ($blocks !== []) {
+            return $blocks;
+        }
+        foreach ($node->getElementsByTagName('*') as $descendant) {
+            if (isset($this->session->externalFootnoteItems[$descendant]) && $this->hasFollowingContent($node)) {
+                return [$this->namedContainer('footnotes', [])];
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Collect a marked definition at its original block position.
+     */
+    private function collectExternalFootnote(DOMElement $item): void
+    {
+        $previous = $this->session->inFootnoteDefinition;
+        $this->session->inFootnoteDefinition = true;
+        try {
+            $children = $this->blocks($this->children($item));
+        } finally {
+            $this->session->inFootnoteDefinition = $previous;
+        }
+        $definition = [
+            'type' => 'footnote',
+            'label' => $this->session->endnoteItemLabels[$item],
+            'children' => $children,
+        ];
+        $this->addHint($definition, "\0carve-compact-definition");
+        $this->session->footnoteDefinitions[] = self::importedNode($definition);
+    }
+
+    /**
+     * A fragment on inline content identifies the block that contains it.
+     */
+    private function externalFootnoteBlock(DOMElement $target): ?DOMElement
+    {
+        for ($block = $target; $block instanceof DOMElement; $block = $block->parentNode) {
+            $tag = strtolower(DomLoader::elementName($block));
+            if (in_array($tag, ['code', 'pre', 'template', 'td', 'th', 'table'], true)) {
+                return null;
+            }
+            if (in_array($tag, ['li', 'div', 'section', 'aside', 'p', 'blockquote'], true)) {
+                return $block;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -3635,6 +3776,7 @@ final class HtmlAstBuilder
         if ($bareTransport) {
             return $this->blocks($this->children($node));
         }
+        $children = $this->withExternalFootnotePlacement($node, $children);
         $skipAttrs = [];
         if ($this->derivedAriaLabel($node) === $node->getAttribute('aria-label')) {
             $skipAttrs[] = 'aria-label';
@@ -5058,7 +5200,7 @@ final class HtmlAstBuilder
         if ($endnote !== null && self::isValidFootnoteCarrierLabel(CarrierNames::consumeAttribute($endnote, 'data-carve-footnote-label'))) {
             return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment]]];
         }
-        if ($href !== '' && strtolower($node->getAttribute('role')) === 'doc-noteref') {
+        if ($href !== '' && strtolower($node->getAttribute('role')) === 'doc-noteref' && !isset($this->session->unpairedExternalFootnoteReferences[$node])) {
             $href = $node->getAttribute('href');
             $fragment = str_starts_with($href, '#') ? substr($href, 1) : trim($node->textContent);
 
