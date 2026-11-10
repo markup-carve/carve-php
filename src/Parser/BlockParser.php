@@ -4898,7 +4898,8 @@ class BlockParser
                 $column = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $beforeMarker) . 'x')
                     + BlockGrammar::FOOTNOTE_BODY_COLUMN;
             }
-            $probe[] = str_repeat(' ', $column) . $text;
+            $probe[] = ($at > $start && isset($this->state->source->lazyLines[$this->sourceLineFor($at)]) ? BlockGrammar::LAZY_FRAME : '')
+                . str_repeat(' ', $column) . $text;
             if ($comment && str_contains($line, '%}')) {
                 break;
             }
@@ -4973,7 +4974,8 @@ class BlockParser
                 $markerCommentEnd = str_starts_with($line, '{%') && !$walkKept
                     ? RefusedBraceRun::markerLineEnd($this->state->source->authoredLines, $sourceLine, $line, $this->inlineParser)
                     : null;
-                if (str_starts_with($line, '{%') && !$walkKept && $markerCommentEnd === null) {
+                $lazyOpener = isset($this->state->source->lazyLines[$sourceLine]);
+                if (str_starts_with($line, '{%') && !$walkKept && $markerCommentEnd === null && !$lazyOpener) {
                     continue;
                 }
                 if (self::inlineSpanOpen($spanLines ??= array_values($physicalLines), $inlineSpan, $literalLines, $k)) {
@@ -4989,8 +4991,57 @@ class BlockParser
                 }
                 // A marker-line run can be split across pre-joined parts by a
                 // description or note reader. Check its physical lines as one run.
-                $limit = $walkKept || $markerLineRun || $markerCommentEnd !== null ? count($physicalLines) : $physical + $width;
-                $end = RefusedBraceRun::end($physicalLines, $k, $this->inlineParser, $limit);
+                $limit = $walkKept || $markerLineRun || $markerCommentEnd !== null || $lazyOpener ? count($physicalLines) : $physical + $width;
+                $probe = $physicalLines;
+                if ($lazyOpener) {
+                    $hostColumn = $contentLines[$k - 1][1] ?? 0;
+                    if ($hostColumn === 0 && $k > 0) {
+                        $previousText = ltrim($physicalLines[$k - 1], " \t");
+                        $previousSource = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$sourceLine - 1] ?? '');
+                        if (str_ends_with($previousSource, $previousText)) {
+                            $prefix = substr($previousSource, 0, strlen($previousSource) - strlen($previousText));
+                            $hostColumn = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
+                        }
+                    }
+                    $openerSource = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$sourceLine] ?? '');
+                    $openerColumn = IndentationHelper::getLeadingColumns($openerSource);
+                    $markerColumn = $hostColumn;
+                    $sawItemMarker = false;
+                    if ($openerColumn > 0 && $openerColumn < $hostColumn) {
+                        for ($prior = $sourceLine - 1; $prior >= 0; $prior--) {
+                            $priorLine = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$prior] ?? '');
+                            $priorIndent = IndentationHelper::getLeadingColumns($priorLine);
+                            if ($priorIndent >= $markerColumn || ($this->listParser->parseListItemMarker(ltrim($priorLine, " \t")) === null)) {
+                                continue;
+                            }
+                            $sawItemMarker = true;
+                            $markerColumn = $priorIndent;
+                            if ($markerColumn <= $openerColumn) {
+                                break;
+                            }
+                        }
+                    }
+                    for ($j = $k; $j < $limit; $j++) {
+                        $partSource = $contentLines[$j][0] ?? $sourceLine + $j - $k;
+                        $text = ltrim($physicalLines[$j], " \t");
+                        $authored = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$partSource] ?? '');
+                        if (str_ends_with($authored, $text)) {
+                            $prefix = substr($authored, 0, strlen($authored) - strlen($text));
+                            $sourceColumn = IndentationHelper::getLeadingColumns($prefix . 'x');
+                            $probe[$j] = str_repeat(' ', $sourceColumn) . $text;
+                            if ($j > $k && $sourceColumn < $hostColumn) {
+                                $probe[$j] = BlockGrammar::LAZY_FRAME . $probe[$j];
+                            }
+                        }
+                        if ($j > $k && isset($this->state->source->lazyLines[$partSource])) {
+                            $probe[$j] = BlockGrammar::LAZY_FRAME . $probe[$j];
+                        }
+                    }
+                    if ($sawItemMarker && $openerColumn !== $markerColumn) {
+                        $probe[$k + 1] = BlockGrammar::LAZY_FRAME . $probe[$k + 1];
+                    }
+                }
+                $end = RefusedBraceRun::end($probe, $k, $this->inlineParser, $limit);
                 if ($markerCommentEnd !== null && $end !== $k + $markerCommentEnd) {
                     $end = null;
                 }
