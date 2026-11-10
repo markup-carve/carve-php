@@ -2096,8 +2096,24 @@ final class BlockQuoteBuilder
             )
             && ContainerPrefix::countLeadingQuoteMarkers($content) === $state['innerDepth']
         ) {
-            // A refused brace run, the line its paragraph keeps, and a held `{%` run's lines are text (CARVE-P2-035).
-            $state['paragraphOpen'] = true;
+            // A prefixed line after a refused marker-line run belongs to the
+            // nested item, but it leaves no quote-level lazy paragraph.
+            $sourceLine = $this->sourceLineFor($sourceIndex);
+            $refusedStart = $this->state->source->refusedKeptLines[$sourceLine] ?? $sourceLine;
+            $authored = $this->state->source->sourceLines[$sourceLine] ?? '';
+            $inner = ContainerPrefix::afterLeadingQuoteMarkers($authored);
+            $opener = ContainerPrefix::afterLeadingQuoteMarkers($this->state->source->sourceLines[$refusedStart] ?? '');
+            $marker = ($this->getListParser)()->parseListItemMarker(ltrim($opener, " \t"));
+            $directRun = $marker !== null && str_starts_with($marker['content'], '{');
+            $bodyAt = $directRun ? strrpos($opener, $marker['content']) : false;
+            $hostColumn = $bodyAt === false ? 0 : WrappedBlockAttributeScanner::columnAt($opener, $bodyAt)
+                - ($marker['attributesWidth'] ?? 0);
+            $state['paragraphOpen'] = !(
+                $directRun && $refusedStart < $sourceLine
+                && $state['innerDepth'] === 0
+                && ContainerPrefix::countLeadingQuoteMarkers($authored) > 0
+                && IndentationHelper::getLeadingColumns($inner) > $hostColumn
+            );
             $state['attrRun'] = null;
 
             return;
