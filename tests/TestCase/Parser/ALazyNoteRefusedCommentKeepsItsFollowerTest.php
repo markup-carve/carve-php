@@ -29,4 +29,14 @@ final class ALazyNoteRefusedCommentKeepsItsFollowerTest extends TestCase
         self::assertStringContainsString("{% a\n%}\n<code></code>", $html);
         self::assertStringNotContainsString("<code>\nafter", $html);
     }
+
+    public function testARawFenceFollowerStopsAtTheNextDocumentLine(): void
+    {
+        $source = "[^n]: p\n{% a\n%}\n  ```=html\nafter\n\nx[^n]\n";
+        $html = CarveConverter::create()->convert($source);
+
+        self::assertStringStartsWith("<p>after</p>\n", $html);
+        self::assertStringContainsString('<code>=html</code>', $html);
+        self::assertStringNotContainsString("<code>=html\nafter", $html);
+    }
 }

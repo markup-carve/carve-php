@@ -2587,7 +2587,7 @@ final class BlockOwnershipWalk
         }
         if ($lazyNoteParagraph) {
             $follower = ltrim($this->lines[$at + $kept] ?? '', " \t");
-            if ($this->fenced->parseCodeFenceOpener($follower) !== null) {
+            if ($this->fenced->parseCodeFenceOpener($follower) !== null || $this->fenced->parseRawBlockOpener($follower) !== null) {
                 // A fence-shaped follower has its own span boundary. The note
                 // reader stops that span before a later column-zero block.
                 $lazyNoteParagraph = false;
