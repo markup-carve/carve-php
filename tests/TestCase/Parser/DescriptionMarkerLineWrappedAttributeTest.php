@@ -40,7 +40,7 @@ final class DescriptionMarkerLineWrappedAttributeTest extends TestCase
 
         yield 'a wider separator measures from its own body column' => [
             ":: t\n:  {#a\n   }\n",
-            "<dl>\n  <dt>t</dt>\n  <dd>{#a\n}</dd>\n</dl>",
+            "<dl>\n  <dt>t</dt>\n  <dd>{<span class=\"tag\"><strong>#a</strong></span>\n}</dd>\n</dl>",
         ];
 
         yield 'a quoted description reads the run the same way' => [

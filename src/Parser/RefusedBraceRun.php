@@ -362,11 +362,14 @@ final class RefusedBraceRun
     }
 
     /**
-     * Escape the ASCII punctuation of one literal line, so the inline parse reads it as text.
+     * Escape only the refused block opener. Its remaining bytes still take
+     * ordinary inline parsing, including tags and paired delimiters.
      */
     public static function escape(string $line): string
     {
-        return (string)preg_replace('/[!-\/:-@\[-`{-~]/', '\\\\$0', $line);
+        $brace = strpos($line, '{');
+
+        return $brace === false ? $line : substr($line, 0, $brace) . '\\' . substr($line, $brace);
     }
 
     private static function content(string $line): ?string

@@ -17,12 +17,12 @@ final class ARefusedFenceFollowerEndsAtItsOwnerTest extends TestCase
     {
         yield 'root fence after a quote (#4980)' => [
             "- +\n  {.x\n  .y}\n  ```\n  wa\n> q\n  ```\n",
-            "<ul>\n  <li>{.x\n.y}\n<code>\nwa</code></li>\n</ul>\n<blockquote><p>q</p></blockquote>\n<pre><code></code></pre>",
+            "<ul>\n  <li>{.x\n.y}\n    <pre><code>wa\n</code></pre>\n  </li>\n</ul>\n<blockquote><p>q</p></blockquote>\n<pre><code></code></pre>",
         ];
 
         yield 'section fence after a heading (#4981)' => [
             "- +\n  {.x\n  .y}\n  ```\n  wa\n# h\n  ```\n",
-            "<ul>\n  <li>{.x\n.y}\n<code>\nwa</code></li>\n</ul>\n<section id=\"h\">\n  <h1>h</h1>\n  <pre><code></code></pre>\n</section>",
+            "<ul>\n  <li>{.x\n.y}\n    <pre><code>wa\n</code></pre>\n  </li>\n</ul>\n<section id=\"h\">\n  <h1>h</h1>\n  <pre><code></code></pre>\n</section>",
         ];
     }
 

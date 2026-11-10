@@ -1255,21 +1255,11 @@ trait BlockListMethods
         $plusHost = $this->state->source->plusHosts[$this->sourceLineFor($i - 1)] ?? null;
         $hostContentColumn = $plusHost !== null && $plusHost['kind'] === 'list' && $plusHost['first']
             ? max(0, $plusHost['content'] - $baseIndent) : null;
-        // Index of the line after a refused brace run that leads the block, which joins the run's paragraph (CARVE-P2-035).
-        $refusedFollower = -1;
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, &$leadFenceOpen, &$fenceTakesRest, &$blockColumn, &$fenceCloses, &$bodyColumn, &$blankRun, &$refusedFollower, $lines, $count, $baseIndent, $contentIndent): bool {
-                // A list marker at the item's content column joins; it would otherwise open a sublist.
-                if (
-                    $index === $refusedFollower
-                    && IndentationHelper::getLeadingColumns($line) === ($contentIndent ?? $baseIndent)
-                    && $this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null
-                ) {
-                    return false;
-                }
+            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, &$leadFenceOpen, &$fenceTakesRest, &$blockColumn, &$fenceCloses, &$bodyColumn, &$blankRun, $lines, $count, $baseIndent, $contentIndent): bool {
                 // The walk ended the attached quote, or an own-line fence whose host the line missed, here (carve#5427, PART 0 S1).
                 if (
                     isset($this->state->source->attachedQuoteEnds[$this->sourceLineFor($index)])
@@ -1285,9 +1275,6 @@ trait BlockListMethods
                     $trailingState = $this->advanceTrailingState($trailingState, 'text');
 
                     return false;
-                }
-                if ($attachedKind === self::ATTACHED_PENDING && str_starts_with(ltrim($line, " \t"), '{')) {
-                    $refusedFollower = RefusedBraceRun::end($lines, $index, $this->inlineParser) ?? -1;
                 }
                 // An unclosed attached fence takes the rest of its container when no blank line or closer follows.
                 if ($fenceTakesRest) {
@@ -1438,7 +1425,6 @@ trait BlockListMethods
                     // A sibling marker inside the unclosed lead fence is payload (carve#5499, carve#5531).
                     !($leadFenceOpen && $trailingState->fence !== null)
                     && !($trailingState->quoteParagraph && $lineIndent > $baseIndent)
-                    && $index !== $refusedFollower
                     && $this->trailingBlockHasEnded($attachedKind, $trimmed, $lines, $index, $trailingState)
                 ) {
                     return true;

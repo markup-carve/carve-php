@@ -21,32 +21,32 @@ final class AValidQuotedAttributeRunLeavesNoLazyParagraphTest extends TestCase
     {
         yield 'quote' => [
             "> {.x\n   .y}\nplain\n",
-            "<blockquote>\n\n</blockquote>\n<p>plain</p>",
+            "<blockquote><p>{.x\n.y}\nplain</p></blockquote>",
         ];
 
         yield 'list item quote' => [
             "- > {.x\n     .y}\nplain\n",
-            "<ul>\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n<p>plain</p>",
+            "<ul>\n  <li>\n    <blockquote><p>{.x\n.y}\nplain</p></blockquote>\n  </li>\n</ul>",
         ];
 
         yield 'mixed prefixed and unprefixed list item quote run' => [
             "- > {.x\n  >   .y\n     }\nplain\n",
-            "<ul>\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n<p>plain</p>",
+            "<ul>\n  <li>\n    <blockquote><p>{.x\n.y}\nplain</p></blockquote>\n  </li>\n</ul>",
         ];
 
         yield 'ordered item quote with a three-line run' => [
             "1. > {#a\n      .b\n      }\nplain\n",
-            "<ol>\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ol>\n<p>plain</p>",
+            "<ol>\n  <li>\n    <blockquote><p>{<span class=\"tag\"><strong>#a</strong></span>\n.b\n}\nplain</p></blockquote>\n  </li>\n</ol>",
         ];
 
         yield 'nested quote' => [
             "> > {.x\n     .y}\nplain\n",
-            "<blockquote>\n  <blockquote>\n\n  </blockquote>\n</blockquote>\n<p>plain</p>",
+            "<blockquote>\n  <blockquote><p>{.x\n.y}\nplain</p></blockquote>\n</blockquote>",
         ];
 
         yield 'quote in a quoted item' => [
             "> - > {.x\n       }\nplain\n",
-            "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>\n<p>plain</p>",
+            "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>{.x\n}\nplain</p></blockquote>\n    </li>\n  </ul>\n</blockquote>",
         ];
 
         yield 'quote in a nested item' => [

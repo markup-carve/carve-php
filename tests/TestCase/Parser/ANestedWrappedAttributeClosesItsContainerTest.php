@@ -41,7 +41,7 @@ final class ANestedWrappedAttributeClosesItsContainerTest extends TestCase
     {
         return [
             'deepest definition item' => [":: t\n: - a\n    - b\n      {.c}\npara\n", ":: t\n: - a\n    - b\n      {.c\n       }\npara\n"],
-            'outer definition item' => [":: t\n: - a\n    - b\n    {.c}\npara\n", ":: t\n: - a\n    - b\n    {.c\n     }\npara\n"],
+            'outer definition item' => [":: t\n: - a\n    - b\n    {.c}\npara\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        <ul>\n          <li>b</li>\n        </ul>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>para</p>"],
             'deepest quote item' => ["> - a\n>   - b\n>     {.c}\npara\n", "> - a\n>   - b\n>     {.c\n>      }\npara\n"],
             'outer quote item' => ["> - a\n>   - b\n>   {.c}\npara\n", "> - a\n>   - b\n>   {.c\n>    }\npara\n"],
             'definition after a blank' => [":: t\n: - a\n\n    {.c}\nmore\n", ":: t\n: - a\n\n    {.c\n     }\nmore\n"],

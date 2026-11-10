@@ -22,12 +22,12 @@ final class ARefusedRunReaderLeavesOtherRunsAsTheyWereTest extends TestCase
     {
         yield 'a comment run in a description keeps its text before a fence follower' => [
             ":: t\n: d\n  {% x\n  y %}\n  ~~~\n  more\n",
-            "<dl>\n  <dt>t</dt>\n  <dd>d\n{% x\ny %}\n~~~\nmore</dd>\n</dl>",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d\n{% x\ny %}</p>\n    <pre><code>more\n</code></pre>\n  </dd>\n</dl>",
         ];
 
         yield 'an attribute run in a description stays literal' => [
             ":: t\n: d\n  {.c\n  #i}\n  ```\n",
-            "<dl>\n  <dt>t</dt>\n  <dd>d\n{.c\n#i}\n<code></code></dd>\n</dl>",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d\n{.c\n<span class=\"tag\"><strong>#i</strong></span>}</p>\n    <pre><code></code></pre>\n  </dd>\n</dl>",
         ];
 
         yield 'a comment run does not reach a sibling item' => [

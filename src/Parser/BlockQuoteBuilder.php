@@ -135,32 +135,24 @@ final class BlockQuoteBuilder
                 if (in_array('note', $state['hosts']['kinds'] ?? [], true)) {
                     $state['paragraphOpen'] = false;
                 }
+                if ($this->notePlusRunRefusesAt($j)) {
+                    $state['paragraphOpen'] = true;
+                }
                 $end = $j;
 
                 continue;
             }
 
             if ($quoteContent === null && $state['attrRun'] !== null) {
-                $runCount = count($state['attrRun']);
-                $openerLine = $this->sourceLineFor($j - $runCount);
-                $runLength = $this->unprefixedAttributeRunLength(
-                    $state,
-                    $lines,
-                    $j,
-                    array_fill(0, $runCount, $openerLine),
-                );
-                if ($runLength > 0) {
-                    $end = $j + $runLength - 1;
-                    $j = $end;
-                    $state['attrRun'] = null;
-                    $state['paragraphOpen'] = false;
-
-                    continue;
-                }
+                // With no quote prefix, the wrapped block run is refused and
+                // its opener leaves an ordinary paragraph open for laziness.
+                $state['attrRun'] = null;
+                $state['paragraphOpen'] = true;
             }
 
             if (
                 !$state['paragraphOpen']
+                || $this->walkOwnsElsewhere($j, $line)
                 || (($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null
                     && $this->lastQuoteLineIsBareTerm([$lines[$end]]))
                 || ($this->lastQuoteLineIsBareTerm([$lines[$end]])
@@ -553,6 +545,9 @@ final class BlockQuoteBuilder
 
                 continue;
             }
+            if ($content === null && $lazyState['attrRun'] !== null) {
+                $lazyState['paragraphOpen'] = true;
+            }
             $runLength = $this->quotedAttributeRunLength($lazyState, $lines, $i, $innerLines, $innerLineMap);
             if ($content !== null) {
                 if ($attachedParagraphOpen) {
@@ -572,6 +567,9 @@ final class BlockQuoteBuilder
                 }
                 if (in_array('note', $lazyState['hosts']['kinds'] ?? [], true)) {
                     $lazyState['paragraphOpen'] = false;
+                }
+                if ($this->notePlusRunRefusesAt($i)) {
+                    $lazyState['paragraphOpen'] = true;
                 }
                 $i++;
             } elseif (
@@ -764,9 +762,8 @@ final class BlockQuoteBuilder
      */
     private function quotedAttributeRunLength(array $state, array $lines, int $start, array $innerLines, array $innerLineMap): int
     {
-        $length = $this->unprefixedAttributeRunLength($state, $lines, $start, $innerLineMap);
-        if ($length > 0 || $state['attrRun'] !== null || $state['mode'] !== BlockQuoteLazyMode::Content) {
-            return $length;
+        if ($state['attrRun'] !== null || $state['mode'] !== BlockQuoteLazyMode::Content) {
+            return 0;
         }
 
         $last = array_key_last($innerLines) ?? 0;
@@ -826,19 +823,16 @@ final class BlockQuoteBuilder
             if (IndentationHelper::isBlankLine($line)) {
                 break;
             }
-            $authored = $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? $line;
             $quoted = ContainerPrefix::afterLeadingQuoteMarkers($line);
             $hasQuote = $quoted !== $line;
-            if ($hasQuote && ContainerPrefix::countLeadingQuoteMarkers($line) < $quoteDepth) {
+            if (!$hasQuote || ContainerPrefix::countLeadingQuoteMarkers($line) < $quoteDepth) {
                 break;
             }
-            $contentColumn = $hasQuote
-                ? IndentationHelper::getLeadingColumns($quoted)
-                : IndentationHelper::getLeadingColumns($authored);
-            if ($contentColumn <= ($hasQuote ? $quoteOpeningColumn : $openingColumn)) {
+            $contentColumn = IndentationHelper::getLeadingColumns($quoted);
+            if ($contentColumn <= $quoteOpeningColumn) {
                 break;
             }
-            if ($this->trackWrappedAttributeRun($state, $hasQuote ? $quoted : $line)) {
+            if ($this->trackWrappedAttributeRun($state, $quoted)) {
                 return $at - $start + 1;
             }
             if ($state['attrRun'] === null) {
@@ -894,56 +888,6 @@ final class BlockQuoteBuilder
     }
 
     /**
-     * A quoted block attribute may close on unprefixed lines at written columns
-     * past its opening brace. Check the whole run before granting it ownership;
-     * an invalid run must still take the ordinary lazy paragraph path.
-     *
-     * @param array{attrRun: list<string>|null} $state
-     * @param array<string> $lines
-     * @param int $start
-     * @param array<int, int> $innerLineMap
-     */
-    private function unprefixedAttributeRunLength(array $state, array $lines, int $start, array $innerLineMap): int
-    {
-        $run = $state['attrRun'];
-        if ($run === null || $run === [] || !isset($lines[$start]) || $this->blockQuoteLineContent($lines[$start]) !== null) {
-            return 0;
-        }
-        $openerIndex = count($innerLineMap) - count($run);
-        if ($openerIndex < 0) {
-            return 0;
-        }
-        $opener = $this->state->source->sourceLines[$innerLineMap[$openerIndex]] ?? '';
-        $brace = strpos($opener, '{');
-        if ($brace === false) {
-            return 0;
-        }
-        $openingColumn = WrappedBlockAttributeScanner::columnAt($opener, $brace);
-        $probeState = self::initialBlockQuoteLazyState();
-        $probeState['attrRun'] = $run;
-        $count = count($lines);
-        for ($at = $start; $at < $count; $at++) {
-            $line = $lines[$at];
-            $authoredLine = $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? $line;
-            if (
-                IndentationHelper::isBlankLine($line)
-                || $this->blockQuoteLineContent($line) !== null
-                || IndentationHelper::getLeadingColumns($authoredLine) <= $openingColumn
-            ) {
-                break;
-            }
-            if ($this->trackWrappedAttributeRun($probeState, $line)) {
-                return $at - $start + 1;
-            }
-            if ($probeState['attrRun'] === null) {
-                break;
-            }
-        }
-
-        return 0;
-    }
-
-    /**
      * The enclosing item's tracker needs the same no-paragraph answer as the
      * quote when the quote begins on the item's marker line.
      *
@@ -984,6 +928,7 @@ final class BlockQuoteBuilder
             return 0;
         }
         $openingColumn = WrappedBlockAttributeScanner::columnAt($opener, $brace);
+        $quoteDepth = ContainerPrefix::countLeadingQuoteMarkers(ltrim($opener, " \t"));
         for ($at = $start, $count = count($lines); $at < $count; $at++) {
             $line = $lines[$at];
             if (IndentationHelper::isBlankLine($line)) {
@@ -992,13 +937,10 @@ final class BlockQuoteBuilder
             $trimmed = ltrim($line, " \t");
             $quoted = ContainerPrefix::afterLeadingQuoteMarkers($trimmed);
             $hasQuote = $quoted !== $trimmed;
-            if (!$hasQuote) {
-                $authoredLine = $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? $line;
-                if (IndentationHelper::getLeadingColumns($authoredLine) <= $openingColumn) {
-                    break;
-                }
+            if (!$hasQuote || ContainerPrefix::countLeadingQuoteMarkers($trimmed) < $quoteDepth) {
+                break;
             }
-            if ($this->trackWrappedAttributeRun($state, $hasQuote ? $quoted : $line)) {
+            if ($this->trackWrappedAttributeRun($state, $quoted)) {
                 return $at - $start + 1;
             }
             if ($state['attrRun'] === null) {
@@ -2967,8 +2909,31 @@ final class BlockQuoteBuilder
      */
     private function walkOwnsElsewhere(int $index, string $line): bool
     {
-        return !str_starts_with($line, BlockGrammar::LAZY_FRAME)
-            && isset($this->state->source->closingLines[$this->sourceLineFor($index)]);
+        $sourceLine = $this->sourceLineFor($index);
+
+        return (str_starts_with($line, BlockGrammar::LAZY_FRAME)
+                && !isset($this->state->source->lazyLines[$sourceLine]))
+            || isset($this->state->source->closingLines[$sourceLine])
+            || (!isset($this->state->source->lazyLines[$sourceLine])
+                && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null);
+    }
+
+    private function notePlusRunRefusesAt(int $index): bool
+    {
+        $sourceLine = $this->sourceLineFor($index);
+        $previous = ltrim($this->state->source->authoredLines[$sourceLine - 1] ?? '', " \t");
+        $previousBody = ltrim(ContainerPrefix::afterLeadingQuoteMarkers($previous), " \t");
+        if (preg_match('/^\[\^[^\]]+\]:[ \t]*\+[ \t]*$/D', $previousBody) !== 1) {
+            return false;
+        }
+        $opener = ltrim($this->state->source->authoredLines[$sourceLine] ?? '', " \t");
+        $body = ltrim(ContainerPrefix::afterLeadingQuoteMarkers($opener), " \t");
+        if (!str_starts_with($body, '{') || str_contains($body, '}')) {
+            return false;
+        }
+        $next = ltrim($this->state->source->authoredLines[$sourceLine + 1] ?? '', " \t");
+
+        return ContainerPrefix::countLeadingQuoteMarkers($next) < ContainerPrefix::countLeadingQuoteMarkers($opener);
     }
 
     private function sourceLineFor(int $index): int

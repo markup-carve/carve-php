@@ -18,7 +18,7 @@ final class ALonePlusAfterARefusedRunStaysTextTest extends TestCase
      */
     public static function documents(): iterable
     {
-        $nested = "<ul>\n  <li>\n    <ul>\n      <li>{.x\n}\n+\nz</li>\n    </ul>\n  </li>\n</ul>";
+        $nested = "<ul>\n  <li>\n    <ul>\n      <li>{.x\n}</li>\n    </ul>\n    z\n  </li>\n</ul>";
 
         yield 'item, lazy closer' => ["- {.x\n}\n+\nz\n", "<ul>\n  <li>{.x\n}\n+\nz</li>\n</ul>"];
         yield 'ordered item' => ["1. {.x\n}\n+\nz\n", "<ol>\n  <li>{.x\n}\n+\nz</li>\n</ol>"];
@@ -31,7 +31,7 @@ final class ALonePlusAfterARefusedRunStaysTextTest extends TestCase
             "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>{.x\n}\n+\nz<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
         ];
 
-        yield 'attached run keeps its reading' => ["- +\n{.x\n.y}\n+\n  zq\n", "<ul>\n  <li>{.x\n.y}\n+\nzq</li>\n</ul>"];
+        yield 'attached run keeps its reading' => ["- +\n{.x\n.y}\n+\n  zq\n", "<ul>\n  <li>{.x\n.y}\n    zq\n  </li>\n</ul>"];
         yield 'off-column quote plus stays a marker' => [
             "> - +\n> {.x\n> .y}\n  > +\n>   zq\n",
             "<blockquote>\n  <ul>\n    <li>{.x\n.y}\n      zq\n    </li>\n  </ul>\n</blockquote>",

@@ -25,7 +25,7 @@ final class ATaskBoxPrecedesAMarkerLineAttributeRunTest extends TestCase
 
         yield 'a continuation inside the box columns refuses the run' => [
             "- [x] {#i\n    .y}\nz\n",
-            "<ul class=\"task-list\">\n  <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"{#i .y} z\"> {#i\n.y}\nz</li>\n</ul>",
+            "<ul class=\"task-list\">\n  <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"{#i .y} z\"> {<span class=\"tag\"><strong>#i</strong></span>\n.y}\nz</li>\n</ul>",
         ];
 
         yield 'a continuation past the brace column continues the run' => [

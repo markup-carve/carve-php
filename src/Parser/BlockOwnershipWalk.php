@@ -184,6 +184,9 @@ final class BlockOwnershipWalk
      */
     public array $refusedKeptLines = [];
 
+    /** @var array<int, true> */
+    private array $lazyBraceReachesContainer = [];
+
     /**
      * Later lines of a block `{%` run whose continuations all pass its `{`, each to the run's first line (CARVE-P2-035).
      *
@@ -908,6 +911,7 @@ final class BlockOwnershipWalk
                         $result[] = $this->out . str_repeat(' ', $leaf->kind === 'quote' ? 0 : (int)$leaf->reader) . BlockGrammar::LAZY_FRAME . $this->src;
                     }
                     $this->lazyLines[$at] = true;
+                    $this->markLazyBraceOpener($at);
                     if ($leaf->kind === 'fence' && $leaf->lineBlock) {
                         $this->lineBlockLazyLines[$at] = true;
                     }
@@ -923,6 +927,7 @@ final class BlockOwnershipWalk
                 }
                 $result[] = $this->out . $this->src;
                 $this->lazyLines[$at] = true;
+                $this->markLazyBraceOpener($at);
                 if ($this->frames[$topIndex]->kind === 'fence' && $this->frames[$topIndex]->lineBlock) {
                     $this->lineBlockLazyLines[$at] = true;
                 }
@@ -1064,9 +1069,12 @@ final class BlockOwnershipWalk
                 $this->emitApplied($at, $form, $closerPath ?? $this->ownerPath(), $closed, $reachedPath, $plusFollower);
             }
         }
+
         $this->refusedKeptLines = array_filter(
             $this->refusedKeptLines,
-            fn (int $runStart): bool => !$this->refusedRunMissesItsContainer($runStart),
+            fn (int $runStart): bool => (!isset($this->closingLines[$runStart])
+                && !isset($this->lazyBraceReachesContainer[$runStart]))
+                || isset($this->runsPastItemBoundary[$runStart]),
         );
 
         return $this->frameTextFences($result);
@@ -2783,6 +2791,11 @@ final class BlockOwnershipWalk
             return null;
         }
         $column = in_array($top->kind, ['doc', 'quote'], true) || $top->plus === $at - 1 ? $col : $top->col;
+        $writtenColumn = $col;
+        $brace = strpos($this->lines[$at], '{');
+        if ($depth > 0 && $brace !== false) {
+            $writtenColumn = WrappedBlockAttributeScanner::columnAt($this->lines[$at], $brace);
+        }
         if (
             $lookahead !== null && str_starts_with($rest, '{%')
             && $lookahead['owner'] === $owner && $lookahead['top'] === $top
@@ -2793,18 +2806,28 @@ final class BlockOwnershipWalk
             $window = [];
         } else {
             // The window doubles only while the answer reaches its edge, so a run of one-line attributes stays linear.
-            $window = [str_repeat(' ', $col) . $rest];
+            $window = [str_repeat(' ', $writtenColumn) . $rest];
             $count = count($this->lines);
             $j = $at + 1;
             $ended = false;
             for ($size = 16;; $size *= 2) {
                 for (; $j < $count && $j - $at < $size && !$ended; $j++) {
                     $line = $this->lines[$j];
-                    for ($d = 0; $d < $depth && $line !== null; $d++) {
-                        $line = preg_match(self::QUOTE, ltrim($line, " \t"), $q) === 1 ? ($q[1] ?? '') : null;
+                    $prefixed = true;
+                    for ($d = 0; $d < $depth; $d++) {
+                        if (preg_match(self::QUOTE, ltrim($line, " \t"), $q) !== 1) {
+                            $prefixed = false;
+                            $line = $this->lines[$j];
+
+                            break;
+                        }
+                        $line = $q[1] ?? '';
                     }
-                    $window[] = $line ?? '';
-                    $ended = $line === null || trim($line, " \t") === '';
+                    if ($prefixed && $depth > 0) {
+                        $line = str_repeat(' ', max(0, $writtenColumn - $col)) . $line;
+                    }
+                    $window[] = $line;
+                    $ended = trim($line, " \t") === '';
                 }
                 $kept = ($this->refusedRunKeptThrough)($window, 0, $column, !$ended && $j < $count, $top->kind === 'dd');
                 if ($kept !== -1) {
@@ -2843,7 +2866,9 @@ final class BlockOwnershipWalk
             }
         }
         $this->refusedKeptStart = $at;
-        $this->refusedKeptThrough = $at + $kept;
+        // Refusal protects only the literal opener. Later physical lines are
+        // read by their ordinary container and interruption rules.
+        $this->refusedKeptThrough = $at;
         $this->refusedKeptOwner = $owner;
         if (isset($this->itemBoundaryLines[$at]) && $owner->line === $at) {
             $this->runsPastItemBoundary[$at] = true;
@@ -2862,8 +2887,25 @@ final class BlockOwnershipWalk
      */
     private function refusedRunMissesItsContainer(int $start): bool
     {
-        return isset($this->lazyLines[$start])
-            || (isset($this->closingLines[$start]) && !isset($this->runsPastItemBoundary[$start]));
+        return isset($this->closingLines[$start]) && !isset($this->runsPastItemBoundary[$start]);
+    }
+
+    private function markLazyBraceOpener(int $at): void
+    {
+        $rest = ltrim($this->lines[$at], " \t");
+        if (str_starts_with($rest, '{') && !RefusedBraceRun::endsOnItsLine($rest)) {
+            $this->refusedKeptLines[$at] = $at;
+            $column = IndentationHelper::getLeadingColumns($this->lines[$at]);
+            foreach ($this->frames as $frame) {
+                if ($frame->kind !== 'doc'
+                    && ($frame->kind !== 'quote' || str_starts_with(ltrim($this->lines[$at], " \t"), '>'))
+                    && $column >= $frame->col) {
+                    $this->lazyBraceReachesContainer[$at] = true;
+
+                    break;
+                }
+            }
+        }
     }
 
     /**

@@ -32,7 +32,6 @@ final class DescriptionBodyCollection
     /**
      * Last line index of a refused brace run opened past the body column, its follower included.
      */
-    public int $refusedBraceThrough = -1;
 
     /**
      * Whether a FORM A line has been pushed since the last blank.

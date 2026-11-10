@@ -784,17 +784,6 @@ final class DefinitionListBuilder
             termColumn: $termColumn,
             termHasOwnColumn: $termHasOwnColumn,
         );
-        if (str_starts_with($body[0] ?? '', '{%')) {
-            $end = RefusedBraceRun::markerLineEnd(
-                $this->state->source->authoredLines,
-                $this->sourceLineFor($definitionStart),
-                $body[0],
-                ($this->getInlineParser)(),
-            );
-            if ($end !== null) {
-                $b->refusedBraceThrough = $definitionStart + $end;
-            }
-        }
         if ($firstBlockAttached) {
             $this->markDescriptionAttachment($b);
         } elseif (count($body) > 1) {
@@ -1873,27 +1862,6 @@ final class DefinitionListBuilder
     }
 
     /**
-     * Index past a refused brace run at the line when folding would split it: a comment run, or a line at the body column.
-     *
-     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
-     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
-     */
-    private function refusedRunSplitByFold(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?int
-    {
-        $end = RefusedBraceRun::end($b->lines, $b->i, ($this->getInlineParser)());
-        if ($end === null || str_starts_with($l->trimmedCont, '{%')) {
-            return $end;
-        }
-        for ($j = $b->i + 1; $j < $end; $j++) {
-            if (IndentationHelper::getLeadingColumns($b->lines[$j]) === $b->continuationColumn) {
-                return $end;
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * Folds a below-column or at-column line into the open paragraph entry.
      *
      * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
@@ -1903,16 +1871,6 @@ final class DefinitionListBuilder
      */
     private function foldBelowColumnLine(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?bool
     {
-        // A refused run the fold would split keeps one entry per line, so the paragraph reads its columns (CARVE-P2-035).
-        if ($b->i > $b->refusedBraceThrough && $l->contColumn > $b->continuationColumn && str_starts_with($l->trimmedCont, '{')) {
-            $b->refusedBraceThrough = $this->refusedRunSplitByFold($b, $l) ?? -1;
-        }
-        if ($b->i <= $b->refusedBraceThrough) {
-            // The run is paragraph text, so its follower joins that paragraph.
-            $b->nestedLazyParagraph = $b->nestedLazyParagraph || $b->i === $b->refusedBraceThrough;
-
-            return null;
-        }
         // A list marker that misses a marker body closes it (PART 0 S3, carve#4860).
         if (
             $l->indent < $b->continuationColumn
@@ -2057,7 +2015,9 @@ final class DefinitionListBuilder
         ) {
             $stripColumns += $b->bodyFrames->releasedBlockBase;
         }
-        $entry = (new IndentedContainerColumn($stripColumns))->strip($l->contLine);
+        $entry = $b->attachedOwnLine && $b->attachedFence !== null
+            && $b->bodyNestedState->fence === $b->attachedFence
+            ? $l->contLine : (new IndentedContainerColumn($stripColumns))->strip($l->contLine);
         if (
             $this->isCommentLineOrFence($l->trimmedCont)
             && IndentationHelper::isBlankLine($b->body[count($b->body) - 1] ?? '')

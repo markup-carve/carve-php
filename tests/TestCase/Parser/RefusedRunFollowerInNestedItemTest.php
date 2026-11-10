@@ -20,12 +20,12 @@ final class RefusedRunFollowerInNestedItemTest extends TestCase
     {
         yield 'a nested refused run keeps its heading follower and the later lazy line' => [
             "- - {.x\n   }\n    # h\nplain\n",
-            "<ul>\n  <li>\n    <ul>\n      <li>{.x\n}\n# h\nplain</li>\n    </ul>\n  </li>\n</ul>",
+            "<ul>\n  <li>\n    <ul>\n      <li>{.x\n}\n        <h1 id=\"h\">h</h1>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>plain</p>",
         ];
 
         yield 'a nested refused run keeps its fence-shaped follower as inline code' => [
             "- p\n  - {.x\n   }\n    ```\nplain\n",
-            "<ul>\n  <li>p\n    <ul>\n      <li>{.x\n}\n<code>\nplain</code></li>\n    </ul>\n  </li>\n</ul>",
+            "<ul>\n  <li>p\n    <ul>\n      <li>{.x\n}\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>plain</p>",
         ];
 
         yield 'a refused run on a nested marker line leaves the next sibling in the same list' => [
@@ -40,7 +40,7 @@ final class RefusedRunFollowerInNestedItemTest extends TestCase
 
         yield 'a note-definition follower in a marker-chain item keeps the later lazy line' => [
             "- - {% a\n    %}\n    [^m]: n\nplain\n",
-            "<ul>\n  <li>\n    <ul>\n      <li>{% a\n%}\n[^m]: n\nplain</li>\n    </ul>\n  </li>\n</ul>",
+            "<ul>\n  <li>\n    <ul>\n      <li>{% a\n%}</li>\n    </ul>\n  </li>\n</ul>",
         ];
     }
 

@@ -31,7 +31,7 @@ final class ABlockCommentRunHoldsBlockShapedContinuationsTest extends TestCase
             "<blockquote>\n  <ul>\n    <li>\nplain</li>\n  </ul>\n</blockquote>",
         ];
 
-        yield 'a continuation at the brace refuses the run' => ["- p\n  {% a\n  # h\n  z %}\n", "<ul>\n  <li>p\n{% a\n# h\nz %}</li>\n</ul>"];
+        yield 'a continuation at the brace refuses the run' => ["- p\n  {% a\n  # h\n  z %}\n", "<ul>\n  <li>p\n{% a\n    <h1 id=\"h\">h</h1>\n    z %}\n  </li>\n</ul>"];
     }
 
     #[DataProvider('documents')]

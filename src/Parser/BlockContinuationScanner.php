@@ -1045,8 +1045,6 @@ final class BlockContinuationScanner
         $markerEnds = $invisibleLineEndsParagraph && !$this->attachedLeadIsList($lines, $i, $count);
         // The body column of the open description in the attached block, or null.
         $bodyColumn = null;
-        // Index of the line after a refused brace run that leads the block, which joins the run's paragraph (CARVE-P2-035).
-        $refusedFollower = -1;
         // Lines folded into the attached paragraph as text, by source index.
         $foldedLines = [];
         // Index past the closer of a comment span the block took; a comment span is kept whole.
@@ -1063,7 +1061,7 @@ final class BlockContinuationScanner
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd, $blockColumn, &$restarted, &$attachedListMarker, &$attachedListColumn, &$attachedItemColumn): bool {
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd, $blockColumn, &$restarted, &$attachedListMarker, &$attachedListColumn, &$attachedItemColumn): bool {
                 $sourceLine = $this->sourceLineFor($index);
                 // The line missed the host of an own-line attached fence, which ends there (PART 0 S1).
                 if (isset($this->state->source->attachedFenceMisses[$sourceLine])) {
@@ -1080,9 +1078,6 @@ final class BlockContinuationScanner
                 }
                 if ($index < $commentThrough) {
                     return false;
-                }
-                if ($attachedKind === BlockGrammar::ATTACHED_PENDING && str_starts_with(ltrim($line, " \t"), '{')) {
-                    $refusedFollower = ($this->refusedBraceRunEndCallback)($lines, $index) ?? -1;
                 }
                 if ($attachedKind === BlockGrammar::ATTACHED_SPANNING . ':list' && $attachedListMarker !== null) {
                     $candidate = ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t"));
@@ -1165,7 +1160,7 @@ final class BlockContinuationScanner
                     return true;
                 }
                 if (
-                    ($index !== $refusedFollower && !$inItemBody && $this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState))
+                    (!$inItemBody && $this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState))
                     // An unmarked line continues an attached quote only within its lazy extent (PART 1 S4).
                     || ($quoteEnd !== null && $index > $quoteEnd && !str_starts_with(ltrim($line, " \t"), '>'))
                     // In a note or description an invisible line ends the attached paragraph, or a container it stands left of (PART 9 §10 I5).

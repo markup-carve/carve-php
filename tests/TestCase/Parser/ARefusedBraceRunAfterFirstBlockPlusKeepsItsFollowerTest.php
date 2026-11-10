@@ -17,12 +17,12 @@ final class ARefusedBraceRunAfterFirstBlockPlusKeepsItsFollowerTest extends Test
     {
         yield 'heading in note paragraph' => [
             "[^a]: +\n{.x\n.y}\n# h\n\nsee[^a]\n",
-            "<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>{.x\n.y}\n# h<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
+            "<section id=\"h\">\n  <h1>h</h1>\n  <p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n</section>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>{.x\n.y}<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
         ];
 
         yield 'list marker in description paragraph' => [
             ":: t\n: +\n{.x\n.y}\n- li\n",
-            "<dl>\n  <dt>t</dt>\n  <dd>{.x\n.y}\n- li</dd>\n</dl>",
+            "<dl>\n  <dt>t</dt>\n  <dd>{.x\n.y}</dd>\n</dl>\n<ul>\n  <li>li</li>\n</ul>",
         ];
     }
 

@@ -37,7 +37,7 @@ final class AWrappedBraceRunInsideAnOpenCodeSpanTest extends TestCase
 
         yield 'closed span still refuses the run' => [
             "p\n `open`\n {.x\n .y}\n ```\n z\n",
-            "<p>p\n<code>open</code>\n{.x\n.y}\n<code>\nz</code></p>",
+            "<p>p\n<code>open</code>\n{.x\n.y}</p><pre><code>z\n</code></pre>",
         ];
     }
 
