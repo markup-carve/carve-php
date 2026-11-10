@@ -809,9 +809,8 @@ final class DefinitionListBuilder
         if (!str_starts_with($content, '{') || str_starts_with($content, '{%')) {
             return 0;
         }
-        $probe = $lines;
-        $probe[$definitionStart] = str_repeat(' ', IndentationHelper::getLeadingColumns($lines[$definitionStart]) + $continuationColumn) . $content;
-        $length = $this->wrappedAttributeScanner->length($probe, $definitionStart, $count) ?? 0;
+        $opener = str_repeat(' ', IndentationHelper::getLeadingColumns($lines[$definitionStart]) + $continuationColumn) . $content;
+        $length = $this->wrappedAttributeScanner->lengthWithOpener($lines, $definitionStart, $count, $opener) ?? 0;
 
         // Container normalization can move a follower right of the synthetic
         // opener. The brace rule compares authored source columns instead.
