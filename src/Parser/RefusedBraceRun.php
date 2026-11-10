@@ -16,6 +16,13 @@ use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 final class RefusedBraceRun
 {
     /**
+     * The last closer scan: from a line to the first closer or blank line at or after it.
+     *
+     * @var array{lines: array<string>, from: int, stop: int, closes: bool}|null
+     */
+    private static ?array $closerScan = null;
+
+    /**
      * The index past the run's last line, or null when the run at $start is not refused.
      *
      * @param array<string> $lines
@@ -36,6 +43,9 @@ final class RefusedBraceRun
             return null;
         }
         $comment = str_starts_with($opener, '{%');
+        if ($comment && !$more && !self::closerBeforeBlank($lines, $start)) {
+            return null;
+        }
         $run = [];
         $shallow = false;
         $depth = 0;
@@ -107,6 +117,29 @@ final class RefusedBraceRun
         }
 
         return null;
+    }
+
+    /**
+     * Whether a `%}` stands on line $start or a later one before the next blank line.
+     *
+     * Memoized per lines array, so every `{%` opener of one unclosed paragraph is answered by a single scan.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     */
+    public static function closerBeforeBlank(array $lines, int $start): bool
+    {
+        $memo = self::$closerScan;
+        if ($memo === null || $start < $memo['from'] || $start > $memo['stop'] || $memo['lines'] !== $lines) {
+            $count = count($lines);
+            $j = $start;
+            while ($j < $count && !str_contains($lines[$j], '%}') && trim($lines[$j], " \t") !== '') {
+                $j++;
+            }
+            $memo = self::$closerScan = ['lines' => $lines, 'from' => $start, 'stop' => $j, 'closes' => $j < $count && str_contains($lines[$j], '%}')];
+        }
+
+        return $memo['closes'];
     }
 
     /**

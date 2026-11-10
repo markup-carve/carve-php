@@ -2424,6 +2424,10 @@ final class BlockOwnershipWalk
      */
     private function opensWrappedAttribute(string $rest, OwnershipFrame $owner): bool
     {
+        // A `%` payload is never an attribute (WrappedBlockAttributeScanner::validPayload), so a `{%` run needs no scan.
+        if (str_starts_with($rest, '{%')) {
+            return false;
+        }
         $depth = 0;
         foreach ($this->frames as $frame) {
             $depth += $frame->kind === 'quote' ? 1 : 0;
@@ -2611,7 +2615,7 @@ final class BlockOwnershipWalk
                 return new OwnershipForm(kind: 'text', interrupts: false);
             }
         }
-        if (RefusedBraceRun::endsOnItsLine($rest)) {
+        if (RefusedBraceRun::endsOnItsLine($rest) || (str_starts_with($rest, '{%') && !RefusedBraceRun::closerBeforeBlank($this->lines, $at))) {
             return null;
         }
         $depth = 0;
