@@ -68,7 +68,7 @@ class ImportAttributePolicyParityTest extends TestCase
     public function testLegacyNestedSourceMarkersAreReported(): void
     {
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
-            foreach (['data-carve-src', 'data-djot-src'] as $name) {
+            foreach (['data-carve-src'] as $name) {
                 $result = (new HtmlToCarve(importMode: $mode))->convertWithReport("<form><p {$name}=\"stored\">text</p></form>");
                 $rows = $result->report()['diagnostics'];
                 $this->assertCount(2, $rows);

@@ -10,13 +10,11 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Documents released versions exported carry `data-djot-` names, so the
- * importer reads that spelling as a deprecated alias of the `data-carve-` one
- * (PART 10 section 13c). What the alias must buy is the SAME import, not merely
- * an import that does not crash, so every case here is a differential against
- * the canonical spelling rather than an assertion on a literal.
+ * carve#5735 retired the `data-djot-` carrier alias: a former carrier name is an
+ * ordinary unreserved `data-*` attribute (CARVE-P10-016), so each case is a
+ * differential against an unrelated `data-` name.
  */
-class ADeprecatedCarrierSpellingStillImportsTest extends TestCase
+class AFormerCarrierSpellingIsAnOrdinaryAttributeTest extends TestCase
 {
     /**
      * @return array<string, array{string}>
@@ -51,40 +49,48 @@ class ADeprecatedCarrierSpellingStillImportsTest extends TestCase
     }
 
     #[DataProvider('carrierProvider')]
-    public function testTheDeprecatedSpellingImportsAsTheCanonicalOne(string $template): void
+    public function testTheFormerSpellingImportsAsAnOrdinaryAttribute(string $template): void
     {
-        $legacy = str_replace('data-PREFIX-', 'data-djot-', $template);
-        $canonical = str_replace('data-PREFIX-', 'data-carve-', $template);
-        $this->assertNotSame($legacy, $canonical);
-
+        $former = str_replace('data-PREFIX-', 'data-djot-', $template);
+        $ordinary = str_replace('data-PREFIX-', 'data-xq-', $template);
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
-            $converter = new HtmlToCarve(importMode: $mode);
             $this->assertSame(
-                $converter->convert($canonical),
-                (new HtmlToCarve(importMode: $mode))->convert($legacy),
-                "the deprecated spelling diverged in {$mode} mode",
+                str_replace('data-xq-', 'data-djot-', (new HtmlToCarve(importMode: $mode))->convert($ordinary)),
+                (new HtmlToCarve(importMode: $mode))->convert($former),
+                "the former spelling diverged from an ordinary attribute in {$mode} mode",
             );
         }
     }
 
-    #[DataProvider('carrierProvider')]
-    public function testTheDeprecatedSpellingNeverReachesTheOutput(string $template): void
+    public function testTheFormerSpellingRecoversNoReference(): void
     {
-        $legacy = str_replace('data-PREFIX-', 'data-djot-', $template);
+        $html = '<p><a href="/u" data-djot-ref="r">t</a></p>';
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
-            $carve = (new HtmlToCarve(importMode: $mode))->convert($legacy);
-            $this->assertStringNotContainsString('data-djot-', $carve);
+            $ast = (new HtmlToCarve(importMode: $mode))->convertToAst($html);
+            $link = $ast['children'][0]['children'][0];
+            $this->assertSame('link', $link['type']);
+            $this->assertArrayNotHasKey('ref', $link);
+            $this->assertCount(1, $ast['children']);
+        }
+        $this->assertSame("[t](/u){data-djot-ref=r}\n", (new HtmlToCarve(importMode: 'roundtrip'))->convert($html));
+        $this->assertSame("[t][r]\n\n[r]: /u\n", (new HtmlToCarve(importMode: 'roundtrip'))->convert('<p><a href="/u" data-carve-ref="r">t</a></p>'));
+    }
+
+    public function testTheCanonicalCarrierKeepsTheFormerNameAsAnAttribute(): void
+    {
+        $both = '<p><a href="/u" data-carve-ref="r" data-djot-ref="z">t</a></p>';
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $link = (new HtmlToCarve(importMode: $mode))->convertToAst($both)['children'][0]['children'][0];
+            $this->assertSame('r', $link['ref']);
+            $this->assertSame('z', $link['attrs']['keyValues']['data-djot-ref']);
         }
     }
 
-    public function testTheCanonicalSpellingWinsWhereBothArePresent(): void
+    public function testTheFormerNamesAreNotReserved(): void
     {
-        $both = '<p><a href="/u" data-carve-ref="canonical" data-djot-ref="legacy">text</a></p>';
-        $canonicalOnly = '<p><a href="/u" data-carve-ref="canonical">text</a></p>';
-        $this->assertSame(
-            (new HtmlToCarve(importMode: 'roundtrip'))->convert($canonicalOnly),
-            (new HtmlToCarve(importMode: 'roundtrip'))->convert($both),
-        );
+        $this->assertFalse(CarrierNames::isReserved('data-djot-ref'));
+        $this->assertFalse(CarrierNames::isStoredSourceMarker('data-djot-src'));
+        $this->assertTrue(CarrierNames::isStoredSourceMarker('data-carve-src'));
     }
 
     public function testAnUnlistedLegacyNameStaysAnAuthoredAttribute(): void

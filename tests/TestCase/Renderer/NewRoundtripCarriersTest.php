@@ -102,7 +102,7 @@ class NewRoundtripCarriersTest extends TestCase
         $exported = $converter->convert($source);
         $this->assertStringContainsString(' data-carve-label="Example"', $exported);
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
-            foreach (['data-carve-label', 'data-djot-label'] as $name) {
+            foreach (['data-carve-label'] as $name) {
                 $importer = new HtmlToCarve(importMode: $mode);
                 $html = str_replace('data-carve-label', $name, $exported);
                 $tree = $importer->convertToAst($html);

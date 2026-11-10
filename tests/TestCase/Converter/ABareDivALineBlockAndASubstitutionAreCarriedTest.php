@@ -50,7 +50,7 @@ class ABareDivALineBlockAndASubstitutionAreCarriedTest extends TestCase
         $cases = [];
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
             $cases[$mode . ' div'] = [$mode, '<div data-carve-div><p>x</p></div>', ":::\nx\n:::\n"];
-            $cases[$mode . ' legacy div'] = [$mode, '<div data-djot-div><p>x</p></div>', ":::\nx\n:::\n"];
+            $cases[$mode . ' former div alias'] = [$mode, '<div data-djot-div><p>x</p></div>', "{data-djot-div}\n:::\nx\n:::\n"];
             $cases[$mode . ' line block'] = [$mode, "<div data-carve-line-block class=\"line-block\"><p>a<br>\nb</p></div>", "::: |\na\nb\n:::\n"];
             $cases[$mode . ' substitution'] = [$mode, '<p><span data-carve-substitution><del>o</del><ins>n</ins></span></p>', "{~o~>n~}\n"];
         }

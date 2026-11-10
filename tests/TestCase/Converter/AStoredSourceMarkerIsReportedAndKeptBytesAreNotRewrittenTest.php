@@ -126,39 +126,39 @@ class AStoredSourceMarkerIsReportedAndKeptBytesAreNotRewrittenTest extends TestC
             ],
             'd roundtrip' => [
                 'roundtrip',
-                '<form><p data-djot-src="stored">text</p></form>',
+                '<form><p data-carve-src="stored">text</p></form>',
                 '```=html
-<form><p data-djot-src="stored">text</p></form>
+<form><p data-carve-src="stored">text</p></form>
 ```
 ',
                 [
                     'raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML',
-                    'attribute-preserved|info|preserved|exact|/form[1]/p[1]|Preserved round-trip marker attribute data-djot-src on <p> inside the raw HTML <form> is kept as',
+                    'attribute-preserved|info|preserved|exact|/form[1]/p[1]|Preserved round-trip marker attribute data-carve-src on <p> inside the raw HTML <form> is kept as',
                 ],
             ],
             'd safe' => [
                 'safe',
-                '<form><p data-djot-src="stored">text</p></form>',
+                '<form><p data-carve-src="stored">text</p></form>',
                 'text
 ',
                 [
                     'element-unwrapped|info|degraded|exact|/form[1]|Unwrapped unsupported <form> element',
-                    'attribute-dropped|info|dropped|exact|/form[1]/p[1]|Dropped round-trip marker attribute data-djot-src on <p>',
+                    'attribute-dropped|info|dropped|exact|/form[1]/p[1]|Dropped round-trip marker attribute data-carve-src on <p>',
                 ],
             ],
             'd semantic' => [
                 'semantic',
-                '<form><p data-djot-src="stored">text</p></form>',
+                '<form><p data-carve-src="stored">text</p></form>',
                 'text
 ',
                 [
                     'element-unwrapped|info|degraded|exact|/form[1]|Unwrapped unsupported <form> element',
-                    'attribute-dropped|info|dropped|exact|/form[1]/p[1]|Dropped round-trip marker attribute data-djot-src on <p>',
+                    'attribute-dropped|info|dropped|exact|/form[1]/p[1]|Dropped round-trip marker attribute data-carve-src on <p>',
                 ],
             ],
             'g roundtrip' => [
                 'roundtrip',
-                '<p DATA-CARVE-SRC="*stored*">shown</p><p>lead</p><div DATA-DJOT-SRC="*stored*"><p>shown</p></div>',
+                '<p DATA-CARVE-SRC="*stored*">shown</p><p>lead</p><div DATA-CARVE-SRC="*stored*"><p>shown</p></div>',
                 'shown
 
 lead
@@ -167,12 +167,12 @@ shown
 ',
                 [
                     'attribute-dropped|info|dropped|exact|/p[1]|Dropped round-trip marker attribute data-carve-src on <p>',
-                    'attribute-dropped|info|dropped|exact|/div[3]|Dropped round-trip marker attribute data-djot-src on <div>',
+                    'attribute-dropped|info|dropped|exact|/div[3]|Dropped round-trip marker attribute data-carve-src on <div>',
                 ],
             ],
             'g safe' => [
                 'safe',
-                '<p DATA-CARVE-SRC="*stored*">shown</p><p>lead</p><div DATA-DJOT-SRC="*stored*"><p>shown</p></div>',
+                '<p DATA-CARVE-SRC="*stored*">shown</p><p>lead</p><div DATA-CARVE-SRC="*stored*"><p>shown</p></div>',
                 'shown
 
 lead
@@ -181,12 +181,12 @@ shown
 ',
                 [
                     'attribute-dropped|info|dropped|exact|/p[1]|Dropped round-trip marker attribute data-carve-src on <p>',
-                    'attribute-dropped|info|dropped|exact|/div[3]|Dropped round-trip marker attribute data-djot-src on <div>',
+                    'attribute-dropped|info|dropped|exact|/div[3]|Dropped round-trip marker attribute data-carve-src on <div>',
                 ],
             ],
             'g semantic' => [
                 'semantic',
-                '<p DATA-CARVE-SRC="*stored*">shown</p><p>lead</p><div DATA-DJOT-SRC="*stored*"><p>shown</p></div>',
+                '<p DATA-CARVE-SRC="*stored*">shown</p><p>lead</p><div DATA-CARVE-SRC="*stored*"><p>shown</p></div>',
                 'shown
 
 lead
@@ -195,13 +195,13 @@ shown
 ',
                 [
                     'attribute-dropped|info|dropped|exact|/p[1]|Dropped round-trip marker attribute data-carve-src on <p>',
-                    'attribute-dropped|info|dropped|exact|/div[3]|Dropped round-trip marker attribute data-djot-src on <div>',
+                    'attribute-dropped|info|dropped|exact|/div[3]|Dropped round-trip marker attribute data-carve-src on <div>',
                 ],
             ],
             'h roundtrip' => [
                 'roundtrip',
-                '<p>a <span data-x="1" data-carve-src="i">in</span> <em data-djot-src="e">em</em> <output data-carve-src="o">out</output></p>
-<form data-carve-src="x"><cite cite="u">text</cite></form><table data-carve-src="t"><tr><td data-djot-src="c">x</td></tr></table>',
+                '<p>a <span data-x="1" data-carve-src="i">in</span> <em data-carve-src="e">em</em> <output data-carve-src="o">out</output></p>
+<form data-carve-src="x"><cite cite="u">text</cite></form><table data-carve-src="t"><tr><td data-carve-src="c">x</td></tr></table>',
                 'a [in]{data-x=1} /em/ `<output data-carve-src="o">out</output>`{=html}
 
 ```=html
@@ -212,20 +212,20 @@ shown
 ',
                 [
                     'attribute-dropped|info|dropped|exact|/p[1]/span[2]|Dropped round-trip marker attribute data-carve-src on <span>',
-                    'attribute-dropped|info|dropped|exact|/p[1]/em[4]|Dropped round-trip marker attribute data-djot-src on <em>',
+                    'attribute-dropped|info|dropped|exact|/p[1]/em[4]|Dropped round-trip marker attribute data-carve-src on <em>',
                     'attribute-preserved|info|preserved|exact|/p[1]/output[6]|Preserved round-trip marker attribute data-carve-src on <output> in the raw HTML this element is kept as',
                     'raw-preserved|warning|degraded|exact|/p[1]/output[6]|Preserved unsupported <output> element as raw HTML',
                     'attribute-preserved|info|preserved|exact|/form[3]|Preserved round-trip marker attribute data-carve-src on <form> in the raw HTML this element is kept as',
                     'raw-preserved|warning|degraded|exact|/form[3]|Preserved unsupported <form> element as raw HTML',
                     'attribute-preserved|info|preserved|exact|/form[3]/cite[1]|Preserved cite on <cite> inside the raw HTML <form> is kept as: the semantic span\'s marker owns that key',
                     'attribute-dropped|info|dropped|exact|/table[4]|Dropped round-trip marker attribute data-carve-src on <table>',
-                    'attribute-dropped|info|dropped|exact|/table[4]/tr[1]/td[1]|Dropped round-trip marker attribute data-djot-src on <td>',
+                    'attribute-dropped|info|dropped|exact|/table[4]/tr[1]/td[1]|Dropped round-trip marker attribute data-carve-src on <td>',
                 ],
             ],
             'h safe' => [
                 'safe',
-                '<p>a <span data-x="1" data-carve-src="i">in</span> <em data-djot-src="e">em</em> <output data-carve-src="o">out</output></p>
-<form data-carve-src="x"><cite cite="u">text</cite></form><table data-carve-src="t"><tr><td data-djot-src="c">x</td></tr></table>',
+                '<p>a <span data-x="1" data-carve-src="i">in</span> <em data-carve-src="e">em</em> <output data-carve-src="o">out</output></p>
+<form data-carve-src="x"><cite cite="u">text</cite></form><table data-carve-src="t"><tr><td data-carve-src="c">x</td></tr></table>',
                 'a [in]{data-x=1} /em/ out
 
 [text]{cite}
@@ -234,20 +234,20 @@ shown
 ',
                 [
                     'attribute-dropped|info|dropped|exact|/p[1]/span[2]|Dropped round-trip marker attribute data-carve-src on <span>',
-                    'attribute-dropped|info|dropped|exact|/p[1]/em[4]|Dropped round-trip marker attribute data-djot-src on <em>',
+                    'attribute-dropped|info|dropped|exact|/p[1]/em[4]|Dropped round-trip marker attribute data-carve-src on <em>',
                     'element-unwrapped|info|degraded|exact|/p[1]/output[6]|Unwrapped unsupported <output> element',
                     'attribute-dropped|info|dropped|exact|/p[1]/output[6]|Dropped round-trip marker attribute data-carve-src on <output>',
                     'element-unwrapped|info|degraded|exact|/form[3]|Unwrapped unsupported <form> element',
                     'attribute-dropped|info|dropped|exact|/form[3]|Dropped round-trip marker attribute data-carve-src on <form>',
                     'attribute-dropped|warning|dropped|exact|/form[3]/cite[1]|Dropped cite on <cite>: the semantic span\'s marker owns that key',
                     'attribute-dropped|info|dropped|exact|/table[4]|Dropped round-trip marker attribute data-carve-src on <table>',
-                    'attribute-dropped|info|dropped|exact|/table[4]/tr[1]/td[1]|Dropped round-trip marker attribute data-djot-src on <td>',
+                    'attribute-dropped|info|dropped|exact|/table[4]/tr[1]/td[1]|Dropped round-trip marker attribute data-carve-src on <td>',
                 ],
             ],
             'h semantic' => [
                 'semantic',
-                '<p>a <span data-x="1" data-carve-src="i">in</span> <em data-djot-src="e">em</em> <output data-carve-src="o">out</output></p>
-<form data-carve-src="x"><cite cite="u">text</cite></form><table data-carve-src="t"><tr><td data-djot-src="c">x</td></tr></table>',
+                '<p>a <span data-x="1" data-carve-src="i">in</span> <em data-carve-src="e">em</em> <output data-carve-src="o">out</output></p>
+<form data-carve-src="x"><cite cite="u">text</cite></form><table data-carve-src="t"><tr><td data-carve-src="c">x</td></tr></table>',
                 'a [in]{data-x=1} /em/ out
 
 [text]{cite}
@@ -256,25 +256,25 @@ shown
 ',
                 [
                     'attribute-dropped|info|dropped|exact|/p[1]/span[2]|Dropped round-trip marker attribute data-carve-src on <span>',
-                    'attribute-dropped|info|dropped|exact|/p[1]/em[4]|Dropped round-trip marker attribute data-djot-src on <em>',
+                    'attribute-dropped|info|dropped|exact|/p[1]/em[4]|Dropped round-trip marker attribute data-carve-src on <em>',
                     'element-unwrapped|info|degraded|exact|/p[1]/output[6]|Unwrapped unsupported <output> element',
                     'attribute-dropped|info|dropped|exact|/p[1]/output[6]|Dropped round-trip marker attribute data-carve-src on <output>',
                     'element-unwrapped|info|degraded|exact|/form[3]|Unwrapped unsupported <form> element',
                     'attribute-dropped|info|dropped|exact|/form[3]|Dropped round-trip marker attribute data-carve-src on <form>',
                     'attribute-dropped|warning|dropped|exact|/form[3]/cite[1]|Dropped cite on <cite>: the semantic span\'s marker owns that key',
                     'attribute-dropped|info|dropped|exact|/table[4]|Dropped round-trip marker attribute data-carve-src on <table>',
-                    'attribute-dropped|info|dropped|exact|/table[4]/tr[1]/td[1]|Dropped round-trip marker attribute data-djot-src on <td>',
+                    'attribute-dropped|info|dropped|exact|/table[4]/tr[1]/td[1]|Dropped round-trip marker attribute data-carve-src on <td>',
                 ],
             ],
             'sanitized image fallback roundtrip' => [
                 'roundtrip',
-                '<p><img src="x" alt="[x]" onclick="x()" data-carve-src="stored"> and <img src="y" alt="[y]" data-djot-src="s2"></p>',
+                '<p><img src="x" alt="[x]" onclick="x()" data-carve-src="stored"> and <img src="y" alt="[y]" data-carve-src="s2"></p>',
                 '`<img src="x" alt="[x]">`{=html} and `<img src="y" alt="[y]">`{=html}
 ',
                 [
                     'attribute-dropped|warning|dropped|exact|/p[1]/img[1]|Dropped event-handler attribute onclick on <img>',
                     'attribute-dropped|info|dropped|exact|/p[1]/img[1]|Dropped round-trip marker attribute data-carve-src on <img>',
-                    'attribute-dropped|info|dropped|exact|/p[1]/img[3]|Dropped round-trip marker attribute data-djot-src on <img>',
+                    'attribute-dropped|info|dropped|exact|/p[1]/img[3]|Dropped round-trip marker attribute data-carve-src on <img>',
                 ],
             ],
         ];

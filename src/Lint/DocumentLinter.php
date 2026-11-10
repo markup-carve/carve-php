@@ -86,7 +86,6 @@ final class DocumentLinter
                 && preg_match('/^carve-lint-(disable-next-line|disable-line|disable|enable)(?:[ \t]+(.*))?$/', $node->getContent(), $match)
             ) {
                 $rules = preg_split('/[ ,]+/', trim($match[2] ?? ''), -1, PREG_SPLIT_NO_EMPTY) ?: [];
-                $rules = array_map(static fn (string $rule): string => $rule === 'a11y/heading-jump' ? 'heading-level-skip' : $rule, $rules);
                 $directives[] = [$node->getPos()->startLine, $match[1], $rules];
             }
             foreach ($node->getChildren() as $child) {

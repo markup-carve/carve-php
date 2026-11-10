@@ -3996,7 +3996,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     private static function isReservedExportAttribute(string $name): bool
     {
         $name = strtolower($name);
-        $canonical = CarrierNames::canonicalName($name);
+        $canonical = strtolower($name);
 
         return in_array($name, ['data-marker', 'data-char'], true)
             || ($canonical !== 'data-carve-ext' && CarrierNames::isReserved($name));

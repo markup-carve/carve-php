@@ -98,7 +98,7 @@ class EveryImportModeConsumesTheCarrierInventoryTest extends TestCase
     public function testContradictoryLinkCarriersRestoreNeitherMeaning(): void
     {
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
-            foreach (['data-carve-', 'data-djot-'] as $prefix) {
+            foreach (['data-carve-'] as $prefix) {
                 $importer = new HtmlToCarve(importMode: $mode);
                 $pair = '<p><a href="https://e.com" ' . $prefix . 'autolink ' . $prefix . 'ref="r">https://e.com</a></p>';
                 $result = $importer->convertWithReport($pair);
