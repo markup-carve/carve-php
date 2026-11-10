@@ -34,7 +34,14 @@ final class RefusedBraceRun
         if ($brace === false || preg_match('/(?:^|[ \t])(?::|\[\^[^]]+\]:)[ \t]+$/', substr($first, 0, $brace)) !== 1) {
             return null;
         }
-        $probe = [str_repeat(' ', ContinuationMarkerClassifier::columnAt($first, $brace)) . $content];
+        $column = ContinuationMarkerClassifier::columnAt($first, $brace);
+        if (preg_match('/\[\^[^\]]+\]:[ \t]+$/D', substr($first, 0, $brace), $marker, PREG_OFFSET_CAPTURE) === 1) {
+            // A note marker-line brace opens at its body column, including
+            // when this later scan checks whether the run was refused.
+            $column = ContinuationMarkerClassifier::columnAt($first, $marker[0][1])
+                + BlockGrammar::FOOTNOTE_BODY_COLUMN;
+        }
+        $probe = [str_repeat(' ', $column) . $content];
         for ($at = $start + 1, $count = count($authoredLines); $at < $count; $at++) {
             $line = ContainerPrefix::stripQuoteMarkers($authoredLines[$at]);
             if (IndentationHelper::isBlankLine($line)) {
