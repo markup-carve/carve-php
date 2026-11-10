@@ -550,9 +550,7 @@ final class BlockQuoteBuilder
 
                 continue;
             }
-            $runLength = $content === null
-                ? $this->unprefixedAttributeRunLength($lazyState, $lines, $i, $innerLineMap)
-                : 0;
+            $runLength = $this->unprefixedAttributeRunLength($lazyState, $lines, $i, $innerLineMap);
             if ($content !== null) {
                 if ($attachedParagraphOpen) {
                     $lazyState['paragraphOpen'] = false;
@@ -619,11 +617,7 @@ final class BlockQuoteBuilder
             } elseif ($runLength > 0) {
                 // The run is one block even when its continuation omits the quote prefix.
                 // It opens no paragraph for the next unmarked line to continue (CARVE-P2-035, S4).
-                for ($tail = 0; $tail < $runLength; $tail++) {
-                    $innerLines[] = $lines[$i];
-                    $innerLineMap[] = $this->sourceLineFor($i);
-                    $i++;
-                }
+                $this->appendUnprefixedAttributeRun($lines, $i, $runLength, $innerLines, $innerLineMap);
                 $lazyState['attrRun'] = null;
                 $lazyState['paragraphOpen'] = false;
             } elseif (
@@ -723,6 +717,22 @@ final class BlockQuoteBuilder
         $parent->appendChild($blockQuote);
 
         return $i - $start;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $at
+     * @param int $length
+     * @param array<string> $innerLines
+     * @param array<int, int> $innerLineMap
+     */
+    private function appendUnprefixedAttributeRun(array $lines, int &$at, int $length, array &$innerLines, array &$innerLineMap): void
+    {
+        for ($tail = 0; $tail < $length; $tail++) {
+            $innerLines[] = $lines[$at];
+            $innerLineMap[] = $this->sourceLineFor($at);
+            $at++;
+        }
     }
 
     /**
