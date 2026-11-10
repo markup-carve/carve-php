@@ -839,8 +839,35 @@ final class BlockQuoteBuilder
         }
         $state = self::initialBlockQuoteLazyState();
         $state['attrRun'] = [$content];
+        $opener = $this->state->source->sourceLines[$sourceLine] ?? '';
+        $brace = strpos($opener, '{');
+        if ($brace === false) {
+            return 0;
+        }
+        $openingColumn = WrappedBlockAttributeScanner::columnAt($opener, $brace);
+        for ($at = $start, $count = count($lines); $at < $count; $at++) {
+            $line = $lines[$at];
+            if (IndentationHelper::isBlankLine($line)) {
+                break;
+            }
+            $trimmed = ltrim($line, " \t");
+            $quoted = ContainerPrefix::afterLeadingQuoteMarkers($trimmed);
+            $hasQuote = $quoted !== $trimmed;
+            if (!$hasQuote) {
+                $authoredLine = $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? $line;
+                if (IndentationHelper::getLeadingColumns($authoredLine) <= $openingColumn) {
+                    break;
+                }
+            }
+            if ($this->trackWrappedAttributeRun($state, $hasQuote ? $quoted : $line)) {
+                return $at - $start + 1;
+            }
+            if ($state['attrRun'] === null) {
+                break;
+            }
+        }
 
-        return $this->unprefixedAttributeRunLength($state, $lines, $start, [$sourceLine]);
+        return 0;
     }
 
     /**
