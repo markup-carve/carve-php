@@ -60,4 +60,36 @@ class AMarkedFootnoteReferencePairsOutsideEndnotesTest extends TestCase
             (new HtmlToCarve())->convert($html),
         );
     }
+
+    public function testInlineTargetUsesItsContainingBlock(): void
+    {
+        $html = '<p><a href="#n1" role="doc-noteref">1</a></p>'
+            . '<p><span id="n1" role="doc-footnote">body</span></p>';
+
+        self::assertSame(
+            "[^1]\n\n[^1]: [body]{#n1 role=doc-footnote}\n",
+            (new HtmlToCarve())->convert($html),
+        );
+    }
+
+    public function testUncollectableInlineTargetLeavesARegularLink(): void
+    {
+        $html = '<p><a href="#n1" role="doc-noteref">1</a></p>'
+            . '<span id="n1" role="doc-footnote">body</span>';
+
+        self::assertSame(
+            "[1](#n1){role=doc-noteref}\n\n[body]{#n1 role=doc-footnote}\n",
+            (new HtmlToCarve())->convert($html),
+        );
+    }
+
+    public function testReferenceInsideItsCandidateDefinitionDoesNotPairWithItself(): void
+    {
+        $html = '<p><a href="#n1" role="doc-noteref">1</a><span id="n1" role="doc-footnote">body</span></p>';
+
+        self::assertSame(
+            "[1](#n1){role=doc-noteref}[body]{#n1 role=doc-footnote}\n",
+            (new HtmlToCarve())->convert($html),
+        );
+    }
 }

@@ -609,8 +609,19 @@ final class HtmlAstBuilder
             }
             $href = $anchor->getAttribute('href');
             $fragment = str_starts_with($href, '#') ? substr($href, 1) : '';
-            $target = $targetsById[$fragment] ?? null;
+            $target = isset($targetsById[$fragment]) ? $this->externalFootnoteBlock($targetsById[$fragment]) : null;
             if ($target === null || (isset($this->session->endnoteItems[$fragment]) && !isset($this->session->externalFootnoteItems[$target]))) {
+                continue;
+            }
+            $insideTarget = false;
+            for ($parent = $anchor; $parent instanceof DOMElement; $parent = $parent->parentNode) {
+                if ($parent === $target) {
+                    $insideTarget = true;
+
+                    break;
+                }
+            }
+            if ($insideTarget) {
                 continue;
             }
             $this->session->externalFootnoteReferences[$anchor] = true;
@@ -2481,6 +2492,24 @@ final class HtmlAstBuilder
         ];
         $this->addHint($definition, "\0carve-compact-definition");
         $this->session->footnoteDefinitions[] = self::importedNode($definition);
+    }
+
+    /**
+     * A fragment on inline content identifies the block that contains it.
+     */
+    private function externalFootnoteBlock(DOMElement $target): ?DOMElement
+    {
+        for ($block = $target; $block instanceof DOMElement; $block = $block->parentNode) {
+            $tag = strtolower(DomLoader::elementName($block));
+            if (in_array($tag, ['code', 'pre', 'template', 'td', 'th', 'table'], true)) {
+                return null;
+            }
+            if (in_array($tag, ['li', 'div', 'section', 'aside', 'p', 'blockquote'], true)) {
+                return $block;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -5165,7 +5194,7 @@ final class HtmlAstBuilder
         if ($endnote !== null && self::isValidFootnoteCarrierLabel(CarrierNames::consumeAttribute($endnote, 'data-carve-footnote-label'))) {
             return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment]]];
         }
-        if ($href !== '' && strtolower($node->getAttribute('role')) === 'doc-noteref') {
+        if ($href !== '' && $endnote !== null && strtolower($node->getAttribute('role')) === 'doc-noteref') {
             $href = $node->getAttribute('href');
             $fragment = str_starts_with($href, '#') ? substr($href, 1) : trim($node->textContent);
 
