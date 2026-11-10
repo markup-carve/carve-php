@@ -3963,6 +3963,19 @@ class InlineParser
     }
 
     /**
+     * @var array<int|string, true>|null
+     */
+    private static ?array $plainBytes = null;
+
+    /**
+     * @return array<int|string, true>
+     */
+    private static function plainBytes(): array
+    {
+        return array_fill_keys(str_split(' abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), true);
+    }
+
+    /**
      * The closer of the bare delimiter opened at $pos, or null.
      */
     private function delimitedClose(string $text, int $pos, string $delimiter, bool $openerIsBraced): ?int
@@ -3995,7 +4008,17 @@ class InlineParser
         $literalEnd = 0;
         $socialNameEnd = 0;
         $searchPos = $searchStart;
+        // A letter, digit or space opens, closes and skips nothing here; only the position memos below can stop on it.
+        $plain = $this::class === self::class ? self::$plainBytes ??= self::plainBytes() : [];
         while ($searchPos < $length) {
+            if (
+                isset($plain[$text[$searchPos]]) && !isset($destinationEnds[$searchPos]) && !isset($attached[$searchPos])
+                && !isset($this->emphNoCloseFrom[$memoKey][$searchPos])
+            ) {
+                $searchPos++;
+
+                continue;
+            }
             if (isset($destinationEnds[$searchPos])) {
                 $searchPos = $this->bracedPairIndex?->afterAttributes($destinationEnds[$searchPos]) ?? $destinationEnds[$searchPos];
                 $failedStarts[] = $searchPos;
