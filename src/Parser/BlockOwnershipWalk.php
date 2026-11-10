@@ -617,8 +617,6 @@ final class BlockOwnershipWalk
                 if (
                     $f->markerCol !== null && $this->m['col'] === $f->markerCol && ($f->kind === 'quote' || $this->m['col'] < $f->col)
                     && self::isPlus($this->m['rest'])
-                    && !($this->literalPlusAfterAttribute !== null && $at === $this->literalPlusAfterAttribute['line']
-                        && $f->markerCol === $this->literalPlusAfterAttribute['column'])
                     && !$this->openCodeFenceKeepsPlus($frameCount)
                     && !($f->kind === 'quote' && $this->hasAttachedQuoteAncestor($k) && $quotesRead > 0 && $f->para && $quotesRead < $this->quoteDepth($k + 1))
                 ) {
@@ -3746,7 +3744,7 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * Restore the outer offer when a nested attachment or its quote has ended.
+     * Keep an attribute's host only when the next plus can attach a block there.
      */
     private function closeAttributeHostBeforeLiteralPlus(int $at): void
     {
@@ -3757,10 +3755,21 @@ final class BlockOwnershipWalk
 
         $view = $this->throughQuotes($this->src, $closedAttribute['hostIndex'], $this->frames);
         if ($view !== null && self::isPlus($view['rest']) && ($view['col'] ?? null) === $closedAttribute['column']) {
-            $this->truncate($closedAttribute['hostIndex']);
+            $claimed = $this->claimedMarkers;
+            unset($this->claimedMarkers[$at]);
+            $host = $this->frames[$closedAttribute['hostIndex']];
+            $attaches = $this->attachesAt($host->kind, $at, self::docColumn($this->src, $view['rest']), $closedAttribute['hostIndex']);
+            $this->claimedMarkers = $claimed;
+            if (!$attaches) {
+                $this->truncate($closedAttribute['hostIndex']);
+                $this->attachedTo = null;
+            }
         }
     }
 
+    /**
+     * Restore the outer offer when a nested attachment or its quote has ended.
+     */
     private function restoreEnclosingAttachedHost(int $at): void
     {
         while (

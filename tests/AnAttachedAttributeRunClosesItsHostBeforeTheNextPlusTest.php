@@ -37,6 +37,16 @@ final class AnAttachedAttributeRunClosesItsHostBeforeTheNextPlusTest extends Tes
             "- +\np\n+\n  z\n",
             "<ul>\n  <li>p\n    z\n  </li>\n</ul>",
         ];
+
+        yield 'a following heading is still claimed by the item' => [
+            "- +\n{.x}\n+\n# z\n",
+            "<ul>\n  <li>\n    <h1 class=\"x\" id=\"z\">z</h1>\n  </li>\n</ul>",
+        ];
+
+        yield 'an enclosing quote can claim the following plus' => [
+            "> - +\n> {.x}\n+\nz\n",
+            "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n  <p class=\"x\">z</p>\n</blockquote>",
+        ];
     }
 
     #[DataProvider('documents')]
