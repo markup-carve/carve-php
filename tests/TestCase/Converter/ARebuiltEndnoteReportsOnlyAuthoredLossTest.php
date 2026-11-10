@@ -35,4 +35,12 @@ class ARebuiltEndnoteReportsOnlyAuthoredLossTest extends TestCase
 
         self::assertSame([], (new HtmlToCarve())->convertWithReport($html)->report()['diagnostics']);
     }
+
+    public function testEmptyNonBooleanValuesCarryNoLoss(): void
+    {
+        $html = '<p><a href="#fn1" role="doc-noteref">1</a></p>'
+            . '<section role="doc-endnotes"><ol><li id="fn1" class="" title=""><p>body</p></li></ol></section>';
+
+        self::assertSame([], (new HtmlToCarve())->convertWithReport($html)->report()['diagnostics']);
+    }
 }

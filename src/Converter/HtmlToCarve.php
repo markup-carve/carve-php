@@ -2503,7 +2503,8 @@ class HtmlToCarve
                 // The builder retained this authored extension ID.
                 continue;
             } elseif (
-                ($name !== 'id' && isset($this->referencedImportEndnoteItems[$node]))
+                ($name !== 'id' && isset($this->referencedImportEndnoteItems[$node])
+                    && ($attribute->value !== '' || in_array($name, self::HTML_BOOLEAN_ATTRIBUTES, true)))
                 || !$this->importAttributeSurvived($tag, $name, $attribute->value)
             ) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
@@ -3272,6 +3273,19 @@ class HtmlToCarve
     private const PRESENCE_ATTRIBUTES = [
         'checked', 'compact', 'declare', 'defer', 'disabled', 'ismap', 'multiple',
         'nohref', 'noresize', 'noshade', 'nowrap', 'readonly', 'selected',
+    ];
+
+    /**
+     * An empty value still means that a boolean HTML attribute was authored.
+     *
+     * @var list<string>
+     */
+    private const HTML_BOOLEAN_ATTRIBUTES = [
+        'allowfullscreen', 'async', 'autofocus', 'autoplay', 'checked', 'compact',
+        'controls', 'declare', 'default', 'defer', 'disabled', 'formnovalidate',
+        'hidden', 'inert', 'ismap', 'itemscope', 'loop', 'multiple', 'muted',
+        'nohref', 'nomodule', 'noresize', 'noshade', 'novalidate', 'nowrap',
+        'open', 'playsinline', 'readonly', 'required', 'reversed', 'selected',
     ];
 
     /**
