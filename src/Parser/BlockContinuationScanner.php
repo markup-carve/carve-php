@@ -1683,12 +1683,13 @@ final class BlockContinuationScanner
         $run = new PlainContinuationState();
         $run->floorLiveParagraph = $trailingState->openParagraph;
         $run->unclosedFenceColumn = $unclosedFenceBase === null ? null : $contentIndent + $unclosedFenceBase;
+        // A task box sits before the marker-line run, so its `{` is past the content column (CARVE-P2-035).
         $run->wrappedAttributeLinesRemaining = max(0, ($this->wrappedItemAttributeLength(
             $itemLines[0] ?? '',
             $lines,
             $i,
             $count,
-            $contentIndent,
+            $contentIndent + self::taskBoxWidth($this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '', $itemLines[0] ?? ''),
         ) ?? 1) - 1);
         $run->itemOwnFenceRuns = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($itemLines[0] ?? '', " \t")) !== 1
             && !$this->isBlockAttributeLine(ltrim($itemLines[0] ?? '', " \t"));
