@@ -756,7 +756,7 @@ final class BlockQuoteBuilder
     }
 
     /**
-     * @param array{attrRun: list<string>|null, hosts?: array{kinds: list<string>}} $state
+     * @param array{mode: \MarkupCarve\Carve\Parser\BlockQuoteLazyMode, attrRun: list<string>|null, hosts?: array{kinds: list<string>}} $state
      * @param array<string> $lines
      * @param int $start
      * @param array<string> $innerLines
@@ -765,7 +765,7 @@ final class BlockQuoteBuilder
     private function quotedAttributeRunLength(array $state, array $lines, int $start, array $innerLines, array $innerLineMap): int
     {
         $length = $this->unprefixedAttributeRunLength($state, $lines, $start, $innerLineMap);
-        if ($length > 0 || $state['attrRun'] !== null) {
+        if ($length > 0 || $state['attrRun'] !== null || $state['mode'] !== BlockQuoteLazyMode::Content) {
             return $length;
         }
 

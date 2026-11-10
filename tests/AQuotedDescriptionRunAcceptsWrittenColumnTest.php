@@ -49,6 +49,11 @@ final class AQuotedDescriptionRunAcceptsWrittenColumnTest extends TestCase
             "> :: t\n> :  {.x\n    .y\n>     }\n> # H\n",
             "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>{.x\n.y\n}\n# H</dd>\n  </dl>\n</blockquote>",
         ];
+
+        yield 'description shaped text inside code stays code' => [
+            "> ```\n> :   {.x\n        .y}\n> ```\n",
+            "<blockquote>\n  <pre><code>:   {.x\n</code></pre>\n</blockquote>\n<p>.y}</p>\n<blockquote>\n  <pre><code></code></pre>\n</blockquote>",
+        ];
     }
 
     #[DataProvider('documents')]
