@@ -4570,7 +4570,7 @@ class BlockParser
                     $literalLines[$physicalCount] = true;
                     $literalRuns[] = [$physicalCount, $physicalCount + 1];
                 }
-                if ($heldThrough <= $i) {
+                if ($refusedEnd === null && $heldThrough <= $i) {
                     $heldThrough = $this->heldCommentRunEnd($lines, $i) ?? -1;
                 }
             }
@@ -4823,7 +4823,24 @@ class BlockParser
      */
     private function refusedRunEndInSourceColumns(array $lines, int $start): ?int
     {
-        if (str_starts_with(ltrim(self::stripLazyFrame($lines[$start]), " \t"), '{%') && !RefusedBraceRun::closerBeforeBlank($lines, $start)) {
+        $comment = str_starts_with(ltrim(self::stripLazyFrame($lines[$start]), " \t"), '{%');
+        if ($comment && !str_contains($lines[$start], '%}') && isset($lines[$start + 1])) {
+            $firstTwo = $this->braceRunInSourceColumns($lines, $start, 2);
+            if ($firstTwo !== null && count($firstTwo) === 2) {
+                $opener = self::stripLazyFrame($firstTwo[0]);
+                $next = self::stripLazyFrame($firstTwo[1]);
+                if (
+                    !IndentationHelper::isBlankLine($next)
+                    && (str_starts_with($firstTwo[1], BlockGrammar::LAZY_FRAME)
+                        || IndentationHelper::getLeadingColumns($next) <= IndentationHelper::getLeadingColumns($opener))
+                ) {
+                    // A failed first continuation refuses the opener at once;
+                    // it claims no later line, including a distant closer.
+                    return $start + 1;
+                }
+            }
+        }
+        if ($comment && !RefusedBraceRun::closerBeforeBlank($lines, $start)) {
             return null;
         }
         $probe = $this->braceRunInSourceColumns($lines, $start);
@@ -4860,14 +4877,15 @@ class BlockParser
      *
      * @param array<string> $lines
      * @param int $start
+     * @param int|null $maxLines Limit the probe to this many source lines.
      *
      * @return array<string>|null
      */
-    private function braceRunInSourceColumns(array $lines, int $start): ?array
+    private function braceRunInSourceColumns(array $lines, int $start, ?int $maxLines = null): ?array
     {
         $comment = str_starts_with(ltrim(self::stripLazyFrame($lines[$start]), " \t"), '{%');
         $probe = [];
-        for ($at = $start, $count = count($lines); $at < $count; $at++) {
+        for ($at = $start, $count = $maxLines === null ? count($lines) : min(count($lines), $start + $maxLines); $at < $count; $at++) {
             $line = self::stripLazyFrame($lines[$at]);
             if (IndentationHelper::isBlankLine($line)) {
                 break;
