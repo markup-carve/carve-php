@@ -754,6 +754,13 @@ final class DefinitionListBuilder
         } else {
             $body = [rtrim($m[2], StringUtil::WHITESPACE_CHARS)];
             $bodyMap = [$this->sourceLineFor($definitionStart)];
+            $markerLineRun = $this->markerLineWrappedAttributeRun($lines, $definitionStart, $count, $continuationColumn, $body[0]);
+            for ($end = $definitionStart + $markerLineRun; $i < $end; $i++) {
+                $body[] = IndentationHelper::getLeadingColumns($lines[$i], $continuationColumn + 1) >= $continuationColumn
+                    ? IndentationHelper::stripLeadingColumns($lines[$i], $continuationColumn)
+                    : ltrim($lines[$i], " \t");
+                $bodyMap[] = $this->sourceLineFor($i);
+            }
         }
         // A nested item owns lines that reach its column; a document or quote body keeps its own band.
         $descriptionAtDocumentOrQuote = $definitionColumn === 0
@@ -779,9 +786,33 @@ final class DefinitionListBuilder
         );
         if ($firstBlockAttached) {
             $this->markDescriptionAttachment($b);
+        } elseif (count($body) > 1) {
+            // The marker-line run's closer opens no paragraph for a later line to fold into.
+            $b->lastOpenerKey = array_key_last($b->body);
+            $b->lastOpenerIsParagraph = false;
         }
 
         return $b;
+    }
+
+    /**
+     * Lines of a wrapped attribute run opened on the marker line, measured from the body column (CARVE-P2-035), or 0.
+     *
+     * @param array<string> $lines
+     * @param int $definitionStart
+     * @param int $count
+     * @param int $continuationColumn
+     * @param string $content
+     */
+    private function markerLineWrappedAttributeRun(array $lines, int $definitionStart, int $count, int $continuationColumn, string $content): int
+    {
+        if (!str_starts_with($content, '{') || str_starts_with($content, '{%')) {
+            return 0;
+        }
+        $probe = $lines;
+        $probe[$definitionStart] = str_repeat(' ', IndentationHelper::getLeadingColumns($lines[$definitionStart]) + $continuationColumn) . $content;
+
+        return $this->wrappedAttributeScanner->length($probe, $definitionStart, $count) ?? 0;
     }
 
     /**
