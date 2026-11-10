@@ -32,6 +32,7 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
@@ -4923,7 +4924,7 @@ class BlockParser
         $line = 0;
         $atStart = true;
         foreach ($children as $index => $child) {
-            if ($child instanceof SoftBreak) {
+            if ($child instanceof SoftBreak || $child instanceof HardBreak) {
                 $line++;
                 $atStart = true;
 
