@@ -75,7 +75,7 @@ final class DefinitionListBuilder
      * @param \Closure(array<string>, int): (int) $lastCommentFenceIndexCallback
      * @param \Closure(\MarkupCarve\Carve\Parser\NestedLeadFenceState, array<string>): (void) $advanceNestedLeadFenceStateCallback
      * @param \Closure(string, bool, bool): (bool) $lineOpensBlockForLoosenessCallback
-     * @param \Closure(array<string>, \MarkupCarve\Carve\Parser\CollectedCommentSpan): (bool) $linesLeaveACommentSpanOpenCallback
+     * @param \Closure(array<string>, \MarkupCarve\Carve\Parser\CollectedCommentSpan, array<int, int>): (bool) $linesLeaveACommentSpanOpenCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int, array<int, int>|null, bool, bool): (void) $parseBlocksCallback
      * @param \Closure(array<string>, array<int, true>|null, int|null, bool, bool, bool, bool): (array<string>) $rebaseOverindentedItemBlocksCallback
      * @param \Closure(string, array<string>|null, int|null): (bool) $startsInterruptingBlockCallback
@@ -896,7 +896,7 @@ final class DefinitionListBuilder
     {
         if (
             preg_match('/^[ \t]*%{3,}/', $l->contLine) === 1
-            && !$this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan)
+            && !$this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan, $b->bodyMap)
         ) {
             $b->blankSpanKeepsStanza = null;
         }
@@ -929,7 +929,7 @@ final class DefinitionListBuilder
             && !str_starts_with(ltrim($l->contLine, " \t"), '%%')
         ) {
             if (
-                $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan)
+                $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan, $b->bodyMap)
                 && $b->commentSpan->openComment !== null
                 && !($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($l->contLine, $b->commentSpan->openComment)
                 // The walk folded it into the line block, so it ends only the span (carve#4956).
@@ -942,7 +942,7 @@ final class DefinitionListBuilder
         if (
             !IndentationHelper::isBlankLine($l->contLine)
             && $l->contColumn >= $b->continuationColumn
-            && $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan)
+            && $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan, $b->bodyMap)
             && $b->commentSpan->openComment !== null
             && !($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($l->contLine, $b->commentSpan->openComment)
         ) {
@@ -1502,7 +1502,7 @@ final class DefinitionListBuilder
             for ($k = count($b->body); $b->bodyStateCursor < $k; $b->bodyStateCursor++) {
                 $b->bodyState = $this->advanceTrailingStateWithFenceLookahead($b->bodyState, $b->body[$b->bodyStateCursor], $b->body, $b->bodyStateCursor, true);
             }
-            $closesBodySpan = $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan);
+            $closesBodySpan = $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan, $b->bodyMap);
             $bodySpan = $b->commentSpan;
             if ($b->bodyState->openParagraph || $b->retainedBelowComment) {
                 $holder = new Document();
@@ -1703,7 +1703,7 @@ final class DefinitionListBuilder
             $l->indent < $b->continuationColumn
             && !IndentationHelper::isBlankLine($l->contLine)
             && $this->isCommentLineOrFence($l->trimmedCont)
-            && $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan)
+            && $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan, $b->bodyMap)
         ) {
             $b->body[] = $this->keptCommentDelimiter($l->contLine);
             $b->bodyMap[] = $this->sourceLineFor($b->i);
@@ -2307,7 +2307,7 @@ final class DefinitionListBuilder
                 $after !== null
                 && $afterIndent < $b->continuationColumn
                 && str_starts_with(ltrim($after, " \t"), '%%')
-                && $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan)
+                && $this->linesLeaveACommentSpanOpen($b->body, $b->commentSpan, $b->bodyMap)
             ) {
                 for (; $b->i < $look; $b->i++) {
                     $b->body[] = '';
@@ -2397,7 +2397,13 @@ final class DefinitionListBuilder
                 && ($b->bodyFenceSource[$b->bodyStateCursor]['columns'] <= $b->continuationColumn
                     || $b->bodyFenceSource[$b->bodyStateCursor]['eligible']);
             $trackerLine = $bodyLine;
-            if (!$closerKnownAhead && $wasOpenParagraph && !$wasInFence && $useIndexedBodyFence) {
+            // A block-shaped line held by a valid braced comment run is
+            // paragraph payload, including a line spelled like a %%% fence.
+            $sourceLine = $b->bodyMap[$b->bodyStateCursor] ?? -1;
+            if (isset($this->state->source->heldCommentLines[$sourceLine])) {
+                $trackerLine = 'text';
+            }
+            if ($trackerLine === $bodyLine && !$closerKnownAhead && $wasOpenParagraph && !$wasInFence && $useIndexedBodyFence) {
                 $fenceAt = IndentationHelper::pastLeadingWhitespace($bodyLine);
                 $subject = $bodyLine;
                 $column = $b->bodyOpenerBase ?? 0;
@@ -3344,10 +3350,11 @@ final class DefinitionListBuilder
     /**
      * @param array<string> $lines Lines as the collector holds them.
      * @param \MarkupCarve\Carve\Parser\CollectedCommentSpan $scan
+     * @param array<int, int> $lineMap
      */
-    private function linesLeaveACommentSpanOpen(array $lines, CollectedCommentSpan $scan): bool
+    private function linesLeaveACommentSpanOpen(array $lines, CollectedCommentSpan $scan, array $lineMap): bool
     {
-        return ($this->linesLeaveACommentSpanOpenCallback)($lines, $scan);
+        return ($this->linesLeaveACommentSpanOpenCallback)($lines, $scan, $lineMap);
     }
 
     /**

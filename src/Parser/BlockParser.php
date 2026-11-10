@@ -5399,19 +5399,29 @@ class BlockParser
     /**
      * @param array<string> $lines
      * @param \MarkupCarve\Carve\Parser\CollectedCommentSpan $scan
+     * @param array<int, int> $lineMap
      */
-    private function collectedLinesLeaveACommentSpanOpen(array $lines, CollectedCommentSpan $scan): bool
+    private function collectedLinesLeaveACommentSpanOpen(array $lines, CollectedCommentSpan $scan, array $lineMap = []): bool
     {
-        return $this->scanCollectedCommentSpan($lines, $scan);
+        return $this->scanCollectedCommentSpan($lines, $scan, $lineMap);
     }
 
     /**
      * @param array<string> $lines
      * @param \MarkupCarve\Carve\Parser\CollectedCommentSpan $scan
+     * @param array<int, int> $lineMap
      */
-    protected function scanCollectedCommentSpan(array $lines, CollectedCommentSpan $scan): bool
+    protected function scanCollectedCommentSpan(array $lines, CollectedCommentSpan $scan, array $lineMap = []): bool
     {
         for ($n = count($lines); $scan->entry < $n;) {
+            if (isset($this->state->source->heldCommentLines[$lineMap[$scan->entry] ?? -1])) {
+                // The ownership walk already assigned this physical line to a
+                // braced comment run. Its %%% spelling cannot open a fence.
+                $scan->entry++;
+                $scan->tailSeen = false;
+
+                continue;
+            }
             $raw = $lines[$scan->entry];
             if (!$scan->tailSeen) {
                 $chunk = self::stripLazyFrame($raw);
