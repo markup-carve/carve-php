@@ -322,7 +322,7 @@ final class BlockOwnershipWalk
     /**
      * A marker-column attribute block closed its host on the previous line (A02).
      *
-     * @var array{line: int, column: int|null}|null
+     * @var array{line: int, column: int|null, hostIndex: int}|null
      */
     private ?array $literalPlusAfterAttribute = null;
 
@@ -586,6 +586,13 @@ final class BlockOwnershipWalk
             $this->endOwnLineFenceAtMiss($at, $lines);
             $this->restoreEnclosingAttachedHost($at);
             $this->recordCommentPayloadHostColumn($at);
+            $closedAttribute = $this->literalPlusAfterAttribute;
+            if ($closedAttribute !== null && $at === $closedAttribute['line'] && isset($this->frames[$closedAttribute['hostIndex']])) {
+                $view = $this->throughQuotes($this->src, $closedAttribute['hostIndex'], $this->frames);
+                if ($view !== null && self::isPlus($view['rest']) && ($view['col'] ?? null) === $closedAttribute['column']) {
+                    $this->truncate($closedAttribute['hostIndex']);
+                }
+            }
             // A `+` right after the block a `+` attached reaches the same host, whose
             // frames the walk closed when it read that block where it stands.
             if ($this->attachedTo !== null && str_contains($this->src, '+')) {
@@ -1326,8 +1333,11 @@ final class BlockOwnershipWalk
                 $skipped['host']->plus = $at;
             }
             if ($this->skippedAttributeClosesHost($skipped)) {
-                $this->truncate($skipped['hostIndex']);
-                $this->literalPlusAfterAttribute = ['line' => $skipped['end'], 'column' => $skipped['host']->markerCol];
+                $this->literalPlusAfterAttribute = [
+                    'line' => $skipped['end'],
+                    'column' => $skipped['host']->markerCol,
+                    'hostIndex' => $skipped['hostIndex'],
+                ];
             }
             $this->skipped = null;
         }
@@ -1343,6 +1353,9 @@ final class BlockOwnershipWalk
      */
     private function skippedAttributeClosesHost(array $skipped): bool
     {
+        if (!in_array($skipped['host']->kind, ['item', 'dd', 'note'], true)) {
+            return false;
+        }
         for ($start = $skipped['at'] + 1; $start < $skipped['end']; $start++) {
             $line = $this->throughQuotes($this->lines[$start], $skipped['hostIndex'], $this->frames);
             if ($line === null || ($line['col'] ?? null) !== $skipped['host']->markerCol || !str_starts_with($line['rest'], '{')) {
