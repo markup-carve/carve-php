@@ -1501,6 +1501,7 @@ final class BlockContinuationScanner
             return null;
         }
         $column = IndentationHelper::getLeadingColumns($line);
+        $deeperLine = false;
         for ($k = $index - 1; $k >= 0; $k--) {
             $above = $lines[$k] ?? '';
             if (IndentationHelper::isBlankLine($above)) {
@@ -1508,10 +1509,23 @@ final class BlockContinuationScanner
             }
             $aboveColumn = IndentationHelper::getLeadingColumns($above);
             if ($aboveColumn > $column) {
+                $deeperLine = true;
+
                 continue;
             }
-
-            return $aboveColumn === $column && preg_match('/^::? /', ltrim($above, " \t")) === 1 ? strlen($m[0]) : null;
+            if ($aboveColumn < $column) {
+                return null;
+            }
+            $head = ltrim($above, " \t");
+            if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $head) === 1) {
+                return $deeperLine ? null : strlen($m[0]);
+            }
+            if (preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $head) !== 1) {
+                return null;
+            }
+            // Deeper content after a description belongs to that body. Only
+            // content between a bare term and its first body ends the term.
+            $deeperLine = false;
         }
 
         return null;
