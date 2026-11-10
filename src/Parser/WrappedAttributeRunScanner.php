@@ -56,9 +56,17 @@ final class WrappedAttributeRunScanner
         $probe = [$first];
         $openerColumn = IndentationHelper::getLeadingColumns($opener);
         $depth = $this->quoteDepth($start);
+        $sourceOpener = $this->state->source->sourceLines[$this->source->sourceLineFor($start)] ?? '';
+        $brace = strpos($sourceOpener, '{');
+        $sourceBraceColumn = $brace === false ? null : WrappedBlockAttributeScanner::columnAt($sourceOpener, $brace);
         for ($at = $start + 1; $at < $count && !IndentationHelper::isBlankLine($lines[$at]); $at++) {
-            // A lazy line outside the opener's quote cannot close its attribute.
-            if ($this->quoteDepth($at) < $depth || WrappedBlockAttributeScanner::opensInsideBlock($lines[$at])) {
+            $followerDepth = $this->quoteDepth($at);
+            $sourceFollower = $this->state->source->sourceLines[$this->source->sourceLineFor($at)] ?? '';
+            // An unprefixed line can continue a quoted run when its written
+            // column is past the written brace (CARVE-P2-035, carve#5619).
+            $unprefixedContinuation = $depth > 1 && $followerDepth === 1 && $sourceBraceColumn !== null
+                && IndentationHelper::getLeadingColumns($sourceFollower) > $sourceBraceColumn;
+            if (($followerDepth < $depth && !$unprefixedContinuation) || WrappedBlockAttributeScanner::opensInsideBlock($lines[$at])) {
                 break;
             }
             // Kept relative to the opener, so a continuation at or below its `{` stays refused (CARVE-P2-035).
