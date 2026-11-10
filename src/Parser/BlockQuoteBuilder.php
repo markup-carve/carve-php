@@ -733,7 +733,7 @@ final class BlockQuoteBuilder
     private function appendUnprefixedAttributeRun(array $lines, int &$at, int $length, array &$innerLines, array &$innerLineMap): void
     {
         for ($tail = 0; $tail < $length; $tail++) {
-            $innerLines[] = $lines[$at];
+            $innerLines[] = $this->blockQuoteLineContent($lines[$at]) ?? $lines[$at];
             $innerLineMap[] = $this->sourceLineFor($at);
             $at++;
         }
@@ -813,18 +813,30 @@ final class BlockQuoteBuilder
             return 0;
         }
         $openingColumn = WrappedBlockAttributeScanner::columnAt($opener, $brace);
+        $quoteOpener = ContainerPrefix::afterLeadingQuoteMarkers($opener);
+        $quoteBrace = strpos($quoteOpener, '{');
+        $quoteOpeningColumn = $quoteBrace === false ? $openingColumn : WrappedBlockAttributeScanner::columnAt($quoteOpener, $quoteBrace);
+        $quoteDepth = ContainerPrefix::countLeadingQuoteMarkers($opener);
         $state = self::initialBlockQuoteLazyState();
         $state['attrRun'] = [$content];
         for ($at = $start, $count = count($lines); $at < $count; $at++) {
             $line = $lines[$at];
-            if (IndentationHelper::isBlankLine($line) || $this->blockQuoteLineContent($line) !== null) {
+            if (IndentationHelper::isBlankLine($line)) {
                 break;
             }
             $authored = $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? $line;
-            if (IndentationHelper::getLeadingColumns($authored) <= $openingColumn) {
+            $quoted = ContainerPrefix::afterLeadingQuoteMarkers($line);
+            $hasQuote = $quoted !== $line;
+            if ($hasQuote && ContainerPrefix::countLeadingQuoteMarkers($line) < $quoteDepth) {
                 break;
             }
-            if ($this->trackWrappedAttributeRun($state, $line)) {
+            $contentColumn = $hasQuote
+                ? IndentationHelper::getLeadingColumns($quoted)
+                : IndentationHelper::getLeadingColumns($authored);
+            if ($contentColumn <= ($hasQuote ? $quoteOpeningColumn : $openingColumn)) {
+                break;
+            }
+            if ($this->trackWrappedAttributeRun($state, $hasQuote ? $quoted : $line)) {
                 return $at - $start + 1;
             }
             if ($state['attrRun'] === null) {
@@ -861,7 +873,9 @@ final class BlockQuoteBuilder
             }
             $run = [str_repeat(' ', WrappedBlockAttributeScanner::columnAt($opener, $brace)) . substr($opener, $brace)];
             for ($at = $sourceLine + 1; $at < $nextSourceLine; $at++) {
-                $run[] = $this->state->source->sourceLines[$at] ?? '';
+                $line = $this->state->source->sourceLines[$at] ?? '';
+                $content = ContainerPrefix::afterLeadingQuoteMarkers($line);
+                $run[] = str_repeat(' ', strlen($line) - strlen($content)) . $content;
             }
 
             return RefusedBraceRun::end($run, 0, ($this->getInlineParser)()) === count($run);

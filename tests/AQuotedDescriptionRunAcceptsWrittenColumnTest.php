@@ -30,6 +30,11 @@ final class AQuotedDescriptionRunAcceptsWrittenColumnTest extends TestCase
             "<blockquote>\n  <blockquote>\n    <dl>\n      <dt>t</dt>\n      <dd></dd>\n    </dl>\n  </blockquote>\n</blockquote>\n<p>plain</p>",
         ];
 
+        yield 'unprefixed middle and quoted closer' => [
+            "> :: t\n> :   {.x\n        .y\n>        }\nplain\n",
+            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd></dd>\n  </dl>\n</blockquote>\n<p>plain</p>",
+        ];
+
         yield 'continuation at brace column is refused' => [
             "> :: t\n> :   {.x\n      .y}\n> : z\n",
             "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>{.x\n.y}</dd>\n    <dd>z</dd>\n  </dl>\n</blockquote>",
@@ -38,6 +43,11 @@ final class AQuotedDescriptionRunAcceptsWrittenColumnTest extends TestCase
         yield 'refused run keeps a following heading as text' => [
             "> :: t\n> :  {.x\n    .y}\n> # H\n",
             "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>{.x\n.y}\n# H</dd>\n  </dl>\n</blockquote>",
+        ];
+
+        yield 'refused mixed run keeps a following heading as text' => [
+            "> :: t\n> :  {.x\n    .y\n>     }\n> # H\n",
+            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>{.x\n.y\n}\n# H</dd>\n  </dl>\n</blockquote>",
         ];
     }
 
