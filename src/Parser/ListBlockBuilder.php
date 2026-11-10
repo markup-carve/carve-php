@@ -523,7 +523,10 @@ final class ListBlockBuilder
         for ($k = $head; $k < $at; $k++) {
             $runs[$k] = strspn(ltrim($lines[$k], " \t"), '%');
             $spanRuns[$k] = strspn((string)preg_replace(self::SPAN_LEAD_MARKERS, '', $lines[$k]), '%');
-            if (!str_starts_with(ltrim($lines[$k], " \t"), '{%')) {
+            if (
+                isset($this->state->source->fenceBodyLines[$this->sourceLineFor($k)])
+                || !str_starts_with(ltrim($lines[$k], " \t"), '{%')
+            ) {
                 continue;
             }
             // A held run owns block-shaped payload lines before they are

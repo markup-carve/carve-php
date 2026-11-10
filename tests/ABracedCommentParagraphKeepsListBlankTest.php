@@ -35,6 +35,10 @@ class ABracedCommentParagraphKeepsListBlankTest extends TestCase
                 "- p\n\n  {% a z %}\n  text\n- q\n",
                 "<ul>\n  <li><p>p</p>\n    <p>\ntext</p>\n  </li>\n  <li><p>q</p></li>\n</ul>",
             ],
+            'literal comment-shaped code payload does not loosen the list' => [
+                "- p\n  ```\n\n  {% x %}\n- q\n",
+                "<ul>\n  <li>p\n    <pre><code>\n{% x %}\n</code></pre>\n  </li>\n  <li>q</li>\n</ul>",
+            ],
         ];
     }
 
