@@ -31,7 +31,7 @@ final class ARefusedBraceRunKeepsItsParagraphOpenForALazyLineTest extends TestCa
 
         yield 'a quote' => [
             "> a\n> {x\n> y}\n> # c\nmore\n",
-            "<blockquote><p>a\n{x\ny}</p><h1 id=\"c\">c</h1></blockquote><p>more</p>",
+            "<blockquote>\n  <p>a\n{x\ny}</p>\n  <h1 id=\"c\">c</h1>\n</blockquote>\n<p>more</p>",
         ];
 
         yield 'a quote follower' => [

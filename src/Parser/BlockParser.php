@@ -31,10 +31,10 @@ use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
-use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
@@ -2624,6 +2624,15 @@ class BlockParser
             return null;
         }
         $authored = $this->state->source->authoredLines[$sourceLine] ?? '';
+        $quoteDepth = ContainerPrefix::countLeadingQuoteMarkers(ltrim($authored, " \t"));
+        if ($match['length'] > 1 && $quoteDepth > 0) {
+            for ($offset = 1; $offset < $match['length']; $offset++) {
+                $follower = $this->state->source->authoredLines[$this->sourceLineFor($start + $offset)] ?? '';
+                if (ContainerPrefix::countLeadingQuoteMarkers(ltrim($follower, " \t")) < $quoteDepth) {
+                    return null;
+                }
+            }
+        }
         if (
             $match['length'] > 1
             && preg_match('/^[^ \t]*\{[^{}]*\}[ \t]+\{/', $authored) === 1
@@ -4917,6 +4926,7 @@ class BlockParser
      * The parser escapes a refused opener only to protect it from inline brace parsing.
      * Its authored AST value is ordinary text, so the writer can spell it bare.
      *
+     * @param \MarkupCarve\Carve\Node\Block\Paragraph $paragraph
      * @param array<int, true> $literalLines
      */
     private static function normalizeRefusedBraceOpeners(Paragraph $paragraph, array $literalLines): void

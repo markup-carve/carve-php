@@ -184,7 +184,9 @@ final class BlockOwnershipWalk
      */
     public array $refusedKeptLines = [];
 
-    /** @var array<int, true> */
+    /**
+     * @var array<int, true>
+     */
     private array $lazyBraceReachesContainer = [];
 
     /**
@@ -884,7 +886,7 @@ final class BlockOwnershipWalk
                 && !$endsMissedItem
                 && !($missedNote && ($this->refusedNotePlusMissesBody($at, $topIndex) || $this->refusedNotePlusPrecedesBraceRun($at, $topIndex)))
                 // A marker that a marker body owns, or that misses one, opens a list (PART 0 S3, carve#4860).
-                && !($form->kind === 'item' && $this->marksBodyList($reached))
+                && !($form->kind === 'item' && $this->marksBodyList($reached) && !$this->followsRefusedNoteBrace($at, $topIndex))
                 && !($this->verseSpanBlankMissedOwner && $this->frames[$topIndex]->lineBlock
                     && $this->frames[$topIndex]->span !== null && $this->frames[$topIndex]->span[0] === '%');
             // S4: a line that missed a frame folds into the deepest open paragraph.
@@ -895,7 +897,7 @@ final class BlockOwnershipWalk
                 }
                 // A folded marker opens no item (§10 I2), so a `+` closing it is text (PART 0 S4, carve#5112).
                 // Past a missed note the line is framed lazy in the deepest container (carve#3926).
-                if ($missedNote && $this->frames[$topIndex]->plus !== $at - 1) {
+                if ($missedNote && ($this->frames[$topIndex]->plus !== $at - 1 || $this->followsRefusedNoteBrace($at, $topIndex))) {
                     $this->lead(0);
                     for ($k = $reached + 1; $k <= $topIndex; $k++) {
                         if ($this->frames[$k]->kind === 'quote') {
@@ -903,13 +905,9 @@ final class BlockOwnershipWalk
                         }
                     }
                     $leaf = $this->frames[$topIndex];
-                    $braceColumn = $this->openBraceRunColumn($leaf, $at);
-                    if ($braceColumn !== null && $this->m['col'] > $braceColumn) {
-                        // A lazy line of a quoted note's brace run keeps its written column, so the run stays a block attribute (CARVE-P2-035, carve#5619).
-                        $result[] = $this->out . str_repeat(' ', $this->m['col']) . $this->m['rest'];
-                    } else {
-                        $result[] = $this->out . str_repeat(' ', $leaf->kind === 'quote' ? 0 : (int)$leaf->reader) . BlockGrammar::LAZY_FRAME . $this->src;
-                    }
+                    // A missed line is ordinary lazy paragraph text. It cannot
+                    // complete a block-position brace run in this container.
+                    $result[] = $this->out . str_repeat(' ', $leaf->kind === 'quote' ? 0 : (int)$leaf->reader) . BlockGrammar::LAZY_FRAME . $this->src;
                     $this->lazyLines[$at] = true;
                     $this->markLazyBraceOpener($at);
                     if ($leaf->kind === 'fence' && $leaf->lineBlock) {
@@ -2897,9 +2895,11 @@ final class BlockOwnershipWalk
             $this->refusedKeptLines[$at] = $at;
             $column = IndentationHelper::getLeadingColumns($this->lines[$at]);
             foreach ($this->frames as $frame) {
-                if ($frame->kind !== 'doc'
+                if (
+                    $frame->kind !== 'doc'
                     && ($frame->kind !== 'quote' || str_starts_with(ltrim($this->lines[$at], " \t"), '>'))
-                    && $column >= $frame->col) {
+                    && $column >= $frame->col
+                ) {
                     $this->lazyBraceReachesContainer[$at] = true;
 
                     break;
@@ -3775,28 +3775,6 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * The quote-local column of an unclosed `{` run that opens the frame's paragraph, or null.
-     */
-    private function openBraceRunColumn(OwnershipFrame $frame, int $at): ?int
-    {
-        $start = $frame->paragraphStart;
-        if ($start === null) {
-            return null;
-        }
-        $level = $this->levelOf($this->lines[$start], $this->quoteDepth(count($this->frames)));
-        if ($level === null || !str_starts_with($level['rest'], '{')) {
-            return null;
-        }
-        for ($k = $start; $k < $at; $k++) {
-            if (str_contains($this->lines[$k], '}')) {
-                return null;
-            }
-        }
-
-        return $level['col'];
-    }
-
-    /**
      * The placeholder a refused marker leaves in its host. An item keeps the next line, so its placeholder
      * stands at the content column, as the closer of the item's open code fence (CARVE-P9-067, carve#5637).
      */
@@ -4164,6 +4142,23 @@ final class BlockOwnershipWalk
         $this->m = self::indentCols($this->src);
         $this->refusedPlus[$at] = $finding;
         $this->letterPlus[$at] = true;
+    }
+
+    /**
+     * A missed quote prefix makes the note's brace opener literal, leaving its paragraph open.
+     */
+    private function followsRefusedNoteBrace(int $at, int $topIndex): bool
+    {
+        $note = $this->frames[$topIndex];
+        if ($note->kind !== 'note' || !$note->para || $at < 2) {
+            return false;
+        }
+        $opener = $this->lines[$at - 1];
+        $body = ltrim(ContainerPrefix::stripQuoteMarkers($opener), " \t");
+
+        return str_starts_with($body, '{')
+            && ContainerPrefix::countLeadingQuoteMarkers(ltrim($this->lines[$at], " \t"))
+        < ContainerPrefix::countLeadingQuoteMarkers(ltrim($opener, " \t"));
     }
 
     /**

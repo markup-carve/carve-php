@@ -26,12 +26,12 @@ final class AValidQuotedAttributeRunLeavesNoLazyParagraphTest extends TestCase
 
         yield 'list item quote' => [
             "- > {.x\n     .y}\nplain\n",
-            "<ul>\n  <li>\n    <blockquote><p>{.x\n.y}\nplain</p></blockquote>\n  </li>\n</ul>",
+            "<ul>\n  <li>\n    <blockquote><p>{.x\n.y\n}\nplain</p></blockquote>\n  </li>\n</ul>",
         ];
 
         yield 'mixed prefixed and unprefixed list item quote run' => [
             "- > {.x\n  >   .y\n     }\nplain\n",
-            "<ul>\n  <li>\n    <blockquote><p>{.x\n.y}\nplain</p></blockquote>\n  </li>\n</ul>",
+            "<ul>\n  <li>\n    <blockquote><p>{.x\n.y\n}\nplain</p></blockquote>\n  </li>\n</ul>",
         ];
 
         yield 'ordered item quote with a three-line run' => [

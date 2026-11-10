@@ -2915,7 +2915,8 @@ final class BlockQuoteBuilder
                 && !isset($this->state->source->lazyLines[$sourceLine]))
             || isset($this->state->source->closingLines[$sourceLine])
             || (!isset($this->state->source->lazyLines[$sourceLine])
-                && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null);
+                && ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null
+                && !$this->notePlusRunRefusesAt($index - 1));
     }
 
     private function notePlusRunRefusesAt(int $index): bool
