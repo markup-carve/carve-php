@@ -747,7 +747,11 @@ class BlockParser
 
     public function parse(string $input): Document
     {
-        return CycleCollection::paused(fn () => $this->parseDocument($input));
+        try {
+            return CycleCollection::paused(fn () => $this->parseDocument($input));
+        } finally {
+            RefusedBraceRun::forgetCloserScan();
+        }
     }
 
     /**
@@ -4804,6 +4808,9 @@ class BlockParser
      */
     private function refusedRunEndInSourceColumns(array $lines, int $start): ?int
     {
+        if (str_starts_with(ltrim(self::stripLazyFrame($lines[$start]), " \t"), '{%') && !RefusedBraceRun::closerBeforeBlank($lines, $start)) {
+            return null;
+        }
         $probe = $this->braceRunInSourceColumns($lines, $start);
         if ($probe === null) {
             return RefusedBraceRun::end($lines, $start, $this->inlineParser);
@@ -4821,6 +4828,9 @@ class BlockParser
      */
     private function heldCommentRunEnd(array $lines, int $start): ?int
     {
+        if (!RefusedBraceRun::closerBeforeBlank($lines, $start)) {
+            return null;
+        }
         $probe = $this->braceRunInSourceColumns($lines, $start);
         if ($probe === null) {
             return RefusedBraceRun::heldCommentEnd($lines, $start);
