@@ -2767,7 +2767,15 @@ final class BlockOwnershipWalk
             }
         }
         $lookahead = $this->commentRunLookaheads[$at] ?? null;
-        if (RefusedBraceRun::endsOnItsLine($rest) || (str_starts_with($rest, '{%') && $lookahead === null && !RefusedBraceRun::closerBeforeBlank($this->lines, $at))) {
+        $next = $this->lines[$at + 1] ?? null;
+        $firstContinuationFails = $next !== null && trim($next, " \t") !== ''
+            && (IndentationHelper::getLeadingColumns($next) <= $col
+                || str_starts_with($next, BlockGrammar::LAZY_FRAME));
+        if (
+            RefusedBraceRun::endsOnItsLine($rest)
+            || (str_starts_with($rest, '{%') && $lookahead === null
+                && !$firstContinuationFails && !RefusedBraceRun::closerBeforeBlank($this->lines, $at))
+        ) {
             return null;
         }
         $depth = 0;
