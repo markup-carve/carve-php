@@ -4497,6 +4497,7 @@ class BlockParser
         $forced = false;
         $forcedThrough = -1;
         $inlineSpan = ['scanned' => 0, 'code' => 0, 'comment' => false];
+        $commentCloser = ['from' => -1, 'at' => -1];
         $refusedEnd = str_starts_with($content, '{') && !$standaloneCodeInclude
             ? $this->refusedRunEndInSourceColumns($lines, $start) : null;
         if ($refusedEnd === null && str_contains($content, "\n")) {
@@ -4554,7 +4555,7 @@ class BlockParser
             // span lines in any engine.
             $sourceLine = $this->sourceLineFor($i);
             $protectedRefusedFollower = ($this->state->source->refusedKeptLines[$sourceLine] ?? null) === $this->sourceLineFor($start);
-            if (!$forced && !$protectedRefusedFollower && $this->interruptsParagraph($lines, $i, $contentParts, $start, $topLevel, $itemBody, $inlineSpan, $literalLines)) {
+            if (!$forced && !$protectedRefusedFollower && $this->interruptsParagraph($lines, $i, $contentParts, $start, $topLevel, $itemBody, $inlineSpan, $literalLines, $commentCloser)) {
                 break;
             }
 
@@ -5139,6 +5140,30 @@ class BlockParser
     }
 
     /**
+     * Whether a `%}` stands on line $i or a later one before the next blank line.
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param array{from: int, at: int} $memo The last search: its first line and the closer it found, or -1.
+     */
+    private static function commentClosesBeforeBlank(array $lines, int $i, array &$memo): bool
+    {
+        if ($memo['from'] === -1 || $memo['from'] > $i || ($memo['at'] !== -1 && $memo['at'] < $i)) {
+            $memo = ['from' => $i, 'at' => -1];
+            $count = count($lines);
+            for ($k = $i; $k < $count && !IndentationHelper::isBlankLine($lines[$k]); $k++) {
+                if (str_contains($lines[$k], '%}')) {
+                    $memo['at'] = $k;
+
+                    break;
+                }
+            }
+        }
+
+        return $memo['at'] !== -1;
+    }
+
+    /**
      * Carry the inline pairing state across the ownership walk's paragraph segments.
      *
      * @param list<string> $parts
@@ -5227,6 +5252,7 @@ class BlockParser
      * @param bool $itemBody
      * @param array{scanned: int, code: int, comment: bool} $inlineSpan
      * @param array<int, true> $literalLines
+     * @param array{from: int, at: int} $commentCloser
      */
     protected function interruptsParagraph(
         array $lines,
@@ -5237,6 +5263,7 @@ class BlockParser
         bool $itemBody = false,
         array &$inlineSpan = ['scanned' => 0, 'code' => 0, 'comment' => false],
         array $literalLines = [],
+        array &$commentCloser = ['from' => -1, 'at' => -1],
     ): bool {
         $line = $lines[$i];
 
@@ -5279,6 +5306,10 @@ class BlockParser
         if (str_starts_with(ltrim($line, " \t"), '{')) {
             self::inlineSpanOpen($contentLines, $inlineSpan, $literalLines);
             if ($inlineSpan['code'] !== 0) {
+                return false;
+            }
+            // A comment the paragraph closes later holds it too (PART 9 §21a).
+            if ($inlineSpan['comment'] && self::commentClosesBeforeBlank($lines, $i, $commentCloser)) {
                 return false;
             }
         }
