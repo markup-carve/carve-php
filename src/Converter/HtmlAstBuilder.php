@@ -611,6 +611,10 @@ final class HtmlAstBuilder
             $fragment = str_starts_with($href, '#') ? substr($href, 1) : '';
             $target = isset($targetsById[$fragment]) ? $this->externalFootnoteBlock($targetsById[$fragment]) : null;
             if ($target === null || (isset($this->session->endnoteItems[$fragment]) && !isset($this->session->externalFootnoteItems[$target]))) {
+                if (isset($targetsById[$fragment]) && !isset($this->session->endnoteItems[$fragment])) {
+                    $this->session->unpairedExternalFootnoteReferences[$anchor] = true;
+                }
+
                 continue;
             }
             $insideTarget = false;
@@ -622,6 +626,8 @@ final class HtmlAstBuilder
                 }
             }
             if ($insideTarget) {
+                $this->session->unpairedExternalFootnoteReferences[$anchor] = true;
+
                 continue;
             }
             $this->session->externalFootnoteReferences[$anchor] = true;
@@ -5194,7 +5200,7 @@ final class HtmlAstBuilder
         if ($endnote !== null && self::isValidFootnoteCarrierLabel(CarrierNames::consumeAttribute($endnote, 'data-carve-footnote-label'))) {
             return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment]]];
         }
-        if ($href !== '' && $endnote !== null && strtolower($node->getAttribute('role')) === 'doc-noteref') {
+        if ($href !== '' && strtolower($node->getAttribute('role')) === 'doc-noteref' && !isset($this->session->unpairedExternalFootnoteReferences[$node])) {
             $href = $node->getAttribute('href');
             $fragment = str_starts_with($href, '#') ? substr($href, 1) : trim($node->textContent);
 

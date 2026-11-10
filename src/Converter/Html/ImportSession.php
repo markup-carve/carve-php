@@ -169,6 +169,13 @@ final class ImportSession
     public SplObjectStorage $externalFootnoteReferences;
 
     /**
+     * Marked references whose fragment exists but cannot be collected as a definition.
+     *
+     * @var \SplObjectStorage<\DOMElement, true>
+     */
+    public SplObjectStorage $unpairedExternalFootnoteReferences;
+
+    /**
      * @var \SplObjectStorage<\DOMElement, true>
      */
     public SplObjectStorage $droppedFootnoteLabelCarriers;
@@ -260,6 +267,7 @@ final class ImportSession
         $this->referencedEndnoteItems = new SplObjectStorage();
         $this->externalFootnoteItems = new SplObjectStorage();
         $this->externalFootnoteReferences = new SplObjectStorage();
+        $this->unpairedExternalFootnoteReferences = new SplObjectStorage();
         $this->retainedListTypes = new SplObjectStorage();
         $this->supFootnoteTargets = new SplObjectStorage();
         $this->pathSiblingIndices = new SplObjectStorage();
