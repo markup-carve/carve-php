@@ -4888,6 +4888,13 @@ class BlockParser
             }
             $prefix = str_replace('> ', '', $prefix);
             $column = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
+            if ($at === $start && preg_match('/\[\^[^\]]+\]:[ \t]+$/D', $prefix, $marker, PREG_OFFSET_CAPTURE) === 1) {
+                // A run on a note's marker line opens at the note body column,
+                // regardless of the label's written width (CARVE-P2-035).
+                $beforeMarker = substr($prefix, 0, $marker[0][1]);
+                $column = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $beforeMarker) . 'x')
+                    + BlockGrammar::FOOTNOTE_BODY_COLUMN;
+            }
             $probe[] = str_repeat(' ', $column) . $text;
             if ($comment && str_contains($line, '%}')) {
                 break;
