@@ -2448,9 +2448,12 @@ final class BlockOwnershipWalk
         $length = count($run);
         // A marker-line block starts at its host's continuation threshold;
         // using column zero would accept refused runs with a shallow closer.
-        $openerColumn = $this->onMarkerLine && $owner->kind !== 'quote'
-            ? (int)$owner->markerCol + 2
-            : IndentationHelper::getLeadingColumns($opener);
+        // A note's threshold is its body column; any other host's is its content column.
+        $openerColumn = match (true) {
+            !$this->onMarkerLine || $owner->kind === 'quote' => IndentationHelper::getLeadingColumns($opener),
+            $owner->kind === 'note' => (int)$owner->markerCol + 2,
+            default => $owner->col,
+        };
         if ($length < 2 || ($this->wrappedAttributeLength)($run, $openerColumn) !== $length) {
             return false;
         }
