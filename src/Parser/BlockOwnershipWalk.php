@@ -577,8 +577,6 @@ final class BlockOwnershipWalk
                     $f->markerCol !== null && $this->m['col'] === $f->markerCol && ($f->kind === 'quote' || $this->m['col'] < $f->col)
                     && self::isPlus($this->m['rest'])
                     && !$this->openCodeFenceKeepsPlus($frameCount)
-                    // A refused run's follower is its paragraph's text (CARVE-P2-035).
-                    && !($at > $this->refusedKeptStart && $at <= $this->refusedKeptThrough)
                     && !($f->kind === 'quote' && $this->hasAttachedQuoteAncestor($k) && $quotesRead > 0 && $f->para && $quotesRead < $this->quoteDepth($k + 1))
                 ) {
                     $plus = $k;

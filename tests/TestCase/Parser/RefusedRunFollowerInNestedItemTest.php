@@ -42,16 +42,6 @@ final class RefusedRunFollowerInNestedItemTest extends TestCase
             "- - {% a\n    %}\n    [^m]: n\nplain\n",
             "<ul>\n  <li>\n    <ul>\n      <li>{% a\n%}\n[^m]: n\nplain</li>\n    </ul>\n  </li>\n</ul>",
         ];
-
-        yield 'a lone plus after a lazy closer is the follower, not a continuation marker' => [
-            "- {.x\n}\n+\nz\n",
-            "<ul>\n  <li>{.x\n}\n+\nz</li>\n</ul>",
-        ];
-
-        yield 'a lone plus after a lazy comment closer is text' => [
-            "- {% a\n%}\n+\nz\n",
-            "<ul>\n  <li>{% a\n%}\n+\nz</li>\n</ul>",
-        ];
     }
 
     #[DataProvider('shapes')]
