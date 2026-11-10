@@ -199,6 +199,13 @@ final class BlockOwnershipWalk
     private array $markerLineRunEnds = [];
 
     /**
+     * Completed refused comment lookaheads for later openers before the same closer.
+     *
+     * @var array<int, array{owner: \MarkupCarve\Carve\Parser\OwnershipFrame, top: \MarkupCarve\Carve\Parser\OwnershipFrame, col: int, column: int, depth: int, through: int}>
+     */
+    private array $commentRunLookaheads = [];
+
+    /**
      * Block openers spelled on an off-stop tab run: a nested parse reads them past the body's
      * column, where they still open their block rather than fold into a paragraph (PART 0 S2, S3).
      *
@@ -540,6 +547,7 @@ final class BlockOwnershipWalk
         $this->refusedKeptLines = [];
         $this->heldCommentLines = [];
         $this->markerLineRunEnds = [];
+        $this->commentRunLookaheads = [];
         $this->shiftedOpeners = [];
         $this->pastColumnDescriptionLines = [];
         $this->fenceOpenerLines = [];
@@ -2752,7 +2760,8 @@ final class BlockOwnershipWalk
                 return new OwnershipForm(kind: 'text', interrupts: false);
             }
         }
-        if (RefusedBraceRun::endsOnItsLine($rest) || (str_starts_with($rest, '{%') && !RefusedBraceRun::closerBeforeBlank($this->lines, $at))) {
+        $lookahead = $this->commentRunLookaheads[$at] ?? null;
+        if (RefusedBraceRun::endsOnItsLine($rest) || (str_starts_with($rest, '{%') && $lookahead === null && !RefusedBraceRun::closerBeforeBlank($this->lines, $at))) {
             return null;
         }
         $depth = 0;
@@ -2774,23 +2783,36 @@ final class BlockOwnershipWalk
             return null;
         }
         $column = in_array($top->kind, ['doc', 'quote'], true) || $top->plus === $at - 1 ? $col : $top->col;
-        // The window doubles only while the answer reaches its edge, so a run of one-line attributes stays linear.
-        $window = [str_repeat(' ', $col) . $rest];
-        $count = count($this->lines);
-        $j = $at + 1;
-        $ended = false;
-        for ($size = 16;; $size *= 2) {
-            for (; $j < $count && $j - $at < $size && !$ended; $j++) {
-                $line = $this->lines[$j];
-                for ($d = 0; $d < $depth && $line !== null; $d++) {
-                    $line = preg_match(self::QUOTE, ltrim($line, " \t"), $q) === 1 ? ($q[1] ?? '') : null;
+        if (
+            $lookahead !== null && str_starts_with($rest, '{%')
+            && $lookahead['owner'] === $owner && $lookahead['top'] === $top
+            && $lookahead['col'] === $col && $lookahead['column'] === $column && $lookahead['depth'] === $depth
+            && !$lazyNoteParagraph && !$firstBlockLead
+        ) {
+            $kept = $lookahead['through'] - $at;
+            $window = [];
+        } else {
+            // The window doubles only while the answer reaches its edge, so a run of one-line attributes stays linear.
+            $window = [str_repeat(' ', $col) . $rest];
+            $count = count($this->lines);
+            $j = $at + 1;
+            $ended = false;
+            for ($size = 16;; $size *= 2) {
+                for (; $j < $count && $j - $at < $size && !$ended; $j++) {
+                    $line = $this->lines[$j];
+                    for ($d = 0; $d < $depth && $line !== null; $d++) {
+                        $line = preg_match(self::QUOTE, ltrim($line, " \t"), $q) === 1 ? ($q[1] ?? '') : null;
+                    }
+                    $window[] = $line ?? '';
+                    $ended = $line === null || trim($line, " \t") === '';
                 }
-                $window[] = $line ?? '';
-                $ended = $line === null || trim($line, " \t") === '';
+                $kept = ($this->refusedRunKeptThrough)($window, 0, $column, !$ended && $j < $count, $top->kind === 'dd');
+                if ($kept !== -1) {
+                    break;
+                }
             }
-            $kept = ($this->refusedRunKeptThrough)($window, 0, $column, !$ended && $j < $count, $top->kind === 'dd');
-            if ($kept !== -1) {
-                break;
+            if (str_starts_with($rest, '{%') && $kept !== null && $kept >= 0 && !$lazyNoteParagraph && !$firstBlockLead) {
+                $this->rememberCommentRunLookaheads($window, $at, $owner, $top, $col, $column, $depth, $kept);
             }
         }
         if ($kept === null) {
@@ -2842,6 +2864,65 @@ final class BlockOwnershipWalk
     {
         return isset($this->lazyLines[$start])
             || (isset($this->closingLines[$start]) && !isset($this->runsPastItemBoundary[$start]));
+    }
+
+    /**
+     * A comment opener's completed probe also decides later openers before its closer.
+     * A later opener is refused only when its own suffix has a shallow or lazy
+     * continuation; the final opener can therefore still be a held run.
+     *
+     * @param array<string> $window
+     * @param int $at
+     * @param \MarkupCarve\Carve\Parser\OwnershipFrame $owner
+     * @param \MarkupCarve\Carve\Parser\OwnershipFrame $top
+     * @param int $col
+     * @param int $column
+     * @param int $depth
+     * @param int $kept
+     */
+    private function rememberCommentRunLookaheads(
+        array $window,
+        int $at,
+        OwnershipFrame $owner,
+        OwnershipFrame $top,
+        int $col,
+        int $column,
+        int $depth,
+        int $kept,
+    ): void {
+        $closer = null;
+        foreach ($window as $index => $line) {
+            if (str_contains($line, '%}')) {
+                $closer = $index;
+
+                break;
+            }
+        }
+        if ($closer === null) {
+            return;
+        }
+        $shallowest = PHP_INT_MAX;
+        $lazy = false;
+        for ($index = $closer; $index > 0; $index--) {
+            $line = $window[$index];
+            $content = BlockGrammar::stripLazyFrame($line);
+            $lineColumn = IndentationHelper::getLeadingColumns($content);
+            if (
+                $index < $closer && $lineColumn === $col && str_starts_with(ltrim($content, " \t"), '{%')
+                && !str_contains($content, '%}') && ($shallowest <= $col || $lazy)
+            ) {
+                $this->commentRunLookaheads[$at + $index] = [
+                    'owner' => $owner,
+                    'top' => $top,
+                    'col' => $col,
+                    'column' => $column,
+                    'depth' => $depth,
+                    'through' => $at + $kept,
+                ];
+            }
+            $shallowest = min($shallowest, $lineColumn);
+            $lazy = $lazy || $content !== $line;
+        }
     }
 
     private function insideRefusedFencePayload(int $at): bool
