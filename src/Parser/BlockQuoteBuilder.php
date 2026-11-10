@@ -617,14 +617,7 @@ final class BlockQuoteBuilder
             } elseif ($runLength > 0) {
                 // The run is one block even when its continuation omits the quote prefix.
                 // It opens no paragraph for the next unmarked line to continue (CARVE-P2-035, S4).
-                $openerIndex = count($innerLines) - count($lazyState['attrRun'] ?? []);
-                if (
-                    isset($innerLines[$openerIndex])
-                    && ($lazyState['hosts']['kinds'] ?? []) === []
-                    && !isset($lazyState['hosts']['descriptionColumn'])
-                ) {
-                    $innerLines[$openerIndex] = ltrim($innerLines[$openerIndex], " \t");
-                }
+                $this->normalizeUnhostedQuotedAttributeOpener($innerLines, $lazyState);
                 $this->appendUnprefixedAttributeRun($lines, $i, $runLength, $innerLines, $innerLineMap);
                 $lazyState['attrRun'] = null;
                 $lazyState['paragraphOpen'] = false;
@@ -740,6 +733,22 @@ final class BlockQuoteBuilder
             $innerLines[] = $lines[$at];
             $innerLineMap[] = $this->sourceLineFor($at);
             $at++;
+        }
+    }
+
+    /**
+     * @param array<string> $innerLines
+     * @param array{attrRun: list<string>|null, hosts?: array{kinds: list<string>, descriptionColumn?: int}} $state
+     */
+    private function normalizeUnhostedQuotedAttributeOpener(array &$innerLines, array $state): void
+    {
+        $openerIndex = count($innerLines) - count($state['attrRun'] ?? []);
+        if (
+            isset($innerLines[$openerIndex])
+            && ($state['hosts']['kinds'] ?? []) === []
+            && !isset($state['hosts']['descriptionColumn'])
+        ) {
+            $innerLines[$openerIndex] = ltrim($innerLines[$openerIndex], " \t");
         }
     }
 
