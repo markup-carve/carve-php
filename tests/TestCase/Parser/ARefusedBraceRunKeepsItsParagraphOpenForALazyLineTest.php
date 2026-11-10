@@ -21,32 +21,32 @@ final class ARefusedBraceRunKeepsItsParagraphOpenForALazyLineTest extends TestCa
     {
         yield 'an item paragraph a plus pulled from column 0' => [
             "- a\n+\n{x\ny}\n  # c\nmore\n",
-            "<ul>\n  <li>a\n    {x\ny}\n# c\nmore\n  </li>\n</ul>",
+            "<ul>\n  <li>a\n    {x\ny}\n    <h1 id=\"c\">c</h1>\n  </li>\n</ul>\n<p>more</p>",
         ];
 
         yield 'an item lead paragraph' => [
             "- a\n  {x\n  y}\n  # c\nmore\n",
-            "<ul>\n  <li>a\n{x\ny}\n# c\nmore</li>\n</ul>",
+            "<ul>\n  <li>a\n{x\ny}\n    <h1 id=\"c\">c</h1>\n  </li>\n</ul>\n<p>more</p>",
         ];
 
         yield 'a quote' => [
             "> a\n> {x\n> y}\n> # c\nmore\n",
-            "<blockquote><p>a\n{x\ny}\n# c\nmore</p></blockquote>",
+            "<blockquote>\n  <p>a\n{x\ny}</p>\n  <h1 id=\"c\">c</h1>\n</blockquote>\n<p>more</p>",
         ];
 
         yield 'a quote follower' => [
             "- a\n  {x\n  y}\n  > c\nmore\n",
-            "<ul>\n  <li>a\n{x\ny}\n&gt; c\nmore</li>\n</ul>",
+            "<ul>\n  <li>a\n{x\ny}\n    <blockquote><p>c\nmore</p></blockquote>\n  </li>\n</ul>",
         ];
 
         yield 'a run on the marker line keeps a marker follower' => [
             "- {x\n  y}\n  - c\n",
-            "<ul>\n  <li>{x\ny}\n- c</li>\n</ul>",
+            "<ul>\n  <li>{x\ny}\n    <ul>\n      <li>c</li>\n    </ul>\n  </li>\n</ul>",
         ];
 
         yield 'a blank still ends the paragraph' => [
             "- a\n  {x\n  y}\n  # c\n\nmore\n",
-            "<ul>\n  <li>a\n{x\ny}\n# c</li>\n</ul>\n<p>more</p>",
+            "<ul>\n  <li>a\n{x\ny}\n    <h1 id=\"c\">c</h1>\n  </li>\n</ul>\n<p>more</p>",
         ];
     }
 

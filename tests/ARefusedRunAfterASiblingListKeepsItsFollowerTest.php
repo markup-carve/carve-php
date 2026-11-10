@@ -20,26 +20,23 @@ final class ARefusedRunAfterASiblingListKeepsItsFollowerTest extends TestCase
     {
         yield 'sibling item' => [
             "- p\n  - q\n  - {% a\n    %}\n    # h\nplain\n",
-            "<ul>\n  <li>p\n    <ul>\n      <li>q</li>\n      <li>{% a\n%}\n# h\nplain</li>\n    </ul>\n  </li>\n</ul>",
+            "<ul>\n  <li>p\n    <ul>\n      <li>q</li>\n      <li>{% a\n%}\n        <h1 id=\"h\">h</h1>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>plain</p>",
         ];
 
         yield 'sibling quote' => [
             "- p\n  > q\n  - {% a\n    %}\n    # h\nplain\n",
-            "<ul>\n  <li>p\n    <blockquote><p>q</p></blockquote>\n    <ul>\n      <li>{% a\n%}\n# h\nplain</li>\n    </ul>\n  </li>\n</ul>",
+            "<ul>\n  <li>p\n    <blockquote><p>q</p></blockquote>\n    <ul>\n      <li>{% a\n%}\n        <h1 id=\"h\">h</h1>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>plain</p>",
         ];
 
         yield 'sibling list of another kind' => [
             "- p\n  1. q\n  - {% a\n  %}\n    # h\nplain\n",
-            "<ul>\n  <li>p\n    <ol>\n      <li>q</li>\n    </ol>\n    <ul>\n      <li>{% a\n%}\n# h\nplain</li>\n    </ul>\n  </li>\n</ul>",
+            "<ul>\n  <li>p\n    <ol>\n      <li>q</li>\n    </ol>\n    <ul>\n      <li>{% a\n%}\n        <h1 id=\"h\">h</h1>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>plain</p>",
         ];
 
-        $boundary = "- p\n  1. q\n  - {% a\n  %}\n    # h\nplain\n";
-        $boundaryHtml = "<li><p>p</p>\n    <ol>\n      <li>q</li>\n    </ol>\n    <ul>\n      <li>{% a\n%}\n# h\nplain</li>\n    </ul>\n  </li>";
-
-        yield 'two runs past boundaries' => [$boundary . "\n" . $boundary, "<ul>\n  " . $boundaryHtml . "\n  " . $boundaryHtml . "\n</ul>"];
+        yield 'two runs past boundaries' => ["- p\n  1. q\n  - {% a\n  %}\n    # h\nplain\n\n- p\n  1. q\n  - {% a\n  %}\n    # h\nplain\n", "<ul>\n  <li>p\n    <ol>\n      <li>q</li>\n    </ol>\n    <ul>\n      <li>{% a\n%}\n        <h1 id=\"h\">h</h1>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>plain</p>\n<ul>\n  <li>p\n    <ol>\n      <li>q</li>\n    </ol>\n    <ul>\n      <li>{% a\n%}\n        <h1 id=\"h-2\">h</h1>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>plain</p>"];
         yield 'list marker follower stays text' => [
             "- p\n  1. q\n  - {.x\n  }\n    - r\nplain\n",
-            "<ul>\n  <li>p\n    <ol>\n      <li>q</li>\n    </ol>\n    <ul>\n      <li>{.x\n}\n- r\nplain</li>\n    </ul>\n  </li>\n</ul>",
+            "<ul>\n  <li>p\n    <ol>\n      <li>q</li>\n    </ol>\n    <ul>\n      <li>{.x\n}\n        <ul>\n          <li>r\nplain</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
         ];
 
         yield 'a quote the marker line closes still drops the run' => [

@@ -230,9 +230,11 @@ final class BlockSourceMapper
                 continue;
             }
             if (isset($literalLines[$index - 1])) {
-                // The content holds this line escaped: each inserted backslash maps onto the byte it escapes.
+                // A refused run escapes only its opening brace. Map that
+                // inserted backslash to the brace's authored byte.
+                $brace = strpos($lineText, '{');
                 for ($k = 0; $k < $length; $k++) {
-                    $escaped = preg_match('/[!-\/:-@\[-`{-~]/', $lineText[$k]) === 1;
+                    $escaped = $k === $brace;
                     if ($lineStart !== null) {
                         if ($escaped) {
                             $map->add($textOffset, $lineStart + $sourceColumn + $k, 1, $sourceLine + 1, $sourceColumn + $k + 1);

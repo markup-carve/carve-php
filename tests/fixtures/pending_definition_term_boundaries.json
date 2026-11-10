@@ -12322,20 +12322,26 @@
   {
     "id": "attribute-history-0-2-22",
     "source": "- :: term\n  {.k\n  #x}\n  ```\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\n#x}\n<code>\ncode</code></li></ul><p>tail</p>",
-    "codePayloads": []
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\n<span class=\"tag\"><strong>#x</strong></span>}\n    <pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-0-3-23",
     "source": "- :: term\n   {.k\n   #x}\n  ```\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\n#x}\n<code>\ncode</code></li></ul><p>tail</p>",
-    "codePayloads": []
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\n<span class=\"tag\"><strong>#x</strong></span>}\n    <pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-0-4-24",
     "source": "- :: term\n    {.k\n    #x}\n  ```\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\n#x}\n<code>\ncode</code></li></ul><p>tail</p>",
-    "codePayloads": []
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\n<span class=\"tag\"><strong>#x</strong></span>}\n    <pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-0-1-25",
@@ -12348,20 +12354,26 @@
   {
     "id": "attribute-history-0-2-26",
     "source": "- :: term\n  {.k\n  invalid words}\n  ```\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\ninvalid words}\n<code>\ncode</code></li></ul><p>tail</p>",
-    "codePayloads": []
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\ninvalid words}\n    <pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-0-3-27",
     "source": "- :: term\n   {.k\n   invalid words}\n  ```\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\ninvalid words}\n<code>\ncode</code></li></ul><p>tail</p>",
-    "codePayloads": []
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\ninvalid words}\n    <pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-0-4-28",
     "source": "- :: term\n    {.k\n    invalid words}\n  ```\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\ninvalid words}\n<code>\ncode</code></li></ul><p>tail</p>",
-    "codePayloads": []
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\ninvalid words}\n    <pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-0-1-29",
@@ -12406,7 +12418,7 @@
   {
     "id": "attribute-history-0-2-34",
     "source": "- :: term\n  {.k\n  #x}\n    text\n  ```\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\n#x}\ntext\n    <pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\n<span class=\"tag\"><strong>#x</strong></span>}\ntext\n    <pre><code>code\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -12414,7 +12426,7 @@
   {
     "id": "attribute-history-0-3-35",
     "source": "- :: term\n   {.k\n   #x}\n     text\n  ```\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\n#x}\ntext\n    <pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\n<span class=\"tag\"><strong>#x</strong></span>}\ntext\n    <pre><code>code\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -12422,7 +12434,7 @@
   {
     "id": "attribute-history-0-4-36",
     "source": "- :: term\n    {.k\n    #x}\n      text\n  ```\n  code\ntail\n",
-    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\n#x}\ntext\n    <pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "html": "<ul><li><dl><dt>term</dt></dl>\n    {.k\n<span class=\"tag\"><strong>#x</strong></span>}\ntext\n    <pre><code>code\n</code></pre></li></ul><p>tail</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -12582,20 +12594,26 @@
   {
     "id": "attribute-history-1-2-59",
     "source": "> - :: term\n>   {.k\n>   #x}\n>   ```\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\n#x}\n<code>\ncode</code></li></ul><p>tail</p></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\n<span class=\"tag\"><strong>#x</strong></span>}\n      <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-1-3-60",
     "source": "> - :: term\n>    {.k\n>    #x}\n>   ```\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\n#x}\n<code>\ncode</code></li></ul><p>tail</p></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\n<span class=\"tag\"><strong>#x</strong></span>}\n      <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-1-4-61",
     "source": "> - :: term\n>     {.k\n>     #x}\n>   ```\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\n#x}\n<code>\ncode</code></li></ul><p>tail</p></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\n<span class=\"tag\"><strong>#x</strong></span>}\n      <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-1-1-62",
@@ -12608,20 +12626,26 @@
   {
     "id": "attribute-history-1-2-63",
     "source": "> - :: term\n>   {.k\n>   invalid words}\n>   ```\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\ninvalid words}\n<code>\ncode</code></li></ul><p>tail</p></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\ninvalid words}\n      <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-1-3-64",
     "source": "> - :: term\n>    {.k\n>    invalid words}\n>   ```\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\ninvalid words}\n<code>\ncode</code></li></ul><p>tail</p></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\ninvalid words}\n      <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-1-4-65",
     "source": "> - :: term\n>     {.k\n>     invalid words}\n>   ```\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\ninvalid words}\n<code>\ncode</code></li></ul><p>tail</p></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\ninvalid words}\n      <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-1-1-66",
@@ -12666,7 +12690,7 @@
   {
     "id": "attribute-history-1-2-71",
     "source": "> - :: term\n>   {.k\n>   #x}\n>     text\n>   ```\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\n#x}\ntext\n      <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\n<span class=\"tag\"><strong>#x</strong></span>}\ntext\n      <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -12674,7 +12698,7 @@
   {
     "id": "attribute-history-1-3-72",
     "source": "> - :: term\n>    {.k\n>    #x}\n>      text\n>   ```\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\n#x}\ntext\n      <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\n<span class=\"tag\"><strong>#x</strong></span>}\ntext\n      <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -12682,7 +12706,7 @@
   {
     "id": "attribute-history-1-4-73",
     "source": "> - :: term\n>     {.k\n>     #x}\n>       text\n>   ```\n>   code\n> tail\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\n#x}\ntext\n      <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl>\n      {.k\n<span class=\"tag\"><strong>#x</strong></span>}\ntext\n      <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -12842,20 +12866,26 @@
   {
     "id": "attribute-history-2-2-96",
     "source": "> > - :: term\n> >   {.k\n> >   #x}\n> >   ```\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\n#x}\n<code>\ncode</code></li></ul><p>tail</p></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\n<span class=\"tag\"><strong>#x</strong></span>}\n        <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-2-3-97",
     "source": "> > - :: term\n> >    {.k\n> >    #x}\n> >   ```\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\n#x}\n<code>\ncode</code></li></ul><p>tail</p></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\n<span class=\"tag\"><strong>#x</strong></span>}\n        <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-2-4-98",
     "source": "> > - :: term\n> >     {.k\n> >     #x}\n> >   ```\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\n#x}\n<code>\ncode</code></li></ul><p>tail</p></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\n<span class=\"tag\"><strong>#x</strong></span>}\n        <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-2-1-99",
@@ -12868,20 +12898,26 @@
   {
     "id": "attribute-history-2-2-100",
     "source": "> > - :: term\n> >   {.k\n> >   invalid words}\n> >   ```\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\ninvalid words}\n<code>\ncode</code></li></ul><p>tail</p></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\ninvalid words}\n        <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-2-3-101",
     "source": "> > - :: term\n> >    {.k\n> >    invalid words}\n> >   ```\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\ninvalid words}\n<code>\ncode</code></li></ul><p>tail</p></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\ninvalid words}\n        <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-2-4-102",
     "source": "> > - :: term\n> >     {.k\n> >     invalid words}\n> >   ```\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\ninvalid words}\n<code>\ncode</code></li></ul><p>tail</p></blockquote></blockquote>",
-    "codePayloads": []
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\ninvalid words}\n        <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
   },
   {
     "id": "attribute-history-2-1-103",
@@ -12926,7 +12962,7 @@
   {
     "id": "attribute-history-2-2-108",
     "source": "> > - :: term\n> >   {.k\n> >   #x}\n> >     text\n> >   ```\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\n#x}\ntext\n        <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\n<span class=\"tag\"><strong>#x</strong></span>}\ntext\n        <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -12934,7 +12970,7 @@
   {
     "id": "attribute-history-2-3-109",
     "source": "> > - :: term\n> >    {.k\n> >    #x}\n> >      text\n> >   ```\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\n#x}\ntext\n        <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\n<span class=\"tag\"><strong>#x</strong></span>}\ntext\n        <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -12942,7 +12978,7 @@
   {
     "id": "attribute-history-2-4-110",
     "source": "> > - :: term\n> >     {.k\n> >     #x}\n> >       text\n> >   ```\n> >   code\n> > tail\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\n#x}\ntext\n        <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        {.k\n<span class=\"tag\"><strong>#x</strong></span>}\ntext\n        <pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]

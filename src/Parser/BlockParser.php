@@ -32,10 +32,8 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
-use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Math;
-use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
@@ -2625,6 +2623,23 @@ class BlockParser
         if ($match === null) {
             return null;
         }
+        $authored = $this->state->source->authoredLines[$sourceLine] ?? '';
+        $quoteDepth = ContainerPrefix::countLeadingQuoteMarkers(ltrim($authored, " \t"));
+        if ($match['length'] > 1 && $quoteDepth > 0) {
+            for ($offset = 1; $offset < $match['length']; $offset++) {
+                $follower = $this->state->source->authoredLines[$this->sourceLineFor($start + $offset)] ?? '';
+                if (ContainerPrefix::countLeadingQuoteMarkers(ltrim($follower, " \t")) < $quoteDepth) {
+                    return null;
+                }
+            }
+        }
+        if (
+            $match['length'] > 1
+            && preg_match('/^[^ \t]*\{[^{}]*\}[ \t]+\{/', $authored) === 1
+            && $this->refusedRunEndInSourceColumns($lines, $start) !== null
+        ) {
+            return null;
+        }
 
         $this->parseAttributeString($match['payload']);
 
@@ -3952,7 +3967,7 @@ class BlockParser
                 if ($resumes === null) {
                     // A blank reaches every frame, so an open fence keeps the run before the line that ends the body.
                     // Only a marker-line `+` grant ends at the blank; an own-line one keeps it (carve#5560).
-                    $keepsRun = !($endsAtBlank && $firstBlockAttached && $trailingState->fence === $attachedFence)
+                    $keepsRun = !($endsAtBlank && $firstBlockAttached && $attachedFence !== null && $trailingState->fence === $attachedFence)
                         && ($trailingState->fence !== null || $this->continuationsMapper()->childMarkerLineFenceOpen($childFence, $bodyLines));
                     for (; $keepsRun && $i < $count && IndentationHelper::isBlankLine($lines[$i]); $i++) {
                         $bodyLines[] = $this->blankLineResidue($lines[$i], self::FOOTNOTE_BODY_COLUMN, $trailingState);
@@ -4066,7 +4081,11 @@ class BlockParser
             $reaches = $containerColumn->classify($nextLine, $authoredNext) === 'content';
             if ($reaches) {
                 $retainedBelowComment = false;
-                $bodyLine = $containerColumn->strip($nextLine);
+                // An own-line attached fence reads payload from its opener's
+                // column, including lines after an interior blank.
+                $bodyLine = $endsAtBlank && !$firstBlockAttached && $attachedFence !== null
+                    && $trailingState->fence === $attachedFence
+                    ? $nextLine : $containerColumn->strip($nextLine);
                 if (
                     isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
                     && $this->listParser->parseListItemMarker(ltrim($bodyLine, " \t")) !== null
@@ -4133,21 +4152,6 @@ class BlockParser
                 $plusContinuationOpen = true;
                 $i++;
             } elseif (
-                preg_match(self::FOOTNOTE_DEFINITION_PATTERN, ltrim($nextLine, " \t")) === 1
-                && RefusedBraceRun::followsMarkerLineRun(
-                    $lines,
-                    $i,
-                    fn (array $run, int $at): ?int => RefusedBraceRun::end($run, $at, $this->inlineParser),
-                    $this->listParser,
-                )
-            ) {
-                // A note definition that follows a refused marker-line run is that run's paragraph text (CARVE-P2-035).
-                $bodyLine = ltrim($nextLine, " \t");
-                $bodyLines[] = $bodyLine;
-                $bodyLineMap[] = $this->sourceLineFor($i);
-                $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
-                $i++;
-            } elseif (
                 isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
                 && $this->listParser->parseListItemMarker(ltrim($nextLine, " \t")) === null
             ) {
@@ -4162,7 +4166,7 @@ class BlockParser
             }
         }
 
-        while ((($endsAtBlank && $firstBlockAttached && $trailingState->fence === $attachedFence) || ($trailingState->fence === null && $childFence->markerLineFence === null)) && $bodyLines !== [] && end($bodyLines) === '') {
+        while ((($endsAtBlank && $firstBlockAttached && $attachedFence !== null && $trailingState->fence === $attachedFence) || ($trailingState->fence === null && $childFence->markerLineFence === null)) && $bodyLines !== [] && end($bodyLines) === '') {
             array_pop($bodyLines);
             array_pop($bodyLineMap);
         }
@@ -4522,25 +4526,26 @@ class BlockParser
         /** @var list<array{int, int}> $literalRuns First and past-last physical line of each run. */
         $literalRuns = [];
         $physicalCount = substr_count($content, "\n") + 1;
-        $forced = false;
-        $forcedThrough = -1;
         $inlineSpan = ['scanned' => 0, 'code' => 0, 'comment' => false];
         $commentCloser = ['from' => -1, 'at' => -1];
         $refusedEnd = str_starts_with($content, '{') && !$standaloneCodeInclude
             ? $this->refusedRunEndInSourceColumns($lines, $start) : null;
-        if ($refusedEnd === null && str_contains($content, "\n")) {
-            $forced = $this->endsInRefusedBraceRun($content);
+        $authoredStart = $this->state->source->authoredLines[$this->sourceLineFor($start)] ?? '';
+        $sourceStart = $this->sourceLineFor($start);
+        $quotedNotePlus = ($this->state->source->plusHosts[$sourceStart - 1]['kind'] ?? null) === 'footnote'
+            && ContainerPrefix::countLeadingQuoteMarkers(ltrim($authoredStart, " \t")) > 0;
+        if (
+            $refusedEnd !== null && !str_starts_with($content, '{%')
+            && ($quotedNotePlus || preg_match('/^[ \t]*(?:(?:[-*+]|[0-9]{1,9}[.)])|:|\[\^[^]]+\]:)[ \t]+.*\{/', $authoredStart) === 1)
+        ) {
+            $refusedEnd = null;
         }
         // Past-closer index of a valid block `{%` run: its lines interrupt nothing (CARVE-P2-035).
         $heldThrough = $refusedEnd === null && str_starts_with($content, '{%') && !$standaloneCodeInclude
             ? $this->heldCommentRunEnd($lines, $start) ?? -1 : -1;
         if ($refusedEnd !== null) {
             $literalLines[0] = true;
-            $literalRuns[] = [0, $refusedEnd - $start];
-            $this->appendRefusedRun($lines, $start + 1, $refusedEnd, $contentParts, $contentLines, $literalLines, $physicalCount);
-            $i = $refusedEnd;
-            $inlineSpan['scanned'] = count($contentParts);
-            $forced = true;
+            $literalRuns[] = [0, 1];
         }
 
         while ($i < $count) {
@@ -4556,27 +4561,18 @@ class BlockParser
 
             $trimmedNext = ltrim(self::stripLazyFrame($nextLine), " \t");
             if (
-                !$forced && str_starts_with($trimmedNext, '{')
+                str_starts_with($trimmedNext, '{')
                 && !self::inlineSpanOpen($contentParts, $inlineSpan, $literalLines)
             ) {
                 $refusedEnd = $this->refusedRunEndInSourceColumns($lines, $i);
                 if ($refusedEnd !== null) {
-                    $literalRuns[] = [$physicalCount, $physicalCount + $refusedEnd - $i];
-                    $this->appendRefusedRun($lines, $i, $refusedEnd, $contentParts, $contentLines, $literalLines, $physicalCount);
-                    $i = $refusedEnd;
-                    $inlineSpan['scanned'] = count($contentParts);
-                    $forced = true;
-
-                    continue;
+                    $literalLines[$physicalCount] = true;
+                    $literalRuns[] = [$physicalCount, $physicalCount + 1];
                 }
                 if ($heldThrough <= $i) {
                     $heldThrough = $this->heldCommentRunEnd($lines, $i) ?? -1;
                 }
             }
-            if ($forced && $forcedThrough < $i) {
-                $forcedThrough = $this->refusedFollowerFenceEnd($lines, $i) ?? $i;
-            }
-
             // An unclosed `{` used to suppress this check, so every following
             // line became paragraph text until a blank line. That published
             // COMMENT bodies - `%%` and `%%%` hold content the author does not
@@ -4589,7 +4585,7 @@ class BlockParser
             // span lines in any engine.
             $sourceLine = $this->sourceLineFor($i);
             $protectedRefusedFollower = ($this->state->source->refusedKeptLines[$sourceLine] ?? null) === $this->sourceLineFor($start);
-            if (!$forced && !$protectedRefusedFollower && $heldThrough <= $i && $this->interruptsParagraph($lines, $i, $contentParts, $start, $topLevel, $itemBody, $inlineSpan, $literalLines, $commentCloser)) {
+            if (!$protectedRefusedFollower && $heldThrough <= $i && $this->interruptsParagraph($lines, $i, $contentParts, $start, $topLevel, $itemBody, $inlineSpan, $literalLines, $commentCloser)) {
                 break;
             }
 
@@ -4613,7 +4609,6 @@ class BlockParser
             $contentParts[] = $nextLine;
             $physicalCount += substr_count($nextLine, "\n") + 1;
             $i++;
-            $forced = $i <= $forcedThrough || (str_contains($nextLine, "\n") && $this->endsInRefusedBraceRun($nextLine));
         }
 
         $content = implode("\n", $contentParts);
@@ -4685,7 +4680,7 @@ class BlockParser
         } finally {
             $this->inlineParser->literalIncludeLine = false;
         }
-        self::collapseRefusedRuns($paragraph, $literalRuns);
+        self::normalizeRefusedBraceOpeners($paragraph, $literalLines);
         if ($foldedFenceColumn !== null) {
             $textBeforeCode = false;
             $hasCode = false;
@@ -4885,12 +4880,16 @@ class BlockParser
                 return null;
             }
             $prefix = substr($source, 0, strlen($source) - strlen($text));
+            $quotedOpener = $at === $start && str_contains($prefix, '>');
             // Marker-line openers already sit past the list marker. Quote
             // markers alone are removed from the source-column comparison.
             if (str_contains($prefix, '>')) {
                 $prefix = (string)preg_replace('/^[ \t]+(?=>)/', '', $prefix);
             }
             $prefix = str_replace('> ', '', $prefix);
+            if ($quotedOpener) {
+                $prefix = (string)preg_replace('/^(?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)+/', '', $prefix);
+            }
             $column = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
             if ($at === $start && preg_match('/\[\^[^\]]+\]:[ \t]+$/D', $prefix, $marker, PREG_OFFSET_CAPTURE) === 1) {
                 // A run on a note's marker line opens at the note body column,
@@ -4909,69 +4908,35 @@ class BlockParser
     }
 
     /**
-     * Append the lines from $from to $end of a refused brace run as literal paragraph lines.
+     * The parser escapes a refused opener only to protect it from inline brace parsing.
+     * Its authored AST value is ordinary text, so the writer can spell it bare.
      *
-     * @param array<string> $lines
-     * @param int $from
-     * @param int $end
-     * @param list<string> $contentParts
-     * @param list<array{int, int, int, string}> $contentLines
+     * @param \MarkupCarve\Carve\Node\Block\Paragraph $paragraph
      * @param array<int, true> $literalLines
-     * @param int $physicalCount
      */
-    private function appendRefusedRun(
-        array $lines,
-        int $from,
-        int $end,
-        array &$contentParts,
-        array &$contentLines,
-        array &$literalLines,
-        int &$physicalCount,
-    ): void {
-        for ($k = $from; $k < $end; $k++) {
-            $raw = self::stripLazyFrame($lines[$k]);
-            $text = ltrim($raw, " \t");
-            if ($this->state->source->trackPositions) {
-                $sourceLine = $this->sourceLineFor($k);
-                $this->appendParagraphContentLines(
-                    $contentLines,
-                    $sourceLine,
-                    strlen($raw) - strlen($text) + ($this->state->frame->currentContentColumns[$sourceLine] ?? 0),
-                    $text,
-                );
-            }
-            $contentParts[] = $text;
-            $literalLines[$physicalCount] = true;
-            $physicalCount++;
-        }
-    }
-
-    /**
-     * Whether a pre-joined part ends with the last line of a refused attribute run, so its next line joins the paragraph.
-     */
-    private function endsInRefusedBraceRun(string $part): bool
+    private static function normalizeRefusedBraceOpeners(Paragraph $paragraph, array $literalLines): void
     {
-        $lines = explode("\n", $part);
-        $count = count($lines);
-        $inlineSpan = ['scanned' => 0, 'code' => 0, 'comment' => false];
-        for ($k = 0; $k < $count; $k++) {
-            $line = ltrim($lines[$k], " \t");
-            if (!str_starts_with($line, '{') || str_starts_with($line, '{%')) {
-                continue;
-            }
-            if (self::inlineSpanOpen($lines, $inlineSpan, [], $k)) {
-                continue;
-            }
-            $end = RefusedBraceRun::end($lines, $k, $this->inlineParser);
-            if ($end !== null) {
-                if ($end === $count) {
-                    return true;
-                }
-                $k = $end - 1;
-            }
+        if ($literalLines === []) {
+            return;
         }
+        $children = $paragraph->getChildren();
+        $line = 0;
+        $atStart = true;
+        foreach ($children as $index => $child) {
+            if ($child instanceof SoftBreak) {
+                $line++;
+                $atStart = true;
 
-        return false;
+                continue;
+            }
+            if ($atStart && isset($literalLines[$line]) && $child instanceof EscapedText && $child->getContent() === '{') {
+                $text = new Text('{');
+                $text->setPos($child->getPos());
+                $children[$index] = $text;
+            }
+            $atStart = false;
+        }
+        $paragraph->setChildren($children);
     }
 
     /**
@@ -5016,6 +4981,12 @@ class BlockParser
                 }
                 $authored = ContainerPrefix::stripQuoteMarkers(ltrim($this->state->source->authoredLines[$sourceLine] ?? '', " \t"));
                 $markerLineRun = preg_match('/^(?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)*(?::|\[\^[^\]]+\]:)[ \t]+\{/', $authored) === 1;
+                $itemMarkerRun = preg_match('/^(?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)+\{/', $authored) === 1;
+                $attachedQuotedNote = ($this->state->source->plusHosts[$sourceLine - 1]['kind'] ?? null) === 'footnote'
+                    && ContainerPrefix::countLeadingQuoteMarkers(ltrim($this->state->source->authoredLines[$sourceLine] ?? '', " \t")) > 0;
+                if (($markerLineRun || $itemMarkerRun || $attachedQuotedNote) && !str_starts_with($line, '{%')) {
+                    continue;
+                }
                 // A marker-line run can be split across pre-joined parts by a
                 // description or note reader. Check its physical lines as one run.
                 $limit = $walkKept || $markerLineRun || $markerCommentEnd !== null ? count($physicalLines) : $physical + $width;
@@ -5027,7 +4998,7 @@ class BlockParser
                     continue;
                 }
                 $end -= $k;
-                for ($j = $k; $j < $k + $end; $j++) {
+                for ($j = $k; $j < $k + 1; $j++) {
                     $literalLines[$j] = true;
                     $trimmed = ltrim($physicalLines[$j], " \t");
                     $cut = strlen($physicalLines[$j]) - strlen($trimmed);
@@ -5037,7 +5008,7 @@ class BlockParser
                         $contentLines[$j] = [$lineIndex, $column + $cut, max(0, $length - $cut), substr($lineText, $cut)];
                     }
                 }
-                $literalRuns[] = [$k, $k + $end];
+                $literalRuns[] = [$k, $k + 1];
                 $found = true;
                 $k += $end - 1;
             }
@@ -5046,121 +5017,6 @@ class BlockParser
         if ($found) {
             usort($literalRuns, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
         }
-    }
-
-    /**
-     * Read each line of a refused brace run back as one plain text node.
-     *
-     * The run was parsed escaped, so its lines hold only text, escaped text and soft breaks.
-     * A span opened before the run and closed after it keeps the nodes as parsed.
-     *
-     * @param \MarkupCarve\Carve\Node\Block\Paragraph $paragraph
-     * @param list<array{int, int}> $runs
-     */
-    private static function collapseRefusedRuns(Paragraph $paragraph, array $runs): void
-    {
-        if ($runs === []) {
-            return;
-        }
-        $children = $paragraph->getChildren();
-        $lineOf = [];
-        $line = 0;
-        foreach ($children as $index => $child) {
-            $lineOf[$index] = $line;
-            if ($child instanceof SoftBreak || $child instanceof HardBreak) {
-                $line++;
-            }
-        }
-        $result = [];
-        $index = 0;
-        $count = count($children);
-        foreach ($runs as [$first, $end]) {
-            while ($index < $count && $lineOf[$index] < $first) {
-                $result[] = $children[$index++];
-            }
-            $from = $index;
-            $to = $index;
-            while ($to < $count && ($lineOf[$to] < $end - 1 || $lineOf[$to] === $end - 1 && !$children[$to] instanceof SoftBreak)) {
-                $to++;
-            }
-            $values = [''];
-            $breaks = [];
-            $plain = $to > $from;
-            for ($k = $from; $k < $to && $plain; $k++) {
-                $node = $children[$k];
-                if ($node instanceof SoftBreak) {
-                    $values[] = '';
-                    $breaks[] = $node;
-                } elseif ($node instanceof Text || $node instanceof EscapedText) {
-                    $values[count($values) - 1] .= $node->getContent();
-                } elseif ($node instanceof Mention) {
-                    $label = $node->getChildren()[0] ?? null;
-                    $values[count($values) - 1] .= $label instanceof Text ? $label->getContent() : '';
-                } else {
-                    $plain = false;
-                }
-            }
-            if (!$plain || count($values) !== $end - $first) {
-                continue;
-            }
-            // A paragraph line is read without its indentation, which the inline parse leaves on the text after a break.
-            $values = array_map(static fn (string $value): string => ltrim($value, " \t"), $values);
-            $k = $from;
-            foreach ($values as $n => $value) {
-                $text = new Text($value);
-                $lineStart = $children[$k]->getPos();
-                while ($k < $to && !$children[$k] instanceof SoftBreak) {
-                    $k++;
-                }
-                $text->setPos(self::joinedSpan($lineStart, $children[$k - 1]->getPos()));
-                $result[] = $text;
-                if (isset($breaks[$n])) {
-                    $result[] = $breaks[$n];
-                    $k++;
-                }
-            }
-            $index = $to;
-        }
-        while ($index < $count) {
-            $result[] = $children[$index++];
-        }
-        $paragraph->setChildren($result);
-    }
-
-    private static function joinedSpan(?SourceSpan $from, ?SourceSpan $to): ?SourceSpan
-    {
-        return $from === null || $to === null ? null : new SourceSpan(
-            startLine: $from->startLine,
-            endLine: $to->endLine,
-            startColumn: $from->startColumn,
-            endColumn: $to->endColumn,
-            startOffset: $from->startOffset,
-            endOffset: $to->endOffset,
-        );
-    }
-
-    /**
-     * The last line of a fence that opens on the first line after a refused brace run, or null.
-     *
-     * That fence is paragraph text, and so is its closer, which would otherwise open a fence of its own.
-     *
-     * @param array<string> $lines
-     * @param int $at
-     */
-    private function refusedFollowerFenceEnd(array $lines, int $at): ?int
-    {
-        if (preg_match('/^[ \t]*(`{3,}|~{3,})/', self::stripLazyFrame($lines[$at]), $m) !== 1) {
-            return null;
-        }
-        $closer = '/^[ \t]*' . preg_quote($m[1][0], '/') . '{' . strlen($m[1]) . ',}[ \t]*$/';
-        $count = count($lines);
-        for ($k = $at + 1; $k < $count && !IndentationHelper::isBlankLine($lines[$k]); $k++) {
-            if (preg_match($closer, self::stripLazyFrame($lines[$k])) === 1) {
-                return $k;
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -5209,6 +5065,7 @@ class BlockParser
                 // inside one can contain backticks without opening code.
                 if (
                     $line[$k] === '{' && ($line[$k + 1] ?? '') !== '%'
+                    && self::inlineAttributeHostBefore($line, $k)
                     && preg_match('/^\{(?:[^{}"\\\\]|\\\\.|"(?:[^"\\\\]|\\\\.)*")*\}/', substr($line, $k), $attribute) === 1
                 ) {
                     $k += strlen($attribute[0]) - 1;
@@ -5230,6 +5087,18 @@ class BlockParser
         }
 
         return $state['code'] !== 0 || $state['comment'];
+    }
+
+    private static function inlineAttributeHostBefore(string $line, int $at): bool
+    {
+        $before = substr($line, 0, $at);
+        if (preg_match('/(?<!\\\\)\[[^\]\n]+\](?:\([^\)\n]*\))?$/', $before) === 1) {
+            return true;
+        }
+
+        // Bare words have no inline attribute slot. A paired delimiter can
+        // receive one only when its opener was not intraword.
+        return preg_match('/(?<![[:alnum:]])([*_=~\/^:])[^\n]*?\1$/', $before) === 1;
     }
 
     /**
@@ -6533,7 +6402,7 @@ class BlockParser
         unset($this->deferredScratchInlines[$paragraph]);
         [$content, $start, $contentLines, $literalLines, $literalRuns] = $deferred;
         $this->inlineParser->parse($paragraph, $content, $start, sourceMap: $this->foldedLinesMap($contentLines, literalLines: $literalLines));
-        self::collapseRefusedRuns($paragraph, $literalRuns);
+        self::normalizeRefusedBraceOpeners($paragraph, $literalLines);
     }
 
     /**
@@ -7242,7 +7111,6 @@ class BlockParser
             continuations: $this->continuationsMapper(),
             getFencedBlockParser: fn (): FencedBlockParser => $this->fencedBlockParser,
             getListParser: fn (): ListParser => $this->listParser,
-            getInlineParser: fn (): InlineParser => $this->inlineParser,
             getTableParser: fn (): TableParser => $this->tableParser,
             endContainerAttributeScopeCallback: $this->endContainerAttributeScope(...),
             endsBlockQuoteCallback: $this->endsBlockQuote(...),

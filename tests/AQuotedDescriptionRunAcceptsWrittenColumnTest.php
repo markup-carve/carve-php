@@ -17,22 +17,22 @@ final class AQuotedDescriptionRunAcceptsWrittenColumnTest extends TestCase
     {
         yield 'unprefixed continuation' => [
             "> :: t\n> :   {.x\n        .y}\n> : z\n",
-            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd></dd>\n    <dd>z</dd>\n  </dl>\n</blockquote>",
+            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>{.x\n.y}</dd>\n    <dd>z</dd>\n  </dl>\n</blockquote>",
         ];
 
         yield 'nested quote continuation' => [
             "> > :: t\n> > :   {.x\n          .y}\n> > : z\n",
-            "<blockquote>\n  <blockquote>\n    <dl>\n      <dt>t</dt>\n      <dd></dd>\n      <dd>z</dd>\n    </dl>\n  </blockquote>\n</blockquote>",
+            "<blockquote>\n  <blockquote>\n    <dl>\n      <dt>t</dt>\n      <dd>{.x\n.y}</dd>\n      <dd>z</dd>\n    </dl>\n  </blockquote>\n</blockquote>",
         ];
 
         yield 'nested quote valid run leaves no lazy paragraph' => [
             "> > :: t\n> > :  {.x\n        .y}\nplain\n",
-            "<blockquote>\n  <blockquote>\n    <dl>\n      <dt>t</dt>\n      <dd></dd>\n    </dl>\n  </blockquote>\n</blockquote>\n<p>plain</p>",
+            "<blockquote>\n  <blockquote>\n    <dl>\n      <dt>t</dt>\n      <dd>{.x\n.y}\nplain</dd>\n    </dl>\n  </blockquote>\n</blockquote>",
         ];
 
         yield 'unprefixed middle and quoted closer' => [
             "> :: t\n> :   {.x\n        .y\n>        }\nplain\n",
-            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd></dd>\n  </dl>\n</blockquote>\n<p>plain</p>",
+            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>{.x\n.y\n}\nplain</dd>\n  </dl>\n</blockquote>",
         ];
 
         yield 'continuation at brace column is refused' => [
@@ -42,12 +42,12 @@ final class AQuotedDescriptionRunAcceptsWrittenColumnTest extends TestCase
 
         yield 'refused run keeps a following heading as text' => [
             "> :: t\n> :  {.x\n    .y}\n> # H\n",
-            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>{.x\n.y}\n# H</dd>\n  </dl>\n</blockquote>",
+            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>{.x\n.y}</dd>\n  </dl>\n  <h1 id=\"H\">H</h1>\n</blockquote>",
         ];
 
         yield 'refused mixed run keeps a following heading as text' => [
             "> :: t\n> :  {.x\n    .y\n>     }\n> # H\n",
-            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>{.x\n.y\n}\n# H</dd>\n  </dl>\n</blockquote>",
+            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>{.x\n.y\n}</dd>\n  </dl>\n  <h1 id=\"H\">H</h1>\n</blockquote>",
         ];
 
         yield 'shallower quoted heading leaves a refused description' => [

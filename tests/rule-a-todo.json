@@ -6,10 +6,6 @@
             "ticket": "carve#5658"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-2\"",
-            "ticket": "carve#5658"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-2\"",
             "ticket": "carve#5658"
         },
@@ -18,15 +14,7 @@
             "ticket": "carve#5658"
         },
         {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testTheFormattedDocumentParsesToTheSameTree with data set \"279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-3\"",
-            "ticket": "carve#5658"
-        },
-        {
             "test": "MarkupCarve\\Carve\\Test\\TestCase\\CorpusRenderFixtureTest::testRenderFixture with data set \"fmt: 279-a-boundary-line-inside-an-open-fence-does-not-end-the-container-3\"",
-            "ticket": "carve#5658"
-        },
-        {
-            "test": "MarkupCarve\\Carve\\Test\\TestCase\\CarveFmtCorpusTest::testThePartElevenOneCCeilingIsNoLongerReached",
             "ticket": "carve#5658"
         },
         {

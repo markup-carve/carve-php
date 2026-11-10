@@ -3262,6 +3262,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $out .= $rendered;
             }
 
+            $first = $children[0] ?? null;
+            $second = $children[1] ?? null;
+            if ($first instanceof Paragraph && $second instanceof Paragraph) {
+                $inlines = $first->getChildren();
+                if (
+                    ($inlines[0] ?? null) instanceof Text
+                    && str_starts_with($inlines[0]->getContent(), '{')
+                    && in_array(true, array_map(static fn (Node $inline): bool => $inline instanceof SoftBreak, $inlines), true)
+                ) {
+                    return "+\n" . $out;
+                }
+            }
+
             return $out;
         } finally {
             $this->blockDepth--;
@@ -6584,7 +6597,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if (preg_match('/[ \t]\n/', $content)) {
             throw new SourceUnspellableException('code', 'a line of the value ends in whitespace, which the block layer strips');
         }
-        $captionLeadingSpace = $this->inCaption && preg_match('/^\n[ \t][^\n]*$/', $content) === 1;
+        $captionLeadingSpace = $this->inCaption && preg_match('/\n[ \t]/', $content) === 1;
         if (!$this->inTerm && !$captionLeadingSpace && preg_match('/\n[ \t]/', $content)) {
             throw new SourceUnspellableException('code', 'a line of the value starts with whitespace, which the block layer strips');
         }
@@ -7535,11 +7548,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * The end of a wrapped brace run that opens this text with a continuation at its `{` column, or 0 (CARVE-P2-035).
      *
-     * Braced comments are left to the escape probe: an accepted one would vanish.
+     * The reader only exposes a refused comment as text; accepted comments have no nodes here.
      */
     private static function refusedBraceTextEnd(string $value): int
     {
-        if (!str_starts_with($value, '{') || str_starts_with($value, '{%') || !str_contains($value, "\n")) {
+        if (!str_starts_with($value, '{') || !str_contains($value, "\n")) {
             return 0;
         }
         $depth = 0;

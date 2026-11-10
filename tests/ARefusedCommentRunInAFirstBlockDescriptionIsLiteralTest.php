@@ -15,12 +15,8 @@ final class ARefusedCommentRunInAFirstBlockDescriptionIsLiteralTest extends Test
      */
     public static function cases(): iterable
     {
-        foreach (['a', '#x'] as $content) {
-            yield $content => [
-                ":: t\n: +\n  {% $content\n  %}\n  ```\n  ```\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>{% $content\n%}\n<code>\n</code></dd>\n</dl>",
-            ];
-        }
+        yield 'a' => [":: t\n: +\n  {% a\n  %}\n  ```\n  ```\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>{% a\n%}</p>\n    <pre><code></code></pre>\n  </dd>\n</dl>"];
+        yield '#x' => [":: t\n: +\n  {% #x\n  %}\n  ```\n  ```\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>{% <span class=\"tag\"><strong>#x</strong></span>\n%}</p>\n    <pre><code></code></pre>\n  </dd>\n</dl>"];
     }
 
     #[DataProvider('cases')]

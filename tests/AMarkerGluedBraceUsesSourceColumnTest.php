@@ -20,11 +20,11 @@ final class AMarkerGluedBraceUsesSourceColumnTest extends TestCase
     public static function runs(): array
     {
         return [
-            'bullet at the brace column' => ["-{.x} {.x\n      .y}\n  # h\n", "<ul>\n  <li class=\"x\">{.x\n.y}\n# h</li>\n</ul>"],
-            'bullet left of the brace' => ["-{.x} {.x\n     .y}\n  # h\n", "<ul>\n  <li class=\"x\">{.x\n.y}\n# h</li>\n</ul>"],
+            'bullet at the brace column' => ["-{.x} {.x\n      .y}\n  # h\n", "<ul>\n  <li class=\"x\">{.x\n.y}\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>"],
+            'bullet left of the brace' => ["-{.x} {.x\n     .y}\n  # h\n", "<ul>\n  <li class=\"x\">{.x\n.y}\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>"],
             'bullet right of the brace' => ["-{.x} {.x\n       .y}\n  # h\n", "<ul>\n  <li class=\"x\">\n    <h1 class=\"x y\" id=\"h\">h</h1>\n  </li>\n</ul>"],
-            'ordered marker' => ["1.{.x} {.x\n      .y}\n   # h\n", "<ol>\n  <li class=\"x\">{.x\n.y}\n# h</li>\n</ol>"],
-            'different metadata text' => ["-{.a} {.x\n      .y}\n  # h\n", "<ul>\n  <li class=\"a\">{.x\n.y}\n# h</li>\n</ul>"],
+            'ordered marker' => ["1.{.x} {.x\n      .y}\n   # h\n", "<ol>\n  <li class=\"x\">{.x\n.y}\n    <h1 id=\"h\">h</h1>\n  </li>\n</ol>"],
+            'different metadata text' => ["-{.a} {.x\n      .y}\n  # h\n", "<ul>\n  <li class=\"a\">{.x\n.y}\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>"],
         ];
     }
 

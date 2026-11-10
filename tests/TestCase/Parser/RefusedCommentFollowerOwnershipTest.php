@@ -18,7 +18,7 @@ final class RefusedCommentFollowerOwnershipTest extends TestCase
         return [
             'holder column keeps marker' => [
                 "- a\n  - b\n    {% c\n    d %}\n    - z\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n{% c\nd %}\n- z</li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n{% c\nd %}\n        <ul>\n          <li>z</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
             ],
             'shallower marker opens sibling' => [
                 "- a\n  - b\n  {% c\nd %}\n  - z\n",

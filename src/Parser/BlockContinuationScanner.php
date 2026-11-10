@@ -1045,8 +1045,6 @@ final class BlockContinuationScanner
         $markerEnds = $invisibleLineEndsParagraph && !$this->attachedLeadIsList($lines, $i, $count);
         // The body column of the open description in the attached block, or null.
         $bodyColumn = null;
-        // Index of the line after a refused brace run that leads the block, which joins the run's paragraph (CARVE-P2-035).
-        $refusedFollower = -1;
         // Lines folded into the attached paragraph as text, by source index.
         $foldedLines = [];
         // Index past the closer of a comment span the block took; a comment span is kept whole.
@@ -1063,7 +1061,7 @@ final class BlockContinuationScanner
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, &$refusedFollower, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd, $blockColumn, &$restarted, &$attachedListMarker, &$attachedListColumn, &$attachedItemColumn): bool {
+            function (string $line, int $index) use (&$attachedKind, &$pendingThrough, &$attachedState, &$invisibleRun, $lines, $endsAtSibling, $invisibleLineEndsParagraph, $markerEnds, &$bodyColumn, $paragraphFoldColumn, &$foldedLines, $continuesBody, &$commentThrough, &$quoteEnd, $blockColumn, &$restarted, &$attachedListMarker, &$attachedListColumn, &$attachedItemColumn): bool {
                 $sourceLine = $this->sourceLineFor($index);
                 // The line missed the host of an own-line attached fence, which ends there (PART 0 S1).
                 if (isset($this->state->source->attachedFenceMisses[$sourceLine])) {
@@ -1080,9 +1078,6 @@ final class BlockContinuationScanner
                 }
                 if ($index < $commentThrough) {
                     return false;
-                }
-                if ($attachedKind === BlockGrammar::ATTACHED_PENDING && str_starts_with(ltrim($line, " \t"), '{')) {
-                    $refusedFollower = ($this->refusedBraceRunEndCallback)($lines, $index) ?? -1;
                 }
                 if ($attachedKind === BlockGrammar::ATTACHED_SPANNING . ':list' && $attachedListMarker !== null) {
                     $candidate = ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t"));
@@ -1165,7 +1160,7 @@ final class BlockContinuationScanner
                     return true;
                 }
                 if (
-                    ($index !== $refusedFollower && !$inItemBody && $this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState))
+                    (!$inItemBody && $this->trailingBlockHasEnded($attachedKind, $line, $lines, $index, $attachedState))
                     // An unmarked line continues an attached quote only within its lazy extent (PART 1 S4).
                     || ($quoteEnd !== null && $index > $quoteEnd && !str_starts_with(ltrim($line, " \t"), '>'))
                     // In a note or description an invisible line ends the attached paragraph, or a container it stands left of (PART 9 §10 I5).
@@ -1773,7 +1768,6 @@ final class BlockContinuationScanner
             $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
             $itemLines[0] ?? '',
         );
-        $refusedMarkerNoteParagraph = false;
         while ($i < $count) {
             $nextLine = $lines[$i];
             $sourceLine = $this->sourceLineFor($i);
@@ -1835,7 +1829,6 @@ final class BlockContinuationScanner
             }
 
             if (IndentationHelper::isBlankLine($nextLine)) {
-                $refusedMarkerNoteParagraph = false;
                 if ($run->lowComment && $run->openCommentLength === null) {
                     break;
                 }
@@ -1888,25 +1881,6 @@ final class BlockContinuationScanner
 
                 continue;
             }
-
-            if (
-                $run->markerNoteItem && $i > 0
-                && ($refusedMarkerNoteParagraph
-                    || $this->noteFollowsMarkerLineRun($lines, $i - 1, ltrim($lines[$i - 1], " \t")))
-                && IndentationHelper::getLeadingColumns($nextLine) < $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                && ($this->getListParser)()->parseListItemMarker(ltrim($nextLine, " \t")) === null
-                && !$this->startsNewBlock(ltrim($nextLine, " \t"), $lines, $i)
-            ) {
-                // The refused run's protected follower is in the marker-line note.
-                // Keep the next lazy line in that same collected entry so the note
-                // reader sees the deepest paragraph before the item reader does.
-                $itemLines[count($itemLines) - 1] .= "\n" . BlockGrammar::LAZY_FRAME . ltrim($nextLine, " \t");
-                $refusedMarkerNoteParagraph = true;
-                $i++;
-
-                continue;
-            }
-            $refusedMarkerNoteParagraph = false;
 
             if ($run->captionOpen && isset($this->state->source->lazyLines[$this->sourceLineFor($i)])) {
                 $itemLines[] = BlockGrammar::LAZY_FRAME . ltrim($nextLine, " \t");
@@ -3399,20 +3373,6 @@ final class BlockContinuationScanner
     }
 
     /**
-     * Whether line `$i` is a note definition right after a refused run on a description's or note's marker line (CARVE-P2-035).
-     *
-     * @param array<string> $lines
-     * @param int $i
-     * @param string $trimmed
-     */
-    private function noteFollowsMarkerLineRun(array $lines, int $i, string $trimmed): bool
-    {
-        return str_starts_with($trimmed, '[^')
-            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) === 1
-            && RefusedBraceRun::followsMarkerLineRun($lines, $i, $this->refusedBraceRunEndCallback, ($this->getListParser)());
-    }
-
-    /**
      * Whether the walk keeps line `$i` as text after the first line of a refused brace run.
      *
      * @param int $i
@@ -3451,7 +3411,16 @@ final class BlockContinuationScanner
         bool $closesMetadataSameBaseFence,
         bool $inlineAuthoredFence,
     ): string {
-        $stripColumn = $run->authoredCodeColumn !== null
+        $fenceCloser = $trailingState->fence !== null
+            && ($this->getFencedBlockParser)()->isCodeFenceCloser(
+                ltrim($nextLine, " \t"),
+                $trailingState->fence->char,
+                $trailingState->fence->length,
+            );
+        $nestedTabPayload = $trailingState->fence !== null && !$fenceCloser
+            && $run->authoredCodeColumn !== null && $run->authoredCodeColumn > $contentIndent
+            && preg_match('/^ +\t/', $nextLine) === 1;
+        $stripColumn = !$nestedTabPayload && $run->authoredCodeColumn !== null
             && IndentationHelper::getLeadingColumns($nextLine, $run->authoredCodeColumn) >= $run->authoredCodeColumn
             ? $run->authoredCodeColumn : $contentIndent;
         $contentLine = $inlineAuthoredFence && !$termContinuation
@@ -4366,7 +4335,6 @@ final class BlockContinuationScanner
             !$trailingState->openParagraph
             && ($nextIndent === 0 || !$trailingState->afterComment)
             && !($leadIsBareContinuationMarker && $nextIndent === 0 && $this->continuationFollowerIsEligible($i))
-            && !$this->noteFollowsMarkerLineRun($lines, $i, $nextTrimmed)
         ) {
             return false;
         }
@@ -4452,7 +4420,6 @@ final class BlockContinuationScanner
             && !$this->startsNewBlock($nextTrimmed)
             && $this->isDefinitionLineForEnclosingItem($nextTrimmed)
             && !$this->isRefusedRunFollower($i)
-            && !$this->noteFollowsMarkerLineRun($lines, $i, $nextTrimmed)
         ) {
             return false;
         }

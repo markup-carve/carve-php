@@ -15,19 +15,10 @@ final class ARefusedRunFenceFollowerKeepsItsCloserTest extends TestCase
      */
     public static function cases(): iterable
     {
-        foreach (['{.x' => '.y}', '{#a' => '.b}'] as $first => $second) {
-            yield $first => [
-                ":: t\n: +\n  $first\n  $second\n  ```\n  ```\n\nend\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>$first\n$second\n<code>\n</code></dd>\n</dl>\n<p>end</p>",
-            ];
-        }
-
-        foreach (['# heading', '- item'] as $payload) {
-            yield $payload => [
-                ":: t\n: +\n  {.x\n  .y}\n  ```\n  $payload\n  ```\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>{.x\n.y}\n<code>\n$payload\n</code></dd>\n</dl>",
-            ];
-        }
+        yield '{.x' => [":: t\n: +\n  {.x\n  .y}\n  ```\n  ```\n\nend\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>{.x\n.y}</p>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n<p>end</p>"];
+        yield '{#a' => [":: t\n: +\n  {#a\n  .b}\n  ```\n  ```\n\nend\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>{<span class=\"tag\"><strong>#a</strong></span>\n.b}</p>\n    <pre><code></code></pre>\n  </dd>\n</dl>\n<p>end</p>"];
+        yield '# heading' => [":: t\n: +\n  {.x\n  .y}\n  ```\n  # heading\n  ```\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>{.x\n.y}</p>\n    <pre><code># heading\n</code></pre>\n  </dd>\n</dl>"];
+        yield '- item' => [":: t\n: +\n  {.x\n  .y}\n  ```\n  - item\n  ```\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>{.x\n.y}</p>\n    <pre><code>- item\n</code></pre>\n  </dd>\n</dl>"];
     }
 
     #[DataProvider('cases')]

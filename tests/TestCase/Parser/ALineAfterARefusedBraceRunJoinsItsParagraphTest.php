@@ -21,32 +21,32 @@ final class ALineAfterARefusedBraceRunJoinsItsParagraphTest extends TestCase
     {
         yield 'a list marker in the item joins the paragraph' => [
             "- item\n    {#i\n    .b\n    }\n  - m\n",
-            "<ul>\n  <li>item\n{#i\n.b\n}\n- m</li>\n</ul>",
+            "<ul>\n  <li>item\n{<span class=\"tag\"><strong>#i</strong></span>\n.b\n}\n    <ul>\n      <li>m</li>\n    </ul>\n  </li>\n</ul>",
         ];
 
         yield 'an ordered marker joins too' => [
             "- item\n    {#i\n    .b\n    }\n  1. m\n",
-            "<ul>\n  <li>item\n{#i\n.b\n}\n1. m</li>\n</ul>",
+            "<ul>\n  <li>item\n{<span class=\"tag\"><strong>#i</strong></span>\n.b\n}\n    <ol>\n      <li>m</li>\n    </ol>\n  </li>\n</ul>",
         ];
 
         yield 'in a nested item' => [
             "- a\n  - item\n      {#i\n      .b}\n    * m\n",
-            "<ul>\n  <li>a\n    <ul>\n      <li>item\n{#i\n.b}\n* m</li>\n    </ul>\n  </li>\n</ul>",
+            "<ul>\n  <li>a\n    <ul>\n      <li>item\n{<span class=\"tag\"><strong>#i</strong></span>\n.b}\n        <ul>\n          <li>m</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
         ];
 
         yield 'in a quoted item' => [
             "> - item\n>     {#i\n>     .b\n>     }\n>   - m\n",
-            "<blockquote>\n  <ul>\n    <li>item\n{#i\n.b\n}\n- m</li>\n  </ul>\n</blockquote>",
+            "<blockquote>\n  <ul>\n    <li>item\n{<span class=\"tag\"><strong>#i</strong></span>\n.b\n}\n      <ul>\n        <li>m</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>",
         ];
 
         yield 'after a run a plus attached' => [
             "- a\n+\n{x\ny}\n  - c\n",
-            "<ul>\n  <li>a\n    {x\ny}\n- c\n  </li>\n</ul>",
+            "<ul>\n  <li>a\n    {x\ny}\n    <ul>\n      <li>c</li>\n    </ul>\n  </li>\n</ul>",
         ];
 
         yield 'after a run a plus attached in a quote' => [
             "> - a\n> +\n> {x\n> y}\n>   - c\n",
-            "<blockquote>\n  <ul>\n    <li>a\n      {x\ny}\n- c\n    </li>\n  </ul>\n</blockquote>",
+            "<blockquote>\n  <ul>\n    <li>a\n      {x\ny}\n      <ul>\n        <li>c</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>",
         ];
 
         yield 'a valid run still leaves the marker its sublist' => [
@@ -62,7 +62,7 @@ final class ALineAfterARefusedBraceRunJoinsItsParagraphTest extends TestCase
     {
         yield 'an attribute run opened past the body column' => [
             ":: t\n: d\n    {#i\n  .b\n  }\n",
-            "<dl>\n  <dt>t</dt>\n  <dd>d\n{#i\n.b\n}</dd>\n</dl>",
+            "<dl>\n  <dt>t</dt>\n  <dd>d\n{<span class=\"tag\"><strong>#i</strong></span>\n.b\n}</dd>\n</dl>",
         ];
 
         yield 'a comment run opened past the body column' => [
@@ -72,7 +72,7 @@ final class ALineAfterARefusedBraceRunJoinsItsParagraphTest extends TestCase
 
         yield 'the line after the run joins the paragraph' => [
             ":: t\n: d\n    {#i\n  .b}\n  more\n",
-            "<dl>\n  <dt>t</dt>\n  <dd>d\n{#i\n.b}\nmore</dd>\n</dl>",
+            "<dl>\n  <dt>t</dt>\n  <dd>d\n{<span class=\"tag\"><strong>#i</strong></span>\n.b}\nmore</dd>\n</dl>",
         ];
 
         yield 'a comment run and a follower past the column' => [
@@ -82,12 +82,12 @@ final class ALineAfterARefusedBraceRunJoinsItsParagraphTest extends TestCase
 
         yield 'in a description inside an item' => [
             "- :: t\n  : d\n      {#i\n    .b\n    }\n",
-            "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>d\n{#i\n.b\n}</dd>\n    </dl>\n  </li>\n</ul>",
+            "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>d\n{<span class=\"tag\"><strong>#i</strong></span>\n.b\n}</dd>\n    </dl>\n  </li>\n</ul>",
         ];
 
         yield 'in a quoted description' => [
             "> :: t\n> : d\n>     {#i\n>   .b\n>   }\n",
-            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>d\n{#i\n.b\n}</dd>\n  </dl>\n</blockquote>",
+            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>d\n{<span class=\"tag\"><strong>#i</strong></span>\n.b\n}</dd>\n  </dl>\n</blockquote>",
         ];
 
         yield 'a valid run past the body column still attaches' => [

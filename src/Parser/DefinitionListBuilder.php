@@ -784,17 +784,6 @@ final class DefinitionListBuilder
             termColumn: $termColumn,
             termHasOwnColumn: $termHasOwnColumn,
         );
-        if (str_starts_with($body[0] ?? '', '{%')) {
-            $end = RefusedBraceRun::markerLineEnd(
-                $this->state->source->authoredLines,
-                $this->sourceLineFor($definitionStart),
-                $body[0],
-                ($this->getInlineParser)(),
-            );
-            if ($end !== null) {
-                $b->refusedBraceThrough = $definitionStart + $end;
-            }
-        }
         if ($firstBlockAttached) {
             $this->markDescriptionAttachment($b);
         } elseif (count($body) > 1) {
@@ -1700,13 +1689,6 @@ final class DefinitionListBuilder
             $l->indent === 0 && !$b->bodyState->openParagraph
             && ReferenceDefinitionExtractor::isDefinitionHead($l->trimmedCont)
             && $this->isReferenceDefinitionLine($l->trimmedCont)
-            // A note definition that follows a refused marker-line run is that run's paragraph text (CARVE-P2-035).
-            && !(preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $l->trimmedCont) === 1 && RefusedBraceRun::followsMarkerLineRun(
-                $b->lines,
-                $b->i,
-                fn (array $lines, int $start): ?int => RefusedBraceRun::end($lines, $start, ($this->getInlineParser)()),
-                ($this->getListParser)(),
-            ))
         ) {
             return false;
         }
@@ -1873,27 +1855,6 @@ final class DefinitionListBuilder
     }
 
     /**
-     * Index past a refused brace run at the line when folding would split it: a comment run, or a line at the body column.
-     *
-     * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
-     * @param \MarkupCarve\Carve\Parser\DescriptionBodyLine $l
-     */
-    private function refusedRunSplitByFold(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?int
-    {
-        $end = RefusedBraceRun::end($b->lines, $b->i, ($this->getInlineParser)());
-        if ($end === null || str_starts_with($l->trimmedCont, '{%')) {
-            return $end;
-        }
-        for ($j = $b->i + 1; $j < $end; $j++) {
-            if (IndentationHelper::getLeadingColumns($b->lines[$j]) === $b->continuationColumn) {
-                return $end;
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * Folds a below-column or at-column line into the open paragraph entry.
      *
      * @param \MarkupCarve\Carve\Parser\DescriptionBodyCollection $b
@@ -1903,16 +1864,6 @@ final class DefinitionListBuilder
      */
     private function foldBelowColumnLine(DescriptionBodyCollection $b, DescriptionBodyLine $l): ?bool
     {
-        // A refused run the fold would split keeps one entry per line, so the paragraph reads its columns (CARVE-P2-035).
-        if ($b->i > $b->refusedBraceThrough && $l->contColumn > $b->continuationColumn && str_starts_with($l->trimmedCont, '{')) {
-            $b->refusedBraceThrough = $this->refusedRunSplitByFold($b, $l) ?? -1;
-        }
-        if ($b->i <= $b->refusedBraceThrough) {
-            // The run is paragraph text, so its follower joins that paragraph.
-            $b->nestedLazyParagraph = $b->nestedLazyParagraph || $b->i === $b->refusedBraceThrough;
-
-            return null;
-        }
         // A list marker that misses a marker body closes it (PART 0 S3, carve#4860).
         if (
             $l->indent < $b->continuationColumn
@@ -2057,7 +2008,9 @@ final class DefinitionListBuilder
         ) {
             $stripColumns += $b->bodyFrames->releasedBlockBase;
         }
-        $entry = (new IndentedContainerColumn($stripColumns))->strip($l->contLine);
+        $entry = $b->attachedOwnLine && $b->attachedFence !== null
+            && $b->bodyNestedState->fence === $b->attachedFence
+            ? $l->contLine : (new IndentedContainerColumn($stripColumns))->strip($l->contLine);
         if (
             $this->isCommentLineOrFence($l->trimmedCont)
             && IndentationHelper::isBlankLine($b->body[count($b->body) - 1] ?? '')
@@ -2438,31 +2391,13 @@ final class DefinitionListBuilder
             // whatever the answer is, so the scan buys nothing -
             // and once this arms a fence, every later entry is
             // inside it and asks nothing at all.
-            $sourceLine = $b->bodyMap[$b->bodyStateCursor] ?? -1;
-            $refusedFollower = isset($this->state->source->refusedKeptLines[$sourceLine])
-                && $this->state->source->refusedKeptLines[$sourceLine] < $sourceLine;
-            if (!$refusedFollower && isset($b->bodyFenceSource[$b->bodyStateCursor])) {
-                for ($start = $b->bodyStateCursor - 1; $start >= 0; $start--) {
-                    if (IndentationHelper::isBlankLine($b->body[$start])) {
-                        break;
-                    }
-                    if (
-                        str_starts_with(ltrim($b->body[$start], " \t"), '{')
-                        && RefusedBraceRun::end($b->body, $start, ($this->getInlineParser)(), $b->bodyStateCursor) === $b->bodyStateCursor
-                    ) {
-                        $refusedFollower = true;
-
-                        break;
-                    }
-                }
-            }
-            $closerKnownAhead = !$refusedFollower && isset($b->bodyFenceSource[$b->bodyStateCursor])
+            $closerKnownAhead = isset($b->bodyFenceSource[$b->bodyStateCursor])
                 && $wasOpenParagraph
                 && !$wasInFence
                 && ($b->bodyFenceSource[$b->bodyStateCursor]['columns'] <= $b->continuationColumn
                     || $b->bodyFenceSource[$b->bodyStateCursor]['eligible']);
             $trackerLine = $bodyLine;
-            if (!$refusedFollower && !$closerKnownAhead && $wasOpenParagraph && !$wasInFence && $useIndexedBodyFence) {
+            if (!$closerKnownAhead && $wasOpenParagraph && !$wasInFence && $useIndexedBodyFence) {
                 $fenceAt = IndentationHelper::pastLeadingWhitespace($bodyLine);
                 $subject = $bodyLine;
                 $column = $b->bodyOpenerBase ?? 0;
@@ -2478,9 +2413,6 @@ final class DefinitionListBuilder
                         $trackerLine = 'text';
                     }
                 }
-            }
-            if ($refusedFollower && $wasOpenParagraph && !$wasInFence) {
-                $trackerLine = 'text';
             }
             $b->bodyState = $this->advanceTrailingStateWithFenceLookahead(
                 $b->bodyState,

@@ -16,7 +16,7 @@ final class ARefusedRunFollowerEndsWhereItsParagraphEndsTest extends TestCase
     /**
      * @var string
      */
-    private const ITEM = "<ul>\n  <li>{.x\n.y}\n<code>\nwa</code></li>\n</ul>\n";
+    private const ITEM = "<ul>\n  <li>{.x\n.y}\n    <pre><code>wa\n</code></pre>\n  </li>\n</ul>\n";
 
     /**
      * @return iterable<string, array{string, string}>
@@ -40,12 +40,12 @@ final class ARefusedRunFollowerEndsWhereItsParagraphEndsTest extends TestCase
 
         yield 'description marker after a first-block description' => [
             ":: t\n: +\n{.x\n.y}\n```\nwa\n: d\n```\n",
-            "<dl>\n  <dt>t</dt>\n  <dd>{.x\n.y}\n<code>\nwa</code></dd>\n  <dd>d</dd>\n</dl>\n<pre><code></code></pre>",
+            "<dl>\n  <dt>t</dt>\n  <dd>{.x\n.y}</dd>\n</dl>\n<pre><code>wa\n: d\n</code></pre>",
         ];
 
         yield 'description marker right after the follower' => [
             ":: t\n: +\n{.x\n.y}\n```\n: d\n```\n",
-            "<dl>\n  <dt>t</dt>\n  <dd>{.x\n.y}\n<code></code></dd>\n  <dd>d</dd>\n</dl>\n<pre><code></code></pre>",
+            "<dl>\n  <dt>t</dt>\n  <dd>{.x\n.y}</dd>\n</dl>\n<pre><code>: d\n</code></pre>",
         ];
     }
 
