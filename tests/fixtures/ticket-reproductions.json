@@ -228,5 +228,25 @@
         "ticket": "carve#5658",
         "source": "> - +\n> {.x\n> .y}\n  > +\n>   zq\n",
         "html": "<blockquote>\n  <ul>\n    <li>{.x\n.y}\n      zq\n    </li>\n  </ul>\n</blockquote>"
+    },
+    {
+        "ticket": "carve#5658",
+        "source": "- +\n::: note\n```\nx\n\n+\np\n",
+        "html": "<ul>\n  <li>\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <pre><code>x\n</code></pre>\n    </aside>\n    p\n  </li>\n</ul>"
+    },
+    {
+        "ticket": "carve#5658",
+        "source": "- x\n+\n::: note\n```\nx\n\n+\np\n",
+        "html": "<ul>\n  <li>x\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <pre><code>x\n</code></pre>\n    </aside>\n    p\n  </li>\n</ul>"
+    },
+    {
+        "ticket": "carve#5658",
+        "source": "- x\n+\n::: note\nx\n\n+\np\n",
+        "html": "<ul>\n  <li>x\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>x</p>\n    </aside>\n  </li>\n</ul>\n<p>+\np</p>"
+    },
+    {
+        "ticket": "carve#5658",
+        "source": "- x\n+\n::: note\nx\n+\np\n",
+        "html": "<ul>\n  <li>x\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>x\n+\np</p>\n    </aside>\n  </li>\n</ul>"
     }
 ]

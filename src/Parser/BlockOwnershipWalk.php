@@ -3571,6 +3571,8 @@ final class BlockOwnershipWalk
     private function attachedColonEndsBefore(int $at, array $held, int $run): bool
     {
         $nested = 0;
+        // An unclosed code fence in the block ends at its first blank, and the block with it.
+        $openCode = false;
         for ($k = $held['from'] + 1; $k < $at; $k++) {
             $level = $this->levelOf($this->lines[$k], $held['depth']);
             if ($level === null) {
@@ -3578,23 +3580,29 @@ final class BlockOwnershipWalk
             }
             $rest = rtrim($level['rest'], " \t");
             if ($rest === '') {
-                if (!($held['ownLine'] ?? false)) {
+                if ($openCode || !($held['ownLine'] ?? false)) {
                     return true;
                 }
 
                 continue;
             }
-            // A code fence in the block keeps its payload, colon lines included.
+            // A closed code fence in the block keeps its payload, colon lines included.
             $code = $this->fenced->parseCodeFenceOpener($rest);
             if ($code !== null) {
-                for ($k++; $k < $at; $k++) {
-                    $payload = $this->levelOf($this->lines[$k], $held['depth']);
+                $closer = $k + 1;
+                while ($closer < $at) {
+                    $payload = $this->levelOf($this->lines[$closer], $held['depth']);
                     if ($payload !== null && $this->fenced->isCodeFenceCloser($payload['rest'], $code['fence'][0], $code['length'])) {
                         break;
                     }
+                    $closer++;
                 }
+                if ($closer < $at) {
+                    $k = $closer;
 
-                continue;
+                    continue;
+                }
+                $openCode = true;
             }
             if (preg_match('/^:{' . $run . '}$/D', $rest) === 1) {
                 if ($nested === 0) {
