@@ -515,6 +515,8 @@ final class BlockQuoteBuilder
             $lastQuoteLineWasLazy = isset($this->state->session->blockQuoteLazySourceLines[$lastQuoteSourceLine]);
             if (
                 $content !== null
+                && (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($content, " \t")) === 1
+                    || ($this->getListParser)()->parseListItemMarker(ltrim($content, " \t")) !== null)
                 && RefusedBraceRun::followsMarkerLineRun(
                     [...$innerLines, $content],
                     count($innerLines),
