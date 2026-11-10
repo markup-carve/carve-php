@@ -1855,11 +1855,13 @@ final class BlockOwnershipWalk
         if (!array_key_exists($line, $this->markerLineRunEnds)) {
             $end = null;
             $depth = $this->quoteDepth(count($this->frames));
-            $opener = $this->levelOf($this->lines[$line] ?? '', $depth)['rest'] ?? '';
+            $openerView = $this->levelOf($this->lines[$line] ?? '', $depth);
+            $opener = $openerView === null ? '' : str_repeat(' ', $openerView['col']) . $openerView['rest'];
             if (preg_match('/^[ \t]*(?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)*(?::|\[\^[^\]]+\]:)?[ \t]*(?=\{)/', $opener, $m) === 1) {
                 $window = [str_repeat(' ', strlen($m[0])) . substr($opener, strlen($m[0]))];
                 for ($j = $line + 1, $count = count($this->lines); $j < $count && trim($this->lines[$j], " \t") !== ''; $j++) {
-                    $window[] = $this->levelOf($this->lines[$j], $depth)['rest'] ?? $this->lines[$j];
+                    $view = $this->levelOf($this->lines[$j], $depth);
+                    $window[] = $view === null ? $this->lines[$j] : str_repeat(' ', $view['col']) . $view['rest'];
                 }
                 $end = ($this->refusedBraceRunEnd)($window, 0);
             }

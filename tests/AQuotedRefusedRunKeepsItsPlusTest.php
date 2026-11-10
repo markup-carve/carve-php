@@ -42,6 +42,11 @@ final class AQuotedRefusedRunKeepsItsPlusTest extends TestCase
             "> - {.x\n}\n> +\nz\n",
             "<blockquote>\n  <ul>\n    <li>{.x\n}\n+\nz</li>\n  </ul>\n</blockquote>",
         ];
+
+        yield 'valid comment run leaves the next plus available' => [
+            "- {% c\n   d %}\n+\nBody.\n",
+            "<ul>\n  <li>Body.</li>\n</ul>",
+        ];
     }
 
     #[DataProvider('documents')]
