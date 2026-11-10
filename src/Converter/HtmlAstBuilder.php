@@ -1183,7 +1183,7 @@ final class HtmlAstBuilder
             return $this->container($node);
         }
         if (in_array($tag, ['article', 'main', 'header', 'footer', 'nav', 'aside'], true)) {
-            return $this->blocks($this->children($node));
+            return $this->withExternalFootnotePlacement($node, $this->blocks($this->children($node)));
         }
         if ($tag === 'div') {
             return $this->container($node);
@@ -1229,7 +1229,7 @@ final class HtmlAstBuilder
      */
     private function section(DOMElement $node): array
     {
-        $blocks = $this->blocks($this->children($node));
+        $blocks = $this->withExternalFootnotePlacement($node, $this->blocks($this->children($node)));
         if ($node->hasAttribute('id')) {
             CarrierNames::consumeAttribute($node, 'data-carve-explicit-id');
         }
@@ -2437,7 +2437,29 @@ final class HtmlAstBuilder
             $blocks[] = $list;
         }
 
-        return $blocks;
+        return $this->withExternalFootnotePlacement($node, $blocks);
+    }
+
+    /**
+     * Keep a consumed definition's position when its wrapper has no other blocks.
+     *
+     * @param \DOMElement $node
+     * @param list<ImportedNode> $blocks
+     *
+     * @return list<ImportedNode>
+     */
+    private function withExternalFootnotePlacement(DOMElement $node, array $blocks): array
+    {
+        if ($blocks !== []) {
+            return $blocks;
+        }
+        foreach ($node->getElementsByTagName('*') as $descendant) {
+            if (isset($this->session->externalFootnoteItems[$descendant]) && $this->hasFollowingContent($node)) {
+                return [$this->namedContainer('footnotes', [])];
+            }
+        }
+
+        return [];
     }
 
     /**
@@ -3719,6 +3741,7 @@ final class HtmlAstBuilder
         if ($bareTransport) {
             return $this->blocks($this->children($node));
         }
+        $children = $this->withExternalFootnotePlacement($node, $children);
         $skipAttrs = [];
         if ($this->derivedAriaLabel($node) === $node->getAttribute('aria-label')) {
             $skipAttrs[] = 'aria-label';

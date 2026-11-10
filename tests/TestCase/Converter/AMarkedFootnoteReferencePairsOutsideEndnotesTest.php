@@ -38,4 +38,26 @@ class AMarkedFootnoteReferencePairsOutsideEndnotesTest extends TestCase
             self::assertSame([], $result->report()['diagnostics']);
         }
     }
+
+    public function testConsumedListKeepsTheFootnotePlacementBeforeFollowingContent(): void
+    {
+        $html = '<p><a href="#n1" role="doc-noteref">1</a></p>'
+            . '<ol><li id="n1"><p>body</p></li></ol><p>after</p>';
+
+        self::assertSame(
+            "[^1]\n\n::: footnotes\n\n:::\n\nafter\n\n[^1]: body\n",
+            (new HtmlToCarve())->convert($html),
+        );
+    }
+
+    public function testConsumedTargetInsideWrapperKeepsTheFootnotePlacement(): void
+    {
+        $html = '<p><a href="#n1" role="doc-noteref">1</a></p>'
+            . '<div><aside id="n1" role="doc-footnote"><p>body</p></aside></div><p>after</p>';
+
+        self::assertSame(
+            "[^1]\n\n::: footnotes\n\n:::\n\nafter\n\n[^1]: body\n",
+            (new HtmlToCarve())->convert($html),
+        );
+    }
 }
