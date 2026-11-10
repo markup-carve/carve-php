@@ -35,13 +35,26 @@ final class WrappedAttributeRunScanner
      */
     public function length(array $lines, int $start, int $count): ?int
     {
-        $first = ltrim($lines[$start], " \t");
+        return $this->lengthWithOpener($lines, $start, $count, $lines[$start]);
+    }
+
+    /**
+     * Scan with a synthetic opener while keeping the original line indexes.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $count
+     * @param string $opener
+     */
+    public function lengthWithOpener(array $lines, int $start, int $count, string $opener): ?int
+    {
+        $first = ltrim($opener, " \t");
         if (!str_starts_with($first, '{') || ($this->isBlockAttributeLine)($first)) {
             return null;
         }
 
         $probe = [$first];
-        $openerColumn = IndentationHelper::getLeadingColumns($lines[$start]);
+        $openerColumn = IndentationHelper::getLeadingColumns($opener);
         $depth = $this->quoteDepth($start);
         for ($at = $start + 1; $at < $count && !IndentationHelper::isBlankLine($lines[$at]); $at++) {
             // A lazy line outside the opener's quote cannot close its attribute.
