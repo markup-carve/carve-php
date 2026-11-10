@@ -1765,11 +1765,25 @@ final class BlockOwnershipWalk
     }
 
     /**
+     * Whether the line carries the prefix the refused run's opener was written with.
+     */
+    private function writtenLikeRefusedRun(): bool
+    {
+        $opener = $this->lines[$this->refusedKeptStart] ?? '';
+
+        return substr($opener, 0, (int)strpos($opener, '{')) === substr($this->src, 0, (int)strrpos($this->src, '+'));
+    }
+
+    /**
      * A `+` at an open code fence's content column stays payload (PART 9 §17 L3, carve#5494).
      */
     private function openCodeFenceKeepsPlus(int $frameCount): bool
     {
         $top = $this->frames[$frameCount - 1];
+        // The line a refused brace run's paragraph keeps is text, a `+` included (CARVE-P2-035, carve#5658).
+        if ($this->at > $this->refusedKeptStart && $this->at <= $this->refusedKeptThrough && $this->writtenLikeRefusedRun()) {
+            return true;
+        }
 
         return $top->kind === 'fence' && $top->plusAttached && $this->m['col'] >= $top->col;
     }
@@ -3557,6 +3571,8 @@ final class BlockOwnershipWalk
     private function attachedColonEndsBefore(int $at, array $held, int $run): bool
     {
         $nested = 0;
+        // An unclosed code fence in the block ends at its first blank, and the block with it.
+        $openCode = false;
         for ($k = $held['from'] + 1; $k < $at; $k++) {
             $level = $this->levelOf($this->lines[$k], $held['depth']);
             if ($level === null) {
@@ -3564,11 +3580,30 @@ final class BlockOwnershipWalk
             }
             $rest = rtrim($level['rest'], " \t");
             if ($rest === '') {
-                if (!($held['ownLine'] ?? false)) {
+                if ($openCode || !($held['ownLine'] ?? false)) {
                     return true;
                 }
 
                 continue;
+            }
+            // A closed code fence in the block keeps its payload, colon lines included; past an
+            // unclosed one, which ends at its first blank, no opener is searched again.
+            $code = $openCode ? null : $this->fenced->parseCodeFenceOpener($rest);
+            if ($code !== null) {
+                $closer = $k + 1;
+                while ($closer < $at) {
+                    $payload = $this->levelOf($this->lines[$closer], $held['depth']);
+                    if ($payload !== null && $this->fenced->isCodeFenceCloser($payload['rest'], $code['fence'][0], $code['length'])) {
+                        break;
+                    }
+                    $closer++;
+                }
+                if ($closer < $at) {
+                    $k = $closer;
+
+                    continue;
+                }
+                $openCode = true;
             }
             if (preg_match('/^:{' . $run . '}$/D', $rest) === 1) {
                 if ($nested === 0) {
