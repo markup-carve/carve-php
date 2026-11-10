@@ -586,13 +586,7 @@ final class BlockOwnershipWalk
             $this->endOwnLineFenceAtMiss($at, $lines);
             $this->restoreEnclosingAttachedHost($at);
             $this->recordCommentPayloadHostColumn($at);
-            $closedAttribute = $this->literalPlusAfterAttribute;
-            if ($closedAttribute !== null && $at === $closedAttribute['line'] && isset($this->frames[$closedAttribute['hostIndex']])) {
-                $view = $this->throughQuotes($this->src, $closedAttribute['hostIndex'], $this->frames);
-                if ($view !== null && self::isPlus($view['rest']) && ($view['col'] ?? null) === $closedAttribute['column']) {
-                    $this->truncate($closedAttribute['hostIndex']);
-                }
-            }
+            $this->closeAttributeHostBeforeLiteralPlus($at);
             // A `+` right after the block a `+` attached reaches the same host, whose
             // frames the walk closed when it read that block where it stands.
             if ($this->attachedTo !== null && str_contains($this->src, '+')) {
@@ -3754,6 +3748,19 @@ final class BlockOwnershipWalk
     /**
      * Restore the outer offer when a nested attachment or its quote has ended.
      */
+    private function closeAttributeHostBeforeLiteralPlus(int $at): void
+    {
+        $closedAttribute = $this->literalPlusAfterAttribute;
+        if ($closedAttribute === null || $at !== $closedAttribute['line'] || !isset($this->frames[$closedAttribute['hostIndex']])) {
+            return;
+        }
+
+        $view = $this->throughQuotes($this->src, $closedAttribute['hostIndex'], $this->frames);
+        if ($view !== null && self::isPlus($view['rest']) && ($view['col'] ?? null) === $closedAttribute['column']) {
+            $this->truncate($closedAttribute['hostIndex']);
+        }
+    }
+
     private function restoreEnclosingAttachedHost(int $at): void
     {
         while (
