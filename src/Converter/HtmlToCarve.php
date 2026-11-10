@@ -4109,7 +4109,7 @@ class HtmlToCarve
         }
 
         return HtmlAstBuilder::isDerivedRole($node, $value)
-            || ($name === 'role' && strtolower(DomLoader::elementName($node)) === 'li'
+            || (strtolower(DomLoader::elementName($node)) === 'li'
                 && strtolower(trim($value)) === 'doc-endnote'
                 && isset($this->referencedImportEndnoteItems[$node]))
             || (strtolower(DomLoader::elementName($node)) === 'section' && strtolower(trim($value)) === 'doc-endnotes');
@@ -4883,7 +4883,11 @@ class HtmlToCarve
 
     private ?ImportSession $astImportSession = null;
 
-    /** @var \SplObjectStorage<\DOMElement, bool>|null */
+    /**
+     * Endnote items consumed as footnote definitions.
+     *
+     * @var \SplObjectStorage<\DOMElement, true>|null
+     */
     private ?SplObjectStorage $referencedImportEndnoteItems = null;
 
     /**
