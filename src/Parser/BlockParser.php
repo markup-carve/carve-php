@@ -2083,7 +2083,8 @@ class BlockParser
         $blankFollowerLine = null;
         $blankSourceLine = null;
         $blankRun = 0;
-        $atDocument = $topLevel && $parent instanceof Document;
+        // Only a skipped `*[` definition reads these starts back (placeSiblingSkippedAbbreviations).
+        $atDocument = $topLevel && $parent instanceof Document && str_contains($this->state->source->originalSource, '*[');
         $startedChildren = 0;
         $startedLine = -1;
 
@@ -2212,7 +2213,11 @@ class BlockParser
                 }
             }
             $fastPath = true;
-            if ($fc !== '' && ($fc >= 'a' && $fc <= 'z' || $fc >= 'A' && $fc <= 'Z')) {
+            // No probe ahead of the heading in the cascade below reads a `#` line.
+            $heading = $ws === 0 && $fc === '#' ? $this->tryParseHeading($parent, $lines, $i) : null;
+            if ($heading !== null) {
+                $consumed = $heading;
+            } elseif ($fc !== '' && ($fc >= 'a' && $fc <= 'z' || $fc >= 'A' && $fc <= 'Z')) {
                 $consumed = $this->tryParseList($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
                     ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel, $itemBody);
@@ -2838,15 +2843,13 @@ class BlockParser
     protected function applyPendingAttributes(Node $node): void
     {
         // Pending attributes float past a paragraph of only comments, as past a `%%` line (carve#4799).
-        if ($node instanceof Paragraph && $node->holdsOnlyComments()) {
+        if ($this->state->session->pendingAttributes === [] || ($node instanceof Paragraph && $node->holdsOnlyComments())) {
             return;
         }
-        if ($this->state->session->pendingAttributes !== []) {
-            $node->setAttributesWithOrder($this->state->session->pendingAttributes, $this->state->session->pendingAttributeOrder);
-            $this->state->session->pendingAttributes = [];
-            $this->state->session->pendingAttributeSpan = null;
-            $this->state->session->pendingAttributeOrder = [];
-        }
+        $node->setAttributesWithOrder($this->state->session->pendingAttributes, $this->state->session->pendingAttributeOrder);
+        $this->state->session->pendingAttributes = [];
+        $this->state->session->pendingAttributeSpan = null;
+        $this->state->session->pendingAttributeOrder = [];
     }
 
     public static function applyTableColumns(Table $table): void
@@ -4922,9 +4925,12 @@ class BlockParser
             $width = substr_count($part, "\n") + 1;
             for ($k = $physical; $k < $physical + $width; $k++) {
                 $line = ltrim($physicalLines[$k], " \t");
+                if (isset($literalLines[$k]) || !str_starts_with($line, '{')) {
+                    continue;
+                }
                 $sourceLine = $contentLines[$k][0] ?? $this->sourceLineFor($start) + $k;
                 $walkKept = ($this->state->source->refusedKeptLines[$sourceLine] ?? null) === $sourceLine;
-                if (isset($literalLines[$k]) || !str_starts_with($line, '{') || (str_starts_with($line, '{%') && !$walkKept)) {
+                if (str_starts_with($line, '{%') && !$walkKept) {
                     continue;
                 }
                 if (self::inlineSpanOpen($spanLines ??= array_values($physicalLines), $inlineSpan, $literalLines, $k)) {
@@ -6502,7 +6508,7 @@ class BlockParser
      */
     protected function isCaptionLine(string $line): bool
     {
-        if (preg_match('/^\^ +(.*' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches) !== 1) {
+        if (($line[0] ?? '') !== '^' || preg_match('/^\^ +(.*' . StringUtil::NON_WHITESPACE_CLASS . '.*)$/', $line, $matches) !== 1) {
             return false;
         }
         if (!str_contains($matches[1], '%')) {

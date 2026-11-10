@@ -65,27 +65,8 @@ final class RefusedBraceRun
 
                 continue;
             }
-            $length = strlen($line);
-            $sourceColumn = 0;
-            $quote = null;
-            for ($k = 0; $k < $length; $k++) {
-                $char = $line[$k];
-                if ($quote !== null) {
-                    if ($char === '\\') {
-                        $k++;
-                        $sourceColumn++;
-                    } elseif ($char === $quote) {
-                        $quote = null;
-                    }
-                } elseif ($char === '"' || $char === "'") {
-                    $quote = $char;
-                } elseif ($char === '{' && $depth === 0) {
-                    $blockColumn = $sourceColumn;
-                    $depth = 1;
-                } elseif ($char === '}' && --$depth < 0) {
-                    return null;
-                }
-                $sourceColumn = $char === "\t" ? intdiv($sourceColumn, 4) * 4 + 4 : $sourceColumn + 1;
+            if (!self::scanBraces($line, $depth, $blockColumn)) {
+                return null;
             }
             if ($depth === 0) {
                 return $shallow && WrappedBlockAttributeScanner::scan($run, 0, $inlineParser) !== null ? $i + 1 : null;
@@ -93,6 +74,56 @@ final class RefusedBraceRun
         }
 
         return $more ? -1 : null;
+    }
+
+    /**
+     * Whether a run opened by $line ends on that line, so {@see self::end()} refuses nothing there.
+     */
+    public static function endsOnItsLine(string $line): bool
+    {
+        $line = self::content($line);
+        if ($line === null) {
+            return true;
+        }
+        $rest = ltrim($line, " \t");
+        if (str_starts_with($rest, '{%')) {
+            return str_contains($line, '%}');
+        }
+        $depth = 0;
+        $blockColumn = 0;
+
+        return !str_starts_with($rest, '{') || !self::scanBraces($line, $depth, $blockColumn) || $depth === 0;
+    }
+
+    /**
+     * Track the run's brace depth across one line; false when a `}` closes more than was opened.
+     */
+    private static function scanBraces(string $line, int &$depth, int &$blockColumn): bool
+    {
+        $length = strlen($line);
+        $sourceColumn = 0;
+        $quote = null;
+        for ($k = 0; $k < $length; $k++) {
+            $char = $line[$k];
+            if ($quote !== null) {
+                if ($char === '\\') {
+                    $k++;
+                    $sourceColumn++;
+                } elseif ($char === $quote) {
+                    $quote = null;
+                }
+            } elseif ($char === '"' || $char === "'") {
+                $quote = $char;
+            } elseif ($char === '{' && $depth === 0) {
+                $blockColumn = $sourceColumn;
+                $depth = 1;
+            } elseif ($char === '}' && --$depth < 0) {
+                return false;
+            }
+            $sourceColumn = $char === "\t" ? intdiv($sourceColumn, 4) * 4 + 4 : $sourceColumn + 1;
+        }
+
+        return true;
     }
 
     /**

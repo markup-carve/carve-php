@@ -1382,6 +1382,9 @@ final class BlockOwnershipWalk
     private function transparentLine(string $rest, int $k): bool
     {
         $text = rtrim($rest, " \t");
+        if (ctype_alpha($text[0] ?? '')) {
+            return false;
+        }
         // CARVE-P11-073: a region marker below a list closes every item; a footnote definition opens a frame.
         if (preg_match('/^%%[ \t]*#(?:end)?region(?![A-Za-z0-9_])/', $text) === 1 || str_starts_with($text, '[^')) {
             return false;
@@ -2254,6 +2257,9 @@ final class BlockOwnershipWalk
     private function noteOpener(int $owner, OwnershipForm $form, int $contentColumn): void
     {
         $frame = $this->frames[$owner];
+        if ($frame->kind === 'item' || $frame->kind === 'fence' || $this->m['col'] <= $contentColumn) {
+            return;
+        }
         $rest = $this->m['rest'];
         $kind = match ($form->kind) {
             'quote' => 'block quote',
@@ -2273,9 +2279,6 @@ final class BlockOwnershipWalk
         };
         // A table reports once, on its first row.
         if ($kind === null || ($kind === 'table row' && $frame->tableLine === $this->at - 1)) {
-            return;
-        }
-        if ($frame->kind === 'item' || $frame->kind === 'fence' || $this->m['col'] <= $contentColumn) {
             return;
         }
         $line = $this->lines[$this->at];
@@ -2473,6 +2476,9 @@ final class BlockOwnershipWalk
             if ($open) {
                 return new OwnershipForm(kind: 'text', interrupts: false);
             }
+        }
+        if (RefusedBraceRun::endsOnItsLine($rest)) {
+            return null;
         }
         $depth = 0;
         foreach ($this->frames as $index => $frame) {
@@ -2679,7 +2685,8 @@ final class BlockOwnershipWalk
         if (
             ($first === '#' && preg_match('/^(#{1,6}) +(?=.*[^ \t\n\r])(.*)$/D', $rest) === 1)
             || (($first === '-' || $first === '*' || $first === '_') && preg_match(self::THEMATIC_BREAK, $rest) === 1)
-            || ($this->isDefinition)($rest)
+            // A letter-led line is never a definition, as in BlockParser's prose dispatch.
+            || (!ctype_alpha($first) && ($this->isDefinition)($rest))
             || ($first === '*' && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', $rest) === 1)
             || ($first === '{' && (($this->isAttributeLine)($rest) || $this->opensWrappedAttribute($rest, $owner)))
         ) {
@@ -3931,7 +3938,7 @@ final class BlockOwnershipWalk
 
     private static function isPlus(string $rest): bool
     {
-        return preg_match('/^\+[ \t]*$/D', $rest) === 1;
+        return ($rest[0] ?? '') === '+' && strspn($rest, " \t", 1) === strlen($rest) - 1;
     }
 
     /**
