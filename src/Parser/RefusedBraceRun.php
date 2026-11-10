@@ -236,11 +236,12 @@ final class RefusedBraceRun
             return -1;
         }
         $follower = isset($lines[$runEnd]) ? ltrim($lines[$runEnd], " \t") : '';
-        // A note definition short of the column is still the protected follower.
+        // A note definition or a lone `+` short of the column is still the protected follower (carve#5658 R03).
         if (
             trim($follower, " \t") === ''
             || (IndentationHelper::getLeadingColumns($lines[$runEnd]) < $column
-                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $follower) !== 1)
+                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $follower) !== 1
+                && rtrim($follower, " \t") !== '+')
         ) {
             return $runEnd - 1;
         }

@@ -192,6 +192,13 @@ final class BlockOwnershipWalk
     public array $heldCommentLines = [];
 
     /**
+     * Where a refused run opened on a description's or note's marker line ends, by that line, or null.
+     *
+     * @var array<int, int|null>
+     */
+    private array $markerLineRunEnds = [];
+
+    /**
      * Block openers spelled on an off-stop tab run: a nested parse reads them past the body's
      * column, where they still open their block rather than fold into a paragraph (PART 0 S2, S3).
      *
@@ -509,6 +516,7 @@ final class BlockOwnershipWalk
         $this->attachedFenceScans = [];
         $this->refusedKeptLines = [];
         $this->heldCommentLines = [];
+        $this->markerLineRunEnds = [];
         $this->shiftedOpeners = [];
         $this->pastColumnDescriptionLines = [];
         $this->fenceOpenerLines = [];
@@ -1786,12 +1794,59 @@ final class BlockOwnershipWalk
 
     /**
      * Whether the line carries the prefix the refused run's opener was written with.
+     *
+     * An opener on an item's marker line is measured at that item's marker column, its outer markers as spaces.
      */
     private function writtenLikeRefusedRun(): bool
     {
         $opener = $this->lines[$this->refusedKeptStart] ?? '';
+        $prefix = substr($opener, 0, (int)strpos($opener, '{'));
+        $plusPrefix = substr($this->src, 0, (int)strrpos($this->src, '+'));
+        if ($prefix === $plusPrefix) {
+            return true;
+        }
+        // Only the run's follower: a `+` inside the run's range is not the line after it.
+        if ($this->at !== $this->refusedKeptThrough || preg_match('/^(.*?)((?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)+)$/D', $prefix, $m) !== 1) {
+            return false;
+        }
+        // Any marker column of the stack the opener's line opens.
+        preg_match_all('/(?:[-*+]|[0-9]{1,9}[.)])[ \t]+/', $m[2], $markers, PREG_OFFSET_CAPTURE);
+        foreach ($markers[0] as [, $offset]) {
+            if ($m[1] . str_repeat(' ', $offset) === $plusPrefix) {
+                return true;
+            }
+        }
 
-        return substr($opener, 0, (int)strpos($opener, '{')) === substr($this->src, 0, (int)strrpos($this->src, '+'));
+        return false;
+    }
+
+    /**
+     * Whether a `+` at a description's or note's marker column directly follows a refused run its marker line opened (carve#5658 R03).
+     *
+     * Those runs are read by the body's own reader, so the walk keeps no range for them.
+     */
+    private function followsMarkerLineRefusedRun(OwnershipFrame $top): bool
+    {
+        $line = $top->line;
+        if (
+            ($top->kind !== 'dd' && $top->kind !== 'note') || $this->refusedBraceRunEnd === null
+            || $line === null || $line >= $this->at || $this->m['col'] !== $top->markerCol
+        ) {
+            return false;
+        }
+        if (!array_key_exists($line, $this->markerLineRunEnds)) {
+            $end = null;
+            if (preg_match('/^[ \t]*(?::|\[\^[^\]]+\]:)[ \t]+(?=\{)/', $this->lines[$line] ?? '', $m) === 1) {
+                $window = [str_repeat(' ', strlen($m[0])) . substr($this->lines[$line], strlen($m[0]))];
+                for ($j = $line + 1, $count = count($this->lines); $j < $count && trim($this->lines[$j], " \t") !== ''; $j++) {
+                    $window[] = $this->lines[$j];
+                }
+                $end = ($this->refusedBraceRunEnd)($window, 0);
+            }
+            $this->markerLineRunEnds[$line] = $end === null ? null : $line + (int)$end;
+        }
+
+        return $this->markerLineRunEnds[$line] === $this->at;
     }
 
     /**
@@ -1802,6 +1857,9 @@ final class BlockOwnershipWalk
         $top = $this->frames[$frameCount - 1];
         // The line a refused brace run's paragraph keeps is text, a `+` included (CARVE-P2-035, carve#5658).
         if ($this->at > $this->refusedKeptStart && $this->at <= $this->refusedKeptThrough && $this->writtenLikeRefusedRun()) {
+            return true;
+        }
+        if ($this->followsMarkerLineRefusedRun($top)) {
             return true;
         }
 
