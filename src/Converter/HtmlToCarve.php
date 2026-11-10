@@ -413,6 +413,7 @@ class HtmlToCarve
         $this->inspectedImportSourceBytes = null;
         $this->emittedHasRawHtml = null;
         $this->builtImportDocument = null;
+        $this->referencedImportEndnoteItems = null;
         $this->droppedFootnoteLabelCarriers = null;
         $this->droppedReferenceCarriers = null;
         $this->contradictoryLinkCarriers = null;
@@ -447,6 +448,7 @@ class HtmlToCarve
         $this->contradictoryLinkCarriers = $session->contradictoryLinkCarriers;
         $this->sourceTablePartitions = $session->retainedTablePartitions;
         $this->builtImportDocument = $session->builtDocument;
+        $this->referencedImportEndnoteItems = $session->referencedEndnoteItems;
         $this->retainedListTypes = $session->retainedListTypes;
         $this->summaryImportTitles = $session->summaryTitles;
         $this->keptRawImportElements = $session->keptRawElements;
@@ -2500,7 +2502,11 @@ class HtmlToCarve
             } elseif ($name === 'id' && isset($this->consumedExtensionElements[$node]) && (CarrierNames::consumePresence($node, 'data-carve-group-generated') || CarrierNames::consumePresence($node, 'data-carve-fence-language'))) {
                 // The builder retained this authored extension ID.
                 continue;
-            } elseif (!$this->importAttributeSurvived($tag, $name, $attribute->value)) {
+            } elseif (
+                ($name !== 'id' && isset($this->referencedImportEndnoteItems[$node])
+                    && ($attribute->value !== '' || in_array($name, self::HTML_BOOLEAN_ATTRIBUTES, true)))
+                || !$this->importAttributeSurvived($tag, $name, $attribute->value)
+            ) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             }
         }
@@ -3267,6 +3273,19 @@ class HtmlToCarve
     private const PRESENCE_ATTRIBUTES = [
         'checked', 'compact', 'declare', 'defer', 'disabled', 'ismap', 'multiple',
         'nohref', 'noresize', 'noshade', 'nowrap', 'readonly', 'selected',
+    ];
+
+    /**
+     * An empty value still means that a boolean HTML attribute was authored.
+     *
+     * @var list<string>
+     */
+    private const HTML_BOOLEAN_ATTRIBUTES = [
+        'allowfullscreen', 'async', 'autofocus', 'autoplay', 'checked', 'compact',
+        'controls', 'declare', 'default', 'defer', 'disabled', 'formnovalidate',
+        'hidden', 'inert', 'ismap', 'itemscope', 'loop', 'multiple', 'muted',
+        'nohref', 'nomodule', 'noresize', 'noshade', 'novalidate', 'nowrap',
+        'open', 'playsinline', 'readonly', 'required', 'reversed', 'selected',
     ];
 
     /**
@@ -4104,6 +4123,9 @@ class HtmlToCarve
         }
 
         return HtmlAstBuilder::isDerivedRole($node, $value)
+            || (strtolower(DomLoader::elementName($node)) === 'li'
+                && strtolower(trim($value)) === 'doc-endnote'
+                && isset($this->referencedImportEndnoteItems[$node]))
             || (strtolower(DomLoader::elementName($node)) === 'section' && strtolower(trim($value)) === 'doc-endnotes');
     }
 
@@ -4874,6 +4896,13 @@ class HtmlToCarve
     private ?int $inspectedImportSourceBytes = null;
 
     private ?ImportSession $astImportSession = null;
+
+    /**
+     * Endnote items consumed as footnote definitions.
+     *
+     * @var \SplObjectStorage<\DOMElement, true>|null
+     */
+    private ?SplObjectStorage $referencedImportEndnoteItems = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, true>|null
