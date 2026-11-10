@@ -4994,7 +4994,10 @@ class BlockParser
                 }
                 $sourceLine = $contentLines[$k][0] ?? $this->sourceLineFor($start) + $k;
                 $walkKept = ($this->state->source->refusedKeptLines[$sourceLine] ?? null) === $sourceLine;
-                if (str_starts_with($line, '{%') && !$walkKept) {
+                $markerCommentEnd = str_starts_with($line, '{%') && !$walkKept
+                    ? RefusedBraceRun::markerLineEnd($this->state->source->authoredLines, $sourceLine, $line, $this->inlineParser)
+                    : null;
+                if (str_starts_with($line, '{%') && !$walkKept && $markerCommentEnd === null) {
                     continue;
                 }
                 if (self::inlineSpanOpen($spanLines ??= array_values($physicalLines), $inlineSpan, $literalLines, $k)) {
@@ -5004,8 +5007,11 @@ class BlockParser
                 $markerLineRun = preg_match('/^(?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)*(?::|\[\^[^\]]+\]:)[ \t]+\{/', $authored) === 1;
                 // A marker-line run can be split across pre-joined parts by a
                 // description or note reader. Check its physical lines as one run.
-                $limit = $walkKept || $markerLineRun ? count($physicalLines) : $physical + $width;
+                $limit = $walkKept || $markerLineRun || $markerCommentEnd !== null ? count($physicalLines) : $physical + $width;
                 $end = RefusedBraceRun::end($physicalLines, $k, $this->inlineParser, $limit);
+                if ($markerCommentEnd !== null && $end !== $k + $markerCommentEnd) {
+                    $end = null;
+                }
                 if ($end === null) {
                     continue;
                 }
@@ -7225,6 +7231,7 @@ class BlockParser
             continuations: $this->continuationsMapper(),
             getFencedBlockParser: fn (): FencedBlockParser => $this->fencedBlockParser,
             getListParser: fn (): ListParser => $this->listParser,
+            getInlineParser: fn (): InlineParser => $this->inlineParser,
             getTableParser: fn (): TableParser => $this->tableParser,
             endContainerAttributeScopeCallback: $this->endContainerAttributeScope(...),
             endsBlockQuoteCallback: $this->endsBlockQuote(...),

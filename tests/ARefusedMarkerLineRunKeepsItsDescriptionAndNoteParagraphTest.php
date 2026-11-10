@@ -39,6 +39,50 @@ class ARefusedMarkerLineRunKeepsItsDescriptionAndNoteParagraphTest extends TestC
             HTML,
         ];
 
+        yield 'item description keeps a note-shaped follower' => [
+            "- :: t\n  : {% a\n%}\n[^m]: n\n",
+            <<<'HTML'
+            <ul>
+              <li>
+                <dl>
+                  <dt>t</dt>
+                  <dd>{% a
+            %}
+            [^m]: n</dd>
+                </dl>
+              </li>
+            </ul>
+            HTML,
+        ];
+
+        yield 'quoted description keeps a note-shaped follower' => [
+            "> :: t\n> : {% a\n>  %}\n> [^m]: n\n",
+            <<<'HTML'
+            <blockquote>
+              <dl>
+                <dt>t</dt>
+                <dd>{% a
+            %}
+            [^m]: n</dd>
+              </dl>
+            </blockquote>
+            HTML,
+        ];
+
+        yield 'quoted description keeps a list-shaped follower' => [
+            "> :: t\n> : {% a\n>  %}\n> - next\n",
+            <<<'HTML'
+            <blockquote>
+              <dl>
+                <dt>t</dt>
+                <dd>{% a
+            %}
+            - next</dd>
+              </dl>
+            </blockquote>
+            HTML,
+        ];
+
         yield 'note marker line in an item' => [
             "- [^q]: {.x\n}\n[^m]: n\n  z\n\nx[^q]\n",
             <<<'HTML'
@@ -75,6 +119,28 @@ class ARefusedMarkerLineRunKeepsItsDescriptionAndNoteParagraphTest extends TestC
             }
             [^m]: n
             z<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+                </li>
+              </ol>
+            </section>
+            HTML,
+        ];
+
+        yield 'two lazy lines remain in the note' => [
+            "- [^q]: {.x\n}\n[^m]: n\n  z\n  w\n\nx[^q]\n",
+            <<<'HTML'
+            <ul>
+              <li></li>
+            </ul>
+            <p>x<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
+            <section role="doc-endnotes" aria-label="Footnotes">
+              <hr>
+              <ol>
+                <li id="fn1">
+                  <p>{.x
+            }
+            [^m]: n
+            z
+            w<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
                 </li>
               </ol>
             </section>

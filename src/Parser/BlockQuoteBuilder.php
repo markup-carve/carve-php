@@ -33,6 +33,7 @@ final class BlockQuoteBuilder
      * @param \MarkupCarve\Carve\Parser\BlockContinuationScanner $continuations
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\FencedBlockParser $getFencedBlockParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\ListParser $getListParser
+     * @param \Closure(): \MarkupCarve\Carve\Parser\InlineParser $getInlineParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\TableParser $getTableParser
      * @param \Closure(): (void) $endContainerAttributeScopeCallback
      * @param \Closure(string, bool, array<string>|null, int|null): (bool) $endsBlockQuoteCallback
@@ -55,6 +56,7 @@ final class BlockQuoteBuilder
         private BlockContinuationScanner $continuations,
         private Closure $getFencedBlockParser,
         private Closure $getListParser,
+        private Closure $getInlineParser,
         private Closure $getTableParser,
         private Closure $endContainerAttributeScopeCallback,
         private Closure $endsBlockQuoteCallback,
@@ -511,6 +513,22 @@ final class BlockQuoteBuilder
             }
             $lastQuoteSourceLine = $innerLineMap[array_key_last($innerLineMap) ?? 0] ?? -1;
             $lastQuoteLineWasLazy = isset($this->state->session->blockQuoteLazySourceLines[$lastQuoteSourceLine]);
+            if (
+                $content !== null
+                && RefusedBraceRun::followsMarkerLineRun(
+                    [...$innerLines, $content],
+                    count($innerLines),
+                    fn (array $run, int $at): ?int => RefusedBraceRun::end($run, $at, ($this->getInlineParser)()),
+                    ($this->getListParser)(),
+                )
+            ) {
+                $innerLines[] = BlockGrammar::LAZY_FRAME . $content;
+                $innerLineMap[] = $this->sourceLineFor($i);
+                $lazyState['paragraphOpen'] = true;
+                $i++;
+
+                continue;
+            }
             if ($content !== null) {
                 if ($attachedParagraphOpen) {
                     $lazyState['paragraphOpen'] = false;
