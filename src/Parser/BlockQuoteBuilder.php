@@ -738,7 +738,7 @@ final class BlockQuoteBuilder
     private function unprefixedAttributeRunLength(array $state, array $lines, int $start, array $innerLineMap): int
     {
         $run = $state['attrRun'];
-        if ($run === null || $run === [] || $this->blockQuoteLineContent($lines[$start]) !== null) {
+        if ($run === null || $run === [] || !isset($lines[$start]) || $this->blockQuoteLineContent($lines[$start]) !== null) {
             return 0;
         }
         $openerIndex = count($innerLineMap) - count($run);

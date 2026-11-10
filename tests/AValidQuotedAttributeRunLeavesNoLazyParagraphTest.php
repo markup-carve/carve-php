@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test;
 
+use ErrorException;
 use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -48,5 +49,19 @@ final class AValidQuotedAttributeRunLeavesNoLazyParagraphTest extends TestCase
     public function testTheNextLineHasNoQuotedParagraphToContinue(string $source, string $expected): void
     {
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
+    }
+
+    public function testAnUnclosedMarkerLineRunAtInputEndEmitsNoWarning(): void
+    {
+        set_error_handler(static function (int $severity, string $message): never {
+            throw new ErrorException($message, 0, $severity);
+        });
+        try {
+            $html = (new CarveConverter())->convert("- > {.x\n");
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame("<ul>\n  <li>\n    <blockquote><p>{.x</p></blockquote>\n  </li>\n</ul>", trim($html));
     }
 }
