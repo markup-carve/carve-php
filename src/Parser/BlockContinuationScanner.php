@@ -1501,6 +1501,7 @@ final class BlockContinuationScanner
             return null;
         }
         $column = IndentationHelper::getLeadingColumns($line);
+        $deeperLine = false;
         for ($k = $index - 1; $k >= 0; $k--) {
             $above = $lines[$k] ?? '';
             if (IndentationHelper::isBlankLine($above)) {
@@ -1508,10 +1509,20 @@ final class BlockContinuationScanner
             }
             $aboveColumn = IndentationHelper::getLeadingColumns($above);
             if ($aboveColumn > $column) {
+                $deeperLine = true;
+
                 continue;
             }
-
-            return $aboveColumn === $column && preg_match('/^::? /', ltrim($above, " \t")) === 1 ? strlen($m[0]) : null;
+            if ($aboveColumn < $column || $deeperLine) {
+                return null;
+            }
+            $head = ltrim($above, " \t");
+            if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $head) === 1) {
+                return strlen($m[0]);
+            }
+            if (preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $head) !== 1) {
+                return null;
+            }
         }
 
         return null;
