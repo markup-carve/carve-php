@@ -509,8 +509,7 @@ final class BlockQuoteBuilder
                 && ($parent instanceof ListItem || $parent instanceof Footnote)
                 && !$lazyState['paragraphOpen']
                 && $lazyState['mode'] === BlockQuoteLazyMode::Content
-                && $this->isAttachedFlushLeftQuote($start, $line)
-                && $this->authoredQuoteMarkerColumn($i, $currentLine) !== $this->authoredQuoteMarkerColumn($start, $line)
+                && $this->attachedQuoteChangesMarkerColumn($start, $line, $i, $currentLine)
             ) {
                 break;
             }
@@ -537,12 +536,10 @@ final class BlockQuoteBuilder
                     $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $i, $codeCloserMemo);
                 }
                 if (
-                    isset($lazyState['hosts']['descriptionNoteFloor'])
-                    && IndentationHelper::getLeadingColumns($content) >= $lazyState['hosts']['descriptionNoteFloor']
+                    (isset($lazyState['hosts']['descriptionNoteFloor'])
+                        && IndentationHelper::getLeadingColumns($content) >= $lazyState['hosts']['descriptionNoteFloor'])
+                    || in_array('note', $lazyState['hosts']['kinds'] ?? [], true)
                 ) {
-                    $lazyState['paragraphOpen'] = false;
-                }
-                if (in_array('note', $lazyState['hosts']['kinds'] ?? [], true)) {
                     $lazyState['paragraphOpen'] = false;
                 }
                 if ($this->notePlusRunRefusesAt($i)) {
@@ -1023,6 +1020,12 @@ final class BlockQuoteBuilder
         return str_starts_with($source, '> ')
             && $this->authoredQuoteMarkerColumn($index, $line) === 0
             && preg_match('/(?:^|[ \t])\+$/', rtrim($previous, " \t")) === 1;
+    }
+
+    private function attachedQuoteChangesMarkerColumn(int $start, string $opener, int $index, string $line): bool
+    {
+        return $this->isAttachedFlushLeftQuote($start, $opener)
+            && $this->authoredQuoteMarkerColumn($index, $line) !== $this->authoredQuoteMarkerColumn($start, $opener);
     }
 
     private function continuationMarkerSitsAtQuoteColumn(int $index, int $column): bool
