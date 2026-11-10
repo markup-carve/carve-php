@@ -129,7 +129,12 @@ final class RefusedBraceRun
             return -1;
         }
         $follower = isset($lines[$runEnd]) ? ltrim($lines[$runEnd], " \t") : '';
-        if (trim($follower, " \t") === '' || IndentationHelper::getLeadingColumns($lines[$runEnd]) < $column) {
+        // A note definition short of the column is still the protected follower.
+        if (
+            trim($follower, " \t") === ''
+            || (IndentationHelper::getLeadingColumns($lines[$runEnd]) < $column
+                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $follower) !== 1)
+        ) {
             return $runEnd - 1;
         }
         if (preg_match('/^(`{3,}|~{3,})/', $follower, $fence) !== 1 || $fenced->parseCodeFenceOpener($follower) === null) {

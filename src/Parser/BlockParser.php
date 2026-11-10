@@ -4816,6 +4816,8 @@ class BlockParser
                 $prefix = (string)preg_replace('/^[ \t]+(?=>)/', '', $prefix);
             }
             $prefix = str_replace('> ', '', $prefix);
+            // A note's marker-line opener stands at the note body's column, not past its label.
+            $prefix = (string)preg_replace('/\[\^[^\]]+\]:[ \t]+$/D', '  ', $prefix);
             $column = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
             $probe[] = str_repeat(' ', $column) . $text;
             if ($comment && str_contains($line, '%}')) {
