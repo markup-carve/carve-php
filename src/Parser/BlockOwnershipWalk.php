@@ -1765,9 +1765,6 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * A `+` at an open code fence's content column stays payload (PART 9 §17 L3, carve#5494).
-     */
-    /**
      * Whether the line carries the prefix the refused run's opener was written with.
      */
     private function writtenLikeRefusedRun(): bool
@@ -1777,6 +1774,9 @@ final class BlockOwnershipWalk
         return substr($opener, 0, (int)strpos($opener, '{')) === substr($this->src, 0, (int)strrpos($this->src, '+'));
     }
 
+    /**
+     * A `+` at an open code fence's content column stays payload (PART 9 §17 L3, carve#5494).
+     */
     private function openCodeFenceKeepsPlus(int $frameCount): bool
     {
         $top = $this->frames[$frameCount - 1];
