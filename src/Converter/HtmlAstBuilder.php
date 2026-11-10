@@ -580,6 +580,47 @@ final class HtmlAstBuilder
                 $this->session->footnoteTargets[substr($href, 1)] = true;
             }
         }
+        // A marked reference identifies its definition by fragment, even when
+        // the definition is not inside a generated endnotes section.
+        $externalFragments = [];
+        foreach ($footnoteAnchors as $anchor) {
+            if (strtolower($anchor->getAttribute('role')) !== 'doc-noteref') {
+                continue;
+            }
+            $href = $anchor->getAttribute('href');
+            $fragment = str_starts_with($href, '#') ? substr($href, 1) : '';
+            if ($fragment !== '' && !isset($this->session->endnoteItems[$fragment])) {
+                $externalFragments[$fragment] = true;
+            }
+        }
+        $targetsById = [];
+        if ($externalFragments !== []) {
+            foreach ($root->getElementsByTagName('*') as $element) {
+                $id = $element->getAttribute('id');
+                if (isset($externalFragments[$id]) && !isset($targetsById[$id])) {
+                    $targetsById[$id] = $element;
+                }
+            }
+        }
+        $externalItems = [];
+        foreach ($footnoteAnchors as $anchor) {
+            if (strtolower($anchor->getAttribute('role')) !== 'doc-noteref') {
+                continue;
+            }
+            $href = $anchor->getAttribute('href');
+            $fragment = str_starts_with($href, '#') ? substr($href, 1) : '';
+            $target = $targetsById[$fragment] ?? null;
+            if ($target === null || (isset($this->session->endnoteItems[$fragment]) && !isset($this->session->externalFootnoteItems[$target]))) {
+                continue;
+            }
+            $this->session->externalFootnoteReferences[$anchor] = true;
+            if (isset($this->session->externalFootnoteItems[$target])) {
+                continue;
+            }
+            $this->session->endnoteItems[$fragment] = $target;
+            $this->session->externalFootnoteItems[$target] = true;
+            $externalItems[] = $target;
+        }
         $reservedLabels = [];
         foreach ($allEndnoteItems as $item) {
             $label = CarrierNames::consumeAttribute($item, 'data-carve-footnote-label');
@@ -651,6 +692,15 @@ final class HtmlAstBuilder
             if ($id !== '' && ($this->session->endnoteItems[$id] ?? null) === $item) {
                 $this->session->endnoteLabels[$id] = $this->session->endnoteItemLabels[$item];
             }
+        }
+        foreach ($externalItems as $item) {
+            while (isset($reservedLabels['label:' . $nextLabel])) {
+                $nextLabel++;
+            }
+            $label = (string)$nextLabel++;
+            $this->session->endnoteItemLabels[$item] = $label;
+            $reservedLabels['label:' . $label] = true;
+            $this->session->endnoteLabels[$item->getAttribute('id')] = $label;
         }
         foreach ($targetItems as $target => $item) {
             if (isset($this->session->endnoteItemLabels[$item])) {
@@ -954,6 +1004,11 @@ final class HtmlAstBuilder
     private function block(DOMNode $node): array
     {
         if (!$node instanceof DOMElement) {
+            return [];
+        }
+        if (isset($this->session->externalFootnoteItems[$node])) {
+            $this->collectExternalFootnote($node);
+
             return [];
         }
         $tag = strtolower(DomLoader::elementName($node));
@@ -2243,6 +2298,11 @@ final class HtmlAstBuilder
             if (!$child instanceof DOMElement || strtolower(DomLoader::elementName($child)) !== 'li') {
                 continue;
             }
+            if (isset($this->session->externalFootnoteItems[$child])) {
+                $this->collectExternalFootnote($child);
+
+                continue;
+            }
             $task = $this->taskCheckbox($child);
             $taskState = $child->getAttribute('data-task-state');
             $checkboxChecked = $task !== null && (
@@ -2293,6 +2353,9 @@ final class HtmlAstBuilder
         $tight = true;
         foreach ($node->childNodes as $itemElement) {
             if (!$itemElement instanceof DOMElement || strtolower(DomLoader::elementName($itemElement)) !== 'li') {
+                continue;
+            }
+            if (isset($this->session->externalFootnoteItems[$itemElement])) {
                 continue;
             }
             if ($this->holdsAParagraph($itemElement)) {
@@ -2375,6 +2438,27 @@ final class HtmlAstBuilder
         }
 
         return $blocks;
+    }
+
+    /**
+     * Collect a marked definition at its original block position.
+     */
+    private function collectExternalFootnote(DOMElement $item): void
+    {
+        $previous = $this->session->inFootnoteDefinition;
+        $this->session->inFootnoteDefinition = true;
+        try {
+            $children = $this->blocks($this->children($item));
+        } finally {
+            $this->session->inFootnoteDefinition = $previous;
+        }
+        $definition = [
+            'type' => 'footnote',
+            'label' => $this->session->endnoteItemLabels[$item],
+            'children' => $children,
+        ];
+        $this->addHint($definition, "\0carve-compact-definition");
+        $this->session->footnoteDefinitions[] = self::importedNode($definition);
     }
 
     /**

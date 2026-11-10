@@ -414,6 +414,8 @@ class HtmlToCarve
         $this->emittedHasRawHtml = null;
         $this->builtImportDocument = null;
         $this->referencedImportEndnoteItems = null;
+        $this->externalImportFootnoteItems = null;
+        $this->externalImportFootnoteReferences = null;
         $this->droppedFootnoteLabelCarriers = null;
         $this->droppedReferenceCarriers = null;
         $this->contradictoryLinkCarriers = null;
@@ -449,6 +451,8 @@ class HtmlToCarve
         $this->sourceTablePartitions = $session->retainedTablePartitions;
         $this->builtImportDocument = $session->builtDocument;
         $this->referencedImportEndnoteItems = $session->referencedEndnoteItems;
+        $this->externalImportFootnoteItems = $session->externalFootnoteItems;
+        $this->externalImportFootnoteReferences = $session->externalFootnoteReferences;
         $this->retainedListTypes = $session->retainedListTypes;
         $this->summaryImportTitles = $session->summaryTitles;
         $this->keptRawImportElements = $session->keptRawElements;
@@ -1497,6 +1501,9 @@ class HtmlToCarve
 
     private function directAstUnwraps(DOMElement $node): bool
     {
+        if (isset($this->externalImportFootnoteItems[$node])) {
+            return false;
+        }
         $tag = strtolower(DomLoader::elementName($node));
         if ($tag === 'span' && isset($this->unwrappedBareImportSpans[$node])) {
             return true;
@@ -2370,6 +2377,12 @@ class HtmlToCarve
         }
         foreach ($node->attributes as $attribute) {
             $name = strtolower(DomLoader::attributeName($attribute));
+            if (
+                (isset($this->externalImportFootnoteReferences[$node]) && in_array($name, ['href', 'role'], true))
+                || (isset($this->externalImportFootnoteItems[$node]) && ($name === 'id' || ($name === 'role' && strtolower($attribute->value) === 'doc-footnote')))
+            ) {
+                continue;
+            }
             $canonical = strtolower($name);
             if (
                 !$preserved && $tag === 'a' && CarrierNames::wasUsed($node, 'data-carve-xref')
@@ -4903,6 +4916,20 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, true>|null
      */
     private ?SplObjectStorage $referencedImportEndnoteItems = null;
+
+    /**
+     * Referenced definitions outside an endnotes section.
+     *
+     * @var \SplObjectStorage<\DOMElement, true>|null
+     */
+    private ?SplObjectStorage $externalImportFootnoteItems = null;
+
+    /**
+     * Marked references to those definitions.
+     *
+     * @var \SplObjectStorage<\DOMElement, true>|null
+     */
+    private ?SplObjectStorage $externalImportFootnoteReferences = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, true>|null
