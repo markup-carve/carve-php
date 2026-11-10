@@ -146,6 +146,51 @@ class ARefusedMarkerLineRunKeepsItsDescriptionAndNoteParagraphTest extends TestC
             </section>
             HTML,
         ];
+
+        yield 'sibling item ends the note paragraph' => [
+            "- [^q]: {.x\n}\n[^m]: n\n- sibling\n\nx[^q]\n",
+            <<<'HTML'
+            <ul>
+              <li></li>
+              <li>sibling</li>
+            </ul>
+            <p>x<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
+            <section role="doc-endnotes" aria-label="Footnotes">
+              <hr>
+              <ol>
+                <li id="fn1">
+                  <p>{.x
+            }
+            [^m]: n<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+                </li>
+              </ol>
+            </section>
+            HTML,
+        ];
+
+        yield 'nested item ends the note paragraph' => [
+            "- [^q]: {.x\n}\n[^m]: n\n  - sibling\n\nx[^q]\n",
+            <<<'HTML'
+            <ul>
+              <li>
+                <ul>
+                  <li>sibling</li>
+                </ul>
+              </li>
+            </ul>
+            <p>x<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
+            <section role="doc-endnotes" aria-label="Footnotes">
+              <hr>
+              <ol>
+                <li id="fn1">
+                  <p>{.x
+            }
+            [^m]: n<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+                </li>
+              </ol>
+            </section>
+            HTML,
+        ];
     }
 
     #[DataProvider('cases')]

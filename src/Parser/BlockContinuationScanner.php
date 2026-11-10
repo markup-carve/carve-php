@@ -1856,6 +1856,7 @@ final class BlockContinuationScanner
                 && ($refusedMarkerNoteParagraph
                     || $this->noteFollowsMarkerLineRun($lines, $i - 1, ltrim($lines[$i - 1], " \t")))
                 && IndentationHelper::getLeadingColumns($nextLine) < $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                && ($this->getListParser)()->parseListItemMarker(ltrim($nextLine, " \t")) === null
                 && !$this->startsNewBlock(ltrim($nextLine, " \t"), $lines, $i)
             ) {
                 // The refused run's protected follower is in the marker-line note.
