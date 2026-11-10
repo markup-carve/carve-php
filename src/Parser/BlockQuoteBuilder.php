@@ -550,7 +550,7 @@ final class BlockQuoteBuilder
 
                 continue;
             }
-            $runLength = $this->unprefixedAttributeRunLength($lazyState, $lines, $i, $innerLineMap);
+            $runLength = $this->quotedAttributeRunLength($lazyState, $lines, $i, $innerLines, $innerLineMap);
             if ($content !== null) {
                 if ($attachedParagraphOpen) {
                     $lazyState['paragraphOpen'] = false;
@@ -736,6 +736,28 @@ final class BlockQuoteBuilder
     }
 
     /**
+     * @param array{attrRun: list<string>|null, hosts?: array{kinds: list<string>}} $state
+     * @param array<string> $lines
+     * @param int $start
+     * @param array<string> $innerLines
+     * @param array<int, int> $innerLineMap
+     */
+    private function quotedAttributeRunLength(array $state, array $lines, int $start, array $innerLines, array $innerLineMap): int
+    {
+        $length = $this->unprefixedAttributeRunLength($state, $lines, $start, $innerLineMap);
+        if ($length > 0 || $state['attrRun'] !== null || !in_array('item', $state['hosts']['kinds'] ?? [], true)) {
+            return $length;
+        }
+
+        return $this->markerLineQuoteAttributeRunLength(
+            $innerLines[array_key_last($innerLines) ?? 0] ?? '',
+            $lines,
+            $start,
+            $innerLineMap[array_key_last($innerLineMap) ?? 0] ?? -1,
+        );
+    }
+
+    /**
      * A quoted block attribute may close on unprefixed lines at written columns
      * past its opening brace. Check the whole run before granting it ownership;
      * an invalid run must still take the ordinary lazy paragraph path.
@@ -796,8 +818,23 @@ final class BlockQuoteBuilder
      */
     public function markerLineQuoteAttributeRunLength(string $lead, array $lines, int $start, int $sourceLine): int
     {
-        $content = ContainerPrefix::afterLeadingQuoteMarkers($lead);
-        if ($content === $lead || !str_starts_with($content, '{') || !WrappedBlockAttributeScanner::endsInsideBlock($content, false)) {
+        $content = $lead;
+        $sawQuote = false;
+        while (true) {
+            $afterQuote = ContainerPrefix::afterLeadingQuoteMarkers($content);
+            if ($afterQuote !== $content) {
+                $content = $afterQuote;
+                $sawQuote = true;
+
+                continue;
+            }
+            $marker = ($this->getListParser)()->parseListItemMarker($content);
+            if ($marker === null) {
+                break;
+            }
+            $content = $marker['content'];
+        }
+        if (!$sawQuote || !str_starts_with($content, '{') || !WrappedBlockAttributeScanner::endsInsideBlock($content, false)) {
             return 0;
         }
         $state = self::initialBlockQuoteLazyState();

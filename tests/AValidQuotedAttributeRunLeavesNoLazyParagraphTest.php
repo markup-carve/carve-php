@@ -39,6 +39,16 @@ final class AValidQuotedAttributeRunLeavesNoLazyParagraphTest extends TestCase
             "<blockquote>\n  <blockquote>\n\n  </blockquote>\n</blockquote>\n<p>plain</p>",
         ];
 
+        yield 'quote in a quoted item' => [
+            "> - > {.x\n       }\nplain\n",
+            "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>\n<p>plain</p>",
+        ];
+
+        yield 'quote in a nested item' => [
+            "- - > {.x\n       }\nplain\n",
+            "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n\n        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>plain</p>",
+        ];
+
         yield 'refused run remains paragraph text' => [
             "> {.x\n  .y}\nplain\n",
             "<blockquote><p>{.x\n.y}\nplain</p></blockquote>",

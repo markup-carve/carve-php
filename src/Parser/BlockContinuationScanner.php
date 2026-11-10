@@ -200,6 +200,13 @@ final class BlockContinuationScanner
         foreach ($itemLines as $seedLine) {
             $trailingState = $this->advanceTrailingState($trailingState, $seedLine);
         }
+        $quotedRunLength = ($this->getBlockQuoteBuilder)()->markerLineQuoteAttributeRunLength(
+            $itemLines[0] ?? '',
+            $lines,
+            $i,
+            $itemLineMap[0] ?? -1,
+        );
+        $quotedRunEnd = $quotedRunLength > 0 ? $i + $quotedRunLength - 1 : -1;
         $lead = $itemLines[0] ?? '';
         $bottom = $this->markerFreeContent(ltrim($lead, " \t"));
         if ($bottom !== ltrim($lead, " \t") && ($this->getFencedBlockParser)()->parseDivFenceOpener($bottom) !== null) {
@@ -235,6 +242,7 @@ final class BlockContinuationScanner
         $attachedFenceEnded = false;
         $collectedComment = new CollectedCommentSpan();
         while ($i < $count) {
+            $this->closeQuotedRunParagraphAtBoundary($trailingState, $i, $quotedRunEnd);
             $nextLine = $lines[$i];
             if (
                 isset($this->state->source->foldedFenceAfterAttachedBlank[$this->sourceLineFor($i) - 1])
@@ -636,6 +644,14 @@ final class BlockContinuationScanner
         }
 
         return $i;
+    }
+
+    private function closeQuotedRunParagraphAtBoundary(TrailingBlockState $state, int $index, int $runEnd): void
+    {
+        if ($runEnd >= 0 && $index === $runEnd + 1) {
+            $state->openParagraph = false;
+            $state->quoteParagraph = false;
+        }
     }
 
     /**
@@ -1747,10 +1763,7 @@ final class BlockContinuationScanner
         while ($i < $count) {
             $nextLine = $lines[$i];
             $sourceLine = $this->sourceLineFor($i);
-            if ($quotedRunEnd >= 0 && $i === $quotedRunEnd + 1) {
-                $trailingState->openParagraph = false;
-                $trailingState->quoteParagraph = false;
-            }
+            $this->closeQuotedRunParagraphAtBoundary($trailingState, $i, $quotedRunEnd);
             if (
                 $this->isContinuationMarker(ltrim($nextLine, " \t"))
                 && $trailingState->fence === null
