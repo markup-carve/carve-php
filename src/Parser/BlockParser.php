@@ -2617,6 +2617,10 @@ class BlockParser
      */
     protected function tryParseBlockAttributes(array $lines, int $start): ?int
     {
+        $sourceLine = $this->sourceLineFor($start);
+        if (($this->state->source->refusedKeptLines[$sourceLine] ?? null) === $sourceLine) {
+            return null;
+        }
         $match = WrappedBlockAttributeScanner::scan($lines, $start, $this->inlineParser);
         if ($match === null) {
             return null;

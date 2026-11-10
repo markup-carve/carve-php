@@ -2541,6 +2541,23 @@ final class BlockOwnershipWalk
         $this->src = (string)substr($this->src, $count);
     }
 
+    /** The authored brace column for a marker-line run, with the note exception. */
+    private function braceRunColumn(string $opener, string $rest, OwnershipFrame $owner): int
+    {
+        if (!$this->onMarkerLine || $owner->kind === 'quote') {
+            return IndentationHelper::getLeadingColumns($opener);
+        }
+        if ($owner->kind === 'note') {
+            return (int)$owner->markerCol + 2;
+        }
+
+        // Marker-glued attributes leave the content column alone but occupy
+        // written columns before the brace that opens the body run.
+        $brace = strrpos($opener, $rest);
+
+        return $brace === false ? $owner->col : WrappedBlockAttributeScanner::columnAt($opener, $brace);
+    }
+
     /**
      * A wrapped attribute block is one line to its owner (A5, carve#4089), so its
      * later lines stay with the opener whatever their column. A later line without
@@ -2582,14 +2599,8 @@ final class BlockOwnershipWalk
             }
         }
         $length = count($run);
-        // A marker-line block starts at its host's continuation threshold;
-        // using column zero would accept refused runs with a shallow closer.
-        // A note's threshold is its body column; any other host's is its content column.
-        $openerColumn = match (true) {
-            !$this->onMarkerLine || $owner->kind === 'quote' => IndentationHelper::getLeadingColumns($opener),
-            $owner->kind === 'note' => (int)$owner->markerCol + 2,
-            default => $owner->col,
-        };
+        // The written brace column decides a marker-line run, except in notes.
+        $openerColumn = $this->braceRunColumn($opener, $rest, $owner);
         if ($length < 2 || ($this->wrappedAttributeLength)($run, $openerColumn) !== $length) {
             return false;
         }
@@ -2622,11 +2633,7 @@ final class BlockOwnershipWalk
             }
             $opener = $q[1] ?? '';
         }
-        $openerColumn = match (true) {
-            !$this->onMarkerLine || $owner->kind === 'quote' => IndentationHelper::getLeadingColumns($opener),
-            $owner->kind === 'note' => (int)$owner->markerCol + 2,
-            default => $owner->col,
-        };
+        $openerColumn = $this->braceRunColumn($opener, $rest, $owner);
         $count = count($this->lines);
         for ($j = $this->at + 1; $j < $count; $j++) {
             $line = $this->lines[$j];
