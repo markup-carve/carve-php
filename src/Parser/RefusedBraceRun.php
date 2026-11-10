@@ -93,7 +93,7 @@ final class RefusedBraceRun
             return null;
         }
         $comment = str_starts_with($opener, '{%');
-        if ($comment && isset($lines[$start + 1])) {
+        if ($comment && !str_contains($first, '%}') && isset($lines[$start + 1])) {
             $next = self::content($lines[$start + 1]);
             if (
                 $next !== null && !IndentationHelper::isBlankLine($next)
