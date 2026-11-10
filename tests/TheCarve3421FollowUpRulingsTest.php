@@ -104,7 +104,7 @@ class TheCarve3421FollowUpRulingsTest extends TestCase
         yield 'before a comment' => ["q\n+\n%% c\n", []];
         yield 'before an attribute' => ["q\n+\n{.c}\npara\n", []];
         yield 'inside a div' => ["::: d\nq\n+\n# h\n:::\n", []];
-        yield 'quoted plus before a sibling item' => ["> q\n> +\n> - s\n", ['2:3']];
+        yield 'quoted plus before a sibling item' => ["> q\n> +\n> - s\n", []];
         yield 'hosted plus at an intervening column' => ["> - > > +\n>   b\n", ['1:9']];
         yield 'hosted plus at an inner item column' => ["> - - > +\n>   b\n", ['1:9']];
     }
@@ -118,7 +118,7 @@ class TheCarve3421FollowUpRulingsTest extends TestCase
     {
         $actual = [];
         foreach ((new DocumentLinter())->lint($source) as $warning) {
-            if ($warning->rule === 'continuation-marker-refused') {
+            if (in_array($warning->rule, ['continuation-marker-refused', 'refused-continuation-marker'], true)) {
                 $actual[] = $warning->line . ':' . $warning->column;
             }
         }

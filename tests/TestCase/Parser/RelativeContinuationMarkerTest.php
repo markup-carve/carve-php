@@ -70,7 +70,7 @@ class RelativeContinuationMarkerTest extends TestCase
     public function testQuotedMarkerLintUsesPhysicalColumn(): void
     {
         $warnings = (new FenceAndContinuationLinter())->lint("> - a\n> +\n> \n");
-        $refusals = array_values(array_filter($warnings, static fn ($warning): bool => $warning->rule === 'continuation-marker-refused'));
+        $refusals = array_values(array_filter($warnings, static fn ($warning): bool => $warning->rule === 'refused-continuation-marker'));
         $this->assertCount(1, $refusals);
         $this->assertSame([2, 3], [$refusals[0]->line, $refusals[0]->column]);
     }
@@ -87,7 +87,7 @@ class RelativeContinuationMarkerTest extends TestCase
     public function testRightFollowerReportsRefusal(): void
     {
         $warnings = (new FenceAndContinuationLinter())->lint("- a\n+\n    # H\n");
-        $refusals = array_values(array_filter($warnings, static fn ($warning): bool => $warning->rule === 'continuation-marker-refused'));
+        $refusals = array_values(array_filter($warnings, static fn ($warning): bool => $warning->rule === 'refused-continuation-marker'));
         $this->assertCount(1, $refusals);
         $this->assertSame([2, 1], [$refusals[0]->line, $refusals[0]->column]);
     }
@@ -122,7 +122,7 @@ class RelativeContinuationMarkerTest extends TestCase
         $source = "- foo\n  - b\n  +\n    - x\n";
         $warnings = array_values(array_filter(
             (new FenceAndContinuationLinter())->lint($source),
-            static fn ($warning): bool => $warning->rule === 'continuation-marker-refused',
+            static fn ($warning): bool => $warning->rule === 'refused-continuation-marker',
         ));
         $this->assertCount(1, $warnings);
         $this->assertSame([3, 3], [$warnings[0]->line, $warnings[0]->column]);
@@ -131,7 +131,7 @@ class RelativeContinuationMarkerTest extends TestCase
     public function testAnUnclosedFenceEndingWithItsQuoteDoesNotHideALaterRefusal(): void
     {
         $warnings = (new FenceAndContinuationLinter())->lint("> ```\n> code\n- item\n+\n");
-        $refusals = array_values(array_filter($warnings, static fn ($warning): bool => $warning->rule === 'continuation-marker-refused'));
+        $refusals = array_values(array_filter($warnings, static fn ($warning): bool => $warning->rule === 'refused-continuation-marker'));
         $this->assertCount(1, $refusals);
         $this->assertSame([4, 1], [$refusals[0]->line, $refusals[0]->column]);
     }

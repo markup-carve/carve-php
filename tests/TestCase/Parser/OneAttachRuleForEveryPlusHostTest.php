@@ -107,7 +107,7 @@ final class OneAttachRuleForEveryPlusHostTest extends TestCase
     {
         $messages = [];
         foreach ((new DocumentLinter())->lint($source) as $warning) {
-            if ($warning->rule === 'continuation-marker-refused') {
+            if (in_array($warning->rule, ['continuation-marker-refused', 'refused-continuation-marker'], true)) {
                 $messages[] = $warning->message;
             }
         }
