@@ -185,6 +185,13 @@ final class BlockOwnershipWalk
     public array $refusedKeptLines = [];
 
     /**
+     * Later lines of a block `{%` run whose continuations all pass its `{`, each to the run's first line (CARVE-P2-035).
+     *
+     * @var array<int, int>
+     */
+    public array $heldCommentLines = [];
+
+    /**
      * Block openers spelled on an off-stop tab run: a nested parse reads them past the body's
      * column, where they still open their block rather than fold into a paragraph (PART 0 S2, S3).
      *
@@ -501,6 +508,7 @@ final class BlockOwnershipWalk
         $this->traceBlankHost = null;
         $this->attachedFenceScans = [];
         $this->refusedKeptLines = [];
+        $this->heldCommentLines = [];
         $this->shiftedOpeners = [];
         $this->pastColumnDescriptionLines = [];
         $this->fenceOpenerLines = [];
@@ -2463,9 +2471,68 @@ final class BlockOwnershipWalk
         return true;
     }
 
+    /**
+     * A block `{%` run whose continuations all pass its `{` holds its later lines
+     * through the closer, whatever block they spell (CARVE-P2-035, PART 9 §21a).
+     */
+    private function opensHeldComment(string $rest, OwnershipFrame $owner): bool
+    {
+        if (!str_starts_with($rest, '{%') || str_contains($rest, '%}') || $this->at <= $this->wrappedAttributeEnd) {
+            return false;
+        }
+        $depth = 0;
+        foreach ($this->frames as $frame) {
+            $depth += $frame->kind === 'quote' ? 1 : 0;
+            if ($frame === $owner) {
+                break;
+            }
+        }
+        $opener = $this->lines[$this->at];
+        for ($d = 0; $d < $depth; $d++) {
+            if (preg_match(self::QUOTE, ltrim($opener, " \t"), $q) !== 1) {
+                return false;
+            }
+            $opener = $q[1] ?? '';
+        }
+        $openerColumn = match (true) {
+            !$this->onMarkerLine || $owner->kind === 'quote' => IndentationHelper::getLeadingColumns($opener),
+            $owner->kind === 'note' => (int)$owner->markerCol + 2,
+            default => $owner->col,
+        };
+        $count = count($this->lines);
+        for ($j = $this->at + 1; $j < $count; $j++) {
+            $line = $this->lines[$j];
+            for ($d = 0; $d < $depth; $d++) {
+                if (preg_match(self::QUOTE, ltrim($line, " \t"), $q) !== 1) {
+                    return false;
+                }
+                $line = $q[1] ?? '';
+            }
+            if (trim($line, " \t") === '' || IndentationHelper::getLeadingColumns($line) <= $openerColumn) {
+                return false;
+            }
+            if (str_contains($line, '%}')) {
+                $this->wrappedAttributeEnd = $j;
+                $this->wrappedAttributeColumn = $openerColumn;
+                for ($k = $this->at + 1; $k <= $j; $k++) {
+                    $this->heldCommentLines[$k] = $this->at;
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function classifyLine(string $rest, OwnershipFrame $owner, int $col): OwnershipForm
     {
-        return $this->keptByRefusedRun($rest, $owner, $col) ?? $this->classify($rest, $owner, $col);
+        $form = $this->keptByRefusedRun($rest, $owner, $col) ?? $this->classify($rest, $owner, $col);
+        if ($form->kind === 'text' && !$form->kept && $rest[0] === '{') {
+            $this->opensHeldComment($rest, $owner);
+        }
+
+        return $form;
     }
 
     private function openParagraph(OwnershipFrame $frame, int $at, bool $new): void

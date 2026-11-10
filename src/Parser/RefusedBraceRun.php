@@ -77,6 +77,39 @@ final class RefusedBraceRun
     }
 
     /**
+     * The index past the closer of a block `{%` run at $start whose continuations all pass its `{`, or null.
+     *
+     * Every line through the closer belongs to the comment, whatever block it spells (CARVE-P2-035, PART 9 §21a).
+     *
+     * @param array<string> $lines
+     * @param int $start
+     */
+    public static function heldCommentEnd(array $lines, int $start): ?int
+    {
+        $first = self::content($lines[$start] ?? '');
+        if ($first === null || !str_starts_with(ltrim($first, " \t"), '{%') || str_contains($first, '%}')) {
+            return null;
+        }
+        $openerColumn = IndentationHelper::getLeadingColumns($first);
+        for ($i = $start + 1, $count = count($lines); $i < $count; $i++) {
+            $line = self::content($lines[$i]);
+            if (
+                $line === null
+                || IndentationHelper::isBlankLine($line)
+                || str_starts_with($lines[$i], BlockGrammar::LAZY_FRAME)
+                || IndentationHelper::getLeadingColumns($line) <= $openerColumn
+            ) {
+                return null;
+            }
+            if (str_contains($line, '%}')) {
+                return $i + 1;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Whether a run opened by $line ends on that line, so {@see self::end()} refuses nothing there.
      */
     public static function endsOnItsLine(string $line): bool

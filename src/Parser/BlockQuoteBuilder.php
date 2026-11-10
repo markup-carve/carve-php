@@ -1876,10 +1876,13 @@ final class BlockQuoteBuilder
     ): void {
         if (
             !$nested && $state['mode'] === BlockQuoteLazyMode::Content
-            && isset($this->state->source->refusedKeptLines[$this->sourceLineFor($sourceIndex)])
+            && (
+                isset($this->state->source->refusedKeptLines[$this->sourceLineFor($sourceIndex)])
+                || isset($this->state->source->heldCommentLines[$this->sourceLineFor($sourceIndex)])
+            )
             && ContainerPrefix::countLeadingQuoteMarkers($content) === $state['innerDepth']
         ) {
-            // A refused brace run and the line its paragraph keeps are text (CARVE-P2-035).
+            // A refused brace run, the line its paragraph keeps, and a held `{%` run's lines are text (CARVE-P2-035).
             $state['paragraphOpen'] = true;
             $state['attrRun'] = null;
 

@@ -578,6 +578,7 @@ final class BlockContinuationScanner
                 isset($this->state->session->blockQuoteInlineFenceSourceLines[$this->sourceLineFor($i)])
                 // A refused brace run and the line its paragraph keeps are text (CARVE-P2-035).
                 || ($trailingState->fence === null && isset($this->state->source->refusedKeptLines[$this->sourceLineFor($i)]))
+                || ($trailingState->fence === null && isset($this->state->source->heldCommentLines[$this->sourceLineFor($i)]))
             ) {
                 $trailingState = $this->advanceTrailingState($trailingState, 'x', true);
             } else {
@@ -2209,6 +2210,15 @@ final class BlockContinuationScanner
 
             return true;
         }
+        // A held `{%` run's later lines are paragraph text, whatever block they spell (CARVE-P2-035).
+        if ($trailingState->fence === null && isset($this->state->source->heldCommentLines[$this->sourceLineFor($i)])) {
+            $itemLines[] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+            $itemLineMap[] = $this->sourceLineFor($i);
+            $trailingState->openParagraph = true;
+            $i++;
+
+            return true;
+        }
         if (
             $trailingState->fence !== null
             && $nextIndent >= $contentIndent + $trailingState->fence->column
@@ -2735,6 +2745,7 @@ final class BlockContinuationScanner
             && $run->rejectedColonFenceLength === null
             && !$attachedChildFollower
             && $run->refusedBraceEnd !== $i
+            && !isset($this->state->source->heldCommentLines[$this->sourceLineFor($i)])
             // A run opened on this marker's line leaves the marker a marker; only its followers are text (CARVE-P2-035).
             && !$this->isRefusedRunFollower($i)
             && !($run->nestedNoteBodyColumn !== null && IndentationHelper::getLeadingColumns($nextLine, $run->nestedNoteBodyColumn) >= $run->nestedNoteBodyColumn)
