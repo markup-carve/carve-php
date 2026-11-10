@@ -3339,6 +3339,20 @@ final class BlockContinuationScanner
     }
 
     /**
+     * Whether line `$i` is a note definition right after a refused run on a description's or note's marker line (CARVE-P2-035).
+     *
+     * @param array<string> $lines
+     * @param int $i
+     * @param string $trimmed
+     */
+    private function noteFollowsMarkerLineRun(array $lines, int $i, string $trimmed): bool
+    {
+        return str_starts_with($trimmed, '[^')
+            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) === 1
+            && RefusedBraceRun::followsMarkerLineRun($lines, $i, $this->refusedBraceRunEndCallback, ($this->getListParser)());
+    }
+
+    /**
      * Whether the walk keeps line `$i` as text after the first line of a refused brace run.
      *
      * @param int $i
@@ -4292,6 +4306,7 @@ final class BlockContinuationScanner
             !$trailingState->openParagraph
             && ($nextIndent === 0 || !$trailingState->afterComment)
             && !($leadIsBareContinuationMarker && $nextIndent === 0 && $this->continuationFollowerIsEligible($i))
+            && !$this->noteFollowsMarkerLineRun($lines, $i, $nextTrimmed)
         ) {
             return false;
         }
@@ -4376,6 +4391,8 @@ final class BlockContinuationScanner
             && !$this->isBlockElementStart($nextTrimmed)
             && !$this->startsNewBlock($nextTrimmed)
             && $this->isDefinitionLineForEnclosingItem($nextTrimmed)
+            && !$this->isRefusedRunFollower($i)
+            && !$this->noteFollowsMarkerLineRun($lines, $i, $nextTrimmed)
         ) {
             return false;
         }

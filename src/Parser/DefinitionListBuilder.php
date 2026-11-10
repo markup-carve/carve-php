@@ -1689,6 +1689,13 @@ final class DefinitionListBuilder
             $l->indent === 0 && !$b->bodyState->openParagraph
             && ReferenceDefinitionExtractor::isDefinitionHead($l->trimmedCont)
             && $this->isReferenceDefinitionLine($l->trimmedCont)
+            // A note definition that follows a refused marker-line run is that run's paragraph text (CARVE-P2-035).
+            && !(preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $l->trimmedCont) === 1 && RefusedBraceRun::followsMarkerLineRun(
+                $b->lines,
+                $b->i,
+                fn (array $lines, int $start): ?int => RefusedBraceRun::end($lines, $start, ($this->getInlineParser)()),
+                ($this->getListParser)(),
+            ))
         ) {
             return false;
         }
