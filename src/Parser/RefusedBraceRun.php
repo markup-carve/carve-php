@@ -143,6 +143,14 @@ final class RefusedBraceRun
     }
 
     /**
+     * Drop the memoized scan, so a long-lived process does not keep the last document's lines.
+     */
+    public static function forgetCloserScan(): void
+    {
+        self::$closerScan = null;
+    }
+
+    /**
      * Whether a run opened by $line ends on that line, so {@see self::end()} refuses nothing there.
      */
     public static function endsOnItsLine(string $line): bool

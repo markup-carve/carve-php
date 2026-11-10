@@ -747,7 +747,11 @@ class BlockParser
 
     public function parse(string $input): Document
     {
-        return CycleCollection::paused(fn () => $this->parseDocument($input));
+        try {
+            return CycleCollection::paused(fn () => $this->parseDocument($input));
+        } finally {
+            RefusedBraceRun::forgetCloserScan();
+        }
     }
 
     /**
