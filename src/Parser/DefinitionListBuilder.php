@@ -811,8 +811,22 @@ final class DefinitionListBuilder
         }
         $probe = $lines;
         $probe[$definitionStart] = str_repeat(' ', IndentationHelper::getLeadingColumns($lines[$definitionStart]) + $continuationColumn) . $content;
+        $length = $this->wrappedAttributeScanner->length($probe, $definitionStart, $count) ?? 0;
 
-        return $this->wrappedAttributeScanner->length($probe, $definitionStart, $count) ?? 0;
+        // Container normalization can move a follower right of the synthetic
+        // opener. The brace rule compares authored source columns instead.
+        $opener = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$this->sourceLineFor($definitionStart)] ?? '');
+        $braceColumn = strpos($opener, '{');
+        if ($braceColumn !== false) {
+            for ($at = $definitionStart + 1; $at < $definitionStart + $length; $at++) {
+                $follower = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$this->sourceLineFor($at)] ?? '');
+                if (IndentationHelper::isBlankLine($follower) || IndentationHelper::getLeadingColumns($follower) <= $braceColumn) {
+                    return 0;
+                }
+            }
+        }
+
+        return $length;
     }
 
     /**
