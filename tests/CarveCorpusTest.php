@@ -54,6 +54,7 @@ class CarveCorpusTest extends TestCase
     protected const IMPLEMENTED = [
         // Categories added by the carve main pin; each matches its corpus HTML.
         'a-note-attached-fence-blank-ends-lazy-claim',
+        'a-nested-code-body-keeps-its-literal-content-after-frame-stripping',
         'a-marker-glued-attribute-preserves-a-later-brace-s-source-column',
         'a-block-shaped-line-inside-a-comment-run-keeps-the-item-tight',
         'a-block-shaped-line-inside-a-comment-run-keeps-the-item-tight-2',

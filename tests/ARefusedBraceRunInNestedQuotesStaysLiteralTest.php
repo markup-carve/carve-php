@@ -12,7 +12,7 @@ final class ARefusedBraceRunInNestedQuotesStaysLiteralTest extends TestCase
     public function testTwoQuoteLevelsKeepTheWholeRunLiteral(): void
     {
         self::assertSame(
-            "<blockquote>\n  <blockquote><p>{.k\ntail\n#x}</p></blockquote>\n</blockquote>",
+            "<blockquote>\n  <blockquote><p>{.k\ntail\n<span class=\"tag\"><strong>#x</strong></span>}</p></blockquote>\n</blockquote>",
             CarveConverter::create()->convert("> > {.k\ntail\n> > #x}\n"),
         );
     }
@@ -20,7 +20,7 @@ final class ARefusedBraceRunInNestedQuotesStaysLiteralTest extends TestCase
     public function testThreeQuoteLevelsKeepTheWholeRunLiteral(): void
     {
         self::assertSame(
-            "<blockquote>\n  <blockquote>\n    <blockquote><p>{.k\ntail\n#x}</p></blockquote>\n  </blockquote>\n</blockquote>",
+            "<blockquote>\n  <blockquote>\n    <blockquote><p>{.k\ntail\n<span class=\"tag\"><strong>#x</strong></span>}</p></blockquote>\n  </blockquote>\n</blockquote>",
             CarveConverter::create()->convert("> > > {.k\ntail\n> > > #x}\n"),
         );
     }
@@ -28,7 +28,7 @@ final class ARefusedBraceRunInNestedQuotesStaysLiteralTest extends TestCase
     public function testAnAttributeValueContainingACommentCloserKeepsTheRunLiteral(): void
     {
         self::assertSame(
-            "<blockquote>\n  <blockquote><p>{#id\ntail\ntitle=\"%}\"\n#x}</p></blockquote>\n</blockquote>",
+            "<blockquote>\n  <blockquote><p>{<span class=\"tag\"><strong>#id</strong></span>\ntail\ntitle=“%}”\n<span class=\"tag\"><strong>#x</strong></span>}</p></blockquote>\n</blockquote>",
             CarveConverter::create()->convert("> > {#id\ntail\n> > title=\"%}\"\n> > #x}\n"),
         );
     }
@@ -36,7 +36,7 @@ final class ARefusedBraceRunInNestedQuotesStaysLiteralTest extends TestCase
     public function testWhitespaceBeforeAQuoteMarkerDoesNotAdvanceTheAttributeColumn(): void
     {
         self::assertSame(
-            "<blockquote>\n  <blockquote><p>q\n{.k\n#x}\ntail</p></blockquote>\n</blockquote>",
+            "<blockquote>\n  <blockquote><p>q\n{.k\n<span class=\"tag\"><strong>#x</strong></span>}\ntail</p></blockquote>\n</blockquote>",
             CarveConverter::create()->convert("> > q\n> > {.k\n > > #x}\ntail\n"),
         );
     }

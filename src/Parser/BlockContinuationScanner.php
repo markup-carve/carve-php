@@ -1768,7 +1768,6 @@ final class BlockContinuationScanner
             $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '',
             $itemLines[0] ?? '',
         );
-        $refusedMarkerNoteParagraph = false;
         while ($i < $count) {
             $nextLine = $lines[$i];
             $sourceLine = $this->sourceLineFor($i);
@@ -1830,7 +1829,6 @@ final class BlockContinuationScanner
             }
 
             if (IndentationHelper::isBlankLine($nextLine)) {
-                $refusedMarkerNoteParagraph = false;
                 if ($run->lowComment && $run->openCommentLength === null) {
                     break;
                 }
@@ -1883,25 +1881,6 @@ final class BlockContinuationScanner
 
                 continue;
             }
-
-            if (
-                $run->markerNoteItem && $i > 0
-                && ($refusedMarkerNoteParagraph
-                    || $this->noteFollowsMarkerLineRun($lines, $i - 1, ltrim($lines[$i - 1], " \t")))
-                && IndentationHelper::getLeadingColumns($nextLine) < $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                && ($this->getListParser)()->parseListItemMarker(ltrim($nextLine, " \t")) === null
-                && !$this->startsNewBlock(ltrim($nextLine, " \t"), $lines, $i)
-            ) {
-                // The refused run's protected follower is in the marker-line note.
-                // Keep the next lazy line in that same collected entry so the note
-                // reader sees the deepest paragraph before the item reader does.
-                $itemLines[count($itemLines) - 1] .= "\n" . BlockGrammar::LAZY_FRAME . ltrim($nextLine, " \t");
-                $refusedMarkerNoteParagraph = true;
-                $i++;
-
-                continue;
-            }
-            $refusedMarkerNoteParagraph = false;
 
             if ($run->captionOpen && isset($this->state->source->lazyLines[$this->sourceLineFor($i)])) {
                 $itemLines[] = BlockGrammar::LAZY_FRAME . ltrim($nextLine, " \t");
@@ -3394,20 +3373,6 @@ final class BlockContinuationScanner
     }
 
     /**
-     * Whether line `$i` is a note definition right after a refused run on a description's or note's marker line (CARVE-P2-035).
-     *
-     * @param array<string> $lines
-     * @param int $i
-     * @param string $trimmed
-     */
-    private function noteFollowsMarkerLineRun(array $lines, int $i, string $trimmed): bool
-    {
-        return str_starts_with($trimmed, '[^')
-            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $trimmed) === 1
-            && RefusedBraceRun::followsMarkerLineRun($lines, $i, $this->refusedBraceRunEndCallback, ($this->getListParser)());
-    }
-
-    /**
      * Whether the walk keeps line `$i` as text after the first line of a refused brace run.
      *
      * @param int $i
@@ -3446,7 +3411,13 @@ final class BlockContinuationScanner
         bool $closesMetadataSameBaseFence,
         bool $inlineAuthoredFence,
     ): string {
-        $stripColumn = $run->authoredCodeColumn !== null
+        $fenceCloser = $trailingState->fence !== null
+            && ($this->getFencedBlockParser)()->isCodeFenceCloser(
+                ltrim($nextLine, " \t"),
+                $trailingState->fence->char,
+                $trailingState->fence->length,
+            );
+        $stripColumn = ($trailingState->fence === null || $fenceCloser) && $run->authoredCodeColumn !== null
             && IndentationHelper::getLeadingColumns($nextLine, $run->authoredCodeColumn) >= $run->authoredCodeColumn
             ? $run->authoredCodeColumn : $contentIndent;
         $contentLine = $inlineAuthoredFence && !$termContinuation
@@ -4361,7 +4332,6 @@ final class BlockContinuationScanner
             !$trailingState->openParagraph
             && ($nextIndent === 0 || !$trailingState->afterComment)
             && !($leadIsBareContinuationMarker && $nextIndent === 0 && $this->continuationFollowerIsEligible($i))
-            && !$this->noteFollowsMarkerLineRun($lines, $i, $nextTrimmed)
         ) {
             return false;
         }
@@ -4447,7 +4417,6 @@ final class BlockContinuationScanner
             && !$this->startsNewBlock($nextTrimmed)
             && $this->isDefinitionLineForEnclosingItem($nextTrimmed)
             && !$this->isRefusedRunFollower($i)
-            && !$this->noteFollowsMarkerLineRun($lines, $i, $nextTrimmed)
         ) {
             return false;
         }

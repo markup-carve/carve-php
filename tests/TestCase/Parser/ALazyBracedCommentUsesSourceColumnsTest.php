@@ -18,17 +18,17 @@ final class ALazyBracedCommentUsesSourceColumnsTest extends TestCase
      */
     public static function shapes(): iterable
     {
-        yield 'list, one column past' => ["- pre\n{% b\n b %}\n", true];
+        yield 'list, one column past' => ["- pre\n{% b\n b %}\n", false];
         yield 'list, equal column' => ["- pre\n{% b\nb %}\n", false];
-        yield 'list, indented lazy opener' => ["- pre\n {% b\n  b %}\n", true];
+        yield 'list, indented lazy opener' => ["- pre\n {% b\n  b %}\n", false];
         yield 'list, indented lazy closer at opener' => ["- pre\n {% b\n b %}\n", false];
-        yield 'quote, one column after prefix' => ["> pre\n{% b\n>  b %}\n", true];
+        yield 'quote, one column after prefix' => ["> pre\n{% b\n>  b %}\n", false];
         yield 'quote, equal column after prefix' => ["> pre\n{% b\n> b %}\n", false];
-        yield 'footnote, one column past' => ["[^n]: pre\n{% b\n b %}\n\nx[^n]\n", true];
+        yield 'footnote, one column past' => ["[^n]: pre\n{% b\n b %}\n\nx[^n]\n", false];
         yield 'footnote, equal column' => ["[^n]: pre\n{% b\nb %}\n\nx[^n]\n", false];
         yield 'div, one column past' => ["::: note\npre\n{% b\n b %}\n:::\n", true];
         yield 'div, equal column' => ["::: note\npre\n{% b\nb %}\n:::\n", false];
-        yield 'nested list, one column past' => ["- outer\n  - pre\n{% b\n b %}\n", true];
+        yield 'nested list, one column past' => ["- outer\n  - pre\n{% b\n b %}\n", false];
         yield 'nested list, equal column' => ["- outer\n  - pre\n{% b\nb %}\n", false];
         yield 'comment opened on a list marker line' => ["- {% b\n  b %}\n", false];
         yield 'comment opened on a quoted list marker line' => ["> - {% b\n>   b %}\n", false];

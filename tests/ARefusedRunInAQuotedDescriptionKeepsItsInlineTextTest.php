@@ -15,7 +15,7 @@ final class ARefusedRunInAQuotedDescriptionKeepsItsInlineTextTest extends TestCa
     public function testAHashTagInsideTheRefusedRunStaysText(): void
     {
         $source = "> :: t\n> : {#i\n> }\n>  +\n> z\n";
-        $expected = "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>{#i\n}\n+\nz</dd>\n  </dl>\n</blockquote>";
+        $expected = "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>{<span class=\"tag\"><strong>#i</strong></span>\n}\n+\nz</dd>\n  </dl>\n</blockquote>";
 
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }

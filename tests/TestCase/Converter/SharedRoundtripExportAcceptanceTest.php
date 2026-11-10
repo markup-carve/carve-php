@@ -122,7 +122,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
         $fixtures = self::resource();
         self::assertSame('footnote-carrier-recovery-fixtures.json', $fixtures['footnoteRecoveryResource']);
         $paired = self::readJson(dirname(__DIR__, 2) . '/spec/resources/' . $fixtures['footnoteRecoveryResource']);
-        self::assertCount(24, $paired);
+        self::assertCount(27, $paired);
         foreach ($paired as $fixture) {
             self::assertIsArray($fixture);
             self::assertIsString($fixture['mode']);

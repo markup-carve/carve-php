@@ -3266,9 +3266,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $second = $children[1] ?? null;
             if ($first instanceof Paragraph && $second instanceof Paragraph) {
                 $inlines = $first->getChildren();
-                if (($inlines[0] ?? null) instanceof Text
+                if (
+                    ($inlines[0] ?? null) instanceof Text
                     && str_starts_with($inlines[0]->getContent(), '{')
-                    && in_array(true, array_map(static fn (Node $inline): bool => $inline instanceof SoftBreak, $inlines), true)) {
+                    && in_array(true, array_map(static fn (Node $inline): bool => $inline instanceof SoftBreak, $inlines), true)
+                ) {
                     return "+\n" . $out;
                 }
             }

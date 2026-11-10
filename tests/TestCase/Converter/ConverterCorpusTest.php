@@ -54,7 +54,10 @@ class ConverterCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const DECLARED_DRIFT = [];
+    protected const DECLARED_DRIFT = [
+        // The spec fixture still pins the literal inline #one from before carve#5830.
+        '40-djot-a-brace-run-continuation-must-be-indented' => 'markup-carve/carve#5830',
+    ];
 
     /**
      * @var array<string, string>

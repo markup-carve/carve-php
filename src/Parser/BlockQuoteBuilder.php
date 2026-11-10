@@ -524,27 +524,6 @@ final class BlockQuoteBuilder
             }
             $lastQuoteSourceLine = $innerLineMap[array_key_last($innerLineMap) ?? 0] ?? -1;
             $lastQuoteLineWasLazy = isset($this->state->session->blockQuoteLazySourceLines[$lastQuoteSourceLine]);
-            if (
-                $content !== null
-                && (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($content, " \t")) === 1
-                    || ($this->getListParser)()->parseListItemMarker(ltrim($content, " \t")) !== null)
-                && RefusedBraceRun::followsMarkerLineRun(
-                    [...$innerLines, $content],
-                    count($innerLines),
-                    fn (array $run, int $at): ?int => RefusedBraceRun::end($run, $at, ($this->getInlineParser)()),
-                    ($this->getListParser)(),
-                ) || ($content !== null
-                    && preg_match('/^#{1,6} +\S/', ltrim($content, " \t")) === 1
-                    && isset($lazyState['hosts']['descriptionColumn'])
-                    && $this->followsRefusedQuotedDescriptionRun($innerLines, $innerLineMap, $this->sourceLineFor($i)))
-            ) {
-                $innerLines[] = BlockGrammar::LAZY_FRAME . $content;
-                $innerLineMap[] = $this->sourceLineFor($i);
-                $lazyState['paragraphOpen'] = true;
-                $i++;
-
-                continue;
-            }
             if ($content === null && $lazyState['attrRun'] !== null) {
                 $lazyState['paragraphOpen'] = true;
             }

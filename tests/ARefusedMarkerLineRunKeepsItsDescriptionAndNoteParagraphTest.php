@@ -41,18 +41,7 @@ class ARefusedMarkerLineRunKeepsItsDescriptionAndNoteParagraphTest extends TestC
 
         yield 'item description keeps a note-shaped follower' => [
             "- :: t\n  : {% a\n%}\n[^m]: n\n",
-            <<<'HTML'
-            <ul>
-              <li>
-                <dl>
-                  <dt>t</dt>
-                  <dd>{% a
-            %}
-            [^m]: n</dd>
-                </dl>
-              </li>
-            </ul>
-            HTML,
+            "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>{% a\n%}</dd>\n    </dl>\n  </li>\n</ul>",
         ];
 
         yield 'quoted description keeps a note-shaped follower' => [
@@ -85,111 +74,27 @@ class ARefusedMarkerLineRunKeepsItsDescriptionAndNoteParagraphTest extends TestC
 
         yield 'note marker line in an item' => [
             "- [^q]: {.x\n}\n[^m]: n\n  z\n\nx[^q]\n",
-            <<<'HTML'
-            <ul>
-              <li></li>
-            </ul>
-            <p>x<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
-            <section role="doc-endnotes" aria-label="Footnotes">
-              <hr>
-              <ol>
-                <li id="fn1">
-                  <p>{.x
-            }
-            [^m]: n
-            z<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
-                </li>
-              </ol>
-            </section>
-            HTML,
+            "<ul>\n  <li></li>\n</ul>\n<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>{.x\n}<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
         ];
 
         yield 'literal note marker run in an ordered item' => [
             "1. [^q]: {#tag\n}\n[^m]: n\n  z\n\nx[^q]\n",
-            <<<'HTML'
-            <ol>
-              <li></li>
-            </ol>
-            <p>x<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
-            <section role="doc-endnotes" aria-label="Footnotes">
-              <hr>
-              <ol>
-                <li id="fn1">
-                  <p>{#tag
-            }
-            [^m]: n
-            z<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
-                </li>
-              </ol>
-            </section>
-            HTML,
+            "<ol>\n  <li></li>\n</ol>\n<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>{<span class=\"tag\"><strong>#tag</strong></span>\n}<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
         ];
 
         yield 'two lazy lines remain in the note' => [
             "- [^q]: {.x\n}\n[^m]: n\n  z\n  w\n\nx[^q]\n",
-            <<<'HTML'
-            <ul>
-              <li></li>
-            </ul>
-            <p>x<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
-            <section role="doc-endnotes" aria-label="Footnotes">
-              <hr>
-              <ol>
-                <li id="fn1">
-                  <p>{.x
-            }
-            [^m]: n
-            z
-            w<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
-                </li>
-              </ol>
-            </section>
-            HTML,
+            "<ul>\n  <li></li>\n</ul>\n<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>{.x\n}<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
         ];
 
         yield 'sibling item ends the note paragraph' => [
             "- [^q]: {.x\n}\n[^m]: n\n- sibling\n\nx[^q]\n",
-            <<<'HTML'
-            <ul>
-              <li></li>
-              <li>sibling</li>
-            </ul>
-            <p>x<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
-            <section role="doc-endnotes" aria-label="Footnotes">
-              <hr>
-              <ol>
-                <li id="fn1">
-                  <p>{.x
-            }
-            [^m]: n<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
-                </li>
-              </ol>
-            </section>
-            HTML,
+            "<ul>\n  <li></li>\n</ul>\n<ul>\n  <li>sibling</li>\n</ul>\n<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>{.x\n}<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
         ];
 
         yield 'nested item ends the note paragraph' => [
             "- [^q]: {.x\n}\n[^m]: n\n  - sibling\n\nx[^q]\n",
-            <<<'HTML'
-            <ul>
-              <li>
-                <ul>
-                  <li>sibling</li>
-                </ul>
-              </li>
-            </ul>
-            <p>x<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>
-            <section role="doc-endnotes" aria-label="Footnotes">
-              <hr>
-              <ol>
-                <li id="fn1">
-                  <p>{.x
-            }
-            [^m]: n<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
-                </li>
-              </ol>
-            </section>
-            HTML,
+            "<ul>\n  <li></li>\n</ul>\n<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>{.x\n}<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
         ];
     }
 

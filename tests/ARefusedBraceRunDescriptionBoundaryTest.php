@@ -15,12 +15,8 @@ final class ARefusedBraceRunDescriptionBoundaryTest extends TestCase
      */
     public static function examples(): iterable
     {
-        foreach (['{.x' => '.y}', '{#a' => '.b}'] as $opener => $continuation) {
-            yield $opener => [
-                ":: t\n: +\n  $opener\n  $continuation\n  ```\n  wa\n> q\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>$opener\n" . ltrim($continuation, ' ') . "\n<code>\nwa</code></dd>\n</dl>\n<blockquote><p>q</p></blockquote>",
-            ];
-        }
+        yield '{.x' => [":: t\n: +\n  {.x\n  .y}\n  ```\n  wa\n> q\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>{.x\n.y}</p>\n    <pre><code>wa\n</code></pre>\n  </dd>\n</dl>\n<blockquote><p>q</p></blockquote>"];
+        yield '{#a' => [":: t\n: +\n  {#a\n  .b}\n  ```\n  wa\n> q\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>{<span class=\"tag\"><strong>#a</strong></span>\n.b}</p>\n    <pre><code>wa\n</code></pre>\n  </dd>\n</dl>\n<blockquote><p>q</p></blockquote>"];
     }
 
     #[DataProvider('examples')]

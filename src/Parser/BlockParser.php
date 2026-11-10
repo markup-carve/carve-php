@@ -4152,21 +4152,6 @@ class BlockParser
                 $plusContinuationOpen = true;
                 $i++;
             } elseif (
-                preg_match(self::FOOTNOTE_DEFINITION_PATTERN, ltrim($nextLine, " \t")) === 1
-                && RefusedBraceRun::followsMarkerLineRun(
-                    $lines,
-                    $i,
-                    fn (array $run, int $at): ?int => RefusedBraceRun::end($run, $at, $this->inlineParser),
-                    $this->listParser,
-                )
-            ) {
-                // A note definition that follows a refused marker-line run is that run's paragraph text (CARVE-P2-035).
-                $bodyLine = ltrim($nextLine, " \t");
-                $bodyLines[] = $bodyLine;
-                $bodyLineMap[] = $this->sourceLineFor($i);
-                $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
-                $i++;
-            } elseif (
                 isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
                 && $this->listParser->parseListItemMarker(ltrim($nextLine, " \t")) === null
             ) {

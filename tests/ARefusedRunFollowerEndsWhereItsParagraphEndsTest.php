@@ -16,7 +16,7 @@ final class ARefusedRunFollowerEndsWhereItsParagraphEndsTest extends TestCase
     /**
      * @var string
      */
-    private const ITEM = "<ul>\n  <li>{.x\n.y}\n<code>\nwa</code></li>\n</ul>\n";
+    private const ITEM = "<ul>\n  <li>{.x\n.y}\n    <pre><code>wa\n</code></pre>\n  </li>\n</ul>\n";
 
     /**
      * @return iterable<string, array{string, string}>

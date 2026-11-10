@@ -18,13 +18,13 @@ final class ALonePlusAfterARefusedRunStaysTextTest extends TestCase
      */
     public static function documents(): iterable
     {
-        $nested = "<ul>\n  <li>\n    <ul>\n      <li>{.x\n}</li>\n    </ul>\n    z\n  </li>\n</ul>";
+        $nested = "<ul>\n  <li>\n    <ul>\n      <li>{.x\n}\n+\nz</li>\n    </ul>\n  </li>\n</ul>";
 
         yield 'item, lazy closer' => ["- {.x\n}\n+\nz\n", "<ul>\n  <li>{.x\n}\n+\nz</li>\n</ul>"];
         yield 'ordered item' => ["1. {.x\n}\n+\nz\n", "<ol>\n  <li>{.x\n}\n+\nz</li>\n</ol>"];
         yield 'closer at the brace' => ["- {.x\n .y}\n+\nz\n", "<ul>\n  <li>{.x\n.y}\n+\nz</li>\n</ul>"];
         yield 'stacked host, its marker column' => ["- - {.x\n}\n  +\nz\n", $nested];
-        yield 'stacked host, outer marker column' => ["- - {.x\n}\n+\nz\n", $nested];
+        yield 'stacked host, outer marker column' => ["- - {.x\n}\n+\nz\n", "<ul>\n  <li>\n    <ul>\n      <li>{.x\n}</li>\n    </ul>\n    z\n  </li>\n</ul>"];
         yield 'description' => [":: t\n: {.x\n}\n+\nz\n", "<dl>\n  <dt>t</dt>\n  <dd>{.x\n}\n+\nz</dd>\n</dl>"];
         yield 'note' => [
             "[^1]: {.x\n}\n+\nz\n\nx[^1]\n",
