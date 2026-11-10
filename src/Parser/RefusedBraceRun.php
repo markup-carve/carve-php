@@ -29,7 +29,7 @@ final class RefusedBraceRun
         if (!str_starts_with($content, '{')) {
             return null;
         }
-        $first = ContainerPrefix::stripQuoteMarkers($authoredLines[$start] ?? '');
+        $first = self::quotePrefixesAsColumns($authoredLines[$start] ?? '');
         $brace = strrpos($first, $content);
         if ($brace === false || preg_match('/(?:^|[ \t])(?::|\[\^[^]]+\]:)[ \t]+$/', substr($first, 0, $brace)) !== 1) {
             return null;
@@ -43,7 +43,7 @@ final class RefusedBraceRun
         }
         $probe = [str_repeat(' ', $column) . $content];
         for ($at = $start + 1, $count = count($authoredLines); $at < $count; $at++) {
-            $line = ContainerPrefix::stripQuoteMarkers($authoredLines[$at]);
+            $line = self::quotePrefixesAsColumns($authoredLines[$at]);
             if (IndentationHelper::isBlankLine($line)) {
                 break;
             }
@@ -54,6 +54,15 @@ final class RefusedBraceRun
         }
 
         return self::end($probe, 0, $inlineParser);
+    }
+
+    /**
+     * Keep each quote marker's written width in the source-column comparison.
+     * This works whether the marker leads the line or follows an item prefix.
+     */
+    private static function quotePrefixesAsColumns(string $line): string
+    {
+        return (string)preg_replace('/(^|[ \t])>(?= |$)/', '$1 ', $line);
     }
 
     /**
