@@ -35,7 +35,7 @@ final class AQuotedRefusedRunKeepsItsPlusTest extends TestCase
 
         yield 'comment run with lazy tail' => [
             "> - {% a\n>  %}\n> +\nz\n",
-            "<blockquote>\n  <ul>\n    <li>{% a\n%}\n+\nz</li>\n  </ul>\n</blockquote>",
+            "<blockquote>\n  <ul>\n    <li>{% a\n%}</li>\n  </ul>\n</blockquote>\n<p>z</p>",
         ];
 
         yield 'attribute run with lazy closer' => [

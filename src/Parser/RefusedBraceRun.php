@@ -93,6 +93,18 @@ final class RefusedBraceRun
             return null;
         }
         $comment = str_starts_with($opener, '{%');
+        if ($comment && !str_contains($first, '%}') && isset($lines[$start + 1])) {
+            $next = self::content($lines[$start + 1]);
+            if (
+                $next !== null && !IndentationHelper::isBlankLine($next)
+                && (IndentationHelper::getLeadingColumns($next) <= $openerColumn
+                    || str_starts_with($lines[$start + 1], BlockGrammar::LAZY_FRAME))
+            ) {
+                // The first failed continuation settles this opener. A later
+                // opener gets its own scan, even if a distant closer exists.
+                return $start + 1;
+            }
+        }
         if ($comment && !$more && !self::closerBeforeBlank($lines, $start)) {
             return null;
         }
