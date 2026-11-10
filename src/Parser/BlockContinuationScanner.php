@@ -1682,6 +1682,13 @@ final class BlockContinuationScanner
     ): array {
         $run = new PlainContinuationState();
         $run->floorLiveParagraph = $trailingState->openParagraph;
+        $quotedRunLength = ($this->getBlockQuoteBuilder)()->markerLineQuoteAttributeRunLength(
+            $itemLines[0] ?? '',
+            $lines,
+            $i,
+            $itemLineMap[0] ?? -1,
+        );
+        $quotedRunEnd = $quotedRunLength > 0 ? $i + $quotedRunLength - 1 : -1;
         $run->unclosedFenceColumn = $unclosedFenceBase === null ? null : $contentIndent + $unclosedFenceBase;
         // A task box sits before the marker-line run, so its `{` is past the content column (CARVE-P2-035).
         $run->wrappedAttributeLinesRemaining = max(0, ($this->wrappedItemAttributeLength(
@@ -1740,6 +1747,10 @@ final class BlockContinuationScanner
         while ($i < $count) {
             $nextLine = $lines[$i];
             $sourceLine = $this->sourceLineFor($i);
+            if ($quotedRunEnd >= 0 && $i === $quotedRunEnd + 1) {
+                $trailingState->openParagraph = false;
+                $trailingState->quoteParagraph = false;
+            }
             if (
                 $this->isContinuationMarker(ltrim($nextLine, " \t"))
                 && $trailingState->fence === null
