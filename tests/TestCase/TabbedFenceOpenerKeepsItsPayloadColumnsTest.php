@@ -54,5 +54,10 @@ class TabbedFenceOpenerKeepsItsPayloadColumnsTest extends TestCase
             "- 1. a\n  \t\t::: |\n  \t z\n  \t  y\n  \t\t:::\n",
             "<ul>\n  <li>\n    <ol>\n      <li>a\n        <div class=\"line-block\">\n          <p>z<br>\ny</p>\n        </div>\n      </li>\n    </ol>\n  </li>\n</ul>",
         ];
+
+        yield 'nested items: tabbed code line under a spaced opener' => [
+            "- a\n  - a\n      ```\n  \tz\n      ```\n",
+            "<ul>\n  <li>a\n    <ul>\n      <li>a\n        <pre><code>z\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>",
+        ];
     }
 }

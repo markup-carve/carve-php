@@ -736,14 +736,7 @@ final class BlockOwnershipWalk
                 $payloadPath = $this->trace !== null ? $this->traceFenceOwner($inner) : '';
                 $payloadForm = 'payload';
                 $shiftedCloser = $this->readsShiftedCloser($inner);
-                $payloadColumn = max($this->m['col'] - $inner->cut, $inner->canon);
-                if ($this->rewritesTabbedPayload($inner, $shiftedCloser, $segment, $payloadColumn)) {
-                    // The rewritten opener gives the reader no authored run to re-measure this one against (§24 C5).
-                    $this->out .= str_repeat(' ', $payloadColumn);
-                    $this->src = $this->m['rest'];
-                } else {
-                    $this->lead($shiftedCloser ? $inner->col : $payloadColumn);
-                }
+                $this->leadPayload($inner, $shiftedCloser, $segment);
                 $rest = $this->m['rest'];
                 $inCommentSpan = $inner->span !== null && $inner->span[0] === '%';
                 if ($rest !== '' && $inner->span !== null) {
@@ -999,16 +992,12 @@ final class BlockOwnershipWalk
                 $this->lead(
                     $this->frames[$o]->canon,
                     $definitionMarker,
-                    // A bare `:::` kept on its tab run would reach a nested reader $shift columns right,
-                    // where it can pair with an earlier opener's closer.
-                    contentTab: $form->kind === 'fence' || ($form->kind === 'colon' && ($form->lineBlock || $shift === 0)),
+                    contentTab: $this->keepsOpenerTabRun($form, $shift),
                     definitionMarker: $definitionMarker && $this->frames[$o]->kind === 'dd',
                 );
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon, inHost: !$leftLineBlockSpan);
                 $this->markAttachedFence($at, $o, $form, $plusFollower);
-                if (($form->kind === 'fence' || $form->kind === 'colon') && $this->leadRewrote) {
-                    $this->frames[count($this->frames) - 1]->openerTabShift = $shift;
-                }
+                $this->recordRewrittenOpener($form, $shift);
                 // A marker opened on an off-stop tab run has its C5 columns that far right.
                 for ($k = $o + 1, $n = count($this->frames); $k < $n && $this->frames[$k]->kind !== 'quote'; $k++) {
                     if (in_array($this->frames[$k]->kind, self::BODY_FRAMES, true)) {
@@ -2329,6 +2318,35 @@ final class BlockOwnershipWalk
         ) {
             $this->pastColumnDescriptionLines[$at] = true;
         }
+    }
+
+    /**
+     * A bare `:::` kept on its tab run would reach a nested reader `$shift`
+     * columns right, where it can pair with an earlier opener's closer.
+     */
+    private function keepsOpenerTabRun(OwnershipForm $form, int $shift): bool
+    {
+        return $form->kind === 'fence' || ($form->kind === 'colon' && ($form->lineBlock || $shift === 0));
+    }
+
+    private function recordRewrittenOpener(OwnershipForm $form, int $shift): void
+    {
+        if (($form->kind === 'fence' || $form->kind === 'colon') && $this->leadRewrote) {
+            $this->frames[count($this->frames) - 1]->openerTabShift = $shift;
+        }
+    }
+
+    private function leadPayload(OwnershipFrame $inner, bool $shiftedCloser, int $segment): void
+    {
+        $payloadColumn = max($this->m['col'] - $inner->cut, $inner->canon);
+        if (!$this->rewritesTabbedPayload($inner, $shiftedCloser, $segment, $payloadColumn)) {
+            $this->lead($shiftedCloser ? $inner->col : $payloadColumn);
+
+            return;
+        }
+        // The rewritten opener gives the reader no authored run to re-measure this one against (§24 C5).
+        $this->out .= str_repeat(' ', $payloadColumn);
+        $this->src = $this->m['rest'];
     }
 
     /**
