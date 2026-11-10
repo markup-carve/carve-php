@@ -1838,25 +1838,28 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * Whether a `+` at a description's or note's marker column directly follows a refused run its marker line opened (carve#5658 R03).
+     * Whether a `+` at a host's marker column directly follows a refused run its marker line opened (carve#5658 R03).
      *
-     * Those runs are read by the body's own reader, so the walk keeps no range for them.
+     * Read each line after the same quote prefixes as the host. Its block reader can
+     * keep a different range from the walk, especially when the closer is lazy.
      */
     private function followsMarkerLineRefusedRun(OwnershipFrame $top): bool
     {
         $line = $top->line;
         if (
-            ($top->kind !== 'dd' && $top->kind !== 'note') || $this->refusedBraceRunEnd === null
+            !in_array($top->kind, ['item', 'dd', 'note'], true) || $this->refusedBraceRunEnd === null
             || $line === null || $line >= $this->at || $this->m['col'] !== $top->markerCol
         ) {
             return false;
         }
         if (!array_key_exists($line, $this->markerLineRunEnds)) {
             $end = null;
-            if (preg_match('/^[ \t]*(?::|\[\^[^\]]+\]:)[ \t]+(?=\{)/', $this->lines[$line] ?? '', $m) === 1) {
-                $window = [str_repeat(' ', strlen($m[0])) . substr($this->lines[$line], strlen($m[0]))];
+            $depth = $this->quoteDepth(count($this->frames));
+            $opener = $this->levelOf($this->lines[$line] ?? '', $depth)['rest'] ?? '';
+            if (preg_match('/^[ \t]*(?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)*(?::|\[\^[^\]]+\]:)?[ \t]*(?=\{)/', $opener, $m) === 1) {
+                $window = [str_repeat(' ', strlen($m[0])) . substr($opener, strlen($m[0]))];
                 for ($j = $line + 1, $count = count($this->lines); $j < $count && trim($this->lines[$j], " \t") !== ''; $j++) {
-                    $window[] = $this->lines[$j];
+                    $window[] = $this->levelOf($this->lines[$j], $depth)['rest'] ?? $this->lines[$j];
                 }
                 $end = ($this->refusedBraceRunEnd)($window, 0);
             }
