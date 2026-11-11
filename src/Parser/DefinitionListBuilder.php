@@ -2952,7 +2952,7 @@ final class DefinitionListBuilder
         $ddPos = $this->wholeLinesSpan(
             $b->definitionStart,
             $b->definitionStart,
-            $this->state->frame->currentContentColumns[$definitionSource] ?? $this->descriptionMarkerColumn($definitionSource),
+            max($this->state->frame->currentContentColumns[$definitionSource] ?? 0, $this->descriptionMarkerColumn($definitionSource)),
         );
         $ddChildren = $dd->getChildren();
         $lastChildPos = $ddChildren === [] ? null : $ddChildren[count($ddChildren) - 1]->getPos();
@@ -3001,8 +3001,8 @@ final class DefinitionListBuilder
 
     /**
      * Where a description's `:` sits on its authored line, past any container
-     * prefix. A line a refused `+` was taken from records no content column, and
-     * the description must not start inside its parent's prefix (CARVE-P12-013).
+     * prefix. A line re-read after a `+` can record no content column, or 0,
+     * and the description must not start inside its parent's prefix (CARVE-P12-013).
      */
     private function descriptionMarkerColumn(int $sourceLine): int
     {

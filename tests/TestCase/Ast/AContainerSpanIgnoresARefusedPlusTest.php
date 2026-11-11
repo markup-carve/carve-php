@@ -95,6 +95,24 @@ class AContainerSpanIgnoresARefusedPlusTest extends TestCase
                     '      text 22..23',
                 ],
             ],
+            'a description after a plus-filled one starts at its marker (carve#5976)' => [
+                "- x\n\n  :: t\n  : +\n  after\n  : b\n", [
+                    'document 0..31',
+                    '  list 0..31',
+                    '    list_item 0..31',
+                    '      paragraph 2..3',
+                    '        text 2..3',
+                    '      definition_list 7..31',
+                    '        definition_term 7..11',
+                    '          text 10..11',
+                    '        definition_description 14..25',
+                    '          paragraph 20..25',
+                    '            text 20..25',
+                    '        definition_description 28..31',
+                    '          paragraph 30..31',
+                    '            text 30..31',
+                ],
+            ],
             'an unclosed fence a refused plus ends owns only its opener (carve#5975)' => [
                 "- ```\n+\n\n  x\n", [
                     'document 0..12',
