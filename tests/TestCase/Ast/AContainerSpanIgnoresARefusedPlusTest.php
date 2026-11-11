@@ -102,7 +102,7 @@ class AContainerSpanIgnoresARefusedPlusTest extends TestCase
                     '    list_item 0..12',
                     '      code_block 2..5',
                     '      paragraph 11..12',
-                        '        text 11..12',
+                    '        text 11..12',
                 ],
             ],
         ];

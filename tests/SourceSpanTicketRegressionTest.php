@@ -24,8 +24,9 @@ final class SourceSpanTicketRegressionTest extends TestCase
 
     public function testSecondStandaloneContinuationDoesNotExtendPriorItem(): void
     {
+        // A refused `+` after the item's last child adds no owned source (CARVE-P12-014).
         $ast = self::parse("- q\n+\n+\n\n- r\n");
-        self::assertSame([0, 5], self::offsets($ast['children'][0]['items'][0]));
+        self::assertSame([0, 3], self::offsets($ast['children'][0]['items'][0]));
     }
 
     public function testSameLineNestedItemStartsAtItsOwnMarker(): void

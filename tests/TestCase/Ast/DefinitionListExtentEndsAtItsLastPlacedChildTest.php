@@ -112,11 +112,11 @@ class DefinitionListExtentEndsAtItsLastPlacedChildTest extends TestCase
 
     public function testARefusedContinuationMarkerIsTextInsideTheList(): void
     {
-        // A refused `+` is never dropped (markup-carve/carve#3421): it folds into `def` as text.
+        // A refused `+` after the last placed child adds no owned source (CARVE-P12-014).
         $list = $this->definitionList(":: term\n:  def\n+\n");
 
-        $this->assertSame(3, $list['pos']['endLine']);
-        $this->assertSame(16, $list['pos']['endOffset']);
+        $this->assertSame(2, $list['pos']['endLine']);
+        $this->assertSame(14, $list['pos']['endOffset']);
     }
 
     public function testTheDefinitionBelowStillResolves(): void
