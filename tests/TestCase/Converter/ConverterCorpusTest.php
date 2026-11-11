@@ -54,15 +54,22 @@ class ConverterCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const DECLARED_DRIFT = [
-        // The spec fixture still pins the literal inline #one from before carve#5830.
-        '40-djot-a-brace-run-continuation-must-be-indented' => 'markup-carve/carve#5830',
-    ];
+    protected const DECLARED_DRIFT = [];
 
     /**
      * @var array<string, string>
      */
     private const AHEAD_OF_PIN = [];
+
+    /**
+     * Canonical sources carve main pins ahead of this engine's spec pin.
+     *
+     * @var array<string, string>
+     */
+    private const CANONICAL_AHEAD_OF_PIN = [
+        // carve#5869 escapes the opener of a run carve#5830 refuses.
+        '40-djot-a-brace-run-continuation-must-be-indented' => "Inline {%%} remains.\n\n\\{% x\ny %}\n\n%%\n\n\\{\\#one\nkey=1}\nalpha\n\n{#two key=\"2\"}\nbeta\n\n# a\n\n\\{% x\ny %}\n\\# b\n",
+    ];
 
     /**
      * @throws \RuntimeException
@@ -117,6 +124,10 @@ class ConverterCorpusTest extends TestCase
             'Converter corpus mismatch for ' . $slug . "; produced Carve:\n" . $carve,
         );
         // A case whose ruling is a spelling pins the bytes too, final newline included.
+        if (isset(self::CANONICAL_AHEAD_OF_PIN[$slug])) {
+            $this->assertNotSame($canonical, self::CANONICAL_AHEAD_OF_PIN[$slug], $slug . ' reached the pin; remove its canonical ahead-of-pin expectation');
+            $canonical = self::CANONICAL_AHEAD_OF_PIN[$slug];
+        }
         if ($canonical !== null) {
             $this->assertSame($canonical, $carve, 'Converter corpus canonical source mismatch for ' . $slug);
         }
@@ -149,7 +160,7 @@ class ConverterCorpusTest extends TestCase
     {
         $this->addToAssertionCount(1);
         $cases = self::corpusProvider();
-        foreach (array_keys(self::AHEAD_OF_PIN) as $slug) {
+        foreach ([...array_keys(self::AHEAD_OF_PIN), ...array_keys(self::CANONICAL_AHEAD_OF_PIN)] as $slug) {
             $this->assertArrayHasKey($slug, $cases, "Ahead-of-pin expectation names no corpus case: {$slug}");
         }
         foreach (self::DECLARED_DRIFT as $slug => $reason) {

@@ -375,6 +375,12 @@ class BlockParser
         return array_values(array_filter($this->state->source->refusedPlus));
     }
 
+    private function isRefusedPlusLine(int $sourceLine): bool
+    {
+        return array_key_exists($sourceLine, $this->state->source->refusedPlus)
+            && trim($this->state->source->authoredLines[$sourceLine] ?? '', " \t") === '+';
+    }
+
     private function recordUnclosedCodeFence(int $start, int $end, string $marker): void
     {
         $line = $this->sourceLineFor($start);
@@ -2220,7 +2226,7 @@ class BlockParser
                 $this->state->session->pendingAttributeSpan ??= $this->wholeLinesSpan(
                     $i,
                     $i + $attrConsumed - 1,
-                    $this->authoredColumnOf($i, $line) ?? 0,
+                    $this->authoredOffsetOf($i, $line),
                 );
                 $i += $attrConsumed;
 
@@ -2564,6 +2570,20 @@ class BlockParser
     private static function isFoldedFenceLine(string $line): bool
     {
         return preg_match('/^(?:`{3,}|~{3,})/', $line) === 1;
+    }
+
+    /**
+     * The byte offset of a line's content in its written source line; the walk may have moved it.
+     */
+    private function authoredOffsetOf(int $index, string $line): int
+    {
+        $authored = $this->state->source->authoredLines[$this->sourceLineFor($index)] ?? null;
+        $content = ltrim($line, " \t");
+        if ($authored !== null && $content !== '' && str_ends_with($authored, $content)) {
+            return strlen($authored) - strlen($content);
+        }
+
+        return $this->authoredColumnOf($index, $line) ?? 0;
     }
 
     private function authoredColumnOf(int $index, string $line): ?int
@@ -3071,6 +3091,11 @@ class BlockParser
 
             // Check for closing fence
             if ($this->fencedBlockParser->isCodeFenceCloser($currentLine, $fenceChar, $fenceLength)) {
+                // A refused `+` stands in as the closer in the walk; the source fence stays unclosed.
+                if ($this->isRefusedPlusLine($this->sourceLineFor($i))) {
+                    $this->recordUnclosedCodeFence($start, $i, str_repeat($fenceChar, $fenceLength));
+                    $this->addWarning('Unclosed code fence', $start, 1, true);
+                }
                 $i++;
                 $closed = true;
 
@@ -3431,6 +3456,10 @@ class BlockParser
 
             // Check for closing fence (equal or longer)
             if ($this->fencedBlockParser->isCodeFenceCloser($currentLine, $fenceChar, $fenceLength)) {
+                if ($this->isRefusedPlusLine($this->sourceLineFor($i))) {
+                    $this->recordUnclosedCodeFence($start, $i, str_repeat($fenceChar, $fenceLength));
+                    $this->addWarning('Unclosed raw block', $start, 1, true);
+                }
                 $i++;
                 $closed = true;
 
