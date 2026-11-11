@@ -1074,13 +1074,7 @@ final class BlockOwnershipWalk
                     definitionMarker: $definitionMarker && $this->frames[$o]->kind === 'dd',
                 );
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon, inHost: !$leftLineBlockSpan);
-                if ($form->lineBlock) {
-                    // A kept tab run is measured by the reader itself; a rewritten one stands at the owner's column.
-                    $this->frames[count($this->frames) - 1]->openerFrameLead = $this->leadRewrote
-                        ? $this->m['col'] + $shift - $this->frames[$o]->canon
-                        : 0;
-                    $this->frames[count($this->frames) - 1]->openerTabbed = $openerTabbed;
-                }
+                $this->recordLineBlockOpener($form, $o, $shift, $openerTabbed);
                 $this->markAttachedFence($at, $o, $form, $plusFollower);
                 $this->recordRewrittenOpener($form, $shift);
                 // A marker opened on an off-stop tab run has its C5 columns that far right.
@@ -2444,6 +2438,17 @@ final class BlockOwnershipWalk
     {
         return ($form->kind === 'fence' && ($form->family !== 'code' || $shift === 0))
             || ($form->kind === 'colon' && ($form->lineBlock || $shift === 0));
+    }
+
+    private function recordLineBlockOpener(OwnershipForm $form, int $owner, int $shift, bool $tabbed): void
+    {
+        if (!$form->lineBlock) {
+            return;
+        }
+        $frame = $this->frames[count($this->frames) - 1];
+        // A kept tab run is measured by the reader itself; a rewritten one stands at the owner's column.
+        $frame->openerFrameLead = $this->leadRewrote ? $this->m['col'] + $shift - $this->frames[$owner]->canon : 0;
+        $frame->openerTabbed = $tabbed;
     }
 
     private function recordRewrittenOpener(OwnershipForm $form, int $shift): void

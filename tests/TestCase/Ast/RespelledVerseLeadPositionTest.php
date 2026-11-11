@@ -177,7 +177,8 @@ final class RespelledVerseLeadPositionTest extends TestCase
                 continue;
             }
             foreach (array_is_list($value) ? $value : [$value] as $child) {
-                if (is_array($child) && ($found = self::lineBlock($child)) !== null) {
+                $found = is_array($child) ? self::lineBlock($child) : null;
+                if ($found !== null) {
                     return $found;
                 }
             }
