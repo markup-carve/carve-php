@@ -4434,7 +4434,7 @@ final class BlockOwnershipWalk
         }
         $origins = [];
         for ($q = $segment, $n = count($this->frames); $q < $n && $this->frames[$q]->kind !== 'quote'; $q++) {
-            $origins[] = $this->frames[$q]->col;
+            $origins[] = $this->frames[$q]->col + $this->frames[$q]->c5Shift;
         }
         $col = 0;
         $origin = 0;
