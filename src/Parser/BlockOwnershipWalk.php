@@ -1329,9 +1329,7 @@ final class BlockOwnershipWalk
             if (isset($this->noteLabels[$key]) && self::isPlus($note[2])) {
                 // Like any note marker line it ends the paragraph open before it.
                 $this->losingNoteLines[$at] = true;
-                $offer = $skipped['offeredAt'] ?? $skipped['at'];
-                $claimed = !isset($this->refusedNotePlus[$offer]) && !isset($this->refusedPlus[$offer]);
-                $this->refusedNotePlus[$at] = $this->notePlusFinding($at, $noteColumn, $skipped['hostIndex'], $claimed);
+                $this->refusedNotePlus[$at] = $this->notePlusFinding($at, $noteColumn, $skipped['hostIndex'], $this->skippedRunClaims($skipped));
                 $skipped['host']->para = false;
                 // Only while the block below still stands in the host; each skipped line moves once.
                 // A live `+` definition skipped before it is offered that block, as if the losing line were not there (carve#5528).
@@ -1347,7 +1345,7 @@ final class BlockOwnershipWalk
                 $this->skipped['offered'] = self::isPlus($note[2]) && self::docColumn($this->lines[$at], $rest) === $skipped['column'];
                 if (self::isPlus($note[2])) {
                     $this->skipped['offeredAt'] = $at;
-                    $this->refusedNotePlus[$at] = $this->notePlusFinding($at, $noteColumn, $skipped['hostIndex']);
+                    $this->refusedNotePlus[$at] = $this->notePlusFinding($at, $noteColumn, $skipped['hostIndex'], $this->skippedRunClaims($skipped));
                 }
             }
             $this->noteLabels[$key] = true;
@@ -4435,6 +4433,18 @@ final class BlockOwnershipWalk
     }
 
     /**
+     * Whether the last `+` offered the block after a skipped run still takes it.
+     *
+     * @param array{at: int, offeredAt?: int} $skipped
+     */
+    private function skippedRunClaims(array $skipped): bool
+    {
+        $offer = $skipped['offeredAt'] ?? $skipped['at'];
+
+        return !isset($this->refusedNotePlus[$offer]) && !isset($this->refusedPlus[$offer]);
+    }
+
+    /**
      * Lint for a definition's marker-line `+` the walk passes over, losing or live (carve#5953).
      * Its follower decides, as for any marker-line `+`; a following definition is the note's sibling,
      * and a follower at its column that an earlier `+` takes is claimed.
@@ -4445,7 +4455,7 @@ final class BlockOwnershipWalk
     {
         $finding = $this->plusFinding($at, 'note', $column, $hostIndex);
         $next = $this->throughQuotes($this->lines[$at + 1] ?? '', $hostIndex, $this->frames);
-        if ($finding['reason'] !== 'sibling' || preg_match('/^[ \t]*\[\^[^\]]+\]:/', $next['rest'] ?? '') === 1) {
+        if ($finding['reason'] !== 'sibling' || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($next['rest'] ?? '', " \t")) === 1) {
             return $finding;
         }
 

@@ -30,6 +30,8 @@ final class ARefusedPlusOnALosingNoteDefinitionIsReportedTest extends TestCase
             'live definition before a blank' => ["see[^a][^b]\n[^b]: +\n[^a]: +\n\n[^a]: +\nflush\n", ['2:7', '3:7']],
             'losing plus before a live definition' => ["[^a]: x\n[^a]: +\n[^b]: y\n\nsee[^a][^b]\n", ['2:7']],
             'losing plus before a flush paragraph' => ["[^m]: d1\n\n[^m]: +\nflush\n\nsee[^m]\n", []],
+            'live definition whose follower an earlier plus takes' => ["[^a]: +\n[^b]: +\n- b\n\nsee[^a][^b]\n", ['2:7']],
+            'losing plus before note-shaped text' => ["[^a]: x\n[^a]: +\n[^b]:foo\n\nsee[^a]\n", []],
         ];
     }
 
@@ -50,5 +52,16 @@ final class ARefusedPlusOnALosingNoteDefinitionIsReportedTest extends TestCase
         sort($found);
 
         $this->assertSame($expected, $found);
+    }
+
+    public function testAFollowingDefinitionIsNamedAsTheSibling(): void
+    {
+        $warnings = array_values(array_filter(
+            (new DocumentLinter())->lint("[^m]: +\n[^n]: d1\n\nsee[^m][^n]\n"),
+            static fn (LintWarning $warning): bool => $warning->rule === 'continuation-marker-refused',
+        ));
+
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString('a sibling footnote definition follows it', $warnings[0]->message);
     }
 }
