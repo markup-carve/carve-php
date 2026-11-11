@@ -1373,6 +1373,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected int $pendingMarkerLineShift = 0;
 
     /**
+     * The definition `definitionInGap()` wrote last.
+     */
+    protected LinkReferenceDefinition|Footnote|null $gapDefinition = null;
+
+    /**
      * Collected definitions written among the body's blocks rather than at its end.
      *
      * @var array<int, true>
@@ -3048,6 +3053,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         ) {
                             $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($written);
                             $attachedBelowDefinition = true;
+                        } elseif (
+                            $this->gapDefinition instanceof Footnote && $this->foldsIntoAnOpenParagraph($child)
+                            && $this->openParagraphReachesDown(array_slice($this->gapDefinition->getChildren(), -1)[0] ?? null)
+                        ) {
+                            // A note's open paragraph would take the paragraph below lazily; an attribute line at its body column ends it (PART 9 §15 A1, A4).
+                            $out .= $written . "\n  " . self::EMPTY_BODY_SENTINEL;
                         } else {
                             $out .= $written;
                         }
@@ -3289,6 +3300,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function definitionInGap(Node $before, Node $after): ?string
     {
+        $this->gapDefinition = null;
         $from = $before->getPos()?->endLine;
         $to = $after->getPos()?->startLine;
         if ($from === null || $to === null) {
@@ -3303,6 +3315,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 continue;
             }
             $this->definitionsWrittenInPlace[spl_object_id($node)] = true;
+            $this->gapDefinition = $node;
 
             return $node instanceof Footnote
                 ? $this->renderFootnote($node)

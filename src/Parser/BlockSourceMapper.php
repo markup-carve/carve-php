@@ -2016,6 +2016,14 @@ final class BlockSourceMapper
 
         // The walk's LAZY frame takes no column.
         $prefix = str_replace(BlockGrammar::LAZY_FRAME, '', substr($authored, 0, strlen($authored) - strlen($content)));
+        // A tab in this frame's indentation stops relative to the frame column, not the line start (PART 9 §24 C5).
+        $lead = strspn($line, " \t");
+        if ($lead > 0 && $lead < strlen($prefix) && str_contains(substr($line, 0, $lead), "\t") && str_ends_with($prefix, substr($line, 0, $lead))) {
+            $outer = substr($prefix, 0, -$lead);
+
+            return IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $outer) . 'x')
+                + IndentationHelper::getLeadingColumns($line);
+        }
 
         return IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
     }

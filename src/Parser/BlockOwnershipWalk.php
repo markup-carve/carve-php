@@ -1377,7 +1377,9 @@ final class BlockOwnershipWalk
         if (trim($rest, " \t") === '') {
             $this->skipped['runColumn'] = null;
         } else {
-            $column = $level['col'] ?? 0;
+            $text = ltrim($rest, " \t");
+            $column = ($level['col'] ?? 0)
+                + self::frameColumn($this->lines[$at], $text, $this->frames, $skipped['hostIndex']) - self::docColumn($this->lines[$at], $text);
             $this->skipped['runColumn'] ??= $column;
             $pad = max(0, $column - $this->skipped['runColumn']);
         }
@@ -3536,7 +3538,7 @@ final class BlockOwnershipWalk
                 // An attribute line at the note's body column is the note's (§15 A4) and ends its paragraph (§15 A1).
                 $open = true;
                 while ($k < $n && $quoted($k) && (!$offered || self::docColumn($this->lines[$k], $view($k)) !== $column)) {
-                    $inBody = self::docColumn($this->lines[$k], $view($k)) >= $at + BlockGrammar::FOOTNOTE_BODY_COLUMN;
+                    $inBody = self::frameColumn($this->lines[$k], $view($k), $frames, $hostIndex) >= $at + BlockGrammar::FOOTNOTE_BODY_COLUMN;
                     if (!$inBody && !$open) {
                         break;
                     }
@@ -4658,6 +4660,52 @@ final class BlockOwnershipWalk
                 continue;
             }
             $col = $line[$i] === "\t" ? (intdiv($col, 4) + 1) * 4 : $col + 1;
+        }
+
+        return $col;
+    }
+
+    /**
+     * `docColumn()` with the tab stops of the indentation before `$rest` restarted at
+     * every body frame column up to `$hostIndex` (PART 9 §24 C5).
+     *
+     * @param string $line
+     * @param string $rest
+     * @param array<int, \MarkupCarve\Carve\Parser\OwnershipFrame> $frames
+     * @param int $hostIndex
+     */
+    private static function frameColumn(string $line, string $rest, array $frames, int $hostIndex): int
+    {
+        $end = strlen($line) - strlen($rest);
+        $start = $end;
+        while ($start > 0 && ($line[$start - 1] === ' ' || $line[$start - 1] === "\t")) {
+            $start--;
+        }
+        if (!str_contains(substr($line, $start, $end - $start), "\t") || str_contains(substr($line, 0, $start), '>')) {
+            return self::docColumn($line, $rest);
+        }
+        $col = self::docColumn($line, substr($line, $start));
+        $origins = [0];
+        for ($k = 1; $k <= $hostIndex && isset($frames[$k]); $k++) {
+            $f = $frames[$k];
+            if (in_array($f->kind, ['item', 'dd', 'note'], true) && $f->docMarker !== null) {
+                $origins[] = $f->docMarker + $f->col - (int)$f->markerCol;
+            }
+        }
+        sort($origins);
+        $origin = 0;
+        foreach ($origins as $o) {
+            if ($o <= $col) {
+                $origin = $o;
+            }
+        }
+        for ($i = $start; $i < $end; $i++) {
+            $col = $line[$i] === ' ' ? $col + 1 : $origin + (intdiv($col - $origin, 4) + 1) * 4;
+            foreach ($origins as $o) {
+                if ($o <= $col) {
+                    $origin = max($origin, $o);
+                }
+            }
         }
 
         return $col;
