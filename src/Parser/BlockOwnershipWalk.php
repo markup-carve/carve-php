@@ -4405,11 +4405,11 @@ final class BlockOwnershipWalk
      *
      * @return array{line: int, column: int, host: string, reason: string}
      */
-    private function plusFinding(int $at, string $kind, int $column, int $hostIndex): array
+    private function plusFinding(int $at, string $kind, int $column, int $hostIndex, ?int $after = null): array
     {
         $count = count($this->lines);
         // The markers a chain claimed offer the block after them, so that block decides the reason.
-        $after = $at + 1;
+        $after ??= $at + 1;
         while (isset($this->claimedMarkers[$after])) {
             $after++;
         }
@@ -4453,8 +4453,10 @@ final class BlockOwnershipWalk
      */
     private function notePlusFinding(int $at, int $column, int $hostIndex, bool $claimed = false): ?array
     {
-        $finding = $this->plusFinding($at, 'note', $column, $hostIndex);
-        $next = $this->throughQuotes($this->lines[$at + 1] ?? '', $hostIndex, $this->frames);
+        // An invisible comment span between the `+` and its follower is stepped over.
+        $after = $this->firstVisibleLine($at + 1, $hostIndex, $column, $this->frames, refused: true);
+        $finding = $this->plusFinding($at, 'note', $column, $hostIndex, $after);
+        $next = $this->throughQuotes($this->lines[$after] ?? '', $hostIndex, $this->frames);
         if ($finding['reason'] !== 'sibling' || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($next['rest'] ?? '', " \t")) === 1) {
             return $finding;
         }
