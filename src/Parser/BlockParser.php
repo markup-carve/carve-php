@@ -3213,6 +3213,12 @@ class BlockParser
         // earlier by tryParseFencedComment) runs to end of line, not rendered.
         if (str_starts_with(ltrim($line, " \t"), '%%')) {
             $sourceLine = $this->sourceLineFor($start);
+            // The ownership walk stands in a losing footnote definition with
+            // an invisible line. It is no authored comment and registers no
+            // node, including when the winner still owns the next block.
+            if (isset($this->state->source->losingNoteLines[$sourceLine])) {
+                return 1;
+            }
             if (
                 isset($this->syntheticAbbreviationLines[$sourceLine])
                 || isset($this->state->session->discoveredAbbreviationLines[$sourceLine])
