@@ -425,14 +425,39 @@ final class LineBlockBuilder
         $lineEndings = [];
         $sourcePrefixes = [];
         $offsetInStanza = 0;
+        $unplacedFirstLine = null;
+        $respelledEnd = null;
         foreach ($lines as $index => [$line, $lineNumber]) {
             $authored = $this->state->source->authoredLines[$this->sourceLineFor($lineNumber)] ?? '';
             $content = ltrim($line, " \t");
             $found = $content === '' ? false : strrpos($authored, $content);
+            $lead = strlen($line) - strlen($content);
+            $unplacedLead = 0;
             if ($found !== false && !str_contains(substr($authored, 0, $found), "\t")) {
-                $sourcePrefixes[$lineNumber] = $found - (strlen($line) - strlen($content));
+                $sourcePrefixes[$lineNumber] = $found - $lead;
+            } elseif ($found !== false && !str_contains(substr($line, 0, $lead), "\t")) {
+                // A tabbed lead now spelled as spaces: each lead column takes one authored byte
+                // back from the content. A lead the walk respelled with too few bytes is placed
+                // nowhere (PART 12 §4); a container's partial tab strip keeps its own trim below.
+                $leadBytes = strlen(ContainerPrefix::stripQuoteMarkers(substr($authored, 0, $found)));
+                $respelled = isset($this->state->source->respelledVerseLines[$this->sourceLineFor($lineNumber)]);
+                if ($lead <= $leadBytes || $respelled) {
+                    $sourcePrefixes[$lineNumber] = $found - $lead;
+                    if ($index === $lastIndex) {
+                        $respelledEnd = [$lineNumber, $found + strlen(rtrim($content, " \t"))];
+                    }
+                }
+                if ($lead > $leadBytes && $respelled) {
+                    $unplacedLead = $lead;
+                    if ($index === 0) {
+                        $unplacedFirstLine = $lineNumber;
+                    }
+                }
             }
             [$expanded, $runs, $kept] = $this->callExpandLineBlockLine($line, $lineNumber);
+            if ($unplacedLead > 0) {
+                $runs = array_values(array_filter($runs, static fn (array $run): bool => $run[1] >= $unplacedLead));
+            }
             if (isset($verseComments[$index])) {
                 $expanded = '';
                 $runs = [];
@@ -485,8 +510,45 @@ final class LineBlockBuilder
         );
         $this->callConvertParagraphSoftBreaksToHardBreaks($paragraph, $lineEndings);
         $this->placeVerseComments($paragraph, $verseComments, $verseCommentSources);
+        $pos = $paragraph->getPos();
+        if ($pos !== null && ($unplacedFirstLine !== null || $respelledEnd !== null)) {
+            // A respelled verse line ends with its authored content; an unplaced lead starts where its containers end.
+            $start = $unplacedFirstLine === null ? null : $this->viewStartByte($this->sourceLineFor($unplacedFirstLine));
+            $endLine = $respelledEnd === null ? null : $this->sourceLineFor($respelledEnd[0]);
+            $paragraph->setPos(new SourceSpan(
+                $pos->startLine,
+                $pos->endLine,
+                $start === null ? $pos->startColumn : $start + 1,
+                $endLine === null ? $pos->endColumn
+                    : mb_strlen(substr($this->state->source->authoredLines[$endLine] ?? '', 0, $respelledEnd[1]), 'UTF-8') + 1,
+                $start === null ? $pos->startOffset : ($this->state->source->lineStartOffsets[$this->sourceLineFor($unplacedFirstLine)] ?? 0) + $start,
+                $endLine === null ? $pos->endOffset : ($this->state->source->lineStartOffsets[$endLine] ?? 0) + $respelledEnd[1],
+            ));
+        }
 
         $lineBlock->appendChild($paragraph);
+    }
+
+    /**
+     * The byte where a line's containers end, measured at the content column of the nearest earlier line that has one.
+     */
+    private function viewStartByte(int $sourceLine): int
+    {
+        $columns = $this->state->frame->currentContentColumns;
+        for ($k = $sourceLine; $k >= 0 && !isset($columns[$k]); $k--) {
+        }
+        $target = $columns[$k] ?? 0;
+        $line = $this->state->source->authoredLines[$sourceLine] ?? '';
+        $column = 0;
+        for ($i = 0, $n = strlen($line); $i < $n && $column < $target; $i++) {
+            $next = $line[$i] === "\t" ? $column + 4 - $column % 4 : $column + 1;
+            if ($next > $target) {
+                break;
+            }
+            $column = $next;
+        }
+
+        return $i;
     }
 
     /**

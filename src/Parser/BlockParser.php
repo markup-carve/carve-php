@@ -861,6 +861,7 @@ class BlockParser
         $this->state->source->attachedPreludeContentColumns = $walk->attachedPreludeContentColumns;
         $this->state->source->commentPayloadHostColumns = $walk->commentPayloadHostColumns;
         $this->state->source->lineBlockLazyLines = $walk->lineBlockLazyLines;
+        $this->state->source->respelledVerseLines = $walk->respelledVerseLines;
         $this->state->source->attachedFenceBlankEnds = $walk->attachedFenceBlankEnds;
         $this->state->source->attachedFenceMisses = $walk->attachedFenceMisses;
         $this->state->source->foldedFenceAfterAttachedBlank = $walk->foldedFenceAfterAttachedBlank;

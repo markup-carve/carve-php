@@ -133,6 +133,13 @@ final class BlockOwnershipWalk
     public array $lineBlockLazyLines = [];
 
     /**
+     * Verse lines whose tabbed lead the walk wrote as its per-frame spaces (carve#5885).
+     *
+     * @var array<int, true>
+     */
+    public array $respelledVerseLines = [];
+
+    /**
      * Blanks that end a `+` attached code fence with no closer (PART 9 §17 L3), keyed by line index.
      *
      * @var array<int, true>
@@ -548,6 +555,7 @@ final class BlockOwnershipWalk
         $this->skippedCommentLines = [];
         $this->commentColumnOwners = [];
         $this->lineBlockLazyLines = [];
+        $this->respelledVerseLines = [];
         $this->attachedFenceBlankEnds = [];
         $this->attachedFenceMisses = [];
         $this->foldedFenceAfterAttachedBlank = [];
@@ -1058,6 +1066,7 @@ final class BlockOwnershipWalk
                 $this->noteShiftedOpener($at, $shift);
                 $definitionMarker = $form->kind === 'term' || $form->kind === 'dd';
                 $this->recordPastColumnDescriptionLine($at, $segment, $shift, $o, $form);
+                $openerTabbed = str_contains(substr($this->src, 0, strlen($this->src) - strlen($this->m['rest'])), "\t");
                 $this->lead(
                     $this->frames[$o]->canon,
                     $definitionMarker,
@@ -1065,6 +1074,13 @@ final class BlockOwnershipWalk
                     definitionMarker: $definitionMarker && $this->frames[$o]->kind === 'dd',
                 );
                 $this->apply($o, $this->m['col'], $form, $this->frames[$o]->canon, inHost: !$leftLineBlockSpan);
+                if ($form->lineBlock) {
+                    // A kept tab run is measured by the reader itself; a rewritten one stands at the owner's column.
+                    $this->frames[count($this->frames) - 1]->openerFrameLead = $this->leadRewrote
+                        ? $this->m['col'] + $shift - $this->frames[$o]->canon
+                        : 0;
+                    $this->frames[count($this->frames) - 1]->openerTabbed = $openerTabbed;
+                }
                 $this->markAttachedFence($at, $o, $form, $plusFollower);
                 $this->recordRewrittenOpener($form, $shift);
                 // A marker opened on an off-stop tab run has its C5 columns that far right.
@@ -2441,6 +2457,23 @@ final class BlockOwnershipWalk
     {
         $payloadColumn = max($this->m['col'] - $inner->cut, $inner->canon);
         $frameColumn = $this->strippedColumn($this->src, $segment, $this->m);
+        $authored = substr($this->src, 0, strlen($this->src) - strlen($this->m['rest']));
+        if ($inner->lineBlock && !$shiftedCloser && ($inner->openerTabbed || str_contains($authored, "\t"))) {
+            // A verse lead is its per-frame column less the opener's; the opener is no frame (§23, carve#5885).
+            $target = max($frameColumn - ($inner->openerFrameLead ?? $inner->cut), $inner->canon);
+            $tabbed = str_contains($authored, "\t");
+            $from = $tabbed ? $frameColumn : $this->m['col'];
+            $col = min($target, $from);
+            // A tab run that already lands where the frames put it keeps its authored spelling.
+            $keep = $col === $this->m['col'] && $frameColumn === $this->m['col'];
+            $this->out .= $keep ? $authored : str_repeat(' ', $col);
+            if (!$keep && $tabbed) {
+                $this->respelledVerseLines[$this->at] = true;
+            }
+            $this->src = $this->m['rest'];
+
+            return;
+        }
         if ($frameColumn !== $this->m['col'] && ($inner->family !== 'code' || ($inner->openerTabShift ?? 0) > 0)) {
             // A structural tab can land at a different column after an enclosing
             // frame strips its prefix. Give the payload reader that frame's
