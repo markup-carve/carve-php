@@ -295,7 +295,7 @@ final class BlockParseSession
     public array $abbreviationSpans = [];
 
     /**
-     * @var array<string, array{lines: array<string>, lineMap: array<int, int>}>
+     * @var array<string, array{lines: array<string>, lineMap: array<int, int>, definitionLine?: int}>
      */
     public array $discoveredFootnoteBodies = [];
 

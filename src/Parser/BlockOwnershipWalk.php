@@ -256,6 +256,20 @@ final class BlockOwnershipWalk
     public array $refusedPlus = [];
 
     /**
+     * Refused `+` lines a note with a body keeps, each to the note's definition line (carve#5890).
+     *
+     * @var array<int, int>
+     */
+    public array $noteListBreaks = [];
+
+    /**
+     * The lines of `$noteListBreaks` whose next visible line is below the note's body column: the note ends there.
+     *
+     * @var array<int, true>
+     */
+    public array $noteEndsAtBreak = [];
+
+    /**
      * The lines of `$refusedPlus` whose `+` is written as the letter, keyed by line index.
      *
      * @var array<int, true>
@@ -552,6 +566,8 @@ final class BlockOwnershipWalk
         $this->commentCloserLines = [];
         $this->fenceBodyLines = [];
         $this->refusedPlus = [];
+        $this->noteListBreaks = [];
+        $this->noteEndsAtBreak = [];
         $this->letterPlus = [];
         $this->claimedMarkers = [];
         $this->overindented = [];
@@ -689,6 +705,12 @@ final class BlockOwnershipWalk
                 $this->refusedPlus[$at] = isset($this->claimedMarkers[$at])
                     ? $this->finding($at, $host->kind, 'claimed')
                     : $this->plusFinding($at, $host->kind, $column, $plus);
+                if ($host->kind === 'note' && $host->line !== null && $this->bodyBetween($host->line, $at)) {
+                    $this->noteListBreaks[$at] = $host->line;
+                    if (!$this->followerAtColumn($at, $host->col)) {
+                        $this->noteEndsAtBreak[$at] = true;
+                    }
+                }
                 $this->skipInvisible($plus, $at, $column, true);
                 if ($this->skipped !== null && !$keepMarkerColumn) {
                     $this->skipped['spanPad'] = self::spanPad($host);
@@ -3734,6 +3756,35 @@ final class BlockOwnershipWalk
         $pad = $keepMarkerColumn && !$keepsItem ? 0 : max(0, $host->canon - (int)$host->markerCanon);
 
         return str_repeat(' ', $pad) . ($keepsItem && $closer !== null ? $closer : '%%');
+    }
+
+    /**
+     * Whether the first visible line after `$at` reaches `$column` past its quote markers.
+     */
+    private function followerAtColumn(int $at, int $column): bool
+    {
+        for ($k = $at + 1; isset($this->lines[$k]); $k++) {
+            $body = ContainerPrefix::stripQuoteMarkers($this->lines[$k]);
+            if (trim($body) !== '') {
+                return IndentationHelper::getLeadingColumns($body) >= $column;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a visible line stands between two lines, so a note's marker-line `+` attached a block.
+     */
+    private function bodyBetween(int $from, int $to): bool
+    {
+        for ($k = $from + 1; $k < $to; $k++) {
+            if (trim(ContainerPrefix::stripQuoteMarkers($this->lines[$k])) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

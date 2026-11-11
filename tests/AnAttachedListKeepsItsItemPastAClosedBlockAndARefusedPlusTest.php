@@ -18,9 +18,10 @@ final class AnAttachedListKeepsItsItemPastAClosedBlockAndARefusedPlusTest extend
      */
     public static function examples(): iterable
     {
-        yield 'carve#5597: a sibling after a refused plus and a closed fence' => [
+        // carve#5890 ruling B replaces the carve#5597 reading: the refused `+` ends the note's list.
+        yield 'carve#5597: a sibling after a refused plus and a closed fence leaves the note' => [
             "[^a]: +\n- li\n  ```\n  x\n  ```\n+\n - sib\n\nsee[^a]\n",
-            "<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <ul>\n        <li>li\n          <pre><code>x\n</code></pre>\n        </li>\n        <li>sib</li>\n      </ul>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
+            "<ul>\n  <li>sib</li>\n</ul>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <ul>\n        <li>li\n          <pre><code>x\n</code></pre>\n        </li>\n      </ul>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
         ];
 
         yield 'carve#5598: an ordered sibling two columns in after a refused plus' => [
