@@ -50,9 +50,10 @@ final class AHostRefusedPlusEndsTheAttachedListTest extends TestCase
             "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>li\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>",
         ];
 
-        yield 'note: a sibling item after the fence stays in the list' => [
+        // carve#5890 ruling B: the refused `+` ends the note's list, so a marker below the body column is the root's.
+        yield 'note: a sibling item after the fence leaves the ended list' => [
             "[^a]: +\n- li\n  ```\n+\n - sib\n\nsee[^a]\n",
-            self::NOTE_HEAD . "      <ul>\n        <li>li\n          <pre><code></code></pre>\n        </li>\n        <li>sib</li>\n      </ul>\n"
+            "<ul>\n  <li>sib</li>\n</ul>\n" . self::NOTE_HEAD . "      <ul>\n        <li>li\n          <pre><code></code></pre>\n        </li>\n      </ul>\n"
                 . self::NOTE_TAIL,
         ];
 
@@ -67,9 +68,9 @@ final class AHostRefusedPlusEndsTheAttachedListTest extends TestCase
             "<blockquote>\n  <ul>\n    <li>li</li>\n  </ul>\n</blockquote>\n<p>p</p>",
         ];
 
-        yield 'note: a sibling item stays in the list' => [
+        yield 'note: a sibling item leaves the ended list' => [
             "[^a]: +\n- li\n+\n - sib\n\nsee[^a]\n",
-            self::NOTE_HEAD . "      <ul>\n        <li>li</li>\n        <li>sib</li>\n      </ul>\n" . self::NOTE_TAIL,
+            "<ul>\n  <li>sib</li>\n</ul>\n" . self::NOTE_HEAD . "      <ul>\n        <li>li</li>\n      </ul>\n" . self::NOTE_TAIL,
         ];
     }
 

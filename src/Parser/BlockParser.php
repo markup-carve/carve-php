@@ -871,6 +871,8 @@ class BlockParser
         $this->state->source->outerQuoteLines = $walk->outerQuoteLines;
         $this->state->source->frontmatter = $walk->frontmatter;
         $this->state->source->plusHosts = $walk->plusHosts;
+        $this->state->source->noteListBreaks = $walk->noteListBreaks;
+        $this->state->source->noteEndsAtBreak = $walk->noteEndsAtBreak;
         $this->state->source->refusedPlus = $walk->refusedPlus;
         $this->state->source->overindentedOpeners = $walk->overindented;
         // Spans are verified against the source text, so it spells a refused `+` as the readers see it.
@@ -1295,7 +1297,7 @@ class BlockParser
 
     /**
      * @param string $label
-     * @param array{lines: array<string>, lineMap: array<int, int>} $body
+     * @param array{lines: array<string>, lineMap: array<int, int>, definitionLine?: int} $body
      */
     private function parseDeferredFootnoteBody(string $label, array $body): void
     {
@@ -1314,7 +1316,9 @@ class BlockParser
         try {
             if (count($body['lines']) !== 1 || rtrim($body['lines'][0], " \t") !== '{empty}') {
                 // A marker body opens a list at its column 0 as an item does (PART 0 S3, carve#4860).
-                $this->parseBlocks($host, $body['lines'], 0, $body['lineMap'], itemBody: true);
+                foreach ($this->splitAtKeptRefusals($body) as [$lines, $lineMap]) {
+                    $this->parseBlocks($host, $lines, 0, $lineMap, itemBody: true);
+                }
             }
             if (!isset($session->footnotes[$label])) {
                 $session->warnings = $warnings;
@@ -1327,6 +1331,63 @@ class BlockParser
             $session->pendingAttributes = $outerPendingAttributes;
             $session->pendingAttributeOrder = $outerPendingAttributeOrder;
         }
+    }
+
+    /**
+     * Whether the note defined on line `$start` ends at this refused `+`, its follower below the body column (carve#5890).
+     */
+    private function noteEndsAt(int $sourceLine, int $start): bool
+    {
+        $source = $this->state->source;
+
+        return isset($source->noteEndsAtBreak[$sourceLine])
+            && ($source->noteListBreaks[$sourceLine] ?? null) === $this->sourceLineFor($start);
+    }
+
+    /**
+     * A refused `+` the note keeps ends the blocks above it: the body after it is read as a new run (carve#5890).
+     *
+     * @param array{lines: array<string>, lineMap: array<int, int>, definitionLine?: int} $body
+     *
+     * @return array<int, array{0: array<string>, 1: array<int, int>}>
+     */
+    private function splitAtKeptRefusals(array $body): array
+    {
+        $breaks = $this->state->source->noteListBreaks;
+        $definition = $body['definitionLine'] ?? null;
+        $runs = [];
+        $lines = [];
+        $lineMap = [];
+        foreach ($body['lines'] as $index => $line) {
+            $source = $body['lineMap'][$index] ?? null;
+            if ($definition === null || $source === null || ($breaks[$source] ?? null) !== $definition || $lines === []) {
+                $lines[] = $line;
+                $lineMap[] = $source ?? -1;
+
+                continue;
+            }
+            $runs[] = [$lines, $lineMap];
+            $lines = [];
+            $lineMap = [];
+        }
+        $runs[] = [$lines, $lineMap];
+        foreach ($runs as $k => [$runLines]) {
+            if ($k === 0) {
+                continue;
+            }
+            $indent = PHP_INT_MAX;
+            foreach ($runLines as $line) {
+                if (!IndentationHelper::isBlankLine($line)) {
+                    $indent = min($indent, IndentationHelper::getLeadingColumns($line));
+                }
+            }
+            if ($indent !== PHP_INT_MAX && $indent > 0) {
+                $pad = str_repeat(' ', $indent);
+                $runs[$k][0] = array_map(static fn (string $line): string => str_starts_with($line, $pad) ? substr($line, $indent) : $line, $runLines);
+            }
+        }
+
+        return $runs;
     }
 
     private function resolveForwardReferences(Node $node, int $depth = 0): void
@@ -3861,6 +3922,11 @@ class BlockParser
                 $bodyLineMap = [];
                 foreach ($attachedLineMap as $offset => $raw) {
                     $sourceLine = $this->sourceLineFor($raw);
+                    if ($this->noteEndsAt($sourceLine, $start)) {
+                        $end = $raw;
+
+                        break;
+                    }
                     if (
                         isset($this->state->source->attachedPreludeLines[$sourceLine])
                         && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, $attached[$offset], $prelude) === 1
@@ -3909,6 +3975,13 @@ class BlockParser
             ) as $admission
         ) {
             $nextLine = $admission['line'];
+            if ($this->noteEndsAt($this->sourceLineFor($i), $start)) {
+                $bodyLines[] = $nextLine;
+                $bodyLineMap[] = $this->sourceLineFor($i);
+                $i++;
+
+                break;
+            }
             if (IndentationHelper::isBlankLine($nextLine)) {
                 if (isset($this->state->source->attachedFenceBlankEnds[$this->sourceLineFor($i)])) {
                     $closer = $trailingState->attachmentCloser();
@@ -4198,6 +4271,7 @@ class BlockParser
             $this->state->session->discoveredFootnoteBodies[$key] = [
                 'lines' => $bodyLines,
                 'lineMap' => $bodyLineMap,
+                'definitionLine' => $sourceLine,
             ];
         } elseif ($this->state->session->discoveringDefinitions && array_key_exists($key, $this->state->session->footnotes)) {
             $bodyLines = $this->footnoteBodyDefinitionReach(

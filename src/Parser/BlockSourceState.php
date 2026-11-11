@@ -207,6 +207,20 @@ final class BlockSourceState
     public array $plusHosts = [];
 
     /**
+     * Refused `+` lines a note with a body keeps, each to the note's definition line: its body ends a block run there (carve#5890).
+     *
+     * @var array<int, int>
+     */
+    public array $noteListBreaks = [];
+
+    /**
+     * The lines of `$noteListBreaks` past which the note takes no line.
+     *
+     * @var array<int, true>
+     */
+    public array $noteEndsAtBreak = [];
+
+    /**
      * The lint finding of every lone `+` the ownership walk refused, by line index.
      *
      * @var array<int, array{line: int, column: int, host: string, reason: string}|null>

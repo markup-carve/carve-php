@@ -18,7 +18,7 @@ final class DocumentDefinitionPass
      * @param \MarkupCarve\Carve\Parser\BlockParserState $state
      * @param \Closure(array<string>, array<int, true>, bool): array<string> $rebaseItemBlocks
      * @param \Closure(array<string>): array<string> $definitionReach
-     * @param \Closure(string, array{lines: array<string>, lineMap: array<int, int>}): void $parseFootnoteBody
+     * @param \Closure(string, array{lines: array<string>, lineMap: array<int, int>, definitionLine?: int}): void $parseFootnoteBody
      * @param \Closure(\MarkupCarve\Carve\Node\Node): void $resolveReferences
      * @param \Closure(\MarkupCarve\Carve\Node\Document): void $settleCaptions
      * @param \Closure(string): bool $hasFootnote
