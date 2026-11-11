@@ -387,7 +387,7 @@ class BlockParser
         $source = $this->state->source->authoredLines[$line] ?? $this->state->source->sourceLines[$line] ?? '';
         $column = strpos($source, $marker);
         $endLine = $end > $start ? $this->sourceLineFor($end - 1) + 2 : $line + 2;
-        $next = $this->state->source->sourceLines[$endLine - 1] ?? null;
+        $next = $this->state->source->authoredLines[$endLine - 1] ?? $this->state->source->sourceLines[$endLine - 1] ?? null;
         if ($next === '' && $endLine - 1 === array_key_last($this->state->source->sourceLines)) {
             $next = null;
         }
