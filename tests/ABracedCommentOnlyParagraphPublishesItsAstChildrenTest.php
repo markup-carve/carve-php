@@ -20,7 +20,7 @@ final class ABracedCommentOnlyParagraphPublishesItsAstChildrenTest extends TestC
         yield 'note marker, row 1055' => ["x[^n]\n\n[^n]: {% a\n     b\n     z %}\n    {.x}\nplain\n", ['footnote'], ["a\nb\nz"]];
         yield 'outer quote and item marker, row 1056' => ["  > - {% a\n>    b %}\n", ['block_quote', 'list', 'list_item'], ["a\nb"]];
         yield 'top-level comment' => ["{% a\n b\n z %}\n", [], ["a\nb\nz"]];
-        yield 'two comments in one invisible paragraph' => ["- {% a %} {% b %}\n", ['list', 'list_item'], ['a', 'b']];
+        yield 'two comments beside a multi-line run' => ["- {% a\n   b %} {% c %}\n", ['list', 'list_item'], ["a\nb", 'c']];
     }
 
     /**

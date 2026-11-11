@@ -2000,15 +2000,21 @@ class AstCodec
 
         $children = $node->getChildren();
         // HTML treats a braced-comment-only paragraph as an invisible line.
-        // Its comments still belong to the AST. Publish them at the containing
-        // block level without publishing an empty paragraph to an ingesting engine.
+        // A multi-line run still belongs to the AST. Publish its comments at
+        // the containing block level without publishing an empty paragraph.
         $published = [];
         foreach ($children as $child) {
             if ($child instanceof Paragraph && $child->rendersNothing()) {
+                $comments = [];
+                $hasMultilineRun = false;
                 foreach ($child->getChildren() as $inline) {
                     if ($inline instanceof Comment) {
-                        $published[] = $inline;
+                        $comments[] = $inline;
+                        $hasMultilineRun = $hasMultilineRun || $inline->isDelimited() && str_contains($inline->getContent(), "\n");
                     }
+                }
+                if ($hasMultilineRun) {
+                    array_push($published, ...$comments);
                 }
 
                 continue;
