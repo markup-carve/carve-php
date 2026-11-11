@@ -350,7 +350,7 @@ final class BlockSourceMapper
             // A refused `+` is stood in by a synthetic comment that is removed
             // later. After a placed child it adds no owned source (CARVE-P12-014);
             // an otherwise empty container still spans it as its own markup.
-            if ($child instanceof Comment && in_array($child, $this->state->session->consumedPlusComments, true)) {
+            if ($child instanceof Comment && isset($this->state->session->consumedPlusComments[spl_object_id($child)])) {
                 $refusedPlus[] = $child->getPos();
 
                 continue;

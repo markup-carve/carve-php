@@ -4336,8 +4336,8 @@ final class ListBlockBuilder
      */
     private function itemSpan(array $lineMap, int $markerLine, int $openingColumn): ?SourceSpan
     {
-        $first = $lineMap[array_key_first($lineMap)] ?? null;
-        if ($first !== null && $first > $markerLine) {
+        $firstKey = array_key_first($lineMap);
+        if ($firstKey !== null && $lineMap[$firstKey] > $markerLine) {
             $lineMap = [$markerLine, ...$lineMap];
         }
 
