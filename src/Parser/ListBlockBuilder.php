@@ -795,7 +795,9 @@ final class ListBlockBuilder
                 && $markerColumn <= $listOpeningColumn
                 && !str_contains($prefix, '>')
                 ? 0
-                : ($parent instanceof ListItem ? $listOpeningColumn : $this->resolveMarkerColumn($sourceLine, $itemLine));
+                : ($parent instanceof ListItem
+                    ? $this->listOpeningColumn($parent, $sourceLine, $itemLine) ?? $listOpeningColumn
+                    : $this->laterItemOpening($parent, $sourceLine, $itemLine));
             if ($parent instanceof Footnote && $footnoteOwnerColumn !== null) {
                 $authoredLine = $this->state->source->authoredLines[$sourceLine] ?? '';
                 $authoredMarker = ltrim($itemLine, " \t");
@@ -4281,6 +4283,9 @@ final class ListBlockBuilder
     private function listOpeningColumn(Node $parent, int $sourceLine, string $line): ?int
     {
         $opening = $parent instanceof Document ? 0 : $this->resolveMarkerColumn($sourceLine, $line);
+        if ($opening !== null && !$parent instanceof Document && !$parent instanceof ListItem) {
+            $opening = $this->authoredListOpening($sourceLine, $line, $opening, $parent instanceof BlockQuote);
+        }
         if (!$parent instanceof ListItem || $opening === null || $parent->getPos() === null) {
             return $opening;
         }
@@ -4305,6 +4310,36 @@ final class ListBlockBuilder
         }
 
         return $this->openingByteColumnAtVisual($nestedLine, $contentColumn, $markerColumn);
+    }
+
+    private function laterItemOpening(Node $parent, int $sourceLine, string $itemLine): ?int
+    {
+        $opening = $this->resolveMarkerColumn($sourceLine, $itemLine);
+
+        return $opening === null ? null : $this->authoredListOpening($sourceLine, $itemLine, $opening, $parent instanceof BlockQuote);
+    }
+
+    /**
+     * The opening column on the AUTHORED line. A stream line can drop leading
+     * bytes the authored line keeps, and the parent's own indentation inside the
+     * list's line belongs to the list's span down to the parent's content column
+     * (CARVE-P12-013, carve#5063).
+     */
+    private function authoredListOpening(int $sourceLine, string $line, int $opening, bool $quoted): int
+    {
+        $source = $this->state->source->sourceLines[$sourceLine] ?? '';
+        $authored = $this->state->source->authoredLines[$sourceLine] ?? $source;
+        // A quote's own indentation the stream dropped before its `>`.
+        $shift = $quoted && str_starts_with($source, '>') && strlen($authored) > strlen($source) && str_ends_with($authored, $source)
+            ? strlen($authored) - strlen($source)
+            : 0;
+        $indent = strspn($line, " \t");
+        $content = $this->state->frame->currentContentColumns[$sourceLine] ?? null;
+        if ($indent > 0 && $content !== null && strcspn($line, "\t", 0, $indent) === $indent && $opening - $indent >= $content) {
+            $opening -= $indent;
+        }
+
+        return $opening + $shift;
     }
 
     private function visualColumnAtByte(string $line, int $endByte): int
