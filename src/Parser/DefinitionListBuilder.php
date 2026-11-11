@@ -934,6 +934,8 @@ final class DefinitionListBuilder
                 && !($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($l->contLine, $b->commentSpan->openComment)
                 // The walk folded it into the line block, so it ends only the span (carve#4956).
                 && !isset($this->state->source->lineBlockLazyLines[$this->sourceLineFor($b->i)])
+                // A span a deeper host's line already ended is no longer open, so the walk's lazy line folds (carve#5886).
+                && !isset($this->state->source->lazyLines[$this->sourceLineFor($b->i)])
             ) {
                 return false;
             }

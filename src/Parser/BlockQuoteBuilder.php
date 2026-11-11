@@ -2232,6 +2232,13 @@ final class BlockQuoteBuilder
                 // A span opened in an item of the quote is that item's: an unmarked line misses the quote first (PART 0 S1).
                 $hostColumns = $state['hosts']['columns'] ?? [0];
                 $state['commentHosted'] = count($hostColumns) > 1 && IndentationHelper::getLeadingColumns($content) >= end($hostColumns);
+                // So is a span in a description body or its lead note: a line left of that body ends it.
+                $column = IndentationHelper::getLeadingColumns($content);
+                $noteFloor = $state['hosts']['descriptionNoteFloor'] ?? null;
+                $owner = $noteFloor !== null && $column >= $noteFloor ? $noteFloor : ($state['hosts']['descriptionColumn'] ?? null);
+                if ($owner !== null && $column >= $owner) {
+                    $this->leadSpan = ['lines' => count($sourceLines), 'index' => $sourceIndex, 'owner' => $owner];
+                }
                 $state['paragraphOpen'] = false;
 
                 return;
