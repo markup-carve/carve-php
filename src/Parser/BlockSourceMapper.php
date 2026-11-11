@@ -334,6 +334,7 @@ final class BlockSourceMapper
         }
         $first = null;
         $last = null;
+        $refusedPlus = [];
         foreach ($node->getChildren() as $child) {
             // The AST omits comment-only paragraphs, so they cannot extend a
             // container whose extent is defined by its placed children. A
@@ -346,14 +347,12 @@ final class BlockSourceMapper
 
                 continue;
             }
-            // A later standalone continuation marker can be represented by a
-            // synthetic comment while layout decides its owner. It is not an
-            // item child when it lies beyond the item's collected extent.
-            if (
-                $node instanceof ListItem && $child instanceof Comment
-                && in_array($child, $this->state->session->consumedPlusComments, true)
-                && $node->getPos() !== null && $child->getPos()?->endOffset > $node->getPos()->endOffset
-            ) {
+            // A refused `+` is stood in by a synthetic comment that is removed
+            // later. After a placed child it adds no owned source (CARVE-P12-014);
+            // an otherwise empty container still spans it as its own markup.
+            if ($child instanceof Comment && isset($this->state->session->consumedPlusComments[spl_object_id($child)])) {
+                $refusedPlus[] = $child->getPos();
+
                 continue;
             }
             $span = $this->deriveContainerSpans($child);
@@ -365,6 +364,19 @@ final class BlockSourceMapper
             }
             if ($last === null || $span->endOffset > $last->endOffset) {
                 $last = $span;
+            }
+        }
+        if ($last === null) {
+            foreach ($refusedPlus as $span) {
+                if ($span === null) {
+                    continue;
+                }
+                if ($first === null || $span->startOffset < $first->startOffset) {
+                    $first = $span;
+                }
+                if ($last === null || $span->endOffset > $last->endOffset) {
+                    $last = $span;
+                }
             }
         }
         if ($node instanceof DefinitionList) {
@@ -748,6 +760,12 @@ final class BlockSourceMapper
     ): void {
         if (!$this->state->source->trackPositions || isset($this->state->session->footnoteDefinitionSpans[$label])) {
             return;
+        }
+        // A stream line the walk re-indented (after a losing `+` note) is not
+        // the line as written; the authored one is, when it holds the same text.
+        $authored = $this->state->source->authoredLines[$index] ?? null;
+        if ($authored !== null && strlen($authored) < strlen($raw) && str_ends_with($authored, $bare)) {
+            $raw = $authored;
         }
         // Every caller strips from the FRONT, so this holds; a caller that ever
         // stopped doing so would record nothing rather than a wrong column,
@@ -1545,6 +1563,13 @@ final class BlockSourceMapper
         $endLine = max($endLine, $ownedEnd ?? $endLine);
         if ($node->getPos() !== null) {
             return;
+        }
+        // A refused `+` that ends an unclosed fence adds no owned source (CARVE-P12-014).
+        if ($node instanceof CodeBlock || $node instanceof RawBlock) {
+            while ($endLine > $startLine && array_key_exists($endLine, $this->state->source->refusedPlus)) {
+                $endLine--;
+                $ownedEnd = null;
+            }
         }
 
         // A trailing blank line is normally spacing after the block, not part of

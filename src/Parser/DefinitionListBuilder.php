@@ -2952,7 +2952,7 @@ final class DefinitionListBuilder
         $ddPos = $this->wholeLinesSpan(
             $b->definitionStart,
             $b->definitionStart,
-            $this->state->frame->currentContentColumns[$definitionSource] ?? 0,
+            max($this->state->frame->currentContentColumns[$definitionSource] ?? 0, $this->descriptionMarkerColumn($definitionSource)),
         );
         $ddChildren = $dd->getChildren();
         $lastChildPos = $ddChildren === [] ? null : $ddChildren[count($ddChildren) - 1]->getPos();
@@ -2997,6 +2997,18 @@ final class DefinitionListBuilder
             $dd->setPos($this->wholeLineSpan($b->definitionStart));
         }
         $dl->appendChild($dd);
+    }
+
+    /**
+     * Where a description's `:` sits on its authored line, past any container
+     * prefix. A line re-read after a `+` can record no content column, or 0,
+     * and the description must not start inside its parent's prefix (CARVE-P12-013).
+     */
+    private function descriptionMarkerColumn(int $sourceLine): int
+    {
+        $authored = $this->state->source->authoredLines[$sourceLine] ?? '';
+
+        return preg_match('/^(?:[ \t]*>[ ]?)*[ \t]*(?=:)/', $authored, $prefix) === 1 ? strlen($prefix[0]) : 0;
     }
 
     /**

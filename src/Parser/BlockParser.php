@@ -3261,7 +3261,7 @@ class BlockParser
             $comment = new Comment(rtrim($content, " \t"));
             $sourceLine = $this->sourceLineFor($start);
             if ($content === '' && array_key_exists($sourceLine, $this->state->source->refusedPlus)) {
-                $this->state->session->consumedPlusComments[] = $comment;
+                $this->state->session->consumedPlusComments[spl_object_id($comment)] = $comment;
             }
             $sourceText = $this->state->source->authoredLines[$sourceLine] ?? '';
             // A comment is a LEAF, so its span begins at the `%` markup, not in
