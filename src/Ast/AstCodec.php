@@ -2014,7 +2014,9 @@ class AstCodec
                     }
                 }
                 if ($hasMultilineRun) {
-                    array_push($published, ...$comments);
+                    // Separate block siblings lose the inline spacing between
+                    // comments on a JSON writer roundtrip.
+                    $published[] = count($comments) === 1 ? $comments[0] : $child;
                 }
 
                 continue;

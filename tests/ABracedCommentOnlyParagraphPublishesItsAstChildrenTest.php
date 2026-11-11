@@ -20,7 +20,6 @@ final class ABracedCommentOnlyParagraphPublishesItsAstChildrenTest extends TestC
         yield 'note marker, row 1055' => ["x[^n]\n\n[^n]: {% a\n     b\n     z %}\n    {.x}\nplain\n", ['footnote'], ["a\nb\nz"]];
         yield 'outer quote and item marker, row 1056' => ["  > - {% a\n>    b %}\n", ['block_quote', 'list', 'list_item'], ["a\nb"]];
         yield 'top-level comment' => ["{% a\n b\n z %}\n", [], ["a\nb\nz"]];
-        yield 'two comments beside a multi-line run' => ["- {% a\n   b %} {% c %}\n", ['list', 'list_item'], ["a\nb", 'c']];
     }
 
     /**
@@ -55,5 +54,17 @@ final class ABracedCommentOnlyParagraphPublishesItsAstChildrenTest extends TestC
             self::assertSame('braced', $comment['form']);
             self::assertTrue($comment['delimited']);
         }
+    }
+
+    public function testAnInlineSiblingKeepsItsSharedParagraphOnTheAstWire(): void
+    {
+        $source = "- {% a\n   b %} {% c %}\n";
+        $codec = new AstCodec();
+        $ast = $codec->encode((new CarveConverter())->parse($source));
+        $paragraph = $ast['children'][0]['items'][0]['children'][0];
+
+        self::assertSame('paragraph', $paragraph['type']);
+        self::assertSame(['comment', 'text', 'comment'], array_column($paragraph['children'], 'type'));
+        self::assertSame($source, CarveConverter::carve()->render($codec->decode($ast)));
     }
 }
