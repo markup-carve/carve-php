@@ -4987,7 +4987,7 @@ class BlockParser
             }
             $prefix = str_replace('> ', '', $prefix);
             if ($quotedOpener) {
-                $prefix = (string)preg_replace('/^(?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)+/', '', $prefix);
+                $prefix = (string)preg_replace('/^[ \t]*(?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)+/', '', $prefix);
             }
             $column = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
             if ($at === $start && preg_match('/\[\^[^\]]+\]:[ \t]+$/D', $prefix, $marker, PREG_OFFSET_CAPTURE) === 1) {
