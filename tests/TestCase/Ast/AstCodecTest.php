@@ -428,26 +428,14 @@ class AstCodecTest extends TestCase
      * @var array<string>
      */
     private const AUTHORED_FORM_NOT_ON_THE_WIRE = [
-        // Invisible comment-only paragraphs are omitted from the wire (carve#4799).
-        '1046-a-quoted-marker-comment-keeps-source-columns.crv',
-        '1055-a-note-marker-comment-run-uses-its-body-column.crv',
-        '1056-a-comment-continuation-past-the-brace-after-an-outer-quote-prefix-is-hidden.crv',
+        // These still lose authored form after their invisible paragraph is omitted (carve#4799).
         '1063-a-block-shaped-line-inside-a-comment-run-keeps-the-item-tight-2.crv',
         '1063-a-block-shaped-line-inside-a-comment-run-keeps-the-item-tight-3.crv',
         '1063-a-block-shaped-line-inside-a-comment-run-keeps-the-item-tight.crv',
-        '1066-a-comment-only-braced-paragraph-after-a-blank-closes-the-item-it-misses-2.crv',
-        '1066-a-comment-only-braced-paragraph-after-a-blank-closes-the-item-it-misses-3.crv',
-        '1066-a-comment-only-braced-paragraph-after-a-blank-closes-the-item-it-misses.crv',
         '1068-a-comment-only-paragraph-loosens-a-list-as-a-comment-line-does-2.crv',
         '1068-a-comment-only-paragraph-loosens-a-list-as-a-comment-line-does-3.crv',
         '1068-a-comment-only-paragraph-loosens-a-list-as-a-comment-line-does.crv',
-        '869-a-braced-comment-line-after-a-plus-is-the-attached-paragraph.crv',
-        '926-a-quote-holding-only-braced-comments-is-not-a-caption-host.crv',
-        '928-a-multi-line-paragraph-of-only-braced-comments-is-an-invisible-line.crv',
         '931-a-trailing-comment-in-a-comment-only-paragraph-ends-at-its-line-3.crv',
-        '933-a-list-marker-in-an-item-ends-a-comment-only-paragraph-2.crv',
-        '933-a-list-marker-in-an-item-ends-a-comment-only-paragraph-3.crv',
-        '933-a-list-marker-in-an-item-ends-a-comment-only-paragraph.crv',
     ];
 
     /**
