@@ -142,7 +142,7 @@ final class FenceAndContinuationLinter
             $following = match ($marker['reason']) {
                 'blank' => 'a blank line',
                 'document' => 'the end of the document',
-                'sibling' => 'a sibling list item',
+                'sibling' => $marker['host'] === 'footnote body' ? 'a sibling footnote definition' : 'a sibling list item',
                 'closer' => 'the closer of an open div',
                 'left' => 'a block left of its column',
                 'right' => 'a block right of its column',

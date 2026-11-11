@@ -372,7 +372,7 @@ class BlockParser
      */
     public function getRefusedContinuationMarkers(): array
     {
-        return array_values(array_filter($this->state->source->refusedPlus));
+        return array_values(array_filter($this->state->source->refusedPlus) + array_filter($this->state->source->refusedNotePlus));
     }
 
     private function isRefusedPlusLine(int $sourceLine): bool
@@ -882,6 +882,7 @@ class BlockParser
         $this->state->source->noteListBreaks = $walk->noteListBreaks;
         $this->state->source->noteEndsAtBreak = $walk->noteEndsAtBreak;
         $this->state->source->refusedPlus = $walk->refusedPlus;
+        $this->state->source->refusedNotePlus = $walk->refusedNotePlus;
         $this->state->source->overindentedOpeners = $walk->overindented;
         // Spans are verified against the source text, so it spells a refused `+` as the readers see it.
         $authoredSource = $this->state->source->originalSource;

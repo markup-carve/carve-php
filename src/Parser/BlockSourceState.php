@@ -242,6 +242,13 @@ final class BlockSourceState
     public array $refusedPlus = [];
 
     /**
+     * Refused marker-line `+` of footnote definitions the walk passes over, by line index.
+     *
+     * @var array<int, array{line: int, column: int, host: string, reason: string}|null>
+     */
+    public array $refusedNotePlus = [];
+
+    /**
      * Every block opener the ownership walk read past a non-item owner's content column.
      *
      * @var array<int, array{line: int, column: int, kind: string, owner: string, contentColumn: int, authoredColumn: int}>
