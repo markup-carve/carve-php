@@ -5015,7 +5015,6 @@ class BlockParser
                 // A marker-line run can be split across pre-joined parts by a
                 // description or note reader. Check its physical lines as one run.
                 $limit = $walkKept || $markerLineRun || $markerCommentEnd !== null || $lazyOpener ? count($physicalLines) : $physical + $width;
-                $probe = $physicalLines;
                 if ($lazyOpener) {
                     $hostColumn = $contentLines[$k - 1][1] ?? 0;
                     if ($hostColumn === 0 && $k > 0) {
@@ -5047,27 +5046,48 @@ class BlockParser
                             }
                         }
                     }
-                    for ($j = $k; $j < $limit; $j++) {
-                        $partSource = $contentLines[$j][0] ?? $sourceLine + $j - $k;
-                        $text = ltrim($physicalLines[$j], " \t");
-                        $authored = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$partSource] ?? '');
-                        if (str_ends_with($authored, $text)) {
-                            $prefix = substr($authored, 0, strlen($authored) - strlen($text));
-                            $sourceColumn = IndentationHelper::getLeadingColumns($prefix . 'x');
-                            $probe[$j] = str_repeat(' ', $sourceColumn) . $text;
-                            if ($j > $k && $sourceColumn < $hostColumn) {
-                                $probe[$j] = BlockGrammar::LAZY_FRAME . $probe[$j];
+                    // Rewrite only a window from the opener and widen it while the
+                    // run reaches past it, so each opener costs its own run (carve#5911).
+                    $end = null;
+                    $built = $k;
+                    $window = [];
+                    for ($size = 8;; $size *= 2) {
+                        $to = min($limit, $k + $size);
+                        for ($j = $built; $j < $to; $j++) {
+                            $partSource = $contentLines[$j][0] ?? $sourceLine + $j - $k;
+                            $text = ltrim($physicalLines[$j], " \t");
+                            $line = $physicalLines[$j];
+                            $authored = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$partSource] ?? '');
+                            if (str_ends_with($authored, $text)) {
+                                $prefix = substr($authored, 0, strlen($authored) - strlen($text));
+                                $sourceColumn = IndentationHelper::getLeadingColumns($prefix . 'x');
+                                $line = str_repeat(' ', $sourceColumn) . $text;
+                                if ($j > $k && $sourceColumn < $hostColumn) {
+                                    $line = BlockGrammar::LAZY_FRAME . $line;
+                                }
                             }
+                            if ($j > $k && isset($this->state->source->lazyLines[$partSource])) {
+                                $line = BlockGrammar::LAZY_FRAME . $line;
+                            }
+                            if ($j === $k + 1 && $sawItemMarker && $openerColumn !== $markerColumn) {
+                                $line = BlockGrammar::LAZY_FRAME . $line;
+                            }
+                            $window[] = $line;
                         }
-                        if ($j > $k && isset($this->state->source->lazyLines[$partSource])) {
-                            $probe[$j] = BlockGrammar::LAZY_FRAME . $probe[$j];
+                        $built = $to;
+                        if ($to === $limit && $k + 1 >= $limit && $sawItemMarker && $openerColumn !== $markerColumn) {
+                            $window[1] = BlockGrammar::LAZY_FRAME;
+                        }
+                        $windowEnd = RefusedBraceRun::end($window, 0, $this->inlineParser, null, $to < $limit);
+                        if ($windowEnd !== -1) {
+                            $end = $windowEnd === null ? null : $k + $windowEnd;
+
+                            break;
                         }
                     }
-                    if ($sawItemMarker && $openerColumn !== $markerColumn) {
-                        $probe[$k + 1] = BlockGrammar::LAZY_FRAME . $probe[$k + 1];
-                    }
+                } else {
+                    $end = RefusedBraceRun::end($physicalLines, $k, $this->inlineParser, $limit);
                 }
-                $end = RefusedBraceRun::end($probe, $k, $this->inlineParser, $limit);
                 if ($markerCommentEnd !== null && $end !== $k + $markerCommentEnd) {
                     $end = null;
                 }
