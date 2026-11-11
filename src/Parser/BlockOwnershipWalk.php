@@ -3428,13 +3428,33 @@ final class BlockOwnershipWalk
                 }
                 $labels[$key] = true;
                 $k++;
-                while (
-                    $k < $n && $quoted($k) && $this->foldsAsPlainText(rtrim($view($k), " \t"))
-                    && (!str_starts_with(ltrim($view($k), " \t"), '{')
-                        || $this->skippedWrappedAttributeLength($k, $hostIndex, $frames) === null)
-                    && (!$offered || self::docColumn($this->lines[$k], $view($k)) !== $column)
-                ) {
+                // An attribute line at the note's body column is the note's (§15 A4) and ends its paragraph (§15 A1).
+                $open = true;
+                while ($k < $n && $quoted($k) && (!$offered || self::docColumn($this->lines[$k], $view($k)) !== $column)) {
+                    $inBody = self::docColumn($this->lines[$k], $view($k)) >= $at + BlockGrammar::FOOTNOTE_BODY_COLUMN;
+                    if (!$inBody && !$open) {
+                        break;
+                    }
+                    $line = rtrim($view($k), " \t");
+                    if ($inBody && str_starts_with(ltrim($line, " \t"), '{')) {
+                        $length = ($this->isAttributeLine)(ltrim($line, " \t"))
+                            ? 1
+                            : $this->skippedWrappedAttributeLength($k, $hostIndex, $frames);
+                        if ($length !== null) {
+                            $k += $length;
+                            $open = false;
+
+                            continue;
+                        }
+                    }
+                    if (
+                        !$this->foldsAsPlainText($line)
+                        || (str_starts_with(ltrim($line, " \t"), '{') && $this->skippedWrappedAttributeLength($k, $hostIndex, $frames) !== null)
+                    ) {
+                        break;
+                    }
                     $noteBodies[$k] = true;
+                    $open = true;
                     $k++;
                 }
             } elseif (
