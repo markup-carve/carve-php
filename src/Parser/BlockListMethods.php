@@ -1592,7 +1592,16 @@ trait BlockListMethods
         }
 
         $probe = [$first];
-        $depth = count(ContainerPrefix::quoteStages(ltrim($this->state->source->sourceLines[$this->sourceLineFor($index - 1)] ?? '', " \t")));
+        $opener = $this->state->source->sourceLines[$this->sourceLineFor($index - 1)] ?? '';
+        $depth = count(ContainerPrefix::quoteStages(ltrim($opener, " \t")));
+        $written = ContainerPrefix::stripQuoteMarkers($opener);
+        $marker = $this->listParser->parseListItemMarker(ltrim($written, " \t"));
+        if ($marker !== null && $marker['content'] === $first && str_ends_with($written, $first)) {
+            // A glued attribute or task box adds no item-content width, but
+            // the brace after it still occupies its written source column.
+            $brace = strlen($written) - strlen($first);
+            $contentIndent += max(0, WrappedBlockAttributeScanner::columnAt($written, $brace) - $contentIndent);
+        }
         for ($i = $index; $i < $count; $i++) {
             $line = $lines[$i];
             if (IndentationHelper::isBlankLine($line)) {

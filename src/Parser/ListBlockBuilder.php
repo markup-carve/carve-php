@@ -1545,7 +1545,7 @@ final class ListBlockBuilder
             $leadNestedColumn = $leadMarker === null
                 ? null
                 : $this->listMarkerWidth(ltrim($itemContent, " \t"), $leadMarker);
-            $itemLines = $this->keepTaskBoxBeforeBraceRun($itemLines, $markerHead, $trimmedLine, $itemInfo);
+            $itemLines = $this->keepMarkerPrefixBeforeBraceRun($itemLines, $markerHead, $trimmedLine, $itemInfo);
             $this->callParseItemBlocks(
                 $listItem,
                 $itemLines,
@@ -3714,9 +3714,11 @@ final class ListBlockBuilder
     }
 
     /**
-     * A marker-line brace run after a task box opens at its `{` source column, past the box (CARVE-P2-035, CARVE-P9-083).
+     * A marker-line brace run opens at its written `{` source column, past
+     * glued attributes or a task box (CARVE-P2-035, CARVE-P9-083).
      *
-     * The body reads the lead at column 0, so the run's continuations lose the box's width.
+     * The body reads the lead at column 0, so its continuations must be
+     * rebased by the marker material removed before that lead.
      *
      * @param array<string> $itemLines
      * @param string $markerHead
@@ -3725,25 +3727,28 @@ final class ListBlockBuilder
      *
      * @return array<string>
      */
-    private function keepTaskBoxBeforeBraceRun(array $itemLines, string $markerHead, string $trimmedLine, array $itemInfo): array
+    private function keepMarkerPrefixBeforeBraceRun(array $itemLines, string $markerHead, string $trimmedLine, array $itemInfo): array
     {
         $lead = $itemLines[0] ?? '';
         if (
-            ($itemInfo['taskMarker'] ?? null) === null || count($itemLines) < 2
+            count($itemLines) < 2
             || !str_starts_with($lead, '{') || str_starts_with($lead, '{%') || str_contains($markerHead, "\t")
         ) {
             return $itemLines;
         }
-        $boxWidth = strlen($markerHead) - $this->listMarkerWidth($trimmedLine, $itemInfo);
+        $prefixWidth = strlen($markerHead) - $this->listMarkerWidth($trimmedLine, $itemInfo);
+        if ($prefixWidth <= 0) {
+            return $itemLines;
+        }
         $count = count($itemLines);
         for ($at = 1; $at < $count && WrappedBlockAttributeScanner::endsInsideBlock($itemLines[$at - 1], $at > 1); $at++) {
             $line = $itemLines[$at];
             if (IndentationHelper::isBlankLine($line) || str_contains($line, "\n") || str_starts_with($line, BlockGrammar::LAZY_FRAME)) {
                 break;
             }
-            $itemLines[$at] = IndentationHelper::getLeadingColumns($line, $boxWidth) < $boxWidth
+            $itemLines[$at] = IndentationHelper::getLeadingColumns($line, $prefixWidth) < $prefixWidth
                 ? ltrim($line, " \t")
-                : IndentationHelper::stripLeadingColumns($line, $boxWidth);
+                : IndentationHelper::stripLeadingColumns($line, $prefixWidth);
         }
 
         return $itemLines;
