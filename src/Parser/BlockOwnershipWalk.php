@@ -4654,6 +4654,9 @@ final class BlockOwnershipWalk
         $col = 0;
         $end = strlen($line) - strlen($rest);
         for ($i = 0; $i < $end; $i++) {
+            if ((ord($line[$i]) & 0xC0) === 0x80) {
+                continue;
+            }
             $col = $line[$i] === "\t" ? (intdiv($col, 4) + 1) * 4 : $col + 1;
         }
 

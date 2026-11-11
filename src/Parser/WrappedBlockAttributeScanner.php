@@ -119,11 +119,16 @@ final class WrappedBlockAttributeScanner
 
     /**
      * The source column of byte $pos on a line whose byte zero sits at $base.
+     *
+     * A column is one code point, so UTF-8 continuation bytes add none (CARVE-P7-001).
      */
     public static function columnAt(string $line, int $pos, int $base = 0): int
     {
         $column = $base;
         for ($k = 0; $k < $pos; $k++) {
+            if ((ord($line[$k]) & 0xC0) === 0x80) {
+                continue;
+            }
             $column = $line[$k] === "\t" ? intdiv($column, 4) * 4 + 4 : $column + 1;
         }
 
