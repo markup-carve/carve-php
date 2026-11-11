@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * carve#5790: R03 protects a lone plus through the host's quote prefixes.
+ * carve#5830 supersedes R03: a refused run claims no follower, so plus uses ordinary ownership.
  */
 final class AQuotedRefusedRunKeepsItsPlusTest extends TestCase
 {
@@ -20,17 +20,17 @@ final class AQuotedRefusedRunKeepsItsPlusTest extends TestCase
     {
         yield 'item' => [
             "> - {.x\n> }\n> +\n> z\n",
-            "<blockquote>\n  <ul>\n    <li>{.x\n}\n+\nz</li>\n  </ul>\n</blockquote>",
+            "<blockquote>\n  <ul>\n    <li>{.x\n}\n      z\n    </li>\n  </ul>\n</blockquote>",
         ];
 
         yield 'description' => [
             "> :: t\n> : {.x\n> }\n> +\n> z\n",
-            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>{.x\n}\n+\nz</dd>\n  </dl>\n</blockquote>",
+            "<blockquote>\n  <dl>\n    <dt>t</dt>\n    <dd>\n      <p>{.x\n}</p>\n      <p>z</p>\n    </dd>\n  </dl>\n</blockquote>",
         ];
 
         yield 'note' => [
             "> [^1]: {.x\n> }\n> +\n> z\n\nx[^1]\n",
-            "<blockquote>\n\n</blockquote>\n<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>{.x\n}\n+\nz<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
+            "<blockquote>\n\n</blockquote>\n<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>{.x\n}</p>\n      <p>z<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
         ];
 
         yield 'comment run with lazy tail' => [
@@ -40,7 +40,7 @@ final class AQuotedRefusedRunKeepsItsPlusTest extends TestCase
 
         yield 'attribute run with lazy closer' => [
             "> - {.x\n}\n> +\nz\n",
-            "<blockquote>\n  <ul>\n    <li>{.x\n}\n+\nz</li>\n  </ul>\n</blockquote>",
+            "<blockquote>\n  <ul>\n    <li>{.x\n}</li>\n  </ul>\n</blockquote>\n<p>z</p>",
         ];
 
         yield 'valid comment run leaves the next plus available' => [
@@ -50,7 +50,7 @@ final class AQuotedRefusedRunKeepsItsPlusTest extends TestCase
     }
 
     #[DataProvider('documents')]
-    public function testThePlusStaysInTheRunParagraph(string $source, string $expected): void
+    public function testThePlusFollowsOrdinaryOwnership(string $source, string $expected): void
     {
         self::assertSame($expected, trim((new CarveConverter())->convert($source)));
     }
