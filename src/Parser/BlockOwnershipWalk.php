@@ -3872,9 +3872,23 @@ final class BlockOwnershipWalk
         $this->nextVisible = -1;
         if ($this->nextVisibleReach($this->skipped['at'], $from) >= $hostIndex) {
             $this->skipped['spanPad'] = self::spanPad($this->frames[$hostIndex]);
-        } else {
+        } elseif (!$this->nextVisibleIsSibling($this->frames[$hostIndex])) {
             $this->skipped['outside'] = false;
         }
+    }
+
+    /**
+     * A sibling marker keeps the host's list open, so a comment before it stays in the host.
+     */
+    private function nextVisibleIsSibling(OwnershipFrame $host): bool
+    {
+        $line = $this->lines[$this->nextVisible] ?? null;
+        if ($line === null || $host->kind !== 'item') {
+            return false;
+        }
+        $rest = ltrim((string)preg_replace('/^(?:[ \t]*>[ ]?)*/', '', $line), " \t");
+
+        return preg_match('/^(?:[-*+]|\d+[.)])(?:[ \t]|$)/', $rest) === 1 && self::docColumn($line, $rest) === $host->docMarker;
     }
 
     /**

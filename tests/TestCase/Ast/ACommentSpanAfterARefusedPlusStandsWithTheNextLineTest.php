@@ -94,6 +94,18 @@ class ACommentSpanAfterARefusedPlusStandsWithTheNextLineTest extends TestCase
                     '    text 20..24',
                 ],
             ],
+            'a sibling item keeps the comments in source order' => [
+                "- +\n%%%\nx\n%%%\n%% d\n- b\n", [
+                    'document 0..22',
+                    '  list 0..22',
+                    '    list_item 0..18',
+                    '      comment 4..13',
+                    '      comment 14..18',
+                    '    list_item 19..22',
+                    '      paragraph 21..22',
+                    '        text 21..22',
+                ],
+            ],
             'a line at the content column keeps the span in the item' => [
                 "- +\n%%%\nc\n%%%\n\n  text\n", [
                     'document 0..21',
