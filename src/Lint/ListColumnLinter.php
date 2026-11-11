@@ -34,6 +34,16 @@ final class ListColumnLinter
         $warnings = [];
         $this->collect($document, $rows, $items, $warnings);
         $siblings = $this->siblings($items);
+        $byFirst = [];
+        $byLast = [];
+        $byParagraphLine = [];
+        foreach ($items as $index => $item) {
+            $byFirst[$item['first']][] = $index;
+            $byLast[$item['last']][] = $index;
+            foreach ($item['paragraphs'] as $ln => $_) {
+                $byParagraphLine[$ln][] = $index;
+            }
+        }
 
         foreach ($rows as $index => [$line, $lineOffset]) {
             $lineNumber = $index + 1;
@@ -55,13 +65,14 @@ final class ListColumnLinter
 
                 continue;
             }
-            $detached = $this->detached($items, $rows, $lineNumber, $at, $visual, $column, $lineOffset, $marker[0]);
+            $detached = $this->detached($items, $byFirst, $byLast, $rows, $lineNumber, $at, $visual, $column, $lineOffset, $marker[0]);
             if ($detached !== null) {
                 $warnings[] = $detached;
 
                 continue;
             }
-            foreach (array_reverse($items) as $item) {
+            foreach (array_reverse($byParagraphLine[$lineNumber] ?? []) as $candidate) {
+                $item = $items[$candidate];
                 if ($lineNumber <= $item['first'] || $lineNumber > $item['last'] || !isset($item['paragraphs'][$lineNumber]) || !isset($item['textStarts'][$lineNumber . ':' . $column])) {
                     continue;
                 }
@@ -97,17 +108,20 @@ final class ListColumnLinter
      */
     private function siblings(array $items): array
     {
+        // Latest earlier item per list and (base, content) pair: the pair decides the match and the message.
         $earlier = [];
         $siblings = [];
-        foreach ($items as $item) {
-            foreach (array_reverse($earlier[$item['list']] ?? []) as $host) {
-                if ($host['base'] < $item['base'] && $item['base'] < $host['content']) {
-                    $siblings[$item['first']] = ['base' => $host['base'], 'content' => $host['content']];
-
-                    break;
+        foreach ($items as $index => $item) {
+            $latest = null;
+            foreach ($earlier[$item['list']] ?? [] as [$at, $base, $content]) {
+                if ($base < $item['base'] && $item['base'] < $content && ($latest === null || $at > $latest[0])) {
+                    $latest = [$at, $base, $content];
                 }
             }
-            $earlier[$item['list']][] = $item;
+            if ($latest !== null) {
+                $siblings[$item['first']] = ['base' => $latest[1], 'content' => $latest[2]];
+            }
+            $earlier[$item['list']][$item['base'] . ':' . $item['content']] = [$index, $item['base'], $item['content']];
         }
 
         return $siblings;
@@ -117,6 +131,8 @@ final class ListColumnLinter
      * A marker below the content column of the item above, with only blank lines between, starts a separate list.
      *
      * @param list<array{first: int, last: int, base: int, content: int, quote: int, list: int, paragraphs: array<int, true>, textStarts: array<string, true>}> $items
+     * @param array<int, list<int>> $byFirst
+     * @param array<int, list<int>> $byLast
      * @param array<int, array{0: string, 1: int}> $rows
      * @param int $lineNumber
      * @param int $at
@@ -127,29 +143,46 @@ final class ListColumnLinter
      *
      * @return \MarkupCarve\Carve\Lint\LintWarning|null
      */
-    private function detached(array $items, array $rows, int $lineNumber, int $at, int $visual, int $column, int $lineOffset, string $marker): ?LintWarning
-    {
+    private function detached(
+        array $items,
+        array $byFirst,
+        array $byLast,
+        array $rows,
+        int $lineNumber,
+        int $at,
+        int $visual,
+        int $column,
+        int $lineOffset,
+        string $marker,
+    ): ?LintWarning {
         if ($lineNumber < 2) {
             return null;
         }
         $opened = null;
-        foreach ($items as $item) {
-            if ($item['first'] === $lineNumber && ($opened === null || $item['base'] < $opened['base'])) {
+        foreach ($byFirst[$lineNumber] ?? [] as $index) {
+            $item = $items[$index];
+            if ($opened === null || $item['base'] < $opened['base']) {
                 $opened = $item;
             }
         }
         if ($opened === null) {
             return null;
         }
+        // A host has only blank lines below it, so it ends in the blank run above this line or on the line before that run.
+        $from = $lineNumber - 1;
+        while ($from > 1 && $this->blank($rows[$from - 1][0] ?? '')) {
+            --$from;
+        }
+        $candidates = [];
+        for ($ln = max($from, 1); $ln < $lineNumber; ++$ln) {
+            array_push($candidates, ...($byLast[$ln] ?? []));
+        }
+        sort($candidates);
         $host = null;
-        foreach ($items as $item) {
-            if ($item['first'] >= $lineNumber || $item['last'] >= $lineNumber || $item['quote'] !== $opened['quote'] || $item['base'] >= $opened['base'] || $opened['base'] >= $item['content']) {
+        foreach ($candidates as $index) {
+            $item = $items[$index];
+            if ($item['first'] >= $lineNumber || $item['quote'] !== $opened['quote'] || $item['base'] >= $opened['base'] || $opened['base'] >= $item['content']) {
                 continue;
-            }
-            for ($ln = $item['last'] + 1; $ln < $lineNumber; ++$ln) {
-                if (!$this->blank($rows[$ln - 1][0] ?? '')) {
-                    continue 2;
-                }
             }
             if ($host === null || $item['content'] > $host['content']) {
                 $host = $item;
