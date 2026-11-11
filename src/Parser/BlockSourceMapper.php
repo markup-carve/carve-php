@@ -761,6 +761,12 @@ final class BlockSourceMapper
         if (!$this->state->source->trackPositions || isset($this->state->session->footnoteDefinitionSpans[$label])) {
             return;
         }
+        // A stream line the walk re-indented (after a losing `+` note) is not
+        // the line as written; the authored one is, when it holds the same text.
+        $authored = $this->state->source->authoredLines[$index] ?? null;
+        if ($authored !== null && strlen($authored) < strlen($raw) && str_ends_with($authored, $bare)) {
+            $raw = $authored;
+        }
         // Every caller strips from the FRONT, so this holds; a caller that ever
         // stopped doing so would record nothing rather than a wrong column,
         // which is the answer §4 asks for.
@@ -1557,6 +1563,13 @@ final class BlockSourceMapper
         $endLine = max($endLine, $ownedEnd ?? $endLine);
         if ($node->getPos() !== null) {
             return;
+        }
+        // A refused `+` that ends an unclosed fence adds no owned source (CARVE-P12-014).
+        if ($node instanceof CodeBlock || $node instanceof RawBlock) {
+            while ($endLine > $startLine && array_key_exists($endLine, $this->state->source->refusedPlus)) {
+                $endLine--;
+                $ownedEnd = null;
+            }
         }
 
         // A trailing blank line is normally spacing after the block, not part of
