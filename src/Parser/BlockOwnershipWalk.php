@@ -3424,7 +3424,13 @@ final class BlockOwnershipWalk
             return false;
         }
         $frames ??= $this->frames;
-        $next = $this->firstVisibleLine($at + 1, $hostIndex, $column, $frames);
+        $held = false;
+        $fenced = [];
+        $noteBodies = [];
+        $next = $this->firstVisibleLine($at + 1, $hostIndex, $column, $frames, $fenced, $noteBodies, false, $held);
+        if ($held) {
+            return true;
+        }
         // A later marker at the same column offers the same block, so the first marker claims it (carve#5013).
         $chained = [];
         while (isset($this->lines[$next])) {
@@ -3479,6 +3485,7 @@ final class BlockOwnershipWalk
      * @param array<int, bool> $fenced Collects the lines of a skipped comment fence (true) and each skipped note definition (false).
      * @param array<int, true> $noteBodies Folded plain-text lines of skipped note definitions.
      * @param bool $refused
+     * @param bool $held Set when a skipped attribute line holds the block whatever line follows.
      */
     private function firstVisibleLine(
         int $from,
@@ -3488,12 +3495,12 @@ final class BlockOwnershipWalk
         array &$fenced = [],
         array &$noteBodies = [],
         bool $refused = false,
+        bool &$held = false,
     ): int {
         $n = count($this->lines);
         $host = $frames[$hostIndex];
-        $content = !$refused && in_array($host->kind, ['item', 'dd', 'note'], true)
-            ? (int)$host->docMarker + $host->col - (int)$host->markerCol
-            : PHP_INT_MAX;
+        $body = in_array($host->kind, ['item', 'dd', 'note'], true) ? (int)$host->docMarker + $host->col - (int)$host->markerCol : PHP_INT_MAX;
+        $content = $refused ? PHP_INT_MAX : $body;
         $view = fn (int $k): string => $this->throughQuotes($this->lines[$k], $hostIndex, $frames)['rest'] ?? "\u{E000}";
         $rawView = fn (int $k): string => $this->throughQuotes($this->lines[$k], $hostIndex, $frames, true)['rest'] ?? "\u{E000}";
         $k = $from;
@@ -3505,7 +3512,10 @@ final class BlockOwnershipWalk
                 return $k;
             }
             $rest = rtrim($view($k), " \t");
-            $at = self::docColumn($this->lines[$k], $view($k));
+            $frameAt = self::perFrameColumn($this->lines[$k], $view($k), $frames);
+            // A line short of the content column that line-start stops put at the marker column stands there.
+            $stops = $frameAt !== $column && $frameAt < $body && self::docColumn($this->lines[$k], $view($k)) === $column;
+            $at = $stops ? $column : $frameAt;
             if ($at !== $column && $at < $content) {
                 return $k;
             }
@@ -3574,6 +3584,8 @@ final class BlockOwnershipWalk
             ) {
                 $k++;
             } elseif ($rest !== '' && $rest[0] === '{' && ($this->isAttributeLine)($rest)) {
+                // Such an attribute line holds the block whatever follows it (PART 9 §17 L3).
+                $held = $held || $stops;
                 $k++;
             } elseif ($rest !== '' && $rest[0] === '{') {
                 // A paragraph of only comments is skipped as a `%%` line is (carve#4799).
@@ -4704,6 +4716,46 @@ final class BlockOwnershipWalk
                 continue;
             }
             $col = $line[$i] === "\t" ? (intdiv($col, 4) + 1) * 4 : $col + 1;
+        }
+
+        return $col;
+    }
+
+    /**
+     * The column of a tab-led line with tab stops restarted at every open frame column
+     * (PART 9 §24 C5); under a quote or a fence the line-start stops hold.
+     *
+     * @param string $line
+     * @param string $rest
+     * @param array<int, \MarkupCarve\Carve\Parser\OwnershipFrame> $frames
+     */
+    private static function perFrameColumn(string $line, string $rest, array $frames): int
+    {
+        if (preg_match('/^[ \t]*\t/', $line) !== 1) {
+            return self::docColumn($line, $rest);
+        }
+        $origins = [];
+        foreach (array_slice($frames, 1) as $f) {
+            if ($f->kind === 'quote' || $f->kind === 'fence') {
+                return self::docColumn($line, $rest);
+            }
+            $origins[] = $f->col + $f->c5Shift;
+        }
+        $col = 0;
+        $origin = 0;
+        $o = 0;
+        $last = count($origins);
+        for ($i = 0, $len = strlen($line); $i < $len; $i++) {
+            if ($line[$i] === ' ') {
+                $col++;
+            } elseif ($line[$i] === "\t") {
+                $col = $origin + (intdiv($col - $origin, 4) + 1) * 4;
+            } else {
+                break;
+            }
+            while ($o < $last && $origins[$o] <= $col) {
+                $origin = $origins[$o++];
+            }
         }
 
         return $col;
