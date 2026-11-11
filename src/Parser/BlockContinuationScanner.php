@@ -5467,6 +5467,9 @@ final class BlockContinuationScanner
         $columns = 0;
         $end = strlen($line) - $tail;
         for ($i = 0; $i < $end; $i++) {
+            if ((ord($line[$i]) & 0xC0) === 0x80) {
+                continue;
+            }
             $columns = $line[$i] === "\t" ? $columns + 4 - $columns % 4 : $columns + 1;
         }
 

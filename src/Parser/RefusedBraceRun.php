@@ -270,6 +270,10 @@ final class RefusedBraceRun
         $quote = null;
         for ($k = 0; $k < $length; $k++) {
             $char = $line[$k];
+            // A column is one code point, so UTF-8 continuation bytes add none (CARVE-P7-001).
+            if ((ord($char) & 0xC0) === 0x80) {
+                continue;
+            }
             if ($quote !== null) {
                 if ($char === '\\') {
                     $k++;
