@@ -2432,15 +2432,20 @@ final class BlockQuoteBuilder
             }
             // A QUOTED DESCRIPTION BODY IS AN INDENTATION HOST TOO: a block at
             // or past its content column ends its paragraph (CARVE-P0-011).
+            // So is one in an item of the quote, measured from that item's content column.
+            $hostKinds = $state['hosts']['kinds'] ?? [];
+            $itemFloor = end($hostKinds) === 'item' ? end($hostColumns) : null;
             if (isset($state['hosts'])) {
-                if ($trimmed === $content) {
+                if ($trimmed === $content || $authoredColumn === $itemFloor) {
+                    // A description follows a term or another description of the list.
+                    $listOpen = ($state['hosts']['termOpen'] ?? false) || isset($state['hosts']['descriptionColumn']);
                     unset($state['hosts']['descriptionColumn']);
                     unset($state['hosts']['descriptionNoteFloor']);
                     if (
-                        ($state['hosts']['termOpen'] ?? false)
-                        && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $content, $body) === 1
+                        $listOpen
+                        && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $trimmed, $body) === 1
                     ) {
-                        $state['hosts']['descriptionColumn'] = BlockGrammar::DEFINITION_MARKER_WIDTH + strlen($body[1]);
+                        $state['hosts']['descriptionColumn'] = $authoredColumn + BlockGrammar::DEFINITION_MARKER_WIDTH + strlen($body[1]);
                         if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $body[2]) === 1) {
                             $state['hosts']['descriptionNoteFloor'] = $state['hosts']['descriptionColumn'] + BlockGrammar::FOOTNOTE_BODY_COLUMN;
                         }
@@ -2469,7 +2474,7 @@ final class BlockQuoteBuilder
         // not a paragraph. `:::` is a div fence and is handled above.
             $isDefinitionTerm = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $trimmed) === 1;
             if (isset($state['hosts'])) {
-                $state['hosts']['termOpen'] = $atContentColumn && $isDefinitionTerm;
+                $state['hosts']['termOpen'] = $atContentColumn && ($isDefinitionTerm || $this->opensItemTerm($trimmed, $authoredColumn, $itemFloor));
             }
         // An invisible definition leaves no paragraph at all - there is nothing
         // on the page for a lazy line to continue.
@@ -2804,6 +2809,25 @@ final class BlockQuoteBuilder
     private function isReferenceDefinitionLine(string $line): bool
     {
         return ($this->isReferenceDefinitionLineCallback)($line);
+    }
+
+    /**
+     * Whether a line opens the innermost item with a definition term on its marker line.
+     */
+    private function opensItemTerm(string $text, int $column, ?int $itemFloor): bool
+    {
+        if ($itemFloor === null || $column >= $itemFloor) {
+            return false;
+        }
+        while (($marker = ($this->getListParser)()->parseListItemMarker($text)) !== null) {
+            $column += $this->listMarkerWidth($text, $marker) + IndentationHelper::getLeadingColumns($marker['content']);
+            $text = ltrim($marker['content'], " \t");
+            if ($column >= $itemFloor) {
+                break;
+            }
+        }
+
+        return $column === $itemFloor && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $text) === 1;
     }
 
     /**
