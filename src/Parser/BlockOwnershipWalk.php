@@ -1900,7 +1900,13 @@ final class BlockOwnershipWalk
     private function missesFrameAtColumn(int $frame, bool $inWrappedAttribute, int $segment, ?int &$stripped): bool
     {
         $f = $this->frames[$frame];
-        if ($this->reachesAttachedItemFence($frame) || $this->m['rest'] === '' || $this->m['col'] >= $f->col || $inWrappedAttribute) {
+        $inner = $this->frames[count($this->frames) - 1];
+        // S1 keeps an open code fence's payload before S2 remeasures frames.
+        $lead = substr($this->src, 0, strlen($this->src) - strlen($this->m['rest']));
+        if ($inner->kind === 'fence' && $inner->family === 'code' && str_contains($lead, "\t") && $this->m['col'] >= $inner->col) {
+            return false;
+        }
+        if ($this->reachesAttachedItemFence($frame) || $this->m['rest'] === '' || $inWrappedAttribute) {
             return false;
         }
         // A tab past an off-stop frame column is measured in that frame (PART 9 §24 C5).
