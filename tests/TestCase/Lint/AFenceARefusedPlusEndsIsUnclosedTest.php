@@ -42,6 +42,13 @@ class AFenceARefusedPlusEndsIsUnclosedTest extends TestCase
         $this->assertSame($expected, $found);
     }
 
+    public function testTheMessageNamesThePlusThatEndsTheFence(): void
+    {
+        $warnings = (new DocumentLinter())->lint("- ```\n  x\n+\n\ntail\n");
+
+        $this->assertStringContainsString('a continuation marker on line 3 ends it', $warnings[0]->message);
+    }
+
     public function testAClosedFenceBeforeAPlusIsNotReported(): void
     {
         $rules = array_column((new DocumentLinter())->lint("- ```\n  x\n  ```\n+\n\ntail\n"), 'rule');
