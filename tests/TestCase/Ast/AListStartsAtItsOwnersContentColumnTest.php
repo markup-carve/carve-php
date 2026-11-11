@@ -33,6 +33,18 @@ class AListStartsAtItsOwnersContentColumnTest extends TestCase
             'a tab-indented sibling item (corpus 245)' => [
                 "- a\n    - b\n \t- c\n", ['list 0..17', 'list_item 0..17', 'list 6..17', 'list_item 6..11', 'list_item 13..17'],
             ],
+            'a list after a description\'s refused plus (corpus 1017)' => [
+                ":: t\n: +\n1. li\n+\n  - sib\n", ['list 9..14', 'list_item 9..14', 'list 19..24', 'list_item 19..24'],
+            ],
+            'a list indented past a description\'s content column' => [
+                ":: t\n: +\n1. li\n+\n    - sib\n", ['list 9..14', 'list_item 9..14', 'list 19..26', 'list_item 19..26'],
+            ],
+            'a tab across a description\'s content column' => [
+                ":: t\n: +\n\t- sib\n", ['list 9..15', 'list_item 9..15'],
+            ],
+            'a quoted tab that ends at a description\'s content column' => [
+                "> :: t\n> : +\n> \t- sib\n", ['list 16..21', 'list_item 16..21'],
+            ],
         ];
     }
 

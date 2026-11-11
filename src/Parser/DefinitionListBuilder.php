@@ -2937,6 +2937,7 @@ final class DefinitionListBuilder
         $markerColumn = self::authoredSubjectColumn($source, trim($b->lines[$b->definitionStart], " \t"));
         if ($markerColumn !== null) {
             $this->descriptionContentColumns[$dd] = $markerColumn + $b->continuationColumn;
+            $this->state->session->recordDescriptionContentColumn($dd, $markerColumn + $b->continuationColumn);
         }
         if ($b->detachedFootnote !== null) {
             $this->parseBlocks($dd, $b->detachedFootnote, 0, $b->detachedFootnoteMap);

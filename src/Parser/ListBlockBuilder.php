@@ -4284,7 +4284,7 @@ final class ListBlockBuilder
     {
         $opening = $parent instanceof Document ? 0 : $this->resolveMarkerColumn($sourceLine, $line);
         if ($opening !== null && !$parent instanceof Document && !$parent instanceof ListItem) {
-            $opening = $this->authoredListOpening($sourceLine, $line, $opening, $parent instanceof BlockQuote);
+            $opening = $this->authoredListOpening($parent, $sourceLine, $line, $opening);
         }
         if (!$parent instanceof ListItem || $opening === null || $parent->getPos() === null) {
             return $opening;
@@ -4316,7 +4316,7 @@ final class ListBlockBuilder
     {
         $opening = $this->resolveMarkerColumn($sourceLine, $itemLine);
 
-        return $opening === null ? null : $this->authoredListOpening($sourceLine, $itemLine, $opening, $parent instanceof BlockQuote);
+        return $opening === null ? null : $this->authoredListOpening($parent, $sourceLine, $itemLine, $opening);
     }
 
     /**
@@ -4325,8 +4325,9 @@ final class ListBlockBuilder
      * list's line belongs to the list's span down to the parent's content column
      * (CARVE-P12-013, carve#5063).
      */
-    private function authoredListOpening(int $sourceLine, string $line, int $opening, bool $quoted): int
+    private function authoredListOpening(Node $parent, int $sourceLine, string $line, int $opening): int
     {
+        $quoted = $parent instanceof BlockQuote;
         $source = $this->state->source->sourceLines[$sourceLine] ?? '';
         $authored = $this->state->source->authoredLines[$sourceLine] ?? $source;
         // A quote's own indentation the stream dropped before its `>`.
@@ -4338,8 +4339,38 @@ final class ListBlockBuilder
         if ($indent > 0 && $content !== null && strcspn($line, "\t", 0, $indent) === $indent && $opening - $indent >= $content) {
             $opening -= $indent;
         }
+        $column = $parent instanceof DefinitionDescription ? $this->state->session->descriptionContentColumn($parent) : null;
+        $body = rtrim(ltrim($line, " \t"), " \t");
+        if ($column !== null && $body !== '' && rtrim(ltrim(ContainerPrefix::stripQuoteMarkers($authored), " \t"), " \t") === $body) {
+            return $this->descriptionContentOpening($authored, $column);
+        }
 
         return $opening + $shift;
+    }
+
+    /**
+     * A description owns the indentation up to its content column even on a
+     * body line the stream kept unstripped: the list starts at the authored
+     * byte that reaches that column (a tab across it starts at the tab), never
+     * past its marker (CARVE-P12-013, carve#5063).
+     */
+    private function descriptionContentOpening(string $authored, int $column): int
+    {
+        $byte = strlen($authored) - strlen(ContainerPrefix::stripQuoteMarkers($authored));
+        $marker = $byte + strspn($authored, " \t", $byte);
+        // Tabs advance from the line's own columns; the quote prefix counts.
+        $visual = $this->visualColumnAtByte($authored, $byte);
+        $column += $visual;
+        while ($byte < $marker) {
+            $next = $authored[$byte] === "\t" ? $visual + IndentationHelper::TAB_STOP - ($visual % IndentationHelper::TAB_STOP) : $visual + 1;
+            if ($next > $column) {
+                break;
+            }
+            $visual = $next;
+            $byte++;
+        }
+
+        return $byte;
     }
 
     private function visualColumnAtByte(string $line, int $endByte): int
