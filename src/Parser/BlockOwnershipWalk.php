@@ -2466,9 +2466,6 @@ final class BlockOwnershipWalk
      */
     private function rewritesTabbedPayload(OwnershipFrame $inner, bool $shiftedCloser, int $segment, int $payloadColumn): bool
     {
-        if ($inner->family === 'code' && $inner->openerTabShift === 0) {
-            return false;
-        }
         if ($inner->family === 'code' && $inner->opened !== null) {
             $opener = $this->lines[$inner->opened];
             $openerLead = substr($opener, 0, strspn($opener, " \t"));
