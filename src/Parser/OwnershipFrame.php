@@ -75,6 +75,16 @@ final class OwnershipFrame
     public bool $losing = false;
 
     /**
+     * A line block's opener column past its owner's, measured per frame (carve#5885).
+     */
+    public ?int $openerFrameLead = null;
+
+    /**
+     * Whether a line block's opener was written on a tab-led run.
+     */
+    public bool $openerTabbed = false;
+
+    /**
      * @param string $kind
      * @param int $col
      * @param int $canon

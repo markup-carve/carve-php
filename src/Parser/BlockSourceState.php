@@ -91,6 +91,13 @@ final class BlockSourceState
     public array $lineBlockLazyLines = [];
 
     /**
+     * Verse lines whose tabbed lead the walk wrote as its per-frame spaces (carve#5885).
+     *
+     * @var array<int, true>
+     */
+    public array $respelledVerseLines = [];
+
+    /**
      * Structural columns removed from a closed attached line block's lines after a blank, by source line.
      *
      * @var array<int, int>
