@@ -2459,7 +2459,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $first = array_shift($lines);
                 $out .= $prefix . ($first === '' ? self::EMPTY_BODY_SENTINEL : $first) . "\n";
                 $continuation = str_repeat(' ', $continuationWidth);
-                foreach ($lines as $line) {
+                $firstBlock = $item->getChildren()[0] ?? null;
+                $firstInline = $firstBlock instanceof Paragraph ? ($firstBlock->getChildren()[0] ?? null) : null;
+                // A marker-glued attribute or task box widens the opener's
+                // prefix, but not the item's ordinary continuation indent.
+                // Keep each line of a marker-line comment past its written `{`.
+                $commentLines = $firstInline instanceof Comment && $firstInline->isDelimited()
+                    ? substr_count($firstInline->getContent(), "\n") : 0;
+                $commentPadding = str_repeat(' ', max(0, strlen($prefix) - $continuationWidth));
+                foreach ($lines as $lineIndex => $line) {
                     // A BLANK continuation line stays blank: indenting it emits a
                     // whitespace-only line, which the writer never may
                     // (NoWhitespaceOnlyLineTest).
@@ -2484,7 +2492,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
                         continue;
                     }
-                    $out .= $blank ? $line . "\n" : $continuation . $line . "\n";
+                    $out .= $blank ? $line . "\n" : $continuation
+                        . ($lineIndex < $commentLines ? $commentPadding : '') . $line . "\n";
                 }
                 if (!$compactItems && !$node->isTight() && $index < count($children) - 1) {
                     $out .= "\n";
