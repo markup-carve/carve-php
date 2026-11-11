@@ -1618,7 +1618,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             if ($image !== null) {
                 if ($node->getAttributeEntries() !== []) {
                     $image = clone $image;
-                    $image->mergeLeadingAttributes($node->getAttributeEntries(), $node->getAttributeOrder());
+                    $image->mergeLeadingAttributes($node->getAttributeEntries(), $node->getAttributeOrder(), $node->getLastSpellings());
                 }
 
                 return rtrim($this->renderNode($image), "\n") . "\n";
@@ -4018,7 +4018,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if (!$attrs) {
             return [];
         }
-        $attrs = self::foldAttributeNames($attrs);
+        $attrs = self::foldAttributeNames($attrs, $node->getLastSpellings());
 
         if ($this->roundTripMode) {
             foreach (array_keys($attrs) as $key) {
@@ -4525,10 +4525,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * class entries join.
      *
      * @param array<string, string|list<string>> $attrs
+     * @param array<string, string> $lastSpellings Lowercase name => spelling written last
      *
      * @return array<string, string|list<string>>
      */
-    private static function foldAttributeNames(array $attrs): array
+    private static function foldAttributeNames(array $attrs, array $lastSpellings = []): array
     {
         $first = [];
         $out = [];
@@ -4546,6 +4547,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $out[$slot] = array_merge((array)$out[$slot], (array)$value);
             } else {
                 $out[$slot] = $value;
+            }
+        }
+        foreach ($lastSpellings as $name => $key) {
+            if ($name !== 'class' && isset($first[$name]) && array_key_exists($key, $attrs)) {
+                $out[$first[$name]] = $attrs[$key];
             }
         }
 
@@ -4573,7 +4579,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     private function classSlotEntries(Node $node): array
     {
-        $attrs = self::foldAttributeNames($node->getAttributeEntries());
+        $attrs = self::foldAttributeNames($node->getAttributeEntries(), $node->getLastSpellings());
         $key = self::classKey($attrs);
 
         if ($key === null) {

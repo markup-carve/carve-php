@@ -4332,6 +4332,7 @@ class BlockParser
                     $definition['title'],
                     false,
                     $definition['label'],
+                    $definition['spellings'],
                 );
             }
             // Only the label loses (PART 9R R2): definitions inside this body are
@@ -4456,6 +4457,7 @@ class BlockParser
                     $definition['title'],
                     false,
                     $definition['label'],
+                    $definition['spellings'],
                 );
             }
         }

@@ -11,6 +11,11 @@ use MarkupCarve\Carve\Util\StringUtil;
 class ReferenceDefinitionExtractor
 {
     /**
+     * @var array<string, string>
+     */
+    private array $trailingSpellings = [];
+
+    /**
      * The inline parser answers ONE question here: is a trailing `{...}` a
      * valid attribute block? §14's rule is that a single invalid name
      * invalidates the WHOLE block, and it is the inline parser that knows it -
@@ -71,7 +76,7 @@ class ReferenceDefinitionExtractor
      *
      * @param string $line
      *
-     * @return array{label: string, url: string, title: string|null, attrs: array<string, string|list<string>>}|null
+     * @return array{label: string, url: string, title: string|null, attrs: array<string, string|list<string>>, spellings: array<string, string>}|null
      */
     public function matchDefinitionLine(string $line): ?array
     {
@@ -85,7 +90,7 @@ class ReferenceDefinitionExtractor
         }
 
         if (preg_match('/^\[(?![@^])([^\]]+)\]:[ \t]*\z/', $line, $empty) === 1) {
-            return ['label' => $empty[1], 'url' => '', 'title' => null, 'attrs' => []];
+            return ['label' => $empty[1], 'url' => '', 'title' => null, 'attrs' => [], 'spellings' => []];
         }
 
         // A bare `[^]` remains a valid nonempty reference label.
@@ -136,6 +141,7 @@ class ReferenceDefinitionExtractor
         }
 
         $attrs = [];
+        $this->trailingSpellings = [];
         if (($rest[0] ?? '') === ' ' && ($rest[1] ?? '') === '{') {
             $parsed = $this->readTrailingAttributes(substr($rest, 1));
             if ($parsed === null) {
@@ -157,6 +163,7 @@ class ReferenceDefinitionExtractor
             'url' => $url,
             'title' => $title,
             'attrs' => $attrs,
+            'spellings' => $this->trailingSpellings,
         ];
     }
 
@@ -217,6 +224,7 @@ class ReferenceDefinitionExtractor
             }
             $parsed = AttributeParser::parseOrderedWithSlots($payload);
             $attrs = $parsed['attributes'];
+            $this->trailingSpellings = AttributeParser::lastSpellings($parsed['order']);
             if ($attrs === []) {
                 // A payload that IS space-only, and so passes the check above,
                 // still yields no `attribute` - and `attribute_list` needs one.

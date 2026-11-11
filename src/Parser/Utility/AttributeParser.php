@@ -123,6 +123,32 @@ class AttributeParser
         return ['attributes' => $attributes, 'order' => $order];
     }
 
+    /**
+     * Lowercase name => spelling written last, for names written in more than
+     * one case. A rewritten map key keeps its first position, so the map alone
+     * cannot say which spelling wrote last (carve#5982).
+     *
+     * @param list<string> $order Slots in source order, repeats included
+     *
+     * @return array<string, string>
+     */
+    public static function lastSpellings(array $order): array
+    {
+        $last = [];
+        $spellings = [];
+        foreach ($order as $slot) {
+            if ($slot === '.class') {
+                continue;
+            }
+            $key = $slot === '#id' ? 'id' : $slot;
+            $name = strtolower($key);
+            $last[$name] = $key;
+            $spellings[$name][$key] = true;
+        }
+
+        return array_filter($last, static fn (string $key): bool => count($spellings[strtolower($key)]) > 1);
+    }
+
     private static function canonicalSlot(string $name): string
     {
         if ($name === 'id') {

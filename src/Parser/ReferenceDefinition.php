@@ -20,6 +20,7 @@ class ReferenceDefinition
      *   no definition line to reproduce, so the authored `[text][]` form is the
      *   only record of what the author wrote.
      * @param string|null $rawLabel authored label spelling for canonical output
+     * @param array<string, string> $lastSpellings lowercase name => spelling written last
      */
     public function __construct(
         public readonly string $url,
@@ -28,6 +29,7 @@ class ReferenceDefinition
         public readonly ?string $title = null,
         public readonly bool $fromHeading = false,
         public readonly ?string $rawLabel = null,
+        public readonly array $lastSpellings = [],
     ) {
     }
 }

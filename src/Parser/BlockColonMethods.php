@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
+use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\ContainerLabelParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 
@@ -165,6 +166,7 @@ trait BlockColonMethods
                 $node->setAttribute($name, $value);
             }
         }
+        $node->inheritLastSpellings(AttributeParser::lastSpellings($this->state->session->pendingAttributeOrder));
     }
 
     /**

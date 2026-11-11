@@ -517,6 +517,7 @@ trait TransparentLineErasure
                     $definition['title'],
                     false,
                     $definition['label'],
+                    $definition['spellings'],
                 );
                 $spans[$index] = $span;
             }
