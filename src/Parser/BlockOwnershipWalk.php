@@ -4453,8 +4453,17 @@ final class BlockOwnershipWalk
      */
     private function notePlusFinding(int $at, int $column, int $hostIndex, bool $claimed = false): ?array
     {
-        // An invisible comment span between the `+` and its follower is stepped over.
-        $after = $this->firstVisibleLine($at + 1, $hostIndex, $column, $this->frames, refused: true);
+        // An invisible comment span between the `+` and its follower is stepped over, a definition is not.
+        $fenced = [];
+        $after = $this->firstVisibleLine($at + 1, $hostIndex, $column, $this->frames, $fenced, refused: true);
+        for ($k = $at + 1; $k < $after; $k++) {
+            $line = $this->throughQuotes($this->lines[$k], $hostIndex, $this->frames);
+            if (!($fenced[$k] ?? false) && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($line['rest'] ?? '', " \t")) === 1) {
+                $after = $k;
+
+                break;
+            }
+        }
         $finding = $this->plusFinding($at, 'note', $column, $hostIndex, $after);
         $next = $this->throughQuotes($this->lines[$after] ?? '', $hostIndex, $this->frames);
         if ($finding['reason'] !== 'sibling' || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($next['rest'] ?? '', " \t")) === 1) {

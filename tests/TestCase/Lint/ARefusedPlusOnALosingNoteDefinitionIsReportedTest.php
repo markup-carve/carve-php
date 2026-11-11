@@ -32,6 +32,7 @@ final class ARefusedPlusOnALosingNoteDefinitionIsReportedTest extends TestCase
             'losing plus before a flush paragraph' => ["[^m]: d1\n\n[^m]: +\nflush\n\nsee[^m]\n", []],
             'live definition whose follower an earlier plus takes' => ["[^a]: +\n[^b]: +\n- b\n\nsee[^a][^b]\n", ['2:7']],
             'losing plus before a comment span and a definition' => ["[^a]: x\n[^a]: +\n%%%\nc\n%%%\n[^b]: y\n\nsee[^a][^b]\n", ['2:7']],
+            'losing plus before a definition and a block' => ["[^a]: x\n[^a]: +\n[^b]: y\n- b\n\nsee[^a][^b]\n", ['2:7']],
             'losing plus before note-shaped text' => ["[^a]: x\n[^a]: +\n[^b]:foo\n\nsee[^a]\n", []],
         ];
     }
