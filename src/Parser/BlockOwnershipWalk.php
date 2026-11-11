@@ -1900,6 +1900,11 @@ final class BlockOwnershipWalk
     private function missesFrameAtColumn(int $frame, bool $inWrappedAttribute, int $segment, ?int &$stripped): bool
     {
         $f = $this->frames[$frame];
+        $inner = $this->frames[count($this->frames) - 1];
+        // S1 keeps an open code fence's payload before S2 remeasures frames.
+        if ($inner->kind === 'fence' && $inner->family === 'code' && $this->m['col'] >= $inner->col) {
+            return false;
+        }
         if ($this->reachesAttachedItemFence($frame) || $this->m['rest'] === '' || $inWrappedAttribute) {
             return false;
         }
