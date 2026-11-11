@@ -24,9 +24,10 @@ class ALazyBlockCommentRunStaysVisibleTest extends TestCase
                 "- a\n  - b\n  {% b\n   b %}\n",
                 "<ul>\n  <li>a\n    <ul>\n      <li>b\n{% b\nb %}</li>\n    </ul>\n  </li>\n</ul>",
             ],
+            // The continuation reaches the nested item's column, so the run is held (corpus 1070-2, carve#5895).
             'nested item marker band' => [
                 "- a\n  - b\n   {% b\n    b %}\n",
-                "<ul>\n  <li>a\n    <ul>\n      <li>b\n{% b\nb %}</li>\n    </ul>\n  </li>\n</ul>",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n</li>\n    </ul>\n  </li>\n</ul>",
             ],
             'description run with a reached continuation' => [
                 ":: t\n: pre\n{% b\n  b %}\n",

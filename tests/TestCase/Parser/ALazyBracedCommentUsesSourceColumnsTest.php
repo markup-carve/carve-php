@@ -20,7 +20,7 @@ final class ALazyBracedCommentUsesSourceColumnsTest extends TestCase
     {
         yield 'list, one column past' => ["- pre\n{% b\n b %}\n", false];
         yield 'list, equal column' => ["- pre\n{% b\nb %}\n", false];
-        yield 'list, indented lazy opener' => ["- pre\n {% b\n  b %}\n", false];
+        yield 'list, indented lazy opener' => ["- pre\n {% b\n  b %}\n", true];
         yield 'list, indented lazy closer at opener' => ["- pre\n {% b\n b %}\n", false];
         yield 'quote, one column after prefix' => ["> pre\n{% b\n>  b %}\n", false];
         yield 'quote, equal column after prefix' => ["> pre\n{% b\n> b %}\n", false];
