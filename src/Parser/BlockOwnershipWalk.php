@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Block\ListParser;
 use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+use WeakMap;
 
 /**
  * Block ownership, rule A (carve#3885): one walk moves every opener past its
@@ -67,6 +68,13 @@ final class BlockOwnershipWalk
      * @var array<int, true>
      */
     public array $lazyLines = [];
+
+    /**
+     * Descriptions that took a lazy line written inside the quote holding them, with that quote's frame index.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Parser\OwnershipFrame, int>
+     */
+    private WeakMap $quotedLazyDescriptions;
 
     /**
      * Lines before the block a taken `+` attaches, keyed by source line.
@@ -561,6 +569,7 @@ final class BlockOwnershipWalk
         $this->refusedKeptLazyNoteHost = null;
         $this->movedSpanEnd = -1;
         $this->lazyLines = [];
+        $this->quotedLazyDescriptions = new WeakMap();
         $this->attachedPreludeLines = [];
         $this->losingNoteLines = [];
         $this->skippedRunShiftedTo = [];
@@ -924,7 +933,8 @@ final class BlockOwnershipWalk
                 && !$endsMissedItem
                 && !($missedNote && ($this->refusedNotePlusMissesBody($at, $topIndex) || $this->refusedNotePlusPrecedesBraceRun($at, $topIndex)))
                 // A marker that a marker body owns, or that misses one, opens a list (PART 0 S3, carve#4860).
-                && !($form->kind === 'item' && $this->marksBodyList($reached) && !$this->followsRefusedNoteBrace($at, $topIndex))
+                && !($form->kind === 'item' && $this->marksBodyList($reached) && !$this->followsRefusedNoteBrace($at, $topIndex)
+                    && !$this->missesQuotedLazyDescription($reached, $topIndex))
                 && !($this->verseSpanBlankMissedOwner && $this->frames[$topIndex]->lineBlock
                     && $this->frames[$topIndex]->span !== null && $this->frames[$topIndex]->span[0] === '%');
             // S4: a line that missed a frame folds into the deepest open paragraph.
@@ -963,6 +973,7 @@ final class BlockOwnershipWalk
                 }
                 $result[] = $this->out . $this->src;
                 $this->lazyLines[$at] = true;
+                $this->markQuotedLazyDescription($reached, $topIndex);
                 $this->markLazyBraceOpener($at, $reached);
                 if ($this->frames[$topIndex]->kind === 'fence' && $this->frames[$topIndex]->lineBlock) {
                     $this->lineBlockLazyLines[$at] = true;
@@ -4670,6 +4681,34 @@ final class BlockOwnershipWalk
         }
 
         return ['col' => $col, 'rest' => $i >= $len ? '' : substr($line, $i)];
+    }
+
+    /**
+     * A lazy line that reaches the quote holding a description and misses only its body
+     * leaves a later marker that misses the quote too lazy text, not a list (PART 0 S4).
+     */
+    private function markQuotedLazyDescription(int $reached, int $topIndex): void
+    {
+        if ($reached >= $topIndex || $this->frames[$reached]->kind !== 'quote' || $this->frames[$reached + 1]->kind !== 'dd') {
+            return;
+        }
+        for ($k = $reached + 2; $k <= $topIndex; $k++) {
+            if (!in_array($this->frames[$k]->kind, ['dd', 'quote'], true)) {
+                return;
+            }
+        }
+        $this->quotedLazyDescriptions[$this->frames[$reached + 1]] = $reached;
+    }
+
+    private function missesQuotedLazyDescription(int $reached, int $topIndex): bool
+    {
+        for ($k = $reached + 1; $k <= $topIndex; $k++) {
+            if ($this->frames[$k]->kind === 'dd' && $reached < ($this->quotedLazyDescriptions[$this->frames[$k]] ?? -1)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

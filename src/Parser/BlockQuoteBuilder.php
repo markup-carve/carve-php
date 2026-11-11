@@ -603,7 +603,9 @@ final class BlockQuoteBuilder
                 && !($attachedParagraphOpen && ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null)
                 && !(($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
                     && $this->lastQuoteLineIsBareTerm($innerLines))
-                && !$this->markerOpensBodyList($currentLine, $innerLines, $lazyState)
+                // The walk's S4 fold decides a marker it read as lazy text.
+                && (isset($this->state->source->lazyLines[$this->sourceLineFor($i)])
+                    || !$this->markerOpensBodyList($currentLine, $innerLines, $lazyState))
                 && !(IndentationHelper::getLeadingColumns($currentLine) === 0
                     && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $currentLine) === 1
                     && (($lazyState['hosts']['termOpen'] ?? false)
