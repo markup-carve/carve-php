@@ -1654,10 +1654,11 @@ class AstCodec
      *
      * @param array<string, string|list<string>> $attributes
      * @param list<string> $order
+     * @param array<string, string> $lastSpellings Lowercase name => spelling written last
      *
      * @return array<string, mixed>
      */
-    private static function attrsToWire(array $attributes, array $order): array
+    private static function attrsToWire(array $attributes, array $order, array $lastSpellings = []): array
     {
         $wire = [];
         if (isset($attributes['id'])) {
@@ -1678,10 +1679,43 @@ class AstCodec
             $wire['keyValues'] = $keyValues;
         }
         if ($order !== []) {
-            $wire['order'] = $order;
+            $wire['order'] = self::withLastWrittenSlots($attributes, $order, $lastSpellings);
         }
 
         return $wire;
+    }
+
+    /**
+     * `order` lists each slot once, so `{#a ID=b #c}` and `{#a #c ID=b}` would
+     * encode alike although the last write differs (carve#5982). Where a name
+     * written in several spellings did not end on its last listed slot, the
+     * last-written slot is listed again; the decoder replays `order` as writes.
+     *
+     * @param array<string, string|list<string>> $attributes
+     * @param list<string> $order
+     * @param array<string, string> $lastSpellings
+     *
+     * @return list<string>
+     */
+    private static function withLastWrittenSlots(array $attributes, array $order, array $lastSpellings): array
+    {
+        foreach ($lastSpellings as $name => $key) {
+            if ($name === 'class' || !array_key_exists($key, $attributes)) {
+                continue;
+            }
+            $tail = null;
+            foreach ($order as $slot) {
+                if ($slot !== '.class' && strtolower($slot === '#id' ? 'id' : $slot) === $name) {
+                    $tail = $slot;
+                }
+            }
+            $last = $key === 'id' ? '#id' : $key;
+            if ($tail !== null && $tail !== $last) {
+                $order[] = $last;
+            }
+        }
+
+        return $order;
     }
 
     /**
@@ -1981,7 +2015,7 @@ class AstCodec
             $attributes = self::withoutOpenerClass($attributes, self::openerKind($node));
         }
         if ($attributes !== []) {
-            $encoded['attrs'] = self::attrsToWire($attributes, $node->getAttributeOrder());
+            $encoded['attrs'] = self::attrsToWire($attributes, $node->getAttributeOrder(), $node->getLastSpellings());
         }
 
         foreach ($this->derivedFields($node) as $field => $derived) {
@@ -2089,10 +2123,10 @@ class AstCodec
             }
             $split = $node->getBlockAttributeSplit();
             if ($split !== null) {
-                $paragraph['attrs'] = self::attrsToWire($split['block'], $split['blockOrder']);
+                $paragraph['attrs'] = self::attrsToWire($split['block'], $split['blockOrder'], $node->getLastSpellings());
                 unset($encoded['attrs']);
                 if ($split['own'] !== []) {
-                    $encoded['attrs'] = self::attrsToWire($split['own'], $split['ownOrder']);
+                    $encoded['attrs'] = self::attrsToWire($split['own'], $split['ownOrder'], $node->getLastSpellings());
                 }
             }
             $paragraph['children'] = [$encoded];
