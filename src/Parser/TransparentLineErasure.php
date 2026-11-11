@@ -400,6 +400,14 @@ trait TransparentLineErasure
             $refused[$map[$index] ?? $index] = $finding;
         }
         $this->state->source->refusedPlus = $refused;
+        $refused = [];
+        foreach ($this->state->source->refusedNotePlus as $index => $finding) {
+            if ($finding !== null) {
+                $finding['line'] = $line($finding['line']);
+            }
+            $refused[$map[$index] ?? $index] = $finding;
+        }
+        $this->state->source->refusedNotePlus = $refused;
         $overindented = [];
         foreach ($this->state->source->overindentedOpeners as $index => $finding) {
             $finding['line'] = $line($finding['line']);

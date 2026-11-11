@@ -270,6 +270,13 @@ final class BlockOwnershipWalk
     public array $refusedPlus = [];
 
     /**
+     * Refused marker-line `+` of footnote definitions the walk passes over (carve#5953), for lint only.
+     *
+     * @var array<int, array{line: int, column: int, host: string, reason: string}|null>
+     */
+    public array $refusedNotePlus = [];
+
+    /**
      * Refused `+` lines a note with a body keeps, each to the note's definition line (carve#5890).
      *
      * @var array<int, int>
@@ -331,7 +338,7 @@ final class BlockOwnershipWalk
     /**
      * The invisible lines between a taken `+` and its block, read where that block stands (CARVE-P9-013).
      *
-     * @var array{host: \MarkupCarve\Carve\Parser\OwnershipFrame, at: int, end: int, hostIndex: int, fenced: array<int, bool>, noteBodies: array<int, true>, column: int, lead: string, spanPad?: int, runColumn?: int|null, offered?: bool}|null
+     * @var array{host: \MarkupCarve\Carve\Parser\OwnershipFrame, at: int, end: int, hostIndex: int, fenced: array<int, bool>, noteBodies: array<int, true>, column: int, lead: string, spanPad?: int, runColumn?: int|null, offered?: bool, offeredAt?: int}|null
      */
     private ?array $skipped = null;
 
@@ -582,6 +589,7 @@ final class BlockOwnershipWalk
         $this->commentCloserLines = [];
         $this->fenceBodyLines = [];
         $this->refusedPlus = [];
+        $this->refusedNotePlus = [];
         $this->noteListBreaks = [];
         $this->noteEndsAtBreak = [];
         $this->letterPlus = [];
@@ -1317,9 +1325,13 @@ final class BlockOwnershipWalk
         $rest = $level['rest'] ?? '';
         if (!($skipped['fenced'][$at] ?? false) && preg_match('/^[ \t]*\[\^([^\]]+)\]: (.*)$/D', $rest, $note) === 1) {
             $key = LabelKey::normalize($note[1]);
+            $noteColumn = self::docColumn($this->lines[$at], ltrim($rest, " \t"));
             if (isset($this->noteLabels[$key]) && self::isPlus($note[2])) {
                 // Like any note marker line it ends the paragraph open before it.
                 $this->losingNoteLines[$at] = true;
+                $offer = $skipped['offeredAt'] ?? $skipped['at'];
+                $claimed = !isset($this->refusedNotePlus[$offer]) && !isset($this->refusedPlus[$offer]);
+                $this->refusedNotePlus[$at] = $this->notePlusFinding($at, $noteColumn, $skipped['hostIndex'], $claimed);
                 $skipped['host']->para = false;
                 // Only while the block below still stands in the host; each skipped line moves once.
                 // A live `+` definition skipped before it is offered that block, as if the losing line were not there (carve#5528).
@@ -1333,6 +1345,10 @@ final class BlockOwnershipWalk
                 }
             } else {
                 $this->skipped['offered'] = self::isPlus($note[2]) && self::docColumn($this->lines[$at], $rest) === $skipped['column'];
+                if (self::isPlus($note[2])) {
+                    $this->skipped['offeredAt'] = $at;
+                    $this->refusedNotePlus[$at] = $this->notePlusFinding($at, $noteColumn, $skipped['hostIndex']);
+                }
             }
             $this->noteLabels[$key] = true;
         }
@@ -2317,6 +2333,7 @@ final class BlockOwnershipWalk
                 $losing = true;
                 $this->frames[$frame]->losing = true;
                 $this->losingNoteLines[$this->at] = true;
+                $this->refusedNotePlus[$this->at] = $this->notePlusFinding($this->at, (int)$this->frames[$frame]->docMarker, $frame);
             } elseif (self::isPlus($this->m['rest'])) {
                 // Past the one space after a `>` the `+` is the quote's text (corpus 646).
                 $f = $this->frames[$frame];
@@ -4415,6 +4432,24 @@ final class BlockOwnershipWalk
         }
 
         return $this->finding($at, $kind, preg_match('/^:{3,}[ \t]*$/D', $level['rest']) === 1 ? 'closer' : 'sibling');
+    }
+
+    /**
+     * Lint for a definition's marker-line `+` the walk passes over, losing or live (carve#5953).
+     * Its follower decides, as for any marker-line `+`; a following definition is the note's sibling,
+     * and a follower at its column that an earlier `+` takes is claimed.
+     *
+     * @return array{line: int, column: int, host: string, reason: string}|null
+     */
+    private function notePlusFinding(int $at, int $column, int $hostIndex, bool $claimed = false): ?array
+    {
+        $finding = $this->plusFinding($at, 'note', $column, $hostIndex);
+        $next = $this->throughQuotes($this->lines[$at + 1] ?? '', $hostIndex, $this->frames);
+        if ($finding['reason'] !== 'sibling' || preg_match('/^[ \t]*\[\^[^\]]+\]:/', $next['rest'] ?? '') === 1) {
+            return $finding;
+        }
+
+        return $claimed ? $this->finding($at, 'note', 'claimed') : null;
     }
 
     /**
