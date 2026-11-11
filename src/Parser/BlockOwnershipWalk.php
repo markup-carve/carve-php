@@ -1902,7 +1902,8 @@ final class BlockOwnershipWalk
         $f = $this->frames[$frame];
         $inner = $this->frames[count($this->frames) - 1];
         // S1 keeps an open code fence's payload before S2 remeasures frames.
-        if ($inner->kind === 'fence' && $inner->family === 'code' && $this->m['col'] >= $inner->col) {
+        $lead = substr($this->src, 0, strlen($this->src) - strlen($this->m['rest']));
+        if ($inner->kind === 'fence' && $inner->family === 'code' && str_contains($lead, "\t") && $this->m['col'] >= $inner->col) {
             return false;
         }
         if ($this->reachesAttachedItemFence($frame) || $this->m['rest'] === '' || $inWrappedAttribute) {
