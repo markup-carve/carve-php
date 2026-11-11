@@ -1715,13 +1715,14 @@ final class BlockContinuationScanner
         );
         $quotedRunEnd = $quotedRunLength > 0 ? $i + $quotedRunLength - 1 : -1;
         $run->unclosedFenceColumn = $unclosedFenceBase === null ? null : $contentIndent + $unclosedFenceBase;
-        // A task box sits before the marker-line run, so its `{` is past the content column (CARVE-P2-035).
+        // The wrapped-run matcher measures marker material before the written
+        // brace, including glued attributes and task boxes (CARVE-P2-035).
         $run->wrappedAttributeLinesRemaining = max(0, ($this->wrappedItemAttributeLength(
             $itemLines[0] ?? '',
             $lines,
             $i,
             $count,
-            $contentIndent + self::taskBoxWidth($this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '', $itemLines[0] ?? ''),
+            $contentIndent,
         ) ?? 1) - 1);
         $run->itemOwnFenceRuns = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($itemLines[0] ?? '', " \t")) !== 1
             && !$this->isBlockAttributeLine(ltrim($itemLines[0] ?? '', " \t"));
