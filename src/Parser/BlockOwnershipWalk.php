@@ -346,7 +346,7 @@ final class BlockOwnershipWalk
     /**
      * The invisible lines between a taken `+` and its block, read where that block stands (CARVE-P9-013).
      *
-     * @var array{host: \MarkupCarve\Carve\Parser\OwnershipFrame, at: int, end: int, hostIndex: int, fenced: array<int, bool>, noteBodies: array<int, true>, column: int, lead: string, spanPad?: int, runColumn?: int|null, offered?: bool, offeredAt?: int}|null
+     * @var array{host: \MarkupCarve\Carve\Parser\OwnershipFrame, at: int, end: int, hostIndex: int, fenced: array<int, bool>, noteBodies: array<int, true>, column: int, lead: string, spanPad?: int, outside?: bool, runColumn?: int|null, offered?: bool, offeredAt?: int}|null
      */
     private ?array $skipped = null;
 
@@ -745,8 +745,8 @@ final class BlockOwnershipWalk
                     }
                 }
                 $this->skipInvisible($plus, $at, $column, true);
-                if ($this->skipped !== null && !$keepMarkerColumn) {
-                    $this->skipped['spanPad'] = self::spanPad($host);
+                if (!$keepMarkerColumn) {
+                    $this->standRefusedSpan($plus);
                 }
                 $this->lead((int)$host->markerCanon);
                 $result[] = $this->out . $this->refusedPlaceholder($host, $at, $keepMarkerColumn, $closer, $afterNestedBlank);
@@ -1324,6 +1324,12 @@ final class BlockOwnershipWalk
         $inSpan = $skipped['fenced'][$at] ?? false;
         if ($inSpan) {
             $this->skippedCommentLines[$at] = true;
+            if (isset($skipped['outside'])) {
+                $this->skipped['outside'] = true;
+            }
+        } elseif ($skipped['outside'] ?? false) {
+            // Past a span that closed the host, a comment line stands in the host's parent.
+            $this->commentColumnOwners[$at] = $this->ownerPath($skipped['hostIndex'] - 1);
         }
         $abbreviation = !$inSpan && $skipped['hostIndex'] === 1
             && preg_match('/^\*\[([A-Za-z0-9]+)\]: +(?![ \t]*$)([^ ].*)$/D', trim($this->lines[$at]), $match) === 1
@@ -2367,9 +2373,7 @@ final class BlockOwnershipWalk
                     if ($this->trace !== null && $attribute !== null && ($attribute['col'] ?? null) === $f->markerCol && ($this->isAttributeLine)($attribute['rest'])) {
                         $this->refusedAttributeHost = $frame;
                     }
-                    if ($this->skipped !== null) {
-                        $this->skipped['spanPad'] = self::spanPad($f);
-                    }
+                    $this->standRefusedSpan($frame);
                     $consumed = true;
                 }
             }
@@ -3845,6 +3849,32 @@ final class BlockOwnershipWalk
             'column' => $column,
             'lead' => $lead,
         ];
+    }
+
+    /**
+     * A refused `+` changes no owner (CARVE-P9-067), so the `%%%` span it skipped
+     * stands in the host only when the next visible line does; otherwise it reads
+     * as written and closes the host (PART 0 FAMILIES `invisible`).
+     */
+    private function standRefusedSpan(int $hostIndex): void
+    {
+        if ($this->skipped === null) {
+            return;
+        }
+        $from = 0;
+        for ($k = $hostIndex - 1; $k > 0; $k--) {
+            if (!in_array($this->frames[$k]->kind, ['item', 'dd', 'note'], true)) {
+                $from = $k;
+
+                break;
+            }
+        }
+        $this->nextVisible = -1;
+        if ($this->nextVisibleReach($this->skipped['at'], $from) >= $hostIndex) {
+            $this->skipped['spanPad'] = self::spanPad($this->frames[$hostIndex]);
+        } else {
+            $this->skipped['outside'] = false;
+        }
     }
 
     /**
