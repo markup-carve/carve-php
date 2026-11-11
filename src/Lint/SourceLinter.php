@@ -176,7 +176,8 @@ class SourceLinter
                 if ($node instanceof DefinitionDescription && isset($rows[$pos->startLine - 1])) {
                     $text = $rows[$pos->startLine - 1][0];
                     $at = strlen(mb_substr($text, 0, $pos->startColumn - 1, 'UTF-8'));
-                    if (preg_match('/^:[ \t]+/', substr($text, $at), $match)) {
+                    // The span can start in the leading indentation before the `:` (CARVE-P12-013).
+                    if (preg_match('/^[ \t]*:[ \t]+/', substr($text, $at), $match)) {
                         $descriptions[] = ['first' => $pos->startLine, 'last' => $pos->endLine, 'content' => self::visual(substr($text, 0, $at + strlen($match[0])))];
                     }
                 }
