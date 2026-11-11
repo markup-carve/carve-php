@@ -197,13 +197,6 @@ final class BlockOwnershipWalk
     public array $heldCommentLines = [];
 
     /**
-     * Where a refused run opened on a description's or note's marker line ends, by that line, or null.
-     *
-     * @var array<int, int|null>
-     */
-    private array $markerLineRunEnds = [];
-
-    /**
      * Completed refused comment lookaheads for later openers before the same closer.
      *
      * @var array<int, array{owner: \MarkupCarve\Carve\Parser\OwnershipFrame, top: \MarkupCarve\Carve\Parser\OwnershipFrame, col: int, column: int, depth: int, through: int}>
@@ -551,7 +544,6 @@ final class BlockOwnershipWalk
         $this->attachedFenceScans = [];
         $this->refusedKeptLines = [];
         $this->heldCommentLines = [];
-        $this->markerLineRunEnds = [];
         $this->commentRunLookaheads = [];
         $this->shiftedOpeners = [];
         $this->pastColumnDescriptionLines = [];
@@ -1868,80 +1860,11 @@ final class BlockOwnershipWalk
     }
 
     /**
-     * Whether the line carries the prefix the refused run's opener was written with.
-     *
-     * An opener on an item's marker line is measured at that item's marker column, its outer markers as spaces.
-     */
-    private function writtenLikeRefusedRun(): bool
-    {
-        $opener = $this->lines[$this->refusedKeptStart] ?? '';
-        $prefix = substr($opener, 0, (int)strpos($opener, '{'));
-        $plusPrefix = substr($this->src, 0, (int)strrpos($this->src, '+'));
-        if ($prefix === $plusPrefix) {
-            return true;
-        }
-        // Only the run's follower: a `+` inside the run's range is not the line after it.
-        if ($this->at !== $this->refusedKeptThrough || preg_match('/^(.*?)((?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)+)$/D', $prefix, $m) !== 1) {
-            return false;
-        }
-        // Any marker column of the stack the opener's line opens.
-        preg_match_all('/(?:[-*+]|[0-9]{1,9}[.)])[ \t]+/', $m[2], $markers, PREG_OFFSET_CAPTURE);
-        foreach ($markers[0] as [, $offset]) {
-            if ($m[1] . str_repeat(' ', $offset) === $plusPrefix) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Whether a `+` at a host's marker column directly follows a refused run its marker line opened (carve#5658 R03).
-     *
-     * Read each line after the same quote prefixes as the host. Its block reader can
-     * keep a different range from the walk, especially when the closer is lazy.
-     */
-    private function followsMarkerLineRefusedRun(OwnershipFrame $top): bool
-    {
-        $line = $top->line;
-        if (
-            !in_array($top->kind, ['item', 'dd', 'note'], true) || $this->refusedBraceRunEnd === null
-            || $line === null || $line >= $this->at || $this->m['col'] !== $top->markerCol
-        ) {
-            return false;
-        }
-        if (!array_key_exists($line, $this->markerLineRunEnds)) {
-            $end = null;
-            $depth = $this->quoteDepth(count($this->frames));
-            $openerView = $this->levelOf($this->lines[$line] ?? '', $depth);
-            $opener = $openerView === null ? '' : str_repeat(' ', $openerView['col']) . $openerView['rest'];
-            if (preg_match('/^[ \t]*(?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)*(?::|\[\^[^\]]+\]:)?[ \t]*(?=\{)/', $opener, $m) === 1) {
-                $window = [str_repeat(' ', strlen($m[0])) . substr($opener, strlen($m[0]))];
-                for ($j = $line + 1, $count = count($this->lines); $j < $count && trim($this->lines[$j], " \t") !== ''; $j++) {
-                    $view = $this->levelOf($this->lines[$j], $depth);
-                    $window[] = $view === null ? $this->lines[$j] : str_repeat(' ', $view['col']) . $view['rest'];
-                }
-                $end = ($this->refusedBraceRunEnd)($window, 0);
-            }
-            $this->markerLineRunEnds[$line] = $end === null ? null : $line + (int)$end;
-        }
-
-        return $this->markerLineRunEnds[$line] === $this->at;
-    }
-
-    /**
      * A `+` at an open code fence's content column stays payload (PART 9 §17 L3, carve#5494).
      */
     private function openCodeFenceKeepsPlus(int $frameCount): bool
     {
         $top = $this->frames[$frameCount - 1];
-        // The line a refused brace run's paragraph keeps is text, a `+` included (CARVE-P2-035, carve#5658).
-        if ($this->at > $this->refusedKeptStart && $this->at <= $this->refusedKeptThrough && $this->writtenLikeRefusedRun()) {
-            return true;
-        }
-        if ($this->followsMarkerLineRefusedRun($top)) {
-            return true;
-        }
 
         return $top->kind === 'fence' && $top->plusAttached && $this->m['col'] >= $top->col;
     }
