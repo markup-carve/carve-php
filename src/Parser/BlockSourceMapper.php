@@ -593,7 +593,7 @@ final class BlockSourceMapper
             return $at + 2;
         }
         if ($owner instanceof DefinitionDescription) {
-            return preg_match('/^: +/', $tail, $separator) === 1 ? $at + strlen($separator[0]) : null;
+            return preg_match('/^[ \t]*: +/', $tail, $separator) === 1 ? self::visualWidth($before . $separator[0]) : null;
         }
         if (preg_match('/^([ \t]*)([-*.]|[0-9]+[.)]|[a-zA-Z]+[.)])(?:\{[^}]*\})?( +)/', $tail, $marker) !== 1) {
             return null;

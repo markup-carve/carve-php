@@ -29,6 +29,7 @@ class ADescriptionStartsAtItsOwnersContentColumnTest extends TestCase
             'past an ordered item\'s content column' => ["1. a\n   :: t\n    : b\n", ['16..20']],
             'a plus host at the item\'s content column (corpus 806)' => ["1. a\n   :: t\n   : +\n> q\n", ['16..19']],
             'in an admonition' => ["::: note\n:: t\n: a\n : b\n:::\n", ['14..17', '18..22']],
+            'in an indented description body' => [":: t\n : a\n   :: u\n   : b\n", ['5..24', '21..24']],
             'in a description body' => [":: t\n:  a\n\n   :: u\n     : b\n", ['5..27', '22..27']],
         ];
     }
