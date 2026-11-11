@@ -55,3 +55,11 @@
 3877: Removed parser conditions proven unreachable; output unchanged.
 3887: CI-only complexity gate; no runtime behavior changes.
 3890: Internal wrapped attribute scanner extraction; output unchanged.
+4914: Fixes a regression #4912 added after 0.1.16; no release carried it.
+4916: Fixes a regression #4506 added after 0.1.16; no release carried it.
+4924: Fixes a regression #4922 added after 0.1.16; no release carried it.
+4941: Fixes a regression #4938 added after 0.1.16; no release carried it.
+5010: Fixes a regression #5006 added after 0.1.16; no release carried it.
+5073: Fixes a regression #5071 added after 0.1.16; no release carried it.
+5074: Fixes a regression #5073 added after 0.1.16; no release carried it.
+5148: Fixes three regressions the cut gates found, all added after 0.1.16 (carve#5950, carve#5951, carve#5952); no release carried them.
