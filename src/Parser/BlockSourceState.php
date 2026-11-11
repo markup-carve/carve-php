@@ -138,6 +138,13 @@ final class BlockSourceState
     public array $heldCommentLines = [];
 
     /**
+     * Lazy brace openers whose continuations all reach the paragraph's frame (carve#5830 rule B).
+     *
+     * @var array<int, true>
+     */
+    public array $lazyRunsHeld = [];
+
+    /**
      * Block openers spelled on an off-stop tab run: a nested parse reads them past the body's
      * column, where they still open their block rather than fold into a paragraph (PART 0 S2, S3).
      *

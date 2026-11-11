@@ -197,6 +197,13 @@ final class BlockOwnershipWalk
     public array $heldCommentLines = [];
 
     /**
+     * Lazy brace openers whose continuations all reach the paragraph's frame (carve#5830 rule B).
+     *
+     * @var array<int, true>
+     */
+    public array $lazyRunsHeld = [];
+
+    /**
      * Completed refused comment lookaheads for later openers before the same closer.
      *
      * @var array<int, array{owner: \MarkupCarve\Carve\Parser\OwnershipFrame, top: \MarkupCarve\Carve\Parser\OwnershipFrame, col: int, column: int, depth: int, through: int}>
@@ -558,6 +565,7 @@ final class BlockOwnershipWalk
         $this->attachedFenceScans = [];
         $this->refusedKeptLines = [];
         $this->heldCommentLines = [];
+        $this->lazyRunsHeld = [];
         $this->commentRunLookaheads = [];
         $this->shiftedOpeners = [];
         $this->pastColumnDescriptionLines = [];
@@ -923,7 +931,7 @@ final class BlockOwnershipWalk
                     // complete a block-position brace run in this container.
                     $result[] = $this->out . str_repeat(' ', $leaf->kind === 'quote' ? 0 : (int)$leaf->reader) . BlockGrammar::LAZY_FRAME . $this->src;
                     $this->lazyLines[$at] = true;
-                    $this->markLazyBraceOpener($at);
+                    $this->markLazyBraceOpener($at, $reached);
                     if ($leaf->kind === 'fence' && $leaf->lineBlock) {
                         $this->lineBlockLazyLines[$at] = true;
                     }
@@ -939,7 +947,7 @@ final class BlockOwnershipWalk
                 }
                 $result[] = $this->out . $this->src;
                 $this->lazyLines[$at] = true;
-                $this->markLazyBraceOpener($at);
+                $this->markLazyBraceOpener($at, $reached);
                 if ($this->frames[$topIndex]->kind === 'fence' && $this->frames[$topIndex]->lineBlock) {
                     $this->lineBlockLazyLines[$at] = true;
                 }
@@ -2881,24 +2889,57 @@ final class BlockOwnershipWalk
         return isset($this->closingLines[$start]) && !isset($this->runsPastItemBoundary[$start]);
     }
 
-    private function markLazyBraceOpener(int $at): void
+    private function markLazyBraceOpener(int $at, int $reached): void
     {
         $rest = ltrim($this->lines[$at], " \t");
-        if (str_starts_with($rest, '{') && !RefusedBraceRun::endsOnItsLine($rest)) {
-            $this->refusedKeptLines[$at] = $at;
-            $column = IndentationHelper::getLeadingColumns($this->lines[$at]);
-            foreach ($this->frames as $frame) {
-                if (
-                    $frame->kind !== 'doc'
-                    && ($frame->kind !== 'quote' || str_starts_with(ltrim($this->lines[$at], " \t"), '>'))
-                    && $column >= $frame->col
-                ) {
-                    $this->lazyBraceReachesContainer[$at] = true;
+        if (!str_starts_with($rest, '{') || RefusedBraceRun::endsOnItsLine($rest)) {
+            return;
+        }
+        if (!$this->lazyRunMissesFrame($at, str_starts_with($rest, '{%') ? count($this->frames) - 1 : $reached)) {
+            $this->lazyRunsHeld[$at] = true;
 
-                    break;
-                }
+            return;
+        }
+        $this->refusedKeptLines[$at] = $at;
+        $column = IndentationHelper::getLeadingColumns($this->lines[$at]);
+        foreach ($this->frames as $frame) {
+            if (
+                $frame->kind !== 'doc'
+                && ($frame->kind !== 'quote' || str_starts_with(ltrim($this->lines[$at], " \t"), '>'))
+                && $column >= $frame->col
+            ) {
+                $this->lazyBraceReachesContainer[$at] = true;
+
+                break;
             }
         }
+    }
+
+    /**
+     * A multi-line brace run takes no lazy lines (carve#5830 rule B): each
+     * continuation must carry its quotes and reach frame `$deeper`'s column.
+     */
+    private function lazyRunMissesFrame(int $at, int $deeper): bool
+    {
+        $comment = str_starts_with(ltrim($this->lines[$at], " \t"), '{%');
+        $depth = 0;
+        for ($k = 1; $k <= $deeper; $k++) {
+            if ($this->frames[$k]->kind === 'quote') {
+                $depth++;
+            }
+        }
+        $column = $this->frames[$deeper]->col;
+        for ($j = $at + 1, $n = count($this->lines); $j < $n && trim($this->lines[$j], " \t") !== ''; $j++) {
+            $stands = BlockGrammar::quotedContentAtDepth($this->lines[$j], $depth);
+            if ($stands === null || IndentationHelper::getLeadingColumns($stands) < $column) {
+                return true;
+            }
+            if (str_contains($stands, $comment ? '%}' : '}')) {
+                break;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -867,6 +867,7 @@ class BlockParser
         $this->state->source->attachedQuoteEnds = $walk->attachedQuoteEnds;
         $this->state->source->refusedKeptLines = $walk->refusedKeptLines;
         $this->state->source->heldCommentLines = $walk->heldCommentLines;
+        $this->state->source->lazyRunsHeld = $walk->lazyRunsHeld;
         $this->state->source->shiftedOpeners = $walk->shiftedOpeners;
         $this->state->source->pastColumnDescriptionLines = $walk->pastColumnDescriptionLines;
         $this->state->source->fenceOpenerLines = $walk->fenceOpenerLines;
@@ -5108,6 +5109,10 @@ class BlockParser
                 $lazyOpener = isset($this->state->source->lazyLines[$sourceLine])
                     && !isset($this->state->session->blockQuoteLazySourceLines[$sourceLine]);
                 if (str_starts_with($line, '{%') && !$walkKept && $markerCommentEnd === null && !$lazyOpener) {
+                    continue;
+                }
+                // The walk already found every continuation at the run's frame column (carve#5830 rule B).
+                if ($lazyOpener && isset($this->state->source->lazyRunsHeld[$sourceLine])) {
                     continue;
                 }
                 if (self::inlineSpanOpen($spanLines ??= array_values($physicalLines), $inlineSpan, $literalLines, $k)) {
