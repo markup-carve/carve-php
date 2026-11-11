@@ -311,6 +311,20 @@ final class BlockSourceMapper
             || $node instanceof Heading;
     }
 
+    /**
+     * Whether the AST publishes this comment-only paragraph's comments: it does for a multi-line run.
+     */
+    private static function publishesCommentRun(Paragraph $paragraph): bool
+    {
+        foreach ($paragraph->getChildren() as $inline) {
+            if ($inline instanceof Comment && $inline->isDelimited() && str_contains($inline->getContent(), "\n")) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function deriveContainerSpans(Node $node): ?SourceSpan
     {
         if (isset($this->state->session->unplaceableNodeIds[spl_object_id($node)])) {
@@ -322,8 +336,12 @@ final class BlockSourceMapper
         $last = null;
         foreach ($node->getChildren() as $child) {
             // The AST omits comment-only paragraphs, so they cannot extend a
-            // container whose extent is defined by its placed children.
-            if (self::endsAtLastChild($node) && $child instanceof Paragraph && $child->rendersNothing()) {
+            // container whose extent is defined by its placed children. A
+            // multi-line comment run is published in their place and does.
+            if (
+                self::endsAtLastChild($node) && $child instanceof Paragraph && $child->rendersNothing()
+                && !self::publishesCommentRun($child)
+            ) {
                 $child->setPos(null);
 
                 continue;
