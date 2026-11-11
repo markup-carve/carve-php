@@ -2767,15 +2767,7 @@ final class BlockOwnershipWalk
             }
         }
         $lookahead = $this->commentRunLookaheads[$at] ?? null;
-        $next = $this->lines[$at + 1] ?? null;
-        $firstContinuationFails = $next !== null && trim($next, " \t") !== ''
-            && (IndentationHelper::getLeadingColumns($next) <= $col
-                || str_starts_with($next, BlockGrammar::LAZY_FRAME));
-        if (
-            RefusedBraceRun::endsOnItsLine($rest)
-            || (str_starts_with($rest, '{%') && $lookahead === null
-                && !$firstContinuationFails && !RefusedBraceRun::closerBeforeBlank($this->lines, $at))
-        ) {
+        if (RefusedBraceRun::endsOnItsLine($rest)) {
             return null;
         }
         $depth = 0;
@@ -2801,6 +2793,25 @@ final class BlockOwnershipWalk
         $brace = strpos($this->lines[$at], '{');
         if ($depth > 0 && $brace !== false) {
             $writtenColumn = WrappedBlockAttributeScanner::columnAt($this->lines[$at], $brace);
+        }
+        // Decide the first continuation in the same coordinates as the probe
+        // below. A quote marker has column zero in the raw line, but its
+        // content can still be deeper than the opening brace. In that case a
+        // closerless paragraph needs one shared suffix scan, not one probe per
+        // opener.
+        if (str_starts_with($rest, '{%') && $lookahead === null) {
+            $next = $this->lines[$at + 1] ?? null;
+            $nextContent = $next === null ? null : BlockGrammar::quotedContentAtDepth($next, $depth);
+            $firstContinuationPasses = $nextContent !== null && trim($nextContent, " \t") !== ''
+                && !str_starts_with($next, BlockGrammar::LAZY_FRAME)
+                && IndentationHelper::getLeadingColumns($nextContent)
+                    + max(0, $writtenColumn - $col) > $writtenColumn;
+            if (
+                ($next === null || trim($next, " \t") === '' || $firstContinuationPasses)
+                && !RefusedBraceRun::closerBeforeBlank($this->lines, $at)
+            ) {
+                return null;
+            }
         }
         if (
             $lookahead !== null && str_starts_with($rest, '{%')
