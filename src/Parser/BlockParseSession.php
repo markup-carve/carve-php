@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 use MarkupCarve\Carve\Ast\SourceSpan;
+use MarkupCarve\Carve\Node\Block\DefinitionDescription;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -44,6 +45,24 @@ final class BlockParseSession
     public function listItemContentColumn(ListItem $item): ?int
     {
         return $this->listItemContentColumns[$item] ?? null;
+    }
+
+    /**
+     * Visual content column of each description, measured after quote markers.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\DefinitionDescription, int>|null
+     */
+    private ?WeakMap $descriptionContentColumns = null;
+
+    public function recordDescriptionContentColumn(DefinitionDescription $description, int $column): void
+    {
+        $this->descriptionContentColumns ??= new WeakMap();
+        $this->descriptionContentColumns[$description] = $column;
+    }
+
+    public function descriptionContentColumn(DefinitionDescription $description): ?int
+    {
+        return $this->descriptionContentColumns[$description] ?? null;
     }
 
     /**
