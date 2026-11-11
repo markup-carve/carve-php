@@ -2426,7 +2426,8 @@ final class BlockOwnershipWalk
      */
     private function keepsOpenerTabRun(OwnershipForm $form, int $shift): bool
     {
-        return $form->kind === 'fence' || ($form->kind === 'colon' && ($form->lineBlock || $shift === 0));
+        return ($form->kind === 'fence' && ($form->family !== 'code' || $shift === 0))
+            || ($form->kind === 'colon' && ($form->lineBlock || $shift === 0));
     }
 
     private function recordRewrittenOpener(OwnershipForm $form, int $shift): void
@@ -2439,6 +2440,16 @@ final class BlockOwnershipWalk
     private function leadPayload(OwnershipFrame $inner, bool $shiftedCloser, int $segment): void
     {
         $payloadColumn = max($this->m['col'] - $inner->cut, $inner->canon);
+        $frameColumn = $this->strippedColumn($this->src, $segment, $this->m);
+        if ($frameColumn !== $this->m['col'] && ($inner->family !== 'code' || ($inner->openerTabShift ?? 0) > 0)) {
+            // A structural tab can land at a different column after an enclosing
+            // frame strips its prefix. Give the payload reader that frame's
+            // space spelling; tabs in code content itself remain untouched.
+            $this->out .= str_repeat(' ', $shiftedCloser ? $inner->col : $payloadColumn);
+            $this->src = $this->m['rest'];
+
+            return;
+        }
         if (!$this->rewritesTabbedPayload($inner, $shiftedCloser, $segment, $payloadColumn)) {
             $this->lead($shiftedCloser ? $inner->col : $payloadColumn);
 
@@ -2455,6 +2466,21 @@ final class BlockOwnershipWalk
      */
     private function rewritesTabbedPayload(OwnershipFrame $inner, bool $shiftedCloser, int $segment, int $payloadColumn): bool
     {
+        if ($inner->family === 'code' && $inner->openerTabShift === 0) {
+            return false;
+        }
+        if ($inner->family === 'code' && $inner->opened !== null) {
+            $opener = $this->lines[$inner->opened];
+            $openerLead = substr($opener, 0, strspn($opener, " \t"));
+            $payloadLead = substr($this->src, 0, strlen($this->src) - strlen($this->m['rest']));
+            if (
+                $openerLead !== '' && str_starts_with($payloadLead, $openerLead)
+                && str_contains(substr($payloadLead, strlen($openerLead)), "\t")
+            ) {
+                // Tabs after the opener's structural run belong to literal code.
+                return false;
+            }
+        }
         if (
             $shiftedCloser || $inner->openerTabShift === null || $inner->family === 'comment'
             || !str_contains(substr($this->src, 0, strlen($this->src) - strlen($this->m['rest'])), "\t")
