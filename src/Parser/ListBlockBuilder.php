@@ -1447,7 +1447,7 @@ final class ListBlockBuilder
                 if ($this->markerLeadHasLooseningBlank($itemLines, $itemLineMap, $lines, $i, $baseIndent, $contentIndent, $listInfo)) {
                     $list->setTight(false);
                 }
-                $listItem->setPos($itemOpeningColumn === null ? null : $this->spanForLineMap($itemLineMap, $itemOpeningColumn));
+                $listItem->setPos($itemOpeningColumn === null ? null : $this->itemSpan($itemLineMap, $listItemSourceLine, $itemOpeningColumn));
                 foreach ($itemLines as &$collectedLine) {
                     if (
                         str_starts_with($collectedLine, BlockGrammar::LAZY_FRAME)
@@ -1489,7 +1489,7 @@ final class ListBlockBuilder
                     $itemLineMap,
                     $authoredBaseEligible,
                 );
-                $listItem->setPos($itemOpeningColumn === null ? null : $this->spanForLineMap($itemLineMap, $itemOpeningColumn));
+                $listItem->setPos($itemOpeningColumn === null ? null : $this->itemSpan($itemLineMap, $listItemSourceLine, $itemOpeningColumn));
                 $itemLines = $this->keepTaskBoxColumns($itemLines, $itemLineMap, $markerHead, $trimmedLine, $itemInfo);
                 $this->callParseItemBlocks($listItem, $itemLines, $itemLineMap, $authoredBaseEligible);
                 if ($this->state->session->itemHasParsedBlankBeforeParagraph($listItem)) {
@@ -1540,7 +1540,7 @@ final class ListBlockBuilder
             // collected above); a non-list block opener after lead text stays
             // paragraph text, so tryParseParagraph folds it into the lead
             // paragraph rather than splitting it into a separate block.
-            $listItem->setPos($itemOpeningColumn === null ? null : $this->spanForLineMap($itemLineMap, $itemOpeningColumn));
+            $listItem->setPos($itemOpeningColumn === null ? null : $this->itemSpan($itemLineMap, $listItemSourceLine, $itemOpeningColumn));
             $leadMarker = ($this->getListParser)()->parseListItemMarker(ltrim($itemContent, " \t"));
             $leadNestedColumn = $leadMarker === null
                 ? null
@@ -4324,6 +4324,24 @@ final class ListBlockBuilder
     private function sourceLineFor(int $index): int
     {
         return $this->source->sourceLineFor($index);
+    }
+
+    /**
+     * An item starts at its marker even when the stream it parses no longer
+     * holds the marker line, as after a consumed `+` (CARVE-P12-019).
+     *
+     * @param array<int, int> $lineMap
+     * @param int $markerLine
+     * @param int $openingColumn
+     */
+    private function itemSpan(array $lineMap, int $markerLine, int $openingColumn): ?SourceSpan
+    {
+        $first = $lineMap[array_key_first($lineMap)] ?? null;
+        if ($first !== null && $first > $markerLine) {
+            $lineMap = [$markerLine, ...$lineMap];
+        }
+
+        return $this->spanForLineMap($lineMap, $openingColumn);
     }
 
     /**
