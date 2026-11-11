@@ -4023,7 +4023,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // A label is author content, and it is reproduced verbatim in two
         // places; both escape, so a reference still matches its definition
         // (carve-php#1063).
-        return '[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . ']: ' . $content;
+        return '[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . ']:' . ($content === "\n" ? "\n" : ' ' . $content);
     }
 
     /**
