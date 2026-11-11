@@ -61,7 +61,7 @@ final class BlockReferenceResolver
                     if ($definition->url === '') {
                         UnresolvedReference::markResolvedEmpty($child);
                     }
-                    $this->applyDeferredReferenceAttributes($child, $definition->attributes);
+                    $this->applyDeferredReferenceAttributes($child, $definition->attributes, $definition->lastSpellings);
                     $this->markReferenceUsed($label, 0);
                     $this->trackAnchorOfResolvedLink($child, $definition->url);
                 }
@@ -87,7 +87,7 @@ final class BlockReferenceResolver
                     $child->setReferenceLabel($rawLabel);
                     $child->setFromHeadingReference(false);
                     $child->resolveReference($definition->url, $definition->title);
-                    $this->applyDeferredReferenceAttributes($child, $definition->attributes);
+                    $this->applyDeferredReferenceAttributes($child, $definition->attributes, $definition->lastSpellings);
                     $this->markReferenceUsed($rawLabel, 0);
                     $this->trackAnchorOfResolvedLink($child, $definition->url);
                 }
@@ -99,7 +99,7 @@ final class BlockReferenceResolver
                     if ($definition->url === '') {
                         UnresolvedReference::markResolvedEmpty($child);
                     }
-                    $this->applyDeferredReferenceAttributes($child, $definition->attributes);
+                    $this->applyDeferredReferenceAttributes($child, $definition->attributes, $definition->lastSpellings);
                     $this->markReferenceUsed($label, 0);
                 }
             } elseif ($child instanceof FootnoteRef && $child->isUnresolved() && $this->hasFootnote($child->getLabel())) {
@@ -169,8 +169,9 @@ final class BlockReferenceResolver
      *
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string, string|list<string>> $definitionAttributes
+     * @param array<string, string> $definitionSpellings
      */
-    public function applyDeferredReferenceAttributes(Node $node, array $definitionAttributes): void
+    public function applyDeferredReferenceAttributes(Node $node, array $definitionAttributes, array $definitionSpellings = []): void
     {
         if ($definitionAttributes === []) {
             return;
@@ -183,7 +184,7 @@ final class BlockReferenceResolver
             },
             array_keys($definitionAttributes),
         );
-        $node->mergeLeadingAttributes($definitionAttributes, $order);
+        $node->mergeLeadingAttributes($definitionAttributes, $order, $definitionSpellings);
     }
 
     public function appendLinkReferenceDefinitions(Document $document): void
@@ -227,6 +228,7 @@ final class BlockReferenceResolver
                         array_map('strval', array_keys($definition->attributes)),
                     ),
                 );
+                $node->inheritLastSpellings($definition->lastSpellings);
             }
             // PART 12 §4 requires `pos` on every node but the root, and §10 says
             // a hoisted definition's span still points at the line the author

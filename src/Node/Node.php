@@ -55,6 +55,15 @@ abstract class Node
     private array $attributeSlots = [];
 
     /**
+     * Lowercase name => spelling written last, tracked once any uppercase
+     * spelling is written: a rewritten key keeps its first map position, so
+     * map order alone cannot tell which case variant wrote last (carve#5982).
+     *
+     * @var array<string, string>
+     */
+    private array $lastSpellings = [];
+
+    /**
      * @var array<class-string, bool>
      */
     private static array $nativeAttributeOrder = [];
@@ -414,7 +423,49 @@ abstract class Node
         if ($key === 'class') {
             $this->classEntries = [$value];
         }
+        $this->recordSpellingWrite($key);
         $this->recordAttributeSlot($key === 'id' ? '#id' : ($key === 'class' ? '.class' : $key));
+    }
+
+    private function recordSpellingWrite(string $key): void
+    {
+        $name = strtolower($key);
+        if ($this->lastSpellings !== [] || $name !== $key) {
+            $this->lastSpellings[$name] = $key;
+        }
+    }
+
+    /**
+     * Replay a source slot sequence, repeats included, as writes.
+     *
+     * @param list<string> $order
+     */
+    private function recordSpellingWrites(array $order): void
+    {
+        foreach ($order as $slot) {
+            $key = $slot === '#id' ? 'id' : $slot;
+            if ($key !== '.class' && array_key_exists($key, $this->attributes)) {
+                $this->recordSpellingWrite($key);
+            }
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getLastSpellings(): array
+    {
+        return $this->lastSpellings;
+    }
+
+    /**
+     * Take the last-written spellings of a node whose attributes were copied here.
+     *
+     * @param array<string, string> $spellings
+     */
+    public function inheritLastSpellings(array $spellings): void
+    {
+        $this->lastSpellings = array_merge($this->lastSpellings, $spellings);
     }
 
     /**
@@ -436,6 +487,7 @@ abstract class Node
         if ($key === 'class') {
             $this->classEntries = [$value];
         }
+        $this->recordSpellingWrite($key);
     }
 
     public function getAttribute(string $key): ?string
@@ -500,6 +552,7 @@ abstract class Node
                 $this->attributes['class'] = '';
             } elseif (is_string($value)) {
                 $this->attributes[$key] = $value;
+                $this->recordSpellingWrite((string)$key);
             }
         }
     }
@@ -523,6 +576,7 @@ abstract class Node
     public function setAttributesWithOrder(array $attributes, array $order): void
     {
         $this->storeAttributes($attributes);
+        $this->recordSpellingWrites($order);
         foreach ($order as $slot) {
             $this->recordAttributeSlot($slot);
         }
@@ -563,21 +617,28 @@ abstract class Node
      *
      * @param array<string, string|list<string>> $attributes
      * @param list<string> $order
+     * @param array<string, string> $leadingSpellings Last-written spellings of the leading attributes
      */
-    public function mergeLeadingAttributes(array $attributes, array $order): void
+    public function mergeLeadingAttributes(array $attributes, array $order, array $leadingSpellings = []): void
     {
         if ($attributes === []) {
             return;
         }
         $own = $this->getAttributeEntries();
         $ownOrder = $this->attributeOrder;
+        $ownSpellings = $this->lastSpellings;
         // Classes accumulate leading-then-own.
         if (isset($attributes['class'], $own['class'])) {
             $own['class'] = [...(array)$attributes['class'], ...(array)$own['class']];
         }
         // Leading provides values the node lacks; the node's own win on conflict.
         $this->attributes = [];
-        $this->storeAttributes(array_merge($attributes, $own));
+        $this->lastSpellings = [];
+        $this->storeAttributes($attributes);
+        $this->recordSpellingWrites($order);
+        $this->lastSpellings = array_merge($this->lastSpellings, $leadingSpellings);
+        $this->storeAttributes($own);
+        $this->lastSpellings = array_merge($this->lastSpellings, $ownSpellings);
         // Order: leading slots first, then the node's own not-yet-present slots.
         $merged = $order;
         $seen = array_fill_keys($order, true);
@@ -598,6 +659,10 @@ abstract class Node
      */
     public function getFoldedAttribute(string $name): ?string
     {
+        $last = $this->lastSpellings[$name] ?? null;
+        if ($last !== null && isset($this->attributes[$last])) {
+            return $this->attributes[$last];
+        }
         $found = null;
         foreach ($this->attributes as $key => $value) {
             if (strtolower((string)$key) === $name) {

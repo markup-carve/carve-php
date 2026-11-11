@@ -529,6 +529,7 @@ class IncludeExpander implements TransformerInterface
                     }
                     if ($directive['code'] !== null && isset($replacement[0]) && $replacement[0] instanceof CodeBlock) {
                         $replacement[0]->setAttributesWithOrder($paragraph->getAttributeEntries(), $paragraph->getAttributeOrder());
+                        $replacement[0]->inheritLastSpellings($paragraph->getLastSpellings());
                         // `{table}` converts a csv/tsv code include as it does an authored fence (I1c).
                         $table = $replacement[0]->getRenderHint('includeDelimitedTableFallback') === '1'
                             ? null : DelimitedTable::fromCode($replacement[0], skipRecord: self::isRegionMarkerRecord(...));
@@ -1096,6 +1097,7 @@ class IncludeExpander implements TransformerInterface
     private function projectIncludedTable(string $source, array $directive, Paragraph $host, CodeBlock $selectedCode): Table|CodeBlock|null
     {
         $selectedCode->setAttributesWithOrder($host->getAttributeEntries(), $host->getAttributeOrder());
+        $selectedCode->inheritLastSpellings($host->getLastSpellings());
         if ($directive['lines'] !== null && DelimitedTable::fromCode($selectedCode) === null) {
             return $selectedCode;
         }
@@ -1106,6 +1108,7 @@ class IncludeExpander implements TransformerInterface
         }
         $fullCode = new CodeBlock($normalized, $directive['code']['lang']);
         $fullCode->setAttributesWithOrder($host->getAttributeEntries(), $host->getAttributeOrder());
+        $fullCode->inheritLastSpellings($host->getLastSpellings());
         $map = null;
         if ($this->trackPositions) {
             $map = new SourceMap();

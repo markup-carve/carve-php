@@ -3340,6 +3340,7 @@ class InlineParser
                     foreach ($refDef->attributes as $key => $value) {
                         $link->setAttribute($key, $value);
                     }
+                    $link->inheritLastSpellings($refDef->lastSpellings);
 
                     $endPos = $refEnd + 1;
 
@@ -3550,6 +3551,7 @@ class InlineParser
         foreach ($link->getAttributeEntries() as $key => $value) {
             $image->setAttribute($key, $value);
         }
+        $image->inheritLastSpellings($link->getLastSpellings());
 
         return [
             'node' => $image,

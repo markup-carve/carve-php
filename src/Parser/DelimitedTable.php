@@ -156,6 +156,7 @@ final class DelimitedTable
         }
         $table = new Table();
         $table->setAttributesWithOrder($code->getAttributeEntries(), $code->getAttributeOrder());
+        $table->inheritLastSpellings($code->getLastSpellings());
         $table->removeAttribute('table');
         $table->setAttributeOrder(array_values(array_filter($table->getAttributeOrder(), static fn (string $key): bool => $key !== 'table')));
         $table->setSourceFormat($format);

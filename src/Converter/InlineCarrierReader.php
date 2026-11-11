@@ -170,6 +170,7 @@ final class InlineCarrierReader
             if ($child instanceof Comment && str_contains($child->getContent(), $this->token)) {
                 $restored = new Comment(strtr($child->getContent(), $this->markers), $child->getFenceLength(), $child->isDelimited());
                 $restored->setAttributesWithOrder($child->getAttributes(), $child->getAttributeOrder());
+                $restored->inheritLastSpellings($child->getLastSpellings());
                 $restored->setPos($child->getPos());
                 $children[] = $restored;
 
