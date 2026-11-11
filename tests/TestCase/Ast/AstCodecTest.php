@@ -428,10 +428,7 @@ class AstCodecTest extends TestCase
      * @var array<string>
      */
     private const AUTHORED_FORM_NOT_ON_THE_WIRE = [
-        // Invisible comment-only paragraphs are omitted from the wire (carve#4799).
-        '1046-a-quoted-marker-comment-keeps-source-columns.crv',
-        '1055-a-note-marker-comment-run-uses-its-body-column.crv',
-        '1056-a-comment-continuation-past-the-brace-after-an-outer-quote-prefix-is-hidden.crv',
+        // These still lose authored form after their invisible paragraph is omitted (carve#4799).
         '1063-a-block-shaped-line-inside-a-comment-run-keeps-the-item-tight-2.crv',
         '1063-a-block-shaped-line-inside-a-comment-run-keeps-the-item-tight-3.crv',
         '1063-a-block-shaped-line-inside-a-comment-run-keeps-the-item-tight.crv',

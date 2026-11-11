@@ -2000,8 +2000,30 @@ class AstCodec
 
         $children = $node->getChildren();
         // HTML treats a braced-comment-only paragraph as an invisible line.
-        // Publishing it makes an ingesting engine render an empty paragraph.
-        $children = array_values(array_filter($children, static fn (Node $child): bool => !($child instanceof Paragraph && $child->rendersNothing())));
+        // A multi-line run still belongs to the AST. Publish its comments at
+        // the containing block level without publishing an empty paragraph.
+        $published = [];
+        foreach ($children as $child) {
+            if ($child instanceof Paragraph && $child->rendersNothing()) {
+                $comments = [];
+                $hasMultilineRun = false;
+                foreach ($child->getChildren() as $inline) {
+                    if ($inline instanceof Comment) {
+                        $comments[] = $inline;
+                        $hasMultilineRun = $hasMultilineRun || $inline->isDelimited() && str_contains($inline->getContent(), "\n");
+                    }
+                }
+                if ($hasMultilineRun) {
+                    // Separate block siblings lose the inline spacing between
+                    // comments on a JSON writer roundtrip.
+                    $published[] = count($comments) === 1 ? $comments[0] : $child;
+                }
+
+                continue;
+            }
+            $published[] = $child;
+        }
+        $children = $published;
         if ($node instanceof Ruby) {
             // The same inlines are exposed as children for ordinary tree walks.
             // The wire owns them only through pairs, never through children.
