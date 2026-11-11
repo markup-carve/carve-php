@@ -334,6 +334,7 @@ final class BlockSourceMapper
         }
         $first = null;
         $last = null;
+        $refusedPlus = [];
         foreach ($node->getChildren() as $child) {
             // The AST omits comment-only paragraphs, so they cannot extend a
             // container whose extent is defined by its placed children. A
@@ -346,14 +347,12 @@ final class BlockSourceMapper
 
                 continue;
             }
-            // A later standalone continuation marker can be represented by a
-            // synthetic comment while layout decides its owner. It is not an
-            // item child when it lies beyond the item's collected extent.
-            if (
-                $node instanceof ListItem && $child instanceof Comment
-                && in_array($child, $this->state->session->consumedPlusComments, true)
-                && $node->getPos() !== null && $child->getPos()?->endOffset > $node->getPos()->endOffset
-            ) {
+            // A refused `+` is stood in by a synthetic comment that is removed
+            // later. After a placed child it adds no owned source (CARVE-P12-014);
+            // an otherwise empty container still spans it as its own markup.
+            if ($child instanceof Comment && in_array($child, $this->state->session->consumedPlusComments, true)) {
+                $refusedPlus[] = $child->getPos();
+
                 continue;
             }
             $span = $this->deriveContainerSpans($child);
@@ -365,6 +364,19 @@ final class BlockSourceMapper
             }
             if ($last === null || $span->endOffset > $last->endOffset) {
                 $last = $span;
+            }
+        }
+        if ($last === null) {
+            foreach ($refusedPlus as $span) {
+                if ($span === null) {
+                    continue;
+                }
+                if ($first === null || $span->startOffset < $first->startOffset) {
+                    $first = $span;
+                }
+                if ($last === null || $span->endOffset > $last->endOffset) {
+                    $last = $span;
+                }
             }
         }
         if ($node instanceof DefinitionList) {
