@@ -2226,7 +2226,7 @@ class BlockParser
                 $this->state->session->pendingAttributeSpan ??= $this->wholeLinesSpan(
                     $i,
                     $i + $attrConsumed - 1,
-                    $this->authoredColumnOf($i, $line) ?? 0,
+                    $this->authoredOffsetOf($i, $line),
                 );
                 $i += $attrConsumed;
 
@@ -2570,6 +2570,20 @@ class BlockParser
     private static function isFoldedFenceLine(string $line): bool
     {
         return preg_match('/^(?:`{3,}|~{3,})/', $line) === 1;
+    }
+
+    /**
+     * The byte offset of a line's content in its written source line; the walk may have moved it.
+     */
+    private function authoredOffsetOf(int $index, string $line): int
+    {
+        $authored = $this->state->source->authoredLines[$this->sourceLineFor($index)] ?? null;
+        $content = ltrim($line, " \t");
+        if ($authored !== null && $content !== '' && str_ends_with($authored, $content)) {
+            return strlen($authored) - strlen($content);
+        }
+
+        return $this->authoredColumnOf($index, $line) ?? 0;
     }
 
     private function authoredColumnOf(int $index, string $line): ?int
