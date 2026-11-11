@@ -1001,6 +1001,7 @@ class BlockParser
             // After every pass that can move or wrap nodes, so a container sees
             // its final children.
             $this->deriveContainerSpans($document);
+            $this->sourceMapper()->startDescriptionsAtOwnerColumn($document);
         }
 
         // After the spans exist, because it sorts BY them.

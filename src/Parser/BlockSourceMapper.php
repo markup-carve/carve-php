@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
@@ -488,6 +489,127 @@ final class BlockSourceMapper
         $node->setPos($derived);
 
         return $derived;
+    }
+
+    /**
+     * Leading indentation on a description's `:` line is inside its span from
+     * its owner's content column (CARVE-P12-013, the carve#5063 list reading;
+     * carve#5976).
+     */
+    public function startDescriptionsAtOwnerColumn(Node $node): void
+    {
+        foreach ($node->getChildren() as $child) {
+            $this->startDescriptionsAtOwnerColumn($child);
+        }
+        if ($node instanceof DefinitionList) {
+            foreach ($node->getChildren() as $child) {
+                if ($child instanceof DefinitionDescription) {
+                    $this->startDescriptionAtOwnerColumn($child);
+                }
+            }
+        }
+    }
+
+    private function startDescriptionAtOwnerColumn(DefinitionDescription $description): void
+    {
+        $pos = $description->getPos();
+        if ($pos === null || $pos->startColumn <= 1) {
+            return;
+        }
+        $line = $this->state->source->authoredLines[$pos->startLine - 1] ?? null;
+        if ($line === null) {
+            return;
+        }
+        $before = mb_substr($line, 0, $pos->startColumn - 1, 'UTF-8');
+        if (mb_substr($line, $pos->startColumn - 1, 1, 'UTF-8') !== ':' || preg_match('/^[\x00-\x7F]*$/', $before) !== 1) {
+            return;
+        }
+        $prefixEnd = 0;
+        while (preg_match('/^(?:[ \t]*> ?|[ \t]*: +|[ \t]*\[\^[^\]]+\]: +|[ \t]*(?:[-*.]|[0-9]+[.)]|[a-zA-Z]+[.)]) )/', substr($before, $prefixEnd), $marker) === 1) {
+            $prefixEnd += strlen($marker[0]);
+        }
+        if (strspn($before, " \t", $prefixEnd) !== strlen($before) - $prefixEnd) {
+            return;
+        }
+        $owner = $this->descriptionOwnerColumn($description);
+        if ($owner === null) {
+            return;
+        }
+        $start = $prefixEnd;
+        $length = strlen($before);
+        $visual = self::visualWidth(substr($before, 0, $prefixEnd));
+        while ($start < $length && $visual < $owner) {
+            $next = $before[$start] === "\t" ? $visual + IndentationHelper::TAB_STOP - ($visual % IndentationHelper::TAB_STOP) : $visual + 1;
+            if ($next > $owner) {
+                break;
+            }
+            $visual = $next;
+            $start++;
+        }
+        if ($start >= $length || self::visualWidth($before) < $owner) {
+            return;
+        }
+        $shift = $length - $start;
+        $description->setPos(new SourceSpan(
+            startLine: $pos->startLine,
+            endLine: $pos->endLine,
+            startColumn: $pos->startColumn - $shift,
+            endColumn: $pos->endColumn,
+            startOffset: $pos->startOffset - $shift,
+            endOffset: $pos->endOffset,
+        ));
+    }
+
+    /**
+     * The content column of the nearest container that owns a description's
+     * list, as the spec's AST position checker measures it; 0 at top level.
+     */
+    private function descriptionOwnerColumn(DefinitionDescription $description): ?int
+    {
+        $owner = $description->getParent()?->getParent();
+        while (
+            $owner !== null && !(
+            $owner instanceof ListItem || $owner instanceof Footnote || $owner instanceof DefinitionDescription
+            || $owner instanceof Div || ($owner instanceof BlockQuote && $owner->isFenced())
+            )
+        ) {
+            $owner = $owner->getParent();
+        }
+        if ($owner === null) {
+            return 0;
+        }
+        $pos = $owner->getPos();
+        $line = $pos === null ? null : ($this->state->source->authoredLines[$pos->startLine - 1] ?? null);
+        if ($pos === null || $line === null) {
+            return null;
+        }
+        $before = mb_substr($line, 0, $pos->startColumn - 1, 'UTF-8');
+        $at = self::visualWidth($before);
+        $tail = substr($line, strlen($before));
+        if ($owner instanceof Div || $owner instanceof BlockQuote) {
+            return $at;
+        }
+        if ($owner instanceof Footnote) {
+            return $at + 2;
+        }
+        if ($owner instanceof DefinitionDescription) {
+            return preg_match('/^[ \t]*: +/', $tail, $separator) === 1 ? self::visualWidth($before . $separator[0]) : null;
+        }
+        if (preg_match('/^([ \t]*)([-*.]|[0-9]+[.)]|[a-zA-Z]+[.)])(?:\{[^}]*\})?( +)/', $tail, $marker) !== 1) {
+            return null;
+        }
+
+        return self::visualWidth($before . $marker[1]) + strlen($marker[2]) + strlen($marker[3]);
+    }
+
+    private static function visualWidth(string $text): int
+    {
+        $column = 0;
+        foreach (mb_str_split($text, 1, 'UTF-8') as $char) {
+            $column = $char === "\t" ? $column + IndentationHelper::TAB_STOP - ($column % IndentationHelper::TAB_STOP) : $column + 1;
+        }
+
+        return $column;
     }
 
     /**
