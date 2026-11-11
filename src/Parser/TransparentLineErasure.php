@@ -607,7 +607,7 @@ trait TransparentLineErasure
             }
             if (
                 $descends && !self::isTransparentLeaf($child)
-                && ($child instanceof ListBlock || $child instanceof BlockQuote || $child->getChildren() !== [])
+                && ($child instanceof ListBlock || $child instanceof BlockQuote || $child instanceof FigureGroup || $child->getChildren() !== [])
             ) {
                 $this->insertTransparentNodes($child, $inside, $depth + 1);
 
@@ -763,7 +763,7 @@ trait TransparentLineErasure
     {
         return $node instanceof Paragraph || $node instanceof Heading || $node instanceof CodeBlock
             || $node instanceof Table || $node instanceof Comment || $node instanceof Figure
-            || $node instanceof FigureGroup || $node instanceof LineBlock || $node instanceof DefinitionTerm;
+            || $node instanceof LineBlock || $node instanceof DefinitionTerm;
     }
 
     private function dropTransparentPositions(Node $node, int $depth = 0): void
