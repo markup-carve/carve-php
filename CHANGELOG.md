@@ -9,14 +9,9 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
-### Improvements
+## [0.1.17] - 2026-11-11
 
-- `ProseMirrorRenderer::register()` renders an application's own nodes, the counterpart of `ProseMirrorToCarve::register()` (#4947).
-- `ProseMirrorToCarve` leaves Tiptap's `colwidth` out of Carve without reporting it in `droppedAttributes()`; the schema map now lists it as editor layout (#4948).
-
-## [0.1.17] - 2026-11-08
-
-The block reader now follows the spec model's ownership walk (rule A) and the one attach rule for `+`. Markdown import follows CommonMark 0.31, and lint gains suppression comments and Markdown-habit rules.
+The block reader now follows the spec model's ownership walk (rule A), the one attach rule for `+` and the refused brace run ruling. Markdown import follows CommonMark 0.31, and lint gains suppression comments and Markdown-habit rules.
 
 ### Breaking
 
@@ -31,10 +26,25 @@ The block reader now follows the spec model's ownership walk (rule A) and the on
 - A lone `+` at a marker column, or as the whole content of a marker line, is a continuation marker; a refused one renders nothing and `continuation-marker-refused` reports it (#4328, #4582).
 - A block attribute or comment run continues only on lines indented past its opening brace (#4585).
 - Single-line invisible blocks are erased before layout, so they no longer split or loosen what is around them (carve#5012, #4587, #4618).
+- A refused block-position brace run claims no lines: its opener is literal text and later lines read normally. A multi-line run inside a container takes no lazy lines (carve#5830, #5115, #5128).
+- The HTML importer no longer reads `data-djot-*` carriers, and lint suppressions no longer accept the `a11y/heading-jump` alias; use `heading-level-skip` (carve#5735, #5068).
+- `ProseMirrorRenderer` writes `carvePos` only when `withSourcePositions()` asks for it (#4946, #4949).
 
 ### Fixes
 
 - A paragraph after a repeated `+` footnote definition is no longer dropped (#4905).
+- `+`-attached blocks follow the carve#5658 ruling A: how an attached fence, list, colon or line block ends, which owner keeps the next line, and when a `+` reaches its host (#4921, #4933, #4934, #4935, #4936, #4939, #4957, #4958, #4965, #4971, #4972, #4973, #4982, #4983, #4986, #4990, #4995, #4996, #4997, #5002, #5004, #5020, #5064, #5066, #5099).
+- Notes and footnote definitions: a losing duplicate's `+` takes nothing and the winner keeps its block; later notes register at the authored column; a note resumes or closes at its body column after an attached block (#4907, #4908, #4912, #4917, #4923, #4931, #4937, #4938, #4943, #4952, #4963, #4966, #4992, #4994, #5003, #5011, #5013, #5058, #5059, #5062, #5094, #5132, #5137).
+- Lists stay tight when only invisible lines, note bodies or comment-only paragraphs precede a blank, and region markers split lists (#4911, #4918, #4922, #4928, #5019, #5046, #5048, #5063, #5113).
+- Refused brace runs keep their followers as paragraph text in items, notes, descriptions and quotes, including fence-shaped followers and marker-line runs (#4960, #4977, #4979, #4984, #4985, #4991, #4998, #5006, #5007, #5071, #5085, #5091, #5092, #5100, #5101, #5103, #5118, #5119).
+- Attribute and comment brace runs on marker lines, in quotes and in lazy lines are measured from their written column, stay hidden when valid, and hold block-shaped lines inside them (#4959, #5055, #5067, #5082, #5083, #5084, #5087, #5095, #5102, #5104, #5105, #5108, #5110, #5116, #5117, #5121, #5123, #5130, #5133, #5140, #5141, #5142).
+- Tabs inside nested frames are measured at frame-local columns, including tabbed fence payload and hosted notes (#4124, #5061, #5065, #5081, #5129, #5135).
+- Open code spans keep wrapped brace runs and attribute lines, and end in captions at a later fence; captions keep lazy caret lines out and normalize unresolved paragraph indentation (#5014, #5017, #5021, #5039, #5052).
+- Verse stanzas stay open after fence-shaped lines and pair only inside their quote; a lazy quote frame no longer leaks its prefix into paragraph text (#4932, #4954, #4956).
+- A comment or definition before a `---` line no longer opens frontmatter (carve#5706, #5060).
+- Inline and HTML output: titled admonitions render once, container titles flatten nested links and resolve footnotes, raw format names accept underscores, highlights and quotes close after atoms, semantic values with unsafe schemes are dropped, and raw footnote payload keeps its whitespace (#4927, #4930, #4945, #5025, #5033, #5034, #5036, #5037, #5038, #5040, #5041, #5042, #5043, #5044, #5047).
+- Writers: typed-div classes survive `carve fmt`, a tight item's brace paragraph stays on the marker line, and empty Markdown footnote definitions carry no trailing space (#5054, #5056, #5136, #5138).
+- `unclosed-code-fence` names the continuation marker that ends a fence (#5149).
 - Comment spans and verse blocks retain their authored content and release following lines to the right container, including empty spans, quoted spans, and blanks (#4748, #4750, #4751, #4759, #4772, #4773, #4774, #4775, #4776, #4779, #4783, #4785, #4790, #4794, #4796, #4797, #4799, #4800, #4801, #4803, #4805, #4813, #4827, #4834, #4900).
 - Attached quotes, colon blocks, and fences stay with their hosts through closers. Closed fences keep blank payload; unclosed ones end at their first blank. Refused continuations leave surrounding content in place (#4761, #4762, #4763, #4802, #4806, #4807, #4810, #4815, #4826, #4828, #4829, #4835, #4836, #4838, #4841, #4842, #4843, #4844, #4847, #4849, #4851, #4852, #4853, #4854, #4855, #4858, #4863, #4864, #4865, #4866, #4867, #4869, #4870, #4872, #4873, #4874, #4877, #4879, #4887, #4888, #4889, #4890, #4892, #4893, #4895, #4901).
 - Lists, descriptions, notes, and quotes keep nested lines with their authored owner and end at the correct sibling or document boundary (#4757, #4769, #4778, #4780, #4795, #4804, #4812, #4816, #4817, #4818, #4819, #4821, #4823, #4825, #4833, #4861, #4875, #4878, #4891).
@@ -70,6 +80,10 @@ The block reader now follows the spec model's ownership walk (rule A) and the on
 
 ### Improvements
 
+- `ProseMirrorRenderer::register()` renders an application's own nodes, the counterpart of `ProseMirrorToCarve::register()` (#4947, #4950).
+- `ProseMirrorToCarve` leaves Tiptap's `colwidth` out of Carve without reporting it in `droppedAttributes()`; the schema map lists it as editor layout (#4948, #4953).
+- Lint reports a discarded own-line `+` as `refused-continuation-marker` (carve#5736, #5078).
+- Comment-run and brace-opener scans run in linear time, and small documents do less per-line parse work (#5075, #5088, #5090, #5106, #5107, #5114, #5120, #5122, #5124, #5126, #5127, #5131).
 - Rendering and ownership scans avoid repeated work on small documents, separated comments, and completed attached fences (#4743, #4777, #4846, #4897).
 - Markdown fidelity reports assess list and paragraph constructs (#4731).
 - The ownership walk, erasure pass, lint traversal, and loose-list writer avoid repeated work on common inputs (#4648, #4652, #4653, #4655, #4662, #4667, #4689).
