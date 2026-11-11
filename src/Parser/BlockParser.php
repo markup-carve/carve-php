@@ -5091,12 +5091,17 @@ class BlockParser
                 $limit = $walkKept || $markerLineRun || $markerCommentEnd !== null || $lazyOpener ? count($physicalLines) : $physical + $width;
                 if ($lazyOpener) {
                     $hostColumn = $contentLines[$k - 1][1] ?? 0;
-                    if ($hostColumn === 0 && $k > 0) {
+                    if ($k > 0) {
                         $previousText = ltrim($physicalLines[$k - 1], " \t");
-                        $previousSource = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$sourceLine - 1] ?? '');
+                        $previousLine = $contentLines[$k - 1][0] ?? $sourceLine - 1;
+                        $previousSource = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$previousLine] ?? '');
                         if (str_ends_with($previousSource, $previousText)) {
                             $prefix = substr($previousSource, 0, strlen($previousSource) - strlen($previousText));
-                            $hostColumn = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
+                            // Source offsets include quote and note labels. A run in the
+                            // paragraph uses the body's column after those markers.
+                            $hostColumn = preg_match('/^([ \t]*)\[\^[^]]+\]:[ \t]+$/D', $prefix, $note) === 1
+                                ? IndentationHelper::getLeadingColumns($note[1]) + self::FOOTNOTE_BODY_COLUMN
+                                : IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $prefix) . 'x');
                         }
                     }
                     $openerSource = ContainerPrefix::stripQuoteMarkers($this->state->source->authoredLines[$sourceLine] ?? '');
