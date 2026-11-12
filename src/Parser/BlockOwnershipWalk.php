@@ -524,6 +524,11 @@ final class BlockOwnershipWalk
      */
     public ?array $trace = null;
 
+    /**
+     * Keep only the S5 leaf records, the ones the erasure pass reads.
+     */
+    public bool $traceLeavesOnly = false;
+
     // Forms are immutable, so the two most common ones are shared.
     private static ?OwnershipForm $blankForm = null;
 
@@ -1706,6 +1711,9 @@ final class BlockOwnershipWalk
      */
     private function emit(int $index, string $step, string $owner, ?string $rule, string $form, array $extra = []): void
     {
+        if ($this->traceLeavesOnly && ($step !== 'S5' || $form !== 'leaf')) {
+            return;
+        }
         $record = ['line' => $index + 1, 'step' => $step, 'owner' => $owner, 'rule' => $rule, 'form' => $form];
         foreach ($extra as $key => $value) {
             if ($value !== null) {
@@ -4064,6 +4072,8 @@ final class BlockOwnershipWalk
         $top = $this->frames[count($this->frames) - 1];
         if (
             $held === null || !($held['ownLine'] ?? false) || $top->kind !== 'fence' || $at === 0
+            // Only the attached fence: a later fence in the same document reads its blanks as payload.
+            || $top->opened !== $held['from']
             || !IndentationHelper::isBlankLine($lines[$at - 1]) || IndentationHelper::isBlankLine($this->src)
         ) {
             return;

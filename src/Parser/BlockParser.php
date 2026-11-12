@@ -834,6 +834,9 @@ class BlockParser
         if ($transparent && !$rootProse) {
             $erased = $this->transparentErasedLines($lines, $input);
             if ($erased !== []) {
+                // The visible parse splits its own lines; this frame's copy would stay alive under it.
+                unset($lines, $input);
+
                 return $this->parseTransparentDocument($this->state->source->originalSource, $erased, $sourceLength);
             }
         }
