@@ -108,14 +108,7 @@ final class ReferenceStage
                     $lines[$i] = substr($lines[$i], $outdent);
                 }
             }
-            $line = $lines[$i];
-            // A tab in an item's indent reaches the item's column too.
-            if ($listIndent > 0 && str_contains(substr($line, 0, strspn($line, " \t")), "\t")) {
-                $expanded = ($this->expandLeadingTabs)($line, $listIndent);
-                if (strspn($expanded, ' ') >= $listIndent) {
-                    $line = $lines[$i] = $expanded;
-                }
-            }
+            $line = $lines[$i] = $this->expandItemTabs($lines[$i], $listIndent);
             $prefix = preg_match($quote, $line, $parts) === 1 ? $parts[1] : '';
             $content = substr($line, strlen($prefix));
             $quotePrefix = $prefix;
@@ -1278,6 +1271,20 @@ final class ReferenceStage
             'target' => str_starts_with($parsed['target'], '<>') ? null : $parsed['target'],
             'lines' => $parsed['lines'],
         ];
+    }
+
+    /**
+     * A tab in an item's indent reaches the item's column too, so those columns
+     * are spelled as spaces; a tab past them stays as written.
+     */
+    private function expandItemTabs(string $line, int $listIndent): string
+    {
+        if ($listIndent === 0 || !str_contains(substr($line, 0, strspn($line, " \t")), "\t")) {
+            return $line;
+        }
+        $expanded = ($this->expandLeadingTabs)($line, $listIndent);
+
+        return strspn($expanded, ' ') >= $listIndent ? $expanded : $line;
     }
 
     /**
