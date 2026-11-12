@@ -66,10 +66,7 @@ class ConverterCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    private const CANONICAL_AHEAD_OF_PIN = [
-        // carve#5869 escapes the opener of a run carve#5830 refuses.
-        '40-djot-a-brace-run-continuation-must-be-indented' => "Inline {%%} remains.\n\n\\{% x\ny %}\n\n%%\n\n\\{\\#one\nkey=1}\nalpha\n\n{#two key=\"2\"}\nbeta\n\n# a\n\n\\{% x\ny %}\n\\# b\n",
-    ];
+    private const CANONICAL_AHEAD_OF_PIN = [];
 
     /**
      * @throws \RuntimeException

@@ -1870,6 +1870,16 @@ class CarveCorpusTest extends TestCase
         'an-unclosed-attached-colon-ends-at-its-first-blank',
         'an-outer-item-loosens-after-a-nested-attached-colon-ends',
         'open-state-lifetime-boundaries',
+        // Rows 1069-1077 arrived with the pin to carve 0.1.14 (51c5631).
+        'a-comment-run-after-a-glued-attribute-keeps-its-written-column',
+        'a-lazy-comment-opener-is-measured-where-its-brace-is-written',
+        'a-tabbed-verse-line-keeps-the-lead-its-frames-leave',
+        'a-comment-span-under-a-marker-line-note-leaves-no-paragraph',
+        'a-verse-lead-under-an-indented-opener-is-measured-per-frame',
+        'an-attribute-line-in-a-note-s-body-stays-the-note-s-under-a-plus',
+        'a-tab-led-attribute-line-in-a-note-a-nested-plus-passes-stays-the-note-s',
+        'a-line-that-ends-a-span-in-an-item-s-description-leaves-the-item-s-paragraph-open',
+        'a-column-after-an-astral-character-is-one-code-point',
     ];
 
     /**
@@ -1890,7 +1900,10 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [];
+    protected const KNOWN_GAPS = [
+        '1070-a-lazy-comment-opener-is-measured-where-its-brace-is-written-4' => 'markup-carve/carve#5940: a tab-led lazy comment opener in a footnote description is hidden.',
+        '1076-a-line-that-ends-a-span-in-an-item-s-description-leaves-the-item-s-paragraph-open-5' => 'markup-carve/carve#5978: the lazy line after the quoted item ends the paragraph.',
+    ];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED
