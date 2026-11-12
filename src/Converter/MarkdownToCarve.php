@@ -6358,6 +6358,10 @@ class MarkdownToCarve
             if ($candidate === null && $this->continuesParagraph($lines[$at]) && $this->hasOpenCodeSpan(implode("\n", $parts))) {
                 $candidate = ltrim($lines[$at], " \t");
             }
+            // Emphasis and slashes pair across it too, so it joins the run.
+            if ($candidate === null && $this->indentWidth($lines[$at]) < 4 && $this->continuesParagraph($lines[$at]) && $this->isParagraphLine([ltrim($lines[$at], " \t")], 0)) {
+                $candidate = ltrim($lines[$at], " \t");
+            }
             // So does raw HTML it closes, and the lazy lines up to its end.
             $lazyHtml = false;
             if ($candidate === null && $at > $rawHtmlThrough && trim($lines[$at]) !== '') {
