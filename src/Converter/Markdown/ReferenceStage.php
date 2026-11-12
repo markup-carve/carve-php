@@ -109,6 +109,13 @@ final class ReferenceStage
                 }
             }
             $line = $lines[$i];
+            // A tab in an item's indent reaches the item's column too.
+            if ($listIndent > 0 && str_contains(substr($line, 0, strspn($line, " \t")), "\t")) {
+                $expanded = ($this->expandLeadingTabs)($line, $listIndent);
+                if (strspn($expanded, ' ') >= $listIndent) {
+                    $line = $lines[$i] = $expanded;
+                }
+            }
             $prefix = preg_match($quote, $line, $parts) === 1 ? $parts[1] : '';
             $content = substr($line, strlen($prefix));
             $quotePrefix = $prefix;
@@ -1382,6 +1389,9 @@ final class ReferenceStage
         $after = $lines[$index + 1] ?? null;
         // A lazy line keeps no more of the quote markers than it has.
         $afterPrefix = $after === null ? '' : $this->quotePrefixOf($after);
+        if ($after !== null && $listIndent > 0) {
+            $after = ($this->expandLeadingTabs)($after, $listIndent);
+        }
         if ($after !== null && $listIndent > 0 && strspn($after, ' ') >= $listIndent) {
             $afterPrefix = substr($after, 0, $listIndent) . $this->quotePrefixOf(substr($after, $listIndent));
         }
