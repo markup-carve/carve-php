@@ -3339,6 +3339,8 @@ final class BlockContinuationScanner
             && !$run->inlineCodeParagraph && !$releasedNoteFenceText
             // A refused run's fence-shaped follower is paragraph text, so it opens no fence on its authored base (CARVE-P2-035).
             && !$this->isRefusedRunFollower($i)
+            // A fence-shaped line in an open fence's payload is code (PART 0 S1).
+            && !isset($this->state->source->codePayloadLines[$this->sourceLineFor($i)])
         ) {
             $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
                 ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);

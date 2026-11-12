@@ -197,6 +197,13 @@ final class BlockSourceState
     public array $fenceBodyLines = [];
 
     /**
+     * The walk's code fence payload lines, closers left out, keyed by source line.
+     *
+     * @var array<int, true>
+     */
+    public array $codePayloadLines = [];
+
+    /**
      * Whether the ownership walk read lines 0.. as frontmatter on their raw, unindented spelling.
      */
     public bool $frontmatter = false;
