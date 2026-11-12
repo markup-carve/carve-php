@@ -69,6 +69,11 @@ and a `javascript:` link destination is emptied in every mode - those two are
 handled without opting in. Raw passthrough is not. If you take input from
 anywhere untrusted and do not set a safe mode, you have an XSS hole.
 
+The importers do not write such a destination into the Carve source either.
+`HtmlToCarve` and `MarkdownToCarve` keep only the link text or the image alt
+text, drop a reference definition with a denied destination, and report one
+`attribute-dropped` warning per dropped destination.
+
 ## Resource limits
 
 Pathologically nested input is bounded rather than allowed to exhaust the host,

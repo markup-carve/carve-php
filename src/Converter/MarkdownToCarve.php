@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Converter\Markdown\Assessment;
 use MarkupCarve\Carve\Converter\Markdown\CarrierContext;
 use MarkupCarve\Carve\Converter\Markdown\CarrierStage;
+use MarkupCarve\Carve\Converter\Markdown\DeniedDestinations;
 use MarkupCarve\Carve\Converter\Markdown\DestinationEncoding;
 use MarkupCarve\Carve\Converter\Markdown\EmailText;
 use MarkupCarve\Carve\Converter\Markdown\FenceWork;
@@ -50,6 +51,7 @@ use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Util\CarrierMarkers;
 use MarkupCarve\Carve\Util\StringUtil;
 use RuntimeException;
@@ -2278,6 +2280,7 @@ class MarkdownToCarve
         }
         $carve = $this->repairImportedEmailLinks($carve, $frontmatter);
         $carve = $this->importGithubAlerts($carve, $frontmatter, $carrierOriginal);
+        $carve = $this->dropDeniedDestinations($carve, $frontmatter, $carrierOriginal);
         if (!self::holdsAlertLabelGuard($markdown)) {
             $carve = preg_replace('/^((?:> ?)+)\x01(?=\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*$)/m', '$1', $carve) ?? $carve;
         }
@@ -2548,6 +2551,30 @@ class MarkdownToCarve
         }
 
         return $carve;
+    }
+
+    /**
+     * @param string $carve
+     * @param array<string> $frontmatter
+     * @param string $markdown
+     */
+    private function dropDeniedDestinations(string $carve, array $frontmatter, string $markdown): string
+    {
+        if ($this->referenceContext->importingFootnoteBody || (!HtmlRenderer::mayHoldDangerousScheme($markdown) && !HtmlRenderer::mayHoldDangerousScheme($carve))) {
+            return $carve;
+        }
+        $source = $frontmatter === [] ? $carve : "\n" . $carve;
+        $converter = CarveConverter::carve();
+        $document = $converter->parse($source);
+        $report = function (string $message): void {
+            $this->referenceContext->boundaryDiagnostics[] = new MigrationDiagnostic('attribute-dropped', $message, 'warning', 'dropped', 'exact', 'document');
+        };
+        if (!DeniedDestinations::drop($document, $report)) {
+            return $carve;
+        }
+        $written = $converter->render($document);
+
+        return str_ends_with($carve, "\n") ? $written : rtrim($written, "\n");
     }
 
     /**
