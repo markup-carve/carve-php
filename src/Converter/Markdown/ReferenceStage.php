@@ -108,7 +108,7 @@ final class ReferenceStage
                     $lines[$i] = substr($lines[$i], $outdent);
                 }
             }
-            $line = $lines[$i];
+            $line = $lines[$i] = $this->expandItemTabs($lines[$i], $listIndent);
             $prefix = preg_match($quote, $line, $parts) === 1 ? $parts[1] : '';
             $content = substr($line, strlen($prefix));
             $quotePrefix = $prefix;
@@ -1274,6 +1274,20 @@ final class ReferenceStage
     }
 
     /**
+     * A tab in an item's indent reaches the item's column too, so those columns
+     * are spelled as spaces; a tab past them stays as written.
+     */
+    private function expandItemTabs(string $line, int $listIndent): string
+    {
+        if ($listIndent === 0 || !str_contains(substr($line, 0, strspn($line, " \t")), "\t")) {
+            return $line;
+        }
+        $expanded = ($this->expandLeadingTabs)($line, $listIndent);
+
+        return strspn($expanded, ' ') >= $listIndent ? $expanded : $line;
+    }
+
+    /**
      * The lines from `$start` on with the columns of the item holding the
      * quote taken off, so the quoted readers see the quote at column 0. A line
      * left of the item's content is lazy and keeps what it has past its indent.
@@ -1382,6 +1396,9 @@ final class ReferenceStage
         $after = $lines[$index + 1] ?? null;
         // A lazy line keeps no more of the quote markers than it has.
         $afterPrefix = $after === null ? '' : $this->quotePrefixOf($after);
+        if ($after !== null && $listIndent > 0) {
+            $after = ($this->expandLeadingTabs)($after, $listIndent);
+        }
         if ($after !== null && $listIndent > 0 && strspn($after, ' ') >= $listIndent) {
             $afterPrefix = substr($after, 0, $listIndent) . $this->quotePrefixOf(substr($after, $listIndent));
         }

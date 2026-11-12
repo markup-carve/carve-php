@@ -47,6 +47,16 @@ class MarkdownImportWrappedDefinitionInAnItemQuoteTest extends TestCase
                 "- > \\- x\n\n[a]: /u\n",
                 "<ul>\n  <li>\n    <blockquote><p>- x</p></blockquote>\n  </li>\n</ul>",
             ],
+            'tab-led quoted line after a definition' => [
+                "- > [x]: /u\n\t> b\n",
+                "- > b\n\n[x]: /u\n",
+                "<ul>\n  <li>\n    <blockquote><p>b</p></blockquote>\n  </li>\n</ul>",
+            ],
+            'tab-led definition after a definition' => [
+                "- > [x]: /u\n\t> [y]: /v\n\n[y]\n",
+                "- >\n\n[y][]\n\n[x]: /u\n\n[y]: /v\n",
+                "<ul>\n  <li>\n    <blockquote>\n\n    </blockquote>\n  </li>\n</ul>\n<p><a href=\"/v\">y</a></p>",
+            ],
         ];
     }
 
