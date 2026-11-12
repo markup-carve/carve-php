@@ -69,6 +69,30 @@ class AMarkdownDeniedDestinationIsNotWrittenTest extends TestCase
     /**
      * @return array<string, array{string, string}>
      */
+    public static function encodedProvider(): array
+    {
+        return [
+            'a numeric entity' => ["[x](&#106;avascript:x)\n", 'line:1'],
+            'a named-entity colon' => ["[x](javascript&colon;x)\n", 'line:1'],
+            'an encoded definition' => ["[x][r]\n\n[r]: &#106;avascript:x\n", 'line:3'],
+        ];
+    }
+
+    #[DataProvider('encodedProvider')]
+    public function testAnEncodedSchemeIsLocatedToo(string $markdown, string $path): void
+    {
+        $rows = array_values(array_filter(
+            (new MarkdownToCarve())->convertWithFidelityReport($markdown)->diagnostics,
+            static fn (MigrationDiagnostic $row): bool => $row->code === 'attribute-dropped',
+        ));
+
+        $this->assertCount(1, $rows);
+        $this->assertSame($path, $rows[0]->path);
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
     public static function deniedProvider(): array
     {
         return [

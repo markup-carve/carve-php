@@ -82,6 +82,14 @@ final class Assessment
         return DestinationEncoding::href($destination);
     }
 
+    /**
+     * Whether the import drops this destination (carve#6010), read as Markdown reads it: escapes and entities decoded.
+     */
+    private static function denied(string $destination): bool
+    {
+        return HtmlAstBuilder::hasDeniedScheme(html_entity_decode($destination, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    }
+
     private static function decodeDestination(string $destination): string
     {
         return preg_replace('/\\\\([!"#$%&\'()*+,\\-.\/:;<=>?@\[\]\\\\^_`{|}~])/', '$1', $destination) ?? $destination;
@@ -212,7 +220,7 @@ final class Assessment
                 $rawDestination = str_starts_with($m[3], '<') ? substr($m[3], 1, -1) : $m[3];
                 $decodedDestination = self::decodeDestination($rawDestination);
                 // carve#6010: the import keeps only the content of a denied destination.
-                if (HtmlAstBuilder::hasDeniedScheme($decodedDestination)) {
+                if (self::denied($decodedDestination)) {
                     $this->emit('', $line, 'dropped', 'attribute-dropped', $m[1] === '!' ? DeniedDestinations::IMAGE : DeniedDestinations::LINK);
                     $result .= $m[1] === '!' ? self::escape($m[2]) : $this->inline($m[2], $line, true, $tableCell);
                     $i += strlen($m[0]);
@@ -228,7 +236,7 @@ final class Assessment
                 $result .= $m[1] === '!' ? '<img src="' . self::escape($destination) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($destination) . '"' . $title . '>' . $this->inline($m[2], $line, true, $tableCell) . '</a>';
             } elseif (self::match('/^(!?)\[([^\]\n]+)\](?:\[([^\]\n]*)\])?/', $text, $i, $m) && isset($this->definitions[self::label(($m[3] ?? '') ?: $m[2])])) {
                 $definition = $this->definitions[self::label(($m[3] ?? '') ?: $m[2])];
-                if (HtmlAstBuilder::hasDeniedScheme($definition['destination'])) {
+                if (self::denied($definition['destination'])) {
                     // The definition's row covers every link that uses it.
                     $result .= $m[1] === '!' ? self::escape($m[2]) : $this->inline($m[2], $line, true, $tableCell);
                     $i += strlen($m[0]);
@@ -328,7 +336,7 @@ final class Assessment
                 continue;
             }
             if (preg_match('/^ {0,3}\[([^\]\n]+)\]:[ \t]+(?:<(?:\\\\.|[^<>\\\\\n])*>|\S+)(?:[ \t]+"[^"\n]*")?[ \t]*$/', $line, $m)) {
-                if (HtmlAstBuilder::hasDeniedScheme($this->definitions[self::label($m[1])]['destination'] ?? '')) {
+                if (self::denied($this->definitions[self::label($m[1])]['destination'] ?? '')) {
                     $this->emit('', $n, 'dropped', 'attribute-dropped', DeniedDestinations::REFERENCE);
                 } else {
                     $this->emit('reference-definition', $n, 'normalized');
