@@ -3143,7 +3143,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     continue;
                 }
                 if ($child instanceof ListBlock) {
-                    if (!$separated && $boundaryPeer !== null && $this->adjacentBlocksMerge($boundaryPeer, $child)) {
+                    // An attribute line already parts the two lists; a boundary would loosen the item (carve#6005).
+                    if (
+                        !$separated && $boundaryPeer !== null && $this->adjacentBlocksMerge($boundaryPeer, $child)
+                        && !$this->opensWithAnAttributeLine($rendered)
+                    ) {
                         $out .= $this->listBoundary() . $rendered;
                     } else {
                         // No blank above a sub-list in a tight item: it would loosen the item (PART 9 §17 L1).
