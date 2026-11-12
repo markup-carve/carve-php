@@ -642,14 +642,15 @@ class MarkdownToCarve
             // the quote that item holds (CommonMark 5.2), and is written at that
             // item's content column, as fmt writes it. Four columns past the item
             // holding it a line opens nothing, since indented code cannot
-            // interrupt a paragraph.
+            // interrupt a paragraph; that holds past the column of an item whose
+            // quote is open too.
             $lazyCol = $listCols->innermost();
             $lineIndent = $this->indentWidth($line);
             if (
                 !$fence->active
                 && ($lazyAllowed || $lazyQuote !== null)
                 && !$listCols->isEmpty()
-                && $lineIndent < $lazyCol
+                && ($lineIndent < $lazyCol || ($lazyQuote !== null && $lazyQuote['col'] === $lazyCol && $lineIndent - $lazyCol >= 4))
                 && preg_match('/^[ \t]*(?:[-*+]|\d+[.)])(?:[ \t]|$)/', $line) !== 1
                 && ($this->isParagraphLine($lines, $i) || $lineIndent - $holderCol >= 4)
             ) {
@@ -792,14 +793,14 @@ class MarkdownToCarve
             // (CommonMark 5.1) unless it opens a block of its own; four columns in
             // it opens none, since indented code cannot interrupt a paragraph.
             // fmt writes it with the quote's marker.
-            if ($prevLineType === 'blockquote' && $quoteState->lazyPrefix !== null && $trimmed !== '' && $listCols->isEmpty() && !str_starts_with($trimmed, '>')) {
+            if ($prevLineType === 'blockquote' && $quoteState->lazyPrefix !== null && $trimmed !== '' && $listCols->isEmpty() && (!str_starts_with($trimmed, '>') || $this->indentWidth($line) >= 4)) {
                 $plain = preg_match('/^[ \t]*(?:[-*+]|\d+[.)]) +/', $line) !== 1 && $this->isParagraphLine([$line], 0);
                 if ($plain || $this->indentWidth($line) >= 4) {
                     $text = $plain ? $line : $this->escapeBlockOpener(ltrim($line, " \t"));
                     if (preg_match('/^:{3,}(?:[ \t]|$)/', ltrim($text, " \t")) === 1) {
                         $text = '\\' . ltrim($text, " \t");
                     }
-                    $text = $this->escapeDefinitionContinuation($quoteState->lazyPrefix . $text, $lines[$i - 1] ?? '', (string)end($result));
+                    $text = $quoteState->lazyPrefix . $this->escapeDefinitionContinuation($text, $lines[$i - 1] ?? '', (string)end($result));
                     if (
                         preg_match('/\]\(<[^>\n]*\\\\$/', $text) === 1
                         && preg_match('/^[ \t]*>[ \t]*(.*)$/', $lines[$i + 1] ?? '', $next) === 1
@@ -4068,6 +4069,13 @@ class MarkdownToCarve
         }
         $paragraphCol = $openBefore ?? 0;
         $farPastContent = $this->indentWidth($text) - $paragraphCol >= 4;
+        // Under the item's column the line is measured from the container it
+        // stays in: four columns past that, it opens nothing either.
+        $sourceCol = $list->openItemSourceContentColumn();
+        $heldCol = $list->heldContentAt($this->indentWidth($text));
+        if ($sourceCol !== null && ($this->indentWidth($text) < $sourceCol || $heldCol !== $sourceCol)) {
+            $farPastContent = $this->indentWidth($text) - $heldCol >= 4;
+        }
         $continues = $continuedByLazy || ($state->previous !== null && $state->previous['prefix'] === $prefix
             && ($this->quoteParagraphIsOpen($state->previous['text']) || ($openBefore !== null && $farPastContent))
             && ($this->continuesParagraph($text) || $farPastContent));
@@ -4124,6 +4132,7 @@ class MarkdownToCarve
             }
         } elseif (!$blank && !$continues) {
             $list->end($this->indentWidth($text));
+            $list->leave($this->indentWidth($sourceText));
         }
         $slack = $this->indentWidth($text);
         if (

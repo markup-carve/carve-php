@@ -97,6 +97,21 @@ class ListMarkers
     }
 
     /**
+     * The content column of the innermost item that holds a line at `$col`,
+     * skipping items a block below their column has left.
+     */
+    public function heldContentAt(int $col): int
+    {
+        for ($at = count($this->open) - 1; $at >= 0; $at--) {
+            if (!$this->open[$at]['restart'] && $this->open[$at]['content'] <= $col) {
+                return $this->open[$at]['content'];
+            }
+        }
+
+        return 0;
+    }
+
+    /**
      * Whether a line at `$col` is held by the innermost open item.
      */
     public function holdsItemAt(int $col): bool

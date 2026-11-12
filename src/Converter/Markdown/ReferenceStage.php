@@ -91,6 +91,7 @@ final class ReferenceStage
         $canStart = true;
         $depth = 0;
         $listIndent = 0;
+        $itemDepth = 0;
         // The content column every container prefix on the line put the body at.
         $blockIndent = 0;
         $count = count($lines);
@@ -162,11 +163,15 @@ final class ReferenceStage
                 $content = substr($content, strlen($marker[0]));
                 $listIndent = strlen($prefix);
                 $opensItem = true;
+                $itemDepth = $lineDepth;
             } elseif ($listIndent > 0 && trim($content) !== '') {
                 if (strspn($line, ' ') >= $listIndent) {
                     $content = substr($line, $listIndent);
                 } else {
+                    // Leaving the item closes the quotes it held, so a quote
+                    // marker here opens a new quote rather than continuing one.
                     $listIndent = 0;
+                    $depth = min($depth, $itemDepth);
                 }
             }
             $itemOpener = $opensItem;
