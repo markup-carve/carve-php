@@ -134,7 +134,11 @@ class ImageAltEscapesTest extends TestCase
             $actual = (new CarveConverter())->convert($source);
             $actual = preg_replace('/\s+scope="(?:col|row)"/', '', $actual) ?? $actual;
             $normalize = static fn (string $html): string => preg_replace('/>\s+</', '><', trim(str_replace(['&quot;', ' />', "\n"], ['"', '>', ''], $html))) ?? $html;
-            self::assertSame($normalize($case['html']), $normalize($actual), 'fixture ' . $index);
+            // carve#6010: an image with a denied source imports as its alt text, where GFM renders it with a blanked src.
+            $expected = preg_match('/\]\(javascript:/', $case['md']) === 1
+                ? preg_replace('/<img src="" alt="([^"]*)">/', '$1', $normalize($case['html'])) ?? ''
+                : $normalize($case['html']);
+            self::assertSame($expected, $normalize($actual), 'fixture ' . $index);
         }
     }
 }

@@ -4422,6 +4422,28 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
+     * Whether a denylisted scheme name followed by `:` occurs anywhere in the
+     * text once entities, backslashes and the characters `blankDangerousScheme()`
+     * strips are removed. A cheap superset probe: false means no destination
+     * read from the text can be blanked.
+     */
+    public static function mayHoldDangerousScheme(string $text): bool
+    {
+        if (!str_contains($text, ':') && !str_contains($text, '&')) {
+            return false;
+        }
+        $decoded = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $probe = strtolower(preg_replace('/[\x00-\x20\\\\]+|[\p{Z}\p{Cc}\x{feff}]+/u', '', $decoded) ?? (string)preg_replace('/[\x00-\x20\\\\]+/', '', $decoded));
+        foreach (self::DANGEROUS_VALUE_SCHEMES as $scheme) {
+            if (str_contains($probe, $scheme . ':')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The elements on which HTML's legacy `align` attribute means TEXT
      * ALIGNMENT, so `{align=...}` on them renders the CSS declaration instead
      * of the deprecated attribute (PART 10, markup-carve/carve#1755).
