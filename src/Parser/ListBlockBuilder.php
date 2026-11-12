@@ -4299,6 +4299,10 @@ final class ListBlockBuilder
         $contentColumn = $this->visualColumnAtByte($ownerLine, $contentEnd);
         $nestedLine = $this->state->source->authoredLines[$sourceLine] ?? '';
         $nestedMarker = ltrim($line, " \t");
+        // The walk stands a refused `+` in as `%%`; the authored line still spells the `+`.
+        if (array_key_exists($sourceLine, $this->state->source->refusedPlus)) {
+            $nestedMarker = (string)preg_replace('/%%(?=[ \t]*$)/D', '+', $nestedMarker);
+        }
         $markerColumn = str_ends_with($nestedLine, $nestedMarker)
             ? strlen($nestedLine) - strlen($nestedMarker)
             : strspn($nestedLine, " \t");

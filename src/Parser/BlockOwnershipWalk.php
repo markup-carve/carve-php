@@ -3584,6 +3584,10 @@ final class BlockOwnershipWalk
             ) {
                 $k++;
             } elseif ($rest !== '' && $rest[0] === '{' && ($this->isAttributeLine)($rest)) {
+                // After a refused `+` the item holds no block for an attribute line to wait for (CARVE-P0-011).
+                if ($refused) {
+                    return $k;
+                }
                 // Such an attribute line holds the block whatever follows it (PART 9 §17 L3).
                 $held = $held || $stops;
                 $k++;
@@ -3596,7 +3600,7 @@ final class BlockOwnershipWalk
                     continue;
                 }
                 $length = $this->skippedWrappedAttributeLength($k, $hostIndex, $frames);
-                if ($length === null) {
+                if ($length === null || $refused) {
                     return $k;
                 }
                 $k += $length;
