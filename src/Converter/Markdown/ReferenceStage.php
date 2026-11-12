@@ -169,15 +169,16 @@ final class ReferenceStage
                     $listIndent = 0;
                 }
             }
+            $itemOpener = $opensItem;
+            $this->takeItemQuote($line, $content, $prefix, $quotePrefix, $lineDepth, $opensItem, $listIndent, $fence);
             // CONTAINER PREFIXES NEST, and the BLOCK decisions below need the
             // innermost content. An item's indentation or marker came off the
             // line without the quote regex running again, so a block quote
             // inside that item still has its `>` run on the content and a fence
             // or an HTML block opening there would be read as the block's own
             // text. Only the fence and HTML-block readings take the nested run
-            // off; everything else keeps the content it has today, so a
-            // definition inside such a quote is handled exactly as before
-            // (markup-carve/carve#2850).
+            // off (markup-carve/carve#2850); a quote inside an item already
+            // came off above.
             // Every container prefix the line carries comes off, not just the
             // first: `- - ::: note` opens TWO items on one line, and a quote
             // inside an item carries both prefixes.
@@ -191,7 +192,7 @@ final class ReferenceStage
                 $quote,
                 $listIndent,
                 $blockIndent,
-                $opensItem,
+                $itemOpener,
                 $fence !== null,
             );
             if ($fence !== null) {
@@ -211,7 +212,7 @@ final class ReferenceStage
                 $quotePrefix,
                 $lineDepth,
                 $canStart,
-                $opensItem,
+                $itemOpener,
                 $i,
             );
             if (preg_match('/^ {0,3}(`{3,}|~{3,})/', $blockContent, $open) === 1) {
@@ -546,7 +547,7 @@ final class ReferenceStage
                         continue;
                     }
                     $this->holdParagraphContinuation($lines, $i, $quotePrefix, $listIndent);
-                    if ($this->dropDefinitionLine($lines, $i, $quotePrefix, $kept)) {
+                    if ($this->dropDefinitionLine($lines, $i, $quotePrefix, $kept, $listIndent)) {
                         $canStart = false;
                     }
 
@@ -623,7 +624,7 @@ final class ReferenceStage
                     continue;
                 }
                 $this->holdParagraphContinuation($lines, $i, $quotePrefix, $listIndent);
-                if ($this->dropDefinitionLine($lines, $i, $quotePrefix, $kept)) {
+                if ($this->dropDefinitionLine($lines, $i, $quotePrefix, $kept, $listIndent)) {
                     $canStart = false;
                 }
 
@@ -659,6 +660,31 @@ final class ReferenceStage
         $this->inlineContext->authoredReferenceLabelKeys = $authoredDefinitions;
 
         return $kept;
+    }
+
+    /**
+     * A quote inside an item: its markers are a container prefix too, so a
+     * definition opening the quote's content is read as one. On the item's
+     * marker line the quote is the item's first block, so the line opens no
+     * definition item.
+     */
+    private function takeItemQuote(
+        string $line,
+        string &$content,
+        string &$prefix,
+        string &$quotePrefix,
+        int &$lineDepth,
+        bool &$opensItem,
+        int $listIndent,
+        ?string $fence,
+    ): void {
+        if ($listIndent === 0 || $fence !== null || preg_match('/^((?: {0,3}>[ \t]?)+)/', $content, $nested) !== 1) {
+            return;
+        }
+        $quotePrefix = $prefix = substr($line, 0, strlen($line) - strlen($content)) . $nested[1];
+        $content = (string)substr($content, strlen($nested[1]));
+        $lineDepth = substr_count($quotePrefix, '>');
+        $opensItem = false;
     }
 
     /**
@@ -1047,11 +1073,25 @@ final class ReferenceStage
      * @param string $quotePrefix
      * @param array<string> $kept
      */
-    protected function emptyDefinitionItem(array &$lines, int $index, string $prefix, string $quotePrefix, array &$kept): void
+    protected function emptyDefinitionItem(array &$lines, int &$index, string $prefix, string $quotePrefix, array &$kept): void
     {
         $marker = substr($prefix, strlen($quotePrefix));
         $next = $lines[$index + 1] ?? null;
         $held = $next !== null && str_starts_with($next, $quotePrefix) ? substr($next, strlen($quotePrefix)) : null;
+        // The item goes on past one blank line (a second one ends the emptied
+        // item), and its first block below takes the marker: the removed
+        // definition leaves no gap to loosen the list.
+        if ($next !== null && trim(substr($next, strlen(rtrim($quotePrefix)))) === '' && str_starts_with($next, rtrim($quotePrefix))) {
+            $at = $index + 2;
+            $body = isset($lines[$at]) && str_starts_with($lines[$at], $quotePrefix) ? substr($lines[$at], strlen($quotePrefix)) : null;
+            $indent = $body === null ? 0 : strspn($body, ' ');
+            if ($body !== null && $indent >= strlen($marker) && $indent < strlen($marker) + 4 && !str_contains(substr($body, 0, $indent + 1), "\t")) {
+                $lines[$at] = $prefix . substr($body, strlen($marker));
+                $index = $at - 1;
+
+                return;
+            }
+        }
         // A lazy line: the paragraph holding the definition is still open.
         $lazy = $next !== null && $held === null && !str_starts_with(ltrim($next, ' '), '>') ? $next : $held;
         if (
@@ -1294,13 +1334,17 @@ final class ReferenceStage
      * @param int $index
      * @param string $quotePrefix
      * @param array<string> $kept
+     * @param int $listIndent Content column of the item holding the quote.
      */
-    protected function dropDefinitionLine(array $lines, int &$index, string $quotePrefix, array &$kept): bool
+    protected function dropDefinitionLine(array $lines, int &$index, string $quotePrefix, array &$kept, int $listIndent = 0): bool
     {
         $marker = rtrim($quotePrefix);
         $after = $lines[$index + 1] ?? null;
         // A lazy line keeps no more of the quote markers than it has.
         $afterPrefix = $after === null ? '' : $this->quotePrefixOf($after);
+        if ($after !== null && $listIndent > 0 && strspn($after, ' ') >= $listIndent) {
+            $afterPrefix = substr($after, 0, $listIndent) . $this->quotePrefixOf(substr($after, $listIndent));
+        }
         $afterBody = $after === null ? '' : substr($after, strlen($afterPrefix));
         if (
             $marker !== ''
