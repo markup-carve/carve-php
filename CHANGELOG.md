@@ -12,6 +12,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ### Fixes
 
 - `convert()` renders a list with a blank line before a nested list on the fast HTML path again, as fast as the tight shape; it had fallen back to the full parser (carve#6026).
+- A fence after a closed `+`-attached fence keeps its blank lines and the lines after them as payload; only the attached fence ends at a line that misses its host. Documents that hit this nested every later container and, on carve-bench `large.crv`, needed 149 MB and wrote 1.64 MB of HTML; now 69 MB and 650 KB (#5215).
 
 ## [0.1.17] - 2026-11-12
 

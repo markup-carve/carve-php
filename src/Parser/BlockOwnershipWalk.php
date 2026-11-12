@@ -4064,6 +4064,8 @@ final class BlockOwnershipWalk
         $top = $this->frames[count($this->frames) - 1];
         if (
             $held === null || !($held['ownLine'] ?? false) || $top->kind !== 'fence' || $at === 0
+            // Only the attached fence: a later fence in the same document reads its blanks as payload.
+            || $top->opened !== $held['from']
             || !IndentationHelper::isBlankLine($lines[$at - 1]) || IndentationHelper::isBlankLine($this->src)
         ) {
             return;
