@@ -270,6 +270,13 @@ final class BlockOwnershipWalk
     public array $fenceBodyLines = [];
 
     /**
+     * Payload lines of a code or raw fence the walk opened, closers left out, keyed by line index.
+     *
+     * @var array<int, true>
+     */
+    public array $codePayloadLines = [];
+
+    /**
      * Every lone `+` the walk refused, keyed by line index: a refused marker renders nothing (carve#5013),
      * an off-column `+` is a letter. The value is its lint finding, or null where the rule does not report it.
      *
@@ -597,6 +604,7 @@ final class BlockOwnershipWalk
         $this->commentEndLines = [];
         $this->commentCloserLines = [];
         $this->fenceBodyLines = [];
+        $this->codePayloadLines = [];
         $this->refusedPlus = [];
         $this->refusedNotePlus = [];
         $this->noteListBreaks = [];
@@ -882,6 +890,9 @@ final class BlockOwnershipWalk
                     $inner->para = $rest !== '';
                 }
                 $this->recordFenceBodyLine($at, $inner);
+                if ($payloadForm === 'payload' && $inner->family === 'code') {
+                    $this->codePayloadLines[$at] = true;
+                }
                 $result[] = $this->out . $this->src;
                 if ($this->trace !== null) {
                     $this->emit($at, 'S1', $payloadPath, 'CARVE-P0-005', $payloadForm, [
@@ -2330,13 +2341,24 @@ final class BlockOwnershipWalk
         }
     }
 
+    private function noteChildAtSource(string $rest): bool
+    {
+        return $this->listParser->parseListItemMarker($rest) !== null
+            || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $rest) === 1;
+    }
+
     private function content(int $frame, int $start, int $canon, bool $leadTab = false): void
     {
         if ($this->m['rest'] === '' || count($this->frames) > BlockGrammar::MAX_NESTING_DEPTH) {
             return;
         }
         $this->onMarkerLine = true;
-        $column = $this->frames[$frame]->kind === 'quote' ? $this->m['col'] : $start + $this->m['col'];
+        $column = match (true) {
+            $this->frames[$frame]->kind === 'quote' => $this->m['col'],
+            // A marker-line note's opener is read at the body column unless it chains markers (CARVE-P9-083).
+            $this->frames[$frame]->kind === 'note' && !$this->noteChildAtSource($this->m['rest']) => $this->frames[$frame]->col,
+            default => $start + $this->m['col'],
+        };
         $form = $this->classifyLine($this->m['rest'], $this->frames[$frame], $column);
         $this->onMarkerLine = false;
         if ($form->kind === 'text') {
