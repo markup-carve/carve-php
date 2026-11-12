@@ -63,3 +63,13 @@
 5073: Fixes a regression #5071 added after 0.1.16; no release carried it.
 5074: Fixes a regression #5073 added after 0.1.16; no release carried it.
 5148: Fixes three regressions the cut gates found, all added after 0.1.16 (carve#5950, carve#5951, carve#5952); no release carried them.
+5154: Fixes two regressions f5cdcb0a (carve#5013) added after 0.1.16; no release carried them.
+5157: Fixes a regression #5115 added after 0.1.16; no release carried it.
+5160: Fixes a regression #4506 added after 0.1.16; no release carried it.
+5163: Fixes a regression #5115 added after 0.1.16; no release carried it.
+5187: Fixes a regression #4618 added after 0.1.16; no release carried it.
+5189: Fixes regressions #4582 added after 0.1.16; no release carried them.
+5192: Fixes a regression #4577 added after 0.1.16; no release carried it.
+5202: Fixes Markdown import regressions #4216 and #5200 added after 0.1.16; no release carried them.
+5208: Fixes a regression #5205 added after 0.1.16; no release carried it.
+5212: Fixes a regression #5200 added after 0.1.16; no release carried it.
