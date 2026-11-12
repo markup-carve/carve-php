@@ -705,7 +705,18 @@ final class ReferenceStage
     private function holdParagraphContinuation(array &$lines, int $index, string $quotePrefix, int $listIndent): void
     {
         $next = $lines[$index + 1] ?? null;
-        if ($listIndent > 0 || $next === null || $this->quotePrefixOf($next) !== $quotePrefix) {
+        // A quote an item holds continues at the item's column.
+        $lead = '';
+        if ($listIndent > 0 && $next !== null) {
+            $inner = (string)substr($quotePrefix, $listIndent);
+            if (!str_contains($inner, '>') || strpbrk(substr($quotePrefix, 0, $listIndent), ">\t") !== false || strspn($next, ' ') < $listIndent) {
+                return;
+            }
+            $lead = str_repeat(' ', $listIndent);
+            $quotePrefix = $inner;
+            $next = substr($next, $listIndent);
+        }
+        if ($next === null || $this->quotePrefixOf($next) !== $quotePrefix) {
             return;
         }
         $rest = substr($next, strlen($quotePrefix));
@@ -719,7 +730,7 @@ final class ReferenceStage
         } elseif ($this->opensMarkdownBlock($text)) {
             $text = '\\' . $text;
         }
-        $lines[$index + 1] = $quotePrefix . $text;
+        $lines[$index + 1] = $lead . $quotePrefix . $text;
     }
 
     /**
