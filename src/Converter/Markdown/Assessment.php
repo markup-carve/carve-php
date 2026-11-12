@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Converter\Markdown;
 use DOMDocument;
 use DOMNode;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlAstBuilder;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Converter\MigrationDiagnostic;
 use Throwable;
@@ -149,9 +150,9 @@ final class Assessment
         return array_filter($body, static fn (string $text): bool => preg_match('/^ {0,3}(?:`{3,}|~{3,})/', $text) === 1) === [];
     }
 
-    private function emit(string $construct, int $line, string $fidelity = 'preserved', ?string $code = null): void
+    private function emit(string $construct, int $line, string $fidelity = 'preserved', ?string $code = null, ?string $message = null): void
     {
-        $message = $construct === 'ordered-task' ? MarkdownToCarve::ORDERED_TASK_ITEM_UNSPELLABLE : 'Assessed Markdown ' . $construct . '.';
+        $message ??= $construct === 'ordered-task' ? MarkdownToCarve::ORDERED_TASK_ITEM_UNSPELLABLE : 'Assessed Markdown ' . $construct . '.';
         $this->diagnostics[] = new MigrationDiagnostic($code ?? 'markdown-' . $construct, $message, $fidelity === 'dropped' ? 'warning' : 'info', $fidelity, 'exact', 'line:' . $line);
     }
 
@@ -210,6 +211,14 @@ final class Assessment
             } elseif (self::match('/^(!?)\[([^\]\n]*)\]\((<(?:\\\\.|[^<>\\\\\n])*>|(?:\\\\.|[^ ()\n]|\((?:\\\\.|[^()\n])*\))+)(?:[ \t]+"([^"\n]*)")?\)/', $text, $i, $m)) {
                 $rawDestination = str_starts_with($m[3], '<') ? substr($m[3], 1, -1) : $m[3];
                 $decodedDestination = self::decodeDestination($rawDestination);
+                // carve#6010: the import keeps only the content of a denied destination.
+                if (HtmlAstBuilder::hasDeniedScheme($decodedDestination)) {
+                    $this->emit('', $line, 'dropped', 'attribute-dropped', $m[1] === '!' ? DeniedDestinations::IMAGE : DeniedDestinations::LINK);
+                    $result .= $m[1] === '!' ? self::escape($m[2]) : $this->inline($m[2], $line, true, $tableCell);
+                    $i += strlen($m[0]);
+
+                    continue;
+                }
                 if (!preg_match('~^(https?://|mailto:|[./#])~', $decodedDestination) && preg_match('/^[A-Za-z][\w+.-]*:/', $decodedDestination)) {
                     $this->complete = false;
                 }
@@ -219,6 +228,13 @@ final class Assessment
                 $result .= $m[1] === '!' ? '<img src="' . self::escape($destination) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($destination) . '"' . $title . '>' . $this->inline($m[2], $line, true, $tableCell) . '</a>';
             } elseif (self::match('/^(!?)\[([^\]\n]+)\](?:\[([^\]\n]*)\])?/', $text, $i, $m) && isset($this->definitions[self::label(($m[3] ?? '') ?: $m[2])])) {
                 $definition = $this->definitions[self::label(($m[3] ?? '') ?: $m[2])];
+                if (HtmlAstBuilder::hasDeniedScheme($definition['destination'])) {
+                    // The definition's row covers every link that uses it.
+                    $result .= $m[1] === '!' ? self::escape($m[2]) : $this->inline($m[2], $line, true, $tableCell);
+                    $i += strlen($m[0]);
+
+                    continue;
+                }
                 $this->emit('reference-link', $line, 'normalized');
                 $destination = DestinationEncoding::href($definition['destination'], $tableCell);
                 $title = $definition['title'] === null ? '' : ' title="' . self::escape($definition['title']) . '"';
@@ -311,8 +327,12 @@ final class Assessment
 
                 continue;
             }
-            if (preg_match('/^ {0,3}\[[^\]\n]+\]:[ \t]+(?:<(?:\\\\.|[^<>\\\\\n])*>|\S+)(?:[ \t]+"[^"\n]*")?[ \t]*$/', $line)) {
-                $this->emit('reference-definition', $n, 'normalized');
+            if (preg_match('/^ {0,3}\[([^\]\n]+)\]:[ \t]+(?:<(?:\\\\.|[^<>\\\\\n])*>|\S+)(?:[ \t]+"[^"\n]*")?[ \t]*$/', $line, $m)) {
+                if (HtmlAstBuilder::hasDeniedScheme($this->definitions[self::label($m[1])]['destination'] ?? '')) {
+                    $this->emit('', $n, 'dropped', 'attribute-dropped', DeniedDestinations::REFERENCE);
+                } else {
+                    $this->emit('reference-definition', $n, 'normalized');
+                }
                 $i++;
 
                 continue;

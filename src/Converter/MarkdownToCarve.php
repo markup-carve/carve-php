@@ -143,6 +143,13 @@ class MarkdownToCarve
     private array $fragmentFixups = [];
 
     /**
+     * One `attribute-dropped` row per destination the denylist pass dropped.
+     *
+     * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
+     */
+    private array $deniedDestinationDiagnostics = [];
+
+    /**
      * The last conversion rendered with its original fragments, so assessment sees only the conversion.
      */
     private ?string $unfixedValue = null;
@@ -2567,7 +2574,7 @@ class MarkdownToCarve
         $converter = CarveConverter::carve();
         $document = $converter->parse($source);
         $report = function (string $message): void {
-            $this->referenceContext->boundaryDiagnostics[] = new MigrationDiagnostic('attribute-dropped', $message, 'warning', 'dropped', 'exact', 'document');
+            $this->deniedDestinationDiagnostics[] = new MigrationDiagnostic('attribute-dropped', $message, 'warning', 'dropped', 'exact', 'document');
         };
         if (!DeniedDestinations::drop($document, $report)) {
             return $carve;
@@ -2804,6 +2811,7 @@ class MarkdownToCarve
         }
         $this->inlineContext->rawSpanWhitespaceDiagnostics = [];
         $this->referenceContext->boundaryDiagnostics = [];
+        $this->deniedDestinationDiagnostics = [];
         $this->inlineContext->foldedHeadingSources = [];
         $this->inlineContext->leadingWhitespaceDiagnostics = [];
         $this->inlineContext->codeFallbackDiagnostics = [];
@@ -3209,7 +3217,7 @@ class MarkdownToCarve
     {
         $supportedDialect = !$this->inlineContext->convertMath && !$this->inlineContext->convertHighlight && !$this->inlineContext->convertInlineFootnotes
             && !($this->inlineContext->convertAbbreviations && preg_match('/^[ \t]*\*\[/m', $markdown) === 1) && !$this->inlineContext->convertFencedDivs && !$this->inlineContext->convertAttributes && !$this->inlineContext->convertRawHtml;
-        $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->inlineContext->flattenedEmphasis || $this->referenceContext->boundaryDiagnostics !== [], $supportedDialect);
+        $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->inlineContext->flattenedEmphasis || $this->referenceContext->boundaryDiagnostics !== [] || $this->deniedDestinationDiagnostics !== [], $supportedDialect);
         if (($result->diagnostics[0]->code ?? null) === 'literal-text-verified') {
             $row = $result->diagnostics[0];
 
@@ -3217,21 +3225,23 @@ class MarkdownToCarve
         }
         if ($supportedDialect && ($result->diagnostics[0]->code ?? null) !== 'literal-text-verified') {
             $assessment = (new Assessment())->assess($markdown, $value);
-            $losses = count($this->unspellableOrderedTasks) + ($this->inlineContext->flattenedEmphasis ? 1 : 0) + count($this->tableContext->tableDiagnostics);
+            $losses = count($this->unspellableOrderedTasks) + ($this->inlineContext->flattenedEmphasis ? 1 : 0) + count($this->tableContext->tableDiagnostics) + count($this->deniedDestinationDiagnostics);
             $assessedLosses = count(array_filter($assessment['diagnostics'], static fn (MigrationDiagnostic $diagnostic): bool => $diagnostic->fidelity === 'dropped'));
+            // The assessment locates each dropped destination; it stands in for the pass's rows only when it saw all of them.
+            $assessedDenied = count(array_filter($assessment['diagnostics'], static fn (MigrationDiagnostic $diagnostic): bool => $diagnostic->code === 'attribute-dropped'));
             // `frontmatter-synthesized` is a report the assessment knows nothing
             // about, so the fast path must not replace a report that carries it.
-            if ($assessment['complete'] && !$this->inlineContext->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableContext->tableDiagnostics === [] && $this->inlineContext->rawSpanWhitespaceDiagnostics === [] && $this->referenceContext->boundaryDiagnostics === [] && $this->inlineContext->leadingWhitespaceDiagnostics === [] && $this->inlineContext->codeFallbackDiagnostics === [] && $this->inlineContext->flattenedAnchorDiagnostics === [] && $losses <= $assessedLosses) {
+            if ($assessment['complete'] && !$this->inlineContext->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableContext->tableDiagnostics === [] && $this->inlineContext->rawSpanWhitespaceDiagnostics === [] && $this->referenceContext->boundaryDiagnostics === [] && $this->inlineContext->leadingWhitespaceDiagnostics === [] && $this->inlineContext->codeFallbackDiagnostics === [] && $this->inlineContext->flattenedAnchorDiagnostics === [] && $losses <= $assessedLosses && $assessedDenied === count($this->deniedDestinationDiagnostics)) {
                 return new MigrationResult($value, 'markdown', [...$assessment['diagnostics'], ...$this->htmlCommentDiagnostics()]);
             }
         }
-        if ($this->unspellableOrderedTasks === [] && !$this->inlineContext->flattenedEmphasis && $this->tableContext->tableDiagnostics === [] && $this->inlineContext->rawSpanWhitespaceDiagnostics === [] && $this->referenceContext->boundaryDiagnostics === [] && $this->inlineContext->leadingWhitespaceDiagnostics === [] && $this->inlineContext->codeFallbackDiagnostics === [] && $this->inlineContext->flattenedAnchorDiagnostics === [] && !$this->frontmatterSynthesized && $this->htmlCommentLines === []) {
+        if ($this->unspellableOrderedTasks === [] && !$this->inlineContext->flattenedEmphasis && $this->tableContext->tableDiagnostics === [] && $this->inlineContext->rawSpanWhitespaceDiagnostics === [] && $this->referenceContext->boundaryDiagnostics === [] && $this->inlineContext->leadingWhitespaceDiagnostics === [] && $this->inlineContext->codeFallbackDiagnostics === [] && $this->inlineContext->flattenedAnchorDiagnostics === [] && !$this->frontmatterSynthesized && $this->htmlCommentLines === [] && $this->deniedDestinationDiagnostics === []) {
             return $result;
         }
         // `structure-unspellable` is the code the import side already uses for a
         // shape Carve has no spelling for, and its fidelity and confidence are
         // properties of that code rather than of this producer.
-        $diagnostics = array_merge($result->diagnostics, $this->tableContext->tableDiagnostics, $this->inlineContext->rawSpanWhitespaceDiagnostics, $this->referenceContext->boundaryDiagnostics, $this->inlineContext->leadingWhitespaceDiagnostics, $this->inlineContext->codeFallbackDiagnostics, $this->inlineContext->flattenedAnchorDiagnostics);
+        $diagnostics = array_merge($result->diagnostics, $this->tableContext->tableDiagnostics, $this->inlineContext->rawSpanWhitespaceDiagnostics, $this->referenceContext->boundaryDiagnostics, $this->inlineContext->leadingWhitespaceDiagnostics, $this->inlineContext->codeFallbackDiagnostics, $this->inlineContext->flattenedAnchorDiagnostics, $this->deniedDestinationDiagnostics);
         if ($this->inlineContext->flattenedEmphasis) {
             $diagnostics[] = new MigrationDiagnostic(
                 'structure-unspellable',

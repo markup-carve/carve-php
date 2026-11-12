@@ -45,6 +45,27 @@ class AMarkdownDeniedDestinationIsNotWrittenTest extends TestCase
         ], self::dropped($markdown));
     }
 
+    public function testTheReportLocatesEachDroppedDestination(): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport("Siehe [x](javascript:alert(1)) und ![b](data:image/png;base64,AA).\n");
+
+        $rows = array_map(static fn (MigrationDiagnostic $row): array => [$row->code, $row->severity, $row->fidelity, $row->confidence, $row->path], $result->diagnostics);
+        $this->assertSame([
+            ['markdown-paragraph', 'info', 'preserved', 'exact', 'line:1'],
+            ['attribute-dropped', 'warning', 'dropped', 'exact', 'line:1'],
+            ['attribute-dropped', 'warning', 'dropped', 'exact', 'line:1'],
+        ], $rows);
+    }
+
+    public function testADroppedDefinitionIsLocatedAtItsLine(): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport("[x][r]\n\n[r]: javascript:x\n");
+
+        $rows = array_values(array_filter($result->diagnostics, static fn (MigrationDiagnostic $row): bool => $row->code === 'attribute-dropped'));
+        $this->assertCount(1, $rows);
+        $this->assertSame('line:3', $rows[0]->path);
+    }
+
     /**
      * @return array<string, array{string, string}>
      */
