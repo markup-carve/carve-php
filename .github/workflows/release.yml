@@ -101,6 +101,10 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: php scripts/changelog-completeness.php "$VERSION"
 
+      # The spec is released first; an engine release implements a spec release.
+      - name: The spec pin is a published spec release
+        run: ./scripts/check-spec-pin-is-tag.sh tests/spec
+
       - name: No tag of this name exists yet
         env:
           GH_TOKEN: ${{ github.token }}
