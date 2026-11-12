@@ -1121,9 +1121,9 @@ class ProseMirrorBridgeTest extends TestCase
             // The parser adds `mailto:`, so the destination is not the text and
             // the check has to allow for it - both intact and once edited.
             'email' => ["<mark@example.com>\n", "[changed](mailto:mark@example.com)\n"],
-            // A blocked scheme must not be laundered into something else here
-            // either; it stays exactly what the author wrote.
-            'blocked scheme' => ["<vbscript:msgbox>\n", "[changed](vbscript:msgbox)\n"],
+            // A blocked scheme is blanked on the way into the editor
+            // (markup-carve/carve#6009), so the edited link has no destination.
+            'blocked scheme' => ["<vbscript:msgbox>\n", "[changed]()\n"],
         ];
     }
 
@@ -1136,9 +1136,6 @@ class ProseMirrorBridgeTest extends TestCase
             // An autolink is written differently from a link, so a formatter
             // has to know which one the author used.
             'autolink' => ["Visit <https://example.com>.\n"],
-            // A blocked scheme still has to come back as it was written - the
-            // bridge must not launder it into an explicit link.
-            'autolink with a blocked scheme' => ["<vbscript:msgbox>\n"],
             'inline code attributes' => ["`code`{.cls}\n"],
             // A MARK WITH NO CONTENT. Each of these was declared degraded and
             // disappeared from the document: a paragraph that was only an empty

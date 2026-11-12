@@ -58,6 +58,7 @@ use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\TableSpanGrid;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 
@@ -159,7 +160,7 @@ class ProseMirrorRenderer
         $this->referenceDefinitionAttributes = [];
         foreach ($document->getChildren() as $child) {
             if ($child instanceof LinkReferenceDefinition && $child->getAttributes() !== []) {
-                $line = '[' . $child->getLabel() . ']: ' . $child->getHref();
+                $line = '[' . $child->getLabel() . ']: ' . $this->blankDenied($child->getHref());
                 if ($child->getTitle() !== null) {
                     $line .= ' "' . $child->getTitle() . '"';
                 }
@@ -954,7 +955,7 @@ class ProseMirrorRenderer
                 $attrs['verticalAlignment'] = $node->getVerticalAlignment();
             }
         } elseif ($node instanceof Image) {
-            $attrs['src'] = $node->getSource();
+            $attrs['src'] = $this->blankDenied($node->getSource());
             $attrs['alt'] = $node->getAlt();
             // An empty title is not the same as no title - corpus 108 pins that
             // `[x](u "")` keeps `title=""`.
@@ -974,7 +975,7 @@ class ProseMirrorRenderer
         } elseif ($node instanceof Mention) {
             // Mention extends Link, so this must come first or the Link branch
             // swallows it and the css class never reaches the editor.
-            $attrs['href'] = $node->getDestination();
+            $attrs['href'] = $this->blankDenied($node->getDestination());
             $attrs['cssClass'] = $node->getCssClass();
         } elseif ($node instanceof Link) {
             $this->appendLinkAttributes($node, $attrs);
@@ -1018,7 +1019,7 @@ class ProseMirrorRenderer
             // against, so carrying it is what lets that reference keep its
             // spelling (see the Link branch above).
             $attrs['label'] = $node->getLabel();
-            $attrs['href'] = $node->getHref();
+            $attrs['href'] = $this->blankDenied($node->getHref());
             if ($node->getTitle() !== null) {
                 $attrs['title'] = $node->getTitle();
             }
@@ -1155,7 +1156,7 @@ class ProseMirrorRenderer
      */
     private function appendLinkAttributes(Link $node, array &$attrs): void
     {
-        $attrs['href'] = $node->getDestination();
+        $attrs['href'] = $this->blankDenied($node->getDestination());
         if ($node->getTitle() !== null) {
             $attrs['title'] = $node->getTitle();
         }
@@ -1279,6 +1280,28 @@ class ProseMirrorRenderer
     }
 
     /**
+     * Blank a denied destination with the HTML target's own probe: the editor
+     * resolves this URL when it renders the mark (PART 9 section 25).
+     */
+    private function blankDenied(?string $url): ?string
+    {
+        if ($url === null) {
+            return null;
+        }
+        $blanked = HtmlRenderer::blankDangerousScheme($url);
+        if ($blanked !== $url) {
+            $this->recordDestinationDenied();
+        }
+
+        return $blanked;
+    }
+
+    private function recordDestinationDenied(): void
+    {
+        $this->dropped['destination-denied'] = 'a denied URL scheme is blanked, as the HTML target blanks it';
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function authoredAttributesFor(Node $node): array
@@ -1299,6 +1322,9 @@ class ProseMirrorRenderer
                 $attrs['title'] = $value;
             } elseif ($key === 'id' || $key === 'class') {
                 $attrs[$key] = $key === 'class' ? $node->getClassEntries() : $value;
+            } elseif (HtmlRenderer::attributeValueHasDeniedScheme((string)$key, $value)) {
+                $keyValues[$key] = '';
+                $this->recordDestinationDenied();
             } else {
                 $keyValues[$key] = $value;
             }
@@ -1403,6 +1429,10 @@ class ProseMirrorRenderer
                         : 'class="' . QuotedSlotEscaper::escape($class) . '"';
                 }
             } else {
+                if (HtmlRenderer::attributeValueHasDeniedScheme((string)$key, (string)$value)) {
+                    $value = '';
+                    $this->recordDestinationDenied();
+                }
                 $parts[] = preg_match('/^[A-Za-z0-9_-]+$/', (string)$value) === 1
                     ? $key . '=' . $value
                     : $key . '="' . QuotedSlotEscaper::escape((string)$value) . '"';

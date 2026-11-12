@@ -119,7 +119,12 @@ $renderer->degradedTypes();   // ['soft_break' => 'a soft break is whitespace â€
 ```
 
 - **Dropped** - the content is gone: smart typography, and a caption NUMBER,
-  which is a resolution artifact rather than editor content. Comments, figures
+  which is a resolution artifact rather than editor content. A destination with
+  a denied scheme (`javascript:`, `data:` and the rest of the PART 9 section 25
+  list) is blanked to `""` exactly where the HTML target blanks it, in link and
+  image destinations, reference definitions and authored attributes, and is
+  reported as `destination-denied`: the editor resolves those URLs when it
+  renders them. Comments, figures
   with captions, frontmatter, cross-references, line blocks, inline footnotes
   and raw passthrough are all carried.
 - **Degraded** - the node type is gone but the text survives: a soft break becomes
