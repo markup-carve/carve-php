@@ -438,6 +438,7 @@ class AstCodecTest extends TestCase
         '1068-a-comment-only-paragraph-loosens-a-list-as-a-comment-line-does-2.crv',
         '1068-a-comment-only-paragraph-loosens-a-list-as-a-comment-line-does-3.crv',
         '1068-a-comment-only-paragraph-loosens-a-list-as-a-comment-line-does.crv',
+        '1069-a-comment-run-after-a-glued-attribute-keeps-its-written-column-3.crv',
         '869-a-braced-comment-line-after-a-plus-is-the-attached-paragraph.crv',
         '926-a-quote-holding-only-braced-comments-is-not-a-caption-host.crv',
         '928-a-multi-line-paragraph-of-only-braced-comments-is-an-invisible-line.crv',
