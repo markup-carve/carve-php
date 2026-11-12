@@ -120,6 +120,7 @@ trait TransparentLineErasure
         }
         $walk = $this->newOwnershipWalk();
         $walk->trace = [];
+        $walk->traceLeavesOnly = true;
         $walk->own($lines, PlusLetter::for($input));
         /** @var array<int, array<string, int|string|null>> $trace */
         $trace = $walk->trace;
