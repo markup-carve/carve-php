@@ -164,6 +164,29 @@ final class Assessment
         $this->diagnostics[] = new MigrationDiagnostic($code ?? 'markdown-' . $construct, $message, $fidelity === 'dropped' ? 'warning' : 'info', $fidelity, 'exact', 'line:' . $line);
     }
 
+    private function droppedSince(int $before): bool
+    {
+        foreach (array_slice($this->diagnostics, $before) as $row) {
+            if ($row->code === 'attribute-dropped') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * A dropped image keeps its alt as the import writes it: plain text, with no construct rows.
+     */
+    private function plainAlt(string $alt, int $line): string
+    {
+        $diagnostics = $this->diagnostics;
+        $text = $this->inline($alt, $line, true);
+        $this->diagnostics = $diagnostics;
+
+        return self::escape(html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    }
+
     /**
      * @param string $pattern
      * @param string $text
@@ -222,7 +245,7 @@ final class Assessment
                 // carve#6010: the import keeps only the content of a denied destination.
                 if (self::denied($decodedDestination)) {
                     $this->emit('', $line, 'dropped', 'attribute-dropped', $m[1] === '!' ? DeniedDestinations::IMAGE : DeniedDestinations::LINK);
-                    $result .= $m[1] === '!' ? self::escape($m[2]) : $this->inline($m[2], $line, true, $tableCell);
+                    $result .= $m[1] === '!' ? $this->plainAlt($m[2], $line) : $this->inline($m[2], $line, true, $tableCell);
                     $i += strlen($m[0]);
 
                     continue;
@@ -238,7 +261,7 @@ final class Assessment
                 $definition = $this->definitions[self::label(($m[3] ?? '') ?: $m[2])];
                 if (self::denied($definition['destination'])) {
                     // The definition's row covers every link that uses it.
-                    $result .= $m[1] === '!' ? self::escape($m[2]) : $this->inline($m[2], $line, true, $tableCell);
+                    $result .= $m[1] === '!' ? $this->plainAlt($m[2], $line) : $this->inline($m[2], $line, true, $tableCell);
                     $i += strlen($m[0]);
 
                     continue;
@@ -259,7 +282,14 @@ final class Assessment
                 $kind = $m[1] === '~~' ? 'strikethrough' : (strlen($m[1]) === 2 ? 'strong' : 'emphasis');
                 $this->emit($kind, $line);
                 $tag = $kind === 'strong' ? 'strong' : ($kind === 'emphasis' ? 'em' : 's');
-                $result .= '<' . $tag . '>' . $this->inline($m[2], $line, $linkLabel, $tableCell) . '</' . $tag . '>';
+                $before = count($this->diagnostics);
+                $body = $this->inline($m[2], $line, $linkLabel, $tableCell);
+                if ($body === '' && $this->droppedSince($before)) {
+                    // The import writes no wrapper a dropped destination emptied.
+                    array_splice($this->diagnostics, $before - 1, 1);
+                } else {
+                    $result .= '<' . $tag . '>' . $body . '</' . $tag . '>';
+                }
             } elseif (self::match('/^(?: {2,}|\\\\)\n/', $text, $i, $m)) {
                 $this->emit('hard-break', $line, 'normalized');
                 $result .= "<br>\n";
@@ -382,7 +412,9 @@ final class Assessment
                 $body = trim(preg_replace('/[ \t]+#+[ \t]*$/', '', $m[2] ?? '') ?? '');
                 $this->emit('atx-heading', $n);
                 $level = strlen($m[1]);
-                $html .= '<h' . $level . '>' . $this->inline($body, $n) . '</h' . $level . ">\n";
+                $before = count($this->diagnostics);
+                $inline = $this->inline($body, $n);
+                $html .= '<h' . $level . '>' . ($this->droppedSince($before) ? trim($inline) : $inline) . '</h' . $level . ">\n";
                 $i++;
 
                 continue;
@@ -583,6 +615,15 @@ final class Assessment
             $this->emit('paragraph', $n);
             $before = count($this->diagnostics);
             $inline = $this->inline(trim(implode("\n", $body)), $n);
+            if ($this->droppedSince($before)) {
+                // The import trims what a dropped destination leaves at the edges, and writes no paragraph it emptied.
+                $inline = trim($inline);
+                if ($inline === '') {
+                    array_splice($this->diagnostics, $before - 1, 1);
+
+                    continue;
+                }
+            }
             $image = array_filter(array_slice($this->diagnostics, $before), static fn (MigrationDiagnostic $row): bool => in_array($row->code, ['markdown-image', 'markdown-reference-link'], true)) !== [];
             $html .= $image && preg_match('/^<img\s[^>]*>$/', $inline) === 1 ? $inline . "\n" : ($tightItem ? $inline . "\n" : '<p>' . $inline . "</p>\n");
         }
