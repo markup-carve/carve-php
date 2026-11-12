@@ -22,6 +22,11 @@ final class Assessment
     private bool $complete = true;
 
     /**
+     * Inline content read as image alt text: raw HTML stays literal.
+     */
+    private bool $plainText = false;
+
+    /**
      * @var list<string>
      */
     private array $sourceLines = [];
@@ -180,9 +185,10 @@ final class Assessment
      */
     private function plainAlt(string $alt, int $line): string
     {
-        $diagnostics = $this->diagnostics;
+        [$diagnostics, $complete] = [$this->diagnostics, $this->complete];
+        $this->plainText = true;
         $text = $this->inline($alt, $line, true);
-        $this->diagnostics = $diagnostics;
+        [$this->diagnostics, $this->complete, $this->plainText] = [$diagnostics, $complete, false];
 
         return self::escape(html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
     }
@@ -305,7 +311,7 @@ final class Assessment
                     $this->complete = false;
                 }
                 $this->emit('raw-html', $line, 'degraded', 'raw-preserved');
-                $result .= $m[0];
+                $result .= $this->plainText ? self::escape($m[0]) : $m[0];
             } elseif ($text[$i] === '[' && (strpos($text, ']', $i + 1) === false || self::match('~^\[[^\[\]\n]*<https?://[^<>\s]*\][^<>\s]*>~', $text, $i, $m))) {
                 $m = ['['];
                 $result .= '[';
@@ -618,6 +624,8 @@ final class Assessment
             if ($this->droppedSince($before)) {
                 // The import trims what a dropped destination leaves at the edges, and writes no paragraph it emptied.
                 $inline = trim($inline);
+                // A surviving trailing hard break keeps its newline.
+                $inline .= str_ends_with($inline, '<br>') ? "\n" : '';
                 if ($inline === '') {
                     array_splice($this->diagnostics, $before - 1, 1);
 
