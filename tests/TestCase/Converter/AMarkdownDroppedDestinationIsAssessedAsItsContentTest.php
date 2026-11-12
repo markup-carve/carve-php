@@ -37,6 +37,9 @@ class AMarkdownDroppedDestinationIsAssessedAsItsContentTest extends TestCase
             'alt with an escape' => ["x ![a \\* b](data:x) y\n", "x a * b y\n", [$paragraph, $dropped]],
             'a quote the drop empties' => ["> ![](data:x)\n", ">\n", [['markdown-block-quote', 'info', 'preserved', 'exact', 'line:1'], $dropped]],
             'an emptied paragraph after another' => ["p\n\n![](data:x)\n", "p\n", [$paragraph, ['attribute-dropped', 'warning', 'dropped', 'exact', 'line:3']]],
+            'alt with a literal asterisk' => ["x ![a * b](data:x) y\n", "x a * b y\n", [$paragraph, $dropped]],
+            'alt with literal HTML' => ["x ![a <b> c](data:x) y\n", "x a <b> c y\n", [$paragraph, $dropped]],
+            'a hard break before an emptied tail' => ["x  \n![](data:x)\n", "x\\\n", [$paragraph, ['markdown-hard-break', 'info', 'normalized', 'exact', 'line:1'], ['attribute-dropped', 'warning', 'dropped', 'exact', 'line:2']]],
             'a reference image with formatted alt' => ["x ![a *b*][r] y\n\n[r]: data:x\n", "x a b y\n", [$paragraph, ['attribute-dropped', 'warning', 'dropped', 'exact', 'line:3']]],
         ];
     }
