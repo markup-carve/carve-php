@@ -407,10 +407,10 @@ final class ReferenceStage
                 }
             }
             if (
-                $lineDepth > 0 && $listIndent === 0 && ($canStart || $lineDepth > $depth)
+                $lineDepth > 0 && ($listIndent === 0 || strpbrk(substr($quotePrefix, 0, $listIndent), ">\t") === false) && ($canStart || $lineDepth > $depth)
                 && preg_match('/^ {0,3}\[(?!\^)/', $content) === 1
             ) {
-                $quoted = $this->readQuotedDefinition($lines, $i, $lineDepth, $content);
+                $quoted = $this->readQuotedDefinition($this->itemQuoteLines($lines, $i, $listIndent), $i, $lineDepth - substr_count(substr($quotePrefix, 0, $listIndent), '>'), $content);
                 if ($quoted !== null) {
                     // A Carve definition has no title slot, so uses become titled inline links.
                     $rawKey = $this->inlineStage->normalizeReferenceLabel($quoted['label']);
@@ -434,8 +434,8 @@ final class ReferenceStage
                     $depth = $lineDepth;
                     $i += $quoted['lines'] - 1;
                     $listWork->definitionEnd = $i;
-                    $this->holdParagraphContinuation($lines, $i, $quotePrefix, 0);
-                    $canStart = !$this->dropDefinitionLine($lines, $i, $quotePrefix, $kept);
+                    $this->holdParagraphContinuation($lines, $i, $quotePrefix, $listIndent);
+                    $canStart = !$this->dropDefinitionLine($lines, $i, $quotePrefix, $kept, $listIndent);
 
                     continue;
                 }
@@ -1260,6 +1260,30 @@ final class ReferenceStage
             'target' => str_starts_with($parsed['target'], '<>') ? null : $parsed['target'],
             'lines' => $parsed['lines'],
         ];
+    }
+
+    /**
+     * The lines from `$start` on with the columns of the item holding the
+     * quote taken off, so the quoted readers see the quote at column 0. A line
+     * left of the item's content is lazy and keeps what it has past its indent.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $listIndent
+     *
+     * @return array<string>
+     */
+    private function itemQuoteLines(array $lines, int $start, int $listIndent): array
+    {
+        if ($listIndent === 0) {
+            return $lines;
+        }
+        $last = min(count($lines), $start + self::SPREAD_DEFINITION_LINES);
+        for ($at = $start; $at < $last; $at++) {
+            $lines[$at] = (string)substr($lines[$at], $at === $start ? $listIndent : min($listIndent, strspn($lines[$at], ' ')));
+        }
+
+        return $lines;
     }
 
     /**
