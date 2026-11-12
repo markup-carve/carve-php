@@ -1429,6 +1429,10 @@ class ProseMirrorRenderer
                         : 'class="' . QuotedSlotEscaper::escape($class) . '"';
                 }
             } else {
+                if (HtmlRenderer::attributeValueHasDeniedScheme((string)$key, (string)$value)) {
+                    $value = '';
+                    $this->recordDestinationDenied();
+                }
                 $parts[] = preg_match('/^[A-Za-z0-9_-]+$/', (string)$value) === 1
                     ? $key . '=' . $value
                     : $key . '="' . QuotedSlotEscaper::escape((string)$value) . '"';

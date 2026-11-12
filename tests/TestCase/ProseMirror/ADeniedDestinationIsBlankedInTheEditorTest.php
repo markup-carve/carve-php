@@ -43,6 +43,7 @@ class ADeniedDestinationIsBlankedInTheEditorTest extends TestCase
             'autolink' => ['<javascript:alert(1)>', '"href":"javascript'],
             'reference link and its definition' => ["[x][r]\n\n[r]: javascript:x", 'javascript'],
             'carried definition line' => ["{.c}\n[r]: javascript:x\n\n[x][r]", 'javascript'],
+            'authored attribute on a carried definition line' => ["[x][r]\n\n[r]: /ok {ping=\"javascript:x\"}", 'javascript'],
             'authored ping' => ['[x](/ok){ping="javascript:x"}', 'javascript'],
             'authored srcset candidate' => ['![a](/ok){srcset="a.png 1x, javascript:x 2x"}', 'javascript'],
             'NBSP before an authored value' => ["[x](/ok){data-x=\"\u{00A0}javascript:x\"}", 'javascript'],
