@@ -247,7 +247,8 @@ CRV;
         // Rows 588-3 and 588-4 now fall back because their lines end in plus.
         // Corpus 673 adds one accepted link-title-padding document.
         // Corpus 973-10 (a two-item list) and 973-25 (two quotes) add two more.
-        $this->assertSame(76, $accepted, 'A fast-path routing change needs explicit review.');
+        // Corpus 87-2 (a blank before a nested list, carve#6026) adds one more.
+        $this->assertSame(77, $accepted, 'A fast-path routing change needs explicit review.');
     }
 
     public function testAmbiguousOrStatefulDocumentsFallBackBeforePublishingOutput(): void
@@ -326,6 +327,49 @@ CRV;
             $this->authoritative()->convert($source),
             (new CarveConverter())->convert($source),
         );
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function blankBeforeNestedListProvider(): array
+    {
+        return [
+            'second item' => ["- first\n- second\n\n  - nested\n  - another\n"],
+            'first item' => ["- first\n\n  - nested\n- second\n"],
+            'third level' => ["- a\n  - b\n\n    - c\n  - d\n"],
+            'under a heading' => ["## S0\n\n- first\n- second\n\n  - nested\n  - another\n\nafter\n"],
+        ];
+    }
+
+    #[DataProvider('blankBeforeNestedListProvider')]
+    public function testABlankBeforeANestedListKeepsTheBorrowedPath(string $source): void
+    {
+        $attempt = (new BorrowedHtmlLayout())->render($source);
+        $this->assertNotNull($attempt, $source);
+        $this->assertStringContainsString('<li><p>', $attempt['html']);
+        $this->assertSame($this->authoritative()->convert($source), preg_replace('/\n\z/', '', $attempt['html']), $source);
+    }
+
+    public function testTheBlankAndTightNestedShapesTakeTheSameRoute(): void
+    {
+        // carve#6026: the blank shape fell back to the AST at about 25x the tight cost.
+        $blank = str_repeat("## S\n\n- first\n- second\n\n  - nested\n  - another\n\n", 160);
+        $tight = str_repeat("## S\n\n- first\n- second\n  - nested\n  - another\n\n", 160);
+        $blankAttempt = (new BorrowedHtmlLayout())->render($blank, true);
+        $tightAttempt = (new BorrowedHtmlLayout())->render($tight, true);
+        $this->assertNotNull($blankAttempt);
+        $this->assertNotNull($tightAttempt);
+        $this->assertSame($tightAttempt['accepted']['unorderedListItems'], $blankAttempt['accepted']['unorderedListItems']);
+        $this->assertSame($this->authoritative()->convert($blank), preg_replace('/\n\z/', '', $blankAttempt['html']));
+    }
+
+    public function testABlankBeforeContentThatIsNoNestedListStillFallsBack(): void
+    {
+        foreach (["- a\n\n  more\n", "- a\n\n\n  - b\n", "- a\n\n  1. b\n", "- a\n  - b\n\n  - c\n"] as $source) {
+            $this->assertNull((new BorrowedHtmlLayout())->render($source), $source);
+            $this->assertSame($this->authoritative()->convert($source), (new CarveConverter())->convert($source), $source);
+        }
     }
 
     private function authoritative(): CarveConverter

@@ -637,6 +637,10 @@ final class BorrowedHtmlLayout
         }
         $bullet = $lines[$start][$offset];
         $marker = $bullet . ' ';
+        $loose = $this->listLoose($lines, $start, $offset, $marker);
+        if ($loose === null) {
+            return null;
+        }
         $this->output->push($this->indent($depth), '<ul>');
         $i = $start;
         $count = count($lines);
@@ -654,11 +658,17 @@ final class BorrowedHtmlLayout
                 return null;
             }
             $this->accept($stats, 'unorderedListItems', $i, $i + 1);
-            $this->output->push("\n", $this->indent($depth + 1), '<li>');
+            $this->output->push("\n", $this->indent($depth + 1), $loose ? '<li><p>' : '<li>');
             if ($this->renderInline($text, $definitions) === null) {
                 return null;
             }
+            if ($loose) {
+                $this->output->push('</p>');
+            }
             $i++;
+            if ($loose && isset($lines[$i + 1]) && trim($lines[$i]) === '' && strlen($lines[$i + 1]) - strlen(ltrim($lines[$i + 1])) > $offset) {
+                $i++;
+            }
             if (isset($lines[$i])) {
                 $nextIndent = strlen($lines[$i]) - strlen(ltrim($lines[$i]));
                 if ($nextIndent > $offset) {
@@ -678,11 +688,8 @@ final class BorrowedHtmlLayout
             if (isset($lines[$i]) && trim($lines[$i]) === '') {
                 for ($next = $i + 1; isset($lines[$next]) && trim($lines[$next]) === ''; $next++) {
                 }
-                if (isset($lines[$next])) {
-                    $nextLeading = strlen($lines[$next]) - strlen(ltrim($lines[$next]));
-                    if ($nextLeading === $offset && str_starts_with(substr($lines[$next], $nextLeading), $marker)) {
-                        return null;
-                    }
+                if (isset($lines[$next]) && $this->siblingMarker($lines[$next], $offset, $marker)) {
+                    return null;
                 }
 
                 break;
@@ -691,6 +698,58 @@ final class BorrowedHtmlLayout
         $this->output->push("\n" . $this->indent($depth) . '</ul>');
 
         return ['next' => $i];
+    }
+
+    /**
+     * Decide looseness before output: a single blank between lines at indents P and N,
+     * N a marker line, loosens the list at min(P, N) (PART 9 §17 L1). Null hands the
+     * list back to the AST.
+     *
+     * @param list<string> $lines
+     * @param int $start
+     * @param int $offset
+     * @param string $marker
+     */
+    private function listLoose(array $lines, int $start, int $offset, string $marker): ?bool
+    {
+        $loose = false;
+        $previous = $offset;
+        $count = count($lines);
+        for ($i = $start; $i < $count; $i++) {
+            $line = $lines[$i];
+            if (trim($line) !== '') {
+                $leading = strlen($line) - strlen(ltrim($line));
+                if ($leading < $offset) {
+                    break;
+                }
+                $previous = $leading;
+
+                continue;
+            }
+            for ($at = $i + 1; isset($lines[$at]) && trim($lines[$at]) === ''; $at++) {
+            }
+            if (!isset($lines[$at])) {
+                break;
+            }
+            $next = $lines[$at];
+            $leading = strlen($next) - strlen(ltrim($next));
+            if ($leading < $offset || ($leading === $offset && !$this->siblingMarker($next, $offset, $marker))) {
+                break;
+            }
+            if ($at > $i + 1 || ($leading > $offset && !str_starts_with(substr($next, $leading), '- '))) {
+                return null;
+            }
+            if (min($previous, $leading) === $offset) {
+                $loose = true;
+            }
+        }
+
+        return $loose;
+    }
+
+    private function siblingMarker(string $line, int $offset, string $marker): bool
+    {
+        return strlen($line) - strlen(ltrim($line)) === $offset && str_starts_with(substr($line, $offset), $marker);
     }
 
     /**

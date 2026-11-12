@@ -9,6 +9,10 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Fixes
+
+- `convert()` renders a list with a blank line before a nested list on the fast HTML path again, as fast as the tight shape; it had fallen back to the full parser (carve#6026).
+
 ## [0.1.17] - 2026-11-12
 
 The block reader now follows the spec model's ownership walk (rule A), the one attach rule for `+` and the refused brace run ruling. Markdown import follows CommonMark 0.31, and lint gains suppression comments and Markdown-habit rules.
