@@ -37,6 +37,16 @@ class MarkdownImportWrappedDefinitionInAnItemQuoteTest extends TestCase
                 "- > b [a](/u \"t\")\n",
                 "<ul>\n  <li>\n    <blockquote><p>b <a href=\"/u\" title=\"t\">a</a></p></blockquote>\n  </li>\n</ul>",
             ],
+            'indented continuation after a wrapped title' => [
+                "- > [a]: /u\n  > \"t\"\n  >     lazy [a]\n",
+                "- > lazy [a](/u \"t\")\n",
+                "<ul>\n  <li>\n    <blockquote><p>lazy <a href=\"/u\" title=\"t\">a</a></p></blockquote>\n  </li>\n</ul>",
+            ],
+            'indented continuation after a one-line definition' => [
+                "- > [a]: /u\n  >     - x\n",
+                "- > \\- x\n\n[a]: /u\n",
+                "<ul>\n  <li>\n    <blockquote><p>- x</p></blockquote>\n  </li>\n</ul>",
+            ],
         ];
     }
 
