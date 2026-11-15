@@ -45,6 +45,8 @@ final class InlineEdgesTest extends InlineTestCase
     public function testC2I099AbbreviationNeedsWholeWord(): void
     {
         $this->assertSame('text@0-12(value="XHTML HTMLé")', self::inline('XHTML HTMLé', [], ['HTML' => 'x']));
+        $this->assertStringStartsWith('abbreviation@0-4', self::inline('HTML^[a]', [], ['HTML' => 'x']));
+        $this->assertStringStartsWith('text@0-4(value="HTML")', self::inline('HTML[x](u)', [], ['HTML' => 'x']));
     }
 
     /**
@@ -66,6 +68,9 @@ final class InlineEdgesTest extends InlineTestCase
         $this->assertSame(200, substr_count($out, 'superscript'));
         $this->assertStringContainsString('{text@400-403(value="{^x")}', $out);
         $this->assertStringEndsWith(' text@803-805(value="^}")', $out);
+        // The label of a reference past the cap is text as typed, without smart quotes.
+        $out = self::inline(str_repeat('{^', 200) . '[]["]' . str_repeat('^}', 200), ['"']);
+        $this->assertStringNotContainsString('smart_punctuation', $out);
     }
 
     /**
@@ -194,6 +199,14 @@ final class InlineEdgesTest extends InlineTestCase
     public function testC2I023LineCommentValue(): void
     {
         $this->assertSame('text@0-1(value="a") comment@1-9(form="line" value="b \\\\")', self::inline('a %% b \\ '));
+        // G-inline-7: the comment owns the trailing spaces of its line.
+        $doc = Carve2::parse("a %% x \nb\n");
+        $para = $doc->children[0] ?? null;
+        $this->assertInstanceOf(Node::class, $para);
+        $this->assertSame(
+            'text@0-1(value="a") comment@1-7(form="line" value="x") soft_break@7-8 text@8-9(value="b")',
+            self::nodes($para->children ?? []),
+        );
     }
 
     /**

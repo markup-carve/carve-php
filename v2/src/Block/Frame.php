@@ -149,6 +149,8 @@ final class Frame
 
     public int $indent = 0;
 
+    public int $openCol = 0;
+
     public ?Attrs $attrs = null;
 
     public ?Marker $marker = null;

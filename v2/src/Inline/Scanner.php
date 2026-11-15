@@ -173,6 +173,13 @@ final class Scanner
     private ?LinkTail $tails = null;
 
     /**
+     * Source start of the break at a text offset, where a line comment owns the line's trailing spaces.
+     *
+     * @var array<int, int>
+     */
+    private array $breakStart = [];
+
+    /**
      * @param \MarkupCarve\Carve2\Inline\Content $c
      * @param \MarkupCarve\Carve2\Inline\InlineContext $ctx
      * @param int $depth Block depth of the leaf (C2-I-118).
@@ -423,8 +430,10 @@ final class Scanner
     private function lineBreak(int $start, int $nl, string $type): int
     {
         $end = $nl + 1 + strspn($this->t, " \t", $nl + 1);
+        $node = isset($this->breakStart[$start])
+            ? Node::at($type, $this->breakStart[$start], $this->c->src($end)) : $this->node($type, $start, $end);
 
-        return $this->emit([self::NODE, $this->node($type, $start, $end), $start, $end, false, null]);
+        return $this->emit([self::NODE, $node, $start, $end, false, null]);
     }
 
     /**
@@ -863,7 +872,10 @@ final class Scanner
         }
         // G-inline-1: the value ends at the last character that is no space, an escaped space included.
         $value = rtrim($value, " \t");
-        $node = $this->node('comment', $start, $end);
+        // G-inline-7: the line form owns the spaces at the end of its line.
+        $srcEnd = $this->c->lineEnd($i);
+        $node = Node::at('comment', $this->c->src($start), $srcEnd);
+        $this->breakStart[$end] = $srcEnd;
         $node->f['form'] = 'line';
         $node->f['value'] = $value;
 

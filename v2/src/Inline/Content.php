@@ -29,6 +29,13 @@ final class Content
     private int $last = 0;
 
     /**
+     * Source end of each line, trailing spaces included.
+     *
+     * @var array<int>
+     */
+    private array $le = [];
+
+    /**
      * Source offset of the text start when the content is one line, else -1.
      */
     public int $base = -1;
@@ -44,6 +51,7 @@ final class Content
             $this->base = $spans[0];
             $this->lt = [0];
             $this->ls = [$spans[0]];
+            $this->le = [$spans[1]];
             $this->t = self::trimEnd(substr($s, $spans[0], max(0, $spans[1] - $spans[0])));
 
             return;
@@ -53,6 +61,7 @@ final class Content
         for ($k = 0; $k + 1 < $n; $k += 2) {
             $this->lt[] = $off;
             $this->ls[] = $spans[$k];
+            $this->le[] = $spans[$k + 1];
             $line = self::trimEnd(substr($s, $spans[$k], max(0, $spans[$k + 1] - $spans[$k])));
             $len = strlen($line);
             $parts[] = $line;
@@ -81,6 +90,29 @@ final class Content
         }
 
         return $trimmed;
+    }
+
+    /**
+     * Source end of the line that holds the text offset `$x`, its trailing spaces included.
+     *
+     * @param int $x
+     *
+     * @return int
+     */
+    public function lineEnd(int $x): int
+    {
+        $lo = 0;
+        $hi = count($this->lt) - 1;
+        while ($lo < $hi) {
+            $mid = ($lo + $hi + 1) >> 1;
+            if ($this->lt[$mid] <= $x) {
+                $lo = $mid;
+            } else {
+                $hi = $mid - 1;
+            }
+        }
+
+        return $this->le[$lo] ?? $this->src($x);
     }
 
     /**

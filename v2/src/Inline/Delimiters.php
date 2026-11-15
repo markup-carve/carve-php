@@ -142,11 +142,11 @@ final class Delimiters
 
             return;
         }
-        $this->text($tok[2], $inner->open);
+        $this->text($tok[2], $inner->open, true);
         foreach ($inner->list as $child) {
             $this->token($child);
         }
-        $this->text($inner->close, $tok[3]);
+        $this->text($inner->close, $tok[3], true);
     }
 
     /**
@@ -296,11 +296,12 @@ final class Delimiters
     /**
      * @param int $ts
      * @param int $te
+     * @param bool $typed Text as typed, without typography (C2-I-118).
      *
      * @return void
      */
-    private function text(int $ts, int $te): void
+    private function text(int $ts, int $te, bool $typed = false): void
     {
-        $this->items[] = [Scanner::TEXT, substr($this->sc->t, $ts, $te - $ts), $ts, $te, false];
+        $this->items[] = [Scanner::TEXT, substr($this->sc->t, $ts, $te - $ts), $ts, $te, $typed];
     }
 }

@@ -420,6 +420,15 @@ final class BlockClausesTest extends TestCase
     /**
      * @return void
      */
+    public function testC2B029FenceLeftOfContentColumnStripsToOpener(): void
+    {
+        // G-blocks-7.
+        $this->assertTree("- a\n\n ```\n  code\n ```", '[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"paragraph"},{"type":"code_block","value":" code\\n"}]}]}]');
+    }
+
+    /**
+     * @return void
+     */
     public function testC2B218NulInCodeReadAsReplacementCharacter(): void
     {
         $tree = self::encode("```\nx\0y\n```");

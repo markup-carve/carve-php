@@ -193,7 +193,8 @@ final class Finisher
 
                 return Chars::at($this->t, $item[2]);
             }
-            if (!$item[5] instanceof TokenList) {
+            // An inline footnote shows a marker, not its content (C2-I-099).
+            if (!$item[5] instanceof TokenList || ($item[1] instanceof Node && $item[1]->type === 'inline_footnote')) {
                 return -1;
             }
             if ($item[5]->list === []) {

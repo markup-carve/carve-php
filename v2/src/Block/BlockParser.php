@@ -60,6 +60,10 @@ final class BlockParser
 
     private ?Marker $markerRead = null;
 
+    private int $stripI = -1;
+
+    private int $stripCol = 0;
+
     /**
      * @param \MarkupCarve\Carve2\Block\Sink $sink
      */
@@ -210,6 +214,7 @@ final class BlockParser
     {
         $n = count($this->stack);
         $owner = 0;
+        $this->stripI = -1;
         for ($k = 1; $k < $n; $k++) {
             $f = $this->stack[$k];
             $kind = $f->kind;
@@ -233,6 +238,8 @@ final class BlockParser
                 if ($j < $this->le && $c - $this->base <= $f->markerCol) {
                     break;
                 }
+                $this->stripI = $this->i;
+                $this->stripCol = $this->col;
                 $this->stripTo($f->contentCol);
             }
             $owner = $k;
@@ -1030,6 +1037,7 @@ final class BlockParser
         $f = new Frame(Frame::CODE, $j);
         $f->level = $info->run;
         $f->indent = $c - $this->col;
+        $f->openCol = $c;
         $f->end = $this->le;
         $syntax = $info->syntax;
         $f->syntax = $syntax;
@@ -1071,6 +1079,7 @@ final class BlockParser
         $f = new Frame($kind, $j);
         $f->level = $run;
         $f->indent = $c - $this->col;
+        $f->openCol = $c;
         $f->end = $this->le;
         $this->divKind($f, $info);
         $this->take($f);
@@ -1180,6 +1189,7 @@ final class BlockParser
         $f = new Frame(Frame::COMMENT_BLOCK, $j);
         $f->level = $n;
         $f->indent = $c - $this->col;
+        $f->openCol = $c;
         $f->end = $this->le;
         $k = $j + $n;
         $k += strspn($s, " \t", $k, $this->le - $k);
@@ -1434,6 +1444,12 @@ final class BlockParser
      */
     private function opaqueLine(Frame $f): void
     {
+        // G-blocks-7: an opener left of the content column strips the body only to its own column.
+        if ($this->stripI >= 0 && $this->col > $f->openCol) {
+            $this->i = $this->stripI;
+            $this->col = $this->stripCol;
+            $this->stripTo($f->openCol - $this->base);
+        }
         $s = $this->s;
         $j = $this->i;
         $c = $this->col;
