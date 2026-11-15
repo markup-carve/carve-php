@@ -112,8 +112,12 @@ final class LineShapes
         }
         $k += $sp;
         if ($k < $end && $s[$k] === '"') {
-            $close = strpos($s, '"', $k + 1);
-            if ($close === false || $close >= $end) {
+            // C2-B-120, C2-I-033: a backslash escapes the quote inside the title.
+            $close = $k + 1;
+            while ($close < $end && $s[$close] !== '"') {
+                $close += $s[$close] === '\\' ? 2 : 1;
+            }
+            if ($close >= $end) {
                 return;
             }
             $info->title = [$k + 1, $close];
@@ -445,12 +449,13 @@ final class LineShapes
      */
     public static function fold(string $label): string
     {
-        $label = trim($label, " \t\r\n");
-        if (strcspn($label, " \t\r\n") === strlen($label)) {
+        // C2-B-010: a lone CR is no line end, so it is no whitespace of a label either.
+        $label = trim($label, " \t\n");
+        if (strcspn($label, " \t\n") === strlen($label)) {
             return $label;
         }
 
-        return (string)preg_replace('/[ \t\r\n]+/', ' ', $label);
+        return (string)preg_replace('/[ \t\n]+/', ' ', $label);
     }
 
     /**

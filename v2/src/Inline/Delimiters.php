@@ -59,6 +59,18 @@ final class Delimiters
      */
     public static function run(Scanner $sc, array $tokens, int $depth): array
     {
+        $plain = true;
+        foreach ($tokens as $tok) {
+            if ($tok[0] === Scanner::DELIM || ($tok[5] ?? null) instanceof TokenList) {
+                $plain = false;
+
+                break;
+            }
+        }
+        if ($plain) {
+            // Without a delimiter or a construct with content the list passes through as it is.
+            return $tokens;
+        }
         $d = new self($sc, $depth);
         foreach ($tokens as $tok) {
             $d->token($tok);

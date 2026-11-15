@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Times Resolver and HtmlRenderer alone (parse excluded) on the bench fixtures and a 1 MB repetition.
+ * Times Resolver and HtmlRenderer alone (median of the runs) (parse excluded) on the bench fixtures and a 1 MB repetition.
  *
  *   php -n -d extension=mbstring -d extension=intl -d extension=ctype v2/scripts/bench-render.php [--runs=N]
  */
@@ -20,7 +20,19 @@ use MarkupCarve\Carve2\Options;
 use MarkupCarve\Carve2\Resolve\Resolver;
 
 $opt = getopt('', ['runs:']);
-$runs = max(1, (int)($opt['runs'] ?? 5));
+$runs = max(1, (int)($opt['runs'] ?? 15));
+
+/**
+ * @param array<float> $v
+ *
+ * @return float
+ */
+function median(array $v): float
+{
+    sort($v);
+
+    return $v[intdiv(count($v), 2)];
+}
 
 /**
  * @param string $source
@@ -51,8 +63,8 @@ $opts = Options::from([]);
 $totalR = 0.0;
 $totalH = 0.0;
 foreach ($inputs as $name => $src) {
-    $bestR = INF;
-    $bestH = INF;
+    $rs = [];
+    $hs = [];
     $hash = '';
     for ($i = 0; $i < $runs; $i++) {
         $doc = parseOnly($src);
@@ -62,10 +74,12 @@ foreach ($inputs as $name => $src) {
         $t = hrtime(true);
         $html = HtmlRenderer::render($doc, $opts, $src);
         $h = (hrtime(true) - $t) / 1e6;
-        $bestR = min($bestR, $r);
-        $bestH = min($bestH, $h);
+        $rs[] = $r;
+        $hs[] = $h;
         $hash = md5($html);
     }
+    $bestR = median($rs);
+    $bestH = median($hs);
     $totalR += $bestR;
     $totalH += $bestH;
     printf("%-30s %8d B  resolve %8.2f ms  render %8.2f ms  html %s\n", $name, strlen($src), $bestR, $bestH, substr($hash, 0, 8));

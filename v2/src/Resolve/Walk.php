@@ -15,7 +15,7 @@ final class Walk
     /**
      * @var array<string, true>
      */
-    private const OPAQUE = ['attrs' => true, 'data' => true, 'props' => true, 'payload' => true, 'source' => true, 'resources' => true, 'extensions' => true, 'columns' => true];
+    public const OPAQUE = ['attrs' => true, 'data' => true, 'props' => true, 'payload' => true, 'source' => true, 'resources' => true, 'extensions' => true, 'columns' => true];
 
     /**
      * @param \MarkupCarve\Carve2\Node $node
@@ -47,19 +47,17 @@ final class Walk
      *
      * @param \MarkupCarve\Carve2\Node $root
      *
-     * @return array{0: array<int, \MarkupCarve\Carve2\Node>, 1: array<int, int>, 2: array<int, int>} Nodes, subtree ends, index by object id.
+     * @return array{0: array<int, \MarkupCarve\Carve2\Node>, 1: array<int, int>} Nodes and subtree ends.
      */
     public static function order(Node $root): array
     {
         $nodes = [];
         $end = [];
-        $pos = [];
         $n = 0;
         $stack = [$root];
         $top = 1;
         while ($top > 0) {
             $node = $stack[--$top];
-            unset($stack[$top]);
             if (is_int($node)) {
                 $end[$node] = $n;
 
@@ -67,31 +65,74 @@ final class Walk
             }
             $nodes[$n] = $node;
             $end[$n] = $n + 1;
-            $pos[spl_object_id($node)] ??= $n;
             $i = $n++;
-            $children = $node->children ?? [];
-            $extra = false;
-            foreach ($node->f as $key => $value) {
-                if (is_array($value) || $value instanceof Node) {
-                    if (!isset(self::OPAQUE[$key])) {
-                        $extra = true;
-
-                        break;
-                    }
-                }
-            }
-            $kids = $extra ? self::kids($node) : $children;
-            $k = count($kids);
-            if ($k === 0) {
+            $kids = self::kids($node);
+            if ($kids === []) {
                 continue;
             }
             $stack[$top++] = $i;
-            while ($k > 0) {
+            for ($k = count($kids); $k > 0;) {
                 $stack[$top++] = $kids[--$k];
             }
         }
 
-        return [$nodes, $end, $pos];
+        return [$nodes, $end];
+    }
+
+    /**
+     * The pre-order ranges of the root's children other than footnote definitions, neighbors merged:
+     * the body, read before the notes (C2-H-087).
+     *
+     * @param \MarkupCarve\Carve2\Node $root
+     * @param array<int, int> $pos From kidPositions().
+     * @param array<int, int> $end From order().
+     *
+     * @return array<array{0: int, 1: int}>
+     */
+    public static function bodyRanges(Node $root, array $pos, array $end): array
+    {
+        $ranges = [];
+        $from = -1;
+        $to = -1;
+        foreach ($root->children ?? [] as $child) {
+            $at = $child->type === 'footnote' ? null : $pos[spl_object_id($child)] ?? null;
+            if ($at === null) {
+                continue;
+            }
+            if ($at !== $to) {
+                if ($from >= 0) {
+                    $ranges[] = [$from, $to];
+                }
+                $from = $at;
+            }
+            $to = $end[$at];
+        }
+        if ($from >= 0) {
+            $ranges[] = [$from, $to];
+        }
+
+        return $ranges;
+    }
+
+    /**
+     * The pre-order index of each of the root's kids, keyed by object id: the first stands at 1 and
+     * each next one where the subtree before it ends.
+     *
+     * @param \MarkupCarve\Carve2\Node $root
+     * @param array<int, int> $end From order().
+     *
+     * @return array<int, int>
+     */
+    public static function kidPositions(Node $root, array $end): array
+    {
+        $pos = [];
+        $i = 1;
+        foreach (self::kids($root) as $kid) {
+            $pos[spl_object_id($kid)] ??= $i;
+            $i = $end[$i] ?? $i + 1;
+        }
+
+        return $pos;
     }
 
     /**

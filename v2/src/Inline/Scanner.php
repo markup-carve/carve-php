@@ -782,8 +782,8 @@ final class Scanner
 
             return $this->emit([self::DELIM, self::CLOSER, $i, $i + 2, $m, $open, $close, false, 1]);
         }
-        $next = $this->nextCp($i + 1);
-        if (Chars::isGlue($next)) {
+        $c = $after < $this->n ? $t[$after] : '';
+        if (($c === '' || $c === '{' || ord($c) >= 0x80) && Chars::isGlue($this->nextCp($i + 1))) {
             return $i + 1;
         }
         [$open, $close, $poison] = $this->flanks($i, $i + 1);
@@ -801,6 +801,18 @@ final class Scanner
      */
     private function flanks(int $ts, int $te): array
     {
+        $t = $this->t;
+        $p = $ts > 0 ? $t[$ts - 1] : ' ';
+        $q = $te < $this->n ? $t[$te] : ' ';
+        if (ord($p) < 0x80 && ord($q) < 0x80 && $q !== '{' && $q !== '\\' && !isset($this->commentStart[$ts])) {
+            // ASCII neighbors without a comment or an escaped space between: the same test, read directly.
+            $pw = ctype_alnum($p);
+            $nw = ctype_alnum($q);
+            $ps = $p === ' ' || $p === "\t" || $p === "\n";
+            $ns = $q === ' ' || $q === "\t" || $q === "\n";
+
+            return [!$pw && !$ns, !$ps && !$nw, $pw && $nw];
+        }
         $prev = $this->prevCp($ts);
         $next = $this->nextCp($te);
         $pw = Chars::isWord($prev);

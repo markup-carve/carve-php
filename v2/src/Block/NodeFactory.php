@@ -20,6 +20,14 @@ final class NodeFactory
      */
     public static function make(Frame $f, string $s): Node
     {
+        if ($f->kind === Frame::PARAGRAPH && $f->attrs === null && $f->role === null) {
+            $node = new Node('paragraph');
+            $node->start = $f->start;
+            $node->end = $f->end;
+            $node->lines = $f->spans;
+
+            return $node;
+        }
         $node = self::build($f, $s);
         if ($f->attrs !== null && $f->kind !== Frame::DIV && $f->kind !== Frame::TABLE && $f->kind !== Frame::CODE && $f->kind !== Frame::LIST) {
             $f->attrs->applyTo($node);

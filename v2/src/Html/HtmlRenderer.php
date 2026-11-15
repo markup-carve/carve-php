@@ -234,7 +234,9 @@ final class HtmlRenderer
      */
     public static function pad(int $depth): string
     {
-        return str_repeat('  ', $depth);
+        static $pads = [];
+
+        return $pads[$depth] ??= str_repeat('  ', $depth);
     }
 
     /**
@@ -484,6 +486,9 @@ final class HtmlRenderer
      */
     private function withLongDescriptions(?string $html, Node $block, int $depth): ?string
     {
+        if (!$this->state->longDescriptions) {
+            return $html;
+        }
         $extra = [];
         $stack = array_reverse($block->children ?? []);
         while ($stack !== []) {

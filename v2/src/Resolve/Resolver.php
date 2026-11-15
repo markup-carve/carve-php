@@ -81,7 +81,7 @@ final class Resolver
     private array $sequence = [];
 
     /**
-     * The tree in pre-order (Walk::order), walked by index ranges in place of recursion.
+     * The tree in pre-order without plain text, walked by index ranges in place of recursion.
      *
      * @var array<int, \MarkupCarve\Carve2\Node>
      */
@@ -119,6 +119,11 @@ final class Resolver
      */
     private array $keyed = [];
 
+    /**
+     * @var array<array{0: int, 1: int}>
+     */
+    private array $body = [];
+
     private function __construct(private Node $doc, private string $s, private Options $o)
     {
     }
@@ -137,13 +142,14 @@ final class Resolver
         gc_disable();
         try {
             $r = new self($doc, $s ?? '', $opts);
-            [$r->nodes, $r->end, $r->pos] = Walk::order($doc);
             $doc->f['astVersion'] = '2.0';
             if ($s !== null) {
                 $doc->f['srcByteLength'] = strlen($s);
             }
             $r->collectDefinitions();
             $r->prepare();
+            $r->pos += Walk::kidPositions($doc, $r->end);
+            $r->body = Walk::bodyRanges($doc, $r->pos, $r->end);
             $r->numberFootnotes();
             $r->headingIds();
             $r->captions();
@@ -195,11 +201,8 @@ final class Resolver
      */
     private function numberFootnotes(): void
     {
-        foreach ($this->doc->children ?? [] as $child) {
-            if ($child->type !== 'footnote') {
-                $i = $this->pos[spl_object_id($child)];
-                $this->noteRefs($i, $this->end[$i]);
-            }
+        foreach ($this->body as [$from, $to]) {
+            $this->noteRefs($from, $to);
         }
         // The queue grows while it is read: a note can reference a later note.
         $i = 0;
@@ -252,25 +255,60 @@ final class Resolver
     }
 
     /**
-     * One pass over the tree: every earlier result is cleared (a tree may be resolved again), authored
+     * One pass over the tree, which also builds the pre-order list: every earlier result is cleared (a tree may be resolved again), authored
      * ids are reserved first in document order (C2-H-024), and the nodes each later pass reads are listed.
      *
      * @return void
      */
     private function prepare(): void
     {
-        foreach ($this->nodes as $i => $node) {
+        // The walk of Walk::order, inlined so the tree is touched once.
+        $stack = [$this->doc];
+        $top = 1;
+        $n = 0;
+        while ($top > 0) {
+            $node = $stack[--$top];
+            if (is_int($node)) {
+                $this->end[$node] = $n;
+
+                continue;
+            }
+            $this->nodes[$n] = $node;
+            $this->end[$n] = $n + 1;
+            $i = $n++;
             $f = $node->f;
+            $type = $node->type;
+            $kids = $node->children;
+            foreach ($f as $key => $value) {
+                if ((is_array($value) || $value instanceof Node) && !isset(Walk::OPAQUE[$key])) {
+                    $kids = Walk::kids($node);
+
+                    break;
+                }
+            }
+            if ($kids !== null && $kids !== []) {
+                $stack[$top++] = $i;
+                for ($k = count($kids); $k > 0;) {
+                    $kid = $kids[--$k];
+                    // Plain text holds no slot and no result and is never listed; most nodes are text.
+                    if ($kid->type !== 'text' || isset($kid->f['attrs'])) {
+                        $stack[$top++] = $kid;
+                    }
+                }
+            }
             $numbered = false;
             $attrs = $f['attrs'] ?? null;
             if ($attrs instanceof Attrs && $attrs->id !== null) {
                 $this->taken[$attrs->id] = true;
             }
-            switch ($node->type) {
+            switch ($type) {
                 case 'footnote_ref':
                 case 'inline_footnote':
                     unset($node->f['number']);
                     $this->noteMarks[] = $i;
+                    if ($node->type === 'inline_footnote') {
+                        $this->pos[spl_object_id($node)] = $i;
+                    }
 
                     break;
                 case 'heading':
@@ -315,14 +353,13 @@ final class Resolver
      */
     private function headingIds(): void
     {
-        foreach ($this->doc->children ?? [] as $child) {
-            if ($child->type !== 'footnote') {
-                $this->headingIdsIn($this->pos[spl_object_id($child)]);
-            }
+        foreach ($this->body as [$from, $to]) {
+            $this->headingIdsIn($from, $to);
         }
         foreach ($this->notes as $note) {
             if ($note->type === 'footnote') {
-                $this->headingIdsIn($this->pos[spl_object_id($note)]);
+                $at = $this->pos[spl_object_id($note)];
+                $this->headingIdsIn($at, $this->end[$at]);
             }
         }
         $this->collectHeadings();
@@ -330,17 +367,17 @@ final class Resolver
 
     /**
      * @param int $at
+     * @param int $to
      *
      * @return void
      */
-    private function headingIdsIn(int $at): void
+    private function headingIdsIn(int $at, int $to): void
     {
         if ($this->o->headingIds === 'off') {
             return;
         }
         $list = $this->headings;
         $count = count($list);
-        $to = $this->end[$at];
         for ($h = Walk::firstAtOrAfter($list, $at); $h < $count && $list[$h] < $to; $h++) {
             $node = $this->nodes[$list[$h]];
             $attrs = $node->f['attrs'] ?? null;
@@ -412,14 +449,13 @@ final class Resolver
      */
     private function captions(): void
     {
-        foreach ($this->doc->children ?? [] as $child) {
-            if ($child->type !== 'footnote') {
-                $this->captionsIn($this->pos[spl_object_id($child)]);
-            }
+        foreach ($this->body as [$from, $to]) {
+            $this->captionsIn($from, $to);
         }
         foreach ($this->notes as $note) {
             if ($note->type === 'footnote') {
-                $this->captionsIn($this->pos[spl_object_id($note)]);
+                $at = $this->pos[spl_object_id($note)];
+                $this->captionsIn($at, $this->end[$at]);
             }
         }
     }
@@ -429,16 +465,16 @@ final class Resolver
      * whose caption has a mark, an equation's number belongs to that caption.
      *
      * @param int $at
+     * @param int $to
      *
      * @return void
      */
-    private function captionsIn(int $at): void
+    private function captionsIn(int $at, int $to): void
     {
         $panels = [];
         $ownedUntil = $at;
         $list = $this->numbered;
         $count = count($list);
-        $to = $this->end[$at];
         for ($c = Walk::firstAtOrAfter($list, $at); $c < $count && $list[$c] < $to; $c++) {
             $i = $list[$c];
             $node = $this->nodes[$i];

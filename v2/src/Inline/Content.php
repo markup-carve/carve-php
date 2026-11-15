@@ -29,14 +29,27 @@ final class Content
     private int $last = 0;
 
     /**
+     * Source offset of the text start when the content is one line, else -1.
+     */
+    public int $base = -1;
+
+    /**
      * @param string $s
      * @param array<int> $spans
      */
     public function __construct(string $s, array $spans)
     {
+        $n = count($spans);
+        if ($n === 2) {
+            $this->base = $spans[0];
+            $this->lt = [0];
+            $this->ls = [$spans[0]];
+            $this->t = self::trimEnd(substr($s, $spans[0], max(0, $spans[1] - $spans[0])));
+
+            return;
+        }
         $parts = [];
         $off = 0;
-        $n = count($spans);
         for ($k = 0; $k + 1 < $n; $k += 2) {
             $this->lt[] = $off;
             $this->ls[] = $spans[$k];
@@ -80,6 +93,9 @@ final class Content
      */
     public function src(int $x): int
     {
+        if ($this->base >= 0) {
+            return $this->base + $x;
+        }
         $lines = count($this->lt);
         if ($lines === 0) {
             return $x;

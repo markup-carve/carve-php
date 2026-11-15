@@ -227,6 +227,18 @@ final class Finisher
         }
         $this->smartEnd = $pc !== $first && $pc === $this->smartEnd ? $first : -2;
         $count = count($run);
+        [, $value, $ts, $te, $lit] = $run[0];
+        if (
+            $count === 1 && $lit !== true && is_string($value) && is_int($ts) && is_int($te) && $value !== ''
+            && $te - $ts === strlen($value) && $this->ctx->abbreviations === []
+            && strcspn($value, Tables::SMART_TRIGGERS) === $te - $ts
+        ) {
+            // A text with nothing to replace is one text node.
+            $out[] = Node::text($value, $this->sc->c->src($ts), $this->sc->c->src($te));
+            $this->visible = Chars::before($this->t, $te);
+
+            return;
+        }
         $k = 0;
         while ($k < $count) {
             [, $value, $ts, $te, $lit] = $run[$k];

@@ -20,6 +20,15 @@ final class Slug
      */
     public static function of(string $plain, string $policy): string
     {
+        if (preg_match('/[\x80-\xff]/', $plain) !== 1) {
+            // ASCII: NFC, the removed and the reversed characters (all outside ASCII) change nothing.
+            $slug = self::hyphenate($plain);
+            if ($policy === 'lower' || $policy === 'ascii') {
+                $slug = strtolower($slug);
+            }
+
+            return $slug === '' ? 's' : (ctype_digit($slug[0]) ? 's-' . $slug : $slug);
+        }
         // C2-H-144: NFC first, then the removed characters.
         $text = Normalizer::normalize($plain, Normalizer::FORM_C);
         $text = is_string($text) ? $text : $plain;

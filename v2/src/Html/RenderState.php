@@ -62,6 +62,11 @@ final class RenderState
     public ?Node $placingDirective = null;
 
     /**
+     * Whether any image carries a long description, so paragraphs need a search for them.
+     */
+    public bool $longDescriptions = false;
+
+    /**
      * @var array<string, true>
      */
     private array $taken = [];
@@ -69,7 +74,7 @@ final class RenderState
     private int $admonitions = 0;
 
     /**
-     * The tree in pre-order (Walk::order) and the indexes of note marks and titled nodes in it.
+     * The tree in pre-order without plain text, and the indexes of note marks and titled nodes in it.
      *
      * @var array<int, \MarkupCarve\Carve2\Node>
      */
@@ -112,18 +117,16 @@ final class RenderState
                 $this->placingDirective ??= $child;
             }
         }
-        [$this->nodes, $this->end, $this->pos] = Walk::order($doc);
         $this->scan();
+        $this->pos += Walk::kidPositions($doc, $this->end);
         ksort($this->notes);
         if ($this->notes === []) {
             // C2-H-158: with no section to place, the directive is a plain `<div class="footnotes">`.
             $this->placingDirective = null;
         }
-        foreach ($doc->children ?? [] as $child) {
-            if ($child->type !== 'footnote') {
-                $at = $this->pos[spl_object_id($child)];
-                $this->refs($at, $this->end[$at]);
-            }
+        $body = Walk::bodyRanges($doc, $this->pos, $this->end);
+        foreach ($body as [$from, $to]) {
+            $this->refs($from, $to);
         }
         foreach ($this->notes as $note) {
             $at = $this->pos[spl_object_id($note)] ?? null;
@@ -131,14 +134,13 @@ final class RenderState
                 $this->refs($at + 1, $this->end[$at]);
             }
         }
-        foreach ($doc->children ?? [] as $child) {
-            if ($child->type !== 'footnote') {
-                $this->admonitionIds($this->pos[spl_object_id($child)]);
-            }
+        foreach ($body as [$from, $to]) {
+            $this->admonitionIds($from, $to);
         }
         foreach ($this->notes as $note) {
-            if ($note->type === 'footnote' && isset($this->pos[spl_object_id($note)])) {
-                $this->admonitionIds($this->pos[spl_object_id($note)]);
+            $at = $note->type === 'footnote' ? $this->pos[spl_object_id($note)] ?? null : null;
+            if ($at !== null) {
+                $this->admonitionIds($at, $this->end[$at]);
             }
         }
         $this->nodes = [];
@@ -155,11 +157,45 @@ final class RenderState
      */
     private function scan(): void
     {
-        foreach ($this->nodes as $i => $node) {
+        // The walk of Walk::order, inlined so the tree is touched once.
+        $stack = [$this->doc];
+        $top = 1;
+        $n = 0;
+        while ($top > 0) {
+            $node = $stack[--$top];
+            if (is_int($node)) {
+                $this->end[$node] = $n;
+
+                continue;
+            }
+            $this->nodes[$n] = $node;
+            $this->end[$n] = $n + 1;
+            $i = $n++;
             $f = $node->f;
             $type = $node->type;
+            $kids = $node->children;
+            foreach ($f as $key => $value) {
+                if ((is_array($value) || $value instanceof Node) && !isset(Walk::OPAQUE[$key])) {
+                    $kids = Walk::kids($node);
+
+                    break;
+                }
+            }
+            if ($kids !== null && $kids !== []) {
+                $stack[$top++] = $i;
+                for ($k = count($kids); $k > 0;) {
+                    $kid = $kids[--$k];
+                    // Plain text holds no slot and no result and is never listed; most nodes are text.
+                    if ($kid->type !== 'text' || isset($kid->f['attrs'])) {
+                        $stack[$top++] = $kid;
+                    }
+                }
+            }
             if ($type === 'footnote_ref' || $type === 'inline_footnote') {
                 $this->marks[] = $i;
+                if ($type === 'inline_footnote') {
+                    $this->pos[spl_object_id($node)] = $i;
+                }
                 $number = $f['number'] ?? null;
                 if (is_int($number) && ($this->profile === null || $this->profile->allowsInline($node))) {
                     if ($type === 'inline_footnote') {
@@ -171,6 +207,9 @@ final class RenderState
                         }
                     }
                 }
+            }
+            if ($type === 'image' && is_array($f['longDescription'] ?? null)) {
+                $this->longDescriptions = true;
             }
             if (isset($f['title']) && is_array($f['title'])) {
                 $this->titled[] = $i;
@@ -238,14 +277,14 @@ final class RenderState
      * C2-H-155, C2-H-156.
      *
      * @param int $at
+     * @param int $to
      *
      * @return void
      */
-    private function admonitionIds(int $at): void
+    private function admonitionIds(int $at, int $to): void
     {
         $list = $this->titled;
         $count = count($list);
-        $to = $this->end[$at];
         for ($t = Walk::firstAtOrAfter($list, $at); $t < $count && $list[$t] < $to; $t++) {
             $node = $this->nodes[$list[$t]];
             if (!($node->type === 'admonition' && !self::namedByAuthor($node) || $node === $this->placingDirective)) {

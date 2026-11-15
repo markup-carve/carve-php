@@ -56,6 +56,10 @@ final class BlockParser
 
     private ?Frame $closedParent = null;
 
+    private int $markerAt = -1;
+
+    private ?Marker $markerRead = null;
+
     /**
      * @param \MarkupCarve\Carve2\Block\Sink $sink
      */
@@ -142,6 +146,7 @@ final class BlockParser
      */
     private function line(int $ls, int $le): void
     {
+        $this->markerAt = -1;
         $this->ls = $ls;
         $this->le = $le;
         $this->i = $ls;
@@ -164,7 +169,12 @@ final class BlockParser
         }
         $j = $this->i;
         $c = $this->col;
-        $this->skipWs($j, $c);
+        $w = strspn($this->s, ' ', $j, $this->le - $j);
+        $j += $w;
+        $c += $w;
+        if ($j < $this->le && $this->s[$j] === "\t") {
+            $this->skipWs($j, $c);
+        }
         if ($j >= $le) {
             $this->blankLine($owner);
 
@@ -213,7 +223,12 @@ final class BlockParser
             } elseif ($kind !== Frame::DIV) {
                 $j = $this->i;
                 $c = $this->col;
-                $this->skipWs($j, $c);
+                $w = strspn($this->s, ' ', $j, $this->le - $j);
+                $j += $w;
+                $c += $w;
+                if ($j < $this->le && $this->s[$j] === "\t") {
+                    $this->skipWs($j, $c);
+                }
                 // C2-B-009: a blank line belongs to no container.
                 if ($j < $this->le && $c - $this->base <= $f->markerCol) {
                     break;
@@ -235,7 +250,12 @@ final class BlockParser
     {
         $j = $this->i;
         $c = $this->col;
-        $this->skipWs($j, $c);
+        $w = strspn($this->s, ' ', $j, $this->le - $j);
+        $j += $w;
+        $c += $w;
+        if ($j < $this->le && $this->s[$j] === "\t") {
+            $this->skipWs($j, $c);
+        }
         if ($j < $this->le && $this->s[$j] === '>' && ($j + 1 === $this->le || $this->s[$j + 1] === ' ')) {
             $j++;
             $c++;
@@ -265,6 +285,9 @@ final class BlockParser
     {
         $s = $this->s;
         $le = $this->le;
+        $n = strspn($s, ' ', $j, $le - $j);
+        $j += $n;
+        $c += $n;
         while ($j < $le) {
             $ch = $s[$j];
             if ($ch === ' ') {
@@ -289,6 +312,11 @@ final class BlockParser
     {
         $s = $this->s;
         $target += $this->base;
+        if ($this->col < $target) {
+            $n = min($target - $this->col, strspn($s, ' ', $this->i, $this->le - $this->i));
+            $this->i += $n;
+            $this->col += $n;
+        }
         while ($this->i < $this->le && $this->col < $target) {
             $ch = $s[$this->i];
             if ($ch === ' ') {
@@ -546,12 +574,34 @@ final class BlockParser
         if (($ch === '[' || $ch === '*') && $j === $this->ls && $owner === 0 && $this->definitionOpen() && $this->isDefinition($j)) {
             return true;
         }
-        $marker = Markers::read($s, $j, $this->le);
+        // Only a marker below a list, or inside an item, a description or a footnote can interrupt.
+        $kind = $this->stack[$owner]->kind;
+        if (!isset($this->stack[$owner + 1]) && $kind !== Frame::ITEM && $kind !== Frame::DESC && $kind !== Frame::FOOTNOTE) {
+            return false;
+        }
+        $marker = $this->marker($j);
         if ($marker === null) {
             return false;
         }
 
         return $this->listInterrupts($marker, $owner);
+    }
+
+    /**
+     * The list marker at `$j` of the current line, read once per offset.
+     *
+     * @param int $j
+     *
+     * @return \MarkupCarve\Carve2\Block\Marker|null
+     */
+    private function marker(int $j): ?Marker
+    {
+        if ($this->markerAt !== $j) {
+            $this->markerAt = $j;
+            $this->markerRead = Markers::quickReject($this->s, $j, $this->le) ? null : Markers::read($this->s, $j, $this->le);
+        }
+
+        return $this->markerRead;
     }
 
     /**
@@ -717,7 +767,7 @@ final class BlockParser
         }
         $ch = $this->s[$j];
         if ($ch === '-' || $ch === '*' || $ch === '.' || ctype_alnum($ch)) {
-            $marker = Markers::read($this->s, $j, $this->le);
+            $marker = $this->marker($j);
             if ($marker !== null) {
                 $this->openMarker($owner, $marker, $j, $c);
 
@@ -1387,7 +1437,12 @@ final class BlockParser
         $s = $this->s;
         $j = $this->i;
         $c = $this->col;
-        $this->skipWs($j, $c);
+        $w = strspn($this->s, ' ', $j, $this->le - $j);
+        $j += $w;
+        $c += $w;
+        if ($j < $this->le && $this->s[$j] === "\t") {
+            $this->skipWs($j, $c);
+        }
         $end = $this->trimEnd($j);
         switch ($f->kind) {
             case Frame::FRONTMATTER:
@@ -1599,6 +1654,10 @@ final class BlockParser
             return;
         }
         $this->closeLeaf();
+        // C2-B-192: attribute lines that no block took stay in the container that ends.
+        if ($this->pending !== null && $this->pending->depth > $keep) {
+            $this->flushPending();
+        }
         for ($k = $n; $k > $keep; $k--) {
             $f = array_pop($this->stack);
             assert($f instanceof Frame);

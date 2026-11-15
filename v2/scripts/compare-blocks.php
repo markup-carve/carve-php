@@ -87,11 +87,25 @@ function firstDiff(mixed $a, mixed $b, string $path): ?string
     return "$path: php " . json_encode($a, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . ' oracle ' . json_encode($b, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 }
 
+/**
+ * C2-B-218: an unpaired surrogate reads as U+FFFD; PHP's decoder refuses one (same as batch.php).
+ *
+ * @param string $raw
+ *
+ * @return mixed
+ */
+function decodeJson(string $raw): mixed
+{
+    $raw = (string)preg_replace('/\\\\u[dD][89abAB][0-9a-fA-F]{2}(?!\\\\u[dD][c-fC-F])|(?<!\\\\u[dD][89abAB][0-9a-fA-F]{2})\\\\u[dD][c-fC-F][0-9a-fA-F]{2}/', '\\\\ufffd', $raw);
+
+    return json_decode($raw, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
+}
+
 $opt = getopt('', ['oracle:', 'show:', 'fail', 'file:', 'quiet', 'inputs:', 'save:']);
 $root = dirname(__DIR__, 3);
 if (isset($opt['inputs'])) {
     $examples = [];
-    foreach (json_decode((string)file_get_contents((string)$opt['inputs']), true) as $k => $src) {
+    foreach (decodeJson((string)file_get_contents((string)$opt['inputs'])) as $k => $src) {
         $examples[] = ['file' => 'generated', 'number' => $k, 'input' => $src];
     }
 } else {
@@ -100,7 +114,7 @@ if (isset($opt['inputs'])) {
 $oracleFile = isset($opt['oracle']) ? (string)$opt['oracle'] : $root . '/oracle/examples-oracle.jsonl';
 $oracle = [];
 foreach (file($oracleFile, FILE_IGNORE_NEW_LINES) ?: [] as $i => $line) {
-    $oracle[$i] = json_decode($line, true);
+    $oracle[$i] = decodeJson($line);
 }
 $pass = 0;
 $total = 0;

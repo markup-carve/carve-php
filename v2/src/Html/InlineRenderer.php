@@ -50,8 +50,21 @@ final class InlineRenderer
     public function inlines(array $nodes, int $depth = 0): string
     {
         $out = '';
+        if ($this->profile !== null) {
+            foreach (self::dropCommentLineBreaks($nodes) as $node) {
+                $out .= $this->profile->inline($node, $depth, $this);
+            }
+
+            return $out;
+        }
         foreach (self::dropCommentLineBreaks($nodes) as $node) {
-            $out .= $this->profile !== null ? $this->profile->inline($node, $depth, $this) : $this->node($node, $depth);
+            if ($node->type === 'text') {
+                $value = $node->f['value'] ?? '';
+                // Plain text needs no escaping: the check of Escape::text, done here to save two calls.
+                $out .= is_string($value) && strcspn($value, Escape::TEXT_SPECIAL) === strlen($value) ? $value : Escape::text(PlainText::str($value));
+            } else {
+                $out .= $this->node($node, $depth);
+            }
         }
 
         return $out;
@@ -133,6 +146,9 @@ final class InlineRenderer
     public function node(Node $node, int $depth = 0): string
     {
         $f = $node->f;
+        if ($node->type === 'text') {
+            return Escape::text(PlainText::str($f['value'] ?? ''));
+        }
         $attrs = $f['attrs'] ?? null;
         $attrs = $attrs instanceof Attrs ? $attrs : null;
         $lang = is_string($f['lang'] ?? null) ? $f['lang'] : null;

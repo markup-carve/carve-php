@@ -52,15 +52,15 @@ final class TableBuilder
             $seps[] = $k;
             $k++;
         }
-        for ($n = count($seps) - 1; $n >= 0; $n--) {
-            $attrs = null;
-            $rowEnd = self::tail($s, $seps[$n], $end, $attrs);
-            if ($rowEnd >= 0) {
-                return ['seps' => array_slice($seps, 0, $n + 1), 'end' => $rowEnd, 'attrs' => $attrs];
-            }
+        // C2-B-166: the last separator is the closing pipe; only a row attribute and a line comment follow it.
+        $n = count($seps) - 1;
+        if ($n < 0) {
+            return null;
         }
+        $attrs = null;
+        $rowEnd = self::tail($s, $seps[$n], $end, $attrs);
 
-        return null;
+        return $rowEnd < 0 ? null : ['seps' => $seps, 'end' => $rowEnd, 'attrs' => $attrs];
     }
 
     /**
@@ -91,8 +91,9 @@ final class TableBuilder
         if ($k === $end) {
             return $rowEnd;
         }
+        // C2-B-167: a trailing line comment is a percent run of exactly two (C2-B-139).
         $ws = strspn($s, " \t", $k, $end - $k);
-        if ($ws > 0 && $k + $ws + 1 < $end && $s[$k + $ws] === '%' && $s[$k + $ws + 1] === '%') {
+        if (strspn($s, '%', $k + $ws, $end - $k - $ws) === 2) {
             return $rowEnd;
         }
 

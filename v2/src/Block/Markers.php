@@ -14,6 +14,11 @@ use MarkupCarve\Carve2\Generated\Tables;
 final class Markers
 {
     /**
+     * @var string
+     */
+    private const ALNUM = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+    /**
      * Reads a list marker with content at `$j`.
      *
      * @param string $s
@@ -52,6 +57,31 @@ final class Markers
         }
 
         return self::letters($s, $j, $le);
+    }
+
+    /**
+     * True when no list marker can start at `$j`: a word of letters or digits that does not end in
+     * `.` or `)` within nine characters (C2-B-036).
+     *
+     * @param string $s
+     * @param int $j
+     * @param int $le
+     *
+     * @return bool
+     */
+    public static function quickReject(string $s, int $j, int $le): bool
+    {
+        $ch = $s[$j];
+        if ($ch === '-' || $ch === '*' || $ch === '.') {
+            return false;
+        }
+        $n = strspn($s, self::ALNUM, $j, min(10, $le - $j));
+        if ($n === 0 || $n > 9 || $j + $n >= $le) {
+            return true;
+        }
+        $d = $s[$j + $n];
+
+        return $d !== '.' && $d !== ')';
     }
 
     /**
