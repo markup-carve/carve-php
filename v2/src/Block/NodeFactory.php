@@ -20,6 +20,13 @@ final class NodeFactory
      */
     public static function make(Frame $f, string $s): Node
     {
+        if ($f->kind === Frame::ITEM && $f->attrs === null && $f->task === null) {
+            $node = new Node('list_item', []);
+            $node->start = $f->start;
+            $node->end = $f->end;
+
+            return $node;
+        }
         if ($f->kind === Frame::PARAGRAPH && $f->attrs === null && $f->role === null) {
             $node = new Node('paragraph');
             $node->start = $f->start;

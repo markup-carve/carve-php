@@ -331,7 +331,7 @@ final class Resolver
             $type = $node->type;
             $kids = $node->children;
             foreach ($f as $key => $value) {
-                if ((is_array($value) || $value instanceof Node) && !isset(Walk::OPAQUE[$key])) {
+                if (($value instanceof Node || is_array($value) && Walk::nests($value)) && !isset(Walk::OPAQUE[$key])) {
                     $kids = Walk::kids($node);
 
                     break;

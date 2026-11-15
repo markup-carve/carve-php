@@ -54,11 +54,11 @@ final class RenderState
     public array $footnoteDefs = [];
 
     /**
-     * Generated text of a cross-reference target by id (C2-H-096).
+     * Generated text of a cross-reference target by id (C2-H-096), a heading until xrefText() asks for it.
      *
-     * @var array<string, string>
+     * @var array<string, string|\MarkupCarve\Carve2\Node>
      */
-    public array $xrefText = [];
+    private array $xrefText = [];
 
     /**
      * Generated title ids of admonitions and of the placing footnotes directive (C2-H-156).
@@ -284,7 +284,7 @@ final class RenderState
             $type = $node->type;
             $kids = $node->children;
             foreach ($f as $key => $value) {
-                if ((is_array($value) || $value instanceof Node) && !isset(Walk::OPAQUE[$key])) {
+                if (($value instanceof Node || is_array($value) && Walk::nests($value)) && !isset(Walk::OPAQUE[$key])) {
                     $kids = Walk::kids($node);
 
                     break;
@@ -386,8 +386,23 @@ final class RenderState
         $id = Resolver::idOf($heading);
         if ($id !== null) {
             $this->taken[$id] = true;
-            $this->xrefText[$id] ??= PlainText::of($heading->children ?? []);
+            $this->xrefText[$id] ??= $heading;
         }
+    }
+
+    /**
+     * @param string $id
+     *
+     * @return string|null
+     */
+    public function xrefText(string $id): ?string
+    {
+        $text = $this->xrefText[$id] ?? null;
+        if ($text instanceof Node) {
+            $text = $this->xrefText[$id] = PlainText::of($text->children ?? []);
+        }
+
+        return $text;
     }
 
     /**

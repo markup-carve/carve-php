@@ -108,7 +108,11 @@ final class BlockParser
                     continue;
                 }
             }
-            $this->line($pos, $end);
+            if ($pos === $end && ($this->leaf === null || !isset(self::OPAQUE[$this->leaf->kind]))) {
+                $this->emptyLine();
+            } else {
+                $this->line($pos, $end);
+            }
             $pos = $next;
         }
         $this->closeLeaf();
@@ -156,8 +160,13 @@ final class BlockParser
         $this->i = $ls;
         $this->col = 0;
         $this->base = 0;
-        $owner = $this->matchContainers();
         $top = count($this->stack) - 1;
+        if ($top === 0) {
+            $this->stripI = -1;
+            $owner = 0;
+        } else {
+            $owner = $this->matchContainers();
+        }
         $leaf = $this->leaf;
         $forced = false;
         if ($leaf !== null && isset(self::OPAQUE[$leaf->kind])) {
@@ -194,6 +203,12 @@ final class BlockParser
 
             return;
         }
+        $ch = $s[$j];
+        if (($ch === '-' || $ch === '*') && ($leaf === null || $leaf->kind === Frame::PARAGRAPH) && $this->siblingItem($owner, $j, $c)) {
+            $this->blank = 0;
+
+            return;
+        }
         if ($leaf !== null && $this->continues($leaf, $owner, $top, $j, $c)) {
             $this->blank = 0;
 
@@ -202,6 +217,99 @@ final class BlockParser
         $this->closeLeaf();
         $this->openLine($owner, $j, $c);
         $this->blank = 0;
+    }
+
+    /**
+     * Fast path of openMarker() and openItem() for the common sibling bullet item `- text`: one space
+     * after the marker and content that starts with a letter and is no marker (C2-B-049). Anything
+     * else takes the general path.
+     *
+     * @param int $owner
+     * @param int $j
+     * @param int $c
+     *
+     * @return bool
+     */
+    private function siblingItem(int $owner, int $j, int $c): bool
+    {
+        $s = $this->s;
+        $k = $j + 2;
+        if ($k >= $this->le || $s[$j + 1] !== ' ' || !ctype_alpha($s[$k]) || $this->pending !== null) {
+            return false;
+        }
+        if (!Markers::quickReject($s, $k, $this->le)) {
+            return false;
+        }
+        $list = $this->stack[$owner + 1] ?? null;
+        if ($list !== null && $list->kind === Frame::LIST && $list->key === $s[$j] && $this->blank < Tables::LIST_END_BLANK_LINES) {
+            if ($this->depth + 1 > Tables::DEPTH_CAP) {
+                return false;
+            }
+            $this->closeLeaf();
+            $this->closeTo($owner + 1);
+            if ($this->blank > 0) {
+                $list->loose = true;
+            }
+        } elseif ($this->leaf === null && $this->depth + 2 <= Tables::DEPTH_CAP) {
+            $this->closeTo($owner);
+            $list = $this->newList($j, $c);
+        } else {
+            return false;
+        }
+        $item = new Frame(Frame::ITEM, $j);
+        $item->markerCol = $c - $this->base;
+        $item->contentCol = $item->markerCol + 2;
+        $item->end = $j + 1;
+        $list->items++;
+        $this->push($item);
+        $p = new Frame(Frame::PARAGRAPH, $k);
+        $p->end = $this->le;
+        $p->spans = [$k, $p->end];
+        $p->n = 1;
+        $this->leaf = $p;
+        $this->i = $k;
+        $this->col = $c + 2;
+
+        return true;
+    }
+
+    /**
+     * The list a bullet marker without attributes opens (openMarker()).
+     *
+     * @param int $j
+     * @param int $c
+     *
+     * @return \MarkupCarve\Carve2\Block\Frame
+     */
+    private function newList(int $j, int $c): Frame
+    {
+        $m = new Marker(false);
+        $m->key = $m->char = $this->s[$j];
+        $m->end = $j + 1;
+        $m->box = $m->content = $j + 2;
+        $list = new Frame(Frame::LIST, $j);
+        $list->key = $m->key;
+        $list->markerCol = $c - $this->base;
+        $list->marker = $m;
+        $list->end = $m->end;
+        $this->push($list);
+
+        return $list;
+    }
+
+    /**
+     * An empty line with no opaque leaf open: it passes every container but a quote (C2-B-009, C2-B-031).
+     *
+     * @return void
+     */
+    private function emptyLine(): void
+    {
+        $n = count($this->stack);
+        $owner = 0;
+        for ($k = 1; $k < $n && $this->stack[$k]->kind !== Frame::QUOTE; $k++) {
+            $owner = $k;
+        }
+        $this->blankLine($owner);
     }
 
     /**
@@ -751,6 +859,10 @@ final class BlockParser
         }
         $a = $p->spans[0];
         $b = $p->spans[1];
+        $ch = $this->s[$a] ?? '';
+        if ($ch !== '!' && $ch !== '$') {
+            return null;
+        }
         if (LineShapes::isBlockImage($this->s, $a, $b)) {
             return 'image';
         }
@@ -1459,6 +1571,11 @@ final class BlockParser
         if ($j < $this->le && $this->s[$j] === "\t") {
             $this->skipWs($j, $c);
         }
+        if ($f->kind === Frame::CODE || $f->kind === Frame::COMMENT_BLOCK) {
+            $this->fenceBodyLine($f, $j);
+
+            return;
+        }
         $end = $this->trimEnd($j);
         switch ($f->kind) {
             case Frame::FRONTMATTER:
@@ -1492,19 +1609,37 @@ final class BlockParser
 
                 return;
         }
-        $ch = $f->kind === Frame::CODE ? '`' : '%';
-        // C2-B-109, C2-B-110: a bare run of the opener's character, at least as long.
-        if ($j < $end && $s[$j] === $ch && strspn($s, $ch, $j, $end - $j) === $end - $j && $end - $j >= $f->level) {
-            $f->closed = true;
-            $this->closeOpaque($f, $this->le);
+    }
 
-            return;
+    /**
+     * A body line of a code fence or comment block (C2-B-109, C2-B-110, C2-B-029, C2-B-113).
+     *
+     * @param \MarkupCarve\Carve2\Block\Frame $f
+     * @param int $j First byte after the leading spaces and tabs.
+     *
+     * @return void
+     */
+    private function fenceBodyLine(Frame $f, int $j): void
+    {
+        $s = $this->s;
+        $ch = $f->kind === Frame::CODE ? '`' : '%';
+        if ($j < $this->le && $s[$j] === $ch) {
+            // C2-B-109, C2-B-110: a bare run of the opener's character, at least as long.
+            $end = $this->trimEnd($j);
+            if (strspn($s, $ch, $j, $end - $j) === $end - $j && $end - $j >= $f->level) {
+                $f->closed = true;
+                $this->closeOpaque($f, $this->le);
+
+                return;
+            }
         }
         // C2-B-029: the body is stripped by at most the indent of its opener.
-        $this->stripTo($this->col - $this->base + $f->indent);
+        if ($f->indent > 0) {
+            $this->stripTo($this->col - $this->base + $f->indent);
+        }
         $f->spans[] = $this->i;
         $f->spans[] = $this->le;
-        if ($j < $end) {
+        if ($j < $this->le) {
             $f->end = $this->le;
             $this->blank = 0;
         } else {
@@ -1675,8 +1810,8 @@ final class BlockParser
             $this->flushPending();
         }
         for ($k = $n; $k > $keep; $k--) {
-            $f = array_pop($this->stack);
-            assert($f instanceof Frame);
+            $f = $this->stack[$k];
+            array_pop($this->stack);
             if (isset(self::COUNTED[$f->kind])) {
                 $this->depth--;
             }

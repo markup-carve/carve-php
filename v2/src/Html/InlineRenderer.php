@@ -732,7 +732,7 @@ final class InlineRenderer
         if (!is_string($href)) {
             return Escape::text('</#' . $key . '>');
         }
-        $text = Escape::text($this->state->xrefText[$key] ?? $key);
+        $text = Escape::text($this->state->xrefText($key) ?? $key);
         if ($this->linkDepth > 0) {
             return $text;
         }

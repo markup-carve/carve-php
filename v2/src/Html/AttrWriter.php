@@ -69,9 +69,14 @@ final class AttrWriter
         array $style = [],
         ?int $sourceLine = null,
     ): string {
-        if ($attrs === null && $id === null && $lang === null && self::noLists($base, $tail, $generated, $style) && $sourceLine === null) {
-            // Nothing else to merge: the structural attributes as they are, often none.
-            return $structural === [] ? '' : self::join($structural);
+        if ($attrs === null && $lang === null && $sourceLine === null && $base === [] && $tail === [] && $generated === [] && !isset($style['decl'])) {
+            // Nothing else to merge: the structural attributes, then the id; `align` and `first` act on authored attributes only.
+            if ($id === null || $id === '') {
+                return $structural === [] ? '' : self::join($structural);
+            }
+            if ($structural === []) {
+                return ' id="' . Escape::attr($id) . '"';
+            }
         }
         $out = [];
         $seen = [];
@@ -100,19 +105,6 @@ final class AttrWriter
         }
 
         return self::join($out);
-    }
-
-    /**
-     * @param array<string> $base
-     * @param array<string> $tail
-     * @param array<array{0: string, 1: string|null}> $generated
-     * @param array<string, mixed> $style
-     *
-     * @return bool
-     */
-    private static function noLists(array $base, array $tail, array $generated, array $style): bool
-    {
-        return $base === [] && $tail === [] && $generated === [] && $style === [];
     }
 
     /**

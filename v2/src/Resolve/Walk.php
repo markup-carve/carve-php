@@ -42,6 +42,24 @@ final class Walk
     }
 
     /**
+     * Whether a field value can hold a node; kids() finds none in an array of scalars (a list marker).
+     *
+     * @param array<mixed> $value
+     *
+     * @return bool
+     */
+    public static function nests(array $value): bool
+    {
+        foreach ($value as $v) {
+            if (is_array($v) || $v instanceof Node) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The nodes under a root in pre-order (the order of kids()), each with the index after its subtree,
      * built with an explicit stack so depth costs no PHP recursion.
      *

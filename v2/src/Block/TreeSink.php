@@ -32,8 +32,8 @@ final class TreeSink implements Sink
 
             return;
         }
+        /** @var \MarkupCarve\Carve2\Node $parentNode */
         $parentNode = $parent->handle;
-        assert($parentNode instanceof Node);
         $parentNode->children[] = $node;
     }
 
@@ -42,8 +42,8 @@ final class TreeSink implements Sink
      */
     public function leaf(Frame $frame, Frame $parent): void
     {
+        /** @var \MarkupCarve\Carve2\Node $parentNode */
         $parentNode = $parent->handle;
-        assert($parentNode instanceof Node);
         $node = NodeFactory::make($frame, $this->s);
         $frame->handle = $node;
         $parentNode->children[] = $node;
@@ -54,8 +54,8 @@ final class TreeSink implements Sink
      */
     public function exit(Frame $frame): void
     {
+        /** @var \MarkupCarve\Carve2\Node $node */
         $node = $frame->handle;
-        assert($node instanceof Node);
         NodeFactory::finish($node, $frame);
     }
 

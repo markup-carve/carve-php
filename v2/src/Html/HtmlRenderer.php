@@ -365,21 +365,10 @@ final class HtmlRenderer
         if ($this->profile !== null && !$this->profile->allowsBlock($node, $depth)) {
             return $this->profile->degradeBlock($node, $depth);
         }
-
-        return $this->coreBlock($node, $depth);
-    }
-
-    /**
-     * @param \MarkupCarve\Carve2\Node $node
-     * @param int $depth
-     *
-     * @return string|null
-     */
-    public function coreBlock(Node $node, int $depth): ?string
-    {
-        if (!self::visible($node)) {
+        if (isset(self::SILENT[$node->type])) {
             return null;
         }
+        // An invisible paragraph is caught by paragraph(); the walk of visible() runs once.
         $method = self::BLOCKS[$node->type] ?? 'genericBlock';
 
         return $this->$method($node, $depth);
@@ -393,7 +382,9 @@ final class HtmlRenderer
      */
     private function paragraphBlock(Node $node, int $depth): ?string
     {
-        return $this->withLongDescriptions($this->paragraph($node, $depth, false), $node, $depth);
+        $html = $this->paragraph($node, $depth, false);
+
+        return $this->state->longDescriptions ? $this->withLongDescriptions($html, $node, $depth) : $html;
     }
 
     /**
@@ -508,6 +499,9 @@ final class HtmlRenderer
     ): string {
         $attrs = $node->f['attrs'] ?? null;
         $lang = $node->f['lang'] ?? null;
+        if ($attrs === null && $lang === null && $structural === [] && $base === [] && $tail === [] && $generated === [] && ($this->lineStarts === null || !$block) && !isset($style['decl'])) {
+            return '';
+        }
 
         return $this->aw->build($structural, null, $attrs instanceof Attrs ? $attrs : null, is_string($lang) ? $lang : null, $base, $tail, $generated, $style, $block ? $this->line($node) : null);
     }
@@ -565,6 +559,20 @@ final class HtmlRenderer
      */
     public function paragraph(Node $node, int $depth, bool $bare, string $append = ''): ?string
     {
+        $f = $node->f;
+        if ($append === '' && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang']) && !isset($f['role'])) {
+            // No attributes, no source line and no role: neither a block image nor static math.
+            $kids = $node->children ?? [];
+            foreach ($kids as $kid) {
+                if ($kid->type !== 'comment') {
+                    $content = $this->inline->inlines($kids, $depth + 1);
+
+                    return $bare ? self::pad($depth) . $content : self::pad($depth) . '<p>' . $content . '</p>';
+                }
+            }
+
+            return null;
+        }
         if (!self::visible($node)) {
             return $append === '' ? null : self::pad($depth) . '<p>' . $append . '</p>';
         }
@@ -651,7 +659,11 @@ final class HtmlRenderer
      */
     private function heading(Node $node, int $depth, bool $inSection): string
     {
-        $level = is_int($node->f['level'] ?? null) ? max(1, $node->f['level']) : 1;
+        $f = $node->f;
+        $level = is_int($f['level'] ?? null) ? max(1, $f['level']) : 1;
+        if ($level <= 6 && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang']) && ($inSection || !$this->o->roundtrip)) {
+            return $this->plainHeading($node, $level, $depth, $inSection);
+        }
         $attrs = $node->f['attrs'] ?? null;
         $attrs = $attrs instanceof Attrs ? $attrs : null;
         $lang = is_string($node->f['lang'] ?? null) ? $node->f['lang'] : null;
@@ -665,6 +677,24 @@ final class HtmlRenderer
         $attr = $this->aw->build($structural, $id, $attrs, $lang, [], [], [], ['align' => true], $this->line($node));
 
         return self::pad($depth) . '<' . $tag . $attr . '>' . $this->inline->leaf($node->children ?? [], $depth + 1) . '</' . $tag . '>';
+    }
+
+    /**
+     * What AttrWriter::build writes for a heading with no attributes and no carriers: at most the id.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $level
+     * @param int $depth
+     * @param bool $inSection
+     *
+     * @return string
+     */
+    private function plainHeading(Node $node, int $level, int $depth, bool $inSection): string
+    {
+        $id = $inSection ? null : $node->f['generatedId'] ?? null;
+        $open = is_string($id) && $id !== '' ? '<h' . $level . ' id="' . Escape::attr($id) . '">' : '<h' . $level . '>';
+
+        return self::pad($depth) . $open . $this->inline->inlines($node->children ?? [], $depth + 1) . '</h' . $level . '>';
     }
 
     /**
@@ -728,7 +758,7 @@ final class HtmlRenderer
     {
         $open = '<blockquote' . $this->attrs($node) . '>';
         $visible = self::visibleOf($node->children ?? []);
-        if (count($visible) === 1 && $visible[0]->type === 'paragraph' && $this->allowed($visible[0], $depth + 1) && $this->blockImage($visible[0]) === null) {
+        if (count($visible) === 1 && $visible[0]->type === 'paragraph' && $this->allowed($visible[0], $depth + 1) && (($visible[0]->f['role'] ?? null) !== 'image' || $this->blockImage($visible[0]) === null)) {
             $p = $this->paragraph($visible[0], 0, false);
             if ($p !== null) {
                 return self::pad($depth) . $open . $p . '</blockquote>';
@@ -820,7 +850,7 @@ final class HtmlRenderer
         foreach ($node->children ?? [] as $item) {
             $task = $task || is_array($item->f['task'] ?? null);
             if ($item->type === 'list_item') {
-                $items[] = $this->allowed($item, $depth + 1) ? $this->item($item, $depth + 1, $tight, $ordered) : (string)$this->block($item, $depth + 1);
+                $items[] = $this->profile === null || $this->profile->allowsBlock($item, $depth + 1) ? $this->item($item, $depth + 1, $tight, $ordered) : (string)$this->block($item, $depth + 1);
             }
         }
         $tag = $ordered ? 'ol' : 'ul';
@@ -868,17 +898,23 @@ final class HtmlRenderer
      */
     private function item(Node $item, int $depth, bool $tight, bool $ordered): string
     {
-        $task = is_array($item->f['task'] ?? null) ? $item->f['task'] : null;
-        [$box, $structural, $base, $style] = $task !== null ? self::taskParts($item, $task, $ordered) : ['', [], [], []];
-        $open = self::pad($depth) . '<li' . $this->attrs($item, $base, [], $structural, [], $style) . '>' . $box;
+        $f = $item->f;
+        $task = is_array($f['task'] ?? null) ? $f['task'] : null;
+        if ($task === null && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang'])) {
+            $open = self::pad($depth) . '<li>';
+        } else {
+            [$box, $structural, $base, $style] = $task !== null ? self::taskParts($item, $task, $ordered) : ['', [], [], []];
+            $open = self::pad($depth) . '<li' . $this->attrs($item, $base, [], $structural, [], $style) . '>' . $box;
+        }
         $visible = self::visibleOf($item->children ?? []);
         if ($visible === []) {
             return rtrim($open, ' ') . '</li>';
         }
         $rest = $visible;
         $first = '';
-        if ($visible[0]->type === 'paragraph' && $this->allowed($visible[0], $depth + 1) && $this->blockImage($visible[0]) === null) {
-            $first = (string)$this->paragraph($visible[0], 0, $tight);
+        $lead = $visible[0];
+        if ($lead->type === 'paragraph' && $this->allowed($lead, $depth + 1) && (($lead->f['role'] ?? null) !== 'image' || $this->blockImage($lead) === null)) {
+            $first = (string)$this->paragraph($lead, 0, $tight);
             array_shift($rest);
             if ($rest === []) {
                 return $open . $first . '</li>';
