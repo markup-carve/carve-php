@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Inline;
 
 use MarkupCarve\Carve2\Attrs;
+use MarkupCarve\Carve2\Generated\Tables;
 use MarkupCarve\Carve2\Node;
 
 /**
@@ -65,6 +66,10 @@ final class InlineRunner
             if ($node->lines !== null) {
                 $node->children = self::parse($s, $node->lines, $ctx, $depth, self::mode($node->type, $hard, $caption));
                 $node->lines = null;
+                if ($node->type === 'cell_paragraph' && $node->start < 0) {
+                    // A cell of a row with continuation rows has no position, and its nodes have none (C2-A-158).
+                    $node->children = self::joined($node->children);
+                }
 
                 continue;
             }
@@ -81,7 +86,9 @@ final class InlineRunner
                 $stack[] = [$caption, $inner, $hard, false];
             }
             $title = $node->f['title'] ?? null;
-            if ($title instanceof Node) {
+            if ($title instanceof Node && $node->type === 'code_block' && $title->lines !== null) {
+                $node->f['title'] = self::plainTitle($s, $title->lines);
+            } elseif ($title instanceof Node) {
                 // C2-A-024, ast-schema.json: the title slot is an inline list; the carrier node of the block pass goes.
                 $node->f['title'] = $title->lines !== null
                     ? self::parse($s, $title->lines, $ctx, $inner, self::mode('title', $hard, false))
@@ -122,8 +129,13 @@ final class InlineRunner
         int $mode = 0,
     ): array {
         $content = new Content($s, $spans);
-        if ($content->t === '') {
+        $t = $content->t;
+        if ($t === '') {
             return [];
+        }
+        $len = strlen($t);
+        if ($ctx->abbreviations === [] && strcspn($t, Scanner::SPECIALS . Tables::SMART_TRIGGERS) === $len) {
+            return [Node::text($t, $content->src(0), $content->src($len))];
         }
         $scanner = new Scanner($content, $ctx, $depth, $mode);
         $items = Delimiters::run($scanner, $scanner->scan(), $depth);
@@ -131,6 +143,28 @@ final class InlineRunner
         $nodes = (new Finisher($scanner, $ctx))->build($items, -1, true);
 
         return ($mode & Scanner::CELL) !== 0 && count($spans) > 2 ? self::joined($nodes) : $nodes;
+    }
+
+    /**
+     * G-inline-6: the quoted title of a code fence is one text, its escapes read as in a quoted value
+     * (C2-I-033); a text that lost a backslash has no position (C2-A-158).
+     *
+     * @param string $s
+     * @param array<int> $spans
+     *
+     * @return array<\MarkupCarve\Carve2\Node>
+     */
+    private static function plainTitle(string $s, array $spans): array
+    {
+        $start = $spans[0] ?? 0;
+        $end = $spans[count($spans) - 1] ?? $start;
+        $raw = substr($s, $start, max(0, $end - $start));
+        if ($raw === '') {
+            return [];
+        }
+        $value = (string)preg_replace('/\\\\([!-\/:-@\[-`{-~])/', '$1', $raw);
+
+        return [$value === $raw ? Node::text($value, $start, $end) : Node::text($value, -1, -1)];
     }
 
     /**
@@ -148,17 +182,23 @@ final class InlineRunner
         while ($stack !== []) {
             $node = array_pop($stack);
             $out = [];
-            foreach ($node->children ?? [] as $child) {
+            $children = $node->children ?? [];
+            $lastKey = array_key_last($children);
+            foreach ($children as $key => $child) {
                 $child->start = -1;
                 $child->end = -1;
-                if ($child->type === 'soft_break' || $child->type === 'hard_break') {
+                // C2-I-002: a backslash at the end of the cell stays a hard break.
+                $atEnd = $node === $root && $key === $lastKey;
+                if ($child->type === 'soft_break' || ($child->type === 'hard_break' && !$atEnd)) {
                     $value = $child->type === 'soft_break' ? ' ' : '\\ ';
                     $child = new Node('text');
                     $child->f['value'] = $value;
                 }
                 $last = $out === [] ? null : $out[count($out) - 1];
-                if ($child->type === 'text' && $last !== null && $last->type === 'text') {
-                    $last->f['value'] = (string)($last->f['value'] ?? '') . (string)($child->f['value'] ?? '');
+                $a = $last !== null && $last->type === 'text' ? $last->f['value'] ?? '' : null;
+                $b = $child->f['value'] ?? '';
+                if ($child->type === 'text' && $last !== null && is_string($a) && is_string($b)) {
+                    $last->f['value'] = $a . $b;
 
                     continue;
                 }

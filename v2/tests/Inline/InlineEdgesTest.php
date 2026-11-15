@@ -154,6 +154,77 @@ final class InlineEdgesTest extends InlineTestCase
     }
 
     /**
+     * @return void
+     */
+    public function testC2B184ContinuationRowJoinsWithASpace(): void
+    {
+        $this->assertSame('strong{text(value="1 a")}', self::inline("*1\na*", [], [], Scanner::CELL));
+        $this->assertSame('code(value="1\na")', self::inline("`1\na`", [], [], Scanner::CELL));
+        $this->assertSame('text(value="1\\\\ a")', self::inline("1\\\na", [], [], Scanner::CELL));
+        $this->assertSame('text(value="1 b") hard_break', self::inline("1\nb\\", [], [], Scanner::CELL));
+    }
+
+    /**
+     * @return void
+     */
+    public function testC2B207CaptionMarkNeedsNoLeftBoundary(): void
+    {
+        $this->assertSame(
+            'text@0-5(value="Table") caption_number text@6-11(value=": one")',
+            self::inline('Table#: one', [], [], Scanner::CAPTION),
+        );
+        $this->assertSame('text@0-1(value="[") caption_number', self::inline('[#', [], [], Scanner::CAPTION));
+        $this->assertSame('link@0-8(href="u"){text@1-4(value="x #")}', self::inline('[x #](u)', [], [], Scanner::CAPTION));
+    }
+
+    /**
+     * @return void
+     */
+    public function testC2B010LoneCarriageReturnStaysInTheKey(): void
+    {
+        $this->assertStringContainsString('key="a\\rb"', self::inline("[^a\rb]"));
+        $this->assertStringContainsString('key="a b"', self::inline("[^a\nb]"));
+    }
+
+    /**
+     * G-inline-1: a line comment value ends at its last character that is no space.
+     *
+     * @return void
+     */
+    public function testC2I023LineCommentValue(): void
+    {
+        $this->assertSame('text@0-1(value="a") comment@1-9(form="line" value="b \\\\")', self::inline('a %% b \\ '));
+    }
+
+    /**
+     * @return void
+     */
+    public function testC2A024TitleSlotIsAnInlineList(): void
+    {
+        $doc = Carve2::parse("::: note \"T *a*\"\nx\n:::\n");
+        $block = $doc->children[0] ?? null;
+        $this->assertInstanceOf(Node::class, $block);
+        $title = $block->f['title'] ?? null;
+        $this->assertIsArray($title);
+        $this->assertSame('text@10-12(value="T ") strong@12-15{text@13-14(value="a")}', self::nodes($title));
+    }
+
+    /**
+     * G-inline-6: the quoted title of a code fence is one text.
+     *
+     * @return void
+     */
+    public function testC2B120CodeFenceTitleIsText(): void
+    {
+        $doc = Carve2::parse("```py \"src/*a* ^[n]\"\ncode\n```\n");
+        $block = $doc->children[0] ?? null;
+        $this->assertInstanceOf(Node::class, $block);
+        $title = $block->f['title'] ?? null;
+        $this->assertIsArray($title);
+        $this->assertSame('text@7-19(value="src/*a* ^[n]")', self::nodes($title));
+    }
+
+    /**
      * No input throws, invalid UTF-8 included.
      *
      * @return void

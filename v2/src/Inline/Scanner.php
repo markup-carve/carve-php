@@ -96,7 +96,7 @@ final class Scanner
     /**
      * @var string
      */
-    private const SPECIALS = "\\`!\$<{}%:@#[]^*/\n";
+    public const SPECIALS = "\\`!\$<{}%:@#[]^*/\n";
 
     /**
      * @var int
@@ -904,7 +904,7 @@ final class Scanner
         $chars = Tables::SIGIL_MENTION_CHARS;
         if (!$this->boundary($i)) {
             // C2-B-207: the caption mark has no boundary on its left.
-            return $this->caption && $t[$i] === '#' && $this->frames === [] && ($i + 1 >= $this->n || strspn($t[$i + 1], $chars) === 0)
+            return $this->caption && $t[$i] === '#' && ($i + 1 >= $this->n || strspn($t[$i + 1], $chars) === 0)
                 ? $this->emit([self::NODE, Node::at('caption_number', -1, -1), $i, $i + 1, false, null]) : -1;
         }
         $j = $i + 1;
@@ -926,8 +926,8 @@ final class Scanner
             $j--;
         }
         $name = substr($t, $i + 1, $j - $i - 1);
-        if ($this->caption && $t[$i] === '#' && $this->frames === [] && ($i + 1 >= $this->n || strspn($t[$i + 1], $chars) === 0)) {
-            // C2-B-150, caption-number.json: a bare `#` outside bracket constructs; the finisher keeps the first.
+        if ($this->caption && $t[$i] === '#' && ($i + 1 >= $this->n || strspn($t[$i + 1], $chars) === 0)) {
+            // C2-B-150, C2-B-207: the finisher keeps the first mark of the top-level list.
             return $this->emit([self::NODE, Node::at('caption_number', -1, -1), $i, $i + 1, false, null]);
         }
         if ($name === '' || strpbrk($name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') === false) {
