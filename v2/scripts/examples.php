@@ -69,7 +69,8 @@ foreach ($examples as $i => $ex) {
     try {
         $doc = Carve2::parse($ex['input'], $options);
         $out = \MarkupCarve\Carve2\Html\HtmlRenderer::render($doc, \MarkupCarve\Carve2\Options::from($options), $ex['input']);
-        $json = (new TreeEncoder())->encode($doc, $ex['input']);
+        // The oracle dump is made with default options, so the tree is compared from a default parse.
+        $json = (new TreeEncoder())->encode($options === [] ? $doc : Carve2::parse($ex['input']), $ex['input']);
     } catch (Throwable $e) {
         $out = 'EXCEPTION ' . $e::class . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine();
         $json = null;
