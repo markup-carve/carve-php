@@ -15,6 +15,43 @@ use MarkupCarve\Carve2\Resolve\PlainText;
  */
 final class InlineRenderer
 {
+    /**
+     * Inline nodes with a fixed output.
+     *
+     * @var array<string, string>
+     */
+    private const FIXED = ['soft_break' => "\n", 'hard_break' => "<br>\n", 'non_breaking_space' => '&nbsp;', 'comment' => '', 'citation' => ''];
+
+    /**
+     * The writer of each inline type, called with the node, its attributes, its language and the depth.
+     *
+     * @var array<string, string>
+     */
+    private const METHODS = [
+        'smart_punctuation' => 'smart',
+        'code' => 'code',
+        'literal_inline' => 'literal',
+        'math' => 'math',
+        'raw_inline' => 'rawInline',
+        'span' => 'span',
+        'critic_comment' => 'criticComment',
+        'link' => 'link',
+        'autolink' => 'autolink',
+        'image' => 'image',
+        'footnote_ref' => 'noteMarkOf',
+        'inline_footnote' => 'noteMarkOf',
+        'xref' => 'xref',
+        'abbreviation' => 'abbreviation',
+        'mention' => 'social',
+        'tag' => 'social',
+        'symbol' => 'symbol',
+        'caption_number' => 'captionNumber',
+        'inline_extension' => 'extension',
+        'citation_group' => 'citationGroup',
+        'small_caps' => 'smallCaps',
+        'ruby' => 'ruby',
+    ];
+
     private int $linkDepth = 0;
 
     private int $abbrSpan = 0;
@@ -145,72 +182,23 @@ final class InlineRenderer
      */
     public function node(Node $node, int $depth = 0): string
     {
-        $f = $node->f;
-        if ($node->type === 'text') {
-            return Escape::text(PlainText::str($f['value'] ?? ''));
+        $type = $node->type;
+        if ($type === 'text') {
+            return Escape::text(PlainText::str($node->f['value'] ?? ''));
         }
-        $attrs = $f['attrs'] ?? null;
+        if (isset(self::FIXED[$type])) {
+            return self::FIXED[$type];
+        }
+        $attrs = $node->f['attrs'] ?? null;
         $attrs = $attrs instanceof Attrs ? $attrs : null;
-        $lang = is_string($f['lang'] ?? null) ? $f['lang'] : null;
-        $kids = $node->children ?? [];
-        switch ($node->type) {
-            case 'text':
-                return Escape::text(PlainText::str($f['value'] ?? ''));
-            case 'soft_break':
-                return "\n";
-            case 'hard_break':
-                return "<br>\n";
-            case 'non_breaking_space':
-                return '&nbsp;';
-            case 'comment':
-            case 'citation':
-                return '';
-            case 'smart_punctuation':
-                return Escape::text(PlainText::str($this->o->smartTypography ? ($f['glyph'] ?? $f['source'] ?? '') : ($f['source'] ?? '')));
-            case 'code':
-                return '<code' . $this->aw->build([], null, $attrs, $lang) . '>' . Escape::text(PlainText::str($f['value'] ?? '')) . '</code>';
-            case 'literal_inline':
-                $text = Escape::text(PlainText::str($f['value'] ?? ''));
-
-                return $attrs === null && $lang === null ? $text : '<span' . $this->aw->build([], null, $attrs, $lang) . '>' . $text . '</span>';
-            case 'math':
-                return $this->math($node, $attrs, $lang);
-            case 'raw_inline':
-                return $this->rawInline($node);
-            case 'span':
-                return $this->span($node, $attrs, $lang, $depth);
-            case 'critic_comment':
-                return '<span' . $this->aw->build([], null, $attrs, $lang, ['critic-comment']) . '>' . Escape::text(PlainText::str($f['value'] ?? '')) . '</span>';
-            case 'link':
-                return $this->link($node, $attrs, $lang, $depth);
-            case 'autolink':
-                return $this->autolink($node, $attrs, $lang);
-            case 'image':
-                return $this->image($node, $attrs, $lang);
-            case 'footnote_ref':
-            case 'inline_footnote':
-                return $this->noteMark($node, $depth);
-            case 'xref':
-                return $this->xref($node, $attrs, $lang);
-            case 'abbreviation':
-                return $this->abbreviation($node, $attrs, $lang);
-            case 'mention':
-            case 'tag':
-                return $this->social($node, $attrs, $lang);
-            case 'symbol':
-                return $this->symbol($node, $attrs, $lang);
-            case 'caption_number':
-                return $this->captionNumber($node);
-            case 'inline_extension':
-                return $this->extension($node, $attrs, $lang, $depth);
-            case 'citation_group':
-                return Escape::text(PlainText::str($f['raw'] ?? ''));
-            case 'small_caps':
-                return '<span' . $this->aw->build([], null, $attrs, $lang, ['smallcaps']) . '>' . $this->inlines($kids, $depth + 1) . '</span>';
-            case 'ruby':
-                return $this->ruby($node, $attrs, $lang, $depth);
+        $lang = $node->f['lang'] ?? null;
+        $lang = is_string($lang) ? $lang : null;
+        $method = self::METHODS[$type] ?? null;
+        if ($method !== null) {
+            return $this->$method($node, $attrs, $lang, $depth);
         }
-        $tag = Tables::DELIMITER_HTML[$node->type] ?? null;
+        $kids = $node->children ?? [];
+        $tag = Tables::DELIMITER_HTML[$type] ?? null;
         if ($tag !== null) {
             return '<' . $tag . $this->aw->build([], null, $attrs, $lang) . '>' . $this->inlines($kids, $depth + 1) . '</' . $tag . '>';
         }
@@ -219,15 +207,111 @@ final class InlineRenderer
     }
 
     /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param \MarkupCarve\Carve2\Attrs|null $attrs Unused; the uniform signature of METHODS.
+     * @param string|null $lang Unused.
+     * @param int $depth Unused.
+     *
+     * @return string
+     */
+    private function smart(Node $node, ?Attrs $attrs = null, ?string $lang = null, int $depth = 0): string
+    {
+        $f = $node->f;
+
+        return Escape::text(PlainText::str($this->o->smartTypography ? ($f['glyph'] ?? $f['source'] ?? '') : ($f['source'] ?? '')));
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param \MarkupCarve\Carve2\Attrs|null $attrs
+     * @param string|null $lang
+     * @param int $depth Unused; the uniform signature of METHODS.
+     *
+     * @return string
+     */
+    private function code(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
+    {
+        return '<code' . $this->aw->build([], null, $attrs, $lang) . '>' . Escape::text(PlainText::str($node->f['value'] ?? '')) . '</code>';
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param \MarkupCarve\Carve2\Attrs|null $attrs
+     * @param string|null $lang
+     * @param int $depth Unused; the uniform signature of METHODS.
+     *
+     * @return string
+     */
+    private function literal(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
+    {
+        $text = Escape::text(PlainText::str($node->f['value'] ?? ''));
+
+        return $attrs === null && $lang === null ? $text : '<span' . $this->aw->build([], null, $attrs, $lang) . '>' . $text . '</span>';
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param \MarkupCarve\Carve2\Attrs|null $attrs
+     * @param string|null $lang
+     * @param int $depth Unused; the uniform signature of METHODS.
+     *
+     * @return string
+     */
+    private function criticComment(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
+    {
+        return '<span' . $this->aw->build([], null, $attrs, $lang, ['critic-comment']) . '>' . Escape::text(PlainText::str($node->f['value'] ?? '')) . '</span>';
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param \MarkupCarve\Carve2\Attrs|null $attrs Unused; the uniform signature of METHODS.
+     * @param string|null $lang Unused.
+     * @param int $depth Unused.
+     *
+     * @return string
+     */
+    private function citationGroup(Node $node, ?Attrs $attrs = null, ?string $lang = null, int $depth = 0): string
+    {
+        return Escape::text(PlainText::str($node->f['raw'] ?? ''));
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param \MarkupCarve\Carve2\Attrs|null $attrs
+     * @param string|null $lang
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function smallCaps(Node $node, ?Attrs $attrs, ?string $lang, int $depth): string
+    {
+        return '<span' . $this->aw->build([], null, $attrs, $lang, ['smallcaps']) . '>' . $this->inlines($node->children ?? [], $depth + 1) . '</span>';
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param \MarkupCarve\Carve2\Attrs|null $attrs
+     * @param string|null $lang
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function noteMarkOf(Node $node, ?Attrs $attrs, ?string $lang, int $depth): string
+    {
+        return $this->noteMark($node, $depth);
+    }
+
+    /**
      * C2-H-072, C2-H-168.
      *
      * @param \MarkupCarve\Carve2\Node $node
      * @param \MarkupCarve\Carve2\Attrs|null $attrs
      * @param string|null $lang
+     * @param int $depth Unused; the uniform signature of METHODS.
      *
      * @return string
      */
-    private function math(Node $node, ?Attrs $attrs, ?string $lang): string
+    private function math(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
     {
         $value = PlainText::str($node->f['value'] ?? '');
         $display = ($node->f['display'] ?? false) === true;
@@ -250,10 +334,13 @@ final class InlineRenderer
      * C2-H-051, C2-H-053, C2-H-054.
      *
      * @param \MarkupCarve\Carve2\Node $node
+     * @param \MarkupCarve\Carve2\Attrs|null $attrs Unused; the uniform signature of METHODS.
+     * @param string|null $lang Unused.
+     * @param int $depth Unused.
      *
      * @return string
      */
-    private function rawInline(Node $node): string
+    private function rawInline(Node $node, ?Attrs $attrs = null, ?string $lang = null, int $depth = 0): string
     {
         $value = PlainText::str($node->f['value'] ?? '');
         $format = PlainText::str($node->f['format'] ?? '');
@@ -346,19 +433,8 @@ final class InlineRenderer
             return $this->inlines($node->children ?? [], $depth + 1);
         }
         $def = is_string($key) ? $this->state->linkDefs[$key] ?? null : null;
-        $tooltip = $node->f['tooltip'] ?? $def?->f['tooltip'] ?? null;
         $merged = self::mergeDefinition($attrs, $def);
-        $structural = [['href', $this->destination(PlainText::str($href))]];
-        if (is_string($tooltip)) {
-            $structural[] = ['title', $tooltip];
-        }
-        $rel = $this->rel($merged);
-        if ($rel !== null) {
-            $structural[] = ['rel', $rel];
-        }
-        if ($this->o->roundtrip && is_string($key)) {
-            $structural = array_merge($structural, self::refCarriers($node, $key));
-        }
+        $structural = $this->linkStructural($node, is_string($key) ? $key : null, PlainText::str($href), $def, $merged);
         $this->linkDepth++;
         $saved = $this->moved;
         $this->moved = '';
@@ -368,6 +444,35 @@ final class InlineRenderer
         $this->linkDepth--;
 
         return '<a' . $this->aw->build($structural, null, $merged, $lang) . '>' . $inner . '</a>' . $moved;
+    }
+
+    /**
+     * C2-H-010: `href`, `title` and `rel` of a link, then the roundtrip carriers of a reference.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param string|null $key
+     * @param string $href
+     * @param \MarkupCarve\Carve2\Node|null $def
+     * @param \MarkupCarve\Carve2\Attrs|null $merged Loses an authored `rel`, which becomes structural.
+     *
+     * @return array<array{0: string, 1: string|null}>
+     */
+    private function linkStructural(Node $node, ?string $key, string $href, ?Node $def, ?Attrs &$merged): array
+    {
+        $structural = [['href', $this->destination($href)]];
+        $tooltip = $node->f['tooltip'] ?? $def?->f['tooltip'] ?? null;
+        if (is_string($tooltip)) {
+            $structural[] = ['title', $tooltip];
+        }
+        $rel = $this->rel($merged);
+        if ($rel !== null) {
+            $structural[] = ['rel', $rel];
+        }
+        if ($this->o->roundtrip && $key !== null) {
+            $structural = array_merge($structural, self::refCarriers($node, $key));
+        }
+
+        return $structural;
     }
 
     /**
@@ -517,10 +622,11 @@ final class InlineRenderer
      * @param \MarkupCarve\Carve2\Node $node
      * @param \MarkupCarve\Carve2\Attrs|null $attrs
      * @param string|null $lang
+     * @param int $depth Unused; the uniform signature of METHODS.
      *
      * @return string
      */
-    private function autolink(Node $node, ?Attrs $attrs, ?string $lang): string
+    private function autolink(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
     {
         $href = PlainText::str($node->f['href'] ?? '');
         $text = Escape::text(PlainText::str($node->f['text'] ?? $href));
@@ -545,10 +651,11 @@ final class InlineRenderer
      * @param \MarkupCarve\Carve2\Node $node
      * @param \MarkupCarve\Carve2\Attrs|null $attrs
      * @param string|null $lang
+     * @param int $depth Unused; the uniform signature of METHODS.
      *
      * @return string
      */
-    public function image(Node $node, ?Attrs $attrs, ?string $lang): string
+    public function image(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
     {
         $key = $node->f['key'] ?? null;
         $src = $node->f['src'] ?? null;
@@ -609,10 +716,11 @@ final class InlineRenderer
      * @param \MarkupCarve\Carve2\Node $node
      * @param \MarkupCarve\Carve2\Attrs|null $attrs
      * @param string|null $lang
+     * @param int $depth Unused; the uniform signature of METHODS.
      *
      * @return string
      */
-    private function xref(Node $node, ?Attrs $attrs, ?string $lang): string
+    private function xref(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
     {
         $key = PlainText::str($node->f['key'] ?? '');
         $href = $node->f['href'] ?? null;
@@ -637,10 +745,11 @@ final class InlineRenderer
      * @param \MarkupCarve\Carve2\Node $node
      * @param \MarkupCarve\Carve2\Attrs|null $attrs
      * @param string|null $lang
+     * @param int $depth Unused; the uniform signature of METHODS.
      *
      * @return string
      */
-    private function abbreviation(Node $node, ?Attrs $attrs, ?string $lang): string
+    private function abbreviation(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
     {
         $term = Escape::text(PlainText::str($node->f['key'] ?? ''));
         $expansion = $node->f['expansion'] ?? null;
@@ -657,10 +766,11 @@ final class InlineRenderer
      * @param \MarkupCarve\Carve2\Node $node
      * @param \MarkupCarve\Carve2\Attrs|null $attrs
      * @param string|null $lang
+     * @param int $depth Unused; the uniform signature of METHODS.
      *
      * @return string
      */
-    private function social(Node $node, ?Attrs $attrs, ?string $lang): string
+    private function social(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
     {
         $mention = $node->type === 'mention';
         $name = PlainText::str($mention ? $node->f['target'] ?? '' : $node->f['name'] ?? '');
@@ -708,10 +818,11 @@ final class InlineRenderer
      * @param \MarkupCarve\Carve2\Node $node
      * @param \MarkupCarve\Carve2\Attrs|null $attrs
      * @param string|null $lang
+     * @param int $depth Unused; the uniform signature of METHODS.
      *
      * @return string
      */
-    private function symbol(Node $node, ?Attrs $attrs, ?string $lang): string
+    private function symbol(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
     {
         $name = PlainText::str($node->f['name'] ?? '');
         $out = $this->o->symbols[$name] ?? Escape::text(':' . $name . ':');
@@ -726,10 +837,13 @@ final class InlineRenderer
      * C2-H-066, C2-H-067.
      *
      * @param \MarkupCarve\Carve2\Node $node
+     * @param \MarkupCarve\Carve2\Attrs|null $attrs Unused; the uniform signature of METHODS.
+     * @param string|null $lang Unused.
+     * @param int $depth Unused.
      *
      * @return string
      */
-    private function captionNumber(Node $node): string
+    private function captionNumber(Node $node, ?Attrs $attrs = null, ?string $lang = null, int $depth = 0): string
     {
         $n = $node->f['n'] ?? null;
         $text = is_int($n) ? (string)$n : '#';

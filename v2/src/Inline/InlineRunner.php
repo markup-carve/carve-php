@@ -86,15 +86,33 @@ final class InlineRunner
                 $stack[] = [$caption, $inner, $hard, false];
             }
             $title = $node->f['title'] ?? null;
-            if ($title instanceof Node && $node->type === 'code_block' && $title->lines !== null) {
-                $node->f['title'] = self::plainTitle($s, $title->lines);
-            } elseif ($title instanceof Node) {
-                // C2-A-024, ast-schema.json: the title slot is an inline list; the carrier node of the block pass goes.
-                $node->f['title'] = $title->lines !== null
-                    ? self::parse($s, $title->lines, $ctx, $inner, self::mode('title', $hard, false))
-                    : $title->children ?? [];
+            if ($title instanceof Node) {
+                $node->f['title'] = self::title($node, $title, $s, $ctx, $inner, $hard);
             }
         }
+    }
+
+    /**
+     * C2-A-024, ast-schema.json: the title slot is an inline list; the carrier node of the block pass goes.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param \MarkupCarve\Carve2\Node $title
+     * @param string $s
+     * @param \MarkupCarve\Carve2\Inline\InlineContext $ctx
+     * @param int $depth
+     * @param bool $hard
+     *
+     * @return array<\MarkupCarve\Carve2\Node>
+     */
+    private static function title(Node $node, Node $title, string $s, InlineContext $ctx, int $depth, bool $hard): array
+    {
+        if ($title->lines === null) {
+            return $title->children ?? [];
+        }
+
+        return $node->type === 'code_block'
+            ? self::plainTitle($s, $title->lines)
+            : self::parse($s, $title->lines, $ctx, $depth, self::mode('title', $hard, false));
     }
 
     /**

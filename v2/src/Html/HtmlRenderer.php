@@ -18,6 +18,32 @@ use MarkupCarve\Carve2\Resolve\Resolver;
 final class HtmlRenderer
 {
     /**
+     * The writer of each block type, called with the node and the depth.
+     *
+     * @var array<string, string>
+     */
+    private const BLOCKS = [
+        'paragraph' => 'paragraphBlock',
+        'heading' => 'headingBlock',
+        'thematic_break' => 'thematicBreak',
+        'code_block' => 'codeBlockAt',
+        'raw_block' => 'rawBlock',
+        'block_quote' => 'quote',
+        'list' => 'list',
+        'definition_list' => 'descriptionList',
+        'div' => 'div',
+        'admonition' => 'admonition',
+        'directive' => 'directive',
+        'line_block' => 'lineBlock',
+        'figure' => 'figureBlock',
+        'figure_group' => 'figureGroup',
+        'table' => 'tableBlock',
+        'include' => 'includeBlock',
+        'section' => 'sectionBlock',
+        'block_extension' => 'blockExtension',
+    ];
+
+    /**
      * Blocks that never render at their place (C2-H-019, C2-H-070, C2-H-071).
      *
      * @var array<string, true>
@@ -350,28 +376,110 @@ final class HtmlRenderer
         if (!self::visible($node)) {
             return null;
         }
+        $method = self::BLOCKS[$node->type] ?? 'genericBlock';
 
-        return match ($node->type) {
-            'paragraph' => $this->withLongDescriptions($this->paragraph($node, $depth, false), $node, $depth),
-            'heading' => $this->heading($node, $depth, false),
-            'thematic_break' => self::pad($depth) . '<hr' . $this->attrs($node) . '>',
-            'code_block' => self::pad($depth) . $this->codeBlock($node),
-            'raw_block' => $this->rawBlock($node, $depth),
-            'block_quote' => $this->quote($node, $depth),
-            'list' => $this->list($node, $depth),
-            'definition_list' => $this->descriptionList($node, $depth),
-            'div' => $this->div($node, $depth),
-            'admonition' => $this->admonition($node, $depth),
-            'directive' => $this->directive($node, $depth),
-            'line_block' => $this->lineBlock($node, $depth),
-            'figure' => $this->figure($node, $depth, false),
-            'figure_group' => $this->figureGroup($node, $depth),
-            'table' => $this->tables->table($node, $depth),
-            'include' => self::pad($depth) . '<p>' . Escape::text(self::includeText($node)) . '</p>',
-            'section' => $this->container('<section' . $this->attrs($node) . '>', '</section>', $this->blocks($node->children ?? [], $depth + 1), $depth),
-            'block_extension' => $this->blockExtension($node, $depth),
-            default => $this->container('<div' . $this->attrs($node) . '>', '</div>', $this->blocks($node->children ?? [], $depth + 1), $depth),
-        };
+        return $this->$method($node, $depth);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string|null
+     */
+    private function paragraphBlock(Node $node, int $depth): ?string
+    {
+        return $this->withLongDescriptions($this->paragraph($node, $depth, false), $node, $depth);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function headingBlock(Node $node, int $depth): string
+    {
+        return $this->heading($node, $depth, false);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function thematicBreak(Node $node, int $depth): string
+    {
+        return self::pad($depth) . '<hr' . $this->attrs($node) . '>';
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function codeBlockAt(Node $node, int $depth): string
+    {
+        return self::pad($depth) . $this->codeBlock($node);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function figureBlock(Node $node, int $depth): string
+    {
+        return $this->figure($node, $depth, false);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function tableBlock(Node $node, int $depth): string
+    {
+        return $this->tables->table($node, $depth);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function includeBlock(Node $node, int $depth): string
+    {
+        return self::pad($depth) . '<p>' . Escape::text(self::includeText($node)) . '</p>';
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function sectionBlock(Node $node, int $depth): string
+    {
+        return $this->container('<section' . $this->attrs($node) . '>', '</section>', $this->blocks($node->children ?? [], $depth + 1), $depth);
+    }
+
+    /**
+     * An unknown block type is written as a div of its blocks.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function genericBlock(Node $node, int $depth): string
+    {
+        return $this->container('<div' . $this->attrs($node) . '>', '</div>', $this->blocks($node->children ?? [], $depth + 1), $depth);
     }
 
     /**
@@ -638,6 +746,55 @@ final class HtmlRenderer
     }
 
     /**
+     * C2-H-112: the roundtrip carriers of a list.
+     *
+     * @param array<mixed> $marker
+     * @param bool $ordered
+     * @param bool $tight
+     *
+     * @return array<array{0: string, 1: string|null}>
+     */
+    private static function listCarriers(array $marker, bool $ordered, bool $tight): array
+    {
+        $out = [];
+        $char = $marker['char'] ?? '-';
+        if (!$ordered && is_string($char) && $char !== '-') {
+            $out[] = ['data-marker', $char];
+        }
+        if ($tight) {
+            $out[] = ['data-carve-tight', null];
+        }
+
+        return $out;
+    }
+
+    /**
+     * C2-H-030, C2-H-031: `type`, `start` and `data-delim` of an ordered list.
+     *
+     * @param array<mixed> $marker
+     *
+     * @return array<array{0: string, 1: string|null}>
+     */
+    private static function orderedAttributes(array $marker): array
+    {
+        $structural = [];
+        $type = Tables::ORDERED_HTML_TYPE[PlainText::str($marker['style'] ?? '1')] ?? null;
+        if ($type !== null) {
+            $structural[] = ['type', $type];
+        }
+        $start = $marker['start'] ?? 1;
+        if (is_int($start) && $start !== 1) {
+            $structural[] = ['start', (string)$start];
+        }
+        $delim = Tables::ORDERED_DATA_DELIM[PlainText::str($marker['delimiter'] ?? '.')] ?? null;
+        if ($delim !== null) {
+            $structural[] = ['data-delim', $delim];
+        }
+
+        return $structural;
+    }
+
+    /**
      * C2-H-029 to C2-H-037.
      *
      * @param \MarkupCarve\Carve2\Node $node
@@ -650,49 +807,49 @@ final class HtmlRenderer
         $marker = is_array($node->f['marker'] ?? null) ? $node->f['marker'] : [];
         $ordered = ($marker['kind'] ?? 'bullet') === 'ordered';
         $tight = ($node->f['spacing'] ?? 'tight') !== 'loose';
-        $structural = [];
-        if ($ordered) {
-            $type = Tables::ORDERED_HTML_TYPE[PlainText::str($marker['style'] ?? '1')] ?? null;
-            if ($type !== null) {
-                $structural[] = ['type', $type];
-            }
-            $start = $marker['start'] ?? 1;
-            if (is_int($start) && $start !== 1) {
-                $structural[] = ['start', (string)$start];
-            }
-            $delim = Tables::ORDERED_DATA_DELIM[PlainText::str($marker['delimiter'] ?? '.')] ?? null;
-            if ($delim !== null) {
-                $structural[] = ['data-delim', $delim];
-            }
-        }
+        $structural = $ordered ? self::orderedAttributes($marker) : [];
         if ($this->o->roundtrip) {
-            $char = $marker['char'] ?? '-';
-            if (!$ordered && is_string($char) && $char !== '-') {
-                $structural[] = ['data-marker', $char];
-            }
-            if ($tight) {
-                $structural[] = ['data-carve-tight', null];
-            }
+            $structural = array_merge($structural, self::listCarriers($marker, $ordered, $tight));
         }
         $task = false;
-        foreach ($node->children ?? [] as $item) {
-            $task = $task || is_array($item->f['task'] ?? null);
-        }
         $items = [];
         foreach ($node->children ?? [] as $item) {
-            if ($item->type !== 'list_item') {
-                continue;
+            $task = $task || is_array($item->f['task'] ?? null);
+            if ($item->type === 'list_item') {
+                $items[] = $this->allowed($item, $depth + 1) ? $this->item($item, $depth + 1, $tight, $ordered) : (string)$this->block($item, $depth + 1);
             }
-            if (!$this->allowed($item, $depth + 1)) {
-                $items[] = (string)$this->block($item, $depth + 1);
-
-                continue;
-            }
-            $items[] = $this->item($item, $depth + 1, $tight, $ordered);
         }
         $tag = $ordered ? 'ol' : 'ul';
 
         return $this->container('<' . $tag . $this->attrs($node, $task ? ['task-list'] : [], [], $structural) . '>', '</' . $tag . '>', $items, $depth);
+    }
+
+    /**
+     * C2-H-032, C2-H-033, C2-H-174: the checkbox, state, class and style of a task item.
+     *
+     * @param \MarkupCarve\Carve2\Node $item
+     * @param array<mixed> $task
+     * @param bool $ordered
+     *
+     * @return array{0: string, 1: array<array{0: string, 1: string|null}>, 2: array<string>, 3: array{decl?: string, first?: bool}}
+     */
+    private static function taskParts(Node $item, array $task, bool $ordered): array
+    {
+        $mark = PlainText::str($task['mark'] ?? ' ');
+        $state = Tables::TASK_STATE_ATTRIBUTE[$mark] ?? null;
+        $structural = $state !== null ? [['data-task-state', $state]] : [];
+        $style = $ordered ? [] : ['decl' => 'list-style: none', 'first' => false];
+        $label = [];
+        foreach ($item->children ?? [] as $child) {
+            if ($child->type === 'paragraph' || $child->type === 'heading') {
+                $label[] = PlainText::of($child->children ?? []);
+            }
+        }
+        $text = implode(' ', $label);
+        $box = '<input type="checkbox"' . ((Tables::TASK_CHECKED[$mark] ?? false) ? ' checked' : '') . ' disabled'
+            . ($text !== '' ? ' aria-label="' . Escape::attr($text) . '"' : '') . '> ';
+
+        return [$box, $structural, ['task'], $style];
     }
 
     /**
@@ -708,30 +865,7 @@ final class HtmlRenderer
     private function item(Node $item, int $depth, bool $tight, bool $ordered): string
     {
         $task = is_array($item->f['task'] ?? null) ? $item->f['task'] : null;
-        $box = '';
-        $structural = [];
-        $base = [];
-        $style = [];
-        if ($task !== null) {
-            $mark = PlainText::str($task['mark'] ?? ' ');
-            $state = Tables::TASK_STATE_ATTRIBUTE[$mark] ?? null;
-            if ($state !== null) {
-                $structural[] = ['data-task-state', $state];
-            }
-            $base = ['task'];
-            if (!$ordered) {
-                $style = ['decl' => 'list-style: none', 'first' => false];
-            }
-            $label = [];
-            foreach ($item->children ?? [] as $child) {
-                if ($child->type === 'paragraph' || $child->type === 'heading') {
-                    $label[] = PlainText::of($child->children ?? []);
-                }
-            }
-            $text = implode(' ', $label);
-            $box = '<input type="checkbox"' . ((Tables::TASK_CHECKED[$mark] ?? false) ? ' checked' : '') . ' disabled'
-                . ($text !== '' ? ' aria-label="' . Escape::attr($text) . '"' : '') . '> ';
-        }
+        [$box, $structural, $base, $style] = $task !== null ? self::taskParts($item, $task, $ordered) : ['', [], [], []];
         $open = self::pad($depth) . '<li' . $this->attrs($item, $base, [], $structural, [], $style) . '>' . $box;
         $visible = self::visibleOf($item->children ?? []);
         if ($visible === []) {

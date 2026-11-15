@@ -13,19 +13,37 @@ use MarkupCarve\Carve2\Node;
 final class PlainText
 {
     /**
-     * C2-H-143: nodes that give no text, fixed by type before any resolution.
+     * C2-H-143: nodes with a fixed text; those that give none are fixed by type before any resolution.
      *
-     * @var array<string, true>
+     * @var array<string, string>
      */
-    private const SILENT = [
-        'footnote_ref' => true,
-        'inline_footnote' => true,
-        'xref' => true,
-        'symbol' => true,
-        'raw_inline' => true,
-        'critic_comment' => true,
-        'comment' => true,
-        'citation_group' => true,
+    private const FIXED = [
+        'non_breaking_space' => "\u{00A0}",
+        'soft_break' => ' ',
+        'hard_break' => ' ',
+        'footnote_ref' => '',
+        'inline_footnote' => '',
+        'xref' => '',
+        'raw_inline' => '',
+        'critic_comment' => '',
+        'comment' => '',
+        'citation_group' => '',
+    ];
+
+    /**
+     * C2-H-143: nodes whose text is one field behind a prefix.
+     *
+     * @var array<string, array{0: string, 1: string}>
+     */
+    private const FIELD = [
+        'text' => ['value', ''],
+        'code' => ['value', ''],
+        'literal_inline' => ['value', ''],
+        'math' => ['value', ''],
+        'image' => ['alt', ''],
+        'abbreviation' => ['key', ''],
+        'mention' => ['target', '@'],
+        'tag' => ['name', '#'],
     ];
 
     /**
@@ -52,47 +70,54 @@ final class PlainText
      */
     public static function node(Node $node, ?array $symbols = null): string
     {
-        $f = $node->f;
-        switch ($node->type) {
-            case 'text':
-            case 'code':
-            case 'literal_inline':
-            case 'math':
-                return self::str($f['value'] ?? '');
-            case 'non_breaking_space':
-                return "\u{00A0}";
-            case 'soft_break':
-            case 'hard_break':
-                return ' ';
-            case 'smart_punctuation':
-                return self::str($f['glyph'] ?? $f['source'] ?? '');
-            case 'image':
-                return self::str($f['alt'] ?? '');
-            case 'autolink':
-                return self::str($f['text'] ?? $f['href'] ?? '');
-            case 'abbreviation':
-                return self::str($f['key'] ?? '');
-            case 'mention':
-                return '@' . self::str($f['target'] ?? '');
-            case 'tag':
-                return '#' . self::str($f['name'] ?? '');
-            case 'caption_number':
-                return isset($f['n']) && is_int($f['n']) ? (string)$f['n'] : '';
-            case 'ruby':
-                return self::ruby($node, $symbols);
-            case 'symbol':
-                if ($symbols === null) {
-                    return '';
-                }
-                $name = self::str($f['name'] ?? '');
-
-                return $symbols[$name] ?? ':' . $name . ':';
+        $type = $node->type;
+        $field = self::FIELD[$type] ?? null;
+        if ($field !== null) {
+            return $field[1] . self::str($node->f[$field[0]] ?? '');
         }
-        if (isset(self::SILENT[$node->type]) || ($node->type === 'inline_extension' && ($f['name'] ?? '') === 'index')) {
+        if (isset(self::FIXED[$type])) {
+            return self::FIXED[$type];
+        }
+
+        return match ($type) {
+            'smart_punctuation', 'autolink', 'caption_number' => self::derived($node),
+            'ruby' => self::ruby($node, $symbols),
+            'symbol' => self::symbol($node, $symbols),
+            'inline_extension' => ($node->f['name'] ?? '') === 'index' ? '' : self::of($node->children ?? [], $symbols),
+            default => self::of($node->children ?? [], $symbols),
+        };
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node A smart punctuation, an autolink or a caption number.
+     *
+     * @return string
+     */
+    private static function derived(Node $node): string
+    {
+        $f = $node->f;
+
+        return match ($node->type) {
+            'smart_punctuation' => self::str($f['glyph'] ?? $f['source'] ?? ''),
+            'autolink' => self::str($f['text'] ?? $f['href'] ?? ''),
+            default => is_int($f['n'] ?? null) ? (string)$f['n'] : '',
+        };
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param array<string, string>|null $symbols
+     *
+     * @return string
+     */
+    private static function symbol(Node $node, ?array $symbols): string
+    {
+        if ($symbols === null) {
             return '';
         }
+        $name = self::str($node->f['name'] ?? '');
 
-        return $node->children === null ? '' : self::of($node->children, $symbols);
+        return $symbols[$name] ?? ':' . $name . ':';
     }
 
     /**

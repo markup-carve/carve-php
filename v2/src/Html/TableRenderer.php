@@ -168,40 +168,67 @@ final class TableRenderer
             if ($cell->type !== 'table_cell' || isset($cell->f['span'])) {
                 continue;
             }
-            $header = ($cell->f['header'] ?? false) === true;
-            $structural = [];
-            foreach (['rowspan', 'colspan'] as $field) {
-                $n = TableGrid::count($cell, $field);
-                if ($n > 1) {
-                    $structural[] = [$field, (string)$n];
-                }
-            }
-            $scope = $cell->f['scope'] ?? null;
-            if ($header) {
-                $structural[] = ['scope', is_string($scope) ? $scope : ($group->type === 'table_head' ? 'col' : 'row')];
-            } elseif (is_string($scope)) {
-                $structural[] = ['scope', $scope];
-            }
-            $headers = $cell->f['headerIds'] ?? null;
-            if (is_array($headers) && $headers !== []) {
-                $structural[] = ['headers', implode(' ', array_map([PlainText::class, 'str'], $headers))];
-            }
+            $tag = ($cell->f['header'] ?? false) === true ? 'th' : 'td';
             $column = $columns[$grid->column[spl_object_id($cell)] ?? 0] ?? null;
-            $decl = [];
-            $align = $cell->f['align'] ?? $column?->f['resolvedAlign'] ?? null;
-            if (is_string($align)) {
-                $decl[] = 'text-align: ' . $align . ';';
-            }
-            $valign = $cell->f['valign'] ?? $column?->f['valign'] ?? null;
-            if (is_string($valign)) {
-                $decl[] = 'vertical-align: ' . $valign . ';';
-            }
-            $style = $decl === [] ? [] : ['decl' => implode(' ', $decl), 'first' => true];
-            $tag = $header ? 'th' : 'td';
-            $out .= '<' . $tag . $this->r->attrs($cell, [], [], $structural, [], $style, false) . '>' . $this->content($cell, $depth) . '</' . $tag . '>';
+            $attrs = $this->r->attrs($cell, [], [], self::cellStructural($cell, $group), [], self::cellStyle($cell, $column), false);
+            $out .= '<' . $tag . $attrs . '>' . $this->content($cell, $depth) . '</' . $tag . '>';
         }
 
         return $out;
+    }
+
+    /**
+     * C2-H-058: the spans above 1, the scope and the header ids of a cell.
+     *
+     * @param \MarkupCarve\Carve2\Node $cell
+     * @param \MarkupCarve\Carve2\Node $group
+     *
+     * @return array<array{0: string, 1: string|null}>
+     */
+    private static function cellStructural(Node $cell, Node $group): array
+    {
+        $structural = [];
+        foreach (['rowspan', 'colspan'] as $field) {
+            $n = TableGrid::count($cell, $field);
+            if ($n > 1) {
+                $structural[] = [$field, (string)$n];
+            }
+        }
+        $scope = $cell->f['scope'] ?? null;
+        if (($cell->f['header'] ?? false) === true) {
+            $structural[] = ['scope', is_string($scope) ? $scope : ($group->type === 'table_head' ? 'col' : 'row')];
+        } elseif (is_string($scope)) {
+            $structural[] = ['scope', $scope];
+        }
+        $headers = $cell->f['headerIds'] ?? null;
+        if (is_array($headers) && $headers !== []) {
+            $structural[] = ['headers', implode(' ', array_map([PlainText::class, 'str'], $headers))];
+        }
+
+        return $structural;
+    }
+
+    /**
+     * The alignment declarations of a cell, its own before its column's.
+     *
+     * @param \MarkupCarve\Carve2\Node $cell
+     * @param \MarkupCarve\Carve2\Node|null $column
+     *
+     * @return array{decl?: string, first?: bool}
+     */
+    private static function cellStyle(Node $cell, ?Node $column): array
+    {
+        $decl = [];
+        $align = $cell->f['align'] ?? $column?->f['resolvedAlign'] ?? null;
+        if (is_string($align)) {
+            $decl[] = 'text-align: ' . $align . ';';
+        }
+        $valign = $cell->f['valign'] ?? $column?->f['valign'] ?? null;
+        if (is_string($valign)) {
+            $decl[] = 'vertical-align: ' . $valign . ';';
+        }
+
+        return $decl === [] ? [] : ['decl' => implode(' ', $decl), 'first' => true];
     }
 
     /**

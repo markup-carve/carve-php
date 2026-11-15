@@ -44,6 +44,21 @@ final class TableGrid
     public static function of(Node $table): self
     {
         $grid = new self();
+        $grid->collectRows($table);
+        $grid->place();
+
+        return $grid;
+    }
+
+    /**
+     * The rows of the head, body and foot groups in order; whether any cell is a span mark.
+     *
+     * @param \MarkupCarve\Carve2\Node $table
+     *
+     * @return void
+     */
+    private function collectRows(Node $table): void
+    {
         foreach ($table->children ?? [] as $group) {
             if ($group->type !== 'table_head' && $group->type !== 'table_body' && $group->type !== 'table_foot') {
                 continue;
@@ -52,16 +67,25 @@ final class TableGrid
                 if ($row->type !== 'table_row') {
                     continue;
                 }
-                $grid->rows[] = [$row, $group];
+                $this->rows[] = [$row, $group];
                 foreach ($row->children ?? [] as $cell) {
                     if (isset($cell->f['span'])) {
-                        $grid->marks = true;
+                        $this->marks = true;
                     }
                 }
             }
         }
+    }
+
+    /**
+     * The column of each cell, past the slots that spans above and before it cover.
+     *
+     * @return void
+     */
+    private function place(): void
+    {
         $taken = [];
-        foreach ($grid->rows as $r => [$row]) {
+        foreach ($this->rows as $r => [$row]) {
             $c = 0;
             foreach ($row->children ?? [] as $cell) {
                 if ($cell->type !== 'table_cell') {
@@ -71,10 +95,10 @@ final class TableGrid
                     $c++;
                 }
                 $id = spl_object_id($cell);
-                $grid->column[$id] = $c;
-                $grid->rowIndex[$id] = $r;
-                $cols = $grid->marks ? 1 : self::count($cell, 'colspan');
-                $rows = $grid->marks ? 1 : self::count($cell, 'rowspan');
+                $this->column[$id] = $c;
+                $this->rowIndex[$id] = $r;
+                $cols = $this->marks ? 1 : self::count($cell, 'colspan');
+                $rows = $this->marks ? 1 : self::count($cell, 'rowspan');
                 for ($i = 0; $i < $rows; $i++) {
                     for ($j = 0; $j < $cols; $j++) {
                         $taken[$r + $i][$c + $j] = true;
@@ -83,8 +107,6 @@ final class TableGrid
                 $c += $cols;
             }
         }
-
-        return $grid;
     }
 
     /**

@@ -16,6 +16,48 @@ use MarkupCarve\Carve2\Resolve\Walk;
 final class Profile
 {
     /**
+     * Blocks whose plain text is that of their inline children.
+     *
+     * @var array<string, true>
+     */
+    private const INLINE_BLOCKS = ['paragraph' => true, 'definition_term' => true, 'cell_paragraph' => true, 'line' => true];
+
+    /**
+     * Blocks whose plain text is their title, then their blocks.
+     *
+     * @var array<string, true>
+     */
+    private const TITLED_BLOCKS = ['div' => true, 'admonition' => true, 'directive' => true];
+
+    /**
+     * C2-H-165: degraded inline nodes with a fixed text.
+     *
+     * @var array<string, string>
+     */
+    private const FIXED_TEXT = ['non_breaking_space' => "\u{00A0}", 'soft_break' => ' ', 'hard_break' => ' ', 'comment' => '', 'caption_number' => ''];
+
+    /**
+     * C2-H-165: degraded inline nodes written as one field between a prefix and a suffix.
+     *
+     * @var array<string, array{0: string, 1: string, 2: string}>
+     */
+    private const FIELD_TEXT = [
+        'text' => ['value', '', ''],
+        'code' => ['value', '', ''],
+        'literal_inline' => ['value', '', ''],
+        'math' => ['value', '', ''],
+        'raw_inline' => ['value', '', ''],
+        'critic_comment' => ['value', '', ''],
+        'footnote_ref' => ['key', '[^', ']'],
+        'symbol' => ['name', ':', ':'],
+        'mention' => ['target', '@', ''],
+        'tag' => ['name', '#', ''],
+        'xref' => ['key', '</#', '>'],
+        'abbreviation' => ['key', '', ''],
+        'citation_group' => ['raw', '', ''],
+    ];
+
+    /**
      * @var array<string, true>
      */
     private const HOLDS_BLOCKS = [
@@ -223,24 +265,20 @@ final class Profile
      */
     private function inlineText(Node $node): string
     {
+        $type = $node->type;
+        if (isset(self::FIXED_TEXT[$type])) {
+            return self::FIXED_TEXT[$type];
+        }
+        $field = self::FIELD_TEXT[$type] ?? null;
+        if ($field !== null) {
+            return $field[1] . PlainText::str($node->f[$field[0]] ?? '') . $field[2];
+        }
         $f = $node->f;
 
-        return match ($node->type) {
+        return match ($type) {
             'image' => '[img: ' . PlainText::str($f['alt'] ?? '') . ']',
-            'non_breaking_space' => "\u{00A0}",
-            'soft_break', 'hard_break' => ' ',
             'smart_punctuation' => PlainText::str($f['glyph'] ?? $f['source'] ?? ''),
-            'footnote_ref' => '[^' . PlainText::str($f['key'] ?? '') . ']',
-            'comment' => '',
-            'text', 'code', 'literal_inline', 'math', 'raw_inline', 'critic_comment' => PlainText::str($f['value'] ?? ''),
-            'symbol' => ':' . PlainText::str($f['name'] ?? '') . ':',
-            'mention' => '@' . PlainText::str($f['target'] ?? ''),
-            'tag' => '#' . PlainText::str($f['name'] ?? ''),
             'autolink' => PlainText::str($f['text'] ?? $f['href'] ?? ''),
-            'xref' => '</#' . PlainText::str($f['key'] ?? '') . '>',
-            'abbreviation' => PlainText::str($f['key'] ?? ''),
-            'caption_number' => '',
-            'citation_group' => PlainText::str($f['raw'] ?? ''),
             default => $this->childrenText($node->children ?? []),
         };
     }
@@ -345,19 +383,38 @@ final class Profile
      */
     private function plainOf(Node $node): string
     {
-        $f = $node->f;
+        $type = $node->type;
+        $kids = $node->children ?? [];
+        if (isset(self::INLINE_BLOCKS[$type])) {
+            return $this->childrenText($kids);
+        }
+        if (isset(self::TITLED_BLOCKS[$type])) {
+            $title = $node->f['title'] ?? null;
 
-        return match ($node->type) {
-            'heading' => str_repeat('#', is_int($f['level'] ?? null) ? $f['level'] : 1) . ' ' . $this->childrenText($node->children ?? []),
-            'block_quote' => '> ' . $this->joined($node->children ?? []),
+            return trim((is_array($title) ? $this->childrenText(PlainText::nodes($title)) : '') . ' ' . $this->joined($kids));
+        }
+
+        return match ($type) {
+            'heading' => str_repeat('#', self::level($node)) . ' ' . $this->childrenText($kids),
+            'block_quote' => '> ' . $this->joined($kids),
             'list' => $this->listText($node),
             'thematic_break' => '---',
-            'code_block', 'raw_block' => rtrim(PlainText::str($f['value'] ?? ''), "\n"),
-            'div', 'admonition', 'directive' => trim((is_array($f['title'] ?? null) ? $this->childrenText(PlainText::nodes($f['title'])) : '') . ' ' . $this->joined($node->children ?? [])),
+            'code_block', 'raw_block' => rtrim(PlainText::str($node->f['value'] ?? ''), "\n"),
             'include' => HtmlRenderer::includeText($node),
-            'paragraph', 'definition_term', 'cell_paragraph', 'line' => $this->childrenText($node->children ?? []),
-            default => $this->joined($node->children ?? []),
+            default => $this->joined($kids),
         };
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $heading
+     *
+     * @return int
+     */
+    private static function level(Node $heading): int
+    {
+        $level = $heading->f['level'] ?? null;
+
+        return is_int($level) ? $level : 1;
     }
 
     /**

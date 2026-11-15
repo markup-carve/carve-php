@@ -107,7 +107,32 @@ final class RenderState
      */
     public function __construct(private Node $doc, private Options $o, private ?Profile $profile = null)
     {
-        foreach ($doc->children ?? [] as $child) {
+        $this->definitions();
+        $this->scan();
+        $this->pos += Walk::kidPositions($doc, $this->end);
+        ksort($this->notes);
+        if ($this->notes === []) {
+            // C2-H-158: with no section to place, the directive is a plain `<div class="footnotes">`.
+            $this->placingDirective = null;
+        }
+        $body = Walk::bodyRanges($doc, $this->pos, $this->end);
+        $this->allRefs($body);
+        $this->allAdmonitionIds($body);
+        $this->nodes = [];
+        $this->end = [];
+        $this->pos = [];
+        $this->marks = [];
+        $this->titled = [];
+    }
+
+    /**
+     * The first link definition, footnote definition and placing directive of each key (C2-B-085).
+     *
+     * @return void
+     */
+    private function definitions(): void
+    {
+        foreach ($this->doc->children ?? [] as $child) {
             $key = $child->f['key'] ?? null;
             if ($child->type === 'link_reference_definition' && is_string($key)) {
                 $this->linkDefs[$key] ??= $child;
@@ -117,14 +142,17 @@ final class RenderState
                 $this->placingDirective ??= $child;
             }
         }
-        $this->scan();
-        $this->pos += Walk::kidPositions($doc, $this->end);
-        ksort($this->notes);
-        if ($this->notes === []) {
-            // C2-H-158: with no section to place, the directive is a plain `<div class="footnotes">`.
-            $this->placingDirective = null;
-        }
-        $body = Walk::bodyRanges($doc, $this->pos, $this->end);
+    }
+
+    /**
+     * The body first, then the notes in number order (C2-H-088).
+     *
+     * @param array<array{0: int, 1: int}> $body
+     *
+     * @return void
+     */
+    private function allRefs(array $body): void
+    {
         foreach ($body as [$from, $to]) {
             $this->refs($from, $to);
         }
@@ -134,6 +162,17 @@ final class RenderState
                 $this->refs($at + 1, $this->end[$at]);
             }
         }
+    }
+
+    /**
+     * The body first, then the footnote bodies in number order (C2-H-156).
+     *
+     * @param array<array{0: int, 1: int}> $body
+     *
+     * @return void
+     */
+    private function allAdmonitionIds(array $body): void
+    {
         foreach ($body as [$from, $to]) {
             $this->admonitionIds($from, $to);
         }
@@ -143,11 +182,6 @@ final class RenderState
                 $this->admonitionIds($at, $this->end[$at]);
             }
         }
-        $this->nodes = [];
-        $this->end = [];
-        $this->pos = [];
-        $this->marks = [];
-        $this->titled = [];
     }
 
     /**
@@ -192,48 +226,78 @@ final class RenderState
                 }
             }
             if ($type === 'footnote_ref' || $type === 'inline_footnote') {
-                $this->marks[] = $i;
-                if ($type === 'inline_footnote') {
-                    $this->pos[spl_object_id($node)] = $i;
-                }
-                $number = $f['number'] ?? null;
-                if (is_int($number) && ($this->profile === null || $this->profile->allowsInline($node))) {
-                    if ($type === 'inline_footnote') {
-                        $this->notes[$number] ??= $node;
-                    } else {
-                        $def = $this->footnoteDefs[PlainText::str($f['key'] ?? '')] ?? null;
-                        if ($def !== null) {
-                            $this->notes[$number] ??= $def;
-                        }
-                    }
-                }
-            }
-            if ($type === 'image' && is_array($f['longDescription'] ?? null)) {
+                $this->noteMark($node, $i);
+            } elseif ($type === 'heading') {
+                $this->headingTarget($node);
+            } elseif ($type === 'image' && is_array($f['longDescription'] ?? null)) {
                 $this->longDescriptions = true;
             }
             if (isset($f['title']) && is_array($f['title'])) {
                 $this->titled[] = $i;
             }
-            $attrs = $f['attrs'] ?? null;
-            $id = $attrs instanceof Attrs ? $attrs->id : null;
-            if ($id !== null) {
-                $this->taken[$id] = true;
+            if (isset($f['attrs'])) {
+                $this->authoredTarget($f);
             }
-            if ($type === 'heading') {
-                $hid = Resolver::idOf($node);
-                if ($hid !== null) {
-                    $this->taken[$hid] = true;
-                    $this->xrefText[$hid] ??= PlainText::of($node->children ?? []);
-                }
-            }
-            $caption = $f['caption'] ?? null;
-            if ($id !== null && $caption instanceof Node) {
-                $mark = Resolver::captionMark($caption);
-                if ($mark !== null && is_int($mark[0]->f['n'] ?? null)) {
-                    $label = Resolver::labelKey($mark[1], $this->o->symbols);
-                    $this->xrefText[$id] ??= ltrim($label . ' ' . $mark[0]->f['n']);
-                }
-            }
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node A footnote reference or an inline footnote.
+     * @param int $i
+     *
+     * @return void
+     */
+    private function noteMark(Node $node, int $i): void
+    {
+        $this->marks[] = $i;
+        $inline = $node->type === 'inline_footnote';
+        if ($inline) {
+            $this->pos[spl_object_id($node)] = $i;
+        }
+        $number = $node->f['number'] ?? null;
+        if (!is_int($number) || ($this->profile !== null && !$this->profile->allowsInline($node))) {
+            return;
+        }
+        $note = $inline ? $node : $this->footnoteDefs[PlainText::str($node->f['key'] ?? '')] ?? null;
+        if ($note !== null) {
+            $this->notes[$number] ??= $note;
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $heading
+     *
+     * @return void
+     */
+    private function headingTarget(Node $heading): void
+    {
+        $id = Resolver::idOf($heading);
+        if ($id !== null) {
+            $this->taken[$id] = true;
+            $this->xrefText[$id] ??= PlainText::of($heading->children ?? []);
+        }
+    }
+
+    /**
+     * An authored id is taken; with a numbered caption it is a cross-reference target (C2-H-096).
+     *
+     * @param array<string, mixed> $f
+     *
+     * @return void
+     */
+    private function authoredTarget(array $f): void
+    {
+        $attrs = $f['attrs'];
+        $id = $attrs instanceof Attrs ? $attrs->id : null;
+        if ($id === null) {
+            return;
+        }
+        $this->taken[$id] = true;
+        $caption = $f['caption'] ?? null;
+        $mark = $caption instanceof Node ? Resolver::captionMark($caption) : null;
+        if ($mark !== null && is_int($mark[0]->f['n'] ?? null)) {
+            $label = Resolver::labelKey($mark[1], $this->o->symbols);
+            $this->xrefText[$id] ??= ltrim($label . ' ' . $mark[0]->f['n']);
         }
     }
 

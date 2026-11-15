@@ -226,19 +226,33 @@ final class Scanner
         return match ($t[$i]) {
             '\\' => $this->backslash($i),
             '`' => $this->codeSpan($i, $i, 'code'),
-            '!' => $this->bang($i),
-            '$' => $this->dollar($i),
             '<' => $this->angle($i),
             '{' => $this->brace($i),
             '}' => $this->closingBrace($i),
-            '%' => $this->lineComment($i),
-            ':' => $this->colon($i),
-            '@', '#' => $this->sigil($i),
             '[' => $this->openBracket($i),
             ']' => $this->closeBracket($i),
             '^' => $i + 1 < $this->n && $t[$i + 1] === '[' ? $this->pushFrame(self::F_FOOTNOTE, $i, $i + 2, '') : -1,
             '*', '/' => $this->bare($i),
             "\n" => $this->lineBreak($i, $i, $this->hardBreaks ? 'hard_break' : 'soft_break'),
+            default => $this->sigilChar($i),
+        };
+    }
+
+    /**
+     * The characters of SPECIALS that start a sigil-like form.
+     *
+     * @param int $i
+     *
+     * @return int
+     */
+    private function sigilChar(int $i): int
+    {
+        return match ($this->t[$i]) {
+            '!' => $this->bang($i),
+            '$' => $this->dollar($i),
+            '%' => $this->lineComment($i),
+            ':' => $this->colon($i),
+            '@', '#' => $this->sigil($i),
             default => -1,
         };
     }

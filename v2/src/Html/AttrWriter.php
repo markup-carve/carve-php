@@ -69,7 +69,7 @@ final class AttrWriter
         array $style = [],
         ?int $sourceLine = null,
     ): string {
-        if ($attrs === null && $structural === [] && $id === null && $lang === null && $base === [] && $tail === [] && $generated === [] && $style === [] && $sourceLine === null) {
+        if ($attrs === null && $structural === [] && $id === null && $lang === null && self::noLists($base, $tail, $generated, $style) && $sourceLine === null) {
             return '';
         }
         $out = [];
@@ -81,25 +81,10 @@ final class AttrWriter
         if ($sourceLine !== null) {
             $seen['data-source-line'] = true;
         }
-        $id ??= $attrs?->id;
-        if ($id !== null && $id !== '' && !isset($seen['id'])) {
-            $out[] = ['id', $id];
-            $seen['id'] = true;
+        $this->identity($out, $seen, $id ?? $attrs?->id, $this->classes($base, $attrs !== null ? $attrs->classes : [], $tail), $lang);
+        if ($attrs !== null) {
+            $this->authored($out, $seen, $attrs, $style);
         }
-        $classes = $this->classes($base, $attrs !== null ? $attrs->classes : [], $tail);
-        if ($classes !== '' && !isset($seen['class'])) {
-            $out[] = ['class', $classes];
-            $seen['class'] = true;
-        }
-        if ($lang !== null) {
-            $out[] = ['lang', UrlPolicy::authoredValueFails($lang) ? '' : $lang];
-            $seen['lang'] = true;
-        }
-        $genNames = [];
-        foreach ($generated as [$name]) {
-            $genNames[strtolower($name)] = true;
-        }
-        $this->authored($out, $seen, $attrs, $style, $genNames);
         foreach ($generated as [$name, $value]) {
             if (!isset($seen[strtolower($name)])) {
                 $out[] = [$name, $value];
@@ -117,31 +102,58 @@ final class AttrWriter
     }
 
     /**
+     * @param array<string> $base
+     * @param array<string> $tail
+     * @param array<array{0: string, 1: string|null}> $generated
+     * @param array<string, mixed> $style
+     *
+     * @return bool
+     */
+    private static function noLists(array $base, array $tail, array $generated, array $style): bool
+    {
+        return $base === [] && $tail === [] && $generated === [] && $style === [];
+    }
+
+    /**
+     * The id, the class and the language, each unless a structural attribute holds it.
+     *
      * @param array<array{0: string, 1: string|null}> $out
      * @param array<string, true> $seen
-     * @param \MarkupCarve\Carve2\Attrs|null $attrs
-     * @param array{decl?: string, first?: bool, align?: bool} $style
-     * @param array<string, true> $genNames
+     * @param string|null $id
+     * @param string $classes
+     * @param string|null $lang
      *
      * @return void
      */
-    private function authored(array &$out, array &$seen, ?Attrs $attrs, array $style, array $genNames): void
+    private function identity(array &$out, array &$seen, ?string $id, string $classes, ?string $lang): void
     {
-        if ($attrs === null) {
-            return;
+        if ($id !== null && $id !== '' && !isset($seen['id'])) {
+            $out[] = ['id', $id];
+            $seen['id'] = true;
         }
+        if ($classes !== '' && !isset($seen['class'])) {
+            $out[] = ['class', $classes];
+            $seen['class'] = true;
+        }
+        if ($lang !== null) {
+            $out[] = ['lang', UrlPolicy::authoredValueFails($lang) ? '' : $lang];
+            $seen['lang'] = true;
+        }
+    }
+
+    /**
+     * @param array<array{0: string, 1: string|null}> $out
+     * @param array<string, true> $seen
+     * @param \MarkupCarve\Carve2\Attrs $attrs
+     * @param array{decl?: string, first?: bool, align?: bool} $style
+     *
+     * @return void
+     */
+    private function authored(array &$out, array &$seen, Attrs $attrs, array $style): void
+    {
         $decl = $style['decl'] ?? null;
-        $alignDecl = null;
-        $hasStyle = false;
-        foreach ($attrs->pairs as [$name]) {
-            $hasStyle = $hasStyle || strtolower($name) === 'style';
-        }
-        if (($style['align'] ?? false) === true) {
-            $align = $attrs->get('align');
-            if ($align === 'left' || $align === 'right' || $align === 'center') {
-                $alignDecl = 'text-align: ' . $align . ';';
-            }
-        }
+        $alignDecl = ($style['align'] ?? false) === true ? self::alignDecl($attrs->get('align')) : null;
+        $hasStyle = $attrs->get('style') !== null;
         foreach ($attrs->pairs as [$name, $value]) {
             $lower = strtolower($name);
             if (isset($seen[$lower]) || !self::validName($name) || $this->dropped($lower)) {
@@ -162,8 +174,19 @@ final class AttrWriter
             }
             $out[] = [$name, $value];
             $seen[$lower] = true;
-            unset($genNames[$lower]);
         }
+    }
+
+    /**
+     * C2-H-015: an authored `align` becomes a declaration.
+     *
+     * @param string|null $align
+     *
+     * @return string|null
+     */
+    private static function alignDecl(?string $align): ?string
+    {
+        return $align === 'left' || $align === 'right' || $align === 'center' ? 'text-align: ' . $align . ';' : null;
     }
 
     /**

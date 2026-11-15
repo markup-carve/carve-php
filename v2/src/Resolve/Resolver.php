@@ -124,6 +124,13 @@ final class Resolver
      */
     private array $body = [];
 
+    /**
+     * Types whose earlier result prepare() clears or whose nodes a later pass reads.
+     *
+     * @var array<string, true>
+     */
+    private const LISTED = ['footnote_ref' => true, 'inline_footnote' => true, 'heading' => true, 'caption_number' => true, 'math' => true, 'figure_group' => true, 'table' => true];
+
     private function __construct(private Node $doc, private string $s, private Options $o)
     {
     }
@@ -296,52 +303,60 @@ final class Resolver
                     }
                 }
             }
-            $numbered = false;
             $attrs = $f['attrs'] ?? null;
             if ($attrs instanceof Attrs && $attrs->id !== null) {
                 $this->taken[$attrs->id] = true;
             }
-            switch ($type) {
-                case 'footnote_ref':
-                case 'inline_footnote':
+            if (isset(self::LISTED[$type]) || isset($f['caption']) || isset($f['key'])) {
+                $this->listNode($node, $i);
+            }
+        }
+    }
+
+    /**
+     * Clears the earlier result of a node and lists it for the pass that computes it.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $i
+     *
+     * @return void
+     */
+    private function listNode(Node $node, int $i): void
+    {
+        $type = $node->type;
+        $numbered = $type === 'figure_group' || ($node->f['caption'] ?? null) instanceof Node;
+        switch ($type) {
+            case 'footnote_ref':
+            case 'inline_footnote':
+                unset($node->f['number']);
+                $this->noteMarks[] = $i;
+                if ($type === 'inline_footnote') {
+                    $this->pos[spl_object_id($node)] = $i;
+                }
+
+                break;
+            case 'heading':
+                unset($node->f['generatedId']);
+                $this->headings[] = $i;
+
+                break;
+            case 'caption_number':
+                unset($node->f['n']);
+
+                break;
+            case 'math':
+                if (isset($node->f['numberPrefix'])) {
                     unset($node->f['number']);
-                    $this->noteMarks[] = $i;
-                    if ($node->type === 'inline_footnote') {
-                        $this->pos[spl_object_id($node)] = $i;
-                    }
-
-                    break;
-                case 'heading':
-                    unset($node->f['generatedId']);
-                    $this->headings[] = $i;
-
-                    break;
-                case 'caption_number':
-                    unset($node->f['n']);
-
-                    break;
-                case 'math':
-                    if (isset($f['numberPrefix'])) {
-                        unset($node->f['number']);
-                        $numbered = true;
-                    }
-
-                    break;
-                case 'figure_group':
                     $numbered = true;
+                }
 
-                    break;
-                case 'table':
-                    $this->keyed[] = $i;
-
-                    break;
-            }
-            if ($numbered || ($f['caption'] ?? null) instanceof Node) {
-                $this->numbered[] = $i;
-            }
-            if (is_string($f['key'] ?? null) && $node->type !== 'table') {
-                $this->keyed[] = $i;
-            }
+                break;
+        }
+        if ($numbered) {
+            $this->numbered[] = $i;
+        }
+        if ($type === 'table' || is_string($node->f['key'] ?? null)) {
+            $this->keyed[] = $i;
         }
     }
 
