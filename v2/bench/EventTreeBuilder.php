@@ -33,7 +33,7 @@ final class EventTreeBuilder
             $kind = $events[$k];
             if ($kind === EventSink::ENTER) {
                 $frame = $payload[$events[$k + 2]];
-                $node = NodeFactory::make($frame, [], $s);
+                $node = NodeFactory::make($frame, $s);
                 if ($stack !== []) {
                     $stack[count($stack) - 1][0]->children[] = $node;
                 } else {
@@ -53,7 +53,7 @@ final class EventTreeBuilder
                     $spans[] = $events[$k + 1];
                     $spans[] = $events[$k + 2];
                 }
-                $stack[count($stack) - 1][0]->children[] = NodeFactory::make($frame, $spans, $s);
+                $stack[count($stack) - 1][0]->children[] = NodeFactory::make($frame, $s);
             } else {
                 [$node, $frame] = array_pop($stack);
                 NodeFactory::finish($node, $frame);

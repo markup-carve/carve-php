@@ -4,22 +4,1034 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Html;
 
+use MarkupCarve\Carve2\Attrs;
+use MarkupCarve\Carve2\Generated\Tables;
 use MarkupCarve\Carve2\Node;
 use MarkupCarve\Carve2\Options;
+use MarkupCarve\Carve2\Resolve\PlainText;
+use MarkupCarve\Carve2\Resolve\Resolver;
 
 /**
- * Renders a resolved tree to HTML (C2-H).
+ * Renders a resolved tree to an HTML fragment (C2-H). Block elements and their layout live here,
+ * inline content in InlineRenderer, tables in TableRenderer, the footnote section in NoteRenderer.
  */
 final class HtmlRenderer
 {
     /**
-     * @param \MarkupCarve\Carve2\Node $doc
+     * Blocks that never render at their place (C2-H-019, C2-H-070, C2-H-071).
+     *
+     * @var array<string, true>
+     */
+    private const SILENT = [
+        'comment' => true,
+        'frontmatter' => true,
+        'link_reference_definition' => true,
+        'footnote' => true,
+        'abbreviation_def' => true,
+        'citation_definition' => true,
+    ];
+
+    public RenderLog $log;
+
+    public RenderState $state;
+
+    public AttrWriter $aw;
+
+    public InlineRenderer $inline;
+
+    public ?Profile $profile = null;
+
+    private TableRenderer $tables;
+
+    private NoteRenderer $notes;
+
+    private bool $notesPlaced = false;
+
+    /**
+     * Line starts of the source, for `sourceLines` (C2-H-016).
+     *
+     * @var array<int>|null
+     */
+    private ?array $lineStarts = null;
+
+    private function __construct(private Node $doc, public Options $o, ?string $source)
+    {
+        $this->log = new RenderLog();
+        if ($o->profile !== 'full') {
+            $this->profile = new Profile($o->profile, $this->log);
+            $this->profile->measure($doc);
+        }
+        $this->state = new RenderState($doc, $o, $this->profile);
+        $this->aw = new AttrWriter($o, $this->log);
+        $this->inline = new InlineRenderer($o, $this->state, $this->aw, $this->log);
+        $this->inline->profile = $this->profile;
+        $this->tables = new TableRenderer($this);
+        $this->notes = new NoteRenderer($this);
+        if ($o->sourceLines && $source !== null) {
+            $this->lineStarts = [0];
+            $pos = 0;
+            while (($nl = strpos($source, "\n", $pos)) !== false) {
+                $this->lineStarts[] = $nl + 1;
+                $pos = $nl + 1;
+            }
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $doc A resolved tree.
      * @param \MarkupCarve\Carve2\Options $opts
+     * @param string|null $source The source, needed only for `sourceLines`.
      *
      * @return string
      */
-    public static function render(Node $doc, Options $opts): string
+    public static function render(Node $doc, Options $opts, ?string $source = null): string
     {
-        return '';
+        return self::renderWithLog($doc, $opts, $source)[0];
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $doc
+     * @param \MarkupCarve\Carve2\Options $opts
+     * @param string|null $source
+     *
+     * @return array{0: string, 1: \MarkupCarve\Carve2\Html\RenderLog} C2-H-130: no output under `strictLosses` when a loss occurred.
+     */
+    public static function renderWithLog(Node $doc, Options $opts, ?string $source = null): array
+    {
+        $max = Profile::maxLength($opts->profile);
+        if ($source !== null && $max !== null && strlen($source) > $max) {
+            $log = new RenderLog();
+            $log->error = 'the input is longer than the ' . $max . ' bytes the profile ' . $opts->profile . ' accepts';
+
+            return ['', $log];
+        }
+        $r = new self($doc, $opts, $source);
+        $html = $r->document();
+        if ($opts->strictLosses && $r->log->entries !== []) {
+            $html = '';
+        }
+
+        return [$html, $r->log];
+    }
+
+    /**
+     * C2-H-001, C2-H-026, C2-H-093.
+     *
+     * @return string
+     */
+    private function document(): string
+    {
+        $out = [];
+        $open = [];
+        $sections = $this->o->sections;
+        foreach ($this->doc->children ?? [] as $child) {
+            if ($sections && $child->type === 'heading' && ($this->profile === null || $this->profile->allowsBlock($child, 0))) {
+                $level = is_int($child->f['level'] ?? null) ? $child->f['level'] : 1;
+                while ($open !== [] && end($open) >= $level) {
+                    array_pop($open);
+                    $out[] = self::pad(count($open)) . '</section>';
+                }
+                $out[] = $this->sectionOpen($child, count($open));
+                $open[] = $level;
+                $out[] = $this->heading($child, count($open), true);
+
+                continue;
+            }
+            $depth = count($open);
+            if ($child === $this->state->placingDirective && $child->type === 'directive') {
+                foreach ($this->blocks($child->children ?? [], $depth) as $b) {
+                    $out[] = $b;
+                }
+                $section = $this->notes->section($depth, $child);
+                if ($section !== null) {
+                    $out[] = $section;
+                }
+                $this->notesPlaced = true;
+
+                continue;
+            }
+            $html = $this->block($child, $depth);
+            if ($html !== null) {
+                $out[] = $html;
+            }
+        }
+        while ($open !== []) {
+            array_pop($open);
+            $out[] = self::pad(count($open)) . '</section>';
+        }
+        if (!$this->notesPlaced) {
+            $section = $this->notes->section(0, null);
+            if ($section !== null) {
+                $out[] = $section;
+            }
+        }
+
+        return implode("\n", $out);
+    }
+
+    /**
+     * C2-H-027: the id of the heading goes on the section.
+     *
+     * @param \MarkupCarve\Carve2\Node $heading
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function sectionOpen(Node $heading, int $depth): string
+    {
+        $structural = $this->idCarriers($heading);
+        $id = $this->headingId($heading);
+
+        return self::pad($depth) . '<section' . $this->aw->build($structural, $id ?? '', null) . '>';
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $heading
+     *
+     * @return array<array{0: string, 1: string|null}>
+     */
+    private function idCarriers(Node $heading): array
+    {
+        if (!$this->o->roundtrip) {
+            return [];
+        }
+        $attrs = $heading->f['attrs'] ?? null;
+        if ($attrs instanceof Attrs && $attrs->id !== null) {
+            return [['data-carve-explicit-id', null]];
+        }
+
+        return is_string($heading->f['generatedId'] ?? null) ? [['data-carve-generated-id', null]] : [];
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $heading
+     *
+     * @return string|null
+     */
+    private function headingId(Node $heading): ?string
+    {
+        return Resolver::idOf($heading);
+    }
+
+    /**
+     * @param int $depth
+     *
+     * @return string
+     */
+    public static function pad(int $depth): string
+    {
+        return str_repeat('  ', $depth);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return int|null
+     */
+    public function line(Node $node): ?int
+    {
+        if ($this->lineStarts === null || $node->start < 0) {
+            return null;
+        }
+        $lo = 0;
+        $hi = count($this->lineStarts) - 1;
+        while ($lo < $hi) {
+            $mid = ($lo + $hi + 1) >> 1;
+            if ($this->lineStarts[$mid] <= $node->start) {
+                $lo = $mid;
+            } else {
+                $hi = $mid - 1;
+            }
+        }
+
+        return $lo + 1;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve2\Node> $nodes
+     * @param int $depth
+     *
+     * @return array<string>
+     */
+    public function blocks(array $nodes, int $depth): array
+    {
+        $out = [];
+        foreach ($nodes as $node) {
+            $html = $this->block($node, $depth);
+            if ($html !== null) {
+                $out[] = $html;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Whether a block writes anything at its place.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return bool
+     */
+    public static function visible(Node $node): bool
+    {
+        if (isset(self::SILENT[$node->type])) {
+            return false;
+        }
+        if ($node->type === 'paragraph') {
+            foreach ($node->children ?? [] as $child) {
+                if ($child->type !== 'comment') {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve2\Node> $nodes
+     *
+     * @return array<\MarkupCarve\Carve2\Node>
+     */
+    public static function visibleOf(array $nodes): array
+    {
+        $out = [];
+        foreach ($nodes as $node) {
+            if (self::visible($node)) {
+                $out[] = $node;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string|null Null when the block renders nothing.
+     */
+    public function block(Node $node, int $depth): ?string
+    {
+        if ($this->profile !== null && !$this->profile->allowsBlock($node, $depth)) {
+            return $this->profile->degradeBlock($node, $depth);
+        }
+
+        return $this->coreBlock($node, $depth);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string|null
+     */
+    public function coreBlock(Node $node, int $depth): ?string
+    {
+        if (!self::visible($node)) {
+            return null;
+        }
+
+        return match ($node->type) {
+            'paragraph' => $this->withLongDescriptions($this->paragraph($node, $depth, false), $node, $depth),
+            'heading' => $this->heading($node, $depth, false),
+            'thematic_break' => self::pad($depth) . '<hr' . $this->attrs($node) . '>',
+            'code_block' => self::pad($depth) . $this->codeBlock($node),
+            'raw_block' => $this->rawBlock($node, $depth),
+            'block_quote' => $this->quote($node, $depth),
+            'list' => $this->list($node, $depth),
+            'definition_list' => $this->descriptionList($node, $depth),
+            'div' => $this->div($node, $depth),
+            'admonition' => $this->admonition($node, $depth),
+            'directive' => $this->directive($node, $depth),
+            'line_block' => $this->lineBlock($node, $depth),
+            'figure' => $this->figure($node, $depth, false),
+            'figure_group' => $this->figureGroup($node, $depth),
+            'table' => $this->tables->table($node, $depth),
+            'include' => self::pad($depth) . '<p>' . Escape::text(self::includeText($node)) . '</p>',
+            'section' => $this->container('<section' . $this->attrs($node) . '>', '</section>', $this->blocks($node->children ?? [], $depth + 1), $depth),
+            'block_extension' => $this->blockExtension($node, $depth),
+            default => $this->container('<div' . $this->attrs($node) . '>', '</div>', $this->blocks($node->children ?? [], $depth + 1), $depth),
+        };
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param array<string> $base
+     * @param array<string> $tail
+     * @param array<array{0: string, 1: string|null}> $structural
+     * @param array<array{0: string, 1: string|null}> $generated
+     * @param array{decl?: string, first?: bool, align?: bool} $style
+     * @param bool $block The element is a block element and takes `data-source-line` (C2-H-016).
+     *
+     * @return string
+     */
+    public function attrs(
+        Node $node,
+        array $base = [],
+        array $tail = [],
+        array $structural = [],
+        array $generated = [],
+        array $style = [],
+        bool $block = true,
+    ): string {
+        $attrs = $node->f['attrs'] ?? null;
+        $lang = $node->f['lang'] ?? null;
+
+        return $this->aw->build($structural, null, $attrs instanceof Attrs ? $attrs : null, is_string($lang) ? $lang : null, $base, $tail, $generated, $style, $block ? $this->line($node) : null);
+    }
+
+    /**
+     * C2-H-005, C2-H-008: child blocks one level in, an empty body as one empty line.
+     *
+     * @param string $open
+     * @param string $close
+     * @param array<string> $children
+     * @param int $depth
+     *
+     * @return string
+     */
+    public function container(string $open, string $close, array $children, int $depth): string
+    {
+        $pad = self::pad($depth);
+        if ($children === []) {
+            return $pad . $open . "\n\n" . $pad . $close;
+        }
+
+        return $pad . $open . "\n" . implode("\n", $children) . "\n" . $pad . $close;
+    }
+
+    /**
+     * C2-H-018 to C2-H-020, C2-H-077.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     * @param bool $bare
+     * @param string $append HTML written before the closing tag (footnote backlinks).
+     *
+     * @return string|null
+     */
+    public function paragraph(Node $node, int $depth, bool $bare, string $append = ''): ?string
+    {
+        if (!self::visible($node)) {
+            return $append === '' ? null : self::pad($depth) . '<p>' . $append . '</p>';
+        }
+        $kids = $node->children ?? [];
+        $role = $node->f['role'] ?? null;
+        if ($role === 'image' && $append === '' && ($this->profile === null || $this->profile->allowsType('image'))) {
+            foreach ($kids as $kid) {
+                if ($kid->type === 'image' && !(isset($kid->f['key']) && !isset($kid->f['src']))) {
+                    // G-render-2: the attributes of a block image paragraph are not written, as the oracle does.
+                    return self::pad($depth) . $this->inline->node($kid, $depth);
+                }
+            }
+        }
+        if ($role === 'math' && $this->o->mode === 'static') {
+            return self::pad($depth) . $this->staticMath($node);
+        }
+        $hasAttrs = isset($node->f['attrs']) || isset($node->f['lang']);
+        $content = $this->inline->leaf($kids, $depth + 1) . $append;
+        if ($bare && !$hasAttrs) {
+            return self::pad($depth) . $content;
+        }
+
+        return self::pad($depth) . '<p' . $this->attrs($node, [], [], [], [], ['align' => true]) . '>' . $content . '</p>';
+    }
+
+    /**
+     * C2-H-080: the `longDescription` blocks of the images in a block follow the block.
+     *
+     * @param string|null $html
+     * @param \MarkupCarve\Carve2\Node $block
+     * @param int $depth
+     *
+     * @return string|null
+     */
+    private function withLongDescriptions(?string $html, Node $block, int $depth): ?string
+    {
+        $extra = [];
+        $stack = array_reverse($block->children ?? []);
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            $long = $node->f['longDescription'] ?? null;
+            if ($node->type === 'image' && is_array($long)) {
+                $extra = array_merge($extra, $this->blocks(PlainText::nodes($long), $depth));
+            }
+            foreach (array_reverse($node->children ?? []) as $kid) {
+                $stack[] = $kid;
+            }
+        }
+        if ($extra === []) {
+            return $html;
+        }
+
+        return ($html === null ? '' : $html . "\n") . implode("\n", $extra);
+    }
+
+    /**
+     * C2-H-168.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return string
+     */
+    private function staticMath(Node $node): string
+    {
+        $value = '';
+        foreach ($node->children ?? [] as $kid) {
+            if ($kid->type === 'math') {
+                $value = PlainText::str($kid->f['value'] ?? '');
+            }
+        }
+
+        // G-render-14: the source is written as a code block value, with a final line break, as the oracle does.
+        return '<pre' . $this->attrs($node) . '><code class="language-math">' . Escape::text($value) . "\n</code></pre>";
+    }
+
+    /**
+     * C2-H-021, C2-H-022, C2-H-027, C2-H-028.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     * @param bool $inSection
+     *
+     * @return string
+     */
+    private function heading(Node $node, int $depth, bool $inSection): string
+    {
+        $level = is_int($node->f['level'] ?? null) ? max(1, $node->f['level']) : 1;
+        $attrs = $node->f['attrs'] ?? null;
+        $attrs = $attrs instanceof Attrs ? $attrs : null;
+        $lang = is_string($node->f['lang'] ?? null) ? $node->f['lang'] : null;
+        $id = $inSection ? '' : $this->headingId($node) ?? '';
+        $structural = $inSection ? [] : $this->idCarriers($node);
+        $tag = 'h' . $level;
+        if ($level > 6) {
+            $tag = 'div';
+            $structural = array_merge([['role', 'heading'], ['aria-level', (string)$level]], $structural);
+        }
+        $attr = $this->aw->build($structural, $id, $attrs, $lang, [], [], [], ['align' => true], $this->line($node));
+
+        return self::pad($depth) . '<' . $tag . $attr . '>' . $this->inline->leaf($node->children ?? [], $depth + 1) . '</' . $tag . '>';
+    }
+
+    /**
+     * C2-H-047, C2-H-048.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return string
+     */
+    private function codeBlock(Node $node): string
+    {
+        $structural = [];
+        $attrs = $node->f['attrs'] ?? null;
+        $title = $node->f['title'] ?? null;
+        if (is_array($title) && !($attrs instanceof Attrs && $attrs->get('title') !== null)) {
+            $structural[] = ['title', PlainText::of(PlainText::nodes($title))];
+        }
+        if ($this->o->roundtrip && is_string($node->f['groupLabel'] ?? null)) {
+            $structural[] = ['data-carve-label', $node->f['groupLabel']];
+        }
+        $syntax = $node->f['syntax'] ?? null;
+        $class = is_string($syntax) && $syntax !== '' ? ' class="' . Escape::attr('language-' . $syntax) . '"' : '';
+
+        return '<pre' . $this->attrs($node, [], [], $structural) . '><code' . $class . '>' . Escape::text(PlainText::str($node->f['value'] ?? '')) . '</code></pre>';
+    }
+
+    /**
+     * C2-H-050, C2-H-053, C2-H-054, C2-H-134.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string|null
+     */
+    private function rawBlock(Node $node, int $depth): ?string
+    {
+        $format = PlainText::str($node->f['format'] ?? '');
+        $value = PlainText::str($node->f['value'] ?? '');
+        if ($format !== 'html') {
+            $this->log->loss('raw-format-dropped', 'warning', 'raw ' . $format . ' dropped');
+
+            return null;
+        }
+        if ($this->o->rawHtml) {
+            return str_ends_with($value, "\n") ? substr($value, 0, -1) : $value;
+        }
+        $this->log->escapedRaw = true;
+
+        return self::pad($depth) . '<pre' . $this->attrs($node) . '><code class="language-html">' . Escape::text($value) . '</code></pre>';
+    }
+
+    /**
+     * C2-H-006, C2-H-041.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function quote(Node $node, int $depth): string
+    {
+        $open = '<blockquote' . $this->attrs($node) . '>';
+        $visible = self::visibleOf($node->children ?? []);
+        if (count($visible) === 1 && $visible[0]->type === 'paragraph' && $this->allowed($visible[0], $depth + 1)) {
+            $p = $this->paragraph($visible[0], 0, false);
+            if ($p !== null) {
+                return self::pad($depth) . $open . $p . '</blockquote>';
+            }
+        }
+
+        return $this->container($open, '</blockquote>', $this->blocks($node->children ?? [], $depth + 1), $depth);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return bool
+     */
+    private function allowed(Node $node, int $depth): bool
+    {
+        return $this->profile === null || $this->profile->allowsBlock($node, $depth);
+    }
+
+    /**
+     * C2-H-029 to C2-H-037.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function list(Node $node, int $depth): string
+    {
+        $marker = is_array($node->f['marker'] ?? null) ? $node->f['marker'] : [];
+        $ordered = ($marker['kind'] ?? 'bullet') === 'ordered';
+        $tight = ($node->f['spacing'] ?? 'tight') !== 'loose';
+        $structural = [];
+        if ($ordered) {
+            $type = Tables::ORDERED_HTML_TYPE[PlainText::str($marker['style'] ?? '1')] ?? null;
+            if ($type !== null) {
+                $structural[] = ['type', $type];
+            }
+            $start = $marker['start'] ?? 1;
+            if (is_int($start) && $start !== 1) {
+                $structural[] = ['start', (string)$start];
+            }
+            $delim = Tables::ORDERED_DATA_DELIM[PlainText::str($marker['delimiter'] ?? '.')] ?? null;
+            if ($delim !== null) {
+                $structural[] = ['data-delim', $delim];
+            }
+        }
+        if ($this->o->roundtrip) {
+            $char = $marker['char'] ?? '-';
+            if (!$ordered && is_string($char) && $char !== '-') {
+                $structural[] = ['data-marker', $char];
+            }
+            if ($tight) {
+                $structural[] = ['data-carve-tight', null];
+            }
+        }
+        $task = false;
+        foreach ($node->children ?? [] as $item) {
+            $task = $task || is_array($item->f['task'] ?? null);
+        }
+        $items = [];
+        foreach ($node->children ?? [] as $item) {
+            if ($item->type !== 'list_item') {
+                continue;
+            }
+            if (!$this->allowed($item, $depth + 1)) {
+                $items[] = (string)$this->block($item, $depth + 1);
+
+                continue;
+            }
+            $items[] = $this->item($item, $depth + 1, $tight, $ordered);
+        }
+        $tag = $ordered ? 'ol' : 'ul';
+
+        return $this->container('<' . $tag . $this->attrs($node, $task ? ['task-list'] : [], [], $structural) . '>', '</' . $tag . '>', $items, $depth);
+    }
+
+    /**
+     * C2-H-007, C2-H-032 to C2-H-035, C2-H-174.
+     *
+     * @param \MarkupCarve\Carve2\Node $item
+     * @param int $depth
+     * @param bool $tight
+     * @param bool $ordered
+     *
+     * @return string
+     */
+    private function item(Node $item, int $depth, bool $tight, bool $ordered): string
+    {
+        $task = is_array($item->f['task'] ?? null) ? $item->f['task'] : null;
+        $box = '';
+        $structural = [];
+        $base = [];
+        $style = [];
+        if ($task !== null) {
+            $mark = PlainText::str($task['mark'] ?? ' ');
+            $state = Tables::TASK_STATE_ATTRIBUTE[$mark] ?? null;
+            if ($state !== null) {
+                $structural[] = ['data-task-state', $state];
+            }
+            $base = ['task'];
+            if (!$ordered) {
+                $style = ['decl' => 'list-style: none', 'first' => false];
+            }
+            $label = [];
+            foreach ($item->children ?? [] as $child) {
+                if ($child->type === 'paragraph' || $child->type === 'heading') {
+                    $label[] = PlainText::of($child->children ?? []);
+                }
+            }
+            $text = implode(' ', $label);
+            $box = '<input type="checkbox"' . ((Tables::TASK_CHECKED[$mark] ?? false) ? ' checked' : '') . ' disabled'
+                . ($text !== '' ? ' aria-label="' . Escape::attr($text) . '"' : '') . '> ';
+        }
+        $open = self::pad($depth) . '<li' . $this->attrs($item, $base, [], $structural, [], $style) . '>' . $box;
+        $visible = self::visibleOf($item->children ?? []);
+        if ($visible === []) {
+            return rtrim($open, ' ') . '</li>';
+        }
+        $rest = $visible;
+        $first = '';
+        if ($visible[0]->type === 'paragraph' && $this->allowed($visible[0], $depth + 1)) {
+            $first = (string)$this->paragraph($visible[0], 0, $tight);
+            array_shift($rest);
+            if ($rest === []) {
+                return $open . $first . '</li>';
+            }
+        }
+        $lines = [];
+        foreach ($rest as $child) {
+            $html = $child->type === 'paragraph' && $this->allowed($child, $depth + 1) ? $this->paragraph($child, $depth + 1, false) : $this->block($child, $depth + 1);
+            if ($html !== null) {
+                $lines[] = $html;
+            }
+        }
+
+        return ($first === '' ? rtrim($open, ' ') : $open . $first) . "\n" . implode("\n", $lines) . "\n" . self::pad($depth) . '</li>';
+    }
+
+    /**
+     * C2-H-038 to C2-H-040.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function descriptionList(Node $node, int $depth): string
+    {
+        $lines = [];
+        $pad = self::pad($depth + 1);
+        foreach ($node->children ?? [] as $child) {
+            if ($child->type === 'definition_term') {
+                $lines[] = $pad . '<dt' . $this->attrs($child) . '>' . $this->inline->leaf($child->children ?? [], $depth + 2) . '</dt>';
+            } elseif ($child->type === 'definition_description') {
+                $lines[] = $this->description($child, $depth + 1);
+            }
+        }
+
+        return $this->container('<dl' . $this->attrs($node) . '>', '</dl>', $lines, $depth);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function description(Node $node, int $depth): string
+    {
+        $open = '<dd' . $this->attrs($node) . '>';
+        $visible = self::visibleOf($node->children ?? []);
+        if ($visible === []) {
+            return self::pad($depth) . $open . '</dd>';
+        }
+        if (count($visible) === 1 && $visible[0]->type === 'paragraph' && $this->allowed($visible[0], $depth + 1)) {
+            return self::pad($depth) . $open . $this->paragraph($visible[0], 0, true) . '</dd>';
+        }
+
+        return $this->container($open, '</dd>', $this->blocks($node->children ?? [], $depth + 1), $depth);
+    }
+
+    /**
+     * Title and label paragraphs of a div, an admonition and a directive (C2-H-042, C2-H-154).
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     * @param string|null $titleId
+     *
+     * @return array<string>
+     */
+    public function titleAndLabel(Node $node, int $depth, ?string $titleId): array
+    {
+        $out = [];
+        $title = $node->f['title'] ?? null;
+        if (is_array($title)) {
+            $id = $titleId !== null ? ' id="' . Escape::attr($titleId) . '"' : '';
+            $out[] = self::pad($depth) . '<p class="admonition-title"' . $id . '>' . $this->inline->leaf(PlainText::nodes($title), $depth + 1) . '</p>';
+        }
+        $label = $node->f['groupLabel'] ?? null;
+        if (is_string($label)) {
+            $out[] = self::pad($depth) . '<p class="div-label">' . Escape::text($label) . '</p>';
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function div(Node $node, int $depth): string
+    {
+        $structural = [];
+        if ($this->o->roundtrip && !isset($node->f['attrs']) && !isset($node->f['lang'])) {
+            $structural[] = ['data-carve-div', null];
+        }
+        $children = array_merge($this->titleAndLabel($node, $depth + 1, null), $this->blocks($node->children ?? [], $depth + 1));
+
+        return $this->container('<div' . $this->attrs($node, [], [], $structural, [], ['align' => true]) . '>', '</div>', $children, $depth);
+    }
+
+    /**
+     * C2-H-154 to C2-H-156.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function admonition(Node $node, int $depth): string
+    {
+        $kind = PlainText::str($node->f['kind'] ?? '');
+        $titleId = $this->state->admonitionIds[spl_object_id($node)] ?? null;
+        $generated = [];
+        if (!RenderState::namedByAuthor($node)) {
+            $generated[] = $titleId !== null ? ['aria-labelledby', $titleId] : ['aria-label', $this->o->label('admonition' . ucfirst($kind))];
+        }
+        $children = array_merge($this->titleAndLabel($node, $depth + 1, $titleId), $this->blocks($node->children ?? [], $depth + 1));
+
+        return $this->container('<aside' . $this->attrs($node, ['admonition', $kind], [], [], $generated) . '>', '</aside>', $children, $depth);
+    }
+
+    /**
+     * C2-H-158: a directive that places nothing is a div of its kind.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function directive(Node $node, int $depth): string
+    {
+        $kind = PlainText::str($node->f['kind'] ?? '');
+        $children = array_merge($this->titleAndLabel($node, $depth + 1, null), $this->blocks($node->children ?? [], $depth + 1));
+
+        return $this->container('<div' . $this->attrs($node, [$kind]) . '>', '</div>', $children, $depth);
+    }
+
+    /**
+     * C2-H-043, C2-H-136.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function lineBlock(Node $node, int $depth): string
+    {
+        $stanzas = [];
+        $lines = [];
+        foreach ($node->children ?? [] as $line) {
+            if ($line->type !== 'line') {
+                continue;
+            }
+            if ($line->children === null || $line->children === []) {
+                if ($lines !== []) {
+                    $stanzas[] = $lines;
+                }
+                $lines = [];
+
+                continue;
+            }
+            $lines[] = $this->lineHtml($line, $depth);
+        }
+        if ($lines !== []) {
+            $stanzas[] = $lines;
+        }
+        $children = [];
+        foreach ($stanzas as $stanza) {
+            $children[] = self::pad($depth + 1) . '<p>' . implode("<br>\n", $stanza) . '</p>';
+        }
+        $structural = $this->o->roundtrip ? [['data-carve-line-block', null]] : [];
+
+        return $this->container('<div' . $this->attrs($node, [], ['line-block'], $structural) . '>', '</div>', $children, $depth);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $line
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function lineHtml(Node $line, int $depth): string
+    {
+        $html = $this->inline->inlines($line->children ?? [], $depth + 2);
+        $spaces = strspn($html, ' ');
+
+        return str_repeat('&nbsp;', $spaces) . substr($html, $spaces);
+    }
+
+    /**
+     * C2-H-062 to C2-H-065.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     * @param bool $panel
+     *
+     * @return string
+     */
+    private function figure(Node $node, int $depth, bool $panel): string
+    {
+        $children = $this->blocks($node->children ?? [], $depth + 1);
+        $caption = $node->f['caption'] ?? null;
+        if ($caption instanceof Node) {
+            $children[] = $this->caption('figcaption', $caption, $depth + 1);
+        }
+
+        return $this->container('<figure' . $this->attrs($node, $panel ? ['carve-figure-panel'] : []) . '>', '</figure>', $children, $depth);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function figureGroup(Node $node, int $depth): string
+    {
+        $children = [];
+        foreach ($node->children ?? [] as $child) {
+            $html = match ($child->type) {
+                'figure' => $this->allowed($child, $depth + 1) ? $this->figure($child, $depth + 1, true) : $this->block($child, $depth + 1),
+                // D-render-1: C2-H-064 makes every panel a panel figure; the oracle writes a table panel bare.
+                'table' => $this->allowed($child, $depth + 1) ? $this->container('<figure class="carve-figure-panel">', '</figure>', [$this->tables->table($child, $depth + 2)], $depth + 1) : $this->block($child, $depth + 1),
+                default => $this->block($child, $depth + 1),
+            };
+            if ($html !== null) {
+                $children[] = $html;
+            }
+        }
+        $caption = $node->f['caption'] ?? null;
+        if ($caption instanceof Node) {
+            $children[] = $this->caption('figcaption', $caption, $depth + 1);
+        }
+
+        return $this->container('<figure' . $this->attrs($node, ['carve-figure-group']) . '>', '</figure>', $children, $depth);
+    }
+
+    /**
+     * C2-H-065: one paragraph is written bare, several blocks each get their element.
+     *
+     * @param string $tag `figcaption` or `caption`.
+     * @param \MarkupCarve\Carve2\Node $caption
+     * @param int $depth
+     *
+     * @return string
+     */
+    public function caption(string $tag, Node $caption, int $depth): string
+    {
+        $open = '<' . $tag . $this->attrs($caption, block: false) . '>';
+        $visible = self::visibleOf($caption->children ?? []);
+        if (count($visible) === 1 && $visible[0]->type === 'paragraph') {
+            return self::pad($depth) . $open . $this->inline->leaf($visible[0]->children ?? [], $depth + 1) . '</' . $tag . '>';
+        }
+        $blocks = [];
+        foreach ($visible as $block) {
+            $blocks[] = (string)($block->type === 'paragraph' ? $this->paragraph($block, $depth + 1, false) : $this->block($block, $depth + 1));
+        }
+
+        return $this->container($open, '</' . $tag . '>', $blocks, $depth);
+    }
+
+    /**
+     * C2-H-133, C2-H-171: the directive as text.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return string
+     */
+    public static function includeText(Node $node): string
+    {
+        $parts = ['{{', self::includeValue(PlainText::str($node->f['path'] ?? ''), false)];
+        $section = $node->f['section'] ?? null;
+        if (is_string($section)) {
+            $parts[] = '#' . $section;
+        }
+        $options = is_array($node->f['options'] ?? null) ? $node->f['options'] : [];
+        foreach (Tables::INCLUDE_OPTIONS as $spec) {
+            $name = (string)$spec['name'];
+            if (!array_key_exists($name, $options)) {
+                continue;
+            }
+            $value = $options[$name];
+            if ($value === true) {
+                $parts[] = '@' . $name;
+            } elseif (is_array($value)) {
+                $parts[] = '@' . $name . ':' . implode(',', array_map([PlainText::class, 'str'], $value));
+            } else {
+                $parts[] = '@' . $name . ':' . self::includeValue(PlainText::str($value), $name === 'cols');
+            }
+        }
+        $parts[] = '}}';
+
+        return implode(' ', $parts);
+    }
+
+    /**
+     * @param string $value
+     * @param bool $stored A `cols` value that kept its quotes is written as stored.
+     *
+     * @return string
+     */
+    private static function includeValue(string $value, bool $stored): string
+    {
+        if ($stored && strlen($value) >= 2 && $value[0] === '"' && str_ends_with($value, '"')) {
+            return $value;
+        }
+        if ($value === '' || strpbrk($value, " \t@}") !== false || $value[0] === '"' || $value[0] === "'") {
+            return '"' . $value . '"';
+        }
+
+        return $value;
+    }
+
+    /**
+     * C2-H-076, C2-A-127: a block extension renders through its fallback.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     *
+     * @return string|null
+     */
+    private function blockExtension(Node $node, int $depth): ?string
+    {
+        $this->log->loss('extension-fallback-rendered', 'warning', 'extension ' . PlainText::str($node->f['name'] ?? '') . ' rendered through its fallback');
+        $fallback = PlainText::nodes($node->f['fallback'] ?? []);
+        $blocks = $this->blocks($fallback, $depth);
+
+        return $blocks === [] ? null : implode("\n", $blocks);
     }
 }

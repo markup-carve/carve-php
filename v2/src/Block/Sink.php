@@ -37,4 +37,16 @@ interface Sink
      * @return void
      */
     public function exit(Frame $frame): void;
+
+    /**
+     * A caption closed (C2-B-146, C2-B-147): it attaches to `$target`, the block of `$parent` that
+     * closed directly above it, together with the comments that followed that block (C2-A-082).
+     *
+     * @param \MarkupCarve\Carve2\Block\Frame $caption
+     * @param \MarkupCarve\Carve2\Block\Frame $parent
+     * @param \MarkupCarve\Carve2\Block\Frame $target
+     *
+     * @return void
+     */
+    public function caption(Frame $caption, Frame $parent, Frame $target): void;
 }

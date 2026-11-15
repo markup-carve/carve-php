@@ -44,6 +44,14 @@ final class ArrayEventSink implements Sink
         }
     }
 
+    /**
+     * @inheritDoc
+     */
+    public function caption(Frame $caption, Frame $parent, Frame $target): void
+    {
+        // The bench shapes measure event volume; the figure wrap is not replayed.
+    }
+
     public function exit(Frame $frame): void
     {
         $this->events[] = [4, $frame->end, 0];
@@ -59,7 +67,7 @@ final class ArrayEventSink implements Sink
             [$kind, , $third] = $events[$k];
             if ($kind === 1) {
                 $frame = $this->payload[$third];
-                $node = NodeFactory::make($frame, [], $s);
+                $node = NodeFactory::make($frame, $s);
                 if ($stack !== []) {
                     $stack[count($stack) - 1][0]->children[] = $node;
                 } else {
@@ -79,7 +87,7 @@ final class ArrayEventSink implements Sink
                     $spans[] = $events[$k][1];
                     $spans[] = $events[$k][2];
                 }
-                $stack[count($stack) - 1][0]->children[] = NodeFactory::make($frame, $spans, $s);
+                $stack[count($stack) - 1][0]->children[] = NodeFactory::make($frame, $s);
             } else {
                 [$node, $frame] = array_pop($stack);
                 NodeFactory::finish($node, $frame);
@@ -124,6 +132,14 @@ final class ObjectEventSink implements Sink
         }
     }
 
+    /**
+     * @inheritDoc
+     */
+    public function caption(Frame $caption, Frame $parent, Frame $target): void
+    {
+        // The bench shapes measure event volume; the figure wrap is not replayed.
+    }
+
     public function exit(Frame $frame): void
     {
         $this->events[] = new Event(4, $frame->end, 0);
@@ -139,7 +155,7 @@ final class ObjectEventSink implements Sink
             $e = $events[$k];
             if ($e->kind === 1) {
                 assert($e->frame !== null);
-                $node = NodeFactory::make($e->frame, [], $s);
+                $node = NodeFactory::make($e->frame, $s);
                 if ($stack !== []) {
                     $stack[count($stack) - 1][0]->children[] = $node;
                 } else {
@@ -159,7 +175,7 @@ final class ObjectEventSink implements Sink
                     $spans[] = $events[$k]->start;
                     $spans[] = $events[$k]->end;
                 }
-                $stack[count($stack) - 1][0]->children[] = NodeFactory::make($e->frame, $spans, $s);
+                $stack[count($stack) - 1][0]->children[] = NodeFactory::make($e->frame, $s);
             } else {
                 [$node, $frame] = array_pop($stack);
                 NodeFactory::finish($node, $frame);

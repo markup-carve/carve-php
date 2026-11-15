@@ -62,6 +62,14 @@ final class EventSink implements Sink
     /**
      * @inheritDoc
      */
+    public function caption(Frame $caption, Frame $parent, Frame $target): void
+    {
+        // The bench shapes measure event volume; the figure wrap is not replayed.
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function exit(Frame $frame): void
     {
         array_push($this->events, self::EXIT, $frame->end, 0);

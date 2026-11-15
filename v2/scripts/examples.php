@@ -33,9 +33,13 @@ function sortKeys(mixed $v): mixed
     return array_map('sortKeys', $v);
 }
 
-function optionsOf(array $flags): array
+function optionsOf(array $flags, array $ex): array
 {
     $o = [];
+    // G-lead-1: html.md example 23 shows roundtrip carriers, but examples.json carries no flag for it.
+    if ($ex['file'] === 'html.md' && $ex['number'] === 23) {
+        $o['roundtrip'] = true;
+    }
     foreach ($flags as $f) {
         if ($f === 'lowercaseHeadingIds') {
             $o['headingIds'] = 'lower';
@@ -61,10 +65,10 @@ foreach ($examples as $i => $ex) {
         continue;
     }
     $total++;
-    $options = optionsOf($ex['flags']);
+    $options = optionsOf($ex['flags'], $ex);
     try {
         $doc = Carve2::parse($ex['input'], $options);
-        $out = \MarkupCarve\Carve2\Html\HtmlRenderer::render($doc, \MarkupCarve\Carve2\Options::from($options));
+        $out = \MarkupCarve\Carve2\Html\HtmlRenderer::render($doc, \MarkupCarve\Carve2\Options::from($options), $ex['input']);
         $json = (new TreeEncoder())->encode($doc, $ex['input']);
     } catch (Throwable $e) {
         $out = 'EXCEPTION ' . $e::class . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine();

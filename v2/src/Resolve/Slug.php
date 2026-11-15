@@ -1,0 +1,94 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve2\Resolve;
+
+use MarkupCarve\Carve2\Generated\Tables;
+use Normalizer;
+
+/**
+ * Heading slugs (C2-H-143 to C2-H-148).
+ */
+final class Slug
+{
+    /**
+     * @param string $plain The plain text of the heading (C2-H-143).
+     * @param string $policy `keep-case`, `lower` or `ascii` (C2-H-131).
+     *
+     * @return string
+     */
+    public static function of(string $plain, string $policy): string
+    {
+        // C2-H-144: NFC first, then the removed characters.
+        $text = Normalizer::normalize($plain, Normalizer::FORM_C);
+        $text = is_string($text) ? $text : $plain;
+        $text = str_replace(Tables::SLUG_REMOVED, '', $text);
+        // C2-H-145
+        $text = strtr($text, Tables::SLUG_REVERSED);
+        $slug = self::hyphenate($text);
+        if ($policy === 'ascii') {
+            $slug = self::lower(self::hyphenate(self::ascii($slug)));
+        } elseif ($policy === 'lower') {
+            $slug = self::lower($slug);
+        }
+        // C2-H-148
+        if ($slug === '') {
+            return 's';
+        }
+
+        return preg_match('/^\p{N}/u', $slug) === 1 ? 's-' . $slug : $slug;
+    }
+
+    /**
+     * C2-H-146: every byte at or above 0x80 belongs to a character at or above U+0080, so the run test
+     * is bytewise and linear.
+     *
+     * @param string $text
+     *
+     * @return string
+     */
+    private static function hyphenate(string $text): string
+    {
+        return trim((string)preg_replace('/[^A-Za-z0-9\x80-\xff]+/', '-', $text), '-');
+    }
+
+    /**
+     * C2-H-147: each character lowered on its own, with no context.
+     *
+     * @param string $text
+     *
+     * @return string
+     */
+    private static function lower(string $text): string
+    {
+        if (preg_match('/[\x80-\xff]/', $text) !== 1) {
+            return strtolower($text);
+        }
+        $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY);
+        if ($chars === false) {
+            return strtolower($text);
+        }
+        $out = '';
+        foreach ($chars as $ch) {
+            $out .= mb_strtolower($ch, 'UTF-8');
+        }
+
+        return $out;
+    }
+
+    /**
+     * C2-H-147: the transliteration belongs to the host. This one decomposes (NFD) and drops every
+     * character outside ASCII, which is what the reference engine does, so the ids agree.
+     *
+     * @param string $text
+     *
+     * @return string
+     */
+    private static function ascii(string $text): string
+    {
+        $nfd = Normalizer::normalize($text, Normalizer::FORM_D);
+
+        return (string)preg_replace('/[\x80-\xff]+/', '', is_string($nfd) ? $nfd : $text);
+    }
+}

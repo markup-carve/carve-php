@@ -11,74 +11,206 @@ use MarkupCarve\Carve2\Attrs;
  */
 final class Frame
 {
+    /**
+     * @var int
+     */
     public const DOCUMENT = 0;
+
+    /**
+     * @var int
+     */
     public const QUOTE = 1;
+
+    /**
+     * @var int
+     */
     public const LIST = 2;
+
+    /**
+     * @var int
+     */
     public const ITEM = 3;
+
+    /**
+     * @var int
+     */
     public const DLIST = 4;
+
+    /**
+     * @var int
+     */
     public const DESC = 5;
+
+    /**
+     * @var int
+     */
     public const FOOTNOTE = 6;
+
+    /**
+     * @var int
+     */
     public const DIV = 7;
+
+    /**
+     * @var int
+     */
     public const PARAGRAPH = 10;
+
+    /**
+     * @var int
+     */
     public const HEADING = 11;
+
+    /**
+     * @var int
+     */
     public const CODE = 12;
+
+    /**
+     * @var int
+     */
     public const TABLE = 13;
+
+    /**
+     * @var int
+     */
     public const TERM = 14;
+
+    /**
+     * @var int
+     */
     public const CAPTION = 15;
+
+    /**
+     * @var int
+     */
     public const COMMENT_BLOCK = 16;
+
+    /**
+     * @var int
+     */
     public const LINE_BLOCK = 17;
+
+    /**
+     * @var int
+     */
     public const FRONTMATTER = 18;
+
+    /**
+     * @var int
+     */
     public const THEMATIC = 19;
+
+    /**
+     * @var int
+     */
     public const LINK_DEF = 20;
+
+    /**
+     * @var int
+     */
     public const ABBR_DEF = 21;
+
+    /**
+     * @var int
+     */
     public const INCLUDE = 22;
+
+    /**
+     * @var int
+     */
     public const COMMENT_LINE = 23;
+
+    /**
+     * @var int
+     */
     public const ATTR_PARAGRAPH = 24;
 
-    /** Relative column of the marker (item, description, footnote, heading) or of the list. */
     public int $markerCol = 0;
 
-    /** Relative column of the first content character on the marker line. */
     public int $contentCol = 0;
 
     public int $end = -1;
 
     /**
-     * Line spans of a text leaf, or rows of a table: flat start/end byte offsets.
+     * Line spans of a text leaf or an opaque body: flat start/end byte offsets.
      *
      * @var array<int>
      */
     public array $spans = [];
 
-    /** List kind key: bullet char, or style and delimiter. */
     public string $key = '';
 
     public bool $loose = false;
 
     public int $items = 0;
 
-    /** Fence: character and run length; heading: level. */
-    public string $fenceChar = '';
-
     public int $level = 0;
 
-    /** Fence: indent of the opener, stripped from the body (C2-B-029). */
     public int $indent = 0;
 
     public ?Attrs $attrs = null;
 
+    public ?Marker $marker = null;
+
+    public ?string $task = null;
+
+    public string $node = '';
+
+    public string $divKind = '';
+
+    public string $nameClass = '';
+
+    public string $sigilClass = '';
+
     /**
-     * Opener payload: marker, task, info string parts, table rows and so on.
+     * The quoted title of a fence or div: start and end offsets of its text.
+     *
+     * @var array{0: int, 1: int}|null
+     */
+    public ?array $title = null;
+
+    public ?string $label = null;
+
+    public string $syntax = '';
+
+    public ?string $raw = null;
+
+    public string $delimited = '';
+
+    public bool $closed = false;
+
+    public ?string $role = null;
+
+    public int $own = -1;
+
+    public ?Frame $target = null;
+
+    public string $value = '';
+
+    public string $href = '';
+
+    public ?string $tooltip = null;
+
+    /**
+     * Include directive fields (C2-A-181).
      *
      * @var array<string, mixed>
      */
-    public array $data = [];
+    public array $include = [];
 
-    /** Sink handle: a node in the tree shape, an event index in the event shape. */
+    /**
+     * Rows and comments of a pipe table.
+     *
+     * @var array<\MarkupCarve\Carve2\Block\TableItem>
+     */
+    public array $rows = [];
+
+    public int $n = 0;
+
+    public int $depth = 0;
+
     public mixed $handle = null;
-
-    /** Trailing blank lines held back at the end of an opaque body (C2-B-113). */
-    public int $heldBlank = 0;
 
     /**
      * @param int $kind

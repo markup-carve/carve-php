@@ -1,0 +1,584 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve2\Inline;
+
+use MarkupCarve\Carve2\Attrs;
+use MarkupCarve\Carve2\Generated\Tables;
+use MarkupCarve\Carve2\Node;
+
+/**
+ * The last step of the scan, attachment (C2-I-009, C2-I-036), then smart typography (C2-I-104 to
+ * C2-I-117) and abbreviations (C2-I-098 to C2-I-100) on the text the scan left, and the joining of
+ * adjacent text (C2-A-040).
+ */
+final class Finisher
+{
+    private const START = -1;
+
+    /**
+     * @var int
+     */
+    private const NODE_END = 0x61;
+
+    private string $t;
+
+    private bool $singleOpen = false;
+
+    /**
+     * Last visible character in document order, for the word test of abbreviations (C2-I-099).
+     */
+    private int $visible = -1;
+
+    /**
+     * End offset and kind of the last smart punctuation node of the current text run.
+     */
+    private int $smartEnd = -2;
+
+    private string $smartKind = '';
+
+    private int $lastSmartEnd = -2;
+
+    private bool $captionSeen = false;
+
+    /**
+     * @param \MarkupCarve\Carve2\Inline\Scanner $sc
+     * @param \MarkupCarve\Carve2\Inline\InlineContext $ctx
+     */
+    public function __construct(private Scanner $sc, private InlineContext $ctx)
+    {
+        $this->t = $sc->t;
+    }
+
+    /**
+     * @param array<int, array<mixed>> $items
+     * @param int $after Visible character after the list (-1 for none).
+     * @param bool $top The list of the content itself, not of a node in it.
+     *
+     * @return array<\MarkupCarve\Carve2\Node>
+     */
+    public function build(array $items, int $after = -1, bool $top = false): array
+    {
+        $items = $this->attach($items, $top);
+        $out = [];
+        $prev = self::START;
+        $count = count($items);
+        $k = 0;
+        while ($k < $count) {
+            $item = $items[$k];
+            if ($item[0] === Scanner::TEXT) {
+                $run = [];
+                while ($k < $count && $items[$k][0] === Scanner::TEXT) {
+                    $run[] = $items[$k];
+                    $k++;
+                }
+                $next = $this->ctx->abbreviations === [] ? -1 : $this->firstVisible($items, $k, $after);
+                $this->textRun($run, $prev, $next, $out);
+                $last = $run[count($run) - 1];
+                assert(is_int($last[3]));
+                $prev = $this->context($last[3], Chars::before($this->t, $last[3]));
+
+                continue;
+            }
+            $node = $item[1];
+            assert($node instanceof Node);
+            $prev = $this->nodeItem($item, $node, $prev, $items, $k + 1, $after);
+            $out[] = $node;
+            $k++;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<mixed> $item
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $prev
+     * @param array<int, array<mixed>> $items
+     * @param int $k
+     * @param int $after
+     *
+     * @return int The context for the next quote.
+     */
+    private function nodeItem(array $item, Node $node, int $prev, array $items, int $k, int $after): int
+    {
+        if ($item[5] instanceof TokenList) {
+            $inner = $this->ctx->abbreviations === [] ? -1 : $this->firstVisible($items, $k, $after);
+            if ($node->type === 'inline_footnote') {
+                // C2-I-109: an inline footnote has its own quote state.
+                $saved = $this->singleOpen;
+                $this->singleOpen = false;
+                $node->children = $this->build($item[5]->list, $inner);
+                $this->singleOpen = $saved;
+            } else {
+                $node->children = $this->build($item[5]->list, $inner);
+            }
+
+            return self::NODE_END;
+        }
+        $type = $node->type;
+        if ($type === 'comment' && ($node->f['form'] ?? '') === 'braced') {
+            // C2-I-026: a braced comment counts as nothing for its neighbors.
+            return $prev;
+        }
+        $this->visible = -1;
+
+        return match ($type) {
+            'soft_break', 'hard_break', 'comment' => 0x20,
+            'non_breaking_space' => 0xA0,
+            default => self::NODE_END,
+        };
+    }
+
+    /**
+     * C2-I-036, C2-I-039: an attribute block glued to the end of a formed host attaches; otherwise it is
+     * text as written (C2-I-035).
+     *
+     * @param array<int, array<mixed>> $items
+     * @param bool $top
+     *
+     * @return array<int, array<mixed>>
+     */
+    private function attach(array $items, bool $top): array
+    {
+        $out = [];
+        foreach ($items as $item) {
+            if ($item[0] === Scanner::NODE && $item[1] instanceof Node && $item[1]->type === 'caption_number') {
+                // caption-number.json: only the first bare mark of the top-level text counts.
+                if (!$top || $this->captionSeen) {
+                    $item = [Scanner::TEXT, '#', $item[2], $item[3], false];
+                }
+                $this->captionSeen = true;
+            }
+            if ($item[0] !== Scanner::ATTR) {
+                $out[] = $item;
+
+                continue;
+            }
+            $attrs = $item[1];
+            assert($attrs instanceof Attrs && is_int($item[2]) && is_int($item[3]));
+            $last = count($out) - 1;
+            if ($last >= 0 && $out[$last][0] === Scanner::NODE && $out[$last][4] === true && $out[$last][3] === $item[2]) {
+                $host = $out[$last][1];
+                assert($host instanceof Node);
+                $attrs->applyTo($host);
+                $host->end = $this->sc->c->src($item[3]);
+                $out[$last][3] = $item[3];
+
+                continue;
+            }
+            $out[] = [Scanner::TEXT, substr($this->t, $item[2], $item[3] - $item[2]), $item[2], $item[3], true];
+        }
+
+        return $out;
+    }
+
+    /**
+     * The first visible character from item `$k` on, descending into nodes with content.
+     *
+     * @param array<int, array<mixed>> $items
+     * @param int $k
+     * @param int $after
+     *
+     * @return int
+     */
+    private function firstVisible(array $items, int $k, int $after): int
+    {
+        while (true) {
+            if ($k >= count($items)) {
+                return $after;
+            }
+            $item = $items[$k];
+            if ($item[0] === Scanner::TEXT || $item[0] === Scanner::ATTR) {
+                assert(is_int($item[2]));
+
+                return Chars::at($this->t, $item[2]);
+            }
+            if (!$item[5] instanceof TokenList) {
+                return -1;
+            }
+            if ($item[5]->list === []) {
+                $k++;
+
+                continue;
+            }
+            $after = $this->firstVisible($items, $k + 1, $after);
+            $items = $item[5]->list;
+            $k = 0;
+        }
+    }
+
+    /**
+     * @param array<int, array<mixed>> $run
+     * @param int $prev
+     * @param int $next
+     * @param array<\MarkupCarve\Carve2\Node> $out
+     *
+     * @return void
+     */
+    private function textRun(array $run, int $prev, int $next, array &$out): void
+    {
+        $pieces = [];
+        $first = $run[0][2];
+        assert(is_int($first));
+        $this->smartEnd = -2;
+        $count = count($run);
+        $k = 0;
+        while ($k < $count) {
+            [, $value, $ts, $te, $lit] = $run[$k];
+            assert(is_string($value) && is_int($ts) && is_int($te));
+            $k++;
+            if ($lit === true || $te - $ts !== strlen($value)) {
+                $pieces[] = [$value, $ts, $te];
+                $this->visible = $value === '' ? $this->visible : Chars::before($value, strlen($value));
+
+                continue;
+            }
+            // Failed openers and closers are text like any other: runs read across them (C2-I-060).
+            while ($k < $count && $this->joins($run[$k], $te)) {
+                $te = $run[$k][3];
+                assert(is_int($te));
+                $k++;
+            }
+            $this->segment($ts, $te, $first, $prev, $next, $pieces);
+        }
+        $this->emitPieces($pieces, $out);
+    }
+
+    /**
+     * A text item that reads on from `$te` as written.
+     *
+     * @param array<mixed> $item
+     * @param int $te
+     *
+     * @return bool
+     */
+    private function joins(array $item, int $te): bool
+    {
+        return $item[4] !== true && $item[2] === $te && is_string($item[1]) && is_int($item[3]) && $item[3] - $te === strlen($item[1]);
+    }
+
+    /**
+     * @param int $ts
+     * @param int $te
+     * @param int $first
+     * @param int $prev
+     * @param int $next
+     * @param array<int, array<mixed>|\MarkupCarve\Carve2\Node> $pieces
+     *
+     * @return void
+     */
+    private function segment(int $ts, int $te, int $first, int $prev, int $next, array &$pieces): void
+    {
+        $t = $this->t;
+        $abbr = $this->ctx->abbreviations !== [];
+        $set = $abbr ? "\"'-.<>=!+(ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789" : "\"'-.<>=!+(";
+        $j = $ts;
+        $plain = $ts;
+        while ($j < $te) {
+            $j += strcspn($t, $set, $j, $te - $j);
+            if ($j >= $te) {
+                break;
+            }
+            $c = $t[$j];
+            if (ctype_alnum($c)) {
+                $len = strspn($t, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', $j, $te - $j);
+                $word = substr($t, $j, $len);
+                if (isset($this->ctx->abbreviations[$word]) && $this->wordEdges($j, $len, $te, $first, $next)) {
+                    $this->plain($plain, $j, $pieces);
+                    $node = $this->sc->node('abbreviation', $j, $j + $len);
+                    $node->f['key'] = $word;
+                    $node->f['namespace'] = 'abbr';
+                    $node->f['expansion'] = $this->ctx->abbreviations[$word];
+                    $pieces[] = $node;
+                    $plain = $j + $len;
+                }
+                $j += $len;
+                $this->visible = ord($t[$j - 1]);
+
+                continue;
+            }
+            $matches = $c === '"' || $c === "'" ? [$this->quote($j, $first, $prev)] : $this->run($j, $te, $first);
+            if ($matches === []) {
+                $j++;
+
+                continue;
+            }
+            $this->plain($plain, $j, $pieces);
+            foreach ($matches as [$kind, $len]) {
+                $node = $this->sc->node('smart_punctuation', $j, $j + $len);
+                $node->f['kind'] = $kind;
+                $node->f['glyph'] = Tables::SMART_GLYPHS[$kind] ?? Tables::SMART_RUNS[substr($t, $j, $len)][1] ?? '';
+                $node->f['source'] = substr($t, $j, $len);
+                $pieces[] = $node;
+                $j += $len;
+                $this->smartEnd = $j;
+                $this->lastSmartEnd = $j;
+                $this->smartKind = $kind;
+            }
+            $plain = $j;
+        }
+        $this->plain($plain, $te, $pieces);
+        if ($te > $ts) {
+            $this->visible = Chars::before($t, $te);
+        }
+    }
+
+    /**
+     * @param int $from
+     * @param int $to
+     * @param array<int, array<mixed>|\MarkupCarve\Carve2\Node> $pieces
+     *
+     * @return void
+     */
+    private function plain(int $from, int $to, array &$pieces): void
+    {
+        if ($to > $from) {
+            $pieces[] = [substr($this->t, $from, $to - $from), $from, $to];
+        }
+    }
+
+    /**
+     * C2-I-099: the characters on both sides are absent or no word characters; element edges are no
+     * boundary of their own.
+     *
+     * @param int $j
+     * @param int $len
+     * @param int $te
+     * @param int $first
+     * @param int $next
+     *
+     * @return bool
+     */
+    private function wordEdges(int $j, int $len, int $te, int $first, int $next): bool
+    {
+        $before = $j > $first ? Chars::before($this->t, $j) : $this->visible;
+        $after = $j + $len < $te ? Chars::at($this->t, $j + $len) : $next;
+
+        return !Chars::isWord($before) && !Chars::isWord($after);
+    }
+
+    /**
+     * @param array<int, mixed> $pieces
+     * @param array<\MarkupCarve\Carve2\Node> $out
+     *
+     * @return void
+     */
+    private function emitPieces(array $pieces, array &$out): void
+    {
+        $value = '';
+        $start = -1;
+        $end = -1;
+        foreach ($pieces as $p) {
+            if ($p instanceof Node) {
+                if ($start >= 0) {
+                    $out[] = Node::text($value, $this->sc->c->src($start), $this->sc->c->src($end));
+                    $value = '';
+                    $start = -1;
+                }
+                $out[] = $p;
+
+                continue;
+            }
+            assert(is_array($p) && is_string($p[0]) && is_int($p[1]) && is_int($p[2]));
+            if ($start < 0) {
+                $start = $p[1];
+            }
+            $value .= $p[0];
+            $end = $p[2];
+        }
+        if ($start >= 0) {
+            $out[] = Node::text($value, $this->sc->c->src($start), $this->sc->c->src($end));
+        }
+    }
+
+    /**
+     * C2-I-104: after a dash the quote sees a dash, after another replacement the end of a node.
+     *
+     * @param int $j
+     * @param int $before
+     *
+     * @return int
+     */
+    private function context(int $j, int $before): int
+    {
+        if ($j !== $this->smartEnd) {
+            return $before;
+        }
+
+        return match ($this->smartKind) {
+            'em_dash' => 0x2014,
+            'en_dash' => 0x2013,
+            'left_double_quote', 'left_single_quote', 'right_double_quote', 'right_single_quote' => $before,
+            default => self::NODE_END,
+        };
+    }
+
+    /**
+     * C2-I-104 to C2-I-110.
+     *
+     * @param int $j
+     * @param int $first
+     * @param int $prev
+     *
+     * @return array{0: string, 1: int}
+     */
+    private function quote(int $j, int $first, int $prev): array
+    {
+        $t = $this->t;
+        $before = $j > $first ? Chars::before($t, $j) : $prev;
+        $afterOpen = $j === $this->smartEnd && ($this->smartKind === 'left_double_quote' || $this->smartKind === 'left_single_quote');
+        $before = $this->context($j, $before);
+        $next = $this->sc->nextCp($j + 1);
+        $opens = $before === self::START || Chars::isSpace($before) || $afterOpen
+            || $before === 0x2013 || $before === 0x2014 || $before === 0x201C || $before === 0x2018
+            || ($before < 0x80 && $before >= 0 && (str_contains(Tables::SMART_QUOTE_OPENS_AFTER, chr($before)) || $before === 0x2D));
+        if ($opens && ($before === 0x2D || $before === 0x2F || $before === 0x2013 || $before === 0x2014)) {
+            // C2-I-106
+            if (Chars::isSpace($next) || ($next >= 0 && $next < 0x80 && str_contains(Tables::SMART_QUOTE_CLOSES_BEFORE, chr($next)))) {
+                $opens = false;
+            }
+        }
+        if ($t[$j] === '"') {
+            return [$opens ? 'left_double_quote' : 'right_double_quote', 1];
+        }
+
+        return [$this->single($j, $opens, $before, $next), 1];
+    }
+
+    /**
+     * @param int $j
+     * @param bool $opens
+     * @param int $before
+     * @param int $next
+     *
+     * @return string
+     */
+    private function single(int $j, bool $opens, int $before, int $next): string
+    {
+        $t = $this->t;
+        if ($next >= 0x30 && $next <= 0x39) {
+            // C2-I-105
+            return 'right_single_quote';
+        }
+        if (!$opens) {
+            if ($this->singleOpen && !Chars::isSpace($before) && !(Chars::isWord($before) && Chars::isWord($next))) {
+                $this->singleOpen = false;
+            }
+
+            return 'right_single_quote';
+        }
+        $len = strspn($t, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', $j + 1);
+        if ($len > 0) {
+            $word = strtolower(substr($t, $j + 1, $len));
+            $afterWord = $this->sc->nextCp($j + 1 + $len);
+            if (isset(Tables::SMART_APOSTROPHE_WORDS[$word]) && !Chars::isWord($afterWord)) {
+                // C2-I-107, C2-I-108
+                $quoted = $afterWord === 0x27 && $word !== 'n' && !Chars::isWord($this->sc->nextCp($j + 2 + $len));
+                if (!$quoted) {
+                    return 'right_single_quote';
+                }
+                // G-inline-3: a quoted word opens, also while a run is open.
+                $this->singleOpen = true;
+
+                return 'left_single_quote';
+            }
+        }
+        if ($this->singleOpen && Chars::isWord($next)) {
+            // C2-I-109
+            return 'right_single_quote';
+        }
+        $this->singleOpen = true;
+
+        return 'left_single_quote';
+    }
+
+    /**
+     * C2-I-111 to C2-I-117: the run at `$j`, longest match first.
+     *
+     * @param int $j
+     * @param int $te
+     * @param int $first
+     *
+     * @return array<array{0: string, 1: int}>
+     */
+    private function run(int $j, int $te, int $first): array
+    {
+        $t = $this->t;
+        $c = $t[$j];
+        $rest = $te - $j;
+        if ($c === '-') {
+            $len = strspn($t, '-', $j, $rest);
+            if ($len === 2 && $j + 2 < $te && $t[$j + 2] === '>') {
+                return [['rightwards_arrow', 3]];
+            }
+
+            return $len < 2 ? [] : self::dashes($len);
+        }
+        if ($c === '<') {
+            $len = strspn($t, '-', $j + 1, $rest - 1);
+            if ($len === 2) {
+                return $j + 3 < $te && $t[$j + 3] === '>' ? [['left_right_arrow', 4]] : [['leftwards_arrow', 3]];
+            }
+            foreach (['<==', '<=>', '<='] as $src) {
+                if (substr_compare($t, $src, $j, strlen($src)) === 0 && strlen($src) <= $rest) {
+                    return [[Tables::SMART_RUNS[$src][0], strlen($src)]];
+                }
+            }
+
+            return [];
+        }
+        if ($c === '+') {
+            // C2-I-117: only a neighbor in the same text counts, seen through a braced comment (C2-I-026).
+            $prev = '';
+            if (isset($this->sc->commentStart[$j])) {
+                $pc = $j;
+                while (isset($this->sc->commentStart[$pc])) {
+                    $pc = $this->sc->commentStart[$pc];
+                }
+                $prev = $pc === $this->lastSmartEnd ? '' : chr(max(0, Chars::before($t, $pc)) & 0x7F);
+            } elseif ($j > $first && $j !== $this->smartEnd) {
+                $prev = $t[$j - 1];
+            }
+            // G-inline-3: the oracle reads the next character from the source, a closing mark included.
+            $after = chr(max(0, $this->sc->nextCp($j + 2)) & 0x7F);
+            if ($rest >= 2 && $t[$j + 1] === '-' && $prev !== '+' && $prev !== '-' && $after !== '+' && $after !== '-') {
+                return [['plus_minus', 2]];
+            }
+
+            return [];
+        }
+        foreach (['...', '==>', '!=', '>=', '(tm)'] as $src) {
+            if ($src[0] === $c && strlen($src) <= $rest && substr_compare($t, $src, $j, strlen($src)) === 0) {
+                return [[Tables::SMART_RUNS[$src][0], strlen($src)]];
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * C2-I-111: a hyphen run of `$len` as dashes.
+     *
+     * @param int $len
+     *
+     * @return array<array{0: string, 1: int}>
+     */
+    private static function dashes(int $len): array
+    {
+        $out = [];
+        while ($len > 0) {
+            if ($len % 3 === 0) {
+                return array_merge($out, array_fill(0, intdiv($len, 3), ['em_dash', 3]));
+            }
+            if ($len % 2 === 0) {
+                return array_merge($out, array_fill(0, intdiv($len, 2), ['en_dash', 2]));
+            }
+            $out[] = ['em_dash', 3];
+            $len -= 3;
+        }
+
+        return $out;
+    }
+}

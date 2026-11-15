@@ -49,7 +49,7 @@ final class Carve2
     {
         $opts = Options::from($options);
 
-        return HtmlRenderer::render(self::parse($source, $options), $opts);
+        return HtmlRenderer::render(self::parse($source, $options), $opts, $source);
     }
 
     /**

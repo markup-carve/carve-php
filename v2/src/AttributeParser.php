@@ -245,16 +245,17 @@ final class AttributeParser
      * @param int $pos
      * @param int $limit
      * @param \MarkupCarve\Carve2\Attrs $into
+     * @param bool $allowEmpty C2-I-040: `{}` counts in the run behind a bracket pair.
      *
      * @return int
      */
-    public static function readRun(string $s, int $pos, int $limit, Attrs $into): int
+    public static function readRun(string $s, int $pos, int $limit, Attrs $into, bool $allowEmpty = false): int
     {
         $end = -1;
         while ($pos < $limit && $s[$pos] === '{') {
             $probe = new Attrs();
             $next = self::read($s, $pos, $limit, $probe);
-            if ($next < 0 || self::$lastEmpty) {
+            if ($next < 0 || (self::$lastEmpty && !$allowEmpty)) {
                 break;
             }
             $into->merge($probe);

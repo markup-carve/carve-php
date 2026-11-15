@@ -38,7 +38,7 @@ final class TreeEncoder
     {
         $encoder = new self();
 
-        return json_encode($encoder->encode($root, $source), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION) ?: '{}';
+        return json_encode($encoder->encode($root, $source), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}';
     }
 
     /**
@@ -73,7 +73,7 @@ final class TreeEncoder
     {
         $out = ['type' => $node->type];
         foreach ($node->f as $key => $value) {
-            if ($value === null) {
+            if ($value === null || $value instanceof Attrs && $value->id === null && $value->classes === [] && $value->pairs === []) {
                 continue;
             }
             $out[$key] = $this->value($value, $positions);
