@@ -996,4 +996,39 @@ final class Tables
             'repeated' => 'paragraph',
         ],
     ];
+
+    /** C2-I-114 C2-I-115 C2-I-117 smart-punctuation.json: first character to sources, longest first */
+    public const SMART_RUNS_BY_FIRST = [
+        '!' => [
+            '!=',
+        ],
+        '(' => [
+            '(tm)',
+        ],
+        '+' => [
+            '+-',
+        ],
+        '-' => [
+            '-->',
+        ],
+        '.' => [
+            '...',
+        ],
+        '<' => [
+            '<-->',
+            '<--',
+            '<==',
+            '<=>',
+            '<=',
+        ],
+        '=' => [
+            '==>',
+        ],
+        '>' => [
+            '>=',
+        ],
+    ];
+
+    /** C2-I-104 to C2-I-117 smart-punctuation.json: characters that can start a replacement */
+    public const SMART_TRIGGERS = '!(+-.<=>"\'';
 }

@@ -19,12 +19,15 @@ $opt = getopt('', ['kb:']);
 $base = (int)($opt['kb'] ?? 16) * 1024;
 
 mt_srand(7);
-$atoms = ['a', 'word', ' ', ' ', '*', '/', '{*', '*}', '{=', '=}', '[', ']', '](u)', '(', ')', '`', '``', '{.c}', '{', '}',
-    '{%', '%}', '\\*', '\\', '<http://x.y>', '<', '>', '"', "'", '--', '...', '@u', '#t', ':s:', ':e[', '%%', "\n", '^[', '[^n]', '![', '$`'];
-$random = '';
-while (strlen($random) < $base) {
-    $random .= $atoms[mt_rand(0, count($atoms) - 1)];
+$atoms = explode('|', 'a|word| | |*|/|{*|*}|{=|=}|[|]|](u)|(|)|`|``|{.c}|{|}|{%|%}|\\*|\\|<http://x.y>|<|>|"|\'|--|...|@u|#t|:s:|:e[|%%|^[|[^n]|![|$`');
+$atoms[] = "\n";
+$parts = [];
+for ($size = 0; $size < $base;) {
+    $atom = $atoms[mt_rand(0, count($atoms) - 1)];
+    $parts[] = $atom;
+    $size += strlen($atom);
 }
+$random = implode('', $parts);
 $shapes = [
     'random' => $random,
     'brackets' => '[',

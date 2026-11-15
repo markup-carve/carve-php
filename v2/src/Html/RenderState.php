@@ -87,6 +87,10 @@ final class RenderState
         }
         $this->scan($doc);
         ksort($this->notes);
+        if ($this->notes === []) {
+            // C2-H-158: with no section to place, the directive is a plain `<div class="footnotes">`.
+            $this->placingDirective = null;
+        }
         foreach ($doc->children ?? [] as $child) {
             if ($child->type !== 'footnote') {
                 $this->refs($child);

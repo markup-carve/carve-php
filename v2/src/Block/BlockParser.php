@@ -595,13 +595,22 @@ final class BlockParser
                 return true;
             }
 
-            // C2-B-021: a marker without the quote mark closes a quote inside an item.
-            return $candidate->kind === Frame::QUOTE && $inItem;
-        }
-        if (!$inItem) {
-            return false;
+            // C2-B-021: a marker without the quote mark closes a quote inside an item, when it may open a nested list (C2-B-056).
+            return $candidate->kind === Frame::QUOTE && $inItem && $this->mayNest($marker);
         }
 
+        return $inItem && $this->mayNest($marker);
+    }
+
+    /**
+     * C2-B-056: a bullet or the value 1 opens a nested list without a blank line.
+     *
+     * @param \MarkupCarve\Carve2\Block\Marker $marker
+     *
+     * @return bool
+     */
+    private function mayNest(Marker $marker): bool
+    {
         return !$marker->ordered || $marker->value === 1 || $marker->value === -1;
     }
 

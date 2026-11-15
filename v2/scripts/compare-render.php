@@ -18,23 +18,35 @@ use MarkupCarve\Carve2\Resolve\Resolver;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-$opt = getopt('', ['oracle:', 'inputs:', 'show', 'n:', 'resolve', 'options:', 'raw-tree']);
+$opt = getopt('', ['oracle:', 'inputs:', 'show', 'n:', 'resolve', 'options:', 'raw-tree', 'dump:']);
 $lane = dirname(__DIR__, 3);
-$cases = [];
-if (isset($opt['inputs'])) {
-    $inputs = json_decode((string)file_get_contents((string)$opt['inputs']), true);
-    $lines = file((string)($opt['oracle'] ?? ''), FILE_IGNORE_NEW_LINES) ?: [];
-    $options = isset($opt['options']) ? json_decode((string)$opt['options'], true) : [];
-    foreach ($inputs as $i => $input) {
-        $o = json_decode($lines[$i] ?? '{}', true);
-        $cases[] = ['input' => $input, 'html' => $o['html'] ?? null, 'tree' => $o['tree'] ?? null, 'options' => $options, 'label' => "input $i"];
+/**
+ * Streams the cases, so a large oracle dump is never held in memory at once.
+ *
+ * @return \Generator<int, array<string, mixed>>
+ */
+function cases(array $opt, string $lane): Generator
+{
+    if (isset($opt['inputs'])) {
+        $raw = (string)file_get_contents((string)$opt['inputs']);
+        // C2-B-218: an unpaired surrogate reads as U+FFFD; PHP's decoder refuses one (as batch.php does).
+        $raw = (string)preg_replace('/\\\\u[dD][89abAB][0-9a-fA-F]{2}(?!\\\\u[dD][c-fC-F])|(?<!\\\\u[dD][89abAB][0-9a-fA-F]{2})\\\\u[dD][c-fC-F][0-9a-fA-F]{2}/', '\\\\ufffd', $raw);
+        $inputs = json_decode($raw, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
+        $fh = fopen((string)($opt['oracle'] ?? ''), 'rb');
+        $options = isset($opt['options']) ? json_decode((string)$opt['options'], true) : [];
+        foreach ($inputs as $i => $input) {
+            $line = $fh !== false ? fgets($fh) : false;
+            $o = json_decode($line === false ? '{}' : $line, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
+            yield $i => ['input' => $input, 'html' => $o['html'] ?? null, 'tree' => $o['tree'] ?? null, 'options' => $options, 'label' => "input $i"];
+        }
+
+        return;
     }
-} else {
     $examples = json_decode((string)file_get_contents(dirname(__DIR__) . '/tests/fixtures/examples.json'), true);
     $lines = file((string)($opt['oracle'] ?? $lane . '/oracle/examples-oracle.jsonl'), FILE_IGNORE_NEW_LINES) ?: [];
     foreach ($examples as $i => $ex) {
         $o = json_decode($lines[$i] ?? '{}', true);
-        $cases[] = ['input' => $ex['input'], 'html' => $ex['html'], 'tree' => $o['tree'] ?? null, 'options' => optionsOf($ex), 'label' => "{$ex['file']} example {$ex['number']}"];
+        yield $i => ['input' => $ex['input'], 'html' => $ex['html'], 'tree' => $o['tree'] ?? null, 'options' => optionsOf($ex), 'label' => "{$ex['file']} example {$ex['number']}"];
     }
 }
 
@@ -119,7 +131,8 @@ function stripResults(mixed $n, bool $marks = false): mixed
 $pass = 0;
 $total = 0;
 $failed = [];
-foreach ($cases as $i => $case) {
+$dump = isset($opt['dump']) ? fopen((string)$opt['dump'], 'wb') : false;
+foreach (cases($opt, $lane) as $i => $case) {
     if (isset($opt['n']) && (int)$opt['n'] !== $i) {
         continue;
     }
@@ -154,6 +167,9 @@ foreach ($cases as $i => $case) {
         continue;
     }
     $failed[] = $i;
+    if ($dump !== false) {
+        fwrite($dump, json_encode(['i' => $i, 'input' => $case['input'], 'want' => $want, 'got' => $got], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) . "\n");
+    }
     if (isset($opt['show'])) {
         echo "=== #$i {$case['label']}\n--- input\n{$case['input']}\n--- expected\n$want\n--- got\n$got\n";
     }

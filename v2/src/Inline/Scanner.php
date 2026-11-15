@@ -57,6 +57,45 @@ final class Scanner
     /**
      * @var string
      */
+    /**
+     * C2-B-144: no line comment in a line block.
+     *
+     * @var int
+     */
+    public const LINE_BLOCK = 1;
+
+    /**
+     * C2-A-068: every line end of a hard-break block is a hard break.
+     *
+     * @var int
+     */
+    public const HARD_BREAKS = 2;
+
+    /**
+     * C2-B-150: the content of a caption reads the caption number mark.
+     *
+     * @var int
+     */
+    public const CAPTION = 4;
+
+    /**
+     * C2-B-223: the content of a table cell.
+     *
+     * @var int
+     */
+    public const CELL = 8;
+
+    private bool $lineBlock;
+
+    private bool $hardBreaks;
+
+    private bool $caption;
+
+    private bool $cell;
+
+    /**
+     * @var string
+     */
     private const SPECIALS = "\\`!\$<{}%:@#[]^*/\n";
 
     /**
@@ -137,21 +176,20 @@ final class Scanner
      * @param \MarkupCarve\Carve2\Inline\Content $c
      * @param \MarkupCarve\Carve2\Inline\InlineContext $ctx
      * @param int $depth Block depth of the leaf (C2-I-118).
-     * @param bool $lineBlock C2-B-144: no line comment in a line block.
-     * @param bool $hardBreaks C2-A-068: every line end of a hard-break block is a hard break.
-     * @param bool $caption C2-B-150: the content of a caption, which reads the caption number mark.
-     * @param bool $cell C2-B-223: the content of a table cell.
+     * @param int $mode Bits of LINE_BLOCK, HARD_BREAKS, CAPTION and CELL.
      */
     public function __construct(
         public Content $c,
         private InlineContext $ctx,
         public int $depth,
-        private bool $lineBlock,
-        private bool $hardBreaks = false,
-        private bool $caption = false,
+        int $mode = 0,
     ) {
         $this->t = $c->t;
         $this->n = strlen($this->t);
+        $this->lineBlock = ($mode & self::LINE_BLOCK) !== 0;
+        $this->hardBreaks = ($mode & self::HARD_BREAKS) !== 0;
+        $this->caption = ($mode & self::CAPTION) !== 0;
+        $this->cell = ($mode & self::CELL) !== 0;
     }
 
     /**
@@ -714,11 +752,8 @@ final class Scanner
         if (!isset(Tables::BRACED_MARKS[$m]) || isset(Tables::BARE_DELIMITERS[$m])) {
             return -1;
         }
-        $r = $i - 1;
-        while ($r - 1 >= $this->textStart && $t[$r - 1] === $m) {
-            $r--;
-        }
 
+        // C2-I-057: the marks before the last of a run stay text.
         return $this->emit([self::DELIM, self::CLOSER, $i - 1, $i + 1, $m, false, false, false, 0]);
     }
 
@@ -1050,7 +1085,7 @@ final class Scanner
             $this->tok[] = [self::TEXT, '!', $start, $start + 1, false];
             $start++;
         }
-        $this->tok[] = [self::NODE, $node, $start, $end, true, $node->type === 'image' ? null : new TokenList($inner)];
+        $this->tok[] = [self::NODE, $node, $start, $end, true, new TokenList($node->type === 'image' ? [] : $inner, $frame[3], $close)];
         $this->textStart = $end;
 
         return $end;

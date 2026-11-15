@@ -63,7 +63,7 @@ final class InlineRunner
         while ($stack !== []) {
             [$node, $depth, $hard, $caption] = array_pop($stack);
             if ($node->lines !== null) {
-                $node->children = self::parse($s, $node->lines, $ctx, $depth, $node->type === 'line', $hard, $caption, $node->type === 'cell_paragraph');
+                $node->children = self::parse($s, $node->lines, $ctx, $depth, self::mode($node->type, $hard, $caption));
                 $node->lines = null;
 
                 continue;
@@ -86,16 +86,26 @@ final class InlineRunner
     }
 
     /**
+     * @param string $type
+     * @param bool $hard
+     * @param bool $caption
+     *
+     * @return int
+     */
+    private static function mode(string $type, bool $hard, bool $caption): int
+    {
+        return ($type === 'line' ? Scanner::LINE_BLOCK : 0) | ($hard ? Scanner::HARD_BREAKS : 0)
+        | ($caption ? Scanner::CAPTION : 0) | ($type === 'cell_paragraph' ? Scanner::CELL : 0);
+    }
+
+    /**
      * The inline nodes of one content.
      *
      * @param string $s
      * @param array<int> $spans
      * @param \MarkupCarve\Carve2\Inline\InlineContext $ctx
      * @param int $depth
-     * @param bool $lineBlock
-     * @param bool $hardBreaks
-     * @param bool $caption
-     * @param bool $cell
+     * @param int $mode Bits of the Scanner mode constants.
      *
      * @return array<\MarkupCarve\Carve2\Node>
      */
@@ -104,15 +114,13 @@ final class InlineRunner
         array $spans,
         InlineContext $ctx,
         int $depth = 0,
-        bool $lineBlock = false,
-        bool $hardBreaks = false,
-        bool $caption = false,
+        int $mode = 0,
     ): array {
         $content = new Content($s, $spans);
         if ($content->t === '') {
             return [];
         }
-        $scanner = new Scanner($content, $ctx, $depth, $lineBlock, $hardBreaks, $caption, $cell);
+        $scanner = new Scanner($content, $ctx, $depth, $mode);
         $items = Delimiters::run($scanner, $scanner->scan(), $depth);
 
         return (new Finisher($scanner, $ctx))->build($items, -1, true);

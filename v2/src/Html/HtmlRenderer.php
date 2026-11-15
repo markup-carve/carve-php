@@ -405,6 +405,27 @@ final class HtmlRenderer
     }
 
     /**
+     * The image a block image paragraph writes in place of `<p>`, which stands on its own line in every container.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return \MarkupCarve\Carve2\Node|null
+     */
+    private function blockImage(Node $node): ?Node
+    {
+        if ($node->type !== 'paragraph' || ($node->f['role'] ?? null) !== 'image' || ($this->profile !== null && !$this->profile->allowsType('image'))) {
+            return null;
+        }
+        foreach ($node->children ?? [] as $kid) {
+            if ($kid->type === 'image' && !(isset($kid->f['key']) && !isset($kid->f['src']))) {
+                return $kid;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * C2-H-018 to C2-H-020, C2-H-077.
      *
      * @param \MarkupCarve\Carve2\Node $node
@@ -421,13 +442,10 @@ final class HtmlRenderer
         }
         $kids = $node->children ?? [];
         $role = $node->f['role'] ?? null;
-        if ($role === 'image' && $append === '' && ($this->profile === null || $this->profile->allowsType('image'))) {
-            foreach ($kids as $kid) {
-                if ($kid->type === 'image' && !(isset($kid->f['key']) && !isset($kid->f['src']))) {
-                    // G-render-2: the attributes of a block image paragraph are not written, as the oracle does.
-                    return self::pad($depth) . $this->inline->node($kid, $depth);
-                }
-            }
+        $image = $append === '' ? $this->blockImage($node) : null;
+        if ($image !== null) {
+            // G-render-2: the attributes of a block image paragraph are not written, as the oracle does.
+            return self::pad($depth) . $this->inline->node($image, $depth);
         }
         if ($role === 'math' && $this->o->mode === 'static') {
             return self::pad($depth) . $this->staticMath($node);
@@ -579,7 +597,7 @@ final class HtmlRenderer
     {
         $open = '<blockquote' . $this->attrs($node) . '>';
         $visible = self::visibleOf($node->children ?? []);
-        if (count($visible) === 1 && $visible[0]->type === 'paragraph' && $this->allowed($visible[0], $depth + 1)) {
+        if (count($visible) === 1 && $visible[0]->type === 'paragraph' && $this->allowed($visible[0], $depth + 1) && $this->blockImage($visible[0]) === null) {
             $p = $this->paragraph($visible[0], 0, false);
             if ($p !== null) {
                 return self::pad($depth) . $open . $p . '</blockquote>';
@@ -702,7 +720,7 @@ final class HtmlRenderer
         }
         $rest = $visible;
         $first = '';
-        if ($visible[0]->type === 'paragraph' && $this->allowed($visible[0], $depth + 1)) {
+        if ($visible[0]->type === 'paragraph' && $this->allowed($visible[0], $depth + 1) && $this->blockImage($visible[0]) === null) {
             $first = (string)$this->paragraph($visible[0], 0, $tight);
             array_shift($rest);
             if ($rest === []) {
@@ -717,7 +735,7 @@ final class HtmlRenderer
             }
         }
 
-        return ($first === '' ? rtrim($open, ' ') : $open . $first) . "\n" . implode("\n", $lines) . "\n" . self::pad($depth) . '</li>';
+        return $open . $first . "\n" . implode("\n", $lines) . "\n" . self::pad($depth) . '</li>';
     }
 
     /**
@@ -990,7 +1008,8 @@ final class HtmlRenderer
             if ($value === true) {
                 $parts[] = '@' . $name;
             } elseif (is_array($value)) {
-                $parts[] = '@' . $name . ':' . implode(',', array_map([PlainText::class, 'str'], $value));
+                // C2-A-181: only a quoted `cols` value becomes a list, so a list is written quoted.
+                $parts[] = '@' . $name . ':"' . implode(',', array_map([PlainText::class, 'str'], $value)) . '"';
             } else {
                 $parts[] = '@' . $name . ':' . self::includeValue(PlainText::str($value), $name === 'cols');
             }

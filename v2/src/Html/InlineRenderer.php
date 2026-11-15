@@ -28,7 +28,8 @@ final class InlineRenderer
     }
 
     /**
-     * The content of a leaf: C2-H-069 drops one line break beside each comment-only line.
+     * The content of a leaf: C2-H-069 drops one line break beside each comment-only line,
+     * judged in each child list on its own (the oracle's reading; G-render-16).
      *
      * @param array<\MarkupCarve\Carve2\Node> $nodes
      * @param int $depth Nesting level for the profile (C2-H-166).
@@ -37,7 +38,7 @@ final class InlineRenderer
      */
     public function leaf(array $nodes, int $depth = 0): string
     {
-        return $this->inlines(self::dropCommentLineBreaks($nodes), $depth);
+        return $this->inlines($nodes, $depth);
     }
 
     /**
@@ -49,7 +50,7 @@ final class InlineRenderer
     public function inlines(array $nodes, int $depth = 0): string
     {
         $out = '';
-        foreach ($nodes as $node) {
+        foreach (self::dropCommentLineBreaks($nodes) as $node) {
             $out .= $this->profile !== null ? $this->profile->inline($node, $depth, $this) : $this->node($node, $depth);
         }
 
@@ -388,6 +389,10 @@ final class InlineRenderer
         }
         $merged = clone $defAttrs;
         if ($attrs !== null) {
+            // A key of the reference replaces the definition's and takes the reference's place (oracle order).
+            foreach ($attrs->pairs as [$key]) {
+                $merged->remove($key);
+            }
             $merged->merge($attrs);
         }
 

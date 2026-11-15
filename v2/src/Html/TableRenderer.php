@@ -70,6 +70,11 @@ final class TableRenderer
         $lang = is_string($table->f['lang'] ?? null) ? $table->f['lang'] : null;
         $open = '<table' . $this->r->aw->build([], null, $copy, $lang, [], [], [], [], $this->r->line($table)) . '>';
 
+        if ($lines === []) {
+            // An empty table is written with no blank line inside, unlike an empty container (oracle output).
+            return HtmlRenderer::pad($depth) . $open . "\n" . HtmlRenderer::pad($depth) . '</table>';
+        }
+
         return $this->r->container($open, '</table>', $lines, $depth);
     }
 

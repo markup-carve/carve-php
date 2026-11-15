@@ -38,8 +38,6 @@ final class Finisher
 
     private string $smartKind = '';
 
-    private int $lastSmartEnd = -2;
-
     private bool $captionSeen = false;
 
     /**
@@ -222,7 +220,12 @@ final class Finisher
         $pieces = [];
         $first = $run[0][2];
         assert(is_int($first));
-        $this->smartEnd = -2;
+        // C2-I-026: a braced comment right after a replacement leaves its context in place.
+        $pc = $first;
+        while (isset($this->sc->commentStart[$pc])) {
+            $pc = $this->sc->commentStart[$pc];
+        }
+        $this->smartEnd = $pc !== $first && $pc === $this->smartEnd ? $first : -2;
         $count = count($run);
         $k = 0;
         while ($k < $count) {
@@ -273,7 +276,7 @@ final class Finisher
     {
         $t = $this->t;
         $abbr = $this->ctx->abbreviations !== [];
-        $set = $abbr ? "\"'-.<>=!+(ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789" : "\"'-.<>=!+(";
+        $set = Tables::SMART_TRIGGERS . ($abbr ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' : '');
         $j = $ts;
         $plain = $ts;
         while ($j < $te) {
@@ -299,7 +302,7 @@ final class Finisher
 
                 continue;
             }
-            $matches = $c === '"' || $c === "'" ? [$this->quote($j, $first, $prev)] : $this->run($j, $te, $first);
+            $matches = $c === '"' || $c === "'" ? [$this->quote($j, $first, $prev)] : $this->run($j, $te, $first, $prev);
             if ($matches === []) {
                 $j++;
 
@@ -314,7 +317,6 @@ final class Finisher
                 $pieces[] = $node;
                 $j += $len;
                 $this->smartEnd = $j;
-                $this->lastSmartEnd = $j;
                 $this->smartKind = $kind;
             }
             $plain = $j;
@@ -463,7 +465,9 @@ final class Finisher
             return 'right_single_quote';
         }
         if (!$opens) {
-            if ($this->singleOpen && !Chars::isSpace($before) && !(Chars::isWord($before) && Chars::isWord($next))) {
+            // C2-I-109: "inside a word" reads the typed character before, also behind a replacement.
+            $typed = $j === $this->smartEnd ? Chars::before($t, $j) : $before;
+            if ($this->singleOpen && !Chars::isSpace($before) && !(Chars::isWord($typed) && Chars::isWord($next))) {
                 $this->singleOpen = false;
             }
 
@@ -472,7 +476,8 @@ final class Finisher
         $len = strspn($t, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', $j + 1);
         if ($len > 0) {
             $word = strtolower(substr($t, $j + 1, $len));
-            $afterWord = $this->sc->nextCp($j + 1 + $len);
+            // G-inline-4: a braced comment ends the word.
+            $afterWord = Chars::at($t, $j + 1 + $len);
             if (isset(Tables::SMART_APOSTROPHE_WORDS[$word]) && !Chars::isWord($afterWord)) {
                 // C2-I-107, C2-I-108
                 $quoted = $afterWord === 0x27 && $word !== 'n' && !Chars::isWord($this->sc->nextCp($j + 2 + $len));
@@ -500,62 +505,60 @@ final class Finisher
      * @param int $j
      * @param int $te
      * @param int $first
+     * @param int $prev
      *
      * @return array<array{0: string, 1: int}>
      */
-    private function run(int $j, int $te, int $first): array
+    private function run(int $j, int $te, int $first, int $prev): array
     {
         $t = $this->t;
-        $c = $t[$j];
         $rest = $te - $j;
-        if ($c === '-') {
-            $len = strspn($t, '-', $j, $rest);
-            if ($len === 2 && $j + 2 < $te && $t[$j + 2] === '>') {
-                return [['rightwards_arrow', 3]];
+        foreach (Tables::SMART_RUNS_BY_FIRST[$t[$j]] ?? [] as $src) {
+            $len = strlen($src);
+            if ($len > $rest || substr_compare($t, $src, $j, $len) !== 0) {
+                continue;
+            }
+            $dash = strpos($src, '--');
+            // C2-I-116: an arrow needs its exact hyphen run.
+            if ($dash !== false && $j + $dash + 2 < $te && $t[$j + $dash + 2] === '-') {
+                continue;
+            }
+            if ($src === '+-' && !$this->plusMinusAlone($j, $first, $prev)) {
+                continue;
             }
 
-            return $len < 2 ? [] : self::dashes($len);
+            return [[Tables::SMART_RUNS[$src][0], $len]];
         }
-        if ($c === '<') {
-            $len = strspn($t, '-', $j + 1, $rest - 1);
-            if ($len === 2) {
-                return $j + 3 < $te && $t[$j + 3] === '>' ? [['left_right_arrow', 4]] : [['leftwards_arrow', 3]];
-            }
-            foreach (['<==', '<=>', '<='] as $src) {
-                if (substr_compare($t, $src, $j, strlen($src)) === 0 && strlen($src) <= $rest) {
-                    return [[Tables::SMART_RUNS[$src][0], strlen($src)]];
-                }
-            }
-
+        if ($t[$j] !== '-') {
             return [];
         }
-        if ($c === '+') {
-            // C2-I-117: only a neighbor in the same text counts, seen through a braced comment (C2-I-026).
-            $prev = '';
-            if (isset($this->sc->commentStart[$j])) {
-                $pc = $j;
-                while (isset($this->sc->commentStart[$pc])) {
-                    $pc = $this->sc->commentStart[$pc];
-                }
-                $prev = $pc === $this->lastSmartEnd ? '' : chr(max(0, Chars::before($t, $pc)) & 0x7F);
-            } elseif ($j > $first && $j !== $this->smartEnd) {
-                $prev = $t[$j - 1];
-            }
-            // G-inline-3: the oracle reads the next character from the source, a closing mark included.
-            $after = chr(max(0, $this->sc->nextCp($j + 2)) & 0x7F);
-            if ($rest >= 2 && $t[$j + 1] === '-' && $prev !== '+' && $prev !== '-' && $after !== '+' && $after !== '-') {
-                return [['plus_minus', 2]];
-            }
+        $len = strspn($t, '-', $j, $rest);
 
-            return [];
-        }
-        foreach (['...', '==>', '!=', '>=', '(tm)'] as $src) {
-            if ($src[0] === $c && strlen($src) <= $rest && substr_compare($t, $src, $j, strlen($src)) === 0) {
-                return [[Tables::SMART_RUNS[$src][0], strlen($src)]];
-            }
-        }
+        return $len < 2 ? [] : self::dashes($len);
+    }
 
-        return [];
+    /**
+     * C2-I-117: `+-` next to another `+` or `-` is text. Only a neighbor in the same text counts, seen
+     * through a braced comment (C2-I-026); the character after it is read from the source (G-inline-2).
+     *
+     * @param int $j
+     * @param int $first
+     * @param int $prevContext The character before the text, seen through braced comments.
+     *
+     * @return bool
+     */
+    private function plusMinusAlone(int $j, int $first, int $prevContext): bool
+    {
+        $t = $this->t;
+        $prev = -1;
+        if ($j === $first) {
+            $prev = $prevContext;
+        } elseif ($j !== $this->smartEnd) {
+            $prev = ord($t[$j - 1]);
+        }
+        $after = $this->sc->nextCp($j + 2);
+
+        return $prev !== 0x2B && $prev !== 0x2D && $after !== 0x2B && $after !== 0x2D;
     }
 
     /**

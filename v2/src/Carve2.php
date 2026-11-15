@@ -34,6 +34,9 @@ final class Carve2
         assert($doc !== null);
         $ctx = InlineContext::collect($doc, $source);
         InlineRunner::run($doc, $source, $ctx);
+        if (str_contains($source, "\0")) {
+            NulReplacer::apply($doc);
+        }
         Resolver::resolve($doc, $source, $opts);
 
         return $doc;

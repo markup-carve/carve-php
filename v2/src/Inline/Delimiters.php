@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Inline;
 
 use MarkupCarve\Carve2\Generated\Tables;
+use MarkupCarve\Carve2\Node;
 
 /**
  * The delimiter stack (C2-I-008, C2-I-046 to C2-I-061) over one token list of the scanner. Bare and
@@ -80,6 +81,17 @@ final class Delimiters
     {
         $type = $tok[0];
         if ($type === Scanner::NODE && $tok[5] instanceof TokenList) {
+            if ($tok[5]->open >= 0 && $this->depth + $this->live >= Tables::DEPTH_CAP) {
+                $this->pastCap($tok, $tok[5]);
+
+                return;
+            }
+            if ($tok[1] instanceof Node && $tok[1]->type === 'image') {
+                $tok[5] = null;
+                $this->items[] = $tok;
+
+                return;
+            }
             $tok[5] = new TokenList(self::run($this->sc, $tok[5]->list, $this->depth + $this->live + 1));
             $this->items[] = $tok;
 
@@ -98,6 +110,31 @@ final class Delimiters
         } else {
             $this->closer($tok);
         }
+    }
+
+    /**
+     * C2-I-118: a bracket construct past the cap is text with its brackets, its tail or label as typed;
+     * its content is read in this list as the content of a plain pair.
+     *
+     * @param array<mixed> $tok
+     * @param \MarkupCarve\Carve2\Inline\TokenList $inner
+     *
+     * @return void
+     */
+    private function pastCap(array $tok, TokenList $inner): void
+    {
+        assert(is_int($tok[2]) && is_int($tok[3]));
+        $node = $tok[1];
+        if ($node instanceof Node && $node->type === 'image') {
+            $this->text($tok[2], $tok[3]);
+
+            return;
+        }
+        $this->text($tok[2], $inner->open);
+        foreach ($inner->list as $child) {
+            $this->token($child);
+        }
+        $this->text($inner->close, $tok[3]);
     }
 
     /**

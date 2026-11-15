@@ -239,7 +239,35 @@ final class TableGenerator
      */
     private static function inlineTables(\Closure $load): array
     {
-        return [];
+        $smart = $load('smart-punctuation');
+        $byFirst = [];
+        foreach ($smart['runs'] as $row) {
+            if ($row['replaced']) {
+                $byFirst[$row['source'][0]][] = $row['source'];
+            }
+        }
+        // C2-I-115: the longest match is taken.
+        foreach ($byFirst as $first => $list) {
+            usort($list, static fn (string $a, string $b): int => strlen($b) <=> strlen($a) ?: strcmp($a, $b));
+            $byFirst[$first] = $list;
+        }
+        ksort($byFirst, SORT_STRING);
+        $triggers = implode('', array_keys($byFirst));
+        foreach ($smart['quotes'] as $row) {
+            if (!str_contains($triggers, $row['source'])) {
+                $triggers .= $row['source'];
+            }
+        }
+        foreach ($smart['dashes'] as $row) {
+            if (!str_contains($triggers, $row['source'][0])) {
+                $triggers .= $row['source'][0];
+            }
+        }
+
+        return [
+            'SMART_RUNS_BY_FIRST' => ['C2-I-114 C2-I-115 C2-I-117 smart-punctuation.json: first character to sources, longest first', $byFirst],
+            'SMART_TRIGGERS' => ['C2-I-104 to C2-I-117 smart-punctuation.json: characters that can start a replacement', $triggers],
+        ];
     }
 
     /**
