@@ -1,0 +1,325 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Turns the spec data files into PHP constants. Every value in Tables.php comes from here;
+ * nothing in the engine copies a value from a data file by hand.
+ */
+final class TableGenerator
+{
+    /**
+     * @param string $dir
+     *
+     * @return string
+     */
+    public static function generate(string $dir): string
+    {
+        $load = static function (string $name) use ($dir): array {
+            $data = json_decode((string)file_get_contents($dir . '/' . $name . '.json'), true, 512, JSON_THROW_ON_ERROR);
+            assert(is_array($data));
+
+            return $data;
+        };
+
+        $consts = [];
+
+        $shapes = $load('line-shapes');
+        $first = [];
+        foreach ($shapes['shapes'] as $shape) {
+            foreach ($shape['first'] as $spec) {
+                foreach (str_split(self::expand([$spec])) as $ch) {
+                    $first[$ch][] = $shape['name'];
+                }
+            }
+        }
+        ksort($first, SORT_STRING);
+        $consts['FIRST_CHARACTER_SHAPES'] = ['C2-B-001 line-shapes.json: shapes keyed by first character', $first];
+        foreach ($shapes['refs'] as $ref) {
+            if (isset($ref['chars'])) {
+                $consts['CHARS_' . strtoupper($ref['name'])] = ['line-shapes.json ref ' . $ref['name'], self::expand($ref['chars'])];
+            }
+            if (isset($ref['roman_chars'])) {
+                $consts['ROMAN_CHARS'] = ['C2-B-036 roman letters', self::expand($ref['roman_chars'])];
+            }
+            if (isset($ref['values'])) {
+                $consts['DIV_SIGILS'] = ['C2-B-196 div sigils', implode('', $ref['values'])];
+            }
+        }
+
+        $limits = [];
+        foreach ($load('limits')['limits'] as $row) {
+            $limits[$row['name']] = $row['value'];
+        }
+        $consts['DEPTH_CAP'] = ['C2-B-190 limits.json depth_cap', $limits['depth_cap']];
+        $consts['LIST_END_BLANK_LINES'] = ['C2-B-052 limits.json', $limits['list_end_blank_lines']];
+        $consts['TAB_STOP'] = ['C2-B-004 limits.json', $limits['tab_stop']];
+
+        $tasks = [];
+        foreach ($load('task-states')['states'] as $row) {
+            $tasks[$row['char']] = $row['mark'];
+        }
+        $consts['TASK_MARKS'] = ['C2-B-046 C2-B-048 task-states.json: box character to mark', $tasks];
+        $checked = [];
+        $stateAttr = [];
+        foreach ($load('task-states')['states'] as $row) {
+            $checked[$row['mark']] = $row['checked'];
+            $stateAttr[$row['mark']] = $row['state_attribute'];
+        }
+        $consts['TASK_CHECKED'] = ['C2-H-032 task-states.json', $checked];
+        $consts['TASK_STATE_ATTRIBUTE'] = ['C2-H-033 task-states.json', $stateAttr];
+
+        $styles = [];
+        foreach ($load('ordered-styles')['styles'] as $row) {
+            $styles[$row['style']] = $row['html_type'];
+        }
+        $consts['ORDERED_HTML_TYPE'] = ['C2-H-030 ordered-styles.json', $styles];
+        $delims = [];
+        foreach ($load('ordered-styles')['delimiters'] as $row) {
+            $delims[$row['char']] = $row['data_delim'];
+        }
+        $consts['ORDERED_DATA_DELIM'] = ['C2-H-031 ordered-styles.json', $delims];
+
+        $divs = $load('div-names');
+        $kinds = [];
+        foreach ($divs['names'] as $row) {
+            $kinds[$row['name']] = $row['kind'];
+        }
+        $consts['DIV_NAME_KINDS'] = ['C2-B-127 div-names.json', $kinds];
+        $sigils = [];
+        foreach ($divs['sigils'] as $row) {
+            $sigils[$row['sigil']] = [$row['name'], $row['class'] ?? null];
+        }
+        $consts['DIV_SIGIL_KINDS'] = ['C2-B-196 C2-B-128 div-names.json', $sigils];
+
+        $attr = $load('attribute-block');
+        foreach ($attr['shapes'] as $row) {
+            $shape = $row['shape'];
+            $name = strtoupper($row['name']);
+            if (isset($shape['first'])) {
+                $consts['ATTR_' . $name . '_FIRST'] = ['C2-I-030 attribute-block.json', self::expand($shape['first'])];
+                $consts['ATTR_' . $name . '_REST'] = ['C2-I-030 attribute-block.json', self::expand($shape['rest'])];
+            } elseif (isset($shape['chars'])) {
+                $consts['ATTR_' . $name . '_CHARS'] = ['C2-I-030 attribute-block.json', self::expand($shape['chars'])];
+            } elseif (isset($shape['excluded'])) {
+                $consts['ATTR_' . $name . '_EXCLUDED'] = ['C2-I-032 attribute-block.json', implode('', $shape['excluded'])];
+            }
+        }
+
+        $delimiters = $load('inline-delimiters');
+        $braced = [];
+        $bare = [];
+        $html = [];
+        foreach ($delimiters['delimiters'] as $row) {
+            if ($row['form'] === 'braced') {
+                $braced[$row['mark']] = $row['node'];
+            } else {
+                $bare[$row['mark']] = $row['node'];
+            }
+            $html[$row['node']] = $row['html'];
+        }
+        ksort($braced, SORT_STRING);
+        ksort($html, SORT_STRING);
+        $consts['BRACED_MARKS'] = ['C2-I-055 inline-delimiters.json: mark to node', $braced];
+        $consts['BARE_DELIMITERS'] = ['C2-I-046 inline-delimiters.json', $bare];
+        $consts['DELIMITER_HTML'] = ['C2-H-072 inline-delimiters.json: node to element', $html];
+
+        $atoms = $load('inline-atoms');
+        foreach ($atoms['atoms'] as $row) {
+            if ($row['name'] === 'autolink') {
+                $consts['AUTOLINK_SCHEME_FIRST'] = ['C2-I-073', self::expand($row['url']['scheme']['first'])];
+                $consts['AUTOLINK_SCHEME_REST'] = ['C2-I-073', self::expand($row['url']['scheme']['rest'])];
+                $consts['AUTOLINK_URL_CHARS'] = ['C2-I-122', self::expand($row['url']['body']['chars'])];
+                $consts['AUTOLINK_EMAIL_CHARS'] = ['C2-I-123', self::expand($row['email']['local']['chars'])];
+                $consts['AUTOLINK_EMAIL_LAST'] = ['C2-I-123', self::expand($row['email']['last_label']['chars'])];
+            }
+            if ($row['name'] === 'raw_inline') {
+                $consts['RAW_NAME_FIRST'] = ['C2-I-021', self::expand($row['suffix_name']['first'])];
+                $consts['RAW_NAME_REST'] = ['C2-I-021', self::expand($row['suffix_name']['rest'])];
+            }
+        }
+        foreach ($load('inline-sigils')['sigils'] as $row) {
+            $n = strtoupper($row['name']);
+            $s = $row['name_shape'];
+            if (isset($s['first'])) {
+                $consts['SIGIL_' . $n . '_FIRST'] = ['C2-I-092 to C2-I-094', self::expand($s['first'])];
+                $consts['SIGIL_' . $n . '_REST'] = ['C2-I-092 to C2-I-094', self::expand($s['rest'])];
+            } else {
+                $consts['SIGIL_' . $n . '_CHARS'] = ['C2-I-092', self::expand($s['chars'])];
+            }
+        }
+
+        $smart = $load('smart-punctuation');
+        $runs = [];
+        foreach ($smart['runs'] as $row) {
+            if ($row['replaced']) {
+                $runs[$row['source']] = [$row['kind'], $row['glyph']];
+            }
+        }
+        $consts['SMART_RUNS'] = ['C2-I-114 C2-I-115 C2-I-117 smart-punctuation.json', $runs];
+        $quotes = [];
+        foreach ($smart['quotes'] as $row) {
+            $quotes[$row['kind']] = $row['glyph'];
+        }
+        foreach ($smart['dashes'] as $row) {
+            $quotes[$row['kind']] = $row['glyph'];
+        }
+        $consts['SMART_GLYPHS'] = ['C2-I-104 C2-I-111 smart-punctuation.json', $quotes];
+        $consts['SMART_QUOTE_OPENS_AFTER'] = ['C2-I-104', implode('', $smart['quote_opens_after']['chars'])];
+        $consts['SMART_QUOTE_CLOSES_BEFORE'] = ['C2-I-106', implode('', $smart['quote_closes_after_hyphen_dash_or_slash_before']['chars'])];
+        $consts['SMART_APOSTROPHE_WORDS'] = ['C2-I-107', array_fill_keys($smart['apostrophe_words']['words'], true)];
+
+        $slug = $load('heading-slug');
+        $removed = [];
+        foreach ($slug['removed'] as $row) {
+            $removed[] = mb_chr((int)hexdec(substr($row['code_point'], 2)), 'UTF-8');
+        }
+        $consts['SLUG_REMOVED'] = ['C2-H-144 heading-slug.json', $removed];
+        $reversed = [];
+        foreach ($slug['reversed'] as $row) {
+            $reversed[$row['glyph']] = $row['ascii'];
+        }
+        $consts['SLUG_REVERSED'] = ['C2-H-145 heading-slug.json', $reversed];
+
+        $url = $load('url-policy');
+        $ranges = [];
+        foreach ($url['probe_removes'] as $row) {
+            $ranges[] = [(int)hexdec(substr($row['from'], 2)), (int)hexdec(substr($row['to'], 2))];
+        }
+        usort($ranges, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        $consts['URL_PROBE_REMOVES'] = ['C2-H-159 url-policy.json: code point ranges', $ranges];
+        $dropped = ['name' => [], 'prefix' => []];
+        foreach ($url['dropped_attributes'] as $row) {
+            $dropped[$row['match']][] = $row['name'];
+        }
+        $consts['URL_DROPPED_ATTRIBUTES'] = ['C2-H-161 url-policy.json', $dropped];
+        $lists = [];
+        foreach ($url['url_list_attributes'] as $row) {
+            $lists[$row['name']] = in_array('comma', $row['separators'], true);
+        }
+        $consts['URL_LIST_ATTRIBUTES'] = ['C2-H-161 url-policy.json: name to comma-separated', $lists];
+        $consts['URL_STYLE_PATTERNS'] = ['C2-H-162 url-policy.json', array_column($url['style_patterns'], 'text')];
+        $profiles = [];
+        foreach ($url['profiles'] as $row) {
+            $name = $row['name'];
+            unset($row['name'], $row['clauses'], $row['note']);
+            $profiles[$name] = $row;
+        }
+        $consts['PROFILES'] = ['C2-H-163 url-policy.json', $profiles];
+
+        $options = [];
+        foreach ($load('options')['options'] as $row) {
+            $options[$row['name']] = ['kind' => $row['kind'], 'type' => $row['type'], 'values' => $row['values'] ?? null, 'default' => $row['default'] ?? null];
+        }
+        $consts['OPTIONS'] = ['C2-H-137 options.json', $options];
+
+        $marks = $load('table-marks');
+        $align = [];
+        foreach ($marks['alignment_marks'] as $row) {
+            $align[$row['mark']] = $row['alignment'];
+        }
+        $consts['ALIGNMENT_MARKS'] = ['C2-B-182 table-marks.json', $align];
+
+        $include = $load('include-options');
+        $consts['INCLUDE_OPTIONS'] = ['C2-B-205 include-options.json', self::stripClauses($include['options'] ?? $include)];
+
+        return self::render($consts);
+    }
+
+    /**
+     * @param mixed $value
+     *
+     * @return mixed
+     */
+    private static function stripClauses(mixed $value): mixed
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+        unset($value['clauses'], $value['note'], $value['description']);
+        foreach ($value as $k => $v) {
+            $value[$k] = self::stripClauses($v);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Expands a list of single characters and ranges such as `a-z` into a byte string for strspn.
+     *
+     * @param array<string> $specs
+     *
+     * @return string
+     */
+    private static function expand(array $specs): string
+    {
+        $out = '';
+        foreach ($specs as $spec) {
+            if (strlen($spec) === 3 && $spec[1] === '-') {
+                $out .= implode('', range($spec[0], $spec[2]));
+            } else {
+                $out .= $spec;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return string
+     */
+    private static function render(array $consts): string
+    {
+        $out = "<?php\n\ndeclare(strict_types=1);\n\nnamespace MarkupCarve\\Carve2\\Generated;\n\n";
+        $out .= "/**\n * Generated by v2/scripts/generate-tables.php from v2/spec/data. Do not edit.\n */\nfinal class Tables\n{\n";
+        foreach ($consts as $name => [$doc, $value]) {
+            $out .= "    /** {$doc} */\n";
+            $out .= '    public const ' . $name . ' = ' . self::export($value, 1) . ";\n\n";
+        }
+
+        return rtrim($out) . "\n}\n";
+    }
+
+    /**
+     * @param mixed $value
+     * @param int $depth
+     *
+     * @return string
+     */
+    private static function export(mixed $value, int $depth): string
+    {
+        if (is_string($value)) {
+            return self::str($value);
+        }
+        if (!is_array($value)) {
+            return var_export($value, true) === 'NULL' ? 'null' : var_export($value, true);
+        }
+        if ($value === []) {
+            return '[]';
+        }
+        $pad = str_repeat('    ', $depth + 1);
+        $list = array_is_list($value);
+        $out = "[\n";
+        foreach ($value as $k => $v) {
+            $out .= $pad . ($list ? '' : (is_int($k) ? $k : self::str((string)$k)) . ' => ') . self::export($v, $depth + 1) . ",\n";
+        }
+
+        return $out . str_repeat('    ', $depth) . ']';
+    }
+
+    /**
+     * @param string $s
+     *
+     * @return string
+     */
+    private static function str(string $s): string
+    {
+        if (preg_match('/[\x00-\x1f\x7f]/', $s) === 1) {
+            return '"' . addcslashes($s, "\0..\37\"\\\$\177") . '"';
+        }
+
+        return "'" . addcslashes($s, "'\\") . "'";
+    }
+}

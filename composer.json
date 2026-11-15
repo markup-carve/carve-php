@@ -36,12 +36,14 @@
     },
     "autoload": {
         "psr-4": {
-            "MarkupCarve\\Carve\\": "src/"
+            "MarkupCarve\\Carve\\": "src/",
+            "MarkupCarve\\Carve2\\": "v2/src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "MarkupCarve\\Carve\\Test\\": "tests/"
+            "MarkupCarve\\Carve\\Test\\": "tests/",
+            "MarkupCarve\\Carve2\\Test\\": "v2/tests/"
         }
     },
     "scripts": {
