@@ -472,6 +472,69 @@ final class HtmlOutputTest extends RenderTestCase
     }
 
     /**
+     * @return void
+     */
+    public function testC2H069CommentLineInsideAnInlineContainer(): void
+    {
+        $ext = ['type' => 'inline_extension', 'name' => 'n', 'children' => [['type' => 'soft_break'], ['type' => 'comment', 'form' => 'line', 'value' => ''], ['type' => 'soft_break']]];
+        $this->assertSame("<p><span class=\"ext-n\">\n</span></p>", self::html(self::doc(self::p($ext))));
+        $strong = ['type' => 'strong', 'children' => [['type' => 'comment', 'form' => 'line', 'value' => ''], ['type' => 'soft_break']]];
+        $this->assertSame('<p><strong></strong></p>', self::html(self::doc(self::p($strong))));
+    }
+
+    /**
+     * @return void
+     */
+    public function testC2H171QuotedColsListStaysQuoted(): void
+    {
+        $inc = ['type' => 'include', 'path' => 't.crv', 'options' => ['cols' => ['Name', 'Value']]];
+        $this->assertSame('<p>{{ t.crv @cols:"Name,Value" }}</p>', self::html(self::doc($inc)));
+    }
+
+    /**
+     * @return void
+     */
+    public function testC2H158FootnotesDirectiveWithNoNotesIsADiv(): void
+    {
+        $dir = ['type' => 'directive', 'kind' => 'footnotes', 'children' => []];
+        $this->assertSame("<p>a</p>\n<div class=\"footnotes\">\n\n</div>", self::html(self::doc(self::p(self::t('a')), $dir)));
+    }
+
+    /**
+     * @return void
+     */
+    public function testC2H141ReferenceKeyTakesItsOwnPlace(): void
+    {
+        $link = ['type' => 'link', 'key' => 'r', 'namespace' => 'link', 'refForm' => 'full', 'children' => [self::t('b')], 'attrs' => ['keyValues' => [['wn', ''], ['k', '2']]]];
+        $def = ['type' => 'link_reference_definition', 'key' => 'r', 'namespace' => 'link', 'href' => '/u', 'attrs' => ['keyValues' => [['k', '1'], ['z', '3']]]];
+        $this->assertSame('<p><a href="/u" z="3" wn="" k="2">b</a></p>', self::html(self::doc(self::p($link), $def)));
+    }
+
+    /**
+     * @return void
+     */
+    public function testBlockImageStandsOnItsOwnLineInContainers(): void
+    {
+        $img = ['type' => 'paragraph', 'role' => 'image', 'children' => [['type' => 'image', 'src' => 'a.png', 'alt' => 'a']]];
+        $list = ['type' => 'list', 'marker' => ['kind' => 'bullet', 'char' => '-'], 'spacing' => 'tight', 'children' => [['type' => 'list_item', 'children' => [$img]]]];
+        $this->assertSame("<ul>\n  <li>\n    <img src=\"a.png\" alt=\"a\">\n  </li>\n</ul>", self::html(self::doc($list)));
+        $quote = ['type' => 'block_quote', 'children' => [$img]];
+        $this->assertSame("<blockquote>\n  <img src=\"a.png\" alt=\"a\">\n</blockquote>", self::html(self::doc($quote)));
+    }
+
+    /**
+     * @return void
+     */
+    public function testEmptyTableAndTaskBeforeList(): void
+    {
+        $this->assertSame("<table>\n</table>", self::html(self::doc(['type' => 'table', 'columns' => [], 'children' => []])));
+        $inner = ['type' => 'list', 'marker' => ['kind' => 'bullet', 'char' => '-'], 'spacing' => 'tight', 'children' => [['type' => 'list_item', 'children' => [self::p(self::t('a'))]]]];
+        $item = ['type' => 'list_item', 'task' => ['mark' => 'x'], 'children' => [$inner]];
+        $list = ['type' => 'list', 'marker' => ['kind' => 'bullet', 'char' => '-'], 'spacing' => 'tight', 'children' => [$item]];
+        $this->assertStringContainsString("<input type=\"checkbox\" checked disabled> \n    <ul>", self::html(self::doc($list)));
+    }
+
+    /**
      * @param int $start
      * @param int $end
      *

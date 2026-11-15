@@ -1133,9 +1133,9 @@ final class BlockParser
         $f->end = $this->le;
         $k = $j + $n;
         $k += strspn($s, " \t", $k, $this->le - $k);
-        $textEnd = $this->trimEnd($k);
-        if ($k < $textEnd) {
-            $f->spans = [$k, $textEnd];
+        // C2-B-108: only the spaces and tabs before the opener text are dropped.
+        if ($k < $this->le) {
+            $f->spans = [$k, $this->le];
         }
         $this->take($f);
         $this->startLeaf($f);

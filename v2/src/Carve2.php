@@ -28,6 +28,27 @@ final class Carve2
     public static function parse(string $source, array $options = []): Node
     {
         $opts = Options::from($options);
+        // The tree is acyclic and freed whole; the cycle collector would rescan it on every
+        // allocation burst, which made large documents superlinear. The state is restored.
+        $gc = gc_enabled();
+        gc_disable();
+        try {
+            return self::stages($source, $opts);
+        } finally {
+            if ($gc) {
+                gc_enable();
+            }
+        }
+    }
+
+    /**
+     * @param string $source
+     * @param \MarkupCarve\Carve2\Options $opts
+     *
+     * @return \MarkupCarve\Carve2\Node
+     */
+    private static function stages(string $source, Options $opts): Node
+    {
         $sink = new TreeSink($source);
         (new BlockParser($sink))->parse($source);
         $doc = $sink->root;

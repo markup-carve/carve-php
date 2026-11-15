@@ -69,6 +69,33 @@ final class RenderState
     private int $admonitions = 0;
 
     /**
+     * The tree in pre-order (Walk::order) and the indexes of note marks and titled nodes in it.
+     *
+     * @var array<int, \MarkupCarve\Carve2\Node>
+     */
+    private array $nodes = [];
+
+    /**
+     * @var array<int, int>
+     */
+    private array $end = [];
+
+    /**
+     * @var array<int, int>
+     */
+    private array $pos = [];
+
+    /**
+     * @var array<int, int>
+     */
+    private array $marks = [];
+
+    /**
+     * @var array<int, int>
+     */
+    private array $titled = [];
+
+    /**
      * @param \MarkupCarve\Carve2\Node $doc
      * @param \MarkupCarve\Carve2\Options $o
      * @param \MarkupCarve\Carve2\Html\Profile|null $profile
@@ -85,7 +112,8 @@ final class RenderState
                 $this->placingDirective ??= $child;
             }
         }
-        $this->scan($doc);
+        [$this->nodes, $this->end, $this->pos] = Walk::order($doc);
+        $this->scan();
         ksort($this->notes);
         if ($this->notes === []) {
             // C2-H-158: with no section to place, the directive is a plain `<div class="footnotes">`.
@@ -93,106 +121,136 @@ final class RenderState
         }
         foreach ($doc->children ?? [] as $child) {
             if ($child->type !== 'footnote') {
-                $this->refs($child);
+                $at = $this->pos[spl_object_id($child)];
+                $this->refs($at, $this->end[$at]);
             }
         }
         foreach ($this->notes as $note) {
-            foreach (Walk::kids($note) as $kid) {
-                $this->refs($kid);
+            $at = $this->pos[spl_object_id($note)] ?? null;
+            if ($at !== null) {
+                $this->refs($at + 1, $this->end[$at]);
             }
         }
         foreach ($doc->children ?? [] as $child) {
             if ($child->type !== 'footnote') {
-                $this->admonitionIds($child);
+                $this->admonitionIds($this->pos[spl_object_id($child)]);
             }
         }
         foreach ($this->notes as $note) {
-            if ($note->type === 'footnote') {
-                $this->admonitionIds($note);
+            if ($note->type === 'footnote' && isset($this->pos[spl_object_id($note)])) {
+                $this->admonitionIds($this->pos[spl_object_id($note)]);
             }
         }
+        $this->nodes = [];
+        $this->end = [];
+        $this->pos = [];
+        $this->marks = [];
+        $this->titled = [];
     }
 
     /**
      * The notes by number, the taken ids and the cross-reference texts, in document order.
      *
-     * @param \MarkupCarve\Carve2\Node $node
-     *
      * @return void
      */
-    private function scan(Node $node): void
+    private function scan(): void
     {
-        $number = $node->f['number'] ?? null;
-        if (is_int($number) && ($this->profile === null || $this->profile->allowsInline($node))) {
-            if ($node->type === 'inline_footnote') {
-                $this->notes[$number] ??= $node;
-            } elseif ($node->type === 'footnote_ref') {
-                $def = $this->footnoteDefs[PlainText::str($node->f['key'] ?? '')] ?? null;
-                if ($def !== null) {
-                    $this->notes[$number] ??= $def;
+        foreach ($this->nodes as $i => $node) {
+            $f = $node->f;
+            $type = $node->type;
+            if ($type === 'footnote_ref' || $type === 'inline_footnote') {
+                $this->marks[] = $i;
+                $number = $f['number'] ?? null;
+                if (is_int($number) && ($this->profile === null || $this->profile->allowsInline($node))) {
+                    if ($type === 'inline_footnote') {
+                        $this->notes[$number] ??= $node;
+                    } else {
+                        $def = $this->footnoteDefs[PlainText::str($f['key'] ?? '')] ?? null;
+                        if ($def !== null) {
+                            $this->notes[$number] ??= $def;
+                        }
+                    }
                 }
             }
-        }
-        $attrs = $node->f['attrs'] ?? null;
-        if ($attrs instanceof Attrs && $attrs->id !== null) {
-            $this->taken[$attrs->id] = true;
-        }
-        if ($node->type === 'heading') {
-            $id = Resolver::idOf($node);
+            if (isset($f['title']) && is_array($f['title'])) {
+                $this->titled[] = $i;
+            }
+            $attrs = $f['attrs'] ?? null;
+            $id = $attrs instanceof Attrs ? $attrs->id : null;
             if ($id !== null) {
                 $this->taken[$id] = true;
-                $this->xrefText[$id] ??= PlainText::of($node->children ?? []);
             }
-        }
-        $caption = $node->f['caption'] ?? null;
-        if ($caption instanceof Node && $attrs instanceof Attrs && $attrs->id !== null) {
-            $mark = Resolver::captionMark($caption);
-            if ($mark !== null && is_int($mark[0]->f['n'] ?? null)) {
-                $label = Resolver::labelKey($mark[1], $this->o->symbols);
-                $this->xrefText[$attrs->id] ??= ltrim($label . ' ' . $mark[0]->f['n']);
+            if ($type === 'heading') {
+                $hid = Resolver::idOf($node);
+                if ($hid !== null) {
+                    $this->taken[$hid] = true;
+                    $this->xrefText[$hid] ??= PlainText::of($node->children ?? []);
+                }
             }
-        }
-        foreach (Walk::kids($node) as $kid) {
-            $this->scan($kid);
+            $caption = $f['caption'] ?? null;
+            if ($id !== null && $caption instanceof Node) {
+                $mark = Resolver::captionMark($caption);
+                if ($mark !== null && is_int($mark[0]->f['n'] ?? null)) {
+                    $label = Resolver::labelKey($mark[1], $this->o->symbols);
+                    $this->xrefText[$id] ??= ltrim($label . ' ' . $mark[0]->f['n']);
+                }
+            }
         }
     }
 
     /**
      * C2-H-088: the second and later references to a note take `-2`, `-3`; an authored id replaces it.
      *
-     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $from
+     * @param int $to
      *
      * @return void
      */
-    private function refs(Node $node): void
+    private function refs(int $from, int $to): void
     {
-        $number = $node->f['number'] ?? null;
-        if (is_int($number) && isset($this->notes[$number]) && ($node->type === 'footnote_ref' || $node->type === 'inline_footnote') && ($this->profile === null || $this->profile->allowsInline($node))) {
+        $marks = $this->marks;
+        $count = count($marks);
+        for ($m = Walk::firstAtOrAfter($marks, $from); $m < $count; $m++) {
+            $i = $marks[$m];
+            if ($i >= $to) {
+                break;
+            }
+            if ($i < $from) {
+                continue;
+            }
+            $node = $this->nodes[$i];
+            $number = $node->f['number'] ?? null;
+            if (!is_int($number) || !isset($this->notes[$number]) || ($this->profile !== null && !$this->profile->allowsInline($node))) {
+                continue;
+            }
             $k = count($this->backlinks[$number] ?? []) + 1;
             $attrs = $node->f['attrs'] ?? null;
             $id = $attrs instanceof Attrs && $attrs->id !== null ? $attrs->id : 'fnref' . $number . ($k > 1 ? '-' . $k : '');
             $this->refIds[spl_object_id($node)] = $id;
             $this->backlinks[$number][] = $id;
             if ($node->type === 'inline_footnote') {
-                return;
+                $from = $this->end[$i];
             }
-        }
-        foreach (Walk::kids($node) as $kid) {
-            $this->refs($kid);
         }
     }
 
     /**
      * C2-H-155, C2-H-156.
      *
-     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $at
      *
      * @return void
      */
-    private function admonitionIds(Node $node): void
+    private function admonitionIds(int $at): void
     {
-        $titled = isset($node->f['title']) && is_array($node->f['title']);
-        if ($titled && ($node->type === 'admonition' && !self::namedByAuthor($node) || $node === $this->placingDirective)) {
+        $list = $this->titled;
+        $count = count($list);
+        $to = $this->end[$at];
+        for ($t = Walk::firstAtOrAfter($list, $at); $t < $count && $list[$t] < $to; $t++) {
+            $node = $this->nodes[$list[$t]];
+            if (!($node->type === 'admonition' && !self::namedByAuthor($node) || $node === $this->placingDirective)) {
+                continue;
+            }
             $this->admonitions++;
             $base = 'adm-' . $this->admonitions;
             $id = $base;
@@ -201,9 +259,6 @@ final class RenderState
             }
             $this->taken[$id] = true;
             $this->admonitionIds[spl_object_id($node)] = $id;
-        }
-        foreach (Walk::kids($node) as $kid) {
-            $this->admonitionIds($kid);
         }
     }
 

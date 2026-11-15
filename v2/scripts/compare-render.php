@@ -37,6 +37,7 @@ function cases(array $opt, string $lane): Generator
         foreach ($inputs as $i => $input) {
             $line = $fh !== false ? fgets($fh) : false;
             $o = json_decode($line === false ? '{}' : $line, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
+
             yield $i => ['input' => $input, 'html' => $o['html'] ?? null, 'tree' => $o['tree'] ?? null, 'options' => $options, 'label' => "input $i"];
         }
 
@@ -46,6 +47,7 @@ function cases(array $opt, string $lane): Generator
     $lines = file((string)($opt['oracle'] ?? $lane . '/oracle/examples-oracle.jsonl'), FILE_IGNORE_NEW_LINES) ?: [];
     foreach ($examples as $i => $ex) {
         $o = json_decode($lines[$i] ?? '{}', true);
+
         yield $i => ['input' => $ex['input'], 'html' => $ex['html'], 'tree' => $o['tree'] ?? null, 'options' => optionsOf($ex), 'label' => "{$ex['file']} example {$ex['number']}"];
     }
 }

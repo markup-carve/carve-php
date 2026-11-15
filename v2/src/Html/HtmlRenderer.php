@@ -105,8 +105,17 @@ final class HtmlRenderer
 
             return ['', $log];
         }
-        $r = new self($doc, $opts, $source);
-        $html = $r->document();
+        $gc = gc_enabled();
+        // The tree holds no cycles; with the collector on, each walk fills its root buffer and starts full scans.
+        gc_disable();
+        try {
+            $r = new self($doc, $opts, $source);
+            $html = $r->document();
+        } finally {
+            if ($gc) {
+                gc_enable();
+            }
+        }
         if ($opts->strictLosses && $r->log->entries !== []) {
             $html = '';
         }

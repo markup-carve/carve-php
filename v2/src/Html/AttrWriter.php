@@ -69,6 +69,9 @@ final class AttrWriter
         array $style = [],
         ?int $sourceLine = null,
     ): string {
+        if ($attrs === null && $structural === [] && $id === null && $lang === null && $base === [] && $tail === [] && $generated === [] && $style === [] && $sourceLine === null) {
+            return '';
+        }
         $out = [];
         $seen = [];
         foreach ($structural as [$name, $value]) {

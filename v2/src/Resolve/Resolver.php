@@ -80,6 +80,45 @@ final class Resolver
      */
     private array $sequence = [];
 
+    /**
+     * The tree in pre-order (Walk::order), walked by index ranges in place of recursion.
+     *
+     * @var array<int, \MarkupCarve\Carve2\Node>
+     */
+    private array $nodes = [];
+
+    /**
+     * @var array<int, int>
+     */
+    private array $end = [];
+
+    /**
+     * @var array<int, int>
+     */
+    private array $pos = [];
+
+    /**
+     * Pre-order indexes of the nodes each pass reads, filled by prepare().
+     *
+     * @var array<int, int>
+     */
+    private array $noteMarks = [];
+
+    /**
+     * @var array<int, int>
+     */
+    private array $headings = [];
+
+    /**
+     * @var array<int, int>
+     */
+    private array $numbered = [];
+
+    /**
+     * @var array<int, int>
+     */
+    private array $keyed = [];
+
     private function __construct(private Node $doc, private string $s, private Options $o)
     {
     }
@@ -93,18 +132,35 @@ final class Resolver
      */
     public static function resolve(Node $doc, ?string $s, Options $opts): self
     {
-        $r = new self($doc, $s ?? '', $opts);
-        $doc->f['astVersion'] = '2.0';
-        if ($s !== null) {
-            $doc->f['srcByteLength'] = strlen($s);
+        $gc = gc_enabled();
+        // The tree holds no cycles; with the collector on, each walk fills its root buffer and starts full scans.
+        gc_disable();
+        try {
+            $r = new self($doc, $s ?? '', $opts);
+            [$r->nodes, $r->end, $r->pos] = Walk::order($doc);
+            $doc->f['astVersion'] = '2.0';
+            if ($s !== null) {
+                $doc->f['srcByteLength'] = strlen($s);
+            }
+            $r->collectDefinitions();
+            $r->prepare();
+            $r->numberFootnotes();
+            $r->headingIds();
+            $r->captions();
+            $r->references();
+            $doc->f['stages'] = self::STAGES;
+            $r->nodes = [];
+            $r->end = [];
+            $r->pos = [];
+            $r->noteMarks = [];
+            $r->headings = [];
+            $r->numbered = [];
+            $r->keyed = [];
+        } finally {
+            if ($gc) {
+                gc_enable();
+            }
         }
-        $r->collectDefinitions();
-        $r->numberFootnotes();
-        $r->collectAuthoredIds($doc);
-        $r->headingIds();
-        $r->captions();
-        $r->references($doc);
-        $doc->f['stages'] = self::STAGES;
 
         return $r;
     }
@@ -139,45 +195,51 @@ final class Resolver
      */
     private function numberFootnotes(): void
     {
-        $this->clearNumbers($this->doc);
         foreach ($this->doc->children ?? [] as $child) {
             if ($child->type !== 'footnote') {
-                $this->noteRefs($child);
+                $i = $this->pos[spl_object_id($child)];
+                $this->noteRefs($i, $this->end[$i]);
             }
         }
         // The queue grows while it is read: a note can reference a later note.
         $i = 0;
         while (isset($this->notes[$i])) {
-            foreach (Walk::kids($this->notes[$i]) as $kid) {
-                $this->noteRefs($kid);
+            $at = $this->pos[spl_object_id($this->notes[$i])] ?? null;
+            if ($at !== null) {
+                $this->noteRefs($at + 1, $this->end[$at]);
             }
             $i++;
         }
     }
 
     /**
-     * @param \MarkupCarve\Carve2\Node $node
+     * The references in a range; an inline footnote's content waits for its turn as a note.
+     *
+     * @param int $from
+     * @param int $to
      *
      * @return void
      */
-    private function clearNumbers(Node $node): void
+    private function noteRefs(int $from, int $to): void
     {
-        if ($node->type === 'footnote_ref' || $node->type === 'inline_footnote') {
-            unset($node->f['number']);
-        }
-        foreach (Walk::kids($node) as $kid) {
-            $this->clearNumbers($kid);
-        }
-    }
+        $marks = $this->noteMarks;
+        $count = count($marks);
+        for ($m = Walk::firstAtOrAfter($marks, $from); $m < $count; $m++) {
+            $i = $marks[$m];
+            if ($i >= $to) {
+                break;
+            }
+            if ($i < $from) {
+                continue;
+            }
+            $node = $this->nodes[$i];
+            if ($node->type === 'inline_footnote') {
+                $this->notes[] = $node;
+                $node->f['number'] = count($this->notes);
+                $from = $this->end[$i];
 
-    /**
-     * @param \MarkupCarve\Carve2\Node $node
-     *
-     * @return void
-     */
-    private function noteRefs(Node $node): void
-    {
-        if ($node->type === 'footnote_ref') {
+                continue;
+            }
             $key = $node->f['key'] ?? null;
             if (is_string($key) && isset($this->footnoteDefs[$key])) {
                 if (!isset($this->footnoteNumber[$key])) {
@@ -186,35 +248,62 @@ final class Resolver
                 }
                 $node->f['number'] = $this->footnoteNumber[$key];
             }
-
-            return;
-        }
-        if ($node->type === 'inline_footnote') {
-            $this->notes[] = $node;
-            $node->f['number'] = count($this->notes);
-
-            return;
-        }
-        foreach (Walk::kids($node) as $kid) {
-            $this->noteRefs($kid);
         }
     }
 
     /**
-     * C2-H-024: authored ids are reserved first, in document order.
-     *
-     * @param \MarkupCarve\Carve2\Node $node
+     * One pass over the tree: every earlier result is cleared (a tree may be resolved again), authored
+     * ids are reserved first in document order (C2-H-024), and the nodes each later pass reads are listed.
      *
      * @return void
      */
-    private function collectAuthoredIds(Node $node): void
+    private function prepare(): void
     {
-        $attrs = $node->f['attrs'] ?? null;
-        if ($attrs instanceof Attrs && $attrs->id !== null) {
-            $this->taken[$attrs->id] = true;
-        }
-        foreach (Walk::kids($node) as $kid) {
-            $this->collectAuthoredIds($kid);
+        foreach ($this->nodes as $i => $node) {
+            $f = $node->f;
+            $numbered = false;
+            $attrs = $f['attrs'] ?? null;
+            if ($attrs instanceof Attrs && $attrs->id !== null) {
+                $this->taken[$attrs->id] = true;
+            }
+            switch ($node->type) {
+                case 'footnote_ref':
+                case 'inline_footnote':
+                    unset($node->f['number']);
+                    $this->noteMarks[] = $i;
+
+                    break;
+                case 'heading':
+                    unset($node->f['generatedId']);
+                    $this->headings[] = $i;
+
+                    break;
+                case 'caption_number':
+                    unset($node->f['n']);
+
+                    break;
+                case 'math':
+                    if (isset($f['numberPrefix'])) {
+                        unset($node->f['number']);
+                        $numbered = true;
+                    }
+
+                    break;
+                case 'figure_group':
+                    $numbered = true;
+
+                    break;
+                case 'table':
+                    $this->keyed[] = $i;
+
+                    break;
+            }
+            if ($numbered || ($f['caption'] ?? null) instanceof Node) {
+                $this->numbered[] = $i;
+            }
+            if (is_string($f['key'] ?? null) && $node->type !== 'table') {
+                $this->keyed[] = $i;
+            }
         }
     }
 
@@ -228,50 +317,36 @@ final class Resolver
     {
         foreach ($this->doc->children ?? [] as $child) {
             if ($child->type !== 'footnote') {
-                $this->headingIdsIn($child);
-            } else {
-                $this->clearHeadingIds($child);
+                $this->headingIdsIn($this->pos[spl_object_id($child)]);
             }
         }
         foreach ($this->notes as $note) {
             if ($note->type === 'footnote') {
-                $this->headingIdsIn($note);
+                $this->headingIdsIn($this->pos[spl_object_id($note)]);
             }
         }
-        $this->collectHeadings($this->doc);
+        $this->collectHeadings();
     }
 
     /**
-     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $at
      *
      * @return void
      */
-    private function clearHeadingIds(Node $node): void
+    private function headingIdsIn(int $at): void
     {
-        if ($node->type === 'heading') {
-            unset($node->f['generatedId']);
+        if ($this->o->headingIds === 'off') {
+            return;
         }
-        foreach (Walk::kids($node) as $kid) {
-            $this->clearHeadingIds($kid);
-        }
-    }
-
-    /**
-     * @param \MarkupCarve\Carve2\Node $node
-     *
-     * @return void
-     */
-    private function headingIdsIn(Node $node): void
-    {
-        if ($node->type === 'heading') {
-            unset($node->f['generatedId']);
+        $list = $this->headings;
+        $count = count($list);
+        $to = $this->end[$at];
+        for ($h = Walk::firstAtOrAfter($list, $at); $h < $count && $list[$h] < $to; $h++) {
+            $node = $this->nodes[$list[$h]];
             $attrs = $node->f['attrs'] ?? null;
-            if ($this->o->headingIds !== 'off' && !($attrs instanceof Attrs && $attrs->id !== null)) {
+            if (!($attrs instanceof Attrs && $attrs->id !== null)) {
                 $node->f['generatedId'] = $this->unique(Slug::of(PlainText::of($node->children ?? []), $this->o->headingIds));
             }
-        }
-        foreach (Walk::kids($node) as $kid) {
-            $this->headingIdsIn($kid);
         }
     }
 
@@ -297,13 +372,12 @@ final class Resolver
     }
 
     /**
-     * @param \MarkupCarve\Carve2\Node $node
-     *
      * @return void
      */
-    private function collectHeadings(Node $node): void
+    private function collectHeadings(): void
     {
-        if ($node->type === 'heading') {
+        foreach ($this->headings as $i) {
+            $node = $this->nodes[$i];
             $id = self::idOf($node);
             if ($id !== null) {
                 foreach ($this->headingTexts($node) as $text) {
@@ -311,9 +385,6 @@ final class Resolver
                 }
                 $this->xrefIds[$id] = true;
             }
-        }
-        foreach (Walk::kids($node) as $kid) {
-            $this->collectHeadings($kid);
         }
     }
 
@@ -341,72 +412,63 @@ final class Resolver
      */
     private function captions(): void
     {
-        $this->clearCaptionNumbers($this->doc);
         foreach ($this->doc->children ?? [] as $child) {
             if ($child->type !== 'footnote') {
-                $this->captionsIn($child, false, false);
+                $this->captionsIn($this->pos[spl_object_id($child)]);
             }
         }
         foreach ($this->notes as $note) {
             if ($note->type === 'footnote') {
-                $this->captionsIn($note, false, false);
+                $this->captionsIn($this->pos[spl_object_id($note)]);
             }
         }
     }
 
     /**
-     * @param \MarkupCarve\Carve2\Node $node
+     * C2-H-066: a panel of a figure group takes no number. C2-H-151: inside a figure or figure group
+     * whose caption has a mark, an equation's number belongs to that caption.
+     *
+     * @param int $at
      *
      * @return void
      */
-    private function clearCaptionNumbers(Node $node): void
+    private function captionsIn(int $at): void
     {
-        if ($node->type === 'caption_number') {
-            unset($node->f['n']);
-        } elseif ($node->type === 'math' && isset($node->f['numberPrefix'])) {
-            unset($node->f['number']);
-        }
-        foreach (Walk::kids($node) as $kid) {
-            $this->clearCaptionNumbers($kid);
-        }
-    }
-
-    /**
-     * @param \MarkupCarve\Carve2\Node $node
-     * @param bool $panel The node is a panel of a figure group (C2-H-066).
-     * @param bool $owned A caption with a mark around it owns the number of an equation (C2-H-151).
-     *
-     * @return void
-     */
-    private function captionsIn(Node $node, bool $panel, bool $owned): void
-    {
-        $caption = $node->f['caption'] ?? null;
-        if ($caption instanceof Node) {
-            $mark = self::captionMark($caption);
-            if ($mark !== null) {
-                if (!$panel) {
-                    $mark[0]->f['n'] = $this->next(self::labelKey($mark[1], $this->o->symbols));
-                    $id = self::idOf($node);
-                    if ($id !== null) {
-                        $this->xrefIds[$id] = true;
+        $panels = [];
+        $ownedUntil = $at;
+        $list = $this->numbered;
+        $count = count($list);
+        $to = $this->end[$at];
+        for ($c = Walk::firstAtOrAfter($list, $at); $c < $count && $list[$c] < $to; $c++) {
+            $i = $list[$c];
+            $node = $this->nodes[$i];
+            $type = $node->type;
+            $caption = $node->f['caption'] ?? null;
+            if ($caption instanceof Node) {
+                $mark = self::captionMark($caption);
+                if ($mark !== null) {
+                    if (!isset($panels[spl_object_id($node)])) {
+                        $mark[0]->f['n'] = $this->next(self::labelKey($mark[1], $this->o->symbols));
+                        $id = self::idOf($node);
+                        if ($id !== null) {
+                            $this->xrefIds[$id] = true;
+                        }
+                    }
+                    if (($type === 'figure' || $type === 'figure_group') && $this->end[$i] > $ownedUntil) {
+                        $ownedUntil = $this->end[$i];
                     }
                 }
-                if ($node->type === 'figure' || $node->type === 'figure_group') {
-                    $owned = true;
+            }
+            if ($type === 'math' && $i >= $ownedUntil && ($node->f['display'] ?? false) === true && is_string($node->f['numberPrefix'] ?? null)) {
+                $node->f['number'] = $this->next($node->f['numberPrefix']);
+            }
+            if ($type === 'figure_group') {
+                foreach ($node->children ?? [] as $child) {
+                    if ($child->type === 'figure' || $child->type === 'table') {
+                        $panels[spl_object_id($child)] = true;
+                    }
                 }
             }
-        }
-        if ($node->type === 'math' && !$owned && ($node->f['display'] ?? false) === true && is_string($node->f['numberPrefix'] ?? null)) {
-            $node->f['number'] = $this->next($node->f['numberPrefix']);
-        }
-        $panels = [];
-        if ($node->type === 'figure_group') {
-            foreach ($node->children ?? [] as $child) {
-                $panels[spl_object_id($child)] = $child->type === 'figure' || $child->type === 'table';
-            }
-        }
-        foreach (Walk::kids($node) as $kid) {
-            $this->captionsIn($kid, $panels[spl_object_id($kid)] ?? false, $owned);
         }
     }
 
@@ -461,19 +523,26 @@ final class Resolver
     /**
      * Link, image and cross-reference destinations, abbreviation expansions, table results.
      *
-     * @param \MarkupCarve\Carve2\Node $node
-     *
      * @return void
      */
-    private function references(Node $node): void
+    private function references(): void
     {
-        $f = $node->f;
-        $key = $f['key'] ?? null;
-        if (is_string($key)) {
-            switch ($node->type) {
+        foreach ($this->keyed as $i) {
+            $node = $this->nodes[$i];
+            $type = $node->type;
+            if ($type === 'table') {
+                $this->table($node);
+
+                continue;
+            }
+            $key = $node->f['key'] ?? null;
+            if (!is_string($key)) {
+                continue;
+            }
+            switch ($type) {
                 case 'link':
                 case 'image':
-                    if (($f['namespace'] ?? null) === 'link') {
+                    if (($node->f['namespace'] ?? null) === 'link') {
                         $this->linkReference($node, $key);
                     }
 
@@ -493,12 +562,6 @@ final class Resolver
 
                     break;
             }
-        }
-        if ($node->type === 'table') {
-            $this->table($node);
-        }
-        foreach (Walk::kids($node) as $kid) {
-            $this->references($kid);
         }
     }
 
