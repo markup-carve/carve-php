@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Inline;
 
 use MarkupCarve\Carve2\Attrs;
-use MarkupCarve\Carve2\Generated\Tables;
 use MarkupCarve\Carve2\Node;
 
 /**
@@ -152,7 +151,7 @@ final class InlineRunner
             return [];
         }
         $len = strlen($t);
-        if ($ctx->abbreviations === [] && strcspn($t, Scanner::SPECIALS . Tables::SMART_TRIGGERS) === $len) {
+        if ($ctx->abbreviations === [] && strcspn($t, Scanner::SPECIALS) === $len && !Finisher::replaces($t)) {
             return [Node::text($t, $content->src(0), $content->src($len))];
         }
         $scanner = new Scanner($content, $ctx, $depth, $mode);

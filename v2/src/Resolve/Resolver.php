@@ -16,6 +16,13 @@ use MarkupCarve\Carve2\Options;
 final class Resolver
 {
     /**
+     * Node types whose subtree end a later pass reads.
+     *
+     * @var array<string, true>
+     */
+    private const NEEDS_END = ['inline_footnote' => true, 'figure' => true, 'figure_group' => true];
+
+    /**
      * @var array<string>
      */
     public const STAGES = ['referenceResolution', 'tableAlignment'];
@@ -125,11 +132,25 @@ final class Resolver
     private array $body = [];
 
     /**
-     * Types whose earlier result prepare() clears or whose nodes a later pass reads.
+     * @var array<int, int>
+     */
+    private array $titled = [];
+
+    private bool $longDescriptions = false;
+
+    private bool $comments = false;
+
+    /**
+     * Set by resolve() when asked to keep what it found for the renderer.
+     */
+    public ?Facts $facts = null;
+
+    /**
+     * Types whose earlier result prepare() clears, whose nodes a later pass reads or that set a flag.
      *
      * @var array<string, true>
      */
-    private const LISTED = ['footnote_ref' => true, 'inline_footnote' => true, 'heading' => true, 'caption_number' => true, 'math' => true, 'figure_group' => true, 'table' => true];
+    private const LISTED = ['footnote_ref' => true, 'inline_footnote' => true, 'heading' => true, 'caption_number' => true, 'math' => true, 'figure_group' => true, 'table' => true, 'comment' => true, 'image' => true];
 
     private function __construct(private Node $doc, private string $s, private Options $o)
     {
@@ -139,10 +160,11 @@ final class Resolver
      * @param \MarkupCarve\Carve2\Node $doc
      * @param string|null $s The source, or null for a supplied tree.
      * @param \MarkupCarve\Carve2\Options $opts
+     * @param bool $keep Keep the walk's lists as Facts for HtmlRenderer::render().
      *
      * @return self
      */
-    public static function resolve(Node $doc, ?string $s, Options $opts): self
+    public static function resolve(Node $doc, ?string $s, Options $opts, bool $keep = false): self
     {
         $gc = gc_enabled();
         // The tree holds no cycles; with the collector on, each walk fills its root buffer and starts full scans.
@@ -155,13 +177,15 @@ final class Resolver
             }
             $r->collectDefinitions();
             $r->prepare();
-            $r->pos += Walk::kidPositions($doc, $r->end);
             $r->body = Walk::bodyRanges($doc, $r->pos, $r->end);
             $r->numberFootnotes();
             $r->headingIds();
             $r->captions();
             $r->references();
             $doc->f['stages'] = self::STAGES;
+            if ($keep) {
+                $r->facts = new Facts($doc, $r->nodes, $r->end, $r->pos, $r->noteMarks, $r->headings, $r->numbered, $r->titled, $r->taken, $r->longDescriptions, $r->comments);
+            }
             $r->nodes = [];
             $r->end = [];
             $r->pos = [];
@@ -169,6 +193,7 @@ final class Resolver
             $r->headings = [];
             $r->numbered = [];
             $r->keyed = [];
+            $r->titled = [];
         } finally {
             if ($gc) {
                 gc_enable();
@@ -269,10 +294,30 @@ final class Resolver
      */
     private function prepare(): void
     {
-        // The walk of Walk::order, inlined so the tree is touched once.
-        $stack = [$this->doc];
+        $this->nodes[0] = $this->doc;
+        $n = 1;
+        foreach (Walk::kids($this->doc) as $kid) {
+            $at = $n;
+            $this->pos[spl_object_id($kid)] ??= $at;
+            $n = $this->prepareFrom($kid, $n);
+            $this->end[$at] = $n;
+        }
+        $this->end[0] = $n;
+    }
+
+    /**
+     * The walk of Walk::order from one block of the document, inlined so the tree is touched once. Only
+     * the nodes in NEEDS_END record where their subtree ends.
+     *
+     * @param \MarkupCarve\Carve2\Node $start
+     * @param int $n The index of $start.
+     *
+     * @return int The index after the subtree.
+     */
+    private function prepareFrom(Node $start, int $n): int
+    {
+        $stack = [$start];
         $top = 1;
-        $n = 0;
         while ($top > 0) {
             $node = $stack[--$top];
             if (is_int($node)) {
@@ -281,7 +326,6 @@ final class Resolver
                 continue;
             }
             $this->nodes[$n] = $node;
-            $this->end[$n] = $n + 1;
             $i = $n++;
             $f = $node->f;
             $type = $node->type;
@@ -293,8 +337,13 @@ final class Resolver
                     break;
                 }
             }
+            if (isset(self::NEEDS_END[$type])) {
+                $this->end[$i] = $n;
+            }
             if ($kids !== null && $kids !== []) {
-                $stack[$top++] = $i;
+                if (isset(self::NEEDS_END[$type])) {
+                    $stack[$top++] = $i;
+                }
                 for ($k = count($kids); $k > 0;) {
                     $kid = $kids[--$k];
                     // Plain text holds no slot and no result and is never listed; most nodes are text.
@@ -310,7 +359,12 @@ final class Resolver
             if (isset(self::LISTED[$type]) || isset($f['caption']) || isset($f['key'])) {
                 $this->listNode($node, $i);
             }
+            if (isset($f['title']) && is_array($f['title'])) {
+                $this->titled[] = $i;
+            }
         }
+
+        return $n;
     }
 
     /**
@@ -342,6 +396,14 @@ final class Resolver
                 break;
             case 'caption_number':
                 unset($node->f['n']);
+
+                break;
+            case 'comment':
+                $this->comments = true;
+
+                break;
+            case 'image':
+                $this->longDescriptions = $this->longDescriptions || is_array($node->f['longDescription'] ?? null);
 
                 break;
             case 'math':

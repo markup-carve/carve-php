@@ -69,8 +69,9 @@ final class AttrWriter
         array $style = [],
         ?int $sourceLine = null,
     ): string {
-        if ($attrs === null && $structural === [] && $id === null && $lang === null && self::noLists($base, $tail, $generated, $style) && $sourceLine === null) {
-            return '';
+        if ($attrs === null && $id === null && $lang === null && self::noLists($base, $tail, $generated, $style) && $sourceLine === null) {
+            // Nothing else to merge: the structural attributes as they are, often none.
+            return $structural === [] ? '' : self::join($structural);
         }
         $out = [];
         $seen = [];

@@ -8,6 +8,7 @@ use MarkupCarve\Carve2\Attrs;
 use MarkupCarve\Carve2\Generated\Tables;
 use MarkupCarve\Carve2\Node;
 use MarkupCarve\Carve2\Options;
+use MarkupCarve\Carve2\Resolve\Facts;
 use MarkupCarve\Carve2\Resolve\PlainText;
 use MarkupCarve\Carve2\Resolve\Resolver;
 
@@ -80,14 +81,14 @@ final class HtmlRenderer
      */
     private ?array $lineStarts = null;
 
-    private function __construct(private Node $doc, public Options $o, ?string $source)
+    private function __construct(private Node $doc, public Options $o, ?string $source, ?Facts $facts)
     {
         $this->log = new RenderLog();
         if ($o->profile !== 'full') {
             $this->profile = new Profile($o->profile, $this->log);
             $this->profile->measure($doc);
         }
-        $this->state = new RenderState($doc, $o, $this->profile);
+        $this->state = new RenderState($doc, $o, $this->profile, $facts);
         $this->aw = new AttrWriter($o, $this->log);
         $this->inline = new InlineRenderer($o, $this->state, $this->aw, $this->log);
         $this->inline->profile = $this->profile;
@@ -107,22 +108,25 @@ final class HtmlRenderer
      * @param \MarkupCarve\Carve2\Node $doc A resolved tree.
      * @param \MarkupCarve\Carve2\Options $opts
      * @param string|null $source The source, needed only for `sourceLines`.
+     * @param \MarkupCarve\Carve2\Resolve\Facts|null $resolved Resolver::resolve(..., keep: true)->facts of this
+     *   tree, unchanged since, which spares the renderer a walk; without it the output is the same.
      *
      * @return string
      */
-    public static function render(Node $doc, Options $opts, ?string $source = null): string
+    public static function render(Node $doc, Options $opts, ?string $source = null, ?Facts $resolved = null): string
     {
-        return self::renderWithLog($doc, $opts, $source)[0];
+        return self::renderWithLog($doc, $opts, $source, $resolved)[0];
     }
 
     /**
      * @param \MarkupCarve\Carve2\Node $doc
      * @param \MarkupCarve\Carve2\Options $opts
      * @param string|null $source
+     * @param \MarkupCarve\Carve2\Resolve\Facts|null $resolved
      *
      * @return array{0: string, 1: \MarkupCarve\Carve2\Html\RenderLog} C2-H-130: no output under `strictLosses` when a loss occurred.
      */
-    public static function renderWithLog(Node $doc, Options $opts, ?string $source = null): array
+    public static function renderWithLog(Node $doc, Options $opts, ?string $source = null, ?Facts $resolved = null): array
     {
         $max = Profile::maxLength($opts->profile);
         if ($source !== null && $max !== null && strlen($source) > $max) {
@@ -136,7 +140,7 @@ final class HtmlRenderer
         gc_disable();
         $r = null;
         try {
-            $r = new self($doc, $opts, $source);
+            $r = new self($doc, $opts, $source, $resolved);
             $html = $r->document();
         } finally {
             if ($r !== null) {

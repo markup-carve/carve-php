@@ -28,12 +28,12 @@ final class Carve2
     public static function parse(string $source, array $options = []): Node
     {
         $opts = Options::from($options);
-        // The tree is acyclic and freed whole; the cycle collector would rescan it on every
-        // allocation burst, which made large documents superlinear. The state is restored.
-        $gc = gc_enabled();
-        gc_disable();
+        $gc = self::collectorOff();
         try {
-            return self::stages($source, $opts);
+            $doc = self::stages($source);
+            Resolver::resolve($doc, $source, $opts);
+
+            return $doc;
         } finally {
             if ($gc) {
                 gc_enable();
@@ -42,12 +42,27 @@ final class Carve2
     }
 
     /**
+     * The tree is acyclic and freed whole; the cycle collector would rescan it on every allocation
+     * burst, which made large documents superlinear. The caller restores the state.
+     *
+     * @return bool Whether the collector was on.
+     */
+    private static function collectorOff(): bool
+    {
+        $gc = gc_enabled();
+        gc_disable();
+
+        return $gc;
+    }
+
+    /**
+     * Parse without resolving.
+     *
      * @param string $source
-     * @param \MarkupCarve\Carve2\Options $opts
      *
      * @return \MarkupCarve\Carve2\Node
      */
-    private static function stages(string $source, Options $opts): Node
+    private static function stages(string $source): Node
     {
         $sink = new TreeSink($source);
         (new BlockParser($sink))->parse($source);
@@ -58,7 +73,6 @@ final class Carve2
         if (str_contains($source, "\0")) {
             NulReplacer::apply($doc);
         }
-        Resolver::resolve($doc, $source, $opts);
 
         return $doc;
     }
@@ -72,8 +86,18 @@ final class Carve2
     public static function toHtml(string $source, array $options = []): string
     {
         $opts = Options::from($options);
+        $gc = self::collectorOff();
+        try {
+            $doc = self::stages($source);
+            // The resolve hands its lists to the renderer, which then skips its own walk of the tree.
+            $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
+        } finally {
+            if ($gc) {
+                gc_enable();
+            }
+        }
 
-        return HtmlRenderer::render(self::parse($source, $options), $opts, $source);
+        return HtmlRenderer::render($doc, $opts, $source, $facts);
     }
 
     /**

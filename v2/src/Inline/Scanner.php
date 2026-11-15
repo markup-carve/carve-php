@@ -173,6 +173,25 @@ final class Scanner
     private ?LinkTail $tails = null;
 
     /**
+     * Whether a token that the finisher's attach step reads (an attribute block, a caption mark) was emitted.
+     */
+    public bool $attaches = false;
+
+    /**
+     * Whether a delimiter token or an image was emitted; without either the delimiter pass changes nothing.
+     */
+    public bool $delims = false;
+
+    public bool $images = false;
+
+    /**
+     * Bare marks already given to the delimiter pass, by mark.
+     *
+     * @var array<string, true>
+     */
+    private array $bareSeen = [];
+
+    /**
      * Source start of the break at a text offset, where a line comment owns the line's trailing spaces.
      *
      * @var array<int, int>
@@ -484,6 +503,14 @@ final class Scanner
      */
     private function closingRun(int $len, int $from): int
     {
+        // The next run closes when it has the length; only then is the index of all runs not needed.
+        $q = strpos($this->t, '`', $from);
+        if ($q === false) {
+            return -1;
+        }
+        if (strspn($this->t, '`', $q) === $len) {
+            return $q;
+        }
         if ($this->runs === null) {
             $this->runs = [];
             $t = $this->t;
@@ -704,6 +731,8 @@ final class Scanner
         $attrs = new Attrs();
         $end = AttributeParser::read($t, $i, $this->lineEnd($i), $attrs);
         if ($end > 0 && !AttributeParser::$lastEmpty) {
+            $this->attaches = true;
+
             return $this->emit([self::ATTR, $attrs, $i, $end]);
         }
         if ($i + 1 >= $this->n) {
@@ -736,7 +765,7 @@ final class Scanner
             return -1;
         }
         if (isset(Tables::BRACED_MARKS[$m]) && !Chars::isGlue(Chars::at($t, $i + 2))) {
-            return $this->emit([self::DELIM, self::OPENER, $i, $i + 2, $m, false, false, false, 0]);
+            return $this->delim([self::DELIM, self::OPENER, $i, $i + 2, $m, false, false, false, 0]);
         }
 
         return -1;
@@ -777,7 +806,7 @@ final class Scanner
         }
 
         // C2-I-057: the marks before the last of a run stay text.
-        return $this->emit([self::DELIM, self::CLOSER, $i - 1, $i + 1, $m, false, false, false, 0]);
+        return $this->delim([self::DELIM, self::CLOSER, $i - 1, $i + 1, $m, false, false, false, 0]);
     }
 
     /**
@@ -795,7 +824,7 @@ final class Scanner
         $after = $i + $len;
         if ($len >= 2) {
             if ($after < $this->n && $t[$after] === '}') {
-                return $this->emit([self::DELIM, self::CLOSER, $after - 1, $after + 1, $m, false, false, false, 0]);
+                return $this->delim([self::DELIM, self::CLOSER, $after - 1, $after + 1, $m, false, false, false, 0]);
             }
 
             return $after;
@@ -803,15 +832,53 @@ final class Scanner
         if ($after < $this->n && $t[$after] === '}') {
             [$open, $close] = $this->flanks($i, $i + 1);
 
-            return $this->emit([self::DELIM, self::CLOSER, $i, $i + 2, $m, $open, $close, false, 1]);
+            return $this->delim([self::DELIM, self::CLOSER, $i, $i + 2, $m, $open, $close, false, 1]);
         }
         $c = $after < $this->n ? $t[$after] : '';
         if (($c === '' || $c === '{' || ord($c) >= 0x80) && Chars::isGlue($this->nextCp($i + 1))) {
             return $i + 1;
         }
         [$open, $close, $poison] = $this->flanks($i, $i + 1);
+        if ($open && !isset($this->bareSeen[$m])) {
+            $pair = $this->plainPair($i, $m);
+            if ($pair >= 0) {
+                return $pair;
+            }
+        }
+        $this->bareSeen[$m] = true;
 
-        return $this->emit([self::DELIM, self::BARE, $i, $i + 1, $m, $open, $close, $poison, 0]);
+        return $this->delim([self::DELIM, self::BARE, $i, $i + 1, $m, $open, $close, $poison, 0]);
+    }
+
+    /**
+     * The delimiter pass's result for an opener whose content up to the next same mark is plain text and
+     * whose mark is the first of its kind in the content: that mark closes it (C2-I-051, C2-I-053).
+     *
+     * @param int $i
+     * @param string $m
+     *
+     * @return int The offset after the formed node, or -1 to take the general path.
+     */
+    private function plainPair(int $i, string $m): int
+    {
+        $t = $this->t;
+        $j = $i + 1 + strcspn($t, self::SPECIALS, $i + 1);
+        if ($j >= $this->n || $t[$j] !== $m || ($j + 1 < $this->n && ($t[$j + 1] === $m || $t[$j + 1] === '}'))) {
+            return -1;
+        }
+        if ($this->depth + count($this->tok) + count($this->frames) + 2 >= Tables::DEPTH_CAP) {
+            return -1;
+        }
+        $c = $j + 1 < $this->n ? $t[$j + 1] : '';
+        if (($c === '' || $c === '{' || ord($c) >= 0x80) && Chars::isGlue($this->nextCp($j + 1))) {
+            return -1;
+        }
+        if (!$this->flanks($j, $j + 1)[1]) {
+            return -1;
+        }
+        $inner = new TokenList([[self::TEXT, substr($t, $i + 1, $j - $i - 1), $i + 1, $j, false]]);
+
+        return $this->emit([self::NODE, $this->node(Tables::BARE_DELIMITERS[$m], $i, $j + 1), $i, $j + 1, true, $inner]);
     }
 
     /**
@@ -930,6 +997,30 @@ final class Scanner
     }
 
     /**
+     * @param array<mixed> $token
+     *
+     * @return int
+     */
+    private function delim(array $token): int
+    {
+        $this->delims = true;
+
+        return $this->emit($token);
+    }
+
+    /**
+     * @param int $i
+     *
+     * @return int
+     */
+    private function captionMark(int $i): int
+    {
+        $this->attaches = true;
+
+        return $this->emit([self::NODE, Node::at('caption_number', -1, -1), $i, $i + 1, false, null]);
+    }
+
+    /**
      * C2-I-092: a mention or a tag.
      *
      * @param int $i
@@ -943,7 +1034,7 @@ final class Scanner
         if (!$this->boundary($i)) {
             // C2-B-207: the caption mark has no boundary on its left.
             return $this->caption && $t[$i] === '#' && ($i + 1 >= $this->n || strspn($t[$i + 1], $chars) === 0)
-                ? $this->emit([self::NODE, Node::at('caption_number', -1, -1), $i, $i + 1, false, null]) : -1;
+                ? $this->captionMark($i) : -1;
         }
         $j = $i + 1;
         while (true) {
@@ -966,7 +1057,7 @@ final class Scanner
         $name = substr($t, $i + 1, $j - $i - 1);
         if ($this->caption && $t[$i] === '#' && ($i + 1 >= $this->n || strspn($t[$i + 1], $chars) === 0)) {
             // C2-B-150, C2-B-207: the finisher keeps the first mark of the top-level list.
-            return $this->emit([self::NODE, Node::at('caption_number', -1, -1), $i, $i + 1, false, null]);
+            return $this->captionMark($i);
         }
         if ($name === '' || strpbrk($name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') === false) {
             return -1;
@@ -1126,6 +1217,9 @@ final class Scanner
         if ($bang) {
             $this->tok[] = [self::TEXT, '!', $start, $start + 1, false];
             $start++;
+        }
+        if ($node->type === 'image') {
+            $this->images = true;
         }
         $this->tok[] = [self::NODE, $node, $start, $end, true, new TokenList($node->type === 'image' ? [] : $inner, $frame[3], $close)];
         $this->textStart = $end;

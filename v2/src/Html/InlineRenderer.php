@@ -94,8 +94,13 @@ final class InlineRenderer
 
             return $out;
         }
-        foreach (self::dropCommentLineBreaks($nodes) as $node) {
-            if ($node->type === 'text') {
+        // With no comment in the tree, or a single node, C2-H-069 drops nothing.
+        foreach ($this->state->comments && count($nodes) > 1 ? self::dropCommentLineBreaks($nodes) : $nodes as $node) {
+            $tag = $node->f === [] ? Tables::DELIMITER_HTML[$node->type] ?? null : null;
+            if ($tag !== null) {
+                // A delimiter span with no attributes, the common case of node(), without its lookups.
+                $out .= '<' . $tag . '>' . $this->inlines($node->children ?? [], $depth + 1) . '</' . $tag . '>';
+            } elseif ($node->type === 'text') {
                 $value = $node->f['value'] ?? '';
                 // Plain text needs no escaping: the check of Escape::text, done here to save two calls.
                 $out .= is_string($value) && strcspn($value, Escape::TEXT_SPECIAL) === strlen($value) ? $value : Escape::text(PlainText::str($value));

@@ -84,8 +84,8 @@ final class Walk
      * the body, read before the notes (C2-H-087).
      *
      * @param \MarkupCarve\Carve2\Node $root
-     * @param array<int, int> $pos From kidPositions().
-     * @param array<int, int> $end From order().
+     * @param array<int, int> $pos The index of each child, by object id.
+     * @param array<int, int> $end The index after the subtree, by index.
      *
      * @return array<array{0: int, 1: int}>
      */
@@ -112,27 +112,6 @@ final class Walk
         }
 
         return $ranges;
-    }
-
-    /**
-     * The pre-order index of each of the root's kids, keyed by object id: the first stands at 1 and
-     * each next one where the subtree before it ends.
-     *
-     * @param \MarkupCarve\Carve2\Node $root
-     * @param array<int, int> $end From order().
-     *
-     * @return array<int, int>
-     */
-    public static function kidPositions(Node $root, array $end): array
-    {
-        $pos = [];
-        $i = 1;
-        foreach (self::kids($root) as $kid) {
-            $pos[spl_object_id($kid)] ??= $i;
-            $i = $end[$i] ?? $i + 1;
-        }
-
-        return $pos;
     }
 
     /**

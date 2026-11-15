@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve2\Html;
 use MarkupCarve\Carve2\Attrs;
 use MarkupCarve\Carve2\Node;
 use MarkupCarve\Carve2\Options;
+use MarkupCarve\Carve2\Resolve\Facts;
 use MarkupCarve\Carve2\Resolve\PlainText;
 use MarkupCarve\Carve2\Resolve\Resolver;
 use MarkupCarve\Carve2\Resolve\Walk;
@@ -18,6 +19,13 @@ use MarkupCarve\Carve2\Resolve\Walk;
  */
 final class RenderState
 {
+    /**
+     * Node types whose subtree end a later pass reads.
+     *
+     * @var array<string, true>
+     */
+    private const NEEDS_END = ['inline_footnote' => true];
+
     /**
      * @var array<int, \MarkupCarve\Carve2\Node>
      */
@@ -67,6 +75,11 @@ final class RenderState
     public bool $longDescriptions = false;
 
     /**
+     * Whether the tree holds a comment, so inline lists need the C2-H-069 line check.
+     */
+    public bool $comments = false;
+
+    /**
      * @var array<string, true>
      */
     private array $taken = [];
@@ -104,12 +117,16 @@ final class RenderState
      * @param \MarkupCarve\Carve2\Node $doc
      * @param \MarkupCarve\Carve2\Options $o
      * @param \MarkupCarve\Carve2\Html\Profile|null $profile
+     * @param \MarkupCarve\Carve2\Resolve\Facts|null $facts The lists of the resolve of this tree, in place of a walk.
      */
-    public function __construct(private Node $doc, private Options $o, private ?Profile $profile = null)
+    public function __construct(private Node $doc, private Options $o, private ?Profile $profile = null, ?Facts $facts = null)
     {
         $this->definitions();
-        $this->scan();
-        $this->pos += Walk::kidPositions($doc, $this->end);
+        if ($facts !== null && $facts->doc === $doc) {
+            $this->fromFacts($facts);
+        } else {
+            $this->scan();
+        }
         ksort($this->notes);
         if ($this->notes === []) {
             // C2-H-158: with no section to place, the directive is a plain `<div class="footnotes">`.
@@ -123,6 +140,45 @@ final class RenderState
         $this->pos = [];
         $this->marks = [];
         $this->titled = [];
+    }
+
+    /**
+     * What scan() collects, from the lists of the resolve: the notes, then the cross-reference texts of
+     * headings and numbered captions in document order.
+     *
+     * @param \MarkupCarve\Carve2\Resolve\Facts $facts
+     *
+     * @return void
+     */
+    private function fromFacts(Facts $facts): void
+    {
+        $this->nodes = $facts->nodes;
+        $this->end = $facts->end;
+        $this->pos = $facts->pos;
+        $this->marks = $facts->noteMarks;
+        $this->titled = $facts->titled;
+        $this->taken = $facts->taken;
+        $this->longDescriptions = $facts->longDescriptions;
+        $this->comments = $facts->comments;
+        foreach ($this->marks as $i) {
+            $this->noteOf($this->nodes[$i]);
+        }
+        $headings = $facts->headings;
+        $numbered = $facts->numbered;
+        $h = 0;
+        $c = 0;
+        $hn = count($headings);
+        $cn = count($numbered);
+        while ($h < $hn || $c < $cn) {
+            if ($c >= $cn || ($h < $hn && $headings[$h] < $numbered[$c])) {
+                $this->headingTarget($this->nodes[$headings[$h++]]);
+            } else {
+                $f = $this->nodes[$numbered[$c++]]->f;
+                if (isset($f['attrs'])) {
+                    $this->authoredTarget($f);
+                }
+            }
+        }
     }
 
     /**
@@ -191,10 +247,30 @@ final class RenderState
      */
     private function scan(): void
     {
-        // The walk of Walk::order, inlined so the tree is touched once.
-        $stack = [$this->doc];
+        $this->nodes[0] = $this->doc;
+        $n = 1;
+        foreach (Walk::kids($this->doc) as $kid) {
+            $at = $n;
+            $this->pos[spl_object_id($kid)] ??= $at;
+            $n = $this->scanFrom($kid, $n);
+            $this->end[$at] = $n;
+        }
+        $this->end[0] = $n;
+    }
+
+    /**
+     * The walk of Walk::order from one block of the document, inlined so the tree is touched once. Only
+     * the nodes in NEEDS_END record where their subtree ends.
+     *
+     * @param \MarkupCarve\Carve2\Node $start
+     * @param int $n The index of $start.
+     *
+     * @return int The index after the subtree.
+     */
+    private function scanFrom(Node $start, int $n): int
+    {
+        $stack = [$start];
         $top = 1;
-        $n = 0;
         while ($top > 0) {
             $node = $stack[--$top];
             if (is_int($node)) {
@@ -203,7 +279,6 @@ final class RenderState
                 continue;
             }
             $this->nodes[$n] = $node;
-            $this->end[$n] = $n + 1;
             $i = $n++;
             $f = $node->f;
             $type = $node->type;
@@ -215,8 +290,13 @@ final class RenderState
                     break;
                 }
             }
+            if (isset(self::NEEDS_END[$type])) {
+                $this->end[$i] = $n;
+            }
             if ($kids !== null && $kids !== []) {
-                $stack[$top++] = $i;
+                if (isset(self::NEEDS_END[$type])) {
+                    $stack[$top++] = $i;
+                }
                 for ($k = count($kids); $k > 0;) {
                     $kid = $kids[--$k];
                     // Plain text holds no slot and no result and is never listed; most nodes are text.
@@ -225,19 +305,39 @@ final class RenderState
                     }
                 }
             }
-            if ($type === 'footnote_ref' || $type === 'inline_footnote') {
-                $this->noteMark($node, $i);
-            } elseif ($type === 'heading') {
-                $this->headingTarget($node);
-            } elseif ($type === 'image' && is_array($f['longDescription'] ?? null)) {
-                $this->longDescriptions = true;
+            // A node with no fields (a paragraph, a delimiter span) has nothing to record.
+            if ($f !== []) {
+                $this->visit($node, $i, $f);
             }
-            if (isset($f['title']) && is_array($f['title'])) {
-                $this->titled[] = $i;
-            }
-            if (isset($f['attrs'])) {
-                $this->authoredTarget($f);
-            }
+        }
+
+        return $n;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $i
+     * @param array<string, mixed> $f
+     *
+     * @return void
+     */
+    private function visit(Node $node, int $i, array $f): void
+    {
+        $type = $node->type;
+        if ($type === 'footnote_ref' || $type === 'inline_footnote') {
+            $this->noteMark($node, $i);
+        } elseif ($type === 'heading') {
+            $this->headingTarget($node);
+        } elseif ($type === 'image' && is_array($f['longDescription'] ?? null)) {
+            $this->longDescriptions = true;
+        } elseif ($type === 'comment') {
+            $this->comments = true;
+        }
+        if (isset($f['title']) && is_array($f['title'])) {
+            $this->titled[] = $i;
+        }
+        if (isset($f['attrs'])) {
+            $this->authoredTarget($f);
         }
     }
 
@@ -250,10 +350,22 @@ final class RenderState
     private function noteMark(Node $node, int $i): void
     {
         $this->marks[] = $i;
-        $inline = $node->type === 'inline_footnote';
-        if ($inline) {
+        if ($node->type === 'inline_footnote') {
             $this->pos[spl_object_id($node)] = $i;
         }
+        $this->noteOf($node);
+    }
+
+    /**
+     * The note a footnote reference or an inline footnote numbers, unless the profile drops it.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return void
+     */
+    private function noteOf(Node $node): void
+    {
+        $inline = $node->type === 'inline_footnote';
         $number = $node->f['number'] ?? null;
         if (!is_int($number) || ($this->profile !== null && !$this->profile->allowsInline($node))) {
             return;

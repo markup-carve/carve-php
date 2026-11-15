@@ -58,7 +58,9 @@ final class Finisher
      */
     public function build(array $items, int $after = -1, bool $top = false): array
     {
-        $items = $this->attach($items, $top);
+        if ($this->sc->attaches) {
+            $items = $this->attach($items, $top);
+        }
         $out = [];
         $prev = self::START;
         $count = count($items);
@@ -66,6 +68,12 @@ final class Finisher
         while ($k < $count) {
             $item = $items[$k];
             if ($item[0] === Scanner::TEXT) {
+                if (($items[$k + 1][0] ?? -1) !== Scanner::TEXT && $this->plainNode($item, $out)) {
+                    $prev = $this->visible;
+                    $k++;
+
+                    continue;
+                }
                 $run = [];
                 while ($k < $count && $items[$k][0] === Scanner::TEXT) {
                     $run[] = $items[$k];
@@ -101,6 +109,14 @@ final class Finisher
      */
     private function nodeItem(array $item, Node $node, int $prev, array $items, int $k, int $after): int
     {
+        if ($item[5] instanceof TokenList && count($item[5]->list) === 1) {
+            $children = [];
+            if ($item[5]->list[0][0] === Scanner::TEXT && $this->plainNode($item[5]->list[0], $children)) {
+                $node->children = $children;
+
+                return self::NODE_END;
+            }
+        }
         if ($item[5] instanceof TokenList) {
             $inner = $this->ctx->abbreviations === [] ? -1 : $this->firstVisible($items, $k, $after);
             if ($node->type === 'inline_footnote') {
@@ -127,6 +143,55 @@ final class Finisher
             'non_breaking_space' => 0xA0,
             default => self::NODE_END,
         };
+    }
+
+    /**
+     * Whether typography can replace anything in `$value`: a quote, or the first two characters of a
+     * replacement source or of a dash run (C2-I-104 to C2-I-117).
+     *
+     * @param string $value
+     *
+     * @return bool
+     */
+    public static function replaces(string $value): bool
+    {
+        if (strcspn($value, Tables::SMART_TRIGGERS) === strlen($value)) {
+            return false;
+        }
+        static $pattern = null;
+        if ($pattern === null) {
+            $starts = ['"' => true, "'" => true, '--' => true];
+            foreach (array_keys(Tables::SMART_RUNS) as $source) {
+                $starts[substr((string)$source, 0, 2)] = true;
+            }
+            $pattern = '/' . implode('|', array_map(static fn ($p): string => preg_quote((string)$p, '/'), array_keys($starts))) . '/';
+        }
+
+        return preg_match($pattern, $value) === 1;
+    }
+
+    /**
+     * A lone text item with nothing to replace becomes one text node, as textRun would make it.
+     *
+     * @param array<mixed> $item
+     * @param array<\MarkupCarve\Carve2\Node> $out
+     *
+     * @return bool
+     */
+    private function plainNode(array $item, array &$out): bool
+    {
+        [, $value, $ts, $te, $lit] = $item;
+        if (
+            $lit === true || !is_string($value) || !is_int($ts) || !is_int($te) || $value === ''
+            || $te - $ts !== strlen($value) || $this->ctx->abbreviations !== [] || self::replaces($value)
+        ) {
+            return false;
+        }
+        $out[] = Node::text($value, $this->sc->c->src($ts), $this->sc->c->src($te));
+        $this->smartEnd = -2;
+        $this->visible = Chars::before($this->t, $te);
+
+        return true;
     }
 
     /**

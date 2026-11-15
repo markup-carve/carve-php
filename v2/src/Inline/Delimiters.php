@@ -59,6 +59,10 @@ final class Delimiters
      */
     public static function run(Scanner $sc, array $tokens, int $depth): array
     {
+        if (!$sc->delims && !$sc->images) {
+            // No delimiter anywhere, so no entry counts toward the cap either (C2-I-118).
+            return $tokens;
+        }
         $plain = true;
         foreach ($tokens as $tok) {
             if ($tok[0] === Scanner::DELIM || ($tok[5] ?? null) instanceof TokenList) {
