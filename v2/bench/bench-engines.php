@@ -30,7 +30,7 @@ const MIN_ROUNDS = 15;
  */
 function engines(): array
 {
-    $carve2 = 'MarkupCarve\\Carve2\\Carve';
+    $carve2 = 'MarkupCarve\\Carve2\\Carve2';
     $hasCarve2 = class_exists($carve2);
 
     $carve01 = new CarveConverter();
@@ -247,7 +247,7 @@ function tableMode(array $argv): int
         }
     }
 
-    /** @var array<string, array<string, array<string, list<float>>>> $times phase => doc => engine => ms */
+    /** @var array<string, array<string, array<string, array<float>>>> $times phase => doc => engine => ms */
     $times = [];
     $keys = array_keys($engines);
     $count = count($keys);
