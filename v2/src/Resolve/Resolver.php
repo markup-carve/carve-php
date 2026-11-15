@@ -735,6 +735,7 @@ final class Resolver
      */
     public static function fold(string $text): string
     {
+        // C2-I-079: one character class run, linear; labels are short.
         return trim((string)preg_replace('/[ \t\r\n]+/', ' ', $text), ' ');
     }
 

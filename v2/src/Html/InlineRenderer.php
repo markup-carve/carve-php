@@ -540,6 +540,7 @@ final class InlineRenderer
             $attrs = clone $attrs;
             $attrs->remove('rel');
             $authored = $this->aw->filterValue('rel', $authored);
+            // C2-H-167: one character class run, linear; a rel value is a few words.
             $words = preg_split('/[ \t\n\f\r]+/', $authored, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         }
         foreach ($this->profile?->linkRel() ?? [] as $word) {
@@ -617,6 +618,7 @@ final class InlineRenderer
             $parts[] = ':' . $lang;
         }
         foreach ($attrs !== null ? $attrs->pairs : [] as [$k, $v]) {
+            // C2-H-139: one anchored negated class, linear; roundtrip text only, not per node.
             $parts[] = $v === '' ? $k : $k . '=' . (preg_match('/^[^\s"\'\\\\|}]+$/', $v) === 1 ? $v : '"' . addcslashes($v, '"\\') . '"');
         }
 
@@ -789,6 +791,7 @@ final class InlineRenderer
 
         $built = $this->aw->build([['href', $this->destination($url)]], null, $attrs, $lang, [$class]);
         // C2-H-011: on a mention or a tag the class stands first.
+        // C2-H-011: one negated class between fixed text, linear; once per linked mention or tag.
         if (preg_match('/ class="[^"]*"/', $built, $m) === 1) {
             $built = $m[0] . str_replace($m[0], '', $built);
         }

@@ -179,6 +179,7 @@ final class InlineRunner
         if ($raw === '') {
             return [];
         }
+        // C2-I-033: one escape and one character class, linear; code fence titles only, not a hot path.
         $value = (string)preg_replace('/\\\\([!-\/:-@\[-`{-~])/', '$1', $raw);
 
         return [$value === $raw ? Node::text($value, $start, $end) : Node::text($value, -1, -1)];

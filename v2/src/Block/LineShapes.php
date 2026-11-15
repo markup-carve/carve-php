@@ -455,6 +455,7 @@ final class LineShapes
             return $label;
         }
 
+        // C2-I-079: one character class run, linear; only for definition labels with whitespace (checked above).
         return (string)preg_replace('/[ \t\n]+/', ' ', $label);
     }
 

@@ -112,6 +112,7 @@ final class Chars
         }
         static $cache = [];
         if (!isset($cache[$cp])) {
+            // Preliminaries: one code point, constant time; cached per code point, ASCII never gets here.
             $cache[$cp] = preg_match('/^[\p{L}\p{N}]$/u', mb_chr($cp, 'UTF-8') ?: '') === 1;
         }
 
@@ -148,6 +149,7 @@ final class Chars
         }
         static $cache = [];
         if (!isset($cache[$cp])) {
+            // C2-I-050: one code point, constant time; cached per code point, below U+0300 never gets here.
             $cache[$cp] = preg_match('/^\p{M}$/u', mb_chr($cp, 'UTF-8') ?: '') === 1;
         }
 
@@ -163,6 +165,7 @@ final class Chars
      */
     public static function hasNonUrlUnicode(string $body): bool
     {
+        // C2-I-122: one character class, linear; autolink bodies only, and a byte scan cannot read categories.
         $r = preg_match('/[\p{Cc}\p{Cf}\p{Z}\x{85}\x{2028}\x{2029}]/u', $body);
 
         return $r !== 0;
@@ -182,6 +185,7 @@ final class Chars
             return $label;
         }
 
+        // C2-I-079: one character class, linear; only labels that hold whitespace, not a hot path.
         return trim((string)preg_replace('/[ \t\n]+/', ' ', $label), ' ');
     }
 }

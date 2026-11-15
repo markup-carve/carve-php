@@ -229,6 +229,7 @@ final class AttributeParser
             return;
         }
         if ($lower === 'class') {
+            // C2-I-042: one character class, linear; class values are short, not a hot path.
             foreach (preg_split('/[ \t]+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $class) {
                 $a->classes[] = $class;
             }

@@ -24,7 +24,7 @@ final class Roman
     public static function value(string $letters): int
     {
         $lower = strtolower($letters);
-        // Standard form: thousands, then each place as cm|cd|d?c{0,3}, likewise for x and i. Linear: bounded length 9.
+        // C2-B-036: standard roman form, anchored and at most nine letters, so linear; only for letter markers.
         if (preg_match('/^m{0,3}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})$/', $lower) !== 1) {
             return 0;
         }

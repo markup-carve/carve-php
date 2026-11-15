@@ -20,6 +20,7 @@ final class Slug
      */
     public static function of(string $plain, string $policy): string
     {
+        // C2-H-143: one byte class, linear; measured faster than strcspn over the 128 high bytes.
         if (preg_match('/[\x80-\xff]/', $plain) !== 1) {
             // ASCII: NFC, the removed and the reversed characters (all outside ASCII) change nothing.
             $slug = self::hyphenate($plain);
@@ -46,6 +47,7 @@ final class Slug
             return 's';
         }
 
+        // C2-H-148: anchored, one character, constant time.
         return preg_match('/^\p{N}/u', $slug) === 1 ? 's-' . $slug : $slug;
     }
 
@@ -59,6 +61,7 @@ final class Slug
      */
     private static function hyphenate(string $text): string
     {
+        // C2-H-146: one negated byte class run, linear.
         return trim((string)preg_replace('/[^A-Za-z0-9\x80-\xff]+/', '-', $text), '-');
     }
 
@@ -71,9 +74,11 @@ final class Slug
      */
     private static function lower(string $text): string
     {
+        // C2-H-147: one byte class, linear; measured faster than strcspn over the 128 high bytes.
         if (preg_match('/[\x80-\xff]/', $text) !== 1) {
             return strtolower($text);
         }
+        // C2-H-147: the empty pattern splits per UTF-8 character, linear.
         $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY);
         if ($chars === false) {
             return strtolower($text);
@@ -98,6 +103,7 @@ final class Slug
     {
         $nfd = Normalizer::normalize($text, Normalizer::FORM_D);
 
+        // C2-H-147: one byte class run, linear.
         return (string)preg_replace('/[\x80-\xff]+/', '', is_string($nfd) ? $nfd : $text);
     }
 }

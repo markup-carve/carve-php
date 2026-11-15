@@ -145,6 +145,7 @@ final class LinkTail
             return $raw;
         }
 
+        // C2-I-013: one escape and one character class, linear; only destinations with a backslash.
         return (string)preg_replace('/\\\\([()\\\\])/', '$1', $raw);
     }
 

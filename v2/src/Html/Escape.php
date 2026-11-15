@@ -85,10 +85,12 @@ final class Escape
             $text = mb_scrub($text, 'UTF-8');
             mb_substitute_character($previous);
         }
+        // C2-H-176: fixed byte sequences in one alternation, linear; a strcspn prefilter saved under 15 ns.
         if (preg_match(self::REJECTED, $text) !== 1) {
             return $text;
         }
 
+        // C2-H-176: the same pattern, linear; reached only when the test above matched.
         return (string)preg_replace(self::REJECTED, "\u{FFFD}", $text);
     }
 }

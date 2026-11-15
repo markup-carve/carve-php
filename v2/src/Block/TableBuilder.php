@@ -486,6 +486,7 @@ final class TableBuilder
                 $col->f['authored'] = true;
             }
             $w = trim($widthList[$c] ?? '', " \t");
+            // C2-B-220: anchored, no nested repetition, linear; once per column of a table.
             if ($w !== '' && preg_match('/^[0-9]+(\.[0-9]+)?$/', $w) === 1 && (float)$w > 0 && (float)$w <= 100) {
                 $col->f['width'] = (float)$w / 100;
                 $col->f['authored'] = true;

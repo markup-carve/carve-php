@@ -55,6 +55,7 @@ final class UrlPolicy
             self::$probe = '/[' . $class . ']+/u';
         }
         $value = Escape::clean($value);
+        // C2-H-159: one character class run, linear; only for a URL the strcspn above flags.
         $out = preg_replace(self::$probe, '', $value);
 
         return is_string($out) ? $out : $value;

@@ -243,6 +243,7 @@ final class AttrWriter
         }
         if (isset(Tables::URL_LIST_ATTRIBUTES[$lower])) {
             $sep = Tables::URL_LIST_ATTRIBUTES[$lower] ? '/[\s,]+/' : '/\s+/';
+            // C2-H-161: one character class run, linear; authored URL list values only.
             foreach (preg_split($sep, $value, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $token) {
                 if (UrlPolicy::authoredValueFails($token) || !UrlPolicy::passes($token, $this->o)) {
                     return '';
@@ -265,6 +266,7 @@ final class AttrWriter
      */
     public static function styleFails(string $value): bool
     {
+        // C2-H-162: a backslash and bounded alternatives (at most six hex digits), linear; authored style only.
         $decoded = (string)preg_replace_callback(
             '/\\\\(?:([0-9A-Fa-f]{1,6})[ \t\n\f\r]?|(\r\n|[\n\r\f])|(.))/s',
             static function (array $m): string {
@@ -284,6 +286,7 @@ final class AttrWriter
             $count,
             PREG_UNMATCHED_AS_NULL,
         );
+        // C2-H-162: one class run, linear.
         $flat = strtolower((string)preg_replace('/\s+/u', '', $decoded));
         foreach (Tables::URL_STYLE_PATTERNS as $pattern) {
             if (str_contains($flat, $pattern)) {
