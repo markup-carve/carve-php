@@ -223,7 +223,23 @@ final class TableGenerator
         $include = $load('include-options');
         $consts['INCLUDE_OPTIONS'] = ['C2-B-205 include-options.json', self::stripClauses($include['options'] ?? $include)];
 
+        foreach (self::inlineTables($load) as $name => $row) {
+            $consts[$name] = $row;
+        }
+
         return self::render($consts);
+    }
+
+    /**
+     * Tables of the inline pass, kept apart so the inline work has its own section.
+     *
+     * @param \Closure(string): array<string, mixed> $load
+     *
+     * @return array<string, array{0: string, 1: mixed}>
+     */
+    private static function inlineTables(\Closure $load): array
+    {
+        return [];
     }
 
     /**

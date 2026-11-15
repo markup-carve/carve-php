@@ -29,8 +29,10 @@
     },
     "require-dev": {
         "brianium/paratest": "^7.8",
+        "league/commonmark": "^2.7",
         "nikic/php-fuzzer": "^0.0.11",
         "php-collective/code-sniffer": "^0.6.8",
+        "php-collective/djot": "^0.1.35",
         "phpstan/phpstan": "^2.1.32",
         "phpunit/phpunit": "^11.0 || ^12.0 || ^13.0"
     },
@@ -67,7 +69,23 @@
         ],
         "test-coverage": "@php vendor/bin/phpunit --coverage-clover coverage.xml",
         "test-coverage-parallel": "@php scripts/coverage-shards.php",
-        "test-scaling": "@php -d pcov.enabled=0 vendor/bin/phpunit --group scaling"
+        "test-scaling": "@php -d pcov.enabled=0 vendor/bin/phpunit --group scaling",
+        "v2-check": [
+            "@v2-cs-check",
+            "@v2-stan",
+            "@v2-test"
+        ],
+        "v2-cs-check": "phpcs --colors --parallel=16 --standard=v2/phpcs.xml",
+        "v2-cs-fix": "phpcbf --colors --parallel=16 --standard=v2/phpcs.xml",
+        "v2-stan": "phpstan analyze -c v2/phpstan.neon",
+        "v2-tables-check": "@php v2/scripts/generate-tables.php --check",
+        "v2-test": "@php -d pcov.enabled=0 vendor/bin/phpunit -c v2/phpunit.xml.dist"
+    },
+    "extra": {
+        "require-dev-notes": {
+            "league/commonmark": "Benchmark only (v2/bench/bench-engines.php).",
+            "php-collective/djot": "Benchmark only (v2/bench/bench-engines.php)."
+        }
     },
     "config": {
         "allow-plugins": {

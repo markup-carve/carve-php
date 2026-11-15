@@ -1,0 +1,26 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\OptionError;
+
+require dirname(__DIR__, 2) . '/vendor/autoload.php';
+
+$args = array_slice($argv, 1);
+$tree = in_array('--tree', $args, true);
+$options = [];
+foreach ($args as $arg) {
+    if (str_starts_with($arg, '--option=')) {
+        [$k, $v] = explode('=', substr($arg, 9), 2) + [1 => ''];
+        $options[$k] = json_decode($v, true) ?? $v;
+    }
+}
+$source = (string)stream_get_contents(STDIN);
+try {
+    echo $tree ? Carve2::toJson($source, $options) : Carve2::toHtml($source, $options), "\n";
+} catch (OptionError $e) {
+    fwrite(STDERR, $e->getMessage() . "\n");
+    exit(2);
+}
