@@ -395,6 +395,31 @@ final class BlockClausesTest extends TestCase
     /**
      * @return void
      */
+    public function testC2B021OrderedMarkerPastOneStaysLazyInQuoteInItem(): void
+    {
+        $this->assertTree("> - > a\n>   2. b", '[{"type":"block_quote","children":[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"block_quote","children":[{"type":"paragraph"}]}]}]}]}]');
+    }
+
+    /**
+     * @return void
+     */
+    public function testC2B108CommentOpenerTextKeepsTrailingSpaces(): void
+    {
+        $this->assertTree("%%%x  \nbody\n%%%", '[{"type":"comment","form":"block","value":"x  \\nbody"}]');
+    }
+
+    /**
+     * @return void
+     */
+    public function testC2B166RowWithTrailingCommentThenPipeLine(): void
+    {
+        // D-blocks-3: the reference engine reads both lines as one paragraph.
+        $this->assertTree("|a| %%\n|", '[{"type":"table","columns":[{"type":"table_column"}],"children":[{"type":"table_body","children":[{"type":"table_row","children":[{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]}]}]}]},{"type":"paragraph"}]');
+    }
+
+    /**
+     * @return void
+     */
     public function testC2B218NulInCodeReadAsReplacementCharacter(): void
     {
         $tree = self::encode("```\nx\0y\n```");

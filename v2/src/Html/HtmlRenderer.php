@@ -108,10 +108,15 @@ final class HtmlRenderer
         $gc = gc_enabled();
         // The tree holds no cycles; with the collector on, each walk fills its root buffer and starts full scans.
         gc_disable();
+        $r = null;
         try {
             $r = new self($doc, $opts, $source);
             $html = $r->document();
         } finally {
+            if ($r !== null) {
+                // The table and note writers point back at the renderer; left in place, the cycle keeps the tree alive.
+                unset($r->tables, $r->notes);
+            }
             if ($gc) {
                 gc_enable();
             }

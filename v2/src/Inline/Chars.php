@@ -177,10 +177,11 @@ final class Chars
      */
     public static function fold(string $label): string
     {
-        if (strcspn($label, " \t\n\r") === strlen($label)) {
+        // C2-B-010: a lone CR is no line break, so it stays in the key.
+        if (strcspn($label, " \t\n") === strlen($label)) {
             return $label;
         }
 
-        return trim((string)preg_replace('/[ \t\r\n]+/', ' ', $label), ' ');
+        return trim((string)preg_replace('/[ \t\n]+/', ' ', $label), ' ');
     }
 }

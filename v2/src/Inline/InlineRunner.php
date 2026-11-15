@@ -76,11 +76,16 @@ final class InlineRunner
             foreach ($node->children ?? [] as $child) {
                 $stack[] = [$child, $inner, $hard, $node->type === 'caption'];
             }
-            foreach (['caption', 'title'] as $slot) {
-                $value = $node->f[$slot] ?? null;
-                if ($value instanceof Node) {
-                    $stack[] = [$value, $inner, $hard, false];
-                }
+            $caption = $node->f['caption'] ?? null;
+            if ($caption instanceof Node) {
+                $stack[] = [$caption, $inner, $hard, false];
+            }
+            $title = $node->f['title'] ?? null;
+            if ($title instanceof Node) {
+                // C2-A-024, ast-schema.json: the title slot is an inline list; the carrier node of the block pass goes.
+                $node->f['title'] = $title->lines !== null
+                    ? self::parse($s, $title->lines, $ctx, $inner, self::mode('title', $hard, false))
+                    : $title->children ?? [];
             }
         }
     }
@@ -123,6 +128,48 @@ final class InlineRunner
         $scanner = new Scanner($content, $ctx, $depth, $mode);
         $items = Delimiters::run($scanner, $scanner->scan(), $depth);
 
-        return (new Finisher($scanner, $ctx))->build($items, -1, true);
+        $nodes = (new Finisher($scanner, $ctx))->build($items, -1, true);
+
+        return ($mode & Scanner::CELL) !== 0 && count($spans) > 2 ? self::joined($nodes) : $nodes;
+    }
+
+    /**
+     * C2-B-184, C2-A-094, C2-A-158: in a cell joined from continuation rows each join is one space of
+     * text and the inline nodes carry no position.
+     *
+     * @param array<\MarkupCarve\Carve2\Node> $nodes
+     *
+     * @return array<\MarkupCarve\Carve2\Node>
+     */
+    private static function joined(array $nodes): array
+    {
+        $root = new Node('cell', $nodes);
+        $stack = [$root];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            $out = [];
+            foreach ($node->children ?? [] as $child) {
+                $child->start = -1;
+                $child->end = -1;
+                if ($child->type === 'soft_break' || $child->type === 'hard_break') {
+                    $value = $child->type === 'soft_break' ? ' ' : '\\ ';
+                    $child = new Node('text');
+                    $child->f['value'] = $value;
+                }
+                $last = $out === [] ? null : $out[count($out) - 1];
+                if ($child->type === 'text' && $last !== null && $last->type === 'text') {
+                    $last->f['value'] = (string)($last->f['value'] ?? '') . (string)($child->f['value'] ?? '');
+
+                    continue;
+                }
+                $out[] = $child;
+                if ($child->children !== null) {
+                    $stack[] = $child;
+                }
+            }
+            $node->children = $out;
+        }
+
+        return $root->children ?? [];
     }
 }

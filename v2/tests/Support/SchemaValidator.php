@@ -44,10 +44,10 @@ final class SchemaValidator
         if (isset($schema->type) && !$this->typeOk($value, $schema->type)) {
             return $this->fail($path, 'type ' . json_encode($schema->type));
         }
-        if (property_exists($schema, 'const') && $value != $schema->const) {
+        if (property_exists($schema, 'const') && !self::same($value, $schema->const)) {
             return $this->fail($path, 'const ' . json_encode($schema->const));
         }
-        if (isset($schema->enum) && !in_array($value, (array)$schema->enum, false)) {
+        if (isset($schema->enum) && !self::inEnum($value, (array)$schema->enum)) {
             return $this->fail($path, 'enum');
         }
 
@@ -55,6 +55,36 @@ final class SchemaValidator
             && $this->scalarRules($value, $schema, $path)
             && ($value instanceof stdClass ? $this->objectRules($value, $schema, $path) : true)
             && (is_array($value) ? $this->arrayRules($value, $schema, $path) : true);
+    }
+
+    /**
+     * JSON equality: no loose comparison, so `"csv"` is not `true`.
+     *
+     * @param mixed $a
+     * @param mixed $b
+     *
+     * @return bool
+     */
+    private static function same(mixed $a, mixed $b): bool
+    {
+        return json_encode($a) === json_encode($b);
+    }
+
+    /**
+     * @param mixed $value
+     * @param array<mixed> $enum
+     *
+     * @return bool
+     */
+    private static function inEnum(mixed $value, array $enum): bool
+    {
+        foreach ($enum as $candidate) {
+            if (self::same($value, $candidate)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

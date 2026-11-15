@@ -835,6 +835,8 @@ final class Scanner
         if ($value !== '' && $value[0] === ' ') {
             $value = substr($value, 1);
         }
+        // G-inline-1: the value ends at the last character that is no space, an escaped space included.
+        $value = rtrim($value, " \t");
         $node = $this->node('comment', $start, $end);
         $node->f['form'] = 'line';
         $node->f['value'] = $value;
@@ -899,10 +901,12 @@ final class Scanner
     private function sigil(int $i): int
     {
         $t = $this->t;
-        if (!$this->boundary($i)) {
-            return -1;
-        }
         $chars = Tables::SIGIL_MENTION_CHARS;
+        if (!$this->boundary($i)) {
+            // C2-B-207: the caption mark has no boundary on its left.
+            return $this->caption && $t[$i] === '#' && $this->frames === [] && ($i + 1 >= $this->n || strspn($t[$i + 1], $chars) === 0)
+                ? $this->emit([self::NODE, Node::at('caption_number', -1, -1), $i, $i + 1, false, null]) : -1;
+        }
         $j = $i + 1;
         while (true) {
             $k = strspn($t, $chars, $j);

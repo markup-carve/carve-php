@@ -71,9 +71,9 @@ final class LineShapes
             $k++;
         }
         if ($k < $end && $s[$k] === '=') {
-            // G-blocks-3: the raw format name has no character set; it runs to the next space.
+            // G-blocks-3, G-blocks-6: the raw format name starts with an ASCII letter and runs to the next space.
             $w = strcspn($s, " \t", $k + 1, $end - $k - 1);
-            if ($w > 0) {
+            if ($w > 0 && ctype_alpha($s[$k + 1])) {
                 // C2-B-122: a raw fence takes no title and no label.
                 $info->raw = substr($s, $k + 1, $w);
 
