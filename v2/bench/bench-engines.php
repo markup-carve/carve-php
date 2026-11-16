@@ -53,7 +53,7 @@ function engines(): array
             'label' => 'Carve 0.1',
             'ext' => 'crv',
             'parse' => static fn (string $s): mixed => $carve01->parse($s),
-            'html' => static fn (string $s): string => $carve01->convert($s),
+            'html' => static fn (string $s): string => $carve01->render($carve01->parse($s)),
         ],
         'commonmark' => [
             'label' => 'league/commonmark GFM',

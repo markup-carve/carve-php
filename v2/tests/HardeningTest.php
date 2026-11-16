@@ -1,0 +1,67 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve2\Test;
+
+use MarkupCarve\Carve2\Carve2;
+use PHPUnit\Framework\TestCase;
+
+final class HardeningTest extends TestCase
+{
+    /**
+     * C2-B-218: malformed byte sources still parse and render.
+     *
+     * @return void
+     */
+    public function testC2B218ByteMutationsNeverThrow(): void
+    {
+        mt_srand(218);
+        $fixture = "# Heading\n\n| a | b |\n\n[a](https://example.org)\n\n::: note\nbody\n:::";
+        for ($i = 0; $i < 1000; $i++) {
+            $source = $fixture;
+            for ($j = 0; $j < 8; $j++) {
+                $at = mt_rand(0, strlen($source));
+                $source = substr_replace($source, chr(mt_rand(0, 255)), $at, mt_rand(0, 2));
+            }
+            $html = Carve2::toHtml($source);
+            $json = Carve2::toJson($source);
+            $this->assertTrue(mb_check_encoding($html, 'UTF-8'));
+            $this->assertNotNull(json_decode($json, true));
+        }
+    }
+
+    /**
+     * C2-B-190, C2-I-118: the four fixtures and five stress shapes scale with source length.
+     *
+     * @return void
+     */
+    public function testSizeDoublingStaysLinear(): void
+    {
+        $units = [];
+        foreach (['bench-commonmark-core', 'lists-tables', 'prose', 'reference-heavy'] as $name) {
+            $path = __DIR__ . '/../bench/fixtures/' . $name . '.crv';
+            $units[$name] = substr((string)file_get_contents($path), 0, 8192) . "\n\n";
+        }
+        $units['deep nesting'] = str_repeat('> ', 180) . "x\n";
+        $units['delimiter run'] = str_repeat('*[', 400);
+        $units['wide table'] = '|' . str_repeat(' x |', 200) . "\n";
+        $units['references'] = str_repeat('[x][k] ', 100) . "\n\n[k]: /u\n";
+        $units['long line'] = str_repeat('words and punctuation *x* ', 35);
+        foreach ($units as $name => $unit) {
+            $times = [];
+            foreach ([1, 2, 4, 8] as $factor) {
+                $source = str_repeat($unit, $factor * max(1, intdiv(8192, strlen($unit))));
+                $samples = [];
+                for ($round = 0; $round < 3; $round++) {
+                    $start = hrtime(true);
+                    Carve2::toHtml($source);
+                    $samples[] = (hrtime(true) - $start) / 1e6;
+                }
+                sort($samples);
+                $times[] = $samples[1];
+            }
+            $this->assertLessThanOrEqual(max(2.0, $times[0] * 20), $times[3], $name);
+        }
+    }
+}
