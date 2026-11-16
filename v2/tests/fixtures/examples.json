@@ -1041,6 +1041,30 @@
  },
  {
   "file": "syntax-blocks.md",
+  "number": 233,
+  "label": "unverified",
+  "flags": [],
+  "input": "::: glossary>\nq\n:::\n\n```js}\ncode\n```\n\n```=html~\n<b>x</b>\n```\n\n::: note{.x}\nn\n:::",
+  "html": "<div class=\"glossary\">\n  <p>q</p>\n</div>\n<pre><code class=\"language-js\">code\n</code></pre>\n<pre><code class=\"language-html\">&lt;b&gt;x&lt;/b&gt;\n</code></pre>\n<aside class=\"admonition note\" aria-label=\"Note\">\n  <p>n</p>\n</aside>"
+ },
+ {
+  "file": "syntax-blocks.md",
+  "number": 237,
+  "label": "unverified",
+  "flags": [],
+  "input": "```  b\ntext\n```",
+  "html": "<pre><code>text\n</code></pre>"
+ },
+ {
+  "file": "syntax-blocks.md",
+  "number": 238,
+  "label": "unverified",
+  "flags": [],
+  "input": ":::  \"T\"\nx\n:::\n\n::: [l]\nz\n:::\n\n:::[x] y",
+  "html": "<div>\n  <p class=\"admonition-title\">T</p>\n  <p>x</p>\n</div>\n<div>\n  <p class=\"div-label\">l</p>\n  <p>z</p>\n</div>\n<p>:::[x] y</p>"
+ },
+ {
+  "file": "syntax-blocks.md",
   "number": 130,
   "label": "unverified",
   "flags": [],
@@ -1537,6 +1561,14 @@
  },
  {
   "file": "syntax-blocks.md",
+  "number": 236,
+  "label": "unverified",
+  "flags": [],
+  "input": "{{ a.crv @shift:-123456789 }}\n\n{{ a.crv @shift:1234567890 }}",
+  "html": "<p>{{ a.crv @shift:-123456789 }}</p>\n<p>{{ a.crv <span class=\"mention\"><strong>@shift</strong></span>:1234567890 }}</p>"
+ },
+ {
+  "file": "syntax-blocks.md",
   "number": 188,
   "label": "generated",
   "flags": [],
@@ -1809,11 +1841,35 @@
  },
  {
   "file": "syntax-blocks.md",
+  "number": 239,
+  "label": "unverified",
+  "flags": [],
+  "input": "{aligns=right,x widths=25,,25 footer-rows=two .t}\n| a | b |\n| c | d |",
+  "html": "<table class=\"t\">\n  <tbody>\n    <tr><td>a</td><td>b</td></tr>\n    <tr><td>c</td><td>d</td></tr>\n  </tbody>\n</table>"
+ },
+ {
+  "file": "syntax-blocks.md",
   "number": 230,
   "label": "generated",
   "flags": [],
   "input": "{table}\n```csv\nName,Price\ntea,2\n```\n\n{table header-rows=0}\n```csv\na,b\n```\n\n{table header-rows=5}\n```csv\na,b\nc,d\n```",
   "html": "<table>\n  <thead>\n    <tr><th scope=\"col\">Name</th><th scope=\"col\">Price</th></tr>\n  </thead>\n  <tbody>\n    <tr><td>tea</td><td>2</td></tr>\n  </tbody>\n</table>\n<table>\n  <tbody>\n    <tr><td>a</td><td>b</td></tr>\n  </tbody>\n</table>\n<table>\n  <tbody>\n    <tr><th scope=\"row\">a</th><th scope=\"row\">b</th></tr>\n    <tr><th scope=\"row\">c</th><th scope=\"row\">d</th></tr>\n  </tbody>\n</table>"
+ },
+ {
+  "file": "syntax-blocks.md",
+  "number": 234,
+  "label": "unverified",
+  "flags": [],
+  "input": "{table}\n```csv\na,\"b \"\"q\"\" c\", d\n*x*,\n\n\"m\nn\"x,y\n\n```\n\n{table}\n```CSV\na,b\n```\n\n{table}\n```tsv\na\tb,c\n```",
+  "html": "<table>\n  <thead>\n    <tr><th scope=\"col\">a</th><th scope=\"col\">b \"q\" c</th><th scope=\"col\"> d</th></tr>\n  </thead>\n  <tbody>\n    <tr><td>*x*</td><td></td></tr>\n    <tr><td></td></tr>\n    <tr><td>m\nnx</td><td>y</td></tr>\n  </tbody>\n</table>\n<pre table=\"\"><code class=\"language-CSV\">a,b\n</code></pre>\n<table>\n  <thead>\n    <tr><th scope=\"col\">a</th><th scope=\"col\">b,c</th></tr>\n  </thead>\n</table>"
+ },
+ {
+  "file": "syntax-blocks.md",
+  "number": 235,
+  "label": "unverified",
+  "flags": [],
+  "input": "| 1 | 2 |{.r} %% note\n| 3 | 4 | %% n2",
+  "html": "<table>\n  <tbody>\n    <tr class=\"r\"><td>1</td><td>2</td></tr>\n    <tr><td>3</td><td>4</td></tr>\n  </tbody>\n</table>"
  },
  {
   "file": "syntax-blocks.md",
@@ -1894,6 +1950,14 @@
   "flags": [],
   "input": "*a [b* c] d",
   "html": "<p><strong>a [b</strong> c] d</p>"
+ },
+ {
+  "file": "syntax-inline.md",
+  "number": 110,
+  "label": "unverified",
+  "flags": [],
+  "input": "𽀀*𰨌*",
+  "html": "<p>𽀀*𰨌*</p>"
  },
  {
   "file": "syntax-inline.md",
@@ -2505,6 +2569,54 @@
  },
  {
   "file": "syntax-inline.md",
+  "number": 114,
+  "label": "unverified",
+  "flags": [],
+  "input": "# A bold title\n\n[A *bold* title][] and [x][A {*bold*} title]",
+  "html": "<section id=\"A-bold-title\">\n  <h1>A bold title</h1>\n  <p><a href=\"#A-bold-title\">A <strong>bold</strong> title</a> and <a href=\"#A-bold-title\">x</a></p>\n</section>"
+ },
+ {
+  "file": "syntax-inline.md",
+  "number": 115,
+  "label": "unverified",
+  "flags": [],
+  "input": "# A {*bold*} title\n\n[A *bold* title][] and [A bold title][]",
+  "html": "<section id=\"A-bold-title\">\n  <h1>A <strong>bold</strong> title</h1>\n  <p><a href=\"#A-bold-title\">A <strong>bold</strong> title</a> and <a href=\"#A-bold-title\">A bold title</a></p>\n</section>"
+ },
+ {
+  "file": "syntax-inline.md",
+  "number": 116,
+  "label": "unverified",
+  "flags": [],
+  "input": "# The `x` value and $`r^2`\n\n[go][The x value and r^2] and [The `x` value and $`r^2`][]",
+  "html": "<section id=\"The-x-value-and-r-2\">\n  <h1>The <code>x</code> value and <span class=\"math inline\" role=\"math\">\\(r^2\\)</span></h1>\n  <p><a href=\"#The-x-value-and-r-2\">go</a> and <a href=\"#The-x-value-and-r-2\">The <code>x</code> value and <span class=\"math inline\" role=\"math\">\\(r^2\\)</span></a></p>\n</section>"
+ },
+ {
+  "file": "syntax-inline.md",
+  "number": 117,
+  "label": "unverified",
+  "flags": [],
+  "input": "# It's a\\*b\n\n[It's a\\*b][] and [go][It’s a*b] and [go][It\\'s a\\*b]",
+  "html": "<section id=\"It-s-a-b\">\n  <h1>It’s a*b</h1>\n  <p><a href=\"#It-s-a-b\">It’s a*b</a> and <a href=\"#It-s-a-b\">go</a> and [go][It\\'s a\\*b]</p>\n</section>"
+ },
+ {
+  "file": "syntax-inline.md",
+  "number": 118,
+  "label": "unverified",
+  "flags": [],
+  "input": "# A *b*\n\n# A b\n\n# A *c\n\n[A b][] and [x][A *c]",
+  "html": "<section id=\"A-b\">\n  <h1>A <strong>b</strong></h1>\n</section>\n<section id=\"A-b-2\">\n  <h1>A b</h1>\n</section>\n<section id=\"A-c\">\n  <h1>A *c</h1>\n  <p><a href=\"#A-b\">A b</a> and <a href=\"#A-c\">x</a></p>\n</section>"
+ },
+ {
+  "file": "syntax-inline.md",
+  "number": 119,
+  "label": "unverified",
+  "flags": [],
+  "input": "{#manual}\n# Intro\n\n[Intro][] and [manual][] and ![x][Intro] and [Intro] and [Setup][]\n\n# Setup\n\n[Setup]: /setup",
+  "html": "<section id=\"manual\">\n  <h1>Intro</h1>\n  <p><a href=\"#manual\">Intro</a> and [manual][] and ![x][Intro] and [Intro] and <a href=\"/setup\">Setup</a></p>\n</section>\n<section id=\"Setup\">\n  <h1>Setup</h1>\n</section>"
+ },
+ {
+  "file": "syntax-inline.md",
   "number": 80,
   "label": "generated",
   "flags": [],
@@ -2697,11 +2809,35 @@
  },
  {
   "file": "syntax-inline.md",
+  "number": 111,
+  "label": "unverified",
+  "flags": [],
+  "input": "{--->-} and {-<---} and {++-1+} and {++-+} and C++-style and a{%x%}+-b",
+  "html": "<p><del>→</del> and <del>←</del> and <ins>±1</ins> and <ins>±</ins> and C++-style and a±b</p>"
+ },
+ {
+  "file": "syntax-inline.md",
   "number": 104,
   "label": "unverified",
   "flags": [],
   "input": "{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^x^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}",
   "html": "<p><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup>{^x</sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup>^}</p>"
+ },
+ {
+  "file": "syntax-inline.md",
+  "number": 112,
+  "label": "unverified",
+  "flags": [],
+  "input": "{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^{^*[x](u) ![y](v)^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}^}",
+  "html": "<p><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup><sup>*[x](u) ![y](v)</sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></sup></p>"
+ },
+ {
+  "file": "syntax-inline.md",
+  "number": 113,
+  "label": "unverified",
+  "flags": [],
+  "input": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[:n[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
+  "html": "<p>[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[<span class=\"ext-n\">[</span>]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]</p>"
  },
  {
   "file": "syntax-inline.md",
@@ -2772,11 +2908,18 @@
   "number": 25,
   "label": "generated",
   "flags": [
-   "lowercaseHeadingIds",
-   "which is headingIds: lower"
+   "--heading-ids lower"
   ],
   "input": "# Ärger mit ΣΑΣ\n\n# İstanbul Straße",
   "html": "<section id=\"ärger-mit-σασ\">\n  <h1>Ärger mit ΣΑΣ</h1>\n</section>\n<section id=\"i̇stanbul-straße\">\n  <h1>İstanbul Straße</h1>\n</section>"
+ },
+ {
+  "file": "html.md",
+  "number": 37,
+  "label": "unverified",
+  "flags": [],
+  "input": "{.c #i}\n![a](x.png)\n\n{:de}\n![b](y.png)\n\n![c](z.png)",
+  "html": "<p id=\"i\" class=\"c\"><img src=\"x.png\" alt=\"a\"></p>\n<p lang=\"de\"><img src=\"y.png\" alt=\"b\"></p>\n<img src=\"z.png\" alt=\"c\">"
  },
  {
   "file": "html.md",
@@ -2809,6 +2952,14 @@
   "flags": [],
   "input": "- > quote\n\n  after",
   "html": "<ul>\n  <li>\n    <blockquote><p>quote</p></blockquote>\n    <p>after</p>\n  </li>\n</ul>"
+ },
+ {
+  "file": "html.md",
+  "number": 40,
+  "label": "unverified",
+  "flags": [],
+  "input": "- [ ] first *a*\n\n  second\n\n  > quote",
+  "html": "<ul class=\"task-list\">\n  <li class=\"task\" style=\"list-style: none\"><input type=\"checkbox\" disabled aria-label=\"first a second\"> first <strong>a</strong>\n    <p>second</p>\n    <blockquote><p>quote</p></blockquote>\n  </li>\n</ul>"
  },
  {
   "file": "html.md",
@@ -2894,6 +3045,14 @@
  },
  {
   "file": "html.md",
+  "number": 38,
+  "label": "unverified",
+  "flags": [],
+  "input": ":::: figure\n![a](a.png)\n^ First\n\n| t |\n^ Second\n::::",
+  "html": "<figure class=\"carve-figure-group\">\n  <figure class=\"carve-figure-panel\">\n    <img src=\"a.png\" alt=\"a\">\n    <figcaption>First</figcaption>\n  </figure>\n  <figure class=\"carve-figure-panel\">\n    <table>\n      <caption>Second</caption>\n      <tbody>\n        <tr><td>t</td></tr>\n      </tbody>\n    </table>\n  </figure>\n</figure>"
+ },
+ {
+  "file": "html.md",
   "number": 15,
   "label": "generated",
   "flags": [],
@@ -2966,11 +3125,84 @@
  },
  {
   "file": "html.md",
+  "number": 35,
+  "label": "unverified",
+  "flags": [
+   "--social {\"mentionUrl\":\"https://x.org/u/{name}\"}"
+  ],
+  "input": "@ann.b and #topic",
+  "html": "<p><a class=\"mention\" href=\"https://x.org/u/ann.b\"><strong>@ann.b</strong></a> and <span class=\"tag\"><strong>#topic</strong></span></p>"
+ },
+ {
+  "file": "html.md",
+  "number": 36,
+  "label": "unverified",
+  "flags": [
+   "--social {\"mentionUrl\":\"https://x.org/u/{name}\"}",
+   "--profile minimal"
+  ],
+  "input": "@ann",
+  "html": "<p><span class=\"mention\"><strong>@ann</strong></span></p>"
+ },
+ {
+  "file": "html.md",
   "number": 23,
   "label": "unverified",
-  "flags": [],
+  "flags": [
+   "--roundtrip"
+  ],
   "input": "# H\n\n[x][r] </#H> <https://example.org> a[^n] ^[inl]\n\n:::\nin\n:::\n\n[r]: /u\n[^n]: N.",
   "html": "<section data-carve-generated-id id=\"H\">\n  <h1>H</h1>\n  <p><a href=\"/u\" data-carve-ref=\"r\">x</a> <a href=\"#H\" data-carve-xref>H</a> <a href=\"https://example.org\" data-carve-autolink>https://example.org</a> a<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\" data-carve-footnote-label=\"n\"><sup>1</sup></a> <a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p>\n  <div data-carve-div>\n    <p>in</p>\n  </div>\n</section>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\" data-carve-footnote-label=\"n\">\n      <p>N.<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n    <li id=\"fn2\" data-carve-inline-footnote>\n      <p>inl<a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+ },
+ {
+  "file": "html.md",
+  "number": 42,
+  "label": "unverified",
+  "flags": [
+   "--roundtrip"
+  ],
+  "input": "*[HTML]: HyperText Markup Language\n*[CSS]: Cascading Style Sheets\n\nHTML and CSS.",
+  "html": "<template data-carve-abbreviations>*[HTML]: HyperText Markup Language\n\n*[CSS]: Cascading Style Sheets</template>\n<p><abbr title=\"HyperText Markup Language\">HTML</abbr> and <abbr title=\"Cascading Style Sheets\">CSS</abbr>.</p>"
+ },
+ {
+  "file": "html.md",
+  "number": 43,
+  "label": "unverified",
+  "flags": [
+   "--roundtrip"
+  ],
+  "input": "*[A]: Alpha\n\n# H\n\nA and B.\n\n*[B]: Beta",
+  "html": "<template data-carve-abbreviations>*[A]: Alpha</template>\n<section data-carve-generated-id id=\"H\">\n  <h1>H</h1>\n  <p><abbr title=\"Alpha\">A</abbr> and <abbr title=\"Beta\">B</abbr>.</p>\n  <template data-carve-abbreviations>*[B]: Beta</template>\n</section>"
+ },
+ {
+  "file": "html.md",
+  "number": 44,
+  "label": "unverified",
+  "flags": [
+   "--roundtrip"
+  ],
+  "input": "{#x .c}\n*[A]: Alpha\n\nA.",
+  "html": "<template data-carve-abbreviations>{#x .c}\n*[A]: Alpha</template>\n<p><abbr title=\"Alpha\">A</abbr>.</p>"
+ },
+ {
+  "file": "html.md",
+  "number": 45,
+  "label": "unverified",
+  "flags": [
+   "--roundtrip"
+  ],
+  "input": "*[A]: First\n*[A]: Second\n*[U]: Unused\n\nA.",
+  "html": "<template data-carve-abbreviations>*[A]: First\n\n*[A]: Second\n\n*[U]: Unused</template>\n<p><abbr title=\"First\">A</abbr>.</p>"
+ },
+ {
+  "file": "html.md",
+  "number": 46,
+  "label": "unverified",
+  "flags": [
+   "--roundtrip"
+  ],
+  "input": "*[RnD]: R&D <research> \"and\" development\n\nRnD.",
+  "html": "<template data-carve-abbreviations>*[RnD]: R&amp;D &lt;research&gt; \"and\" development</template>\n<p><abbr title=\"R&amp;D &lt;research&gt; &quot;and&quot; development\">RnD</abbr>.</p>"
  },
  {
   "file": "html.md",
@@ -2999,5 +3231,35 @@
   ],
   "input": "See [docs](https://x.org) and *bold*.",
   "html": "<p>See docs and <strong>bold</strong>.</p>"
+ },
+ {
+  "file": "html.md",
+  "number": 39,
+  "label": "unverified",
+  "flags": [
+   "--profile comment"
+  ],
+  "input": "![i](a.png)\n^ Figure #: cap\n\n| t |\n^ Table #: tc\n\n:::: figure\n::::\n^ Empty #",
+  "html": "<p>[img: i]</p>\n<p>Figure 1: cap</p>\n<p>t</p>\n<p>Table 1: tc</p>\n<p>Empty 1</p>"
+ },
+ {
+  "file": "html.md",
+  "number": 41,
+  "label": "unverified",
+  "flags": [
+   "--profile minimal"
+  ],
+  "input": "![i](a.png)\n^ a `x` b $`m`\n\n> q `c` $`n`\n\np $`k`",
+  "html": "<p>[img: i]</p>\n<p>a x b m</p>\n<p>&gt; q c n</p>\n<p>p $`k`</p>"
+ },
+ {
+  "file": "html.md",
+  "number": 34,
+  "label": "unverified",
+  "flags": [
+   "--profile comment"
+  ],
+  "input": "## Sub *em* `code`\n\n[Sub em code][] and </#Sub-em-code>",
+  "html": "<p>## Sub em code</p>\n<p>[Sub em code][] and &lt;/#Sub-em-code&gt;</p>"
  }
 ]

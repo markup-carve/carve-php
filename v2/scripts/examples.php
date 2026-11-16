@@ -36,13 +36,13 @@ function sortKeys(mixed $v): mixed
 function optionsOf(array $flags, array $ex): array
 {
     $o = [];
-    // G-lead-1: html.md example 23 shows roundtrip carriers, but examples.json carries no flag for it.
-    if ($ex['file'] === 'html.md' && $ex['number'] === 23) {
-        $o['roundtrip'] = true;
-    }
     foreach ($flags as $f) {
-        if ($f === 'lowercaseHeadingIds') {
+        if ($f === '--heading-ids lower' || $f === 'lowercaseHeadingIds') {
             $o['headingIds'] = 'lower';
+        } elseif ($f === '--roundtrip') {
+            $o['roundtrip'] = true;
+        } elseif (str_starts_with($f, '--social ')) {
+            $o['social'] = json_decode(substr($f, 9), true, 512, JSON_THROW_ON_ERROR);
         } elseif ($f === '--no-raw-html') {
             $o['rawHtml'] = false;
         } elseif (str_starts_with($f, '--profile ')) {

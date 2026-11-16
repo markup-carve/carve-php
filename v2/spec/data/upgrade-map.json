@@ -1017,7 +1017,7 @@
       "group": "fences, quotes, comments",
       "from": "> +\n>",
       "to": ">\n>",
-      "meaning02": "<blockquote><p>+</p></blockquote>",
+      "meaning02": "C2-B-059 removes the 0.1 plus; an empty quote line can keep a following code-span paragraph separate.",
       "toolEntry": "U-125",
       "silent": true
     },
@@ -2289,6 +2289,26 @@
       "to": "",
       "meaning02": "C2-I-047 pairs slash delimiters at a different boundary after raw HTML is escaped.",
       "toolEntry": "U-255",
+      "silent": true
+    },
+    {
+      "id": "U-256",
+      "kind": "rewrite",
+      "group": "tag inside a failed brace attribute",
+      "from": "# H {#id .cls}\n",
+      "to": "# H {#id .cls\\}\n",
+      "meaning02": "C2-I-044 and C2-I-090 keep the tag visible when a failed brace attribute has its opening or closing brace escaped.",
+      "toolEntry": "U-256",
+      "silent": true
+    },
+    {
+      "id": "U-257",
+      "kind": "rewrite",
+      "group": "nested bracket text in an inline note",
+      "from": "^[/[^[g]/] b/]\n",
+      "to": "^[{/\\[\\^[g]\\/\\] b/}]\n",
+      "meaning02": "C2-I-044 and C2-I-047 preserve the old note text when its bracket run is escaped inside a braced emphasis span.",
+      "toolEntry": "U-257",
       "silent": true
     }
   ],

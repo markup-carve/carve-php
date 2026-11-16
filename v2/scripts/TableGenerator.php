@@ -24,6 +24,22 @@ final class TableGenerator
 
         $consts = [];
 
+        $categories = [];
+        foreach ($load('unicode-categories')['categories'] as $category) {
+            $ranges = [];
+            foreach ($category['ranges'] as $range) {
+                $parts = explode('-', $range);
+                $ranges[] = [hexdec($parts[0]), hexdec($parts[1] ?? $parts[0])];
+            }
+            $categories[$category['name']] = $ranges;
+        }
+        $word = array_merge($categories['L'], $categories['N']);
+        usort($word, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        $consts['UNICODE_WORD_RANGES'] = ['C2-I-127 Unicode 18.0.0 L and N', $word];
+        $consts['UNICODE_NUMBER_RANGES'] = ['C2-I-127 Unicode 18.0.0 N', $categories['N']];
+        $consts['UNICODE_MARK_RANGES'] = ['C2-I-127 Unicode 18.0.0 M', $categories['M']];
+        $consts['UNICODE_FORMAT_RANGES'] = ['C2-I-127 Unicode 18.0.0 Cf', $categories['Cf']];
+
         $shapes = $load('line-shapes');
         $first = [];
         foreach ($shapes['shapes'] as $shape) {
