@@ -46,6 +46,7 @@ final class HardeningTest extends TestCase
         $units['deep nesting'] = str_repeat('> ', 180) . "x\n";
         $units['delimiter run'] = str_repeat('*[', 400);
         $units['wide table'] = '|' . str_repeat(' x |', 200) . "\n";
+        $units['percent table'] = str_repeat("| 5% | b |\n", 250);
         $units['references'] = str_repeat('[x][k] ', 100) . "\n\n[k]: /u\n";
         $units['long line'] = str_repeat('words and punctuation *x* ', 35);
         foreach ($units as $name => $unit) {

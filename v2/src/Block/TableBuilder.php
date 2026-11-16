@@ -60,13 +60,15 @@ final class TableBuilder
         $attrs = null;
         $rowEnd = self::tail($s, $seps[$n], $end, $attrs);
 
-        $commentAt = $rowEnd < 0 ? false : strpos($s, '%%', $rowEnd);
+        $commentAt = $rowEnd >= 0 && $rowEnd < $end
+            ? $rowEnd + strspn($s, " \t", $rowEnd, $end - $rowEnd)
+            : null;
 
         return $rowEnd < 0 ? null : [
             'seps' => $seps,
             'end' => $rowEnd,
             'attrs' => $attrs,
-            'comment' => $commentAt !== false && $commentAt < $end ? $commentAt : null,
+            'comment' => $commentAt,
         ];
     }
 
