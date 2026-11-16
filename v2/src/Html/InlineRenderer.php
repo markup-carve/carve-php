@@ -116,7 +116,7 @@ final class InlineRenderer
     /**
      * @param array<\MarkupCarve\Carve2\Node> $nodes
      * @param bool $nested
-     * @param Profile|null $profile
+     * @param \MarkupCarve\Carve2\Html\Profile|null $profile
      *
      * @return array<\MarkupCarve\Carve2\Node>
      */
