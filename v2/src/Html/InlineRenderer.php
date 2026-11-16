@@ -89,7 +89,7 @@ final class InlineRenderer
     {
         $out = '';
         if ($this->profile !== null) {
-            foreach (self::dropCommentLineBreaks($nodes, $nested) as $node) {
+            foreach (self::dropCommentLineBreaks($nodes, $nested, $this->profile) as $node) {
                 $out .= $this->profile->inline($node, $depth, $this);
             }
 
@@ -116,10 +116,11 @@ final class InlineRenderer
     /**
      * @param array<\MarkupCarve\Carve2\Node> $nodes
      * @param bool $nested
+     * @param Profile|null $profile
      *
      * @return array<\MarkupCarve\Carve2\Node>
      */
-    public static function dropCommentLineBreaks(array $nodes, bool $nested = false): array
+    public static function dropCommentLineBreaks(array $nodes, bool $nested = false, ?Profile $profile = null): array
     {
         $hasComment = false;
         foreach ($nodes as $n) {
@@ -141,9 +142,12 @@ final class InlineRenderer
                 continue;
             }
             if (self::commentOnly($nodes, $lineStart, $i)) {
-                if ($i < $count && ($lineStart > 0 || !$nested)) {
+                if ($i < $count && ($lineStart > 0 || !$nested) && ($profile === null || $profile->allowsInline($nodes[$i]))) {
                     $drop[$i] = true;
-                } elseif ($i === $count && $lineStart > 0 && !$nested) {
+                } elseif (
+                    $i === $count && $lineStart > 0 && !$nested
+                    && ($profile === null || $profile->allowsInline($nodes[$lineStart - 1]))
+                ) {
                     $drop[$lineStart - 1] = true;
                 }
             }
