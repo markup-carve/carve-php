@@ -193,6 +193,7 @@ final class InlineRunner
     private static function joined(array $nodes, array $spans): array
     {
         $root = new Node('cell', $nodes);
+        self::markPiecePositions($root, $spans);
         $stack = [$root];
         while ($stack !== []) {
             $node = array_pop($stack);
@@ -200,10 +201,6 @@ final class InlineRunner
             $children = $node->children ?? [];
             $lastKey = array_key_last($children);
             foreach ($children as $key => $child) {
-                if (!self::onePiece($child, $spans)) {
-                    $child->start = -1;
-                    $child->end = -1;
-                }
                 // C2-I-002: a backslash at the end of the cell stays a hard break.
                 $atEnd = $node === $root && $key === $lastKey;
                 if ($child->type === 'soft_break' || ($child->type === 'hard_break' && !$atEnd)) {
@@ -237,24 +234,33 @@ final class InlineRunner
     }
 
     /**
-     * C2-A-158: a node with a position entirely inside one continuation piece keeps it.
+     * C2-A-158: source-ordered nodes advance through continuation pieces once.
      *
-     * @param \MarkupCarve\Carve2\Node $node
+     * @param \MarkupCarve\Carve2\Node $root
      * @param array<int> $spans
      *
-     * @return bool
+     * @return void
      */
-    private static function onePiece(Node $node, array $spans): bool
+    private static function markPiecePositions(Node $root, array $spans): void
     {
-        if ($node->start < 0) {
-            return false;
-        }
-        for ($i = 0, $n = count($spans); $i + 1 < $n; $i += 2) {
-            if ($node->start >= $spans[$i] && $node->end <= $spans[$i + 1]) {
-                return true;
+        $stack = [$root];
+        $piece = 0;
+        $n = count($spans);
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            if ($node->start >= 0) {
+                while ($piece + 2 < $n && $node->start >= $spans[$piece + 2]) {
+                    $piece += 2;
+                }
+                if ($node->start < $spans[$piece] || $node->end > $spans[$piece + 1]) {
+                    $node->start = -1;
+                    $node->end = -1;
+                }
+            }
+            $children = $node->children ?? [];
+            for ($i = count($children) - 1; $i >= 0; $i--) {
+                $stack[] = $children[$i];
             }
         }
-
-        return false;
     }
 }

@@ -66,6 +66,23 @@ final class HardeningTest extends TestCase
         }
     }
 
+    public function testC2A158LongContinuationCellStaysLinear(): void
+    {
+        $times = [];
+        foreach ([250, 500, 1000, 2000] as $count) {
+            $source = "| a |\n" . str_repeat("+ | *x* y |\n", $count);
+            $samples = [];
+            for ($round = 0; $round < 3; $round++) {
+                $start = hrtime(true);
+                Carve2::toHtml($source);
+                $samples[] = (hrtime(true) - $start) / 1e6;
+            }
+            sort($samples);
+            $times[] = $samples[1];
+        }
+        $this->assertLessThanOrEqual(max(5.0, $times[0] * 18), $times[3]);
+    }
+
     public function testC2H163ProfileByteLengthLimits(): void
     {
         $this->assertSame('', Carve2::toHtml(str_repeat('a', 10001), ['profile' => 'minimal']));
