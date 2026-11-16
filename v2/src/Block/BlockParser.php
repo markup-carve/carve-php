@@ -1068,6 +1068,8 @@ final class BlockParser
     {
         $f = new Frame(Frame::TERM, $j);
         $f->end = $this->le;
+        // C2-B-069: spaces and tabs behind the mark's one space stand before the content column.
+        $content += strspn($this->s, " \t", $content, max(0, $this->le - $content));
         $f->spans = [$content, $f->end];
         $f->n = 1;
         $this->take($f);

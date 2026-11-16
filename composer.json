@@ -77,7 +77,7 @@
         ],
         "v2-cs-check": "phpcs --colors --parallel=16 --standard=v2/phpcs.xml",
         "v2-cs-fix": "phpcbf --colors --parallel=16 --standard=v2/phpcs.xml",
-        "v2-stan": "phpstan analyze -c v2/phpstan.neon",
+        "v2-stan": "phpstan analyze -c v2/phpstan.neon --memory-limit=1G",
         "v2-tables-check": "@php v2/scripts/generate-tables.php --check",
         "v2-test": "@php -d pcov.enabled=0 vendor/bin/phpunit -c v2/phpunit.xml.dist"
     },

@@ -24,12 +24,13 @@ final class TreeDecoder
 
     /**
      * @param string $json
+     * @param int<1, max>|int $depth
      *
      * @return \MarkupCarve\Carve2\Node|null Null when the text is no JSON object with a type.
      */
-    public static function json(string $json): ?Node
+    public static function json(string $json, int $depth = 4096): ?Node
     {
-        $value = json_decode($json, false, 4096);
+        $value = json_decode($json, false, $depth);
         if (!$value instanceof stdClass || !isset($value->type)) {
             return null;
         }

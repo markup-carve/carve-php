@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * Checks the render area against the oracle dump without the parsers:
  *   php v2/scripts/compare-render.php [--oracle=FILE] [--inputs=FILE] [--show] [--n=INDEX] [--resolve]
- * HTML: decodes each oracle tree, renders it and compares with the expected html of examples.json
+ * HTML: decodes each oracle tree, renders it and compares with the expected html of the corpus
  * (or with the oracle html for --inputs dumps). Resolver: strips the resolution results of
  * ast-results.json from the oracle tree, resolves in PHP and compares the encoded tree.
  */
@@ -43,38 +43,14 @@ function cases(array $opt, string $lane): Generator
 
         return;
     }
-    $examples = json_decode((string)file_get_contents(dirname(__DIR__) . '/tests/fixtures/examples.json'), true);
+    require_once __DIR__ . '/corpus-examples.php';
+    $examples = corpusExamples();
     $lines = file((string)($opt['oracle'] ?? $lane . '/oracle/examples-oracle.jsonl'), FILE_IGNORE_NEW_LINES) ?: [];
     foreach ($examples as $i => $ex) {
         $o = json_decode($lines[$i] ?? '{}', true);
 
-        yield $i => ['input' => $ex['input'], 'html' => $ex['html'], 'tree' => $o['tree'] ?? null, 'options' => optionsOf($ex), 'label' => "{$ex['file']} example {$ex['number']}"];
+        yield $i => ['input' => $ex['input'], 'html' => $ex['html'], 'tree' => $o['tree'] ?? null, 'options' => $ex['options'], 'label' => "{$ex['file']} example {$ex['number']}"];
     }
-}
-
-/**
- * @param array<string, mixed> $ex
- *
- * @return array<string, mixed>
- */
-function optionsOf(array $ex): array
-{
-    $o = [];
-    foreach ($ex['flags'] as $f) {
-        if ($f === 'lowercaseHeadingIds') {
-            $o['headingIds'] = 'lower';
-        } elseif ($f === '--no-raw-html') {
-            $o['rawHtml'] = false;
-        } elseif (str_starts_with($f, '--profile ')) {
-            $o['profile'] = substr($f, 10);
-        }
-    }
-    // html.md example 23 shows the roundtrip carriers; examples.json names no flag for it.
-    if ($ex['file'] === 'html.md' && $ex['number'] === 23) {
-        $o['roundtrip'] = true;
-    }
-
-    return $o;
 }
 
 function sortKeys(mixed $v): mixed

@@ -69,6 +69,8 @@ final class TableGenerator
         }
         $consts['BLOCK_DEPTH'] = ['C2-B-190 limits.json block_depth', $limits['block_depth']];
         $consts['INLINE_DEPTH'] = ['C2-I-118 limits.json inline_depth', $limits['inline_depth']];
+        $consts['INCLUDE_DEPTH'] = ['C2-N-064 limits.json include_depth', $limits['include_depth']];
+        $consts['INCLUDE_BYTES'] = ['C2-N-065 limits.json include_bytes', $limits['include_bytes']];
         $consts['LIST_END_BLANK_LINES'] = ['C2-B-052 limits.json', $limits['list_end_blank_lines']];
         $consts['TAB_STOP'] = ['C2-B-004 limits.json', $limits['tab_stop']];
 

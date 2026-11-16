@@ -9,7 +9,7 @@ declare(strict_types=1);
  * php v2/scripts/compare-inline.php [--oracle=FILE.jsonl] [--inputs=FILE.json] [--file=syntax-inline.md]
  *     [--n=INDEX] [--show=INDEX] [--strict] [--quiet] [--list]
  *
- * Without --inputs the examples of v2/tests/fixtures/examples.json are read and the oracle defaults to
+ * Without --inputs the render examples of the pinned corpus are read and the oracle defaults to
  * LANE/oracle/examples-oracle.jsonl. --show prints the first differing leaf of that example; --strict
  * keeps the resolution results (ast-results.json) in the comparison; --list prints one line per
  * example with differences.
@@ -31,7 +31,8 @@ if (isset($opt['inputs'])) {
         $labels[$i] = 'input ' . $i;
     }
 } else {
-    foreach (json_decode((string)file_get_contents($root . '/tests/fixtures/examples.json'), true) as $i => $ex) {
+    require_once __DIR__ . '/corpus-examples.php';
+    foreach (corpusExamples() as $i => $ex) {
         if (isset($opt['file']) && $ex['file'] !== $opt['file']) {
             continue;
         }

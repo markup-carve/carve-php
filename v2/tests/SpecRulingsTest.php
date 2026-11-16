@@ -344,14 +344,59 @@ final class SpecRulingsTest extends TestCase
         }
     }
 
-    public function testC2A092JoinedSpanCellsHaveNoPosition(): void
+    public function testC2A158SpanMarkCellSpansTheTextBetweenItsPipes(): void
     {
-        $tree = json_decode(Carve2::toJson("| a | |\n| b | < |"), true, 512, JSON_THROW_ON_ERROR);
+        $tree = json_decode(Carve2::toJson("| a | |\n| b | < |\n| ^ | c |"), true, 512, JSON_THROW_ON_ERROR);
         $rows = $tree['children'][0]['children'][0]['children'];
         $this->assertSame(5, $rows[0]['children'][1]['pos']['startOffset']);
         $this->assertSame(6, $rows[0]['children'][1]['pos']['endOffset']);
         $this->assertArrayNotHasKey('pos', $rows[0]['children'][1]['children'][0]);
-        $this->assertArrayNotHasKey('pos', $rows[1]['children'][1]);
+        $this->assertSame([13, 16], [$rows[1]['children'][1]['pos']['startOffset'], $rows[1]['children'][1]['pos']['endOffset']]);
+        $this->assertSame([19, 22], [$rows[2]['children'][0]['pos']['startOffset'], $rows[2]['children'][0]['pos']['endOffset']]);
+    }
+
+    public function testC2A158EmptyLineOfALineBlockHasNoPosition(): void
+    {
+        $tree = json_decode(Carve2::toJson("::: |\none\n\nthree\n:::"), true, 512, JSON_THROW_ON_ERROR);
+        $lines = $tree['children'][0]['children'];
+        $this->assertSame(['type' => 'line', 'children' => []], $lines[1]);
+        $this->assertArrayHasKey('pos', $lines[0]);
+    }
+
+    public function testC2A088TableBodyHasNoHeadRows(): void
+    {
+        foreach (["{table header-rows=2}\n```csv\na\nb\nc\n```", "{table header-rows=0}\n```csv\na\n```", "|= a |\n| b |"] as $src) {
+            $json = Carve2::toJson($src);
+            $this->assertStringNotContainsString('headRows', $json, $src);
+        }
+        $tree = json_decode(Carve2::toJson("{table header-rows=2}\n```csv\na\nb\nc\n```"), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['table_head', 'table_body'], array_column($tree['children'][0]['children'], 'type'));
+        $this->assertCount(2, $tree['children'][0]['children'][0]['children']);
+    }
+
+    public function testC2A095TableColumnHasNoAuthoredField(): void
+    {
+        $tree = json_decode(Carve2::toJson("{aligns=right widths=50}\n| a |"), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['type' => 'table_column', 'align' => 'right', 'width' => 0.5, 'resolvedAlign' => 'right'], $tree['children'][0]['columns'][0]);
+    }
+
+    public function testC2B133RowCommentMayStartALongerPercentRun(): void
+    {
+        $tree = json_decode(Carve2::toJson("|= A |= B |\n| 1 | %%%\nhidden\n%%%\nafter"), true, 512, JSON_THROW_ON_ERROR);
+        $table = $tree['children'][0];
+        $this->assertSame(['table_head', 'table_body', 'comment'], array_column($table['children'], 'type'));
+        $this->assertSame('%', $table['children'][2]['value']);
+        $this->assertSame(['table', 'paragraph', 'comment'], array_column($tree['children'], 'type'));
+        $tree = json_decode(Carve2::toJson('| a |%%% x'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('paragraph', $tree['children'][0]['type']);
+    }
+
+    public function testC2H019HardBreakAndCommentLineRenderNothing(): void
+    {
+        $this->assertSame("<table>\n  <tbody>\n    <tr><td>b</td></tr>\n  </tbody>\n</table>", Carve2::toHtml("\\\n{% c %}\n| b |"));
+        $this->assertSame("<p>a<br>\nb</p>", Carve2::toHtml("a\\\n{% c %}\nb"));
+        $tree = json_decode(Carve2::toJson("\\\n{% c %}\n| b |"), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['hard_break', 'comment'], array_column($tree['children'][0]['children'], 'type'));
     }
 
     public function testC2A158CaptionNumberKeepsPosition(): void

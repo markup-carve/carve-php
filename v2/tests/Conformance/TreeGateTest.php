@@ -1,0 +1,113 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve2\Test\Conformance;
+
+use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Json\SchemaValidator;
+use MarkupCarve\Carve2\Json\TreeError;
+use MarkupCarve\Carve2\Json\TreeReader;
+use MarkupCarve\Carve2\Test\Support\Corpus;
+use MarkupCarve\Carve2\Test\Support\PositionChecker;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+use stdClass;
+
+/**
+ * The tree gate (`ast.md`, "The tree gate"; `trees/README.md`), on the trees this engine builds.
+ */
+final class TreeGateTest extends TestCase
+{
+    /**
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function sources(): array
+    {
+        $out = [];
+        foreach (['syntax-blocks', 'syntax-inline', 'html', 'writer'] as $chapter) {
+            foreach (Corpus::file('trees/examples-' . $chapter . '.json')['trees'] as $entry) {
+                $out[$entry['id']] = [$entry['source'], $entry['options'] ?? []];
+            }
+        }
+        foreach (Corpus::clauseCases() as $id => $case) {
+            $out[$id] = [$case['input'], $case['options']];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<string, array{0: array<string, mixed>}>
+     */
+    public static function refused(): array
+    {
+        $out = [];
+        foreach (Corpus::refusedTrees() as $id => $entry) {
+            $out[$id] = [$entry];
+        }
+
+        return $out;
+    }
+
+    /**
+     * C2-A-021, C2-A-139 to C2-A-159: the engine's tree of every source meets the schema and the position invariants.
+     *
+     * @param string $source
+     * @param array<string, mixed> $options
+     *
+     * @return void
+     */
+    #[DataProvider('sources')]
+    public function testC2A139TreeMeetsSchemaAndPositions(string $source, array $options): void
+    {
+        $json = Carve2::toJson($source, $options);
+        $schema = self::schema();
+        $validator = new SchemaValidator($schema);
+        $this->assertTrue($validator->valid(json_decode($json, false), $schema), implode("\n", array_slice($validator->errors, -3)));
+        $tree = json_decode($json, true, 4096, JSON_THROW_ON_ERROR);
+        $this->assertSame([], (new PositionChecker($source))->failures($tree));
+        $this->assertNotNull(TreeReader::read($json));
+    }
+
+    /**
+     * @param array<string, mixed> $entry
+     *
+     * @return void
+     */
+    #[DataProvider('refused')]
+    public function testC2A018RefusedTreeIsRefused(array $entry): void
+    {
+        try {
+            TreeReader::read(json_encode($entry['tree'], JSON_THROW_ON_ERROR));
+        } catch (TreeError $error) {
+            $this->assertSame($entry['refusedBy'] === 'schema', $error->reason === 'schema', $error->getMessage());
+
+            return;
+        }
+        $this->fail($entry['id'] . ' is accepted');
+    }
+
+    public function testC2L023EqualPairHasEqualTrees(): void
+    {
+        $plain = static function (string $id): mixed {
+            $example = Corpus::examples()[$id];
+            $tree = json_decode(Carve2::toJson($example['input'], $example['options']), true, 4096, JSON_THROW_ON_ERROR);
+            unset($tree['srcByteLength']);
+
+            return Corpus::sorted(Corpus::withoutPositions($tree));
+        };
+        $this->assertSame($plain('syntax-blocks-267'), $plain('syntax-blocks-268'));
+    }
+
+    private static function schema(): stdClass
+    {
+        static $schema = null;
+        if (!$schema instanceof stdClass) {
+            $schema = json_decode((string)file_get_contents(dirname(__DIR__, 2) . '/spec/data/ast-schema.json'), false);
+            assert($schema instanceof stdClass);
+        }
+
+        return $schema;
+    }
+}

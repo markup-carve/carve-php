@@ -76,8 +76,8 @@ def check_clause_differences():
     assert listed['jsCommit'] == seeds['oracle_commit']
     pinned = (ROOT / 'v2/spec/PINNED').read_text()
     assert f"carve-js {listed['jsCommit']} v2 differential corpus" in pinned
-    cases = json.loads((ROOT / 'v2/tests/fixtures/clause-cases.json').read_text())
-    by_id = {case['case']: case for case in cases}
+    cases = json.loads((ROOT / 'v2/spec/conformance/clause-cases.json').read_text(encoding='utf-8'))['cases']
+    by_id = {source.split(':', 1)[1]: case for case in cases for source in case['from'] if source.startswith('php:')}
     differences = listed['differences']
     assert len(by_id) == len(cases) and len(differences) == 4
     assert len({row['case'] for row in differences}) == len(differences)
@@ -88,11 +88,12 @@ def check_clause_differences():
     assert len(actual) == len(differences), f'PHP returned {len(actual)} of {len(differences)} clause cases'
     for row, result in zip(differences, actual):
         clause = by_id[row['case']]
-        assert (row['clause'], row['input'], row['options']) == (clause['clause'], clause['input'], clause['options'])
-        assert result.get('html') == clause['html'], row['case']
-        assert normalize(strip_facts(result.get('tree'))) == normalize(clause['tree']), row['case']
-        assert (row['js']['html'] != clause['html']
-                or normalize(strip_facts(row['js']['tree'])) != normalize(clause['tree'])), row['case']
+        assert row['clause'] in clause['clauses'] and (row['input'], row['options']) == (clause['input'], clause['options'])
+        expected = clause['expected']
+        assert result.get('html') == expected['html'], row['case']
+        assert normalize(strip_facts(result.get('tree'))['children']) == normalize(expected['children']), row['case']
+        assert (row['js']['html'] != expected['html']
+                or normalize(strip_facts(row['js']['tree'])['children']) != normalize(expected['children'])), row['case']
     return len(differences)
 
 

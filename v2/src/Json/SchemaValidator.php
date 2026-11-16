@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MarkupCarve\Carve2\Test\Support;
+namespace MarkupCarve\Carve2\Json;
 
 use stdClass;
 

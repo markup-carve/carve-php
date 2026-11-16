@@ -193,12 +193,12 @@ final class Stage4ClausesTest extends TestCase
         $this->assertCount(2, $tree['children'][0]['children']);
     }
 
-    public function testC2B007TabAfterTermSeparatorIsContent(): void
+    public function testC2B069TabAfterTermMarkIsNotText(): void
     {
-        foreach ([":: \tx", "- :: \tx\n- a", "> :: \tx"] as $source) {
+        foreach ([":: \tx", "- :: \tx\n- a", "> :: \tx", "::  \t x"] as $source) {
             $tree = json_decode(Carve2::toJson($source), true);
             $term = $this->findType($tree, 'definition_term');
-            $this->assertSame("\tx", $term['children'][0]['value'] ?? null);
+            $this->assertSame('x', $term['children'][0]['value'] ?? null, $source);
         }
     }
 

@@ -1,0 +1,346 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve2\Json;
+
+use JsonException;
+use MarkupCarve\Carve2\Generated\Tables;
+use MarkupCarve\Carve2\Node;
+use stdClass;
+
+final class TreeReader
+{
+    /**
+     * C2-A-171: three JSON levels per tree level at most (object, slot list, a wrapper such as `caption`), for the document and
+     * every file of the longest include chain.
+     *
+     * @var int
+     */
+    private const JSON_DEPTH = 3 * (Tables::BLOCK_DEPTH + Tables::INLINE_DEPTH + 8) * (Tables::INCLUDE_DEPTH + 1);
+
+    /**
+     * C2-B-190: the containers that count one level each.
+     *
+     * @var array<string, true>
+     */
+    private const CONTAINERS = [
+        'block_quote' => true,
+        'list' => true,
+        'list_item' => true,
+        'definition_list' => true,
+        'definition_description' => true,
+        'footnote' => true,
+        'div' => true,
+        'admonition' => true,
+        'directive' => true,
+        'figure_group' => true,
+        'section' => true,
+    ];
+
+    /**
+     * C2-I-118: every inline node with children counts one level of its inline content.
+     *
+     * @var array<string, true>
+     */
+    private const INLINE = [
+        'emphasis' => true,
+        'strong' => true,
+        'span' => true,
+        'link' => true,
+        'image' => true,
+        'delete' => true,
+        'insert' => true,
+        'underline' => true,
+        'strike' => true,
+        'subscript' => true,
+        'superscript' => true,
+        'highlight' => true,
+        'small_caps' => true,
+        'inline_footnote' => true,
+        'inline_extension' => true,
+        'citation' => true,
+        'ruby' => true,
+        'ruby_pair' => true,
+        'xref' => true,
+        'abbreviation' => true,
+        'autolink' => true,
+        'mention' => true,
+        'tag' => true,
+        'text' => true,
+        'code' => true,
+    ];
+
+    private static ?stdClass $schema = null;
+
+    /**
+     * @param string $json
+     * @param array<string, mixed> $options
+     */
+    public static function read(string $json, array $options = []): Node
+    {
+        try {
+            $value = json_decode($json, false, self::JSON_DEPTH, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            throw new TreeError('schema', '');
+        }
+
+        return self::readValue($value, $options);
+    }
+
+    /**
+     * @param mixed $decoded
+     * @param array<string, mixed> $options
+     *
+     * @throws \MarkupCarve\Carve2\Json\TreeError
+     */
+    public static function readValue(mixed $decoded, array $options = []): Node
+    {
+        $schema = self::schema();
+        $validator = new SchemaValidator($schema);
+        if (!$validator->valid($decoded, $schema)) {
+            throw new TreeError('schema', self::schemaPointer($validator->errors[0] ?? '$'));
+        }
+        if (!$decoded instanceof stdClass) {
+            throw new TreeError('schema', '');
+        }
+        $envelope = isset($decoded->document);
+        $root = $envelope ? $decoded->document : $decoded;
+        if (!$root instanceof stdClass) {
+            throw new TreeError('schema', '');
+        }
+        if ($envelope && $decoded->astVersion !== $root->astVersion) {
+            throw new TreeError('envelope-version', '/document/astVersion');
+        }
+        $declared = self::declarations($root, $envelope ? $decoded : null, $options);
+        self::checkTree($root, $declared, $envelope ? '/document' : '');
+        $json = json_encode($root, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR, self::JSON_DEPTH);
+        $node = TreeDecoder::json($json, self::JSON_DEPTH);
+        if ($node === null) {
+            throw new TreeError('schema', '');
+        }
+
+        return $node;
+    }
+
+    private static function schema(): stdClass
+    {
+        if (self::$schema === null) {
+            $path = dirname(__DIR__, 2) . '/spec/data/ast-schema.json';
+            $schema = json_decode((string)file_get_contents($path), false, 512, JSON_THROW_ON_ERROR);
+            if (!$schema instanceof stdClass) {
+                throw new TreeError('schema', '');
+            }
+            self::$schema = $schema;
+        }
+
+        return self::$schema;
+    }
+
+    private static function schemaPointer(string $error): string
+    {
+        $path = explode(': ', $error, 2)[0];
+        $path = preg_replace_callback('/\[([0-9]+)\]|\.([^\.\[]+)/', static function (array $match): string {
+            return '/' . str_replace(['~', '/'], ['~0', '~1'], $match[1] !== '' ? $match[1] : $match[2]);
+        }, $path);
+
+        return substr((string)$path, 1);
+    }
+
+    /**
+     * @param \stdClass $root
+     * @param \stdClass|null $envelope
+     * @param array<string, mixed> $options
+     *
+     * @throws \MarkupCarve\Carve2\Json\TreeError
+     *
+     * @return array<string, \stdClass>
+     */
+    private static function declarations(stdClass $root, ?stdClass $envelope, array $options): array
+    {
+        $all = [];
+        foreach (['root' => $root, 'envelope' => $envelope] as $place => $holder) {
+            if ($holder === null) {
+                continue;
+            }
+            $seen = [];
+            foreach ($holder->extensions ?? [] as $i => $item) {
+                $path = ($place === 'root' ? ($envelope === null ? '' : '/document') : '') . '/extensions/' . $i;
+                if (isset($seen[$item->name])) {
+                    throw new TreeError('duplicate-extension-declaration', $path . '/name');
+                }
+                $seen[$item->name] = true;
+                if (isset($all[$item->name]) && json_encode($all[$item->name]) !== json_encode($item)) {
+                    throw new TreeError('extension-declaration', $path);
+                }
+                $all[$item->name] = $item;
+                $implementations = $options['extensions'] ?? [];
+                $implemented = is_array($implementations) ? ($implementations[$item->name] ?? null) : null;
+                if ($item->required && $implemented !== $item->version) {
+                    throw new TreeError('required-extension', $path);
+                }
+            }
+        }
+
+        return $all;
+    }
+
+    /**
+     * @param \stdClass $root
+     * @param array<string, \stdClass> $declared
+     * @param string $prefix
+     *
+     * @throws \MarkupCarve\Carve2\Json\TreeError
+     */
+    private static function checkTree(stdClass $root, array $declared, string $prefix): void
+    {
+        $stack = [[$root, $prefix, 0, 0]];
+        while ($stack !== []) {
+            [$node, $path, $blocks, $inlines] = array_pop($stack);
+            self::checkNode($node, $path, $declared);
+            $type = is_string($node->type ?? null) ? $node->type : '';
+            if (isset(self::INLINE[$type])) {
+                $inlines += isset($node->children) ? 1 : 0;
+            } else {
+                $inlines = 0;
+                $blocks += isset(self::CONTAINERS[$type]) ? 1 : 0;
+            }
+            if ($blocks > Tables::BLOCK_DEPTH || $inlines > Tables::INLINE_DEPTH) {
+                throw new TreeError('depth', $path);
+            }
+            if ($type === 'include') {
+                // C2-A-171: the children of an expanded include start again at level 0.
+                $blocks = 0;
+            }
+            self::pushNodes($node, $path, $blocks, $inlines, $stack);
+        }
+    }
+
+    /**
+     * @param \stdClass $node
+     * @param string $path
+     * @param array<string, \stdClass> $declared
+     *
+     * @throws \MarkupCarve\Carve2\Json\TreeError
+     */
+    private static function checkNode(stdClass $node, string $path, array $declared): void
+    {
+        $seen = [];
+        foreach ($node->attrs->keyValues ?? [] as $i => $pair) {
+            $key = strtolower($pair[0]);
+            if (isset($seen[$key])) {
+                throw new TreeError('duplicate-attribute-key', $path . '/attrs/keyValues/' . $i . '/0');
+            }
+            $seen[$key] = true;
+        }
+        foreach (get_object_vars($node->data ?? new stdClass()) as $key => $value) {
+            $keyPath = $path . '/data/' . self::escape($key);
+            if (!isset($declared[$key])) {
+                throw new TreeError('data-undeclared', $keyPath);
+            }
+            self::opaque($value, $keyPath, 'data-holds-node');
+        }
+        if (isset($node->props)) {
+            self::opaque($node->props, $path . '/props', 'props-holds-node');
+        }
+        if (($node->type ?? '') === 'include') {
+            self::ranges($node, $path);
+        }
+        if (in_array($node->type ?? '', ['block_extension', 'inline_extension'], true)) {
+            self::extension($node, $path, $declared);
+        }
+    }
+
+    private static function ranges(stdClass $node, string $path): void
+    {
+        foreach (['lines', 'rows', 'cols'] as $key) {
+            $range = $node->options->{$key} ?? null;
+            if (!is_string($range)) {
+                continue;
+            }
+            if (preg_match('/^([0-9]+)-([0-9]+)$/', $range, $m) && (int)$m[1] > (int)$m[2]) {
+                throw new TreeError('include-range', $path . '/options/' . $key);
+            }
+        }
+    }
+
+    /**
+     * @param \stdClass $node
+     * @param string $path
+     * @param array<string, \stdClass> $declared
+     *
+     * @throws \MarkupCarve\Carve2\Json\TreeError
+     */
+    private static function extension(stdClass $node, string $path, array $declared): void
+    {
+        $name = $node->name ?? '';
+        if (!str_contains($name, '.')) {
+            return;
+        }
+        if (!isset($declared[$name]) || $declared[$name]->version !== $node->version) {
+            throw new TreeError('extension-declaration', $path . '/name');
+        }
+        foreach (get_object_vars($node->slots ?? new stdClass()) as $slot => $value) {
+            if (!in_array($slot, $declared[$name]->slots, true)) {
+                throw new TreeError('extension-slot', $path . '/slots/' . self::escape($slot));
+            }
+        }
+    }
+
+    private static function opaque(mixed $value, string $path, string $reason): void
+    {
+        $stack = [[$value, $path]];
+        while ($stack !== []) {
+            [$value, $path] = array_pop($stack);
+            if ($value instanceof stdClass) {
+                if (isset($value->type) && is_string($value->type)) {
+                    throw new TreeError($reason, $path);
+                }
+                $value = get_object_vars($value);
+            }
+            if (is_array($value)) {
+                foreach ($value as $key => $child) {
+                    $stack[] = [$child, $path . '/' . self::escape((string)$key)];
+                }
+            }
+        }
+    }
+
+    /**
+     * @param \stdClass $node
+     * @param string $path
+     * @param int $blocks
+     * @param int $inlines
+     * @param array<array{\stdClass, string, int, int}> $stack
+     */
+    private static function pushNodes(stdClass $node, string $path, int $blocks, int $inlines, array &$stack): void
+    {
+        foreach (get_object_vars($node) as $key => $value) {
+            if (in_array($key, ['data', 'props', 'payload', 'source', 'resources', 'extensions'], true)) {
+                continue;
+            }
+            $pending = [[$value, $path . '/' . self::escape($key)]];
+            while ($pending !== []) {
+                [$current, $currentPath] = array_pop($pending);
+                if ($current instanceof stdClass) {
+                    if (isset($current->type) && is_string($current->type)) {
+                        $stack[] = [$current, $currentPath, $blocks, $inlines];
+                    } else {
+                        foreach (get_object_vars($current) as $k => $v) {
+                            $pending[] = [$v, $currentPath . '/' . self::escape((string)$k)];
+                        }
+                    }
+                } elseif (is_array($current)) {
+                    foreach ($current as $k => $v) {
+                        $pending[] = [$v, $currentPath . '/' . $k];
+                    }
+                }
+            }
+        }
+    }
+
+    private static function escape(string $part): string
+    {
+        return str_replace(['~', '/'], ['~0', '~1'], $part);
+    }
+}

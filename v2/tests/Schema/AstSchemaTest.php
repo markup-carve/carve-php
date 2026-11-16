@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Test\Schema;
 
+require_once dirname(__DIR__, 2) . '/src/Json/SchemaValidator.php';
+
 use MarkupCarve\Carve2\Carve2;
-use MarkupCarve\Carve2\Test\Support\SchemaValidator;
+use MarkupCarve\Carve2\Json\SchemaValidator;
+use MarkupCarve\Carve2\Test\Support\Corpus;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use stdClass;
@@ -28,10 +31,11 @@ final class AstSchemaTest extends TestCase
      */
     public static function examples(): array
     {
-        $examples = json_decode((string)file_get_contents(dirname(__DIR__) . '/fixtures/examples.json'), true);
         $out = [];
-        foreach ($examples as $ex) {
-            $out[$ex['file'] . ' ' . $ex['number']] = [$ex['input']];
+        foreach (Corpus::examples() as $id => $ex) {
+            if (isset($ex['input']) && $ex['kind'] !== 'include') {
+                $out[$id] = [$ex['input']];
+            }
         }
 
         return $out;

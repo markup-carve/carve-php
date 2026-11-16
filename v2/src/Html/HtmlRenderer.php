@@ -379,14 +379,34 @@ final class HtmlRenderer
         if (isset(self::SILENT[$node->type])) {
             return false;
         }
-        if ($node->type === 'paragraph') {
-            foreach ($node->children ?? [] as $child) {
-                if (!in_array($child->type, ['comment', 'soft_break'], true)) {
-                    return true;
-                }
-            }
 
-            return false;
+        return $node->type !== 'paragraph' || !self::onlyComments($node->children ?? []);
+    }
+
+    /**
+     * C2-H-019: only comments, once the breaks that C2-H-069 does not write are left out.
+     *
+     * @param array<\MarkupCarve\Carve2\Node> $kids
+     *
+     * @return bool
+     */
+    private static function onlyComments(array $kids): bool
+    {
+        $hard = false;
+        foreach ($kids as $kid) {
+            if ($kid->type === 'hard_break') {
+                $hard = true;
+            } elseif ($kid->type !== 'comment' && $kid->type !== 'soft_break') {
+                return false;
+            }
+        }
+        if (!$hard) {
+            return true;
+        }
+        foreach (InlineRenderer::dropCommentLineBreaks($kids) as $kid) {
+            if ($kid->type !== 'comment') {
+                return false;
+            }
         }
 
         return true;
@@ -671,15 +691,12 @@ final class HtmlRenderer
         if ($append === '' && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang']) && !isset($f['role'])) {
             // No attributes, no source line and no role: neither a block image nor static math.
             $kids = $node->children ?? [];
-            foreach ($kids as $kid) {
-                if (!in_array($kid->type, ['comment', 'soft_break'], true)) {
-                    $content = $this->inline->inlines($kids, $depth + 1);
-
-                    return $bare ? self::pad($depth) . $content : self::pad($depth) . '<p>' . $content . '</p>';
-                }
+            if (self::onlyComments($kids)) {
+                return null;
             }
+            $content = $this->inline->inlines($kids, $depth + 1);
 
-            return null;
+            return $bare ? self::pad($depth) . $content : self::pad($depth) . '<p>' . $content . '</p>';
         }
         if (!self::visible($node)) {
             return $append === '' ? null : self::pad($depth) . '<p>' . $append . '</p>';

@@ -108,9 +108,9 @@ final class TableBuilder
         if ($k === $end) {
             return $rowEnd;
         }
-        // C2-B-167: a trailing line comment is a percent run of exactly two (C2-B-139).
+        // C2-B-133, C2-B-167: `%%` after whitespace starts a line comment, also as the head of a longer run.
         $ws = strspn($s, " \t", $k, $end - $k);
-        if ($ws > 0 && strspn($s, '%', $k + $ws, $end - $k - $ws) === 2) {
+        if ($ws > 0 && strspn($s, '%', $k + $ws, $end - $k - $ws) >= 2) {
             return $rowEnd;
         }
 
@@ -286,7 +286,7 @@ final class TableBuilder
         $table = Node::at('table', $f->start, $f->end);
         $attrs = $f->attrs;
         $table->f['columns'] = self::columns($width, $attrs);
-        $table->children = self::groups($f->rows, $rowNodes, $head, $foot, -1);
+        $table->children = self::groups($f->rows, $rowNodes, $head, $foot);
         if ($attrs !== null) {
             self::consumeKeys($attrs, false);
             $attrs->applyTo($table);
@@ -484,7 +484,8 @@ final class TableBuilder
     private static function cellNode(TableCell $cell): Node
     {
         if ($cell->span !== '') {
-            $node = new Node('table_cell', []);
+            // C2-A-158: a cell that holds a span mark spans the text between its pipes.
+            $node = Node::at('table_cell', $cell->start, $cell->end);
             $node->children = [];
             $node->f['header'] = false;
             $node->f['span'] = $cell->span;
@@ -532,13 +533,11 @@ final class TableBuilder
             $a = trim($alignList[$c] ?? '', " \t");
             if ($a === 'left' || $a === 'right' || $a === 'center') {
                 $col->f['align'] = $a;
-                $col->f['authored'] = true;
             }
             $w = trim($widthList[$c] ?? '', " \t");
             // C2-B-220: anchored, no nested repetition, linear; once per column of a table.
             if ($w !== '' && preg_match('/^[0-9]+(\.[0-9]+)?$/', $w) === 1 && (float)$w > 0 && (float)$w <= 100) {
                 $col->f['width'] = (float)$w / 100;
-                $col->f['authored'] = true;
             }
             $columns[] = $col;
         }
@@ -625,11 +624,10 @@ final class TableBuilder
      * @param array<\MarkupCarve\Carve2\Node> $rowNodes
      * @param int $head
      * @param int|null $foot
-     * @param int $headRows Declared head count for the body, or -1.
      *
      * @return array<\MarkupCarve\Carve2\Node>
      */
-    private static function groups(array $items, array $rowNodes, int $head, ?int $foot, int $headRows): array
+    private static function groups(array $items, array $rowNodes, int $head, ?int $foot): array
     {
         $total = count($rowNodes);
         $footStart = $foot === null || $foot <= 0 ? $total : max($head, $total - $foot);
@@ -660,9 +658,6 @@ final class TableBuilder
             $want = $r < $head ? 'table_head' : ($r >= $footStart ? 'table_foot' : 'table_body');
             if ($want !== $kind) {
                 $current = new Node($want, []);
-                if ($want === 'table_body' && $headRows >= 0) {
-                    $current->f['headRows'] = $headRows;
-                }
                 $groups[] = $current;
                 $kind = $want;
             }
@@ -720,7 +715,7 @@ final class TableBuilder
         }
         $table = Node::at('table', $f->start, $f->end);
         $table->f['columns'] = self::columns($width, $attrs);
-        $table->children = self::groups($items, $rowNodes, $head, self::count($attrs, 'footer-rows'), $declared === null ? -1 : $head);
+        $table->children = self::groups($items, $rowNodes, $head, self::count($attrs, 'footer-rows'));
         foreach ($table->children as $group) {
             $group->start = -1;
             $group->end = -1;

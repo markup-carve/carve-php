@@ -109,7 +109,8 @@ if (isset($opt['inputs'])) {
         $examples[] = ['file' => 'generated', 'number' => $k, 'input' => $src];
     }
 } else {
-    $examples = json_decode((string)file_get_contents(dirname(__DIR__) . '/tests/fixtures/examples.json'), true);
+    require_once __DIR__ . '/corpus-examples.php';
+    $examples = corpusExamples();
 }
 $oracleFile = isset($opt['oracle']) ? (string)$opt['oracle'] : $root . '/oracle/examples-oracle.jsonl';
 $oracle = [];

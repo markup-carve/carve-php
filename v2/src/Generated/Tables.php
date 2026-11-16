@@ -5684,6 +5684,12 @@ final class Tables
     /** C2-I-118 limits.json inline_depth */
     public const INLINE_DEPTH = 200;
 
+    /** C2-N-064 limits.json include_depth */
+    public const INCLUDE_DEPTH = 16;
+
+    /** C2-N-065 limits.json include_bytes */
+    public const INCLUDE_BYTES = 8388608;
+
     /** C2-B-052 limits.json */
     public const LIST_END_BLANK_LINES = 3;
 
