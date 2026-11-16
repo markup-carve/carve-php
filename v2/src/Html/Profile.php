@@ -397,35 +397,34 @@ final class Profile
      */
     private function degradedTexts(Node $node): array
     {
-        if ($node->type === 'table') {
-            $out = [$this->tableText($node)];
-            $caption = $node->f['caption'] ?? null;
-
-            return $caption instanceof Node ? array_merge($out, $this->captionList($caption)) : $out;
-        }
-        if ($node->type === 'definition_list') {
-            $out = [];
-            foreach ($node->children ?? [] as $child) {
-                if ($child->type === 'definition_term') {
-                    $out[] = Escape::text($this->blockInlineText($child->children ?? []));
-                } elseif ($child->type === 'definition_description') {
-                    $out = array_merge($out, $this->blockList($child->children ?? []));
-                }
-            }
-
-            return $out;
-        }
-        if (isset(self::HOLDS_BLOCKS[$node->type])) {
-            $out = $this->blockList($node->children ?? []);
-            $caption = $node->f['caption'] ?? null;
-
-            return $caption instanceof Node ? array_merge($out, $this->captionList($caption)) : $out;
-        }
-
-        $out = [Escape::text($this->plainOf($node))];
-        $caption = $node->f['caption'] ?? null;
+        $out = match (true) {
+            $node->type === 'table' => [$this->tableText($node)],
+            $node->type === 'definition_list' => $this->definitionTexts($node),
+            isset(self::HOLDS_BLOCKS[$node->type]) => $this->blockList($node->children ?? []),
+            default => [Escape::text($this->plainOf($node))],
+        };
+        $caption = $node->type === 'definition_list' ? null : $node->f['caption'] ?? null;
 
         return $caption instanceof Node ? array_merge($out, $this->captionList($caption)) : $out;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return array<string>
+     */
+    private function definitionTexts(Node $node): array
+    {
+        $out = [];
+        foreach ($node->children ?? [] as $child) {
+            if ($child->type === 'definition_term') {
+                $out[] = Escape::text($this->blockInlineText($child->children ?? []));
+            } elseif ($child->type === 'definition_description') {
+                $out = array_merge($out, $this->blockList($child->children ?? []));
+            }
+        }
+
+        return $out;
     }
 
     /**
