@@ -396,6 +396,26 @@ final class Scanner
     }
 
     /**
+     * C2-I-026: offset behind consecutive formed braced comments.
+     *
+     * @param int $i
+     *
+     * @return int
+     */
+    public function afterComments(int $i): int
+    {
+        while ($i + 1 < $this->n && $this->t[$i] === '{' && $this->t[$i + 1] === '%') {
+            $end = $this->braceCommentEnd($i);
+            if ($end < 0) {
+                break;
+            }
+            $i = $end;
+        }
+
+        return $i;
+    }
+
+    /**
      * @param int $i
      *
      * @return int
@@ -1017,7 +1037,7 @@ final class Scanner
     {
         $this->attaches = true;
 
-        return $this->emit([self::NODE, Node::at('caption_number', -1, -1), $i, $i + 1, false, null]);
+        return $this->emit([self::NODE, $this->node('caption_number', $i, $i + 1), $i, $i + 1, false, null]);
     }
 
     /**

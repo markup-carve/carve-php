@@ -65,10 +65,6 @@ final class InlineRunner
             if ($node->lines !== null) {
                 $node->children = self::parse($s, $node->lines, $ctx, $depth, self::mode($node->type, $hard, $caption));
                 $node->lines = null;
-                if ($node->type === 'cell_paragraph' && $node->start < 0) {
-                    // A cell of a row with continuation rows has no position, and its nodes have none (C2-A-158).
-                    $node->children = self::joined($node->children);
-                }
 
                 continue;
             }
@@ -159,7 +155,7 @@ final class InlineRunner
 
         $nodes = (new Finisher($scanner, $ctx))->build($items, -1, true);
 
-        return ($mode & Scanner::CELL) !== 0 && count($spans) > 2 ? self::joined($nodes) : $nodes;
+        return ($mode & Scanner::CELL) !== 0 && count($spans) > 2 ? self::joined($nodes, $spans) : $nodes;
     }
 
     /**
@@ -187,13 +183,14 @@ final class InlineRunner
 
     /**
      * C2-B-184, C2-A-094, C2-A-158: in a cell joined from continuation rows each join is one space of
-     * text and the inline nodes carry no position.
+     * text; an inline node inside one source piece keeps its position.
      *
      * @param array<\MarkupCarve\Carve2\Node> $nodes
+     * @param array<int> $spans
      *
      * @return array<\MarkupCarve\Carve2\Node>
      */
-    private static function joined(array $nodes): array
+    private static function joined(array $nodes, array $spans): array
     {
         $root = new Node('cell', $nodes);
         $stack = [$root];
@@ -203,8 +200,10 @@ final class InlineRunner
             $children = $node->children ?? [];
             $lastKey = array_key_last($children);
             foreach ($children as $key => $child) {
-                $child->start = -1;
-                $child->end = -1;
+                if (!self::onePiece($child, $spans)) {
+                    $child->start = -1;
+                    $child->end = -1;
+                }
                 // C2-I-002: a backslash at the end of the cell stays a hard break.
                 $atEnd = $node === $root && $key === $lastKey;
                 if ($child->type === 'soft_break' || ($child->type === 'hard_break' && !$atEnd)) {
@@ -217,6 +216,12 @@ final class InlineRunner
                 $b = $child->f['value'] ?? '';
                 if ($child->type === 'text' && $last !== null && is_string($a) && is_string($b)) {
                     $last->f['value'] = $a . $b;
+                    if ($last->end >= 0 && $last->end === $child->start) {
+                        $last->end = $child->end;
+                    } else {
+                        $last->start = -1;
+                        $last->end = -1;
+                    }
 
                     continue;
                 }
@@ -229,5 +234,27 @@ final class InlineRunner
         }
 
         return $root->children ?? [];
+    }
+
+    /**
+     * C2-A-158: a node with a position entirely inside one continuation piece keeps it.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param array<int> $spans
+     *
+     * @return bool
+     */
+    private static function onePiece(Node $node, array $spans): bool
+    {
+        if ($node->start < 0) {
+            return false;
+        }
+        for ($i = 0, $n = count($spans); $i + 1 < $n; $i += 2) {
+            if ($node->start >= $spans[$i] && $node->end <= $spans[$i + 1]) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

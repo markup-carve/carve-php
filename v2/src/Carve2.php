@@ -70,7 +70,7 @@ final class Carve2
         assert($doc !== null);
         $ctx = InlineContext::collect($doc, $source);
         InlineRunner::run($doc, $source, $ctx);
-        if (str_contains($source, "\0")) {
+        if (str_contains($source, "\0") || !mb_check_encoding($source, 'UTF-8')) {
             NulReplacer::apply($doc);
         }
 

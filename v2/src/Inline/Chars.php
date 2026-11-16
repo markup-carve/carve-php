@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Inline;
 
+use MarkupCarve\Carve2\Generated\Tables;
+
 /**
  * Character classes of the inline chapter on UTF-8 bytes: word characters (general category L or N),
  * whitespace with the no-break space, and the marks that glue to a delimiter (C2-I-050).
@@ -110,13 +112,8 @@ final class Chars
         if ($cp < 0x80) {
             return $cp >= 0 && (($cp >= 0x30 && $cp <= 0x39) || (($cp | 0x20) >= 0x61 && ($cp | 0x20) <= 0x7A));
         }
-        static $cache = [];
-        if (!isset($cache[$cp])) {
-            // Preliminaries: one code point, constant time; cached per code point, ASCII never gets here.
-            $cache[$cp] = preg_match('/^[\p{L}\p{N}]$/u', mb_chr($cp, 'UTF-8') ?: '') === 1;
-        }
 
-        return $cache[$cp];
+        return self::inRanges($cp, Tables::UNICODE_WORD_RANGES);
     }
 
     /**
@@ -147,13 +144,34 @@ final class Chars
         if ($cp === 0x200D || ($cp >= 0xFE00 && $cp <= 0xFE0F) || ($cp >= 0xE0100 && $cp <= 0xE01EF)) {
             return true;
         }
-        static $cache = [];
-        if (!isset($cache[$cp])) {
-            // C2-I-050: one code point, constant time; cached per code point, below U+0300 never gets here.
-            $cache[$cp] = preg_match('/^\p{M}$/u', mb_chr($cp, 'UTF-8') ?: '') === 1;
+
+        return self::inRanges($cp, Tables::UNICODE_MARK_RANGES);
+    }
+
+    /**
+     * C2-I-127: binary search of the pinned Unicode 18.0.0 ranges.
+     *
+     * @param int $cp
+     * @param array<array{0: int, 1: int}> $ranges
+     *
+     * @return bool
+     */
+    public static function inRanges(int $cp, array $ranges): bool
+    {
+        $lo = 0;
+        $hi = count($ranges) - 1;
+        while ($lo <= $hi) {
+            $mid = ($lo + $hi) >> 1;
+            if ($cp < $ranges[$mid][0]) {
+                $hi = $mid - 1;
+            } elseif ($cp > $ranges[$mid][1]) {
+                $lo = $mid + 1;
+            } else {
+                return true;
+            }
         }
 
-        return $cache[$cp];
+        return false;
     }
 
     /**
@@ -165,10 +183,32 @@ final class Chars
      */
     public static function hasNonUrlUnicode(string $body): bool
     {
-        // C2-I-122: one character class, linear; autolink bodies only, and a byte scan cannot read categories.
-        $r = preg_match('/[\p{Cc}\p{Cf}\p{Z}\x{85}\x{2028}\x{2029}]/u', $body);
+        for ($i = 0, $n = strlen($body); $i < $n;) {
+            $cp = self::at($body, $i);
+            if (
+                $cp < 0x20 || ($cp >= 0x7F && $cp <= 0x9F) || self::inRanges($cp, Tables::UNICODE_FORMAT_RANGES)
+                || self::isUnicodeWhiteSpace($cp)
+            ) {
+                return true;
+            }
+            $i += self::len($body, $i);
+        }
 
-        return $r !== 0;
+        return false;
+    }
+
+    /**
+     * C2-I-122: Unicode 18.0.0 White_Space property.
+     *
+     * @param int $cp
+     *
+     * @return bool
+     */
+    private static function isUnicodeWhiteSpace(int $cp): bool
+    {
+        return $cp === 0x20 || ($cp >= 0x09 && $cp <= 0x0D) || $cp === 0x85 || $cp === 0xA0
+            || $cp === 0x1680 || ($cp >= 0x2000 && $cp <= 0x200A) || $cp === 0x2028 || $cp === 0x2029
+            || $cp === 0x202F || $cp === 0x205F || $cp === 0x3000;
     }
 
     /**

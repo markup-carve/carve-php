@@ -552,14 +552,12 @@ final class Finisher
 
             return 'right_single_quote';
         }
-        $len = strspn($t, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', $j + 1);
-        if ($len > 0) {
-            $word = strtolower(substr($t, $j + 1, $len));
-            // G-inline-4: a braced comment ends the word.
-            $afterWord = Chars::at($t, $j + 1 + $len);
+        [$word, $end] = $this->apostropheWord($j + 1);
+        if ($word !== '') {
+            $afterWord = $this->sc->nextCp($end);
             if (isset(Tables::SMART_APOSTROPHE_WORDS[$word]) && !Chars::isWord($afterWord)) {
                 // C2-I-107, C2-I-108
-                $quoted = $afterWord === 0x27 && $word !== 'n' && !Chars::isWord($this->sc->nextCp($j + 2 + $len));
+                $quoted = $afterWord === 0x27 && $word !== 'n' && !Chars::isWord($this->sc->nextCp($end + 1));
                 if (!$quoted) {
                     return 'right_single_quote';
                 }
@@ -576,6 +574,31 @@ final class Finisher
         $this->singleOpen = true;
 
         return 'left_single_quote';
+    }
+
+    /**
+     * C2-I-026, C2-I-107: read the ASCII word through transparent braced comments.
+     *
+     * @param int $at
+     *
+     * @return array{0: string, 1: int}
+     */
+    private function apostropheWord(int $at): array
+    {
+        $word = '';
+        $n = strlen($this->t);
+        while ($at < $n) {
+            $len = strspn($this->t, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', $at);
+            $word .= strtolower(substr($this->t, $at, $len));
+            $at += $len;
+            $next = $this->sc->afterComments($at);
+            if ($next === $at) {
+                break;
+            }
+            $at = $next;
+        }
+
+        return [$word, $at];
     }
 
     /**
@@ -602,7 +625,7 @@ final class Finisher
             if ($dash !== false && $j + $dash + 2 < $te && $t[$j + $dash + 2] === '-') {
                 continue;
             }
-            if ($src === '+-' && !$this->plusMinusAlone($j, $first, $prev)) {
+            if ($src === '+-' && !$this->plusMinusAlone($j, $te, $first, $prev)) {
                 continue;
             }
 
@@ -621,12 +644,13 @@ final class Finisher
      * through a braced comment (C2-I-026); the character after it is read from the source (G-inline-2).
      *
      * @param int $j
+     * @param int $te
      * @param int $first
      * @param int $prevContext The character before the text, seen through braced comments.
      *
      * @return bool
      */
-    private function plusMinusAlone(int $j, int $first, int $prevContext): bool
+    private function plusMinusAlone(int $j, int $te, int $first, int $prevContext): bool
     {
         $t = $this->t;
         $prev = -1;
@@ -635,7 +659,7 @@ final class Finisher
         } elseif ($j !== $this->smartEnd) {
             $prev = ord($t[$j - 1]);
         }
-        $after = $this->sc->nextCp($j + 2);
+        $after = $j + 2 < $te ? $this->sc->nextCp($j + 2) : -1;
 
         return $prev !== 0x2B && $prev !== 0x2D && $after !== 0x2B && $after !== 0x2D;
     }

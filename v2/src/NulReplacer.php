@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2;
 
 /**
- * C2-B-218: a U+0000 in the source is read as U+FFFD in every value of the tree, while offsets
- * keep counting the source bytes as they stand. One walk after the parse, only for a source
- * that holds a U+0000 at all.
+ * C2-B-218: NUL and malformed UTF-8 read as U+FFFD while offsets keep the source byte positions.
  */
 final class NulReplacer
 {
@@ -39,7 +37,7 @@ final class NulReplacer
     private static function value(mixed $value, array &$stack): mixed
     {
         if (is_string($value)) {
-            return str_replace("\0", "\u{FFFD}", $value);
+            return Utf8::repair($value);
         }
         if ($value instanceof Node) {
             $stack[] = $value;
@@ -47,11 +45,11 @@ final class NulReplacer
             return $value;
         }
         if ($value instanceof Attrs) {
-            $value->id = $value->id === null ? null : str_replace("\0", "\u{FFFD}", $value->id);
-            $value->lang = $value->lang === null ? null : str_replace("\0", "\u{FFFD}", $value->lang);
-            $value->classes = str_replace("\0", "\u{FFFD}", $value->classes);
+            $value->id = $value->id === null ? null : Utf8::repair($value->id);
+            $value->lang = $value->lang === null ? null : Utf8::repair($value->lang);
+            $value->classes = array_map(Utf8::repair(...), $value->classes);
             foreach ($value->pairs as $k => [$name, $v]) {
-                $value->pairs[$k] = [str_replace("\0", "\u{FFFD}", $name), str_replace("\0", "\u{FFFD}", $v)];
+                $value->pairs[$k] = [Utf8::repair($name), Utf8::repair($v)];
             }
 
             return $value;

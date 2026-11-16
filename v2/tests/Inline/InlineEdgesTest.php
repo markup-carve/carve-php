@@ -88,7 +88,8 @@ final class InlineEdgesTest extends InlineTestCase
     public function testC2B150CaptionNumberIsTheFirstBareMark(): void
     {
         $this->assertSame(
-            'text@0-7(value="Figure ") strong@7-10{text@8-9(value="#")} text@10-15(value=" and ") caption_number text@16-22(value=" more ") tag@22-24(name="t")',
+            'text@0-7(value="Figure ") strong@7-10{text@8-9(value="#")} text@10-15(value=" and ") '
+                . 'caption_number@15-16 text@16-22(value=" more ") tag@22-24(name="t")',
             self::inline('Figure *#* and # more #t', [], [], Scanner::CAPTION),
         );
     }
@@ -166,7 +167,7 @@ final class InlineEdgesTest extends InlineTestCase
         $this->assertSame('strong{text(value="1 a")}', self::inline("*1\na*", [], [], Scanner::CELL));
         $this->assertSame('code(value="1\na")', self::inline("`1\na`", [], [], Scanner::CELL));
         $this->assertSame('text(value="1\\\\ a")', self::inline("1\\\na", [], [], Scanner::CELL));
-        $this->assertSame('text(value="1 b") hard_break', self::inline("1\nb\\", [], [], Scanner::CELL));
+        $this->assertSame('text(value="1 b") hard_break@3-4', self::inline("1\nb\\", [], [], Scanner::CELL));
     }
 
     /**
@@ -175,10 +176,10 @@ final class InlineEdgesTest extends InlineTestCase
     public function testC2B207CaptionMarkNeedsNoLeftBoundary(): void
     {
         $this->assertSame(
-            'text@0-5(value="Table") caption_number text@6-11(value=": one")',
+            'text@0-5(value="Table") caption_number@5-6 text@6-11(value=": one")',
             self::inline('Table#: one', [], [], Scanner::CAPTION),
         );
-        $this->assertSame('text@0-1(value="[") caption_number', self::inline('[#', [], [], Scanner::CAPTION));
+        $this->assertSame('text@0-1(value="[") caption_number@1-2', self::inline('[#', [], [], Scanner::CAPTION));
         $this->assertSame('link@0-8(href="u"){text@1-4(value="x #")}', self::inline('[x #](u)', [], [], Scanner::CAPTION));
     }
 

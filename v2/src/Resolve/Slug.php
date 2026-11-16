@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Resolve;
 
 use MarkupCarve\Carve2\Generated\Tables;
+use MarkupCarve\Carve2\Inline\Chars;
 use Normalizer;
 
 /**
@@ -48,7 +49,7 @@ final class Slug
         }
 
         // C2-H-148: anchored, one character, constant time.
-        return preg_match('/^\p{N}/u', $slug) === 1 ? 's-' . $slug : $slug;
+        return Chars::inRanges(Chars::at($slug, 0), Tables::UNICODE_NUMBER_RANGES) ? 's-' . $slug : $slug;
     }
 
     /**
