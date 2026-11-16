@@ -35,6 +35,16 @@ final class Stage4ClausesTest extends TestCase
         $this->assertStringContainsString('<a href="u">*a*b {_c* /d [x</a>', $html);
     }
 
+    public function testC2I118BarePairsStayTextAtCapWithoutBrackets(): void
+    {
+        foreach (['*a*' => '<strong>', '/a/' => '<em>'] as $mark => $tag) {
+            $source = str_repeat('{^', 200) . $mark . str_repeat('^}', 200);
+            $this->assertStringNotContainsString($tag, Carve2::toHtml($source), $mark);
+            $source = str_repeat('{_', 200) . $mark . str_repeat('_}', 200);
+            $this->assertStringNotContainsString($tag, Carve2::toHtml($source), $mark);
+        }
+    }
+
     public function testC2I007BracketContentKeepsItsDelimiterScopeAtTheCap(): void
     {
         $source = str_repeat('{^', 197) . '*a [.*. [x](u) d](v)';

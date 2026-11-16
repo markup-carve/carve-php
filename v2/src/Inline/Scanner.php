@@ -230,9 +230,8 @@ final class Scanner
     ) {
         $this->t = $c->t;
         $this->n = strlen($this->t);
-        $this->capTracking = str_contains($this->t, '[')
-            && $depth + substr_count($this->t, '[') + substr_count($this->t, '{')
-                + substr_count($this->t, '*') + substr_count($this->t, '/') >= Tables::INLINE_DEPTH;
+        $this->capTracking = $depth + substr_count($this->t, '[') + substr_count($this->t, '{')
+            + substr_count($this->t, '*') + substr_count($this->t, '/') >= Tables::INLINE_DEPTH;
         $this->lineBlock = ($mode & self::LINE_BLOCK) !== 0;
         $this->hardBreaks = ($mode & self::HARD_BREAKS) !== 0;
         $this->caption = ($mode & self::CAPTION) !== 0;
