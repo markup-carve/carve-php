@@ -167,17 +167,20 @@ final class HtmlRenderer
     {
         $out = [];
         $open = [];
+        $abbreviations = [];
         $sections = $this->o->sections;
         foreach ($this->doc->children ?? [] as $child) {
+            if ($child->type === 'abbreviation_def') {
+                $abbreviations[] = $child;
+
+                continue;
+            }
+            if ($abbreviations !== []) {
+                $this->appendAbbreviations($out, $abbreviations, count($open));
+                $abbreviations = [];
+            }
             if ($sections && $child->type === 'heading' && ($this->profile === null || $this->profile->allowsBlock($child, 0))) {
-                $level = is_int($child->f['level'] ?? null) ? $child->f['level'] : 1;
-                while ($open !== [] && end($open) >= $level) {
-                    array_pop($open);
-                    $out[] = self::pad(count($open)) . '</section>';
-                }
-                $out[] = $this->sectionOpen($child, count($open));
-                $open[] = $level;
-                $out[] = $this->heading($child, count($open), true);
+                $this->openHeadingSection($child, $open, $out);
 
                 continue;
             }
@@ -199,6 +202,9 @@ final class HtmlRenderer
                 $out[] = $html;
             }
         }
+        if ($abbreviations !== []) {
+            $this->appendAbbreviations($out, $abbreviations, count($open));
+        }
         while ($open !== []) {
             array_pop($open);
             $out[] = self::pad(count($open)) . '</section>';
@@ -211,6 +217,56 @@ final class HtmlRenderer
         }
 
         return implode("\n", $out);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $child
+     * @param array<int> $open
+     * @param array<string> $out
+     *
+     * @return void
+     */
+    private function openHeadingSection(Node $child, array &$open, array &$out): void
+    {
+        $level = is_int($child->f['level'] ?? null) ? $child->f['level'] : 1;
+        while ($open !== [] && end($open) >= $level) {
+            array_pop($open);
+            $out[] = self::pad(count($open)) . '</section>';
+        }
+        $out[] = $this->sectionOpen($child, count($open));
+        $open[] = $level;
+        $out[] = $this->heading($child, count($open), true);
+    }
+
+    /**
+     * C2-H-178: a run ends at every other top-level node.
+     *
+     * @param array<string> $out
+     * @param array<\MarkupCarve\Carve2\Node> $run
+     * @param int $depth
+     *
+     * @return void
+     */
+    private function appendAbbreviations(array &$out, array $run, int $depth): void
+    {
+        if ($this->o->roundtrip) {
+            $out[] = $this->abbreviationTemplate($run, $depth);
+        }
+    }
+
+    /**
+     * C2-H-178 to C2-H-181: one carrier at the place of each maximal definition run.
+     *
+     * @param array<\MarkupCarve\Carve2\Node> $run
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function abbreviationTemplate(array $run, int $depth): string
+    {
+        $source = AbbreviationSource::run($run, $this->log);
+
+        return self::pad($depth) . '<template data-carve-abbreviations>' . Escape::carrierText($source) . '</template>';
     }
 
     /**

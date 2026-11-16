@@ -57,6 +57,22 @@ final class Escape
     }
 
     /**
+     * C2-H-172, C2-H-179: template data keeps bidirectional controls.
+     *
+     * @param string $text
+     *
+     * @return string
+     */
+    public static function carrierText(string $text): string
+    {
+        if (strcspn($text, self::TEXT_SPECIAL) === strlen($text)) {
+            return $text;
+        }
+
+        return strtr(self::clean($text), ['&' => '&amp;', '<' => '&lt;', '>' => '&gt;', "\u{00A0}" => '&nbsp;']);
+    }
+
+    /**
      * @param string $value
      *
      * @return string

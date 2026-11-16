@@ -27,6 +27,8 @@ final class TableItem
 
     public string $value = '';
 
+    public int $continuationEnd = -1;
+
     /**
      * @param bool $isRow
      * @param int $start

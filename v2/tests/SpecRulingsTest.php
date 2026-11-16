@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Test;
 
 use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Generated\Tables;
+use MarkupCarve\Carve2\Inline\Chars;
 use MarkupCarve\Carve2\Json\TreeDecoder;
 use MarkupCarve\Carve2\Options;
 use MarkupCarve\Carve2\Resolve\Resolver;
@@ -15,6 +17,64 @@ final class SpecRulingsTest extends TestCase
     public function testC2I127Unicode18WordBoundary(): void
     {
         $this->assertSame('<p>𽀀*𰨌*</p>', Carve2::toHtml('𽀀*𰨌*'));
+        $this->assertTrue(Chars::isWord(0x3D000));
+        $this->assertTrue(Chars::inRanges(0x3D000, Tables::UNICODE_WORD_RANGES));
+    }
+
+    public function testC2A158PipeGroupSpansContinuationLine(): void
+    {
+        $tree = json_decode(Carve2::toJson("| 1 | 2 |\n+ a | b | c |"), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(23, $tree['children'][0]['children'][0]['pos']['endOffset']);
+        $this->assertArrayNotHasKey('pos', $tree['children'][0]['children'][0]['children'][0]);
+    }
+
+    public function testC2A151TableRowOwnsTrailingSpaces(): void
+    {
+        $tree = json_decode(Carve2::toJson("| a |  \n| b |"), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(7, $tree['children'][0]['children'][0]['children'][0]['pos']['endOffset']);
+    }
+
+    public function testC2B093GluedTableRowAttributesMerge(): void
+    {
+        $tree = json_decode(Carve2::toJson('| a |{.x}{#i}'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('table', $tree['children'][0]['type']);
+        $this->assertSame('i', $tree['children'][0]['children'][0]['children'][0]['attrs']['id']);
+        $this->assertSame(['x'], $tree['children'][0]['children'][0]['children'][0]['attrs']['classes']);
+    }
+
+    public function testC2B177ContinuationMustEndWithPipe(): void
+    {
+        $tree = json_decode(Carve2::toJson("| a |\n+ |{x}"), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['table', 'paragraph'], array_column($tree['children'], 'type'));
+    }
+
+    public function testC2B166CommentPipeCannotFollowClosingPipe(): void
+    {
+        $tree = json_decode(Carve2::toJson('|| %%`|`'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('paragraph', $tree['children'][0]['type']);
+    }
+
+    public function testC2B006TabDoesNotSeparateDivInfo(): void
+    {
+        foreach ([":::\tx", "::: \tx"] as $source) {
+            $tree = json_decode(Carve2::toJson($source), true, 512, JSON_THROW_ON_ERROR);
+            $this->assertSame('paragraph', $tree['children'][0]['type']);
+        }
+    }
+
+    public function testC2B084AbbreviationSeparatorIsOneSpace(): void
+    {
+        $one = json_decode(Carve2::toJson('*[B]: lead'), true, 512, JSON_THROW_ON_ERROR);
+        $two = json_decode(Carve2::toJson('*[B]:  lead'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('abbreviation_def', $one['children'][0]['type']);
+        $this->assertSame('paragraph', $two['children'][0]['type']);
+    }
+
+    public function testC2B092PendingAttributeAtLostItemBecomesParagraph(): void
+    {
+        $tree = json_decode(Carve2::toJson("- {id='a\"b&c'}\n# H"), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['list', 'heading'], array_column($tree['children'], 'type'));
+        $this->assertSame("{id='a\"b&c'}", $tree['children'][0]['children'][0]['children'][0]['children'][0]['value']);
     }
 
     public function testC2I002LineEndSpacesDropInsideProtectedSpans(): void
@@ -416,6 +476,6 @@ final class SpecRulingsTest extends TestCase
     public function testC2B006TabDoesNotSeparateDivMarkerAndName(): void
     {
         $this->assertSame("<p>:::\tx\ny</p>", Carve2::toHtml(":::\tx\ny"));
-        $this->assertSame("<div>\n  <p>y</p>\n</div>", Carve2::toHtml("::: \tx\ny\n:::"));
+        $this->assertSame("<p>::: \tx\ny</p>\n<div>\n\n</div>", Carve2::toHtml("::: \tx\ny\n:::"));
     }
 }

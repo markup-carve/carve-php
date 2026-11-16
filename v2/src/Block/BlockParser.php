@@ -630,9 +630,13 @@ final class BlockParser
 
             return true;
         }
+        if ($this->s[$this->trimEnd($j) - 1] !== '|') {
+            return false;
+        }
         for ($k = count($table->rows) - 1; $k >= 0; $k--) {
             if ($table->rows[$k]->isRow) {
                 $table->rows[$k]->cont[] = TableBuilder::fragments($this->s, $j, $split['seps']);
+                $table->rows[$k]->continuationEnd = $this->le;
 
                 break;
             }

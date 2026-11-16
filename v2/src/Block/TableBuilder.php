@@ -63,10 +63,14 @@ final class TableBuilder
         $commentAt = $rowEnd >= 0 && $rowEnd < $end
             ? $rowEnd + strspn($s, " \t", $rowEnd, $end - $rowEnd)
             : null;
+        // C2-B-166: a pipe in a trailing comment is still later than the proposed closing pipe.
+        if ($commentAt !== null && strcspn($s, '|', $commentAt, $end - $commentAt) < $end - $commentAt) {
+            return null;
+        }
 
         return $rowEnd < 0 ? null : [
             'seps' => $seps,
-            'end' => $rowEnd,
+            'end' => $commentAt === null ? $le : $rowEnd,
             'attrs' => $attrs,
             'comment' => $commentAt,
         ];
@@ -90,12 +94,16 @@ final class TableBuilder
         $b = $k < $end && $s[$k] === '{' ? $k : ($k + 1 < $end && $s[$k] === ' ' && $s[$k + 1] === '{' ? $k + 1 : -1);
         if ($b >= 0) {
             $a = new Attrs();
-            $next = AttributeParser::read($s, $b, $end, $a);
-            if ($next > 0 && !AttributeParser::$lastEmpty) {
-                $attrs = $a;
+            while ($b < $end && $s[$b] === '{') {
+                $next = AttributeParser::read($s, $b, $end, $a);
+                if ($next < 0 || AttributeParser::$lastEmpty) {
+                    return -1;
+                }
                 $k = $next;
-                $rowEnd = $next;
+                $b = $next;
             }
+            $attrs = $a;
+            $rowEnd = $k;
         }
         if ($k === $end) {
             return $rowEnd;
@@ -627,7 +635,7 @@ final class TableBuilder
                 if ($current->start < 0) {
                     $current->start = $item->start;
                 }
-                $current->end = $item->end;
+                $current->end = max($item->end, $item->continuationEnd);
             }
             $r++;
         }

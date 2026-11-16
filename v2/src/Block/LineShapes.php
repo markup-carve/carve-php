@@ -162,6 +162,9 @@ final class LineShapes
         }
         $sp = strspn($s, ' ', $k, $end - $k);
         $p = $k + $sp;
+        if ($sp > 0 && $p < $end && $s[$p] === "\t") {
+            return null;
+        }
         if ($sp > 0 && $p < $end) {
             $ch = $s[$p];
             if (strpos(Tables::DIV_SIGILS, $ch) !== false && ($p + 1 === $end || $s[$p + 1] === ' ')) {
