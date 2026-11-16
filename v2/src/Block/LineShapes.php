@@ -167,7 +167,7 @@ final class LineShapes
         }
         if ($sp > 0 && $p < $end) {
             $ch = $s[$p];
-            if (strpos(Tables::DIV_SIGILS, $ch) !== false && ($p + 1 === $end || $s[$p + 1] === ' ')) {
+            if (strpos(Tables::DIV_SIGILS, $ch) !== false) {
                 $info->sigil = $ch;
 
                 return $info;
@@ -277,8 +277,7 @@ final class LineShapes
         if ($s[$k] === '(') {
             $k = self::parenEnd($s, $k, $le);
         } elseif ($s[$k] === '[') {
-            $close = strpos($s, ']', $k + 1);
-            $k = $close === false || $close >= $le ? -1 : $close;
+            $k = self::referenceLabelEnd($s, $k, $le);
         } else {
             return false;
         }
@@ -357,6 +356,11 @@ final class LineShapes
             $ch = $s[$k];
             if ($ch === '\\') {
                 $k++;
+            } elseif (
+                $ch === '%' && $k + 1 < $le && $s[$k + 1] === '%'
+                && ($k === 0 || $s[$k - 1] === ' ' || $s[$k - 1] === "\t")
+            ) {
+                return -1;
             } elseif ($ch === '[') {
                 $depth++;
             } elseif ($ch === ']') {
@@ -364,6 +368,41 @@ final class LineShapes
                 if ($depth === 0) {
                     return $k;
                 }
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * C2-I-076 to C2-I-079: a reference label ends at the next unescaped bracket.
+     *
+     * @param string $s
+     * @param int $k
+     * @param int $le
+     *
+     * @return int
+     */
+    private static function referenceLabelEnd(string $s, int $k, int $le): int
+    {
+        $start = $k + 1;
+        if ($start >= $le || $s[$start] === '@' || $s[$start] === '^') {
+            return -1;
+        }
+        for ($p = $start; $p < $le; $p++) {
+            if ($s[$p] === '\\') {
+                $p++;
+            } elseif (
+                $s[$p] === '%' && $p + 1 < $le && $s[$p + 1] === '%'
+                && ($p === $start || $s[$p - 1] === ' ' || $s[$p - 1] === "\t")
+            ) {
+                return -1;
+            } elseif ($s[$p] === ']') {
+                if ($p === $start) {
+                    return $p;
+                }
+
+                return trim(substr($s, $start, $p - $start), " \t") === '' ? -1 : $p;
             }
         }
 
@@ -639,7 +678,7 @@ final class LineShapes
             return null;
         }
         $end = self::trimEnd($s, $k + 3, $le);
-        if ($end <= $k + 3 || $s[$k + 3] === ' ' || $s[$k + 3] === "\t") {
+        if ($end <= $k + 3) {
             return null;
         }
 

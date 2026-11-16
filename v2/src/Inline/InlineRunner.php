@@ -13,23 +13,6 @@ use MarkupCarve\Carve2\Node;
 final class InlineRunner
 {
     /**
-     * Containers that count toward the depth cap (C2-B-190).
-     *
-     * @var array<string, true>
-     */
-    private const DEPTH_TYPES = [
-        'block_quote' => true,
-        'list' => true,
-        'list_item' => true,
-        'definition_list' => true,
-        'definition_description' => true,
-        'footnote' => true,
-        'div' => true,
-        'admonition' => true,
-        'directive' => true,
-    ];
-
-    /**
      * @param \MarkupCarve\Carve2\Node $doc
      * @param string $s
      * @param \MarkupCarve\Carve2\Inline\InlineContext $ctx
@@ -59,30 +42,27 @@ final class InlineRunner
      */
     private static function walk(Node $doc, string $s, InlineContext $ctx): void
     {
-        $stack = [[$doc, 0, false, false]];
+        $stack = [[$doc, false, false]];
         while ($stack !== []) {
-            [$node, $depth, $hard, $caption] = array_pop($stack);
+            [$node, $hard, $caption] = array_pop($stack);
             if ($node->lines !== null) {
-                $node->children = self::parse($s, $node->lines, $ctx, $depth, self::mode($node->type, $hard, $caption));
+                $node->children = self::parse($s, $node->lines, $ctx, 0, self::mode($node->type, $hard, $caption));
                 $node->lines = null;
-
-                continue;
             }
-            $inner = $depth + (isset(self::DEPTH_TYPES[$node->type]) ? 1 : 0);
             $attrs = $node->f['attrs'] ?? null;
             if ($node->type === 'div' && $attrs instanceof Attrs && in_array('hardbreaks', $attrs->classes, true)) {
                 $hard = true;
             }
             foreach ($node->children ?? [] as $child) {
-                $stack[] = [$child, $inner, $hard, $node->type === 'caption'];
+                $stack[] = [$child, $hard, $node->type === 'caption'];
             }
             $caption = $node->f['caption'] ?? null;
             if ($caption instanceof Node) {
-                $stack[] = [$caption, $inner, $hard, false];
+                $stack[] = [$caption, $hard, false];
             }
             $title = $node->f['title'] ?? null;
             if ($title instanceof Node) {
-                $node->f['title'] = self::title($node, $title, $s, $ctx, $inner, $hard);
+                $node->f['title'] = self::title($node, $title, $s, $ctx, 0, $hard);
             }
         }
     }
@@ -141,6 +121,9 @@ final class InlineRunner
         int $depth = 0,
         int $mode = 0,
     ): array {
+        if (($mode & Scanner::CELL) !== 0 && count($spans) > 2) {
+            return self::cellFragments($s, $spans, $ctx, $depth, $mode);
+        }
         $content = new Content($s, $spans);
         $t = $content->t;
         if ($t === '') {
@@ -155,7 +138,7 @@ final class InlineRunner
 
         $nodes = (new Finisher($scanner, $ctx))->build($items, -1, true);
 
-        return ($mode & Scanner::CELL) !== 0 && count($spans) > 2 ? self::joined($nodes, $spans) : $nodes;
+        return $nodes;
     }
 
     /**
@@ -172,9 +155,6 @@ final class InlineRunner
         $start = $spans[0] ?? 0;
         $end = $spans[count($spans) - 1] ?? $start;
         $raw = substr($s, $start, max(0, $end - $start));
-        if ($raw === '') {
-            return [];
-        }
         // C2-I-033: one escape and one character class, linear; code fence titles only, not a hot path.
         $value = (string)preg_replace('/\\\\([!-\/:-@\[-`{-~])/', '$1', $raw);
 
@@ -182,85 +162,72 @@ final class InlineRunner
     }
 
     /**
-     * C2-B-184, C2-A-094, C2-A-158: in a cell joined from continuation rows each join is one space of
-     * text; an inline node inside one source piece keeps its position.
+     * C2-B-184, C2-B-223: each physical fragment is one inline content, joined by text spaces.
      *
-     * @param array<\MarkupCarve\Carve2\Node> $nodes
+     * @param string $s
      * @param array<int> $spans
+     * @param \MarkupCarve\Carve2\Inline\InlineContext $ctx
+     * @param int $depth
+     * @param int $mode
      *
      * @return array<\MarkupCarve\Carve2\Node>
      */
-    private static function joined(array $nodes, array $spans): array
+    private static function cellFragments(string $s, array $spans, InlineContext $ctx, int $depth, int $mode): array
     {
-        $root = new Node('cell', $nodes);
-        self::markPiecePositions($root, $spans);
-        $stack = [$root];
-        while ($stack !== []) {
-            $node = array_pop($stack);
-            $out = [];
-            $children = $node->children ?? [];
-            $lastKey = array_key_last($children);
-            foreach ($children as $key => $child) {
-                // C2-I-002: a backslash at the end of the cell stays a hard break.
-                $atEnd = $node === $root && $key === $lastKey;
-                if ($child->type === 'soft_break' || ($child->type === 'hard_break' && !$atEnd)) {
-                    $value = $child->type === 'soft_break' ? ' ' : '\\ ';
-                    $child = new Node('text');
-                    $child->f['value'] = $value;
-                }
-                $last = $out === [] ? null : $out[count($out) - 1];
-                $a = $last !== null && $last->type === 'text' ? $last->f['value'] ?? '' : null;
-                $b = $child->f['value'] ?? '';
-                if ($child->type === 'text' && $last !== null && is_string($a) && is_string($b)) {
-                    $last->f['value'] = $a . $b;
-                    if ($last->end >= 0 && $last->end === $child->start) {
-                        $last->end = $child->end;
-                    } else {
-                        $last->start = -1;
-                        $last->end = -1;
-                    }
-
-                    continue;
-                }
-                $out[] = $child;
-                if ($child->children !== null) {
-                    $stack[] = $child;
+        $out = [];
+        $n = count($spans);
+        for ($i = 0; $i < $n; $i += 2) {
+            if ($spans[$i + 1] <= $spans[$i]) {
+                continue;
+            }
+            $piece = self::parse($s, [$spans[$i], $spans[$i + 1]], $ctx, $depth, $mode);
+            if ($piece === []) {
+                continue;
+            }
+            if ($out !== []) {
+                self::appendText($out, Node::text(' ', -1, -1));
+            }
+            foreach ($piece as $node) {
+                if ($node->type === 'text') {
+                    self::appendText($out, $node);
+                } else {
+                    $out[] = $node;
                 }
             }
-            $node->children = $out;
         }
 
-        return $root->children ?? [];
+        return $out;
     }
 
     /**
-     * C2-A-158: source-ordered nodes advance through continuation pieces once.
+     * C2-A-094: adjacent text fragments are one node; a synthetic join has no source position.
      *
-     * @param \MarkupCarve\Carve2\Node $root
-     * @param array<int> $spans
+     * @param array<\MarkupCarve\Carve2\Node> $out
+     * @param \MarkupCarve\Carve2\Node $node
      *
      * @return void
      */
-    private static function markPiecePositions(Node $root, array $spans): void
+    private static function appendText(array &$out, Node $node): void
     {
-        $stack = [$root];
-        $piece = 0;
-        $n = count($spans);
-        while ($stack !== []) {
-            $node = array_pop($stack);
-            if ($node->start >= 0) {
-                while ($piece + 2 < $n && $node->start >= $spans[$piece + 2]) {
-                    $piece += 2;
-                }
-                if ($node->start < $spans[$piece] || $node->end > $spans[$piece + 1]) {
-                    $node->start = -1;
-                    $node->end = -1;
-                }
-            }
-            $children = $node->children ?? [];
-            for ($i = count($children) - 1; $i >= 0; $i--) {
-                $stack[] = $children[$i];
-            }
+        $last = $out === [] ? null : $out[count($out) - 1];
+        if ($last === null || $last->type !== 'text') {
+            $out[] = $node;
+
+            return;
+        }
+        $left = $last->f['value'] ?? null;
+        $right = $node->f['value'] ?? null;
+        if (!is_string($left) || !is_string($right)) {
+            $out[] = $node;
+
+            return;
+        }
+        $last->f['value'] = $left . $right;
+        if ($last->end >= 0 && $last->end === $node->start) {
+            $last->end = $node->end;
+        } else {
+            $last->start = -1;
+            $last->end = -1;
         }
     }
 }

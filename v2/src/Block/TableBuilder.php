@@ -266,14 +266,10 @@ final class TableBuilder
                 $rows[] = $item;
             }
         }
-        $head = 0;
-        foreach ($rows as $row) {
-            if (!self::allHeader($row->cells)) {
-                break;
-            }
-            $head++;
-        }
-        $grid = self::spans($rows, $head);
+        $head = self::headRows($rows);
+        $foot = self::count($f->attrs, 'footer-rows');
+        $footStart = $foot === null || $foot <= 0 ? count($rows) : max($head, count($rows) - $foot);
+        $grid = self::spans($rows, $head, $footStart);
         $width = 0;
         $rowNodes = [];
         foreach ($grid as $r => $cells) {
@@ -283,7 +279,7 @@ final class TableBuilder
         $table = Node::at('table', $f->start, $f->end);
         $attrs = $f->attrs;
         $table->f['columns'] = self::columns($width, $attrs);
-        $table->children = self::groups($f->rows, $rowNodes, $head, self::count($attrs, 'footer-rows'), -1);
+        $table->children = self::groups($f->rows, $rowNodes, $head, $foot, -1);
         if ($attrs !== null) {
             self::consumeKeys($attrs, false);
             $attrs->applyTo($table);
@@ -293,24 +289,46 @@ final class TableBuilder
     }
 
     /**
-     * @param array<\MarkupCarve\Carve2\Block\TableCell> $cells
+     * @param array<\MarkupCarve\Carve2\Block\TableItem> $rows
      *
-     * @return bool
+     * @return int
      */
-    private static function allHeader(array $cells): bool
+    private static function headRows(array $rows): int
     {
-        $any = false;
-        foreach ($cells as $cell) {
-            if ($cell->mark !== '') {
-                continue;
+        $head = 0;
+        $above = [];
+        $aboveSingle = [];
+        foreach ($rows as $row) {
+            $current = [];
+            $single = [];
+            $cover = [];
+            $tall = [];
+            foreach ($row->cells as $c => $cell) {
+                $left = $cover[$c - 1] ?? null;
+                if ($cell->mark === '<' && $left !== null && !($tall[$left] ?? false)) {
+                    $current[$c] = $current[$left];
+                    $cover[$c] = $left;
+                    $single[$c] = false;
+                    $single[$left] = false;
+
+                    continue;
+                }
+                $aboveCell = $head > 0 && ($above[$c] ?? false) && ($aboveSingle[$c] ?? false);
+                $validUp = $cell->mark === '^' && $aboveCell;
+                $current[$c] = $validUp ? true : $cell->header;
+                $cover[$c] = $c;
+                $single[$c] = true;
+                $tall[$c] = $validUp;
             }
-            if (!$cell->header) {
-                return false;
+            if ($current === [] || in_array(false, $current, true)) {
+                break;
             }
-            $any = true;
+            $head++;
+            $above = $current;
+            $aboveSingle = $single;
         }
 
-        return $any;
+        return $head;
     }
 
     /**
@@ -319,15 +337,15 @@ final class TableBuilder
      *
      * @param array<\MarkupCarve\Carve2\Block\TableItem> $rows
      * @param int $head
+     * @param int $footStart
      *
      * @return array<int, array<int, \MarkupCarve\Carve2\Block\TableCell>>
      */
-    private static function spans(array $rows, int $head): array
+    private static function spans(array $rows, int $head, int $footStart): array
     {
         $grid = [];
         $cover = [];
         foreach ($rows as $r => $row) {
-            $all = self::allHeader($row->cells);
             $grid[$r] = [];
             $cover[$r] = [];
             foreach ($row->cells as $c => $cell) {
@@ -339,12 +357,10 @@ final class TableBuilder
                 if ($cell->mark === '') {
                     continue;
                 }
-                $target = self::spanTarget($cell, $cover, $head);
+                $target = self::spanTarget($cell, $cover, $head, $footStart);
                 if ($target === null) {
-                    // C2-B-173: a failed span is an empty cell, a header cell when its row is all header cells.
+                    // C2-B-173: a blocked mark is ordinary cell text, with its authored prefix.
                     $cell->mark = '';
-                    $cell->lines = [];
-                    $cell->header = $all;
 
                     continue;
                 }
@@ -371,10 +387,11 @@ final class TableBuilder
      * @param \MarkupCarve\Carve2\Block\TableCell $cell
      * @param array<int, array<int, \MarkupCarve\Carve2\Block\TableCell>> $cover
      * @param int $head
+     * @param int $footStart
      *
      * @return \MarkupCarve\Carve2\Block\TableCell|null
      */
-    private static function spanTarget(TableCell $cell, array $cover, int $head): ?TableCell
+    private static function spanTarget(TableCell $cell, array $cover, int $head, int $footStart): ?TableCell
     {
         $r = $cell->row;
         $c = $cell->col;
@@ -383,7 +400,7 @@ final class TableBuilder
 
             return $t !== null && $t->rowspan === 1 && $t->col + $t->colspan === $c ? $t : null;
         }
-        if ($r === 0 || $r === $head) {
+        if ($r === 0 || $r === $head || $r === $footStart) {
             return null;
         }
         $t = $cover[$r - 1][$c] ?? null;
@@ -602,6 +619,7 @@ final class TableBuilder
         $groups = [];
         $trailing = [];
         $current = null;
+        $lastRow = null;
         $kind = '';
         $r = 0;
         foreach ($items as $item) {
@@ -609,8 +627,10 @@ final class TableBuilder
                 $comment = Node::at('comment', $item->start, $item->end);
                 $comment->f['form'] = 'line';
                 $comment->f['value'] = NodeFactory::v($item->value);
-                // C2-A-082, C2-A-086: a comment after the last row is a child of the table.
-                if ($r >= $total || $current === null) {
+                // C2-A-086: a comment before a continuation stays in the row's group.
+                $beforeContinuation = $lastRow !== null && $lastRow->continuationEnd > $lastRow->end
+                    && $item->start < $lastRow->continuationEnd;
+                if (($r >= $total && !$beforeContinuation) || $current === null) {
                     $trailing[] = $comment;
 
                     continue;
@@ -631,6 +651,7 @@ final class TableBuilder
             }
             assert($current !== null);
             $current->children[] = $rowNodes[$r];
+            $lastRow = $item;
             if ($item->start >= 0) {
                 if ($current->start < 0) {
                     $current->start = $item->start;
@@ -658,11 +679,7 @@ final class TableBuilder
         $attrs = $f->attrs;
         $declared = self::count($attrs, 'header-rows');
         $total = count($records);
-        $head = $declared ?? 1;
-        $allHeader = $head > $total;
-        if ($allHeader) {
-            $head = 0;
-        }
+        $head = min($declared ?? 1, $total);
         $width = 0;
         $rowNodes = [];
         $items = [];
@@ -671,7 +688,7 @@ final class TableBuilder
             $row = new Node('table_row', []);
             foreach ($fields as $value) {
                 $cell = new Node('table_cell', []);
-                $cell->f['header'] = $allHeader || $r < $head;
+                $cell->f['header'] = $r < $head;
                 $para = new Node('cell_paragraph', []);
                 if ($value !== '') {
                     $text = new Node('text');
@@ -686,7 +703,7 @@ final class TableBuilder
         }
         $table = Node::at('table', $f->start, $f->end);
         $table->f['columns'] = self::columns($width, $attrs);
-        $table->children = self::groups($items, $rowNodes, $head, self::count($attrs, 'footer-rows'), $declared ?? -1);
+        $table->children = self::groups($items, $rowNodes, $head, self::count($attrs, 'footer-rows'), $declared === null ? -1 : $head);
         foreach ($table->children as $group) {
             $group->start = -1;
             $group->end = -1;

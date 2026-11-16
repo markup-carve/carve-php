@@ -34,7 +34,14 @@ final class Profile
      *
      * @var array<string, string>
      */
-    private const FIXED_TEXT = ['non_breaking_space' => "\u{00A0}", 'soft_break' => ' ', 'hard_break' => ' ', 'comment' => '', 'caption_number' => ''];
+    private const FIXED_TEXT = [
+        'non_breaking_space' => "\u{00A0}",
+        'soft_break' => ' ',
+        'hard_break' => ' ',
+        'comment' => '',
+        'critic_comment' => '',
+        'caption_number' => '',
+    ];
 
     /**
      * C2-H-165: degraded inline nodes written as one field between a prefix and a suffix.
@@ -43,11 +50,6 @@ final class Profile
      */
     private const FIELD_TEXT = [
         'text' => ['value', '', ''],
-        'code' => ['value', '', ''],
-        'literal_inline' => ['value', '', ''],
-        'math' => ['value', '', ''],
-        'raw_inline' => ['value', '', ''],
-        'critic_comment' => ['value', '', ''],
         'footnote_ref' => ['key', '[^', ']'],
         'symbol' => ['name', ':', ':'],
         'mention' => ['target', '@', ''],
@@ -64,7 +66,6 @@ final class Profile
         'list_item' => true,
         'definition_description' => true,
         'footnote' => true,
-        'figure' => true,
         'figure_group' => true,
         'section' => true,
         'caption' => true,
@@ -106,7 +107,7 @@ final class Profile
      */
     private array $level = [];
 
-    public function __construct(string $name, private RenderLog $log, private ?string $source = null)
+    public function __construct(string $name, private RenderLog $log)
     {
         $spec = Tables::PROFILES[$name] ?? [];
         if (isset($spec['allowed_block'])) {
@@ -163,6 +164,8 @@ final class Profile
     }
 
     /**
+     * C2-H-166: profile nesting limit.
+     *
      * @param \MarkupCarve\Carve2\Node $node
      *
      * @return bool
@@ -181,11 +184,13 @@ final class Profile
      */
     public function allowsBlock(Node $node, int $depth): bool
     {
-        if (isset($this->deniedBlock[$node->type]) || $this->tooDeep($node)) {
+        $type = in_array($node->type, ['paragraph', 'code_block', 'block_quote'], true)
+            && ($node->f['caption'] ?? null) instanceof Node ? 'figure' : $node->type;
+        if (isset($this->deniedBlock[$type]) || $this->tooDeep($node)) {
             return false;
         }
 
-        return $this->allowedBlock === null || isset($this->allowedBlock[$node->type]) || !HtmlRenderer::visible($node);
+        return $this->allowedBlock === null || isset($this->allowedBlock[$type]) || !HtmlRenderer::visible($node);
     }
 
     /**
@@ -243,12 +248,7 @@ final class Profile
         }
         $this->report($node);
 
-        $verbatim = in_array($node->type, ['code', 'literal_inline', 'math', 'raw_inline'], true)
-            && $node->children === null && $this->source !== null && $node->start >= 0 && $node->end >= $node->start
-            && $node->end <= strlen($this->source);
-        $text = $verbatim ? substr((string)$this->source, $node->start, $node->end - $node->start) : $this->inlineText($node);
-
-        return Escape::text($text);
+        return Escape::text($this->inlineText($node));
     }
 
     /**
@@ -265,10 +265,11 @@ final class Profile
      * C2-H-165: the plain text of a degraded inline node.
      *
      * @param \MarkupCarve\Carve2\Node $node
+     * @param bool $nested
      *
      * @return string
      */
-    private function inlineText(Node $node): string
+    private function inlineText(Node $node, bool $nested = false): string
     {
         $type = $node->type;
         if (isset(self::FIXED_TEXT[$type])) {
@@ -278,13 +279,57 @@ final class Profile
         if ($field !== null) {
             return $field[1] . PlainText::str($node->f[$field[0]] ?? '') . $field[2];
         }
+
+        return $this->inlineTextByType($node, $nested);
+    }
+
+    /**
+     * C2-H-165: inline fallback for nodes without a fixed or single-field spelling.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param bool $nested
+     *
+     * @return string
+     */
+    private function inlineTextByType(Node $node, bool $nested): string
+    {
         $f = $node->f;
 
-        return match ($type) {
+        return match ($node->type) {
             'image' => '[img: ' . PlainText::str($f['alt'] ?? '') . ']',
             'smart_punctuation' => PlainText::str($f['glyph'] ?? $f['source'] ?? ''),
             'autolink' => PlainText::str($f['text'] ?? $f['href'] ?? ''),
+            'code', 'literal_inline', 'math', 'raw_inline' => $nested
+                ? PlainText::str($f['value'] ?? '') : $this->inlineSpelling($node),
             default => $this->childrenText($node->children ?? []),
+        };
+    }
+
+    /**
+     * C2-H-165, C2-W-077, C2-W-116: childless inline nodes use their written form.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return string
+     */
+    private function inlineSpelling(Node $node): string
+    {
+        $value = PlainText::str($node->f['value'] ?? '');
+        $ticks = '`';
+        while (str_contains($value, $ticks)) {
+            $ticks .= '`';
+        }
+        $needsPad = str_starts_with($value, '`') || str_ends_with($value, '`')
+            || (str_starts_with($value, ' ') && str_ends_with($value, ' ') && trim($value, ' ') !== '');
+        $pad = $needsPad ? ' ' : '';
+        $code = $ticks . $pad . $value . $pad . $ticks;
+        $attrs = AbbreviationSource::attributes($node, $this->log);
+
+        return match ($node->type) {
+            'literal_inline' => '!' . $code . $attrs,
+            'math' => (($node->f['display'] ?? false) === true ? '$$' : '$') . $code . $attrs,
+            'raw_inline' => $code . '{=' . PlainText::str($node->f['format'] ?? '') . '}' . $attrs,
+            default => $code . $attrs,
         };
     }
 
@@ -297,7 +342,7 @@ final class Profile
     {
         $out = '';
         foreach ($nodes as $n) {
-            $out .= $this->inlineText($n);
+            $out .= $this->inlineText($n, true);
         }
 
         return $out;
@@ -347,7 +392,7 @@ final class Profile
             $out = [];
             foreach ($node->children ?? [] as $child) {
                 if ($child->type === 'definition_term') {
-                    $out[] = Escape::text($this->childrenText($child->children ?? []));
+                    $out[] = Escape::text($this->blockInlineText($child->children ?? []));
                 } elseif ($child->type === 'definition_description') {
                     $out = array_merge($out, $this->blockList($child->children ?? []));
                 }
@@ -362,7 +407,10 @@ final class Profile
             return $caption instanceof Node ? array_merge($out, $this->captionList($caption)) : $out;
         }
 
-        return [Escape::text($this->plainOf($node))];
+        $out = [Escape::text($this->plainOf($node))];
+        $caption = $node->f['caption'] ?? null;
+
+        return $caption instanceof Node ? array_merge($out, $this->captionList($caption)) : $out;
     }
 
     /**
@@ -411,16 +459,16 @@ final class Profile
         $type = $node->type;
         $kids = $node->children ?? [];
         if (isset(self::INLINE_BLOCKS[$type])) {
-            return $this->childrenText($kids);
+            return $this->blockInlineText($kids);
         }
         if (isset(self::TITLED_BLOCKS[$type])) {
             $title = $node->f['title'] ?? null;
 
-            return trim((is_array($title) ? $this->childrenText(PlainText::nodes($title)) : '') . ' ' . $this->joined($kids));
+            return trim((is_array($title) ? PlainText::of(PlainText::nodes($title)) : '') . ' ' . $this->joined($kids));
         }
 
         return match ($type) {
-            'heading' => str_repeat('#', self::level($node)) . ' ' . $this->childrenText($kids),
+            'heading' => str_repeat('#', self::level($node)) . ' ' . $this->blockInlineText($kids),
             'block_quote' => '> ' . $this->joined($kids),
             'list' => $this->listText($node),
             'thematic_break' => '---',
@@ -428,6 +476,18 @@ final class Profile
             'include' => HtmlRenderer::includeText($node),
             default => $this->joined($kids),
         };
+    }
+
+    /**
+     * C2-H-165: whole-block text uses C2-H-143 for every inline node.
+     *
+     * @param array<\MarkupCarve\Carve2\Node> $nodes
+     *
+     * @return string
+     */
+    private function blockInlineText(array $nodes): string
+    {
+        return PlainText::of($nodes);
     }
 
     /**

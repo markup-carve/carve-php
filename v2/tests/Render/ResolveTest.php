@@ -156,7 +156,7 @@ final class ResolveTest extends RenderTestCase
         $caption = ['type' => 'caption', 'children' => [self::p(self::t('Figure '), ['type' => 'caption_number'])]];
         $tree = self::doc(
             self::h('H'),
-            ['type' => 'figure', 'attrs' => ['id' => 'f'], 'caption' => $caption, 'children' => []],
+            ['type' => 'code_block', 'value' => '', 'attrs' => ['id' => 'f'], 'caption' => $caption],
             ['type' => 'div', 'attrs' => ['id' => 'd'], 'children' => []],
             self::p($xref('H'), $xref('f'), $xref('d')),
         );
@@ -174,7 +174,11 @@ final class ResolveTest extends RenderTestCase
      */
     public function testC2H149SequencesByLabelAndC2H066PanelsTakeNone(): void
     {
-        $fig = static fn (string $label): array => ['type' => 'figure', 'children' => [], 'caption' => ['type' => 'caption', 'children' => [self::p(self::t($label), ['type' => 'caption_number'])]]];
+        $fig = static fn (string $label): array => [
+            'type' => 'code_block',
+            'value' => '',
+            'caption' => ['type' => 'caption', 'children' => [self::p(self::t($label), ['type' => 'caption_number'])]],
+        ];
         $group = ['type' => 'figure_group', 'children' => [$fig('Figure ')], 'caption' => ['type' => 'caption', 'children' => [self::p(self::t('Figure '), ['type' => 'caption_number'])]]];
         $out = self::resolved(self::doc($fig('Figure '), $fig('Fig. '), $fig('Figure '), $group));
         $n = static fn (array $f): mixed => $f['caption']['children'][0]['children'][1]['n'] ?? null;

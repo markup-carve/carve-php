@@ -36,7 +36,6 @@ final class HtmlRenderer
         'admonition' => 'admonition',
         'directive' => 'directive',
         'line_block' => 'lineBlock',
-        'figure' => 'figureBlock',
         'figure_group' => 'figureGroup',
         'table' => 'tableBlock',
         'include' => 'includeBlock',
@@ -85,7 +84,7 @@ final class HtmlRenderer
     {
         $this->log = new RenderLog();
         if ($o->profile !== 'full') {
-            $this->profile = new Profile($o->profile, $this->log, $source);
+            $this->profile = new Profile($o->profile, $this->log);
             $this->profile->measure($doc);
         }
         $this->state = new RenderState($doc, $o, $this->profile, $facts);
@@ -424,6 +423,9 @@ final class HtmlRenderer
         if (isset(self::SILENT[$node->type])) {
             return null;
         }
+        if (self::hasFigureCaption($node)) {
+            return $this->captionedBlock($node, $depth, false);
+        }
         // An invisible paragraph is caught by paragraph(); the walk of visible() runs once.
         $method = self::BLOCKS[$node->type] ?? 'genericBlock';
 
@@ -478,13 +480,37 @@ final class HtmlRenderer
 
     /**
      * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return bool
+     */
+    private static function hasFigureCaption(Node $node): bool
+    {
+        return in_array($node->type, ['paragraph', 'code_block', 'block_quote'], true)
+            && ($node->f['caption'] ?? null) instanceof Node;
+    }
+
+    /**
+     * C2-H-062, C2-H-063: the figure is an HTML element, not a tree node.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
      * @param int $depth
+     * @param bool $panel
      *
      * @return string
      */
-    private function figureBlock(Node $node, int $depth): string
+    private function captionedBlock(Node $node, int $depth, bool $panel): string
     {
-        return $this->figure($node, $depth, false);
+        $inner = clone $node;
+        unset($inner->f['caption'], $inner->f['attrs'], $inner->f['lang'], $inner->f['dir']);
+        if ($inner->ownStart >= 0) {
+            $inner->start = $inner->ownStart;
+        }
+        $wrapper = Node::at('figure', $node->start, $node->end);
+        $wrapper->children = [$inner];
+        $wrapper->f = array_intersect_key($node->f, array_flip(['attrs', 'lang', 'dir']));
+        $wrapper->f['caption'] = $node->f['caption'];
+
+        return $this->figure($wrapper, $depth, $panel);
     }
 
     /**
@@ -517,7 +543,12 @@ final class HtmlRenderer
      */
     private function sectionBlock(Node $node, int $depth): string
     {
-        return $this->container('<section' . $this->attrs($node) . '>', '</section>', $this->blocks($node->children ?? [], $depth + 1), $depth);
+        return $this->container(
+            '<section' . $this->attrs($node) . '>',
+            '</section>',
+            $this->blocks($node->children ?? [], $depth + 1),
+            $depth,
+        );
     }
 
     /**
@@ -555,11 +586,24 @@ final class HtmlRenderer
     ): string {
         $attrs = $node->f['attrs'] ?? null;
         $lang = $node->f['lang'] ?? null;
-        if ($attrs === null && $lang === null && $structural === [] && $base === [] && $tail === [] && $generated === [] && ($this->lineStarts === null || !$block) && !isset($style['decl'])) {
+        if (
+            $attrs === null && $lang === null && $structural === [] && $base === [] && $tail === [] && $generated === []
+            && ($this->lineStarts === null || !$block) && !isset($style['decl'])
+        ) {
             return '';
         }
 
-        return $this->aw->build($structural, null, $attrs instanceof Attrs ? $attrs : null, is_string($lang) ? $lang : null, $base, $tail, $generated, $style, $block ? $this->line($node) : null);
+        return $this->aw->build(
+            $structural,
+            null,
+            $attrs instanceof Attrs ? $attrs : null,
+            is_string($lang) ? $lang : null,
+            $base,
+            $tail,
+            $generated,
+            $style,
+            $block ? $this->line($node) : null,
+        );
     }
 
     /**
@@ -591,7 +635,10 @@ final class HtmlRenderer
      */
     private function blockImage(Node $node): ?Node
     {
-        if ($node->type !== 'paragraph' || ($node->f['role'] ?? null) !== 'image' || ($this->profile !== null && !$this->profile->allowsType('image'))) {
+        if (
+            $node->type !== 'paragraph' || ($node->f['role'] ?? null) !== 'image'
+            || ($this->profile !== null && !$this->profile->allowsType('image'))
+        ) {
             return null;
         }
         foreach ($node->children ?? [] as $kid) {
@@ -637,7 +684,16 @@ final class HtmlRenderer
         $image = $append === '' ? $this->blockImage($node) : null;
         if ($image !== null && !isset($node->f['attrs']) && !isset($node->f['lang'])) {
             // C2-H-020: only an unattributed block image paragraph loses its paragraph element.
-            return self::pad($depth) . $this->inline->node($image, $depth);
+            $attrs = $image->f['attrs'] ?? null;
+            $lang = $image->f['lang'] ?? null;
+
+            return self::pad($depth) . $this->inline->image(
+                $image,
+                $attrs instanceof Attrs ? $attrs : null,
+                is_string($lang) ? $lang : null,
+                $depth,
+                $this->line($node),
+            );
         }
         if ($role === 'math' && $this->o->mode === 'static') {
             return self::pad($depth) . $this->staticMath($node);
@@ -717,7 +773,10 @@ final class HtmlRenderer
     {
         $f = $node->f;
         $level = is_int($f['level'] ?? null) ? max(1, $f['level']) : 1;
-        if ($level <= 6 && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang']) && ($inSection || !$this->o->roundtrip)) {
+        if (
+            $level <= 6 && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang'])
+            && ($inSection || !$this->o->roundtrip)
+        ) {
             return $this->plainHeading($node, $level, $depth, $inSection);
         }
         $attrs = $node->f['attrs'] ?? null;
@@ -774,7 +833,8 @@ final class HtmlRenderer
         $syntax = $node->f['syntax'] ?? null;
         $class = is_string($syntax) && $syntax !== '' ? ' class="' . Escape::attr('language-' . $syntax) . '"' : '';
 
-        return '<pre' . $this->attrs($node, [], [], $structural) . '><code' . $class . '>' . Escape::text(PlainText::str($node->f['value'] ?? '')) . '</code></pre>';
+        return '<pre' . $this->attrs($node, [], [], $structural) . '><code' . $class . '>'
+            . Escape::text(PlainText::str($node->f['value'] ?? '')) . '</code></pre>';
     }
 
     /**
@@ -814,7 +874,11 @@ final class HtmlRenderer
     {
         $open = '<blockquote' . $this->attrs($node) . '>';
         $visible = self::visibleOf($node->children ?? []);
-        if (count($visible) === 1 && $visible[0]->type === 'paragraph' && $this->allowed($visible[0], $depth + 1) && (($visible[0]->f['role'] ?? null) !== 'image' || $this->blockImage($visible[0]) === null)) {
+        if (
+            count($visible) === 1 && $visible[0]->type === 'paragraph' && !self::hasFigureCaption($visible[0])
+            && $this->allowed($visible[0], $depth + 1)
+            && (($visible[0]->f['role'] ?? null) !== 'image' || $this->blockImage($visible[0]) === null)
+        ) {
             $p = $this->paragraph($visible[0], 0, false);
             if ($p !== null) {
                 return self::pad($depth) . $open . $p . '</blockquote>';
@@ -906,12 +970,19 @@ final class HtmlRenderer
         foreach ($node->children ?? [] as $item) {
             $task = $task || is_array($item->f['task'] ?? null);
             if ($item->type === 'list_item') {
-                $items[] = $this->profile === null || $this->profile->allowsBlock($item, $depth + 1) ? $this->item($item, $depth + 1, $tight, $ordered) : (string)$this->block($item, $depth + 1);
+                $items[] = $this->profile === null || $this->profile->allowsBlock($item, $depth + 1)
+                    ? $this->item($item, $depth + 1, $tight, $ordered)
+                    : (string)$this->block($item, $depth + 1);
             }
         }
         $tag = $ordered ? 'ol' : 'ul';
 
-        return $this->container('<' . $tag . $this->attrs($node, $task ? ['task-list'] : [], [], $structural) . '>', '</' . $tag . '>', $items, $depth);
+        return $this->container(
+            '<' . $tag . $this->attrs($node, $task ? ['task-list'] : [], [], $structural) . '>',
+            '</' . $tag . '>',
+            $items,
+            $depth,
+        );
     }
 
     /**
@@ -969,7 +1040,10 @@ final class HtmlRenderer
         $rest = $visible;
         $first = '';
         $lead = $visible[0];
-        if ($lead->type === 'paragraph' && $this->allowed($lead, $depth + 1) && (($lead->f['role'] ?? null) !== 'image' || $this->blockImage($lead) === null)) {
+        if (
+            $lead->type === 'paragraph' && !self::hasFigureCaption($lead) && $this->allowed($lead, $depth + 1)
+            && (($lead->f['role'] ?? null) !== 'image' || $this->blockImage($lead) === null)
+        ) {
             $first = (string)$this->paragraph($lead, 0, $tight);
             array_shift($rest);
             if ($rest === []) {
@@ -978,7 +1052,9 @@ final class HtmlRenderer
         }
         $lines = [];
         foreach ($rest as $child) {
-            $html = $child->type === 'paragraph' && $this->allowed($child, $depth + 1) ? $this->paragraph($child, $depth + 1, false) : $this->block($child, $depth + 1);
+            $html = $child->type === 'paragraph' && !self::hasFigureCaption($child) && $this->allowed($child, $depth + 1)
+                ? $this->paragraph($child, $depth + 1, false)
+                : $this->block($child, $depth + 1);
             if ($html !== null) {
                 $lines[] = $html;
             }
@@ -1023,7 +1099,10 @@ final class HtmlRenderer
         if ($visible === []) {
             return self::pad($depth) . $open . '</dd>';
         }
-        if (count($visible) === 1 && $visible[0]->type === 'paragraph' && $this->allowed($visible[0], $depth + 1)) {
+        if (
+            count($visible) === 1 && $visible[0]->type === 'paragraph' && !self::hasFigureCaption($visible[0])
+            && $this->allowed($visible[0], $depth + 1)
+        ) {
             return self::pad($depth) . $open . $this->paragraph($visible[0], 0, true) . '</dd>';
         }
 
@@ -1045,7 +1124,8 @@ final class HtmlRenderer
         $title = $node->f['title'] ?? null;
         if (is_array($title)) {
             $id = $titleId !== null ? ' id="' . Escape::attr($titleId) . '"' : '';
-            $out[] = self::pad($depth) . '<p class="admonition-title"' . $id . '>' . $this->inline->leaf(PlainText::nodes($title), $depth + 1) . '</p>';
+            $out[] = self::pad($depth) . '<p class="admonition-title"' . $id . '>'
+                . $this->inline->leaf(PlainText::nodes($title), $depth + 1) . '</p>';
         }
         $label = $node->f['groupLabel'] ?? null;
         if (is_string($label)) {
@@ -1069,7 +1149,12 @@ final class HtmlRenderer
         }
         $children = array_merge($this->titleAndLabel($node, $depth + 1, null), $this->blocks($node->children ?? [], $depth + 1));
 
-        return $this->container('<div' . $this->attrs($node, [], [], $structural, [], ['align' => true]) . '>', '</div>', $children, $depth);
+        return $this->container(
+            '<div' . $this->attrs($node, [], [], $structural, [], ['align' => true]) . '>',
+            '</div>',
+            $children,
+            $depth,
+        );
     }
 
     /**
@@ -1086,11 +1171,18 @@ final class HtmlRenderer
         $titleId = $this->state->admonitionIds[spl_object_id($node)] ?? null;
         $generated = [];
         if (!RenderState::namedByAuthor($node)) {
-            $generated[] = $titleId !== null ? ['aria-labelledby', $titleId] : ['aria-label', $this->o->label('admonition' . ucfirst($kind))];
+            $generated[] = $titleId !== null
+                ? ['aria-labelledby', $titleId]
+                : ['aria-label', $this->o->label('admonition' . ucfirst($kind))];
         }
         $children = array_merge($this->titleAndLabel($node, $depth + 1, $titleId), $this->blocks($node->children ?? [], $depth + 1));
 
-        return $this->container('<aside' . $this->attrs($node, ['admonition', $kind], [], [], $generated) . '>', '</aside>', $children, $depth);
+        return $this->container(
+            '<aside' . $this->attrs($node, ['admonition', $kind], [], [], $generated) . '>',
+            '</aside>',
+            $children,
+            $depth,
+        );
     }
 
     /**
@@ -1178,7 +1270,12 @@ final class HtmlRenderer
             $children[] = $this->caption('figcaption', $caption, $depth + 1);
         }
 
-        return $this->container('<figure' . $this->attrs($node, $panel ? ['carve-figure-panel'] : []) . '>', '</figure>', $children, $depth);
+        return $this->container(
+            '<figure' . $this->attrs($node, $panel ? ['carve-figure-panel'] : []) . '>',
+            '</figure>',
+            $children,
+            $depth,
+        );
     }
 
     /**
@@ -1192,9 +1289,18 @@ final class HtmlRenderer
         $children = [];
         foreach ($node->children ?? [] as $child) {
             $html = match ($child->type) {
-                'figure' => $this->allowed($child, $depth + 1) ? $this->figure($child, $depth + 1, true) : $this->block($child, $depth + 1),
+                'paragraph', 'code_block', 'block_quote' => self::hasFigureCaption($child) && $this->allowed($child, $depth + 1)
+                    ? $this->captionedBlock($child, $depth + 1, true)
+                    : $this->block($child, $depth + 1),
                 // D-render-1: C2-H-064 makes every panel a panel figure; the oracle writes a table panel bare.
-                'table' => $this->allowed($child, $depth + 1) ? $this->container('<figure class="carve-figure-panel">', '</figure>', [$this->tables->table($child, $depth + 2)], $depth + 1) : $this->block($child, $depth + 1),
+                'table' => $this->allowed($child, $depth + 1)
+                    ? $this->container(
+                        '<figure' . $this->attrs(Node::at('figure', $child->start, $child->end), ['carve-figure-panel']) . '>',
+                        '</figure>',
+                        [$this->tables->table($child, $depth + 2)],
+                        $depth + 1,
+                    )
+                    : $this->block($child, $depth + 1),
                 default => $this->block($child, $depth + 1),
             };
             if ($html !== null) {
@@ -1222,12 +1328,14 @@ final class HtmlRenderer
     {
         $open = '<' . $tag . $this->attrs($caption, block: false) . '>';
         $visible = self::visibleOf($caption->children ?? []);
-        if (count($visible) === 1 && $visible[0]->type === 'paragraph') {
+        if (count($visible) === 1 && $visible[0]->type === 'paragraph' && !self::hasFigureCaption($visible[0])) {
             return self::pad($depth) . $open . $this->inline->leaf($visible[0]->children ?? [], $depth + 1) . '</' . $tag . '>';
         }
         $blocks = [];
         foreach ($visible as $block) {
-            $blocks[] = (string)($block->type === 'paragraph' ? $this->paragraph($block, $depth + 1, false) : $this->block($block, $depth + 1));
+            $blocks[] = (string)($block->type === 'paragraph' && !self::hasFigureCaption($block)
+                ? $this->paragraph($block, $depth + 1, false)
+                : $this->block($block, $depth + 1));
         }
 
         return $this->container($open, '</' . $tag . '>', $blocks, $depth);
@@ -1263,6 +1371,12 @@ final class HtmlRenderer
                 $parts[] = '@' . $name . ':' . self::includeValue(PlainText::str($value), $name === 'cols');
             }
         }
+        $invalidOptions = $node->f['invalid'] ?? null;
+        foreach (is_array($invalidOptions) ? $invalidOptions : [] as $invalid) {
+            if (is_string($invalid)) {
+                $parts[] = $invalid;
+            }
+        }
         $parts[] = '}}';
 
         return implode(' ', $parts);
@@ -1296,7 +1410,11 @@ final class HtmlRenderer
      */
     private function blockExtension(Node $node, int $depth): ?string
     {
-        $this->log->loss('extension-fallback-rendered', 'warning', 'extension ' . PlainText::str($node->f['name'] ?? '') . ' rendered through its fallback');
+        $this->log->loss(
+            'extension-fallback-rendered',
+            'warning',
+            'extension ' . PlainText::str($node->f['name'] ?? '') . ' rendered through its fallback',
+        );
         $fallback = PlainText::nodes($node->f['fallback'] ?? []);
         $blocks = $this->blocks($fallback, $depth);
 

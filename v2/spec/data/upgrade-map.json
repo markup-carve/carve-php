@@ -577,7 +577,7 @@
       "group": "tables",
       "from": "|= a |= b |\n| ^ | 2 |\n| 3 | 4 |\n",
       "to": "|= a |= b |\n| ^ | 2 |\n| 3 | 4 |\n",
-      "meaning02": "<table>\n  <thead>\n    <tr><th scope=\"col\">a</th><th scope=\"col\">b</th></tr>\n  </thead>\n  <tbody>\n    <tr><td></td><td>2</td></tr>\n    <tr><td>3</td><td>4</td></tr>\n  </tbody>\n</table>",
+      "meaning02": "<table>\n  <thead>\n    <tr><th scope=\"col\">a</th><th scope=\"col\">b</th></tr>\n  </thead>\n  <tbody>\n    <tr><td>^</td><td>2</td></tr>\n    <tr><td>3</td><td>4</td></tr>\n  </tbody>\n</table>",
       "toolEntry": "U-060",
       "silent": true
     },
@@ -1322,16 +1322,6 @@
       "silent": true
     },
     {
-      "id": "U-156",
-      "kind": "report",
-      "group": "measured rendering changes",
-      "from": "::: e[",
-      "to": "",
-      "meaning02": "<div class=\"e[\">\n\n</div>",
-      "toolEntry": "U-156",
-      "silent": true
-    },
-    {
       "id": "U-157",
       "kind": "report",
       "group": "measured rendering changes",
@@ -1489,16 +1479,6 @@
       "to": "",
       "meaning02": "<dl loose=\"\">\n  <dt>T</dt>\n</dl>",
       "toolEntry": "U-172",
-      "silent": true
-    },
-    {
-      "id": "U-173",
-      "kind": "report",
-      "group": "measured rendering changes",
-      "from": "c--------",
-      "to": "",
-      "meaning02": "<p>c–——</p>",
-      "toolEntry": "U-173",
       "silent": true
     },
     {
@@ -1819,16 +1799,6 @@
       "to": "Text[^a]\\{.ref}.\n",
       "meaning02": "C2-I-043 and C2-I-088 let the attribute after an unresolved footnote marker change its rendering. Escape the attribute opener to retain 0.1 literal text.",
       "toolEntry": "U-207",
-      "silent": true
-    },
-    {
-      "id": "U-208",
-      "kind": "escape",
-      "group": "measured item boundary rewrites",
-      "from": "-{+a+} text\n",
-      "to": "\\-{+a+} text\n",
-      "meaning02": "C2-B-100 and C2-B-101 read a braced insertion next to a list marker as item syntax. Escape the dash to retain 0.1 paragraph text and its insertion.",
-      "toolEntry": "U-208",
       "silent": true
     },
     {
@@ -2613,7 +2583,7 @@
       "id": "T-038",
       "kind": "rename",
       "from": "figure.target and shortCaption",
-      "to": "figure.kind and caption.short",
+      "to": "caption.short; the figure itself is unwrapped (T-051, T-052)",
       "migrationRule": "C2-A-050",
       "silent": false
     },
@@ -2701,7 +2671,7 @@
       "id": "T-049",
       "kind": "add",
       "from": "include directive",
-      "to": "include with path, section and typed options; no expansion in core tree",
+      "to": "include with path, section, typed valid options and the invalid options as written; no expansion in core tree",
       "migrationRule": "C2-A-181",
       "silent": false
     },
@@ -2711,6 +2681,22 @@
       "from": "no extension source record; block extension deferred in an earlier draft",
       "to": "qualified block_extension and inline_extension may carry a typed source record; a block extension has a required core fallback",
       "migrationRule": "C2-A-122 C2-A-125 C2-X-024",
+      "silent": false
+    },
+    {
+      "id": "T-051",
+      "kind": "merge",
+      "from": "a figure that holds one image paragraph, code block, quote or math paragraph, and comments after it",
+      "to": "that block, with the caption and the attrs of the figure in its own fields; the comments go where C2-A-082 places them; kind is dropped",
+      "migrationRule": "C2-A-082 C2-A-178",
+      "silent": false
+    },
+    {
+      "id": "T-052",
+      "kind": "move",
+      "from": "any other figure",
+      "to": "a figure_group with the same children, caption and attrs; kind is dropped",
+      "migrationRule": "C2-A-084 C2-A-178",
       "silent": false
     }
   ]

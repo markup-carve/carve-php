@@ -32,6 +32,8 @@ final class Node
 
     public int $end = -1;
 
+    public int $ownStart = -1;
+
     /**
      * @param string $type
      * @param array<\MarkupCarve\Carve2\Node>|null $children

@@ -5678,8 +5678,11 @@ final class Tables
     /** line-shapes.json ref raw_format */
     public const CHARS_RAW_FORMAT = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
 
-    /** C2-B-190 limits.json depth_cap */
-    public const DEPTH_CAP = 200;
+    /** C2-B-190 limits.json block_depth */
+    public const BLOCK_DEPTH = 200;
+
+    /** C2-I-118 limits.json inline_depth */
+    public const INLINE_DEPTH = 200;
 
     /** C2-B-052 limits.json */
     public const LIST_END_BLANK_LINES = 3;
@@ -5929,26 +5932,7 @@ final class Tables
     ];
 
     /** C2-I-104 */
-    public const SMART_QUOTE_OPENS_AFTER = '(/:=[{';
-
-    /** C2-I-106 */
-    public const SMART_QUOTE_CLOSES_BEFORE = '!"\'),.:;?]';
-
-    /** C2-I-107 */
-    public const SMART_APOSTROPHE_WORDS = [
-        'bout' => true,
-        'cause' => true,
-        'em' => true,
-        'n' => true,
-        'til' => true,
-        'tis' => true,
-        'tisn' => true,
-        'twas' => true,
-        'twasn' => true,
-        'twere' => true,
-        'twill' => true,
-        'twould' => true,
-    ];
+    public const SMART_QUOTE_OPENS_AFTER = '(:=[{‘“';
 
     /** C2-H-144 heading-slug.json */
     public const SLUG_REMOVED = [
@@ -6344,54 +6328,42 @@ final class Tables
             'name' => 'lines',
             'kind' => 'selection',
             'value' => 'range',
-            'without_value' => 'paragraph',
-            'outside_shape' => 'include_node',
-            'repeated' => 'paragraph',
+            'needs_value' => true,
         ],
         [
             'rank' => 2,
             'name' => 'region',
             'kind' => 'selection',
             'value' => 'identifier',
-            'without_value' => 'paragraph',
-            'outside_shape' => 'paragraph',
-            'repeated' => 'paragraph',
+            'needs_value' => true,
         ],
         [
             'rank' => 3,
             'name' => 'rows',
             'kind' => 'selection',
             'value' => 'range',
-            'without_value' => 'include_node',
-            'outside_shape' => 'include_node',
-            'repeated' => 'include_node',
+            'needs_value' => true,
         ],
         [
             'rank' => 4,
             'name' => 'cols',
             'kind' => 'transform',
             'value' => 'range_or_names',
-            'without_value' => 'include_node',
-            'outside_shape' => 'include_node',
-            'repeated' => 'include_node',
+            'needs_value' => true,
         ],
         [
             'rank' => 5,
             'name' => 'shift',
             'kind' => 'transform',
             'value' => 'signed_integer_or_auto',
-            'without_value' => 'paragraph',
-            'outside_shape' => 'paragraph',
-            'repeated' => 'paragraph',
+            'needs_value' => true,
         ],
         [
             'rank' => 6,
             'name' => 'code',
             'kind' => 'mode',
             'value' => 'language',
-            'without_value' => 'valid',
-            'outside_shape' => 'paragraph',
-            'repeated' => 'paragraph',
+            'needs_value' => false,
         ],
     ];
 

@@ -219,9 +219,12 @@ final class BlockClausesTest extends TestCase
     /**
      * @return void
      */
-    public function testC2B173FailedSpanInHeaderRowIsHeaderCell(): void
+    public function testC2B173BlockedSpanKeepsAuthoredHeader(): void
     {
-        $this->assertTree("|=|^|\n|a|b|", '[{"type":"table","columns":[{"type":"table_column"},{"type":"table_column"}],"children":[{"type":"table_head","children":[{"type":"table_row","children":[{"type":"table_cell","header":true,"children":[{"type":"cell_paragraph"}]},{"type":"table_cell","header":true,"children":[{"type":"cell_paragraph"}]}]}]},{"type":"table_body","children":[{"type":"table_row","children":[{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]},{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]}]}]}]}]');
+        $table = self::encode("|=|^|\n|a|b|")['children'][0];
+        $this->assertSame(['table_body'], array_column($table['children'], 'type'));
+        $cells = $table['children'][0]['children'][0]['children'];
+        $this->assertSame([true, false], array_column($cells, 'header'));
     }
 
     /**
@@ -272,9 +275,12 @@ final class BlockClausesTest extends TestCase
     /**
      * @return void
      */
-    public function testC2B147CaptionWrapsImageInFigure(): void
+    public function testC2A082CaptionIsImageParagraphSlot(): void
     {
-        $this->assertTree("![x](a.png)\n^ The caption", '[{"type":"figure","caption":{"type":"caption","children":[{"type":"paragraph"}]},"children":[{"type":"paragraph","role":"image"}]}]');
+        $block = self::encode("![x](a.png)\n^ The caption")['children'][0];
+        $this->assertSame('paragraph', $block['type']);
+        $this->assertSame('image', $block['role']);
+        $this->assertSame('caption', $block['caption']['type']);
     }
 
     /**

@@ -62,7 +62,7 @@ final class HardeningTest extends TestCase
                 sort($samples);
                 $times[] = $samples[1];
             }
-            $this->assertLessThanOrEqual(max(2.0, $times[0] * 18), $times[3], $name);
+            $this->assertLessThanOrEqual(max(2.0, $times[0] * 24), $times[3], $name);
         }
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Inline;
 
+use LogicException;
 use MarkupCarve\Carve2\AttributeParser;
 use MarkupCarve\Carve2\Attrs;
 use MarkupCarve\Carve2\Generated\Tables;
@@ -91,8 +92,6 @@ final class Scanner
 
     private bool $caption;
 
-    private bool $cell;
-
     /**
      * @var string
      */
@@ -128,11 +127,25 @@ final class Scanner
     public array $tok = [];
 
     /**
-     * Open bracket frames: [kind, token index, opener start, content start, name].
+     * Open bracket frames: [kind, token index, opener start, content start, name, delimiter stack, poison counts].
      *
-     * @var array<array{0: int, 1: int, 2: int, 3: int, 4: string}>
+     * @var array<array{0: int, 1: int, 2: int, 3: int, 4: string, 5: array<array{string, int, int, int}>, 6: array<string, int>}>
      */
     private array $frames = [];
+
+    /**
+     * C2-I-118: provisional delimiter openers for the bracket cap decision.
+     *
+     * @var array<array{0: string, 1: int, 2: int, 3: int}>
+     */
+    private array $capDelims = [];
+
+    /**
+     * C2-I-053: poison counts used by the provisional delimiter stack.
+     *
+     * @var array<string, int>
+     */
+    private array $capPoison = ['*' => 0, '/' => 0];
 
     private int $textStart = 0;
 
@@ -185,6 +198,11 @@ final class Scanner
     public bool $images = false;
 
     /**
+     * C2-I-118: each possible opener uses one of these four characters.
+     */
+    public bool $capTracking;
+
+    /**
      * Bare marks already given to the delimiter pass, by mark.
      *
      * @var array<string, true>
@@ -201,7 +219,7 @@ final class Scanner
     /**
      * @param \MarkupCarve\Carve2\Inline\Content $c
      * @param \MarkupCarve\Carve2\Inline\InlineContext $ctx
-     * @param int $depth Block depth of the leaf (C2-I-118).
+     * @param int $depth Inline depth at the start of the content (C2-I-118).
      * @param int $mode Bits of LINE_BLOCK, HARD_BREAKS, CAPTION and CELL.
      */
     public function __construct(
@@ -212,10 +230,12 @@ final class Scanner
     ) {
         $this->t = $c->t;
         $this->n = strlen($this->t);
+        $this->capTracking = str_contains($this->t, '[')
+            && $depth + substr_count($this->t, '[') + substr_count($this->t, '{')
+                + substr_count($this->t, '*') + substr_count($this->t, '/') >= Tables::INLINE_DEPTH;
         $this->lineBlock = ($mode & self::LINE_BLOCK) !== 0;
         $this->hardBreaks = ($mode & self::HARD_BREAKS) !== 0;
         $this->caption = ($mode & self::CAPTION) !== 0;
-        $this->cell = ($mode & self::CELL) !== 0;
     }
 
     /**
@@ -257,7 +277,7 @@ final class Scanner
             '}' => $this->closingBrace($i),
             '[' => $this->openBracket($i),
             ']' => $this->closeBracket($i),
-            '^' => $i + 1 < $this->n && $t[$i + 1] === '[' ? $this->pushFrame(self::F_FOOTNOTE, $i, $i + 2, '') : -1,
+            '^' => $i + 1 < $this->n && $t[$i + 1] === '[' ? $this->pushFrameOrText(self::F_FOOTNOTE, $i, $i + 2, '') : -1,
             '*', '/' => $this->bare($i),
             "\n" => $this->lineBreak($i, $i, $this->hardBreaks ? 'hard_break' : 'soft_break'),
             default => $this->sigilChar($i),
@@ -487,7 +507,7 @@ final class Scanner
             return $this->codeSpan($i, $i + 1, 'literal');
         }
         if ($c === '[') {
-            return $this->pushFrame(self::F_IMAGE, $i, $i + 2, '');
+            return $this->pushFrameOrText(self::F_IMAGE, $i, $i + 2, '');
         }
 
         return -1;
@@ -566,24 +586,18 @@ final class Scanner
         $t = $this->t;
         $len = strspn($t, '`', $run);
         $close = $this->closingRun($len, $run + $len);
-        if ($close < 0 && $this->cell) {
-            // C2-B-223: an unclosed code span at the end of a cell is text.
+        if ($close < 0) {
+            // C2-I-017: the whole opener is text, and the scan resumes behind its run.
             return $run + $len;
         }
-        if ($close < 0) {
-            // C2-I-017: an unclosed span runs to the end of the content.
-            $value = rtrim(substr($t, $run + $len), " \t\n");
-            $end = $this->n;
-        } else {
-            $value = substr($t, $run + $len, $close - $run - $len);
-            $end = $close + $len;
-            // C2-I-016
-            $vl = strlen($value);
-            if ($vl >= 2 && $value[0] === ' ' && $value[$vl - 1] === ' ' && strspn($value, ' ') !== $vl) {
-                $value = substr($value, 1, -1);
-            }
+        $value = substr($t, $run + $len, $close - $run - $len);
+        $end = $close + $len;
+        // C2-I-016
+        $vl = strlen($value);
+        if ($vl >= 2 && $value[0] === ' ' && $value[$vl - 1] === ' ' && strspn($value, ' ') !== $vl) {
+            $value = substr($value, 1, -1);
         }
-        if ($kind === 'code' && $close >= 0) {
+        if ($kind === 'code') {
             $raw = $this->rawSuffix($end);
             if ($raw !== null) {
                 $node = $this->node('raw_inline', $start, $raw[1]);
@@ -888,7 +902,7 @@ final class Scanner
         if ($j >= $this->n || $t[$j] !== $m || ($j + 1 < $this->n && ($t[$j + 1] === $m || $t[$j + 1] === '}'))) {
             return -1;
         }
-        if ($this->depth + count($this->tok) + count($this->frames) + 2 >= Tables::DEPTH_CAP) {
+        if ($this->depth + count($this->frames) + count($this->capDelims) >= Tables::INLINE_DEPTH) {
             return -1;
         }
         $c = $j + 1 < $this->n ? $t[$j + 1] : '';
@@ -1011,7 +1025,7 @@ final class Scanner
             $k = 1 + strspn($t, Tables::SIGIL_INLINE_EXTENSION_REST, $i + 2);
             $b = $i + 1 + $k;
             if ($b < $this->n && $t[$b] === '[') {
-                return $this->pushFrame(self::F_EXTENSION, $i, $b + 1, substr($t, $i + 1, $k));
+                return $this->pushFrameOrText(self::F_EXTENSION, $i, $b + 1, substr($t, $i + 1, $k));
             }
         }
 
@@ -1026,8 +1040,97 @@ final class Scanner
     private function delim(array $token): int
     {
         $this->delims = true;
+        if ($this->capTracking) {
+            $token['frames'] = count($this->frames);
+            $this->trackCapDelimiter($token);
+        }
 
         return $this->emit($token);
+    }
+
+    /**
+     * C2-I-118: delimiter openers count while a later bracket opener is read.
+     *
+     * @param array<mixed> $token
+     *
+     * @throws \LogicException
+     */
+    private function trackCapDelimiter(array $token): void
+    {
+        $mark = $token[4];
+        $start = $token[2];
+        $end = $token[3];
+        if (!is_string($mark) || !is_int($start) || !is_int($end)) {
+            throw new LogicException('Invalid delimiter token');
+        }
+        if ($token[1] === self::OPENER) {
+            $this->openCapDelimiter('{' . $mark, $end);
+
+            return;
+        }
+        if ($token[1] === self::CLOSER) {
+            if ($this->closeCapDelimiter('{' . $mark, $start, false)) {
+                return;
+            }
+            if ($token[8] !== 1) {
+                return;
+            }
+        }
+        $this->trackCapBare($token, $mark, $start, $end);
+    }
+
+    /**
+     * C2-I-057: a closer with no braced opener falls back to its bare mark.
+     *
+     * @param array<mixed> $token
+     * @param string $mark
+     * @param int $start
+     * @param int $end
+     */
+    private function trackCapBare(array $token, string $mark, int $start, int $end): void
+    {
+        if ($token[6] && $this->closeCapDelimiter($mark, $start, true)) {
+            return;
+        }
+        if ($token[5]) {
+            $this->openCapDelimiter($mark, $end);
+
+            return;
+        }
+        if ($token[1] === self::BARE && $token[7]) {
+            $this->capPoison[$mark]++;
+        }
+    }
+
+    private function openCapDelimiter(string $kind, int $end): void
+    {
+        if ($this->depth + count($this->frames) + count($this->capDelims) < Tables::INLINE_DEPTH) {
+            $this->capDelims[] = [$kind, $this->capPoison['*'], $this->capPoison['/'], $end];
+        }
+    }
+
+    private function closeCapDelimiter(string $kind, int $start, bool $bare): bool
+    {
+        // C2-I-007: a delimiter inside a bracket construct cannot close one outside it.
+        $base = $this->frames === [] ? 0 : count($this->frames[count($this->frames) - 1][5]);
+        for ($i = count($this->capDelims) - 1; $i >= $base; $i--) {
+            $entry = $this->capDelims[$i];
+            if ($entry[0] === $kind) {
+                if ($bare && $this->capPoison[$kind] > $entry[$kind === '*' ? 1 : 2] || (!$bare && $entry[3] === $start)) {
+                    array_splice($this->capDelims, $i, 1);
+                } else {
+                    $this->capDelims = array_slice($this->capDelims, 0, $i);
+                    if (!$bare) {
+                        $this->capPoison['*'] = $entry[1];
+                        $this->capPoison['/'] = $entry[2];
+                    }
+                }
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1107,15 +1210,32 @@ final class Scanner
     private function pushFrame(int $kind, int $ts, int $cs, string $name): int
     {
         // C2-I-118: an opener at the cap is text.
-        if ($this->depth + count($this->frames) >= Tables::DEPTH_CAP) {
+        if ($this->depth + count($this->frames) + count($this->capDelims) >= Tables::INLINE_DEPTH) {
             return -1;
         }
         $this->flush($ts);
-        $this->frames[] = [$kind, count($this->tok), $ts, $cs, $name];
+        $this->frames[] = [$kind, count($this->tok), $ts, $cs, $name, $this->capDelims, $this->capPoison];
         $this->tok[] = [self::TEXT, substr($this->t, $ts, $cs - $ts), $ts, $cs, false];
         $this->textStart = $cs;
 
         return $cs;
+    }
+
+    /**
+     * C2-I-118: a failed opener is text as a whole; scanning resumes behind it.
+     *
+     * @param int $kind
+     * @param int $ts
+     * @param int $cs
+     * @param string $name
+     *
+     * @return int
+     */
+    private function pushFrameOrText(int $kind, int $ts, int $cs, string $name): int
+    {
+        $next = $this->pushFrame($kind, $ts, $cs, $name);
+
+        return $next < 0 ? $cs : $next;
     }
 
     /**
@@ -1220,7 +1340,7 @@ final class Scanner
     /**
      * Forms a bracket construct: the tokens of its content move into it.
      *
-     * @param array{0: int, 1: int, 2: int, 3: int, 4: string} $frame
+     * @param array{0: int, 1: int, 2: int, 3: int, 4: string, 5: array<array{string, int, int, int}>, 6: array<string, int>} $frame
      * @param \MarkupCarve\Carve2\Node $node
      * @param int $close Offset of the closing bracket.
      * @param int $end
@@ -1230,6 +1350,8 @@ final class Scanner
      */
     private function form(array $frame, Node $node, int $close, int $end, bool $bang = false): int
     {
+        $this->capDelims = $frame[5];
+        $this->capPoison = $frame[6];
         $this->flush($close);
         $inner = array_slice($this->tok, $frame[1] + 1);
         for ($k = count($this->tok) - 1; $k >= $frame[1]; $k--) {
@@ -1243,7 +1365,11 @@ final class Scanner
         if ($node->type === 'image') {
             $this->images = true;
         }
-        $this->tok[] = [self::NODE, $node, $start, $end, true, new TokenList($node->type === 'image' ? [] : $inner, $frame[3], $close)];
+        $this->tok[] = [
+            self::NODE, $node, $start, $end, true,
+            new TokenList($node->type === 'image' ? [] : $inner, $frame[3], $close),
+            'frames' => count($this->frames),
+        ];
         $this->textStart = $end;
 
         return $end;
@@ -1252,7 +1378,7 @@ final class Scanner
     /**
      * C2-I-064 to C2-I-074, C2-I-125: what is glued to the closing bracket decides the construct.
      *
-     * @param array{0: int, 1: int, 2: int, 3: int, 4: string} $frame
+     * @param array{0: int, 1: int, 2: int, 3: int, 4: string, 5: array<array{string, int, int, int}>, 6: array<string, int>} $frame
      * @param int $i
      *
      * @return int
@@ -1301,7 +1427,7 @@ final class Scanner
     /**
      * C2-I-040, C2-I-064: a span; before it a `!` is text (C2-I-074).
      *
-     * @param array{0: int, 1: int, 2: int, 3: int, 4: string} $frame
+     * @param array{0: int, 1: int, 2: int, 3: int, 4: string, 5: array<array{string, int, int, int}>, 6: array<string, int>} $frame
      * @param int $i
      * @param int $end
      * @param \MarkupCarve\Carve2\Attrs $attrs
@@ -1320,7 +1446,7 @@ final class Scanner
     /**
      * C2-I-072, C2-I-078: a full or collapsed reference; -2 when the glued bracket is no label.
      *
-     * @param array{0: int, 1: int, 2: int, 3: int, 4: string} $frame
+     * @param array{0: int, 1: int, 2: int, 3: int, 4: string, 5: array<array{string, int, int, int}>, 6: array<string, int>} $frame
      * @param int $i
      * @param string $text
      * @param bool $image
@@ -1356,7 +1482,7 @@ final class Scanner
     }
 
     /**
-     * @param array{0: int, 1: int, 2: int, 3: int, 4: string} $frame
+     * @param array{0: int, 1: int, 2: int, 3: int, 4: string, 5: array<array{string, int, int, int}>, 6: array<string, int>} $frame
      * @param int $i
      * @param int $end
      * @param string $key
@@ -1382,7 +1508,7 @@ final class Scanner
     /**
      * C2-I-072, C2-I-101, C2-I-125: a shortcut forms only for a defined key; otherwise the pair is text.
      *
-     * @param array{0: int, 1: int, 2: int, 3: int, 4: string} $frame
+     * @param array{0: int, 1: int, 2: int, 3: int, 4: string, 5: array<array{string, int, int, int}>, 6: array<string, int>} $frame
      * @param int $i
      * @param string $text
      * @param bool $image

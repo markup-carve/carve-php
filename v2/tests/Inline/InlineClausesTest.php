@@ -111,10 +111,10 @@ final class InlineClausesTest extends InlineTestCase
     /**
      * @return void
      */
-    public function testC2I017UnclosedCodeSpanRunsToEnd(): void
+    public function testC2I017UnclosedCodeSpanIsText(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") code@2-8(value="b *c*")',
+            'text@0-5(value="a `b ") strong@5-8{text@6-7(value="c")}',
             self::inline('a `b *c*'),
         );
     }
@@ -672,10 +672,22 @@ final class InlineClausesTest extends InlineTestCase
     /**
      * @return void
      */
-    public function testC2I107ApostropheWords(): void
+    public function testC2I104ApostropheUsesLocalNeighbors(): void
     {
         $this->assertSame(
-            "text@0-2(value=\"a \") smart_punctuation@2-3(kind=\"right_single_quote\" glyph=\"\u{2019}\" source=\"'\") text@3-7(value=\"tis \") smart_punctuation@7-8(kind=\"left_single_quote\" glyph=\"\u{2018}\" source=\"'\") text@8-12(value=\"twas\") smart_punctuation@12-13(kind=\"right_single_quote\" glyph=\"\u{2019}\" source=\"'\") text@13-19(value=\" rock \") smart_punctuation@19-20(kind=\"right_single_quote\" glyph=\"\u{2019}\" source=\"'\") text@20-21(value=\"n\") smart_punctuation@21-22(kind=\"right_single_quote\" glyph=\"\u{2019}\" source=\"'\") text@22-27(value=\" roll\")",
+            implode(' ', [
+                'text@0-2(value="a ")',
+                "smart_punctuation@2-3(kind=\"left_single_quote\" glyph=\"\u{2018}\" source=\"'\")",
+                'text@3-7(value="tis ")',
+                "smart_punctuation@7-8(kind=\"left_single_quote\" glyph=\"\u{2018}\" source=\"'\")",
+                'text@8-12(value="twas")',
+                "smart_punctuation@12-13(kind=\"right_single_quote\" glyph=\"\u{2019}\" source=\"'\")",
+                'text@13-19(value=" rock ")',
+                "smart_punctuation@19-20(kind=\"left_single_quote\" glyph=\"\u{2018}\" source=\"'\")",
+                'text@20-21(value="n")',
+                "smart_punctuation@21-22(kind=\"right_single_quote\" glyph=\"\u{2019}\" source=\"'\")",
+                'text@22-27(value=" roll")',
+            ]),
             self::inline('a \'tis \'twas\' rock \'n\' roll'),
         );
     }
@@ -683,10 +695,19 @@ final class InlineClausesTest extends InlineTestCase
     /**
      * @return void
      */
-    public function testC2I109SingleQuotesDoNotNest(): void
+    public function testC2I104SingleQuotesUseLocalNeighbors(): void
     {
         $this->assertSame(
-            "text@0-2(value=\"a \") smart_punctuation@2-3(kind=\"left_single_quote\" glyph=\"\u{2018}\" source=\"'\") text@3-5(value=\"b \") smart_punctuation@5-6(kind=\"right_single_quote\" glyph=\"\u{2019}\" source=\"'\") text@6-7(value=\"c\") smart_punctuation@7-8(kind=\"right_single_quote\" glyph=\"\u{2019}\" source=\"'\") text@8-10(value=\" d\") smart_punctuation@10-11(kind=\"right_single_quote\" glyph=\"\u{2019}\" source=\"'\")",
+            implode(' ', [
+                'text@0-2(value="a ")',
+                "smart_punctuation@2-3(kind=\"left_single_quote\" glyph=\"\u{2018}\" source=\"'\")",
+                'text@3-5(value="b ")',
+                "smart_punctuation@5-6(kind=\"left_single_quote\" glyph=\"\u{2018}\" source=\"'\")",
+                'text@6-7(value="c")',
+                "smart_punctuation@7-8(kind=\"right_single_quote\" glyph=\"\u{2019}\" source=\"'\")",
+                'text@8-10(value=" d")',
+                "smart_punctuation@10-11(kind=\"right_single_quote\" glyph=\"\u{2019}\" source=\"'\")",
+            ]),
             self::inline('a \'b \'c\' d\''),
         );
     }

@@ -67,7 +67,8 @@ final class SpecRulingsTest extends TestCase
         $one = json_decode(Carve2::toJson('*[B]: lead'), true, 512, JSON_THROW_ON_ERROR);
         $two = json_decode(Carve2::toJson('*[B]:  lead'), true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame('abbreviation_def', $one['children'][0]['type']);
-        $this->assertSame('paragraph', $two['children'][0]['type']);
+        $this->assertSame('abbreviation_def', $two['children'][0]['type']);
+        $this->assertSame(' lead', $two['children'][0]['expansion']);
     }
 
     public function testC2B092PendingAttributeAtLostItemBecomesParagraph(): void
@@ -244,7 +245,7 @@ final class SpecRulingsTest extends TestCase
     {
         $src = "![i](a.png)\n^ Figure #: cap\n\n| t |\n^ Table #: tc";
         $this->assertSame(
-            "<p>[img: i]</p>\n<p>Figure 1: cap</p>\n<p>t</p>\n<p>Table 1: tc</p>",
+            "<p>i</p>\n<p>Figure 1: cap</p>\n<p>t</p>\n<p>Table 1: tc</p>",
             Carve2::toHtml($src, ['profile' => 'comment']),
         );
     }
@@ -402,27 +403,28 @@ final class SpecRulingsTest extends TestCase
     {
         foreach (
             [
-                "- a\n\n   ::: |\n     x\n   :::",
-                "1. a\n\n    ::: |\n      x\n    :::",
-                "- a\n\n  ::: b\n    ::: |\n      x\n    :::\n  :::",
-                "> - a\n>\n>    ::: |\n>      x\n>    :::",
-            ] as $src
+                "- a\n\n   ::: |\n     x\n   :::" => 3,
+                "1. a\n\n    ::: |\n      x\n    :::" => 3,
+                "- a\n\n  ::: b\n    ::: |\n      x\n    :::\n  :::" => 4,
+                "> - a\n>\n>    ::: |\n>      x\n>    :::" => 3,
+            ] as $src => $spaces
         ) {
-            $this->assertStringContainsString('<p>&nbsp;&nbsp;x</p>', Carve2::toHtml($src));
+            $this->assertStringContainsString('<p>' . str_repeat('&nbsp;', $spaces) . 'x</p>', Carve2::toHtml($src));
         }
     }
 
-    public function testC2A181IncludeRowsAndColsAcceptOutOfShapeValues(): void
+    public function testC2A181IncludeRowsAndColsKeepOutOfShapeValuesInvalid(): void
     {
         foreach (
             [
-                '{{ a.crv @rows }}' => ['rows' => ''],
-                '{{ a.crv @rows:x }}' => ['rows' => 'x'],
-                '{{ a.crv @cols:"a,,b" }}' => ['cols' => 'a,,b'],
+                '{{ a.crv @rows }}' => '@rows',
+                '{{ a.crv @rows:x }}' => '@rows:x',
+                '{{ a.crv @cols:"a,,b" }}' => '@cols:"a,,b"',
             ] as $src => $expected
         ) {
             $tree = json_decode(Carve2::toJson($src), true, 512, JSON_THROW_ON_ERROR);
-            $this->assertSame($expected, $tree['children'][0]['options']);
+            $this->assertArrayNotHasKey('options', $tree['children'][0]);
+            $this->assertSame([$expected], $tree['children'][0]['invalid']);
         }
     }
 
@@ -430,7 +432,7 @@ final class SpecRulingsTest extends TestCase
     {
         $src = "![i](a.png)\n^ a `x` b $`m`\n\n> q `c` $`n`\n\np $`k`";
         $this->assertSame(
-            "<p>[img: i]</p>\n<p>a x b m</p>\n<p>&gt; q c n</p>\n<p>p $`k`</p>",
+            "<p>i</p>\n<p>a x b m</p>\n<p>&gt; q c n</p>\n<p>p $`k`</p>",
             Carve2::toHtml($src, ['profile' => 'minimal']),
         );
     }
@@ -454,9 +456,9 @@ final class SpecRulingsTest extends TestCase
     public function testC2H171EmptyIncludeOptionsUseNoValueSpelling(): void
     {
         $this->assertSame('<p>{{ a.crv @rows }}</p>', Carve2::toHtml('{{ a.crv @rows }}'));
-        $this->assertSame('<p>{{ a.crv @rows @cols }}</p>', Carve2::toHtml('{{ a.crv @cols @rows }}'));
-        $this->assertSame('<p>{{ a.crv @rows }}</p>', Carve2::toHtml('{{ a.crv @rows:"" }}'));
-        $this->assertSame('<p>{{ a.crv @cols }}</p>', Carve2::toHtml('{{ a.crv @cols:"" }}'));
+        $this->assertSame('<p>{{ a.crv @cols @rows }}</p>', Carve2::toHtml('{{ a.crv @cols @rows }}'));
+        $this->assertSame('<p>{{ a.crv @rows:"" }}</p>', Carve2::toHtml('{{ a.crv @rows:"" }}'));
+        $this->assertSame('<p>{{ a.crv @cols:"" }}</p>', Carve2::toHtml('{{ a.crv @cols:"" }}'));
     }
 
     public function testC2I057BareMarkBeforeBraceBlocksFastPair(): void
@@ -467,9 +469,10 @@ final class SpecRulingsTest extends TestCase
 
     public function testC2B122InvalidDivInfoStillOpensAnAnonymousDiv(): void
     {
-        foreach (['*', '<ul>', '|x', '"unclosed'] as $info) {
+        foreach (['*', '<ul>', '"unclosed'] as $info) {
             $this->assertSame("<div>\n  <p>x</p>\n</div>", Carve2::toHtml("::: $info\nx\n:::"));
         }
+        $this->assertSame("<div class=\"line-block\">\n  <p>x</p>\n</div>", Carve2::toHtml("::: |x\nx\n:::"));
         $this->assertSame("<p>:::note\nx</p>\n<div>\n\n</div>", Carve2::toHtml(":::note\nx\n:::"));
     }
 

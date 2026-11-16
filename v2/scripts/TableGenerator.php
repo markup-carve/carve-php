@@ -67,7 +67,8 @@ final class TableGenerator
         foreach ($load('limits')['limits'] as $row) {
             $limits[$row['name']] = $row['value'];
         }
-        $consts['DEPTH_CAP'] = ['C2-B-190 limits.json depth_cap', $limits['depth_cap']];
+        $consts['BLOCK_DEPTH'] = ['C2-B-190 limits.json block_depth', $limits['block_depth']];
+        $consts['INLINE_DEPTH'] = ['C2-I-118 limits.json inline_depth', $limits['inline_depth']];
         $consts['LIST_END_BLANK_LINES'] = ['C2-B-052 limits.json', $limits['list_end_blank_lines']];
         $consts['TAB_STOP'] = ['C2-B-004 limits.json', $limits['tab_stop']];
 
@@ -182,8 +183,6 @@ final class TableGenerator
         }
         $consts['SMART_GLYPHS'] = ['C2-I-104 C2-I-111 smart-punctuation.json', $quotes];
         $consts['SMART_QUOTE_OPENS_AFTER'] = ['C2-I-104', implode('', $smart['quote_opens_after']['chars'])];
-        $consts['SMART_QUOTE_CLOSES_BEFORE'] = ['C2-I-106', implode('', $smart['quote_closes_after_hyphen_dash_or_slash_before']['chars'])];
-        $consts['SMART_APOSTROPHE_WORDS'] = ['C2-I-107', array_fill_keys($smart['apostrophe_words']['words'], true)];
 
         $slug = $load('heading-slug');
         $removed = [];
@@ -225,7 +224,12 @@ final class TableGenerator
 
         $options = [];
         foreach ($load('options')['options'] as $row) {
-            $options[$row['name']] = ['kind' => $row['kind'], 'type' => $row['type'], 'values' => $row['values'] ?? null, 'default' => $row['default'] ?? null];
+            $options[$row['name']] = [
+                'kind' => $row['kind'],
+                'type' => $row['type'],
+                'values' => $row['values'] ?? null,
+                'default' => $row['default'] ?? null,
+            ];
         }
         $consts['OPTIONS'] = ['C2-H-137 options.json', $options];
 
@@ -281,7 +285,10 @@ final class TableGenerator
         }
 
         return [
-            'SMART_RUNS_BY_FIRST' => ['C2-I-114 C2-I-115 C2-I-117 smart-punctuation.json: first character to sources, longest first', $byFirst],
+            'SMART_RUNS_BY_FIRST' => [
+                'C2-I-114 C2-I-115 C2-I-117 smart-punctuation.json: first character to sources, longest first',
+                $byFirst,
+            ],
             'SMART_TRIGGERS' => ['C2-I-104 to C2-I-117 smart-punctuation.json: characters that can start a replacement', $triggers],
         ];
     }

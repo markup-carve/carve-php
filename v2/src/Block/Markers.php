@@ -40,8 +40,8 @@ final class Markers
         if ($ch === '.') {
             $m = self::ordered('1', '.', -1);
             $m = self::tail($s, $j + 1, $le, 1, $m);
-            // C2-B-043: a bare dot whose content starts with a dot and a space is no marker.
-            if ($m !== null && $s[$m->content] === '.' && $m->content + 1 < $le && $s[$m->content + 1] === ' ') {
+            // C2-B-043, C2-B-229: test the text before reading a task box.
+            if ($m !== null && $s[$m->box] === '.' && $m->box + 1 < $le && $s[$m->box + 1] === ' ') {
                 return null;
             }
 

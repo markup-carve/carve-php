@@ -25,7 +25,10 @@ final class BlockParser
      *
      * @var array<int, bool>
      */
-    private const COUNTED = [Frame::QUOTE => true, Frame::LIST => true, Frame::ITEM => true, Frame::DLIST => true, Frame::DESC => true, Frame::FOOTNOTE => true, Frame::DIV => true];
+    private const COUNTED = [
+        Frame::QUOTE => true, Frame::LIST => true, Frame::ITEM => true, Frame::DLIST => true,
+        Frame::DESC => true, Frame::FOOTNOTE => true, Frame::DIV => true,
+    ];
 
     private string $s = '';
 
@@ -199,7 +202,7 @@ final class BlockParser
                 $this->closeTo($owner);
                 $top = $owner;
             }
-            $this->commentLine($owner, $top, $j, $c);
+            $this->commentLine($j);
 
             return;
         }
@@ -242,7 +245,7 @@ final class BlockParser
         }
         $list = $this->stack[$owner + 1] ?? null;
         if ($list !== null && $list->kind === Frame::LIST && $list->key === $s[$j] && $this->blank < Tables::LIST_END_BLANK_LINES) {
-            if ($this->depth + 1 > Tables::DEPTH_CAP) {
+            if ($this->depth + 1 > Tables::BLOCK_DEPTH) {
                 return false;
             }
             $this->closeLeaf();
@@ -250,7 +253,7 @@ final class BlockParser
             if ($this->blank > 0) {
                 $list->loose = true;
             }
-        } elseif ($this->leaf === null && $this->depth + 2 <= Tables::DEPTH_CAP) {
+        } elseif ($this->leaf === null && $this->depth + 2 <= Tables::BLOCK_DEPTH) {
             $this->closeTo($owner);
             $list = $this->newList($j, $c);
         } else {
@@ -473,7 +476,10 @@ final class BlockParser
         $this->closeLeaf();
         $this->flushPending();
         // C2-B-051, C2-B-080: blank lines do not end a list or a description list.
-        while (isset($this->stack[$owner + 1]) && ($this->stack[$owner + 1]->kind === Frame::LIST || $this->stack[$owner + 1]->kind === Frame::DLIST)) {
+        while (
+            isset($this->stack[$owner + 1])
+            && ($this->stack[$owner + 1]->kind === Frame::LIST || $this->stack[$owner + 1]->kind === Frame::DLIST)
+        ) {
             $owner++;
         }
         $this->closeTo($owner);
@@ -485,25 +491,17 @@ final class BlockParser
      * C2-B-137, C2-B-138: a comment-only line is skipped by ownership; its comment goes to the open
      * leaf, or else to the innermost open container.
      *
-     * @param int $owner
-     * @param int $top
      * @param int $j
-     * @param int $c
      *
      * @return void
      */
-    private function commentLine(int $owner, int $top, int $j, int $c): void
+    private function commentLine(int $j): void
     {
         $leaf = $this->leaf;
         $end = $this->trimEnd($j);
         if ($leaf !== null) {
             $kind = $leaf->kind;
-            if ($kind === Frame::PARAGRAPH || $kind === Frame::TERM || $kind === Frame::CAPTION) {
-                $this->append($leaf, $j);
-
-                return;
-            }
-            if ($kind === Frame::HEADING && $owner === $top && $c - $this->base > $leaf->markerCol) {
+            if ($kind === Frame::PARAGRAPH || $kind === Frame::TERM || $kind === Frame::CAPTION || $kind === Frame::HEADING) {
                 $this->append($leaf, $j);
 
                 return;
@@ -769,6 +767,15 @@ final class BlockParser
             if ($candidate->kind === Frame::LIST) {
                 return true;
             }
+            // C2-B-228: only a marker body, not a quote, loses its nested list at its column.
+            $body = $candidate->kind === Frame::DLIST ? $this->stack[$owner + 2] ?? null : $candidate;
+            if ($body !== null && ($body->kind === Frame::ITEM || $body->kind === Frame::DESC || $body->kind === Frame::FOOTNOTE)) {
+                for ($k = $owner + 2, $n = count($this->stack); $k < $n; $k++) {
+                    if ($this->stack[$k]->kind === Frame::LIST) {
+                        return true;
+                    }
+                }
+            }
 
             // C2-B-021: a marker without the quote mark closes a quote inside an item, when it may open a nested list (C2-B-056).
             return $candidate->kind === Frame::QUOTE && $inItem && $this->mayNest($marker);
@@ -923,9 +930,12 @@ final class BlockParser
     private function openMarker(int $owner, Marker $m, int $j, int $c): void
     {
         $candidate = $this->stack[$owner + 1] ?? null;
-        if ($candidate !== null && $candidate->kind === Frame::LIST && $this->blank < Tables::LIST_END_BLANK_LINES && $candidate->marker !== null && Markers::matches($candidate->marker, $m)) {
+        if (
+            $candidate !== null && $candidate->kind === Frame::LIST && $this->blank < Tables::LIST_END_BLANK_LINES
+            && $candidate->marker !== null && Markers::matches($candidate->marker, $m)
+        ) {
             $this->closeTo($owner + 1);
-            if ($this->depth + 1 > Tables::DEPTH_CAP) {
+            if ($this->depth + 1 > Tables::BLOCK_DEPTH) {
                 $this->closeTo($owner);
                 $this->openParagraph($j);
 
@@ -940,7 +950,7 @@ final class BlockParser
         }
         $this->closeTo($owner);
         // C2-B-190: a marker that opens a list and its item is tested as one.
-        if ($this->depth + 2 > Tables::DEPTH_CAP) {
+        if ($this->depth + 2 > Tables::BLOCK_DEPTH) {
             $this->openParagraph($j);
 
             return;
@@ -996,7 +1006,10 @@ final class BlockParser
         }
         [$term, $content] = $mark;
         $candidate = $this->stack[$owner + 1] ?? null;
-        if ($candidate !== null && $candidate->kind === Frame::DLIST && $c - $this->base === $candidate->markerCol && $this->blank < Tables::LIST_END_BLANK_LINES) {
+        if (
+            $candidate !== null && $candidate->kind === Frame::DLIST && $c - $this->base === $candidate->markerCol
+            && $this->blank < Tables::LIST_END_BLANK_LINES
+        ) {
             $this->closeTo($owner + 1);
             if ($term) {
                 $this->openTerm($j, $content);
@@ -1011,7 +1024,7 @@ final class BlockParser
             return false;
         }
         $this->closeTo($owner);
-        if ($this->depth + 1 > Tables::DEPTH_CAP) {
+        if ($this->depth + 1 > Tables::BLOCK_DEPTH) {
             return false;
         }
         $list = new Frame(Frame::DLIST, $j);
@@ -1051,7 +1064,7 @@ final class BlockParser
      */
     private function openDesc(int $j, int $c, int $content): bool
     {
-        if ($this->depth + 1 > Tables::DEPTH_CAP) {
+        if ($this->depth + 1 > Tables::BLOCK_DEPTH) {
             return false;
         }
         $f = new Frame(Frame::DESC, $j);
@@ -1122,7 +1135,7 @@ final class BlockParser
     private function openQuote(int $j, int $c): bool
     {
         $s = $this->s;
-        if (($j + 1 < $this->le && $s[$j + 1] !== ' ') || $this->depth + 1 > Tables::DEPTH_CAP) {
+        if (($j + 1 < $this->le && $s[$j + 1] !== ' ') || $this->depth + 1 > Tables::BLOCK_DEPTH) {
             return false;
         }
         $quote = new Frame(Frame::QUOTE, $j);
@@ -1197,7 +1210,7 @@ final class BlockParser
         if ($info->bare && $this->closeDiv($run, $this->le)) {
             return true;
         }
-        if ($this->depth + 1 > Tables::DEPTH_CAP) {
+        if ($this->depth + 1 > Tables::BLOCK_DEPTH) {
             return false;
         }
         $sigil = $info->sigil;
@@ -1569,11 +1582,11 @@ final class BlockParser
     private function opaqueLine(Frame $f): void
     {
         // G-blocks-7: an opener left of the content column strips the body only to its own column.
-        if ($this->stripI >= 0 && $this->col > $f->openCol) {
+        if ($f->kind !== Frame::LINE_BLOCK && $this->stripI >= 0 && $this->col > $f->openCol) {
             $this->i = $this->stripI;
             $this->col = $this->stripCol;
         }
-        if ($this->stripI >= 0) {
+        if ($f->kind !== Frame::LINE_BLOCK && $this->stripI >= 0) {
             // C2-B-029: a tab may leave container matching short of the fence opener column.
             $this->stripTo($f->openCol - $this->base);
         }
@@ -1615,9 +1628,6 @@ final class BlockParser
                     return;
                 }
                 // C2-B-130: the spaces that lead a line after the strip are content.
-                if ($this->stripI < 0) {
-                    $this->stripTo($this->col - $this->base + $f->indent);
-                }
                 $f->spans[] = $this->i;
                 $f->spans[] = $this->le;
                 if ($j < $end) {
@@ -1774,7 +1784,7 @@ final class BlockParser
         $kind = $leaf->kind;
         if ($kind === Frame::PARAGRAPH) {
             $leaf->role = $this->role($leaf);
-        } elseif (($kind === Frame::CODE || $kind === Frame::COMMENT_BLOCK) && !$leaf->closed) {
+        } elseif (($kind === Frame::CODE || $kind === Frame::COMMENT_BLOCK || $kind === Frame::LINE_BLOCK) && !$leaf->closed) {
             $this->trimHeldBlank($leaf);
         } elseif ($kind === Frame::CAPTION) {
             $parent = $this->stack[count($this->stack) - 1];
@@ -1792,7 +1802,7 @@ final class BlockParser
     }
 
     /**
-     * C2-B-113: blank lines at the end of an unclosed code fence or comment block are not body.
+     * C2-B-113: blank lines at the end of an unclosed code fence, comment block or line block are not body.
      *
      * @param \MarkupCarve\Carve2\Block\Frame $f
      *

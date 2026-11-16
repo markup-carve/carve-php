@@ -24,8 +24,6 @@ final class Finisher
 
     private string $t;
 
-    private bool $singleOpen = false;
-
     /**
      * Last visible character in document order, for the word test of abbreviations (C2-I-099).
      */
@@ -119,15 +117,7 @@ final class Finisher
         }
         if ($item[5] instanceof TokenList) {
             $inner = $this->ctx->abbreviations === [] ? -1 : $this->firstVisible($items, $k, $after);
-            if ($node->type === 'inline_footnote') {
-                // C2-I-109: an inline footnote has its own quote state.
-                $saved = $this->singleOpen;
-                $this->singleOpen = false;
-                $node->children = $this->build($item[5]->list, $inner);
-                $this->singleOpen = $saved;
-            } else {
-                $node->children = $this->build($item[5]->list, $inner);
-            }
+            $node->children = $this->build($item[5]->list, $inner);
 
             return self::NODE_END;
         }
@@ -475,7 +465,7 @@ final class Finisher
     }
 
     /**
-     * C2-I-104: after a dash the quote sees a dash, after another replacement the end of a node.
+     * C2-I-104: an emitted quote gives its glyph to the next neighbor test.
      *
      * @param int $j
      * @param int $before
@@ -491,13 +481,15 @@ final class Finisher
         return match ($this->smartKind) {
             'em_dash' => 0x2014,
             'en_dash' => 0x2013,
-            'left_double_quote', 'left_single_quote', 'right_double_quote', 'right_single_quote' => $before,
+            'left_double_quote' => 0x201C,
+            'left_single_quote' => 0x2018,
+            'right_double_quote', 'right_single_quote' => self::NODE_END,
             default => self::NODE_END,
         };
     }
 
     /**
-     * C2-I-104 to C2-I-110.
+     * C2-I-104, C2-I-105: a straight quote reads only its immediate neighbors.
      *
      * @param int $j
      * @param int $first
@@ -509,96 +501,21 @@ final class Finisher
     {
         $t = $this->t;
         $before = $j > $first ? Chars::before($t, $j) : $prev;
-        $afterOpen = $j === $this->smartEnd && ($this->smartKind === 'left_double_quote' || $this->smartKind === 'left_single_quote');
         $before = $this->context($j, $before);
-        $next = $this->sc->nextCp($j + 1);
-        $opens = $before === self::START || Chars::isSpace($before) || $afterOpen
-            || $before === 0x2013 || $before === 0x2014 || $before === 0x201C || $before === 0x2018
-            || ($before < 0x80 && $before >= 0 && (str_contains(Tables::SMART_QUOTE_OPENS_AFTER, chr($before)) || $before === 0x2D));
-        if ($opens && ($before === 0x2D || $before === 0x2F || $before === 0x2013 || $before === 0x2014)) {
-            // C2-I-106
-            if (Chars::isSpace($next) || ($next >= 0 && $next < 0x80 && str_contains(Tables::SMART_QUOTE_CLOSES_BEFORE, chr($next)))) {
-                $opens = false;
-            }
+        $after = false;
+        if ($before >= 0) {
+            $after = $before < 128
+                ? str_contains(Tables::SMART_QUOTE_OPENS_AFTER, chr($before))
+                : mb_strpos(Tables::SMART_QUOTE_OPENS_AFTER, mb_chr($before, 'UTF-8')) !== false;
         }
+        $opens = $before === self::START || Chars::isSpace($before) || $after;
         if ($t[$j] === '"') {
             return [$opens ? 'left_double_quote' : 'right_double_quote', 1];
         }
 
-        return [$this->single($j, $opens, $before, $next), 1];
-    }
+        $next = $this->sc->nextCp($j + 1);
 
-    /**
-     * @param int $j
-     * @param bool $opens
-     * @param int $before
-     * @param int $next
-     *
-     * @return string
-     */
-    private function single(int $j, bool $opens, int $before, int $next): string
-    {
-        $t = $this->t;
-        if ($next >= 0x30 && $next <= 0x39) {
-            // C2-I-105
-            return 'right_single_quote';
-        }
-        if (!$opens) {
-            // C2-I-109: "inside a word" reads the typed character before, also behind a replacement.
-            $typed = $j === $this->smartEnd ? Chars::before($t, $j) : $before;
-            if ($this->singleOpen && !Chars::isSpace($before) && !(Chars::isWord($typed) && Chars::isWord($next))) {
-                $this->singleOpen = false;
-            }
-
-            return 'right_single_quote';
-        }
-        [$word, $end] = $this->apostropheWord($j + 1);
-        if ($word !== '') {
-            $afterWord = $this->sc->nextCp($end);
-            if (isset(Tables::SMART_APOSTROPHE_WORDS[$word]) && !Chars::isWord($afterWord)) {
-                // C2-I-107, C2-I-108
-                $quoted = $afterWord === 0x27 && $word !== 'n' && !Chars::isWord($this->sc->nextCp($end + 1));
-                if (!$quoted) {
-                    return 'right_single_quote';
-                }
-                // G-inline-3: a quoted word opens, also while a run is open.
-                $this->singleOpen = true;
-
-                return 'left_single_quote';
-            }
-        }
-        if ($this->singleOpen && Chars::isWord($next)) {
-            // C2-I-109
-            return 'right_single_quote';
-        }
-        $this->singleOpen = true;
-
-        return 'left_single_quote';
-    }
-
-    /**
-     * C2-I-026, C2-I-107: read the ASCII word through transparent braced comments.
-     *
-     * @param int $at
-     *
-     * @return array{0: string, 1: int}
-     */
-    private function apostropheWord(int $at): array
-    {
-        $word = '';
-        $n = strlen($this->t);
-        while ($at < $n) {
-            $len = strspn($this->t, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', $at);
-            $word .= strtolower(substr($this->t, $at, $len));
-            $at += $len;
-            $next = $this->sc->afterComments($at);
-            if ($next === $at) {
-                break;
-            }
-            $at = $next;
-        }
-
-        return [$word, $at];
+        return [$opens && ($next < 0x30 || $next > 0x39) ? 'left_single_quote' : 'right_single_quote', 1];
     }
 
     /**

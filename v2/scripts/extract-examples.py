@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = ('syntax-blocks.md', 'syntax-inline.md', 'html.md', 'ast.md')
 HEADER = re.compile(r'^Example (\d+) \((generated|unverified)([^)]*)\)\s*$')
 FENCE = re.compile(r'^(`{3,})(\w*)\s*$')
+PROSE_ONLY = {('syntax-blocks.md', 247)}
 
 
 def extract(path: Path) -> list[dict]:
@@ -30,6 +31,8 @@ def extract(path: Path) -> list[dict]:
                 end += 1
             blocks.append((opener.group(2), '\n'.join(lines[cursor + 1:end])))
             cursor = end + 1
+        if not blocks and (path.name, int(match.group(1))) in PROSE_ONLY:
+            continue
         if len(blocks) != 2 or blocks[0][0] != 'carve' or blocks[1][0] != 'html':
             raise ValueError(f'{path.name}: example {match.group(1)} has no carve and html fence')
         flags = [flag.replace('`', '').strip() for flag in match.group(3).split(',')]

@@ -22,7 +22,7 @@ final class Resolver
      *
      * @var array<string, true>
      */
-    private const NEEDS_END = ['inline_footnote' => true, 'figure' => true, 'figure_group' => true];
+    private const NEEDS_END = ['inline_footnote' => true, 'figure_group' => true];
 
     /**
      * @var array<string>
@@ -344,11 +344,12 @@ final class Resolver
                     break;
                 }
             }
-            if (isset(self::NEEDS_END[$type])) {
+            $needsEnd = isset(self::NEEDS_END[$type]) || isset($f['caption']);
+            if ($needsEnd) {
                 $this->end[$i] = $n;
             }
             if ($kids !== null && $kids !== []) {
-                if (isset(self::NEEDS_END[$type])) {
+                if ($needsEnd) {
                     $stack[$top++] = $i;
                 }
                 for ($k = count($kids); $k > 0;) {
@@ -543,7 +544,7 @@ final class Resolver
     }
 
     /**
-     * C2-H-066: a panel of a figure group takes no number. C2-H-151: inside a figure or figure group
+     * C2-H-066: a panel of a figure group takes no number. C2-H-151: inside a captioned block or group
      * whose caption has a mark, an equation's number belongs to that caption.
      *
      * @param int $at
@@ -572,7 +573,7 @@ final class Resolver
                             $this->xrefIds[$id] = true;
                         }
                     }
-                    if (($type === 'figure' || $type === 'figure_group') && $this->end[$i] > $ownedUntil) {
+                    if ($this->end[$i] > $ownedUntil) {
                         $ownedUntil = $this->end[$i];
                     }
                 }
@@ -582,7 +583,10 @@ final class Resolver
             }
             if ($type === 'figure_group') {
                 foreach ($node->children ?? [] as $child) {
-                    if ($child->type === 'figure' || $child->type === 'table') {
+                    if (
+                        $child->type === 'table' || in_array($child->type, ['paragraph', 'code_block', 'block_quote'], true)
+                        && ($child->f['caption'] ?? null) instanceof Node
+                    ) {
                         $panels[spl_object_id($child)] = true;
                     }
                 }

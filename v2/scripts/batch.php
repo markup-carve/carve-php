@@ -16,16 +16,21 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 $raw = (string)file_get_contents($argv[1]);
 // C2-B-218: an unpaired surrogate in the host string reads as U+FFFD; PHP's decoder refuses one.
-$raw = (string)preg_replace('/\\\\u[dD][89abAB][0-9a-fA-F]{2}(?!\\\\u[dD][c-fC-F])|(?<!\\\\u[dD][89abAB][0-9a-fA-F]{2})\\\\u[dD][c-fC-F][0-9a-fA-F]{2}/', '\\\\ufffd', $raw);
+$surrogates = '/\\\\u[dD][89abAB][0-9a-fA-F]{2}(?!\\\\u[dD][c-fC-F])'
+    . '|(?<!\\\\u[dD][89abAB][0-9a-fA-F]{2})\\\\u[dD][c-fC-F][0-9a-fA-F]{2}/';
+$raw = (string)preg_replace($surrogates, '\\\\ufffd', $raw);
 $inputs = json_decode($raw, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
 $out = fopen($argv[2], 'wb');
 assert($out !== false);
-$opts = Options::from([]);
-foreach ($inputs as $src) {
+$defaultOptions = Options::from([]);
+foreach ($inputs as $item) {
     $rec = [];
     $t = hrtime(true);
     try {
-        $doc = Carve2::parse($src);
+        $src = is_array($item) ? $item['input'] : $item;
+        $options = is_array($item) ? ($item['options'] ?? []) : [];
+        $opts = $options === [] ? $defaultOptions : Options::from($options);
+        $doc = Carve2::parse($src, $options);
         $rec['tree'] = (new TreeEncoder())->encode($doc, $src);
         $rec['html'] = HtmlRenderer::render($doc, $opts, $src);
     } catch (Throwable $e) {

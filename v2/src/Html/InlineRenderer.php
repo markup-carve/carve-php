@@ -667,10 +667,11 @@ final class InlineRenderer
      * @param \MarkupCarve\Carve2\Attrs|null $attrs
      * @param string|null $lang
      * @param int $depth Unused; the uniform signature of METHODS.
+     * @param int|null $sourceLine C2-H-016: a block image is the paragraph's element.
      *
      * @return string
      */
-    public function image(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
+    public function image(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0, ?int $sourceLine = null): string
     {
         $key = $node->f['key'] ?? null;
         $src = $node->f['src'] ?? null;
@@ -688,7 +689,7 @@ final class InlineRenderer
             $structural = array_merge($structural, self::refCarriers($node, $key));
         }
 
-        return '<img' . $this->aw->build($structural, null, $merged, $lang) . '>';
+        return '<img' . $this->aw->build($structural, null, $merged, $lang, sourceLine: $sourceLine) . '>';
     }
 
     /**

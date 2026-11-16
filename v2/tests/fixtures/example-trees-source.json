@@ -1,0 +1,234 @@
+{
+  "specCommit": "653b1f7672c2ab00cd2aec34220a9e280a7f98bb",
+  "jsCommit": "d3fbbdc598b845ad5d3bfb59ffee9357c9cfd7e2",
+  "clauseOverrides": [
+    {
+      "file": "syntax-blocks.md",
+      "number": 242,
+      "case": "R8",
+      "clause": "C2-B-228"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 243,
+      "case": "R8",
+      "clause": "C2-B-228"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 244,
+      "case": "R8",
+      "clause": "C2-B-228"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 241,
+      "case": "P5",
+      "clause": "C2-B-084"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 240,
+      "case": "R3",
+      "clause": "C2-B-119"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 230,
+      "case": "head update",
+      "clause": "C2-B-209"
+    },
+    {
+      "file": "syntax-inline.md",
+      "number": 104,
+      "case": "head update",
+      "clause": "C2-I-118"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 248,
+      "case": "head update",
+      "clause": "C2-B-137"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 228,
+      "case": "head update",
+      "clause": "C2-B-206"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 250,
+      "case": "head update",
+      "clause": "C2-B-173"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 249,
+      "case": "head update",
+      "clause": "C2-B-184"
+    },
+    {
+      "file": "syntax-inline.md",
+      "number": 3,
+      "case": "head update",
+      "clause": "C2-I-017"
+    },
+    {
+      "file": "syntax-inline.md",
+      "number": 95,
+      "case": "head update",
+      "clause": "C2-I-104"
+    },
+    {
+      "file": "syntax-inline.md",
+      "number": 121,
+      "case": "head update",
+      "clause": "C2-I-104"
+    },
+    {
+      "file": "html.md",
+      "number": 48,
+      "case": "head update",
+      "clause": "C2-I-017"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 236,
+      "case": "head update",
+      "clause": "C2-B-206"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 209,
+      "case": "head update",
+      "clause": "C2-B-173"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 210,
+      "case": "head clause over example",
+      "clause": "C2-B-174"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 111,
+      "case": "head caption slot",
+      "clause": "C2-A-082"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 159,
+      "case": "head caption slot",
+      "clause": "C2-A-082"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 161,
+      "case": "head caption slot",
+      "clause": "C2-A-082"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 162,
+      "case": "head caption slot",
+      "clause": "C2-A-082"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 163,
+      "case": "head caption slot",
+      "clause": "C2-A-082"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 164,
+      "case": "head caption slot",
+      "clause": "C2-A-082"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 165,
+      "case": "head caption slot",
+      "clause": "C2-A-082"
+    },
+    {
+      "file": "html.md",
+      "number": 13,
+      "case": "head caption slot",
+      "clause": "C2-A-082"
+    },
+    {
+      "file": "html.md",
+      "number": 14,
+      "case": "head caption slot",
+      "clause": "C2-A-082"
+    },
+    {
+      "file": "html.md",
+      "number": 26,
+      "case": "head caption slot",
+      "clause": "C2-A-082"
+    },
+    {
+      "file": "html.md",
+      "number": 27,
+      "case": "head caption slot",
+      "clause": "C2-A-082"
+    },
+    {
+      "file": "html.md",
+      "number": 38,
+      "case": "head caption slot",
+      "clause": "C2-A-082"
+    },
+    {
+      "file": "html.md",
+      "number": 39,
+      "case": "head caption slot",
+      "clause": "C2-A-082"
+    },
+    {
+      "file": "html.md",
+      "number": 41,
+      "case": "head caption slot",
+      "clause": "C2-A-082"
+    },
+    {
+      "file": "syntax-blocks.md",
+      "number": 127,
+      "case": "head inline update",
+      "clause": "C2-I-017"
+    },
+    {
+      "file": "syntax-inline.md",
+      "number": 1,
+      "case": "head inline update",
+      "clause": "C2-I-017"
+    },
+    {
+      "file": "syntax-inline.md",
+      "number": 10,
+      "case": "head inline update",
+      "clause": "C2-I-017"
+    },
+    {
+      "file": "syntax-inline.md",
+      "number": 13,
+      "case": "head inline update",
+      "clause": "C2-I-017"
+    },
+    {
+      "file": "syntax-inline.md",
+      "number": 96,
+      "case": "head inline update",
+      "clause": "C2-I-104"
+    },
+    {
+      "file": "syntax-inline.md",
+      "number": 97,
+      "case": "head inline update",
+      "clause": "C2-I-104"
+    }
+  ]
+}

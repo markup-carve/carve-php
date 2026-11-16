@@ -74,7 +74,9 @@ final class NoteRenderer
             foreach ($visible as $block) {
                 $html = $block === $last && $endsWithParagraph
                     ? $this->r->paragraph($block, $depth + 1, false, $back)
-                    : ($block->type === 'paragraph' ? $this->r->paragraph($block, $depth + 1, false) : $this->r->block($block, $depth + 1));
+                    : ($block->type === 'paragraph' && !(($block->f['caption'] ?? null) instanceof Node)
+                        ? $this->r->paragraph($block, $depth + 1, false)
+                        : $this->r->block($block, $depth + 1));
                 if ($html !== null) {
                     $lines[] = $html;
                 }

@@ -51,8 +51,25 @@ final class AbbreviationTemplateTest extends RenderTestCase
         $opts = Options::from(['roundtrip' => true]);
         Resolver::resolve($doc, null, $opts);
         [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts);
-        self::assertStringContainsString('<template data-carve-abbreviations>', $html);
+        self::assertSame('<template data-carve-abbreviations>*[A]: one two</template>', $html);
         self::assertContains('field-unspellable', array_column($log->entries, 'code'));
+    }
+
+    public function testC2W055NearestExpansionSpelling(): void
+    {
+        foreach (["A\nB" => 'A B', "A\r\nB" => 'A B', "A\rB" => 'A B', 'A ' => 'A'] as $value => $written) {
+            $doc = self::node(self::doc([
+                'type' => 'abbreviation_def',
+                'key' => 'A',
+                'namespace' => 'abbr',
+                'expansion' => $value,
+            ]));
+            $opts = Options::from(['roundtrip' => true]);
+            Resolver::resolve($doc, null, $opts);
+            [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts);
+            self::assertSame('<template data-carve-abbreviations>*[A]: ' . $written . '</template>', $html);
+            self::assertContains('field-unspellable', array_column($log->entries, 'code'));
+        }
     }
 
     public function testC2W117UnspellableDefinitionAttributesReportLoss(): void

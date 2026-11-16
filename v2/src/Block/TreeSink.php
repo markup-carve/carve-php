@@ -80,33 +80,15 @@ final class TreeSink implements Sink
         $para = Node::at('paragraph', $caption->spans[0], $caption->end);
         $para->lines = $caption->spans;
         $cap->children = [$para];
-        if ($node->type === 'table' || $node->type === 'figure_group') {
-            // C2-A-082: a comment between the block and its caption is the block's last child.
+        if ($node->type !== 'code_block') {
+            // C2-A-082: comments below an open block stay inside that block.
             foreach ($after as $comment) {
                 $node->children[] = $comment;
             }
-            $node->f['caption'] = $cap;
-            $node->end = $caption->end;
             $parentNode->children = array_slice($children, 0, $at + 1);
-
-            return;
         }
-        $figure = Node::at('figure', $node->start, $caption->end);
-        $figure->children = array_merge([$node], $after);
-        $figure->f['caption'] = $cap;
-        // C2-A-183: the attributes of a wrapped block are those of the figure.
-        if (isset($node->f['attrs'])) {
-            $figure->f['attrs'] = $node->f['attrs'];
-            unset($node->f['attrs']);
-        }
-        if (isset($node->f['lang'])) {
-            $figure->f['lang'] = $node->f['lang'];
-            unset($node->f['lang']);
-        }
-        if ($target->own >= 0) {
-            $node->start = $target->own;
-        }
-        $parentNode->children = array_slice($children, 0, $at);
-        $parentNode->children[] = $figure;
+        $node->f['caption'] = $cap;
+        $node->end = $caption->end;
+        $node->ownStart = $target->own;
     }
 }

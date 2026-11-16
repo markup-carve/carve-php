@@ -50,6 +50,7 @@ final class IncludeShape
         }
         $out = ['path' => $path];
         $options = [];
+        $invalid = [];
         $seen = [];
         while (true) {
             $p = $k + strspn($s, ' ', $k, $end - $k);
@@ -72,13 +73,16 @@ final class IncludeShape
             if ($s[$p] !== '@') {
                 return null;
             }
-            $k = self::option($s, $p + 1, $end, $options, $seen);
+            $k = self::option($s, $p + 1, $end, $options, $invalid, $seen);
             if ($k < 0) {
                 return null;
             }
         }
         if ($options !== []) {
             $out['options'] = self::ordered($options);
+        }
+        if ($invalid !== []) {
+            $out['invalid'] = $invalid;
         }
 
         return $out;
@@ -142,27 +146,26 @@ final class IncludeShape
     }
 
     /**
-     * One `@key[:value]`; records it in `$options` and returns the offset after it, or -1 for a paragraph.
+     * C2-B-206: one `@key[:value]` stays an include option even when its value is invalid.
      *
      * @param string $s
      * @param int $k
      * @param int $end
      * @param array<string, mixed> $options
+     * @param array<string> $invalid
      * @param array<string, true> $seen
      *
      * @return int
      */
-    private static function option(string $s, int $k, int $end, array &$options, array &$seen): int
+    private static function option(string $s, int $k, int $end, array &$options, array &$invalid, array &$seen): int
     {
+        $start = $k - 1;
         $n = self::ident($s, $k, $end, false);
         if ($n === 0) {
             return -1;
         }
         $key = substr($s, $k, $n);
         $spec = self::spec($key);
-        if ($spec === null) {
-            return -1;
-        }
         $k += $n;
         $value = null;
         $quoted = false;
@@ -185,29 +188,13 @@ final class IncludeShape
                 $k += $m;
             }
         }
-        if (isset($seen[$key])) {
-            return $spec['repeated'] === 'paragraph' ? -1 : $k;
-        }
+        $repeated = isset($seen[$key]);
         $seen[$key] = true;
-        if ($value === null) {
-            if ($spec['without_value'] === 'paragraph') {
-                return -1;
-            }
-            if ($key === 'code') {
-                $options[$key] = true;
-            } elseif ($spec['without_value'] === 'include_node') {
-                // C2-A-181: keep an out-of-shape empty option on the include node.
-                $options[$key] = '';
-            }
+        $decoded = $value === null ? true : self::decode($key, $value, $quoted);
+        if ($spec === null || $repeated || ($value === null && $spec['needs_value']) || $decoded === null) {
+            $invalid[] = substr($s, $start, $k - $start);
 
             return $k;
-        }
-        $decoded = self::decode($key, $value, $quoted);
-        if ($decoded === null) {
-            if ($spec['outside_shape'] === 'paragraph') {
-                return -1;
-            }
-            $decoded = $value;
         }
         $options[$key] = $decoded;
 
@@ -279,7 +266,7 @@ final class IncludeShape
             case 'rows':
                 return self::isRange($value) ? $value : null;
             case 'region':
-                return self::ident($value, 0, strlen($value), false) === strlen($value) ? $value : null;
+                return $value !== '' && self::ident($value, 0, strlen($value), false) === strlen($value) ? $value : null;
             case 'cols':
                 return $quoted ? self::names($value) : (self::isRange($value) ? $value : null);
             case 'shift':
@@ -290,7 +277,7 @@ final class IncludeShape
                 // C2-B-205: anchored fixed shape, linear; option values are short and read once per include.
                 return preg_match('/^[+-]?[0-9]{1,9}$/', $value) === 1 ? (int)$value : null;
             case 'code':
-                return strspn($value, self::LANGUAGE) === strlen($value) ? $value : null;
+                return $value !== '' && strspn($value, self::LANGUAGE) === strlen($value) ? $value : null;
         }
 
         return null;
@@ -308,7 +295,7 @@ final class IncludeShape
             return false;
         }
 
-        return (int)$m[1] <= (int)$m[2];
+        return strlen($m[1]) < strlen($m[2]) || (strlen($m[1]) === strlen($m[2]) && strcmp($m[1], $m[2]) <= 0);
     }
 
     /**

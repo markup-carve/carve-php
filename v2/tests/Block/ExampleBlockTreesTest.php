@@ -6,16 +6,19 @@ namespace MarkupCarve\Carve2\Test\Block;
 
 use PHPUnit\Framework\TestCase;
 
-/**
- * The block tree of every specification example against the reference engine output, compared like
- * v2/scripts/compare-blocks.php. Skipped when the lane oracle file is not present.
- */
 final class ExampleBlockTreesTest extends TestCase
 {
     /**
      * @var array<string, int>
      */
-    private const INLINE_LEAVES = ['paragraph' => 1, 'heading' => 1, 'definition_term' => 1, 'cell_paragraph' => 1, 'line' => 1, 'citation_definition' => 1];
+    private const INLINE_LEAVES = [
+        'paragraph' => 1,
+        'heading' => 1,
+        'definition_term' => 1,
+        'cell_paragraph' => 1,
+        'line' => 1,
+        'citation_definition' => 1,
+    ];
 
     /**
      * @var array<string, int>
@@ -59,22 +62,25 @@ final class ExampleBlockTreesTest extends TestCase
     /**
      * @return void
      */
-    public function testEveryExampleBlockTreeMatchesTheOracle(): void
+    public function testEveryExampleBlockTreeMatchesThePinnedFixture(): void
     {
-        $oracleFile = dirname(__DIR__, 4) . '/oracle/examples-oracle.jsonl';
-        if (!is_file($oracleFile)) {
-            $this->markTestSkipped('oracle output not present');
-        }
+        $fixtureFile = dirname(__DIR__) . '/fixtures/example-trees.jsonl';
         $examples = json_decode((string)file_get_contents(dirname(__DIR__) . '/fixtures/examples.json'), true);
         $this->assertIsArray($examples);
-        $lines = file($oracleFile, FILE_IGNORE_NEW_LINES) ?: [];
+        $lines = file($fixtureFile, FILE_IGNORE_NEW_LINES) ?: [];
+        $source = json_decode((string)file_get_contents(dirname(__DIR__) . '/fixtures/example-trees-source.json'), true);
+        $pinned = (string)file_get_contents(dirname(__DIR__, 2) . '/spec/PINNED');
+        $this->assertIsArray($source);
+        $this->assertStringContainsString('carve ' . $source['specCommit'] . ' spec/0.2', $pinned);
+        $this->assertStringContainsString('carve-js ' . $source['jsCommit'] . ' v2', $pinned);
+        $this->assertCount(count($examples), $lines);
         $failed = [];
         foreach ($examples as $i => $ex) {
             $this->assertIsArray($ex);
             $input = $ex['input'] ?? null;
             $this->assertIsString($input);
-            $oracle = json_decode($lines[$i] ?? 'null', true);
-            $want = json_encode(self::blockOnly(is_array($oracle) ? $oracle['tree'] ?? null : null));
+            $fixture = json_decode($lines[$i] ?? 'null', true);
+            $want = json_encode(self::blockOnly(is_array($fixture) ? $fixture['tree'] ?? null : null));
             $got = json_encode(self::blockOnly(BlockClausesTest::encode($input)));
             if ($want !== $got) {
                 $failed[] = $i;

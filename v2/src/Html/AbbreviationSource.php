@@ -26,9 +26,14 @@ final class AbbreviationSource
             $expansion = $node->f['expansion'] ?? '';
             $key = is_string($key) ? $key : '';
             $expansion = is_string($expansion) ? $expansion : '';
-            if (preg_match('/^[A-Za-z0-9]+$/D', $key) !== 1 || $expansion === '' || strpbrk($expansion, "\r\n") !== false) {
+            if (
+                preg_match('/^[A-Za-z0-9]+$/D', $key) !== 1 || $expansion === ''
+                || strpbrk($expansion, "\r\n") !== false || str_ends_with($expansion, ' ') || str_ends_with($expansion, "\t")
+            ) {
                 $log->loss('field-unspellable', 'warning', 'abbreviation definition has no exact source spelling');
             }
+            // C2-W-055: each line break becomes one space in the nearest spelling.
+            $expansion = rtrim((string)preg_replace('/\r\n|\r|\n/', ' ', $expansion), " \t");
             $line = self::attributes($node, $log);
             $source[] = ($line === '' ? '' : $line . "\n") . '*[' . $key . ']: ' . $expansion;
         }
@@ -37,12 +42,14 @@ final class AbbreviationSource
     }
 
     /**
+     * C2-W-048 to C2-W-050: one canonical attribute block for a node.
+     *
      * @param \MarkupCarve\Carve2\Node $node
      * @param \MarkupCarve\Carve2\Html\RenderLog $log
      *
      * @return string
      */
-    private static function attributes(Node $node, RenderLog $log): string
+    public static function attributes(Node $node, RenderLog $log): string
     {
         $parts = [];
         $attrs = $node->f['attrs'] ?? null;

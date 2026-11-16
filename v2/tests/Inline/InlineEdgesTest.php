@@ -22,7 +22,7 @@ final class InlineEdgesTest extends InlineTestCase
      */
     public function testC2I002TrailingSpacesAreNoContent(): void
     {
-        $this->assertSame('code@0-5(value="\n]")', self::inline("` \t\n]"));
+        $this->assertSame('text@0-1(value="`") soft_break@1-4 text@4-5(value="]")', self::inline("` \t\n]"));
         $this->assertSame('text@0-1(value="a") non_breaking_space@1-3', self::inline('a\\ '));
     }
 
@@ -68,9 +68,9 @@ final class InlineEdgesTest extends InlineTestCase
         $this->assertSame(200, substr_count($out, 'superscript'));
         $this->assertStringContainsString('{text@400-403(value="{^x")}', $out);
         $this->assertStringEndsWith(' text@803-805(value="^}")', $out);
-        // The label of a reference past the cap is text as typed, without smart quotes.
+        // C2-I-118: scanning resumes behind the failed bracket opener.
         $out = self::inline(str_repeat('{^', 200) . '[]["]' . str_repeat('^}', 200), ['"']);
-        $this->assertStringNotContainsString('smart_punctuation', $out);
+        $this->assertStringContainsString('smart_punctuation', $out);
     }
 
     /**
@@ -79,7 +79,7 @@ final class InlineEdgesTest extends InlineTestCase
     public function testC2I120CellEndsEveryForm(): void
     {
         $this->assertSame('text@0-5(value="a ``b")', self::inline('a ``b', [], [], Scanner::CELL));
-        $this->assertSame('text@0-2(value="a ") code@2-4(value="b")', self::inline('a `b', [], [], 0));
+        $this->assertSame('text@0-4(value="a `b")', self::inline('a `b', [], [], 0));
     }
 
     /**
@@ -164,9 +164,9 @@ final class InlineEdgesTest extends InlineTestCase
      */
     public function testC2B184ContinuationRowJoinsWithASpace(): void
     {
-        $this->assertSame('strong{text(value="1 a")}', self::inline("*1\na*", [], [], Scanner::CELL));
-        $this->assertSame('code(value="1\na")', self::inline("`1\na`", [], [], Scanner::CELL));
-        $this->assertSame('text(value="1\\\\ a")', self::inline("1\\\na", [], [], Scanner::CELL));
+        $this->assertSame('text(value="*1 a*")', self::inline("*1\na*", [], [], Scanner::CELL));
+        $this->assertSame('text(value="`1 a`")', self::inline("`1\na`", [], [], Scanner::CELL));
+        $this->assertSame('text@0-1(value="1") hard_break@1-2 text(value=" a")', self::inline("1\\\na", [], [], Scanner::CELL));
         $this->assertSame('text(value="1 b") hard_break@3-4', self::inline("1\nb\\", [], [], Scanner::CELL));
     }
 
