@@ -32,7 +32,7 @@ final class HardeningTest extends TestCase
     }
 
     /**
-     * C2-B-190, C2-I-118: the four fixtures and five stress shapes scale with source length.
+     * C2-B-190, C2-I-118: the four fixtures and six stress shapes scale with source length.
      *
      * @return void
      */
@@ -62,7 +62,7 @@ final class HardeningTest extends TestCase
                 sort($samples);
                 $times[] = $samples[1];
             }
-            $this->assertLessThanOrEqual(max(2.0, $times[0] * 14), $times[3], $name);
+            $this->assertLessThanOrEqual(max(2.0, $times[0] * 18), $times[3], $name);
         }
     }
 

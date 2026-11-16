@@ -29,8 +29,8 @@ def minimize(source, html_only):
     while True:
         lines = source.split('\n')
         candidates = ['\n'.join(lines[:i] + lines[i + 1:]) for i in range(len(lines))] if len(lines) > 1 else []
-        if len(source) > 200:
-            for parts in (2, 4, 8, 16, 32):
+        if len(source) > 16:
+            for parts in (2, 4, 8, 16, 32, 64, 128):
                 width = max(1, (len(source) + parts - 1) // parts)
                 candidates += [source[:i] + source[i + width:] for i in range(0, len(source), width)]
         if len(source) <= 400:
@@ -39,7 +39,8 @@ def minimize(source, html_only):
         if not candidates:
             return source
         oracle, php = run(candidates)
-        replacement = next((candidate for candidate, a, b in zip(candidates, oracle, php) if differs(a, b, html_only)), None)
+        replacement = min((candidate for candidate, a, b in zip(candidates, oracle, php) if differs(a, b, html_only)),
+                          key=len, default=None)
         if replacement is None:
             return source
         source = replacement
