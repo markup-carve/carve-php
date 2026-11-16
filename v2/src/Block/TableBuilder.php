@@ -24,7 +24,7 @@ final class TableBuilder
      * @param int $j Offset of the first pipe or of the `+` of a continuation row.
      * @param int $le
      *
-     * @return array{seps: array<int>, end: int, attrs: \MarkupCarve\Carve2\Attrs|null}|null
+     * @return array{seps: array<int>, end: int, attrs: \MarkupCarve\Carve2\Attrs|null, comment: int|null}|null
      */
     public static function split(string $s, int $j, int $le): ?array
     {
@@ -60,7 +60,14 @@ final class TableBuilder
         $attrs = null;
         $rowEnd = self::tail($s, $seps[$n], $end, $attrs);
 
-        return $rowEnd < 0 ? null : ['seps' => $seps, 'end' => $rowEnd, 'attrs' => $attrs];
+        $commentAt = $rowEnd < 0 ? false : strpos($s, '%%', $rowEnd);
+
+        return $rowEnd < 0 ? null : [
+            'seps' => $seps,
+            'end' => $rowEnd,
+            'attrs' => $attrs,
+            'comment' => $commentAt !== false && $commentAt < $end ? $commentAt : null,
+        ];
     }
 
     /**
@@ -93,7 +100,7 @@ final class TableBuilder
         }
         // C2-B-167: a trailing line comment is a percent run of exactly two (C2-B-139).
         $ws = strspn($s, " \t", $k, $end - $k);
-        if (strspn($s, '%', $k + $ws, $end - $k - $ws) === 2) {
+        if ($ws > 0 && strspn($s, '%', $k + $ws, $end - $k - $ws) === 2) {
             return $rowEnd;
         }
 
@@ -268,10 +275,7 @@ final class TableBuilder
         $table->f['columns'] = self::columns($width, $attrs);
         $table->children = self::groups($f->rows, $rowNodes, $head, self::count($attrs, 'footer-rows'), -1);
         if ($attrs !== null) {
-            // C2-B-186: `header-rows` has no effect on a pipe table.
-            foreach (['aligns', 'widths', 'footer-rows', 'header-rows'] as $key) {
-                $attrs->remove($key);
-            }
+            self::consumeKeys($attrs, false);
             $attrs->applyTo($table);
         }
 
@@ -436,13 +440,14 @@ final class TableBuilder
     private static function cellNode(TableCell $cell): Node
     {
         if ($cell->span !== '') {
-            $node = new Node('table_cell', []);
+            $node = $cell->start < 0 ? new Node('table_cell', []) : Node::at('table_cell', $cell->start, $cell->end);
+            $node->children = [];
             $node->f['header'] = $cell->header;
             $node->f['span'] = $cell->span;
 
             return $node;
         }
-        $bare = $cell->joined || $cell->start < 0 || $cell->ce <= $cell->cs;
+        $bare = $cell->joined || $cell->start < 0;
         $node = $bare ? new Node('table_cell') : Node::at('table_cell', $cell->start, $cell->end);
         $node->f['header'] = $cell->header;
         if ($cell->colspan > 1) {
@@ -475,8 +480,8 @@ final class TableBuilder
     {
         $aligns = $attrs?->get('aligns');
         $widths = $attrs?->get('widths');
-        $alignList = $aligns === null ? [] : explode(',', $aligns);
-        $widthList = $widths === null ? [] : explode(',', $widths);
+        $alignList = self::validList($aligns, false) ? explode(',', (string)$aligns) : [];
+        $widthList = self::validList($widths, true) ? explode(',', (string)$widths) : [];
         $columns = [];
         for ($c = 0; $c < $width; $c++) {
             $col = new Node('table_column');
@@ -495,6 +500,57 @@ final class TableBuilder
         }
 
         return $columns;
+    }
+
+    /**
+     * C2-B-211, C2-B-212: every list entry must be valid before any column changes.
+     *
+     * @param string|null $value
+     * @param bool $width
+     *
+     * @return bool
+     */
+    private static function validList(?string $value, bool $width): bool
+    {
+        if ($value === null || $value === '') {
+            return false;
+        }
+        foreach (explode(',', $value) as $entry) {
+            $entry = trim($entry, " \t");
+            if ($width) {
+                // C2-B-220: anchored decimal entry, with no nested repetition.
+                if (preg_match('/^[0-9]+(\.[0-9]+)?$/', $entry) !== 1 || (float)$entry <= 0 || (float)$entry > 100) {
+                    return false;
+                }
+            } elseif ($entry !== 'left' && $entry !== 'right' && $entry !== 'center') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * C2-B-227: only valid and applicable keys are consumed.
+     *
+     * @param \MarkupCarve\Carve2\Attrs $attrs
+     * @param bool $delimited
+     *
+     * @return void
+     */
+    private static function consumeKeys(Attrs $attrs, bool $delimited): void
+    {
+        foreach (['aligns', 'widths'] as $key) {
+            if (self::validList($attrs->get($key), $key === 'widths')) {
+                $attrs->remove($key);
+            }
+        }
+        if (self::count($attrs, 'footer-rows') !== null) {
+            $attrs->remove('footer-rows');
+        }
+        if ($delimited && self::count($attrs, 'header-rows') !== null) {
+            $attrs->remove('header-rows');
+        }
     }
 
     /**
@@ -626,9 +682,8 @@ final class TableBuilder
             $group->end = -1;
         }
         if ($attrs !== null) {
-            foreach (['table', 'header-rows', 'footer-rows', 'aligns', 'widths'] as $key) {
-                $attrs->remove($key);
-            }
+            $attrs->remove('table');
+            self::consumeKeys($attrs, true);
             $attrs->applyTo($table);
         }
 
@@ -681,6 +736,9 @@ final class TableBuilder
         if ($field !== '' || $fields !== []) {
             $fields[] = $field;
             $records[] = $fields;
+        }
+        if (str_ends_with($body, "\n") && end($records) === ['']) {
+            array_pop($records);
         }
 
         return $records;

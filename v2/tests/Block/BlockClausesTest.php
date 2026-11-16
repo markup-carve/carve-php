@@ -237,7 +237,12 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B186HeaderRowsHasNoEffectOnPipeTable(): void
     {
-        $this->assertTree("{header-rows=2}\n|a|b|\n|c|d|", '[{"type":"table","columns":[{"type":"table_column"},{"type":"table_column"}],"children":[{"type":"table_body","children":[{"type":"table_row","children":[{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]},{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]}]},{"type":"table_row","children":[{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]},{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]}]}]}]}]');
+        $cell = '{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]}';
+        $row = '{"type":"table_row","children":[' . $cell . ',' . $cell . ']}';
+        $expected = '[{"type":"table","columns":[{"type":"table_column"},{"type":"table_column"}],';
+        $expected .= '"attrs":{"keyValues":[["header-rows","2"]]},';
+        $expected .= '"children":[{"type":"table_body","children":[' . $row . ',' . $row . ']}]}]';
+        $this->assertTree("{header-rows=2}\n|a|b|\n|c|d|", $expected);
     }
 
     /**
@@ -413,8 +418,12 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B166RowWithTrailingCommentThenPipeLine(): void
     {
-        // D-blocks-3: the reference engine reads both lines as one paragraph.
-        $this->assertTree("|a| %%\n|", '[{"type":"table","columns":[{"type":"table_column"}],"children":[{"type":"table_body","children":[{"type":"table_row","children":[{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]}]}]}]},{"type":"paragraph"}]');
+        // C2-A-086: the comment after the last row belongs to the table.
+        $expected = '[{"type":"table","columns":[{"type":"table_column"}],';
+        $expected .= '"children":[{"type":"table_body","children":[{"type":"table_row",';
+        $expected .= '"children":[{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]}]}]},';
+        $expected .= '{"type":"comment","form":"line","value":""}]},{"type":"paragraph"}]';
+        $this->assertTree("|a| %%\n|", $expected);
     }
 
     /**

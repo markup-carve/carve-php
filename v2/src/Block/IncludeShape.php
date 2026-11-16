@@ -285,7 +285,7 @@ final class IncludeShape
                 }
 
                 // C2-B-205: anchored fixed shape, linear; option values are short and read once per include.
-                return preg_match('/^[+-]?[0-9]+$/', $value) === 1 ? (int)$value : null;
+                return preg_match('/^[+-]?[0-9]{1,9}$/', $value) === 1 ? (int)$value : null;
             case 'code':
                 return strspn($value, self::LANGUAGE) === strlen($value) ? $value : null;
         }

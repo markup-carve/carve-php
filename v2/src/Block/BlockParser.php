@@ -643,17 +643,21 @@ final class BlockParser
     /**
      * @param \MarkupCarve\Carve2\Block\Frame $table
      * @param int $j
-     * @param array{seps: array<int>, end: int, attrs: \MarkupCarve\Carve2\Attrs|null} $split
+     * @param array{seps: array<int>, end: int, attrs: \MarkupCarve\Carve2\Attrs|null, comment: int|null} $split
      *
      * @return void
      */
     private function addRow(Frame $table, int $j, array $split): void
     {
-        $row = new TableItem(true, $j, $this->le);
+        $row = new TableItem(true, $j, $split['end']);
         $row->cells = TableBuilder::cells($this->s, $j, $split['seps']);
         $row->attrs = $split['attrs'];
         $table->rows[] = $row;
-        // G-blocks-1: a trailing line comment stays inside the row span and leaves no node.
+        if ($split['comment'] !== null) {
+            $comment = new TableItem(false, $split['end'], $this->le);
+            $comment->value = $this->commentValue($split['comment'], $this->trimEnd($j));
+            $table->rows[] = $comment;
+        }
         $table->end = $this->le;
     }
 
@@ -1122,6 +1126,10 @@ final class BlockParser
         $this->i = $j;
         $this->col = $c;
         $this->matchQuote();
+        if (LineShapes::trimEnd($s, $this->i, $this->le) === $this->i) {
+            // C2-A-151: the empty quote owns spaces behind its final marker.
+            $quote->end = $this->le;
+        }
         $k = $this->i;
         $kc = $this->col;
         $this->skipWs($k, $kc);
@@ -1221,10 +1229,8 @@ final class BlockParser
                 return false;
             }
             if ($f->level <= $run) {
-                // G-blocks-4: the divs inside the closed one end at its closer as well.
-                for ($m = count($this->stack) - 1; $m >= $k; $m--) {
-                    $this->stack[$m]->end = $end;
-                }
+                // C2-A-154: only this div has a closer; inner divs end at their last child.
+                $this->stack[$k]->end = $end;
                 $this->closeTo($k - 1);
 
                 return true;
@@ -1540,7 +1546,7 @@ final class BlockParser
         }
         $f = new Frame(Frame::INCLUDE, $j);
         $f->include = $inc;
-        $f->end = $this->trimEnd($j);
+        $f->end = $this->le;
         $this->take($f);
         $this->emitLeaf($f);
 
