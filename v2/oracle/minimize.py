@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from diff import norm
 
 ROOT = Path(__file__).resolve().parents[2]
 BATCH = Path(__file__).resolve().parent / 'batch.ts'
@@ -17,11 +18,11 @@ def run(sources):
         inp.write_text(json.dumps(sources), encoding='utf-8')
         subprocess.run(['node', str(BATCH), str(inp), str(oracle)], cwd=ROOT, check=True)
         subprocess.run(['php', '-d', 'pcov.enabled=0', 'v2/scripts/batch.php', str(inp), str(php)], cwd=ROOT, check=True)
-        return [[json.loads(line) for line in path.read_text().splitlines()] for path in (oracle, php)]
+        return [[json.loads(line) for line in path.read_bytes().split(b'\n') if line] for path in (oracle, php)]
 
 
 def differs(oracle, php, html_only):
-    return 'error' in php or oracle.get('html') != php.get('html') or (not html_only and oracle.get('tree') != php.get('tree'))
+    return 'error' in php or oracle.get('html') != php.get('html') or (not html_only and norm(oracle.get('tree')) != norm(php.get('tree')))
 
 
 def minimize(source, html_only):

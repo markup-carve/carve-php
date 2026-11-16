@@ -34,7 +34,7 @@ def php_batch(inputs):
         source.write_text(json.dumps(inputs, ensure_ascii=True), encoding='utf-8')
         subprocess.run(['php', '-d', 'pcov.enabled=0', 'v2/scripts/batch.php', str(source), str(output)],
                        cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
-        return [json.loads(line) for line in output.read_text(encoding='utf-8').splitlines()]
+        return [json.loads(line) for line in output.read_bytes().split(b'\n') if line]
 
 
 def main():
@@ -45,9 +45,13 @@ def main():
     expected = {entry['index']: entry for entry in evidence}
     assert len(expected) == len(evidence) and all(entry['reason'] in REASONS for entry in evidence)
     actual = php_batch(inputs)
+    assert len(actual) == len(inputs), f'PHP returned {len(actual)} of {len(inputs)} corpus results'
     mismatches = [i for i, (a, b) in enumerate(zip(oracle, actual)) if not equal(a, b)]
     assert set(mismatches) == set(expected), f'unexpected corpus differences: {set(mismatches) ^ set(expected)}'
+    changed = [i for i in mismatches if not equal(expected[i]['php'], actual[i])]
+    assert not changed, f'expected-difference outputs changed: {changed}'
     rewrites = php_batch([entry['rewrite'] for entry in evidence])
+    assert len(rewrites) == len(evidence), f'PHP returned {len(rewrites)} of {len(evidence)} rewrite results'
     failures = [entry['index'] for entry, result in zip(evidence, rewrites) if not equal(entry['oracle'], result)]
     assert not failures, f'trigger rewrites still differ: {failures}'
     print(f'{len(inputs)} cases: {len(inputs) - len(mismatches)} equal, {len(mismatches)} expected differences, '
