@@ -46,7 +46,18 @@ final class TreeSink implements Sink
         $parentNode = $parent->handle;
         $node = NodeFactory::make($frame, $this->s);
         $frame->handle = $node;
-        $parentNode->children[] = $node;
+        $at = count($parentNode->children ?? []);
+        if ($at === 0 || $parentNode->children[$at - 1]->start <= $node->start) {
+            $parentNode->children[] = $node;
+
+            return;
+        }
+        $children = $parentNode->children;
+        while ($at > 0 && $children[$at - 1]->start > $node->start) {
+            $at--;
+        }
+        array_splice($children, $at, 0, [$node]);
+        $parentNode->children = $children;
     }
 
     /**

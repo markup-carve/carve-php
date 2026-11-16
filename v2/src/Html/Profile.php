@@ -265,11 +265,10 @@ final class Profile
      * C2-H-165: the plain text of a degraded inline node.
      *
      * @param \MarkupCarve\Carve2\Node $node
-     * @param bool $nested
      *
      * @return string
      */
-    private function inlineText(Node $node, bool $nested = false): string
+    private function inlineText(Node $node): string
     {
         $type = $node->type;
         if (isset(self::FIXED_TEXT[$type])) {
@@ -280,27 +279,25 @@ final class Profile
             return $field[1] . PlainText::str($node->f[$field[0]] ?? '') . $field[2];
         }
 
-        return $this->inlineTextByType($node, $nested);
+        return $this->inlineTextByType($node);
     }
 
     /**
      * C2-H-165: inline fallback for nodes without a fixed or single-field spelling.
      *
      * @param \MarkupCarve\Carve2\Node $node
-     * @param bool $nested
      *
      * @return string
      */
-    private function inlineTextByType(Node $node, bool $nested): string
+    private function inlineTextByType(Node $node): string
     {
         $f = $node->f;
 
         return match ($node->type) {
             'image' => '[img: ' . PlainText::str($f['alt'] ?? '') . ']',
             'smart_punctuation' => PlainText::str($f['glyph'] ?? $f['source'] ?? ''),
-            'autolink' => PlainText::str($f['text'] ?? $f['href'] ?? ''),
-            'code', 'literal_inline', 'math', 'raw_inline' => $nested
-                ? PlainText::str($f['value'] ?? '') : $this->inlineSpelling($node),
+            'autolink' => '<' . PlainText::str($f['text'] ?? $f['href'] ?? '') . '>',
+            'code', 'literal_inline', 'math', 'raw_inline' => $this->inlineSpelling($node),
             default => $this->childrenText($node->children ?? []),
         };
     }
@@ -342,7 +339,7 @@ final class Profile
     {
         $out = '';
         foreach ($nodes as $n) {
-            $out .= $this->inlineText($n, true);
+            $out .= $this->inlineText($n);
         }
 
         return $out;
@@ -371,6 +368,24 @@ final class Profile
         }
 
         return $out === [] ? null : implode("\n", $out);
+    }
+
+    /**
+     * C2-H-034, C2-H-165: the first degraded paragraph in a tight item is bare.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return array<string>|null
+     */
+    public function degradeTightBlock(Node $node): ?array
+    {
+        $texts = array_values(array_filter($this->degradedTexts($node), static fn (string $text): bool => $text !== ''));
+        if ($texts === []) {
+            return null;
+        }
+        $this->report($node);
+
+        return $texts;
     }
 
     /**
@@ -487,7 +502,18 @@ final class Profile
      */
     private function blockInlineText(array $nodes): string
     {
-        return PlainText::of($nodes);
+        $out = '';
+        foreach ($nodes as $node) {
+            if ($node->type === 'image') {
+                $out .= '[img: ' . PlainText::str($node->f['alt'] ?? '') . ']';
+            } elseif ($node->children !== null && PlainText::usesChildren($node->type)) {
+                $out .= $this->blockInlineText($node->children);
+            } else {
+                $out .= PlainText::node($node);
+            }
+        }
+
+        return $out;
     }
 
     /**

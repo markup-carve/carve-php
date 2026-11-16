@@ -13,6 +13,11 @@ use MarkupCarve\Carve2\Json\TreeEncoder;
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 $examples = json_decode((string)file_get_contents(dirname(__DIR__) . '/tests/fixtures/examples.json'), true);
+$source = json_decode((string)file_get_contents(dirname(__DIR__) . '/tests/fixtures/example-trees-source.json'), true);
+$htmlOverrides = [];
+foreach ($source['htmlClauseOverrides'] ?? [] as $override) {
+    $htmlOverrides[$override['file'] . '#' . $override['number']] = $override['clauseHtml'];
+}
 $opt = getopt('', ['tree:', 'fail', 'file:', 'n:', 'show']);
 $oracle = [];
 if (isset($opt['tree'])) {
@@ -69,13 +74,13 @@ foreach ($examples as $i => $ex) {
     try {
         $doc = Carve2::parse($ex['input'], $options);
         $out = \MarkupCarve\Carve2\Html\HtmlRenderer::render($doc, \MarkupCarve\Carve2\Options::from($options), $ex['input']);
-        // The oracle dump is made with default options, so the tree is compared from a default parse.
-        $json = (new TreeEncoder())->encode($options === [] ? $doc : Carve2::parse($ex['input']), $ex['input']);
+        $json = (new TreeEncoder())->encode($doc, $ex['input']);
     } catch (Throwable $e) {
         $out = 'EXCEPTION ' . $e::class . ': ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine();
         $json = null;
     }
-    $ok = rtrim($out, "\n") === rtrim($ex['html'], "\n");
+    $expectedHtml = $htmlOverrides[$ex['file'] . '#' . $ex['number']] ?? $ex['html'];
+    $ok = rtrim($out, "\n") === rtrim($expectedHtml, "\n");
     $html += $ok ? 1 : 0;
     $treeOk = false;
     if (isset($oracle[$i]['tree']) && $json !== null) {
@@ -85,7 +90,7 @@ foreach ($examples as $i => $ex) {
     if (!$ok) {
         $failed[] = $i;
         if (isset($opt['show'])) {
-            echo "=== #$i {$ex['file']} example {$ex['number']}\n--- input\n{$ex['input']}\n--- expected\n{$ex['html']}\n--- got\n$out\n";
+            echo "=== #$i {$ex['file']} example {$ex['number']}\n--- input\n{$ex['input']}\n--- expected\n$expectedHtml\n--- got\n$out\n";
         }
     }
 }

@@ -381,7 +381,7 @@ final class HtmlRenderer
         }
         if ($node->type === 'paragraph') {
             foreach ($node->children ?? [] as $child) {
-                if ($child->type !== 'comment') {
+                if (!in_array($child->type, ['comment', 'soft_break'], true)) {
                     return true;
                 }
             }
@@ -672,7 +672,7 @@ final class HtmlRenderer
             // No attributes, no source line and no role: neither a block image nor static math.
             $kids = $node->children ?? [];
             foreach ($kids as $kid) {
-                if ($kid->type !== 'comment') {
+                if (!in_array($kid->type, ['comment', 'soft_break'], true)) {
                     $content = $this->inline->inlines($kids, $depth + 1);
 
                     return $bare ? self::pad($depth) . $content : self::pad($depth) . '<p>' . $content . '</p>';
@@ -1044,6 +1044,7 @@ final class HtmlRenderer
         }
         $rest = $visible;
         $first = '';
+        $degradedTail = [];
         $lead = $visible[0];
         if (
             $lead->type === 'paragraph' && !self::hasFigureCaption($lead) && $this->allowed($lead, $depth + 1)
@@ -1054,8 +1055,21 @@ final class HtmlRenderer
             if ($rest === []) {
                 return $open . $first . '</li>';
             }
+        } elseif ($tight && $this->profile !== null && !$this->allowed($lead, $depth + 1)) {
+            $degraded = $this->profile->degradeTightBlock($lead);
+            if ($degraded !== null) {
+                $first = array_shift($degraded) ?? '';
+                $degradedTail = $degraded;
+                array_shift($rest);
+                if ($rest === [] && $degradedTail === []) {
+                    return $open . $first . '</li>';
+                }
+            }
         }
         $lines = [];
+        foreach ($degradedTail as $text) {
+            $lines[] = self::pad($depth + 1) . '<p>' . $text . '</p>';
+        }
         foreach ($rest as $child) {
             $html = $child->type === 'paragraph' && !self::hasFigureCaption($child) && $this->allowed($child, $depth + 1)
                 ? $this->paragraph($child, $depth + 1, false)
@@ -1342,7 +1356,7 @@ final class HtmlRenderer
      */
     public static function includeText(Node $node): string
     {
-        $parts = ['{{', self::includeValue(PlainText::str($node->f['path'] ?? ''), false)];
+        $parts = ['{{', self::includePath(PlainText::str($node->f['path'] ?? ''))];
         $section = $node->f['section'] ?? null;
         if (is_string($section)) {
             $parts[] = '#' . $section;
@@ -1372,6 +1386,22 @@ final class HtmlRenderer
         $parts[] = '}}';
 
         return implode(' ', $parts);
+    }
+
+    /**
+     * C2-B-202, C2-W-058: a tab may stand in a bare include path.
+     *
+     * @param string $path
+     *
+     * @return string
+     */
+    private static function includePath(string $path): string
+    {
+        if ($path !== '' && strpbrk($path, ' #@}"') === false && !str_contains($path, "\u{201C}")) {
+            return $path;
+        }
+
+        return '"' . addcslashes($path, '\\"') . '"';
     }
 
     /**

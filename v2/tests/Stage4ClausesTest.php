@@ -260,14 +260,14 @@ final class Stage4ClausesTest extends TestCase
         foreach (
             [
                 '![a][ ]', "![a][\t]", '![a][@x]', '![a][^x]', '![a][b %% c]',
-                "![a][b\t%% c]", '![a %% b](x)', "![a\t%% b](x)", '![a][ [x] ]',
+                "![a][b\t%% c]", '![a %% b](x)', "![a\t%% b](x)", '![a][ [x] ]', '![ ][]',
             ] as $form
         ) {
             $tree = json_decode(Carve2::toJson($form . "\n^ cap"), true);
             $this->assertSame('paragraph', $tree['children'][0]['type'], $form);
             $this->assertCount(1, $tree['children'], $form);
         }
-        foreach (['![a][b\\]c]', '![a][ @x]', '![a][]', '![ ][]'] as $form) {
+        foreach (['![a][b\\]c]', '![a][ @x]', '![a][]'] as $form) {
             $tree = json_decode(Carve2::toJson($form . "\n^ cap"), true);
             $this->assertSame('paragraph', $tree['children'][0]['type'], $form);
             $this->assertSame('image', $tree['children'][0]['role'] ?? null, $form);
@@ -301,10 +301,10 @@ final class Stage4ClausesTest extends TestCase
         $this->assertSame('a b c:d', trim(strip_tags($html)));
     }
 
-    public function testC2H165DegradedBlockUsesPlainImageText(): void
+    public function testC2H165DegradedBlockKeepsImageFallback(): void
     {
-        $this->assertSame('<p># a</p>', Carve2::toHtml('# ![a](x)', ['profile' => 'minimal']));
-        $this->assertSame('<p># a</p>', Carve2::toHtml('# *![a](x)*', ['profile' => 'minimal']));
+        $this->assertSame('<p># [img: a]</p>', Carve2::toHtml('# ![a](x)', ['profile' => 'minimal']));
+        $this->assertSame('<p># [img: a]</p>', Carve2::toHtml('# *![a](x)*', ['profile' => 'minimal']));
         $this->assertSame('<p>[img: a]</p>', Carve2::toHtml('![a](x)', ['profile' => 'minimal']));
     }
 

@@ -103,17 +103,22 @@ def main():
     assert len(inputs) == len(oracle) == 3000
     expected = {entry['index']: entry for entry in evidence}
     assert len(expected) == len(evidence)
-    assert all(entry['clause'] == 'C2-A-082' and entry['reason'] == 'caption slot; JS retains figure wrapper'
-               for entry in evidence)
+    allowed = {
+        ('C2-A-082', 'caption slot; JS retains figure wrapper'),
+        ('C2-A-092', 'joined span mark has no position'),
+        ('C2-H-019', 'comment-only paragraph renders nothing'),
+    }
+    assert all((entry['clause'], entry['reason']) in allowed for entry in evidence)
     actual = php_batch(inputs)
     assert len(actual) == len(inputs), f'PHP returned {len(actual)} of {len(inputs)} corpus results'
     mismatches = [i for i, (a, b) in enumerate(zip(oracle, actual)) if not equal(a, b)]
     assert set(mismatches) == set(expected), f'unexpected corpus differences: {set(mismatches) ^ set(expected)}'
     changed = [i for i in mismatches if not equal(expected[i]['php'], actual[i])]
     assert not changed, f'expected-difference outputs changed: {changed}'
-    unclassified = [i for i in mismatches if oracle[i].get('html') != actual[i].get('html')
-                    or strip_facts(caption_slots(oracle[i].get('tree'))) != strip_facts(actual[i].get('tree'))]
-    assert not unclassified, f'differences beyond C2-A-082 caption slots: {unclassified}'
+    unclassified = [i for i in mismatches if expected[i]['clause'] != 'C2-H-019'
+                    and (oracle[i].get('html') != actual[i].get('html')
+                         or strip_facts(caption_slots(oracle[i].get('tree'))) != strip_facts(actual[i].get('tree')))]
+    assert not unclassified, f'unclassified corpus differences: {unclassified}'
     explicit = check_clause_differences()
     print(f'{len(inputs)} cases: {len(inputs) - len(mismatches)} equal, {len(mismatches)} expected differences, '
           f'{explicit} explicit clause differences')

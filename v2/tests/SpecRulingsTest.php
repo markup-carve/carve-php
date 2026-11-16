@@ -14,6 +14,45 @@ use PHPUnit\Framework\TestCase;
 
 final class SpecRulingsTest extends TestCase
 {
+    public function testC2B202BareIncludePathKeepsTab(): void
+    {
+        $source = "{{ a\tb @x:2 }}";
+        $tree = json_decode(Carve2::toJson($source), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('include', $tree['children'][0]['type']);
+        $this->assertSame("a\tb", $tree['children'][0]['path']);
+        $this->assertSame(['@x:2'], $tree['children'][0]['invalid']);
+        $this->assertSame("<p>{{ a\tb @x:2 }}</p>", Carve2::toHtml($source));
+    }
+
+    public function testC2A144PendingItemPositionContainsItsChild(): void
+    {
+        $tree = json_decode(Carve2::toJson("> - {.a}\n\n"), true, 512, JSON_THROW_ON_ERROR);
+        $item = $tree['children'][0]['children'][0]['children'][0];
+        $this->assertGreaterThanOrEqual($item['children'][0]['pos']['endOffset'], $item['pos']['endOffset']);
+    }
+
+    public function testC2H143InlineFootnoteIsSilentInDegradedBlock(): void
+    {
+        $this->assertSame('<p># a b</p>', Carve2::toHtml('# a^[note] b', ['profile' => 'minimal']));
+        $this->assertSame('<p># a x b</p>', Carve2::toHtml('# a *x^[note]* b', ['profile' => 'minimal']));
+    }
+
+    public function testC2H034FirstDegradedParagraphIsBareInTightItem(): void
+    {
+        $source = "- | t |\n  ^ cap\n- b";
+        $expected = "<ul>\n  <li>t\n    <p>cap</p>\n  </li>\n  <li>b</li>\n</ul>";
+        $this->assertSame($expected, Carve2::toHtml($source, ['profile' => 'minimal']));
+    }
+
+    public function testC2B093GluedCellPrefixMergesClasses(): void
+    {
+        $source = '|{.a}{.b} x |';
+        $tree = json_decode(Carve2::toJson($source), true, 512, JSON_THROW_ON_ERROR);
+        $cell = $tree['children'][0]['children'][0]['children'][0]['children'][0];
+        $this->assertSame(['a', 'b'], $cell['attrs']['classes']);
+        $this->assertStringContainsString('<td class="a b">x</td>', Carve2::toHtml($source));
+    }
+
     public function testC2H174TaskBoxWithoutDirectTextHasNoLabel(): void
     {
         foreach (['. [x] . x', '- [ ] - nested', '1. [!] > quote'] as $source) {
@@ -284,7 +323,7 @@ final class SpecRulingsTest extends TestCase
     {
         $src = "![i](a.png)\n^ Figure #: cap\n\n| t |\n^ Table #: tc";
         $this->assertSame(
-            "<p>i</p>\n<p>Figure 1: cap</p>\n<p>t</p>\n<p>Table 1: tc</p>",
+            "<p>[img: i]</p>\n<p>Figure 1: cap</p>\n<p>t</p>\n<p>Table 1: tc</p>",
             Carve2::toHtml($src, ['profile' => 'comment']),
         );
     }
@@ -305,14 +344,14 @@ final class SpecRulingsTest extends TestCase
         }
     }
 
-    public function testC2A158EmptyAndSpanCellsKeepPositions(): void
+    public function testC2A092JoinedSpanCellsHaveNoPosition(): void
     {
         $tree = json_decode(Carve2::toJson("| a | |\n| b | < |"), true, 512, JSON_THROW_ON_ERROR);
         $rows = $tree['children'][0]['children'][0]['children'];
         $this->assertSame(5, $rows[0]['children'][1]['pos']['startOffset']);
         $this->assertSame(6, $rows[0]['children'][1]['pos']['endOffset']);
         $this->assertArrayNotHasKey('pos', $rows[0]['children'][1]['children'][0]);
-        $this->assertSame(13, $rows[1]['children'][1]['pos']['startOffset']);
+        $this->assertArrayNotHasKey('pos', $rows[1]['children'][1]);
     }
 
     public function testC2A158CaptionNumberKeepsPosition(): void
@@ -471,7 +510,7 @@ final class SpecRulingsTest extends TestCase
     {
         $src = "![i](a.png)\n^ a `x` b $`m`\n\n> q `c` $`n`\n\np $`k`";
         $this->assertSame(
-            "<p>i</p>\n<p>a x b m</p>\n<p>&gt; q c n</p>\n<p>p $`k`</p>",
+            "<p>[img: i]</p>\n<p>a x b m</p>\n<p>&gt; q c n</p>\n<p>p $`k`</p>",
             Carve2::toHtml($src, ['profile' => 'minimal']),
         );
     }

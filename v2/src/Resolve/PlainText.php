@@ -47,6 +47,19 @@ final class PlainText
     ];
 
     /**
+     * C2-H-143: only nodes in the default arm take their children's plain text.
+     *
+     * @param string $type
+     *
+     * @return bool
+     */
+    public static function usesChildren(string $type): bool
+    {
+        return !isset(self::FIXED[$type]) && !isset(self::FIELD[$type])
+            && !in_array($type, ['smart_punctuation', 'autolink', 'caption_number', 'ruby', 'symbol', 'inline_extension'], true);
+    }
+
+    /**
      * @param array<\MarkupCarve\Carve2\Node> $nodes
      * @param array<string, string>|null $symbols Set for a caption key: a symbol gives the text the caption writes (C2-B-208).
      *
@@ -134,7 +147,9 @@ final class PlainText
             if (!$pair instanceof Node) {
                 continue;
             }
-            $out .= self::of(self::nodes($pair->f['base'] ?? []), $symbols) . '(' . self::of(self::nodes($pair->f['annotation'] ?? []), $symbols) . ')';
+            $base = self::of(self::nodes($pair->f['base'] ?? []), $symbols);
+            $annotation = self::of(self::nodes($pair->f['annotation'] ?? []), $symbols);
+            $out .= $base . '(' . $annotation . ')';
         }
 
         return $out;

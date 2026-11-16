@@ -178,8 +178,12 @@ final class TableBuilder
             $cell->header = true;
             $k++;
         }
-        if ($k < $end && $s[$k] === '{') {
-            $k = self::cellBrace($s, $k, $end, $cell);
+        while ($k < $end && $s[$k] === '{') {
+            $next = self::cellBrace($s, $k, $end, $cell);
+            if ($next === $k) {
+                break;
+            }
+            $k = $next;
         }
         $k += strspn($s, " \t", $k, $end - $k);
         $ce = LineShapes::trimEnd($s, $k, $end);
@@ -220,9 +224,12 @@ final class TableBuilder
         if ($next < 0 || ($align === null && AttributeParser::$lastEmpty)) {
             return $k;
         }
-        $cell->align = $align;
+        if ($align !== null) {
+            $cell->align = $align;
+        }
         if (!$attrs->isEmpty()) {
-            $cell->attrs = $attrs;
+            $cell->attrs ??= new Attrs();
+            $cell->attrs->merge($attrs);
         }
 
         return $next;
@@ -303,6 +310,8 @@ final class TableBuilder
             $single = [];
             $cover = [];
             $tall = [];
+            $hasHeader = false;
+            $hasOther = false;
             foreach ($row->cells as $c => $cell) {
                 $left = $cover[$c - 1] ?? null;
                 if ($cell->mark === '<' && $left !== null && !($tall[$left] ?? false)) {
@@ -310,17 +319,25 @@ final class TableBuilder
                     $cover[$c] = $left;
                     $single[$c] = false;
                     $single[$left] = false;
+                    $hasHeader = $hasHeader || $cell->header;
 
                     continue;
                 }
                 $aboveCell = $head > 0 && ($above[$c] ?? false) && ($aboveSingle[$c] ?? false);
                 $validUp = $cell->mark === '^' && $aboveCell;
-                $current[$c] = $validUp ? true : $cell->header;
+                if ($validUp) {
+                    $hasHeader = $hasHeader || $cell->header;
+                } elseif ($cell->header) {
+                    $hasHeader = true;
+                } else {
+                    $hasOther = true;
+                }
+                $current[$c] = $validUp ? $above[$c] : $cell->header;
                 $cover[$c] = $c;
                 $single[$c] = true;
                 $tall[$c] = $validUp;
             }
-            if ($current === [] || in_array(false, $current, true)) {
+            if (!$hasHeader || $hasOther) {
                 break;
             }
             $head++;
@@ -467,9 +484,9 @@ final class TableBuilder
     private static function cellNode(TableCell $cell): Node
     {
         if ($cell->span !== '') {
-            $node = $cell->start < 0 ? new Node('table_cell', []) : Node::at('table_cell', $cell->start, $cell->end);
+            $node = new Node('table_cell', []);
             $node->children = [];
-            $node->f['header'] = $cell->header;
+            $node->f['header'] = false;
             $node->f['span'] = $cell->span;
 
             return $node;

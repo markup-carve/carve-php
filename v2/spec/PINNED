@@ -1,3 +1,3 @@
-carve 653b1f7672c2ab00cd2aec34220a9e280a7f98bb spec/0.2
-carve-js d3fbbdc598b845ad5d3bfb59ffee9357c9cfd7e2 v2 example-tree fixture
+carve b2fd624cf66f4df28467eb6559c5e8c5c038d4b2 spec/0.2
 carve-js 0d3f252b175b19eb09878aab82a8c9c153ef539f v2 differential corpus
+carve-rs 56764ab74512c70c9b0d1ca8891be9ba789ae586 v2 example-tree fixture and clause cases

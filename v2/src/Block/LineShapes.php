@@ -277,6 +277,9 @@ final class LineShapes
         if ($s[$k] === '(') {
             $k = self::parenEnd($s, $k, $le);
         } elseif ($s[$k] === '[') {
+            if ($k + 1 < $le && $s[$k + 1] === ']' && self::fold(substr($s, $j + 2, $k - $j - 3)) === '') {
+                return false;
+            }
             $k = self::referenceLabelEnd($s, $k, $le);
         } else {
             return false;

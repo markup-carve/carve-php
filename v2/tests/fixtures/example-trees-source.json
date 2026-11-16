@@ -1,6 +1,5 @@
 {
-  "specCommit": "653b1f7672c2ab00cd2aec34220a9e280a7f98bb",
-  "jsCommit": "d3fbbdc598b845ad5d3bfb59ffee9357c9cfd7e2",
+  "specCommit": "b2fd624cf66f4df28467eb6559c5e8c5c038d4b2",
   "clauseOverrides": [
     {
       "file": "syntax-blocks.md",
@@ -229,6 +228,15 @@
       "number": 97,
       "case": "head inline update",
       "clause": "C2-I-104"
+    }
+  ],
+  "rustCommit": "56764ab74512c70c9b0d1ca8891be9ba789ae586",
+  "htmlClauseOverrides": [
+    {
+      "file": "syntax-blocks.md",
+      "number": 257,
+      "clause": "C2-H-006",
+      "clauseHtml": "<blockquote><p>{.a}</p></blockquote>"
     }
   ]
 }

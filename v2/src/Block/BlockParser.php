@@ -778,10 +778,29 @@ final class BlockParser
             }
 
             // C2-B-021: a marker without the quote mark closes a quote inside an item, when it may open a nested list (C2-B-056).
-            return $candidate->kind === Frame::QUOTE && $inItem && $this->mayNest($marker);
+            return $candidate->kind === Frame::QUOTE && $inItem && $this->mayNest($marker) && $this->canNestAt($owner);
         }
 
-        return $inItem && $this->mayNest($marker);
+        return $inItem && $this->mayNest($marker) && $this->canNestAt($owner);
+    }
+
+    /**
+     * C2-B-190: a refused two-container marker stays text in an open paragraph.
+     *
+     * @param int $owner
+     *
+     * @return bool
+     */
+    private function canNestAt(int $owner): bool
+    {
+        $depth = $this->depth;
+        for ($k = count($this->stack) - 1; $k > $owner; $k--) {
+            if (isset(self::COUNTED[$this->stack[$k]->kind])) {
+                $depth--;
+            }
+        }
+
+        return $depth + 2 <= Tables::BLOCK_DEPTH;
     }
 
     /**

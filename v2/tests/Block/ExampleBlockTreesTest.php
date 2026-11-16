@@ -72,7 +72,7 @@ final class ExampleBlockTreesTest extends TestCase
         $pinned = (string)file_get_contents(dirname(__DIR__, 2) . '/spec/PINNED');
         $this->assertIsArray($source);
         $this->assertStringContainsString('carve ' . $source['specCommit'] . ' spec/0.2', $pinned);
-        $this->assertStringContainsString('carve-js ' . $source['jsCommit'] . ' v2', $pinned);
+        $this->assertStringContainsString('carve-rs ' . $source['rustCommit'] . ' v2', $pinned);
         $this->assertCount(count($examples), $lines);
         $failed = [];
         foreach ($examples as $i => $ex) {

@@ -114,7 +114,7 @@ final class IncludeShape
 
             return $close + 3;
         }
-        $n = strcspn($s, " \t#@}\"", $k, $end - $k);
+        $n = strcspn($s, ' #@}"', $k, $end - $k);
         $curly = strpos(substr($s, $k, $n), "\u{201C}");
         if ($curly !== false) {
             $n = $curly;

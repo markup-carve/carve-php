@@ -201,6 +201,14 @@
  },
  {
   "file": "syntax-blocks.md",
+  "number": 258,
+  "label": "unverified",
+  "flags": [],
+  "input": "[^1]: - a\n- x",
+  "html": "<ul>\n  <li>x</li>\n</ul>"
+ },
+ {
+  "file": "syntax-blocks.md",
   "number": 22,
   "label": "generated",
   "flags": [],
@@ -405,7 +413,7 @@
   "label": "unverified",
   "flags": [],
   "input": ". [x] . x",
-  "html": "<ol class=\"task-list\">\n  <li data-task-state=\"x\" class=\"task\"><input type=\"checkbox\" checked disabled aria-label=\"\"> \n    <ol>\n      <li>x</li>\n    </ol>\n  </li>\n</ol>"
+  "html": "<ol class=\"task-list\">\n  <li data-task-state=\"x\" class=\"task\"><input type=\"checkbox\" checked disabled> \n    <ol>\n      <li>x</li>\n    </ol>\n  </li>\n</ol>"
  },
  {
   "file": "syntax-blocks.md",
@@ -1097,6 +1105,14 @@
  },
  {
   "file": "syntax-blocks.md",
+  "number": 254,
+  "label": "unverified",
+  "flags": [],
+  "input": "::: note \"a %% b\"\nc\n:::",
+  "html": "<aside class=\"admonition note\" aria-labelledby=\"adm-1\">\n  <p class=\"admonition-title\" id=\"adm-1\">a</p>\n  <p>c</p>\n</aside>"
+ },
+ {
+  "file": "syntax-blocks.md",
   "number": 237,
   "label": "unverified",
   "flags": [],
@@ -1358,6 +1374,22 @@
   "flags": [],
   "input": "%% #region intro\n%% carve-lint-disable-next-line empty-link-destination\nSee [a]().\n\nSee [b](). %% carve-lint-disable-line\n\nSee [c]().\n%% #endregion intro",
   "html": "<p>See <a href=\"\">a</a>.</p>\n<p>See <a href=\"\">b</a>.</p>\n<p>See <a href=\"\">c</a>.</p>"
+ },
+ {
+  "file": "syntax-blocks.md",
+  "number": 256,
+  "label": "unverified",
+  "flags": [],
+  "input": "- ```\n  a\n%% c\n  b",
+  "html": "<ul>\n  <li>\n    <pre><code>a\n</code></pre>\n  </li>\n</ul>\n<p>b</p>"
+ },
+ {
+  "file": "syntax-blocks.md",
+  "number": 257,
+  "label": "unverified",
+  "flags": [],
+  "input": "> {.a}\n%% x",
+  "html": "<blockquote>\n  <p>{.a}</p>\n</blockquote>"
  },
  {
   "file": "syntax-blocks.md",
@@ -1633,6 +1665,22 @@
  },
  {
   "file": "syntax-blocks.md",
+  "number": 255,
+  "label": "unverified",
+  "flags": [],
+  "input": "![ ][]\n^ cap",
+  "html": "<p>![ ][]\n^ cap</p>"
+ },
+ {
+  "file": "syntax-blocks.md",
+  "number": 259,
+  "label": "unverified",
+  "flags": [],
+  "input": "{{ a.crv @code:\"\" }}",
+  "html": "<p>{{ a.crv @code:\"\" }}</p>"
+ },
+ {
+  "file": "syntax-blocks.md",
   "number": 188,
   "label": "generated",
   "flags": [],
@@ -1809,6 +1857,14 @@
  },
  {
   "file": "syntax-blocks.md",
+  "number": 252,
+  "label": "unverified",
+  "flags": [],
+  "input": "| a | b |\n| ^ | < |",
+  "html": "<table>\n  <tbody>\n    <tr><td rowspan=\"2\">a</td><td>b</td></tr>\n    <tr><td>&lt;</td></tr>\n  </tbody>\n</table>"
+ },
+ {
+  "file": "syntax-blocks.md",
   "number": 210,
   "label": "unverified",
   "flags": [],
@@ -1822,6 +1878,30 @@
   "flags": [],
   "input": "{footer-rows=1}\n|= ^ |= A |\n| 1 | 2 |\n| ^ | 3 |",
   "html": "<table>\n  <thead>\n    <tr><th scope=\"col\">^</th><th scope=\"col\">A</th></tr>\n  </thead>\n  <tbody>\n    <tr><td>1</td><td>2</td></tr>\n  </tbody>\n  <tfoot>\n    <tr><td>^</td><td>3</td></tr>\n  </tfoot>\n</table>"
+ },
+ {
+  "file": "syntax-blocks.md",
+  "number": 260,
+  "label": "unverified",
+  "flags": [],
+  "input": "|=|^|",
+  "html": "<table>\n  <tbody>\n    <tr><th scope=\"row\"></th><td>^</td></tr>\n  </tbody>\n</table>"
+ },
+ {
+  "file": "syntax-blocks.md",
+  "number": 251,
+  "label": "unverified",
+  "flags": [],
+  "input": "|= H |\n|= ^ |\n| a |",
+  "html": "<table>\n  <thead>\n    <tr><th rowspan=\"2\" scope=\"col\">H</th></tr>\n    <tr></tr>\n  </thead>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>"
+ },
+ {
+  "file": "syntax-blocks.md",
+  "number": 253,
+  "label": "unverified",
+  "flags": [],
+  "input": "|= H |\n|={.x} ^ |\n| a |",
+  "html": "<table>\n  <thead>\n    <tr><th rowspan=\"2\" scope=\"col\">H</th></tr>\n    <tr></tr>\n  </thead>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>"
  },
  {
   "file": "syntax-blocks.md",
@@ -3358,6 +3438,26 @@
   ],
   "input": "a {#c#} b $`m`",
   "html": "<p>a  b $`m`</p>"
+ },
+ {
+  "file": "html.md",
+  "number": 53,
+  "label": "unverified",
+  "flags": [
+   "--profile minimal"
+  ],
+  "input": "[a `<br>`{=html}](u) b\n\n[<a:b>](u)",
+  "html": "<p>a `&lt;br&gt;`{=html} b</p>\n<p>&lt;a:b&gt;</p>"
+ },
+ {
+  "file": "html.md",
+  "number": 54,
+  "label": "unverified",
+  "flags": [
+   "--profile minimal"
+  ],
+  "input": "- # H",
+  "html": "<ul>\n  <li># H</li>\n</ul>"
  },
  {
   "file": "html.md",
