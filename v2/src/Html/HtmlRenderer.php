@@ -505,12 +505,17 @@ final class HtmlRenderer
         if ($inner->ownStart >= 0) {
             $inner->start = $inner->ownStart;
         }
-        $wrapper = Node::at('figure', $node->start, $node->end);
-        $wrapper->children = [$inner];
-        $wrapper->f = array_intersect_key($node->f, array_flip(['attrs', 'lang', 'dir']));
-        $wrapper->f['caption'] = $node->f['caption'];
+        $children = $this->blocks([$inner], $depth + 1);
+        $caption = $node->f['caption'];
+        assert($caption instanceof Node);
+        $children[] = $this->caption('figcaption', $caption, $depth + 1);
 
-        return $this->figure($wrapper, $depth, $panel);
+        return $this->container(
+            '<figure' . $this->attrs($node, $panel ? ['carve-figure-panel'] : []) . '>',
+            '</figure>',
+            $children,
+            $depth,
+        );
     }
 
     /**
@@ -1254,31 +1259,6 @@ final class HtmlRenderer
     }
 
     /**
-     * C2-H-062 to C2-H-065.
-     *
-     * @param \MarkupCarve\Carve2\Node $node
-     * @param int $depth
-     * @param bool $panel
-     *
-     * @return string
-     */
-    private function figure(Node $node, int $depth, bool $panel): string
-    {
-        $children = $this->blocks($node->children ?? [], $depth + 1);
-        $caption = $node->f['caption'] ?? null;
-        if ($caption instanceof Node) {
-            $children[] = $this->caption('figcaption', $caption, $depth + 1);
-        }
-
-        return $this->container(
-            '<figure' . $this->attrs($node, $panel ? ['carve-figure-panel'] : []) . '>',
-            '</figure>',
-            $children,
-            $depth,
-        );
-    }
-
-    /**
      * @param \MarkupCarve\Carve2\Node $node
      * @param int $depth
      *
@@ -1295,7 +1275,7 @@ final class HtmlRenderer
                 // D-render-1: C2-H-064 makes every panel a panel figure; the oracle writes a table panel bare.
                 'table' => $this->allowed($child, $depth + 1)
                     ? $this->container(
-                        '<figure' . $this->attrs(Node::at('figure', $child->start, $child->end), ['carve-figure-panel']) . '>',
+                        '<figure' . $this->panelAttrs($child) . '>',
                         '</figure>',
                         [$this->tables->table($child, $depth + 2)],
                         $depth + 1,
@@ -1313,6 +1293,18 @@ final class HtmlRenderer
         }
 
         return $this->container('<figure' . $this->attrs($node, ['carve-figure-group']) . '>', '</figure>', $children, $depth);
+    }
+
+    /**
+     * C2-H-064: the panel wrapper has a class and source line, while the table keeps its own attributes.
+     *
+     * @param \MarkupCarve\Carve2\Node $table
+     *
+     * @return string
+     */
+    private function panelAttrs(Node $table): string
+    {
+        return $this->aw->build([], null, null, null, ['carve-figure-panel'], sourceLine: $this->line($table));
     }
 
     /**

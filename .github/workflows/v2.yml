@@ -39,7 +39,7 @@ jobs:
       - name: Run tests
         run: composer v2-test
 
-      - name: Check pinned oracle corpus and trigger rewrites
+      - name: Check pinned oracle corpus and clause exceptions
         run: python3 v2/oracle/verify_corpus.py
 
       - name: Run PHPStan

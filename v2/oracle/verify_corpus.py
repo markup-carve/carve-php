@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare the fixed pinned-oracle corpus, then rerun every trigger rewrite in PHP."""
+"""C2-A-082: compare the fixed JS corpus and its explicit clause exceptions with PHP."""
 import gzip
 import json
 import re
@@ -36,6 +36,30 @@ def strip_facts(value):
     return value
 
 
+def caption_slots(value):
+    if isinstance(value, list):
+        return [caption_slots(child) for child in value]
+    if not isinstance(value, dict):
+        return value
+    node = {key: caption_slots(item) for key, item in value.items()}
+    if isinstance(node.get('children'), list):
+        node['children'] = [item for child in node['children']
+                            for item in (child if isinstance(child, list) else [child])]
+    if node.get('type') != 'figure' or 'caption' not in node or not node.get('children'):
+        return node
+    block, *comments = node['children']
+    if block.get('type') not in ('paragraph', 'code_block', 'block_quote'):
+        return node
+    block['caption'] = node['caption']
+    for key in ('attrs', 'lang', 'dir'):
+        if key in node:
+            block[key] = node[key]
+    if block['type'] == 'code_block':
+        return [block, *comments] if comments else block
+    block.setdefault('children', []).extend(comments)
+    return block
+
+
 def php_batch(inputs):
     with tempfile.TemporaryDirectory() as directory:
         source = Path(directory) / 'in.json'
@@ -47,14 +71,19 @@ def php_batch(inputs):
 
 
 def check_clause_differences():
-    pinned = (ROOT / 'v2/spec/PINNED').read_text()
     listed = json.loads((ROOT / 'v2/oracle/expected-differences.json').read_text())
-    assert f"carve-js {listed['jsCommit']} v2" in pinned
+    seeds = json.loads((CORPUS / 'seeds.json').read_text())
+    assert listed['jsCommit'] == seeds['oracle_commit']
+    pinned = (ROOT / 'v2/spec/PINNED').read_text()
+    assert f"carve-js {listed['jsCommit']} v2 differential corpus" in pinned
     cases = json.loads((ROOT / 'v2/tests/fixtures/clause-cases.json').read_text())
     by_id = {case['case']: case for case in cases}
     differences = listed['differences']
-    assert len(by_id) == len(cases) and len(differences) == 23
+    assert len(by_id) == len(cases) and len(differences) == 4
     assert len({row['case'] for row in differences}) == len(differences)
+    assert {row['case']: row['reason'] for row in differences} == {
+        'R7': 'C2-A-082', 'R21': 'C2-A-082', 'X1': 'C2-I-013', 'X2': 'C2-I-013',
+    }
     actual = php_batch([{'input': row['input'], 'options': row['options']} for row in differences])
     assert len(actual) == len(differences), f'PHP returned {len(actual)} of {len(differences)} clause cases'
     for row, result in zip(differences, actual):
@@ -74,21 +103,20 @@ def main():
     assert len(inputs) == len(oracle) == 3000
     expected = {entry['index']: entry for entry in evidence}
     assert len(expected) == len(evidence)
-    decided = {'R3', 'N1', 'C2-I-017', 'C2-I-104', 'C2-B-206', 'C2-A-082', 'C2-B-173', 'C2-B-209'}
-    assert all(set(entry['clause'].split('+')) <= decided and entry['case'] == entry['clause'] == entry['reason'] for entry in evidence)
+    assert all(entry['clause'] == 'C2-A-082' and entry['reason'] == 'caption slot; JS retains figure wrapper'
+               for entry in evidence)
     actual = php_batch(inputs)
     assert len(actual) == len(inputs), f'PHP returned {len(actual)} of {len(inputs)} corpus results'
     mismatches = [i for i, (a, b) in enumerate(zip(oracle, actual)) if not equal(a, b)]
     assert set(mismatches) == set(expected), f'unexpected corpus differences: {set(mismatches) ^ set(expected)}'
     changed = [i for i in mismatches if not equal(expected[i]['php'], actual[i])]
     assert not changed, f'expected-difference outputs changed: {changed}'
-    rewrites = php_batch([entry['rewrite'] for entry in evidence])
-    assert len(rewrites) == len(evidence), f'PHP returned {len(rewrites)} of {len(evidence)} rewrite results'
-    failures = [entry['index'] for entry, result in zip(evidence, rewrites) if not equal(entry['oracle'], result)]
-    assert not failures, f'trigger rewrites still differ: {failures}'
+    unclassified = [i for i in mismatches if oracle[i].get('html') != actual[i].get('html')
+                    or strip_facts(caption_slots(oracle[i].get('tree'))) != strip_facts(actual[i].get('tree'))]
+    assert not unclassified, f'differences beyond C2-A-082 caption slots: {unclassified}'
     explicit = check_clause_differences()
     print(f'{len(inputs)} cases: {len(inputs) - len(mismatches)} equal, {len(mismatches)} expected differences, '
-          f'{len(evidence)} trigger rewrites equal; {explicit} explicit clause differences')
+          f'{explicit} explicit clause differences')
 
 
 if __name__ == '__main__':

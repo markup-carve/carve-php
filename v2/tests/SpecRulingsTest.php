@@ -14,6 +14,45 @@ use PHPUnit\Framework\TestCase;
 
 final class SpecRulingsTest extends TestCase
 {
+    public function testC2H174TaskBoxWithoutDirectTextHasNoLabel(): void
+    {
+        foreach (['. [x] . x', '- [ ] - nested', '1. [!] > quote'] as $source) {
+            $this->assertStringNotContainsString(' aria-label=', Carve2::toHtml($source), $source);
+        }
+    }
+
+    public function testC2I013LinkDestinationEscapes(): void
+    {
+        foreach (
+            [
+                '[a]: \\\\' => '\\',
+                '[a]: /x\\)' => '/x)',
+                '[x](/u/\\\\)' => '/u/\\',
+            ] as $source => $href
+        ) {
+            $tree = json_decode(Carve2::toJson($source), true, 512, JSON_THROW_ON_ERROR);
+            $node = $tree['children'][0];
+            if ($node['type'] === 'paragraph') {
+                $node = $node['children'][0];
+            }
+            $this->assertSame($href, $node['href'], $source);
+        }
+    }
+
+    public function testC2A032KeyValuesAreOrderedPairs(): void
+    {
+        $tree = json_decode(Carve2::toJson("{k=v q=z}\nText"), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame([['k', 'v'], ['q', 'z']], $tree['children'][0]['attrs']['keyValues']);
+    }
+
+    public function testC2H064TablePanelKeepsTableAttributes(): void
+    {
+        $html = Carve2::toHtml("::: figure\n{#t}\n| a |\n^ Cap\n:::", ['sourceLines' => true]);
+        $this->assertStringContainsString('<figure class="carve-figure-panel" data-source-line="2">', $html);
+        $this->assertStringContainsString('<table id="t" data-source-line="2">', $html);
+        $this->assertSame(1, substr_count($html, 'id="t"'));
+    }
+
     public function testC2I127Unicode18WordBoundary(): void
     {
         $this->assertSame('<p>𽀀*𰨌*</p>', Carve2::toHtml('𽀀*𰨌*'));
