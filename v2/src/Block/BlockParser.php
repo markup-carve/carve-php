@@ -1566,6 +1566,9 @@ final class BlockParser
         if ($this->stripI >= 0 && $this->col > $f->openCol) {
             $this->i = $this->stripI;
             $this->col = $this->stripCol;
+        }
+        if ($this->stripI >= 0) {
+            // C2-B-029: a tab may leave container matching short of the fence opener column.
             $this->stripTo($f->openCol - $this->base);
         }
         $s = $this->s;
@@ -1640,7 +1643,7 @@ final class BlockParser
             }
         }
         // C2-B-029: the body is stripped by at most the indent of its opener.
-        if ($f->indent > 0) {
+        if ($f->indent > 0 && $this->stripI < 0) {
             $this->stripTo($this->col - $this->base + $f->indent);
         }
         $f->spans[] = $this->i;

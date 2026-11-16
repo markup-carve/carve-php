@@ -315,6 +315,13 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame("<pre><code>text\n</code></pre>", Carve2::toHtml("```  b\ntext\n```"));
     }
 
+    public function testC2B029FenceInTaskItemStripsBodyTab(): void
+    {
+        $src = "- [ ]  ```\n\tcode\n  ``` a\n- b";
+        $tree = json_decode(Carve2::toJson($src), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame("code\n``` a\n", $tree['children'][0]['children'][0]['children'][0]['value']);
+    }
+
     public function testC2A181IncludeRowsAndColsAcceptOutOfShapeValues(): void
     {
         foreach (
