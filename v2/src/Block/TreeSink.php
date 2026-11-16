@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Block;
 
+use MarkupCarve\Carve2\Diagnostics\Findings;
 use MarkupCarve\Carve2\Node;
 
 /**
@@ -13,11 +14,14 @@ final class TreeSink implements Sink
 {
     public ?Node $root = null;
 
+    public Findings $findings;
+
     /**
      * @param string $s
      */
     public function __construct(private string $s)
     {
+        $this->findings = new Findings();
     }
 
     /**

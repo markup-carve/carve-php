@@ -6327,6 +6327,245 @@ final class Tables
         '~' => 'center',
     ];
 
+    /** C2-A-173 lint-rules.json: severity, channel and first message of each parse and render-loss code */
+    public const DIAGNOSTICS = [
+        'carrier-attribute-dropped' => [
+            'warning',
+            'render-loss',
+            'Dropped the authored attribute ${key}: the name is reserved for roundtrip import',
+        ],
+        'delimited-table-malformed' => [
+            'error',
+            'parse',
+            'This marked CSV/TSV fence has malformed quoting. It stays a table, and the cell with the unclosed quote holds the rest of the fence body.',
+        ],
+        'destination-denied' => [
+            'error',
+            'render-loss',
+            'Blanked a denied destination scheme',
+        ],
+        'duplicate-abbreviation-definition' => [
+            'warning',
+            'parse',
+            'Duplicate abbreviation definition (label) is ignored; the first definition for a label wins.',
+        ],
+        'duplicate-footnote-definition' => [
+            'warning',
+            'parse',
+            'Duplicate footnote definition [^${label}] is ignored; the first definition for a label wins.',
+        ],
+        'duplicate-id' => [
+            'warning',
+            'parse',
+            'Duplicate id "${explicit}": the repeated HTML id is invalid, and cross-references to it resolve to the first occurrence.',
+        ],
+        'duplicate-link-reference-definition' => [
+            'warning',
+            'parse',
+            'Duplicate link definition (label) is ignored; the first definition for a label wins.',
+        ],
+        'extension-fallback-rendered' => [
+            'warning',
+            'render-loss',
+            'Rendered the fallback of the unknown extension "${name}"',
+        ],
+        'extension-renderer-failed' => [
+            'warning',
+            'render-loss',
+            'extension-renderer-failed',
+        ],
+        'extension-transform-failed' => [
+            'warning',
+            'render-loss',
+            'extension-transform-failed',
+        ],
+        'fence-opener-fallback' => [
+            'error',
+            'parse',
+            'A code fence carries no inline attributes, so "${attributes}" after the info string is not valid. The block opens without them (use: "${attributes}" on its own line directly above the fence, then "${opener}").',
+        ],
+        'fence-title-syntax' => [
+            'warning',
+            'parse',
+            'The title after "${type}" uses typographic quotes - usually a CMS "smart quote" filter rewrote the source before Carve parsed it. A fence title needs straight double quotes: ${fence} ${type} "${title}"${label}.',
+        ],
+        'field-unspellable' => [
+            'warning',
+            'render-loss',
+            'Carve source cannot spell ${what}',
+        ],
+        'import-attribute-dropped' => [
+            'warning',
+            'render-loss',
+            'import-attribute-dropped',
+        ],
+        'import-carrier-ignored' => [
+            'warning',
+            'render-loss',
+            'import-carrier-ignored',
+        ],
+        'import-destination-denied' => [
+            'warning',
+            'render-loss',
+            'import-destination-denied',
+        ],
+        'import-element-dropped' => [
+            'warning',
+            'render-loss',
+            'import-element-dropped',
+        ],
+        'import-element-mapped' => [
+            'warning',
+            'render-loss',
+            'import-element-mapped',
+        ],
+        'import-structure-repaired' => [
+            'warning',
+            'render-loss',
+            'import-structure-repaired',
+        ],
+        'import-whitespace-normalized' => [
+            'hint',
+            'render-loss',
+            'import-whitespace-normalized',
+        ],
+        'include-budget' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: the included texts reach the size cap of ${limit} bytes.',
+        ],
+        'include-cols-duplicate' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: @cols names the column ${name} twice.',
+        ],
+        'include-cols-invalid' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: @cols ${reason}.',
+        ],
+        'include-cycle' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: it would include a file that is already being included.',
+        ],
+        'include-depth' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: it is nested deeper than ${limit} levels.',
+        ],
+        'include-expanded-roundtrip' => [
+            'warning',
+            'render-loss',
+            'Include "${path}" was expanded, so the roundtrip HTML holds the included content and not the directive.',
+        ],
+        'include-heading-clamp' => [
+            'warning',
+            'parse',
+            'A shift moves the heading "${text}" outside levels 1 to 6; it is kept at level ${level}.',
+        ],
+        'include-lines-out-of-range' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: @lines starts past the last line of the file.',
+        ],
+        'include-no-resolver' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: no include resolver is configured.',
+        ],
+        'include-non-text' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: the file is not text.',
+        ],
+        'include-not-found' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: the file does not exist.',
+        ],
+        'include-option-invalid' => [
+            'warning',
+            'parse',
+            'The include option ${option} ${reason}, so the include is not expanded. Correct it or remove it.',
+        ],
+        'include-outside-root' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: the path leads outside the include root.',
+        ],
+        'include-region-invalid' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: the region ${name} ${reason}.',
+        ],
+        'include-rows-out-of-range' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: @rows starts past the last record.',
+        ],
+        'include-section' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: no heading or block has the id ${name}.',
+        ],
+        'include-selection-conflict' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: ${reason}.',
+        ],
+        'include-unreadable' => [
+            'warning',
+            'parse',
+            'Include "${path}" was not expanded: the file cannot be read.',
+        ],
+        'include-unresolved' => [
+            'warning',
+            'render-loss',
+            'Include "${path}" could not be resolved.',
+        ],
+        'profile-construct-degraded' => [
+            'warning',
+            'render-loss',
+            'Degraded a construct the profile "${profile}" does not allow: ${construct}',
+        ],
+        'raw-format-dropped' => [
+            'warning',
+            'render-loss',
+            'Dropped ${kind} raw format "${format}" while rendering ${target}',
+        ],
+        'structure-unspellable' => [
+            'warning',
+            'render-loss',
+            'Carve source cannot spell ${what}',
+        ],
+        'unclosed-code-fence' => [
+            'error',
+            'parse',
+            'The ${marker} fence opened here has no closing fence; ${ending}. Add a closing ${marker} where the code should stop.',
+        ],
+        'unclosed-comment-fence' => [
+            'error',
+            'parse',
+            'The ${opener} comment fence opened here has no closing fence and hides everything to the end of its container (or: the document). Add a closing ${opener} where the comment should stop.',
+        ],
+        'unclosed-container-fence' => [
+            'error',
+            'parse',
+            'This ${width}-colon ${kind} has no closer; it runs to the end of its container. Add a bare fence of ${width} colons to close it.',
+        ],
+        'unclosed-frontmatter' => [
+            'error',
+            'parse',
+            'The frontmatter opened on line 1 has no closing line, so the whole document is frontmatter.',
+        ],
+        'writer-refused' => [
+            'warning',
+            'render-loss',
+            'writer-refused',
+        ],
+    ];
+
     /** C2-B-205 include-options.json */
     public const INCLUDE_OPTIONS = [
         [
