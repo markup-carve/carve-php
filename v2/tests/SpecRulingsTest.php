@@ -322,6 +322,18 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame("code\n``` a\n", $tree['children'][0]['children'][0]['children'][0]['value']);
     }
 
+    public function testC2B029FenceInsideQuoteInsideItemKeepsBodyIndent(): void
+    {
+        $this->assertStringContainsString(
+            "<pre><code>  code\n</code></pre>",
+            Carve2::toHtml("  1. > ```\n   >   code\n   > ```"),
+        );
+        $this->assertStringContainsString(
+            "<pre><code>  code\n</code></pre>",
+            Carve2::toHtml("- a\n\n  > ```\n >   code\n > ```"),
+        );
+    }
+
     public function testC2A181IncludeRowsAndColsAcceptOutOfShapeValues(): void
     {
         foreach (

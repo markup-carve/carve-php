@@ -333,6 +333,8 @@ final class BlockParser
                 if (!$this->matchQuote()) {
                     break;
                 }
+                // C2-B-029: an item before this quote is not the fence's direct container.
+                $this->stripI = -1;
             } elseif ($kind !== Frame::DIV) {
                 $j = $this->i;
                 $c = $this->col;
