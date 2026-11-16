@@ -338,6 +338,20 @@ final class SpecRulingsTest extends TestCase
         );
     }
 
+    public function testC2B130LineBlockKeepsSpacesInsideContainers(): void
+    {
+        foreach (
+            [
+                "- a\n\n   ::: |\n     x\n   :::",
+                "1. a\n\n    ::: |\n      x\n    :::",
+                "- a\n\n  ::: b\n    ::: |\n      x\n    :::\n  :::",
+                "> - a\n>\n>    ::: |\n>      x\n>    :::",
+            ] as $src
+        ) {
+            $this->assertStringContainsString('<p>&nbsp;&nbsp;x</p>', Carve2::toHtml($src));
+        }
+    }
+
     public function testC2A181IncludeRowsAndColsAcceptOutOfShapeValues(): void
     {
         foreach (

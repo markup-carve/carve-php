@@ -1611,7 +1611,9 @@ final class BlockParser
                     return;
                 }
                 // C2-B-130: the spaces that lead a line after the strip are content.
-                $this->stripTo($this->col - $this->base + $f->indent);
+                if ($this->stripI < 0) {
+                    $this->stripTo($this->col - $this->base + $f->indent);
+                }
                 $f->spans[] = $this->i;
                 $f->spans[] = $this->le;
                 if ($j < $end) {
