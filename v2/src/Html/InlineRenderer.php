@@ -207,7 +207,8 @@ final class InlineRenderer
         $kids = $node->children ?? [];
         $tag = Tables::DELIMITER_HTML[$type] ?? null;
         if ($tag !== null) {
-            return '<' . $tag . $this->aw->build([], null, $attrs, $lang) . '>' . $this->inlines($kids, $depth + 1, true) . '</' . $tag . '>';
+            return '<' . $tag . $this->aw->build([], null, $attrs, $lang) . '>'
+                . $this->inlines($kids, $depth + 1, true) . '</' . $tag . '>';
         }
 
         return $this->inlines($kids, $depth + 1, true);
@@ -292,7 +293,8 @@ final class InlineRenderer
      */
     private function smallCaps(Node $node, ?Attrs $attrs, ?string $lang, int $depth): string
     {
-        return '<span' . $this->aw->build([], null, $attrs, $lang, ['smallcaps']) . '>' . $this->inlines($node->children ?? [], $depth + 1, true) . '</span>';
+        return '<span' . $this->aw->build([], null, $attrs, $lang, ['smallcaps']) . '>'
+            . $this->inlines($node->children ?? [], $depth + 1, true) . '</span>';
     }
 
     /**
@@ -893,7 +895,8 @@ final class InlineRenderer
             return $this->inlines(PlainText::nodes(is_array($fallback) ? $fallback : $node->children), $depth + 1, true);
         }
 
-        return '<span' . $this->aw->build([], null, $attrs, $lang, ['ext-' . $name]) . '>' . $this->inlines($node->children ?? [], $depth + 1, true) . '</span>';
+        return '<span' . $this->aw->build([], null, $attrs, $lang, ['ext-' . $name]) . '>'
+            . $this->inlines($node->children ?? [], $depth + 1, true) . '</span>';
     }
 
     /**

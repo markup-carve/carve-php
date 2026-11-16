@@ -1,1 +1,7 @@
-{"oracle_commit":"c892a389a684088ae29b65ddbc293aa789359f59","generator":"carve-js/v2/proptest/generate.ts","sets":[{"seed":1000,"count":3000,"max_bytes":256}]}
+{
+  "oracle_commit": "c892a389a684088ae29b65ddbc293aa789359f59",
+  "generator": "carve-js/v2/proptest/generate.ts",
+  "sets": [
+    {"seed": 1000, "count": 3000, "max_bytes": 256}
+  ]
+}
