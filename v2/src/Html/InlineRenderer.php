@@ -81,25 +81,26 @@ final class InlineRenderer
     /**
      * @param array<\MarkupCarve\Carve2\Node> $nodes
      * @param int $depth
+     * @param bool $nested
      *
      * @return string
      */
-    public function inlines(array $nodes, int $depth = 0): string
+    public function inlines(array $nodes, int $depth = 0, bool $nested = false): string
     {
         $out = '';
         if ($this->profile !== null) {
-            foreach (self::dropCommentLineBreaks($nodes) as $node) {
+            foreach (self::dropCommentLineBreaks($nodes, $nested) as $node) {
                 $out .= $this->profile->inline($node, $depth, $this);
             }
 
             return $out;
         }
         // With no comment in the tree, or a single node, C2-H-069 drops nothing.
-        foreach ($this->state->comments && count($nodes) > 1 ? self::dropCommentLineBreaks($nodes) : $nodes as $node) {
+        foreach ($this->state->comments && count($nodes) > 1 ? self::dropCommentLineBreaks($nodes, $nested) : $nodes as $node) {
             $tag = $node->f === [] ? Tables::DELIMITER_HTML[$node->type] ?? null : null;
             if ($tag !== null) {
                 // A delimiter span with no attributes, the common case of node(), without its lookups.
-                $out .= '<' . $tag . '>' . $this->inlines($node->children ?? [], $depth + 1) . '</' . $tag . '>';
+                $out .= '<' . $tag . '>' . $this->inlines($node->children ?? [], $depth + 1, true) . '</' . $tag . '>';
             } elseif ($node->type === 'text') {
                 $value = $node->f['value'] ?? '';
                 // Plain text needs no escaping: the check of Escape::text, done here to save two calls.
@@ -114,10 +115,11 @@ final class InlineRenderer
 
     /**
      * @param array<\MarkupCarve\Carve2\Node> $nodes
+     * @param bool $nested
      *
      * @return array<\MarkupCarve\Carve2\Node>
      */
-    public static function dropCommentLineBreaks(array $nodes): array
+    public static function dropCommentLineBreaks(array $nodes, bool $nested = false): array
     {
         $hasComment = false;
         foreach ($nodes as $n) {
@@ -139,9 +141,9 @@ final class InlineRenderer
                 continue;
             }
             if (self::commentOnly($nodes, $lineStart, $i)) {
-                if ($i < $count) {
+                if ($i < $count && ($lineStart > 0 || !$nested)) {
                     $drop[$i] = true;
-                } elseif ($lineStart > 0) {
+                } elseif ($i === $count && $lineStart > 0 && !$nested) {
                     $drop[$lineStart - 1] = true;
                 }
             }
@@ -205,10 +207,10 @@ final class InlineRenderer
         $kids = $node->children ?? [];
         $tag = Tables::DELIMITER_HTML[$type] ?? null;
         if ($tag !== null) {
-            return '<' . $tag . $this->aw->build([], null, $attrs, $lang) . '>' . $this->inlines($kids, $depth + 1) . '</' . $tag . '>';
+            return '<' . $tag . $this->aw->build([], null, $attrs, $lang) . '>' . $this->inlines($kids, $depth + 1, true) . '</' . $tag . '>';
         }
 
-        return $this->inlines($kids, $depth + 1);
+        return $this->inlines($kids, $depth + 1, true);
     }
 
     /**
@@ -290,7 +292,7 @@ final class InlineRenderer
      */
     private function smallCaps(Node $node, ?Attrs $attrs, ?string $lang, int $depth): string
     {
-        return '<span' . $this->aw->build([], null, $attrs, $lang, ['smallcaps']) . '>' . $this->inlines($node->children ?? [], $depth + 1) . '</span>';
+        return '<span' . $this->aw->build([], null, $attrs, $lang, ['smallcaps']) . '>' . $this->inlines($node->children ?? [], $depth + 1, true) . '</span>';
     }
 
     /**
@@ -394,7 +396,7 @@ final class InlineRenderer
             $isAbbr = $isAbbr || $key === 'abbr';
         }
         $this->abbrSpan += $isAbbr ? 1 : 0;
-        $inner = $this->inlines($node->children ?? [], $depth + 1);
+        $inner = $this->inlines($node->children ?? [], $depth + 1, true);
         $this->abbrSpan -= $isAbbr ? 1 : 0;
         if ($layers === []) {
             return '<span' . $this->aw->build([], null, $attrs, $lang) . '>' . $inner . '</span>';
@@ -435,7 +437,7 @@ final class InlineRenderer
             return $this->unresolved($node, $attrs, $lang, $depth);
         }
         if ($this->linkDepth > 0) {
-            return $this->inlines($node->children ?? [], $depth + 1);
+            return $this->inlines($node->children ?? [], $depth + 1, true);
         }
         $def = is_string($key) ? $this->state->linkDefs[$key] ?? null : null;
         $merged = self::mergeDefinition($attrs, $def);
@@ -443,7 +445,7 @@ final class InlineRenderer
         $this->linkDepth++;
         $saved = $this->moved;
         $this->moved = '';
-        $inner = $this->inlines($node->children ?? [], $depth + 1);
+        $inner = $this->inlines($node->children ?? [], $depth + 1, true);
         $moved = $this->moved;
         $this->moved = $saved;
         $this->linkDepth--;
@@ -585,7 +587,7 @@ final class InlineRenderer
         if ($node->type === 'image') {
             $out = '![' . Escape::text(PlainText::str($node->f['alt'] ?? '')) . ']';
         } else {
-            $out = '[' . $this->inlines($node->children ?? [], $depth + 1) . ']';
+            $out = '[' . $this->inlines($node->children ?? [], $depth + 1, true) . ']';
         }
         $form = $node->f['refForm'] ?? null;
         if ($form === 'full') {
@@ -697,7 +699,7 @@ final class InlineRenderer
         $id = $this->state->refIds[spl_object_id($node)] ?? null;
         if (!is_int($number) || $id === null) {
             if ($node->type === 'inline_footnote') {
-                return $this->inlines($node->children ?? [], $depth + 1);
+                return $this->inlines($node->children ?? [], $depth + 1, true);
             }
 
             return Escape::text('[^' . PlainText::str($node->f['key'] ?? '') . ']');
@@ -888,10 +890,10 @@ final class InlineRenderer
             $this->log->loss('extension-fallback-rendered', 'warning', 'extension ' . $name . ' rendered through its fallback');
             $fallback = $node->f['fallback'] ?? null;
 
-            return $this->inlines(PlainText::nodes(is_array($fallback) ? $fallback : $node->children), $depth + 1);
+            return $this->inlines(PlainText::nodes(is_array($fallback) ? $fallback : $node->children), $depth + 1, true);
         }
 
-        return '<span' . $this->aw->build([], null, $attrs, $lang, ['ext-' . $name]) . '>' . $this->inlines($node->children ?? [], $depth + 1) . '</span>';
+        return '<span' . $this->aw->build([], null, $attrs, $lang, ['ext-' . $name]) . '>' . $this->inlines($node->children ?? [], $depth + 1, true) . '</span>';
     }
 
     /**
@@ -908,8 +910,8 @@ final class InlineRenderer
     {
         $out = '';
         foreach (PlainText::nodes($node->f['pairs'] ?? []) as $pair) {
-            $out .= $this->inlines(PlainText::nodes($pair->f['base'] ?? []), $depth + 1)
-                . '<rp>(</rp><rt>' . $this->inlines(PlainText::nodes($pair->f['annotation'] ?? []), $depth + 1) . '</rt><rp>)</rp>';
+            $out .= $this->inlines(PlainText::nodes($pair->f['base'] ?? []), $depth + 1, true)
+                . '<rp>(</rp><rt>' . $this->inlines(PlainText::nodes($pair->f['annotation'] ?? []), $depth + 1, true) . '</rt><rp>)</rp>';
         }
 
         return '<ruby' . $this->aw->build([], null, $attrs, $lang) . '>' . $out . '</ruby>';

@@ -344,4 +344,12 @@ final class SpecRulingsTest extends TestCase
             Carve2::toHtml($src, ['profile' => 'minimal']),
         );
     }
+
+    public function testC2H069CommentAtInlineBoundaryKeepsNestedBreak(): void
+    {
+        $this->assertSame("<p><span class=\"ext-n\">\n</span></p>", Carve2::toHtml(":n[{%%}\n]"));
+        $this->assertSame("<p><span class=\"ext-n\">\n</span></p>", Carve2::toHtml(":n[\n{%%}]"));
+        $this->assertSame('<p>x</p>', Carve2::toHtml("{%%}\nx"));
+        $this->assertSame('<p>x</p>', Carve2::toHtml("x\n{%%}"));
+    }
 }

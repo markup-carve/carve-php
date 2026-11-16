@@ -479,7 +479,7 @@ final class HtmlOutputTest extends RenderTestCase
         $ext = ['type' => 'inline_extension', 'name' => 'n', 'children' => [['type' => 'soft_break'], ['type' => 'comment', 'form' => 'line', 'value' => ''], ['type' => 'soft_break']]];
         $this->assertSame("<p><span class=\"ext-n\">\n</span></p>", self::html(self::doc(self::p($ext))));
         $strong = ['type' => 'strong', 'children' => [['type' => 'comment', 'form' => 'line', 'value' => ''], ['type' => 'soft_break']]];
-        $this->assertSame('<p><strong></strong></p>', self::html(self::doc(self::p($strong))));
+        $this->assertSame("<p><strong>\n</strong></p>", self::html(self::doc(self::p($strong))));
     }
 
     /**
