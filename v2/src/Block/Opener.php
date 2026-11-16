@@ -29,6 +29,16 @@ final class Opener
     public ?string $label = null;
 
     /**
+     * Where further words start (C2-B-122), or -1.
+     */
+    public int $extra = -1;
+
+    /**
+     * The offset behind the language word, raw format or div name, or -1.
+     */
+    public int $wordEnd = -1;
+
+    /**
      * @param int $run
      */
     public function __construct(public int $run)

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Resolve;
 
 use MarkupCarve\Carve2\Attrs;
+use MarkupCarve\Carve2\Diagnostics\Findings;
 use MarkupCarve\Carve2\Inline\InlineContext;
 use MarkupCarve\Carve2\Inline\InlineRunner;
 use MarkupCarve\Carve2\Node;
@@ -159,7 +160,18 @@ final class Resolver
      */
     private const LISTED = ['footnote_ref' => true, 'inline_footnote' => true, 'heading' => true, 'caption_number' => true, 'math' => true, 'figure_group' => true, 'table' => true, 'comment' => true, 'image' => true];
 
-    private function __construct(private Node $doc, private Options $o)
+    /**
+     * C2-B-085
+     *
+     * @var array<string, string>
+     */
+    private const DUPLICATE = [
+        'link_reference_definition' => 'duplicate-link-reference-definition',
+        'footnote' => 'duplicate-footnote-definition',
+        'abbreviation_def' => 'duplicate-abbreviation-definition',
+    ];
+
+    private function __construct(private Node $doc, private Options $o, private ?Findings $findings)
     {
     }
 
@@ -168,16 +180,17 @@ final class Resolver
      * @param string|null $s The source, or null for a supplied tree.
      * @param \MarkupCarve\Carve2\Options $opts
      * @param bool $keep Keep the walk's lists as Facts for HtmlRenderer::render().
+     * @param \MarkupCarve\Carve2\Diagnostics\Findings|null $findings Where duplicates are reported (C2-B-085, C2-A-039).
      *
      * @return self
      */
-    public static function resolve(Node $doc, ?string $s, Options $opts, bool $keep = false): self
+    public static function resolve(Node $doc, ?string $s, Options $opts, bool $keep = false, ?Findings $findings = null): self
     {
         $gc = gc_enabled();
         // The tree holds no cycles; with the collector on, each walk fills its root buffer and starts full scans.
         gc_disable();
         try {
-            $r = new self($doc, $opts);
+            $r = new self($doc, $opts, $findings);
             $doc->f['astVersion'] = '2.0';
             if ($s !== null) {
                 $doc->f['srcByteLength'] = strlen($s);
@@ -223,11 +236,16 @@ final class Resolver
                 continue;
             }
             if ($child->type === 'link_reference_definition') {
-                $this->linkDefs[$key] ??= $child;
+                $first = $this->linkDefs[$key] ??= $child;
             } elseif ($child->type === 'footnote') {
-                $this->footnoteDefs[$key] ??= $child;
+                $first = $this->footnoteDefs[$key] ??= $child;
             } elseif ($child->type === 'abbreviation_def') {
-                $this->abbrDefs[$key] ??= $child;
+                $first = $this->abbrDefs[$key] ??= $child;
+            } else {
+                continue;
+            }
+            if ($first !== $child) {
+                $this->findings?->add(self::DUPLICATE[$child->type], $child);
             }
         }
     }
@@ -362,7 +380,7 @@ final class Resolver
             }
             $attrs = $f['attrs'] ?? null;
             if ($attrs instanceof Attrs && $attrs->id !== null) {
-                $this->taken[$attrs->id] = true;
+                $this->reserve($attrs->id, $node);
             }
             if (isset(self::LISTED[$type]) || isset($f['caption']) || isset($f['key'])) {
                 $this->listNode($node, $i);
@@ -373,6 +391,22 @@ final class Resolver
         }
 
         return $n;
+    }
+
+    /**
+     * C2-A-039: the first node in document order holds an id; each later one is reported.
+     *
+     * @param string $id
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return void
+     */
+    private function reserve(string $id, Node $node): void
+    {
+        if (isset($this->taken[$id])) {
+            $this->findings?->add('duplicate-id', $node);
+        }
+        $this->taken[$id] = true;
     }
 
     /**

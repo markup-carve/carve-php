@@ -70,25 +70,49 @@ final class LineShapes
         if ($k < $end && $s[$k] === ' ') {
             $k++;
         }
+        if ($k < $end && ($s[$k] === ' ' || $s[$k] === "\t")) {
+            // C2-B-122: a second space or a tab behind the run leaves no language, and the rest is further words.
+            return self::further($s, $k, $end, $info);
+        }
         if ($k < $end && $s[$k] === '=') {
             // C2-B-225: the raw format ends at the first character outside its name set.
             $w = strspn($s, Tables::CHARS_RAW_FORMAT, $k + 1, $end - $k - 1);
             if ($w > 0 && ctype_alpha($s[$k + 1])) {
                 // C2-B-122: a raw fence takes no title and no label.
                 $info->raw = substr($s, $k + 1, $w);
+                $info->wordEnd = $k + 1 + $w;
 
-                return $info;
+                return self::further($s, $info->wordEnd, $end, $info);
             }
         }
         $w = strspn($s, Tables::CHARS_LANGUAGE_WORD, $k, $end - $k);
         if ($w > 0) {
             $info->syntax = substr($s, $k, $w);
             $k += $w;
+            $info->wordEnd = $k;
             if ($k < $end && $s[$k] !== ' ') {
-                return $info;
+                return self::further($s, $k, $end, $info);
             }
         }
-        self::titleAndLabel($s, $k, $end, $info, $w > 0);
+
+        return self::further($s, self::titleAndLabel($s, $k, $end, $info, $w > 0), $end, $info);
+    }
+
+    /**
+     * C2-B-122: where text that is no word, title or label starts on an opener; spaces before it are no part of it.
+     *
+     * @param string $s
+     * @param int $k
+     * @param int $end
+     * @param \MarkupCarve\Carve2\Block\Opener $info
+     *
+     * @return \MarkupCarve\Carve2\Block\Opener
+     */
+    private static function further(string $s, int $k, int $end, Opener $info): Opener
+    {
+        if ($k < $end) {
+            $info->extra = $k + strspn($s, ' ', $k, $end - $k);
+        }
 
         return $info;
     }
@@ -102,14 +126,15 @@ final class LineShapes
      * @param \MarkupCarve\Carve2\Block\Opener $info
      * @param bool $needSpace
      *
-     * @return void
+     * @return int The offset behind the last part read.
      */
-    private static function titleAndLabel(string $s, int $k, int $end, Opener $info, bool $needSpace): void
+    private static function titleAndLabel(string $s, int $k, int $end, Opener $info, bool $needSpace): int
     {
         $sp = strspn($s, ' ', $k, $end - $k);
         if ($sp === 0 && $needSpace) {
-            return;
+            return $k;
         }
+        $from = $k;
         $k += $sp;
         if ($k < $end && $s[$k] === '"') {
             // C2-B-120, C2-I-033: a backslash escapes the quote inside the title.
@@ -118,23 +143,28 @@ final class LineShapes
                 $close += $s[$close] === '\\' ? 2 : 1;
             }
             if ($close >= $end) {
-                return;
+                return $from;
             }
             $info->title = [$k + 1, $close];
             $k = $close + 1;
+            $from = $k;
             $sp = strspn($s, ' ', $k, $end - $k);
             if ($sp === 0) {
-                return;
+                return $k;
             }
             $k += $sp;
         }
         if ($k < $end && $s[$k] === '[') {
             $close = strpos($s, ']', $k + 1);
             if ($close === false || $close >= $end) {
-                return;
+                return $from;
             }
             $info->label = substr($s, $k + 1, $close - $k - 1);
+
+            return $close + 1;
         }
+
+        return $from;
     }
 
     /**
@@ -170,26 +200,27 @@ final class LineShapes
             if (strpos(Tables::DIV_SIGILS, $ch) !== false) {
                 $info->sigil = $ch;
 
-                return $info;
+                // C2-B-122: a sigil div takes no title and no label.
+                return self::further($s, $p + 1, $end, $info);
             }
             $w = strspn($s, Tables::CHARS_DIV_NAME, $p, $end - $p);
             if ($w > 0) {
                 $info->name = substr($s, $p, $w);
-                self::titleAndLabel($s, $p + $w, $end, $info, true);
+                $info->wordEnd = $p + $w;
 
-                return $info;
+                return self::further($s, self::titleAndLabel($s, $p + $w, $end, $info, true), $end, $info);
             }
         }
         // G-blocks-5: a title or label with no name stands after one or more spaces, like a name.
         if ($sp > 0 && $p < $end && ($s[$p] === '[' || $s[$p] === '"')) {
-            self::titleAndLabel($s, $p, $end, $info, false);
+            $stop = self::titleAndLabel($s, $p, $end, $info, false);
             if ($info->title !== null || $info->label !== null) {
-                return $info;
+                return self::further($s, $stop, $end, $info);
             }
         }
 
         // C2-B-122: words that fit no name, title or label still leave an anonymous opener.
-        return $sp > 0 ? $info : null;
+        return $sp > 0 ? self::further($s, $p, $end, $info) : null;
     }
 
     /**

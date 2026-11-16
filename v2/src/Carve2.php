@@ -78,7 +78,7 @@ final class Carve2
         $gc = self::collectorOff();
         try {
             [$doc, $findings] = self::stages($source);
-            Resolver::resolve($doc, $source, $opts);
+            Resolver::resolve($doc, $source, $opts, false, $findings);
 
             return [$doc, $findings];
         } finally {

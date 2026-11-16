@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Block;
 
+use MarkupCarve\Carve2\AttributeParser;
 use MarkupCarve\Carve2\Attrs;
 use MarkupCarve\Carve2\Generated\Tables;
 
@@ -1204,6 +1205,7 @@ final class BlockParser
         $f->raw = $info->raw;
         $f->title = $info->title;
         $f->label = $info->label;
+        $this->openerFinding($f, $info, $syntax !== '');
         $this->take($f);
         if ($f->attrs !== null && ($syntax === 'csv' || $syntax === 'tsv') && $f->attrs->get('table') !== null) {
             $f->delimited = $syntax === 'csv' ? ',' : "\t";
@@ -1242,6 +1244,7 @@ final class BlockParser
         $f->openCol = $c;
         $f->end = $this->le;
         $this->divKind($f, $info);
+        $this->openerFinding($f, $info, $f->node === 'admonition');
         $this->take($f);
         if ($kind === Frame::LINE_BLOCK) {
             $this->startLeaf($f);
@@ -1251,6 +1254,26 @@ final class BlockParser
         $this->push($f);
 
         return true;
+    }
+
+    /**
+     * C2-B-105: a brace block behind a fence language or an admonition name, or glued to any name, is an attribute block the
+     * opener does not take; C2-B-122, C2-B-225: any other further words.
+     *
+     * @param \MarkupCarve\Carve2\Block\Frame $f
+     * @param \MarkupCarve\Carve2\Block\Opener $info
+     * @param bool $named
+     *
+     * @return void
+     */
+    private function openerFinding(Frame $f, Opener $info, bool $named): void
+    {
+        $at = $info->extra;
+        if ($at < 0) {
+            return;
+        }
+        $brace = $this->s[$at] === '{' && AttributeParser::read($this->s, $at, $this->le, new Attrs()) > $at;
+        $f->findings[] = $brace && ($named || $at === $info->wordEnd) ? 'fence-opener-fallback' : 'fence-title-syntax';
     }
 
     /**
@@ -1270,7 +1293,8 @@ final class BlockParser
             }
             if ($f->level <= $run) {
                 // C2-A-154: only this div has a closer; inner divs end at their last child.
-                $this->stack[$k]->end = $end;
+                $f->end = $end;
+                $f->closed = true;
                 $this->closeTo($k - 1);
 
                 return true;

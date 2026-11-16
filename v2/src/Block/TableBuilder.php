@@ -687,7 +687,12 @@ final class TableBuilder
      */
     public static function delimited(Frame $f, string $body, string $sep): Node
     {
-        $records = self::records($body, $sep);
+        $malformed = false;
+        $records = self::records($body, $sep, $malformed);
+        if ($malformed) {
+            // C2-B-181
+            $f->findings[] = 'delimited-table-malformed';
+        }
         $attrs = $f->attrs;
         $declared = self::count($attrs, 'header-rows');
         $total = count($records);
@@ -734,10 +739,11 @@ final class TableBuilder
      *
      * @param string $body
      * @param string $sep
+     * @param bool $malformed Set when a quote is not closed (C2-B-181).
      *
      * @return array<array<string>>
      */
-    private static function records(string $body, string $sep): array
+    private static function records(string $body, string $sep, bool &$malformed = false): array
     {
         $records = [];
         $fields = [];
@@ -760,7 +766,7 @@ final class TableBuilder
                 continue;
             }
             if ($ch === '"') {
-                $k = self::quotedField($body, $k + 1, $field);
+                $k = self::quotedField($body, $k + 1, $field, $malformed);
 
                 continue;
             }
@@ -789,15 +795,17 @@ final class TableBuilder
      * @param string $body
      * @param int $k
      * @param string $field
+     * @param bool $malformed
      *
      * @return int
      */
-    private static function quotedField(string $body, int $k, string &$field): int
+    private static function quotedField(string $body, int $k, string &$field, bool &$malformed): int
     {
         $n = strlen($body);
         while ($k < $n) {
             $q = strpos($body, '"', $k);
             if ($q === false) {
+                $malformed = true;
                 $rest = substr($body, $k);
                 $field .= str_ends_with($rest, "\n") ? substr($rest, 0, -1) : $rest;
 
@@ -813,6 +821,7 @@ final class TableBuilder
 
             return $q + 1;
         }
+        $malformed = true;
 
         return $n;
     }

@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve2\Test\Conformance;
 
 use Closure;
 use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Generated\Tables;
 use MarkupCarve\Carve2\Test\Support\Corpus;
 use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -139,6 +140,26 @@ final class CorpusTest extends TestCase
         }
         if (isset($expected['tree'])) {
             $this->assertTree($expected['tree'], $example['input'], $example['options']);
+        }
+        if (isset($expected['diagnostics'])) {
+            $this->assertDiagnostics($expected['diagnostics'], Carve2::renderWithDiagnostics($example['input'], $example['options'])->codes());
+        }
+    }
+
+    /**
+     * The expected codes are those of the example's `Reported:` line, not a complete list. Lint codes wait for lint.
+     *
+     * @param array<string> $expected
+     * @param array<string> $got
+     *
+     * @return void
+     */
+    private function assertDiagnostics(array $expected, array $got): void
+    {
+        foreach ($expected as $code) {
+            if (isset(Tables::DIAGNOSTICS[$code])) {
+                $this->assertContains($code, $got);
+            }
         }
     }
 

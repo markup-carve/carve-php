@@ -17,6 +17,18 @@ final class TreeSink implements Sink
     public Findings $findings;
 
     /**
+     * C2-B-111, C2-B-163: the leaves that report a missing closer.
+     *
+     * @var array<int, string>
+     */
+    private const UNCLOSED = [
+        Frame::CODE => 'unclosed-code-fence',
+        Frame::COMMENT_BLOCK => 'unclosed-comment-fence',
+        Frame::LINE_BLOCK => 'unclosed-container-fence',
+        Frame::FRONTMATTER => 'unclosed-frontmatter',
+    ];
+
+    /**
      * @param string $s
      */
     public function __construct(private string $s)
@@ -50,6 +62,10 @@ final class TreeSink implements Sink
         $parentNode = $parent->handle;
         $node = NodeFactory::make($frame, $this->s);
         $frame->handle = $node;
+        $this->note($frame, $node);
+        if (!$frame->closed && isset(self::UNCLOSED[$frame->kind])) {
+            $this->findings->add(self::UNCLOSED[$frame->kind], $node);
+        }
         $at = count($parentNode->children ?? []);
         if ($at === 0 || $parentNode->children[$at - 1]->start <= $node->start) {
             $parentNode->children[] = $node;
@@ -72,6 +88,13 @@ final class TreeSink implements Sink
         /** @var \MarkupCarve\Carve2\Node $node */
         $node = $frame->handle;
         NodeFactory::finish($node, $frame);
+        if ($frame->kind === Frame::DIV) {
+            $this->note($frame, $node);
+            if (!$frame->closed) {
+                // C2-B-111, C2-B-132
+                $this->findings->add('unclosed-container-fence', $node);
+            }
+        }
     }
 
     /**
@@ -105,5 +128,18 @@ final class TreeSink implements Sink
         $node->f['caption'] = $cap;
         $node->end = $caption->end;
         $node->ownStart = $target->own;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Block\Frame $frame
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return void
+     */
+    private function note(Frame $frame, Node $node): void
+    {
+        foreach ($frame->findings as $code) {
+            $this->findings->add($code, $node);
+        }
     }
 }

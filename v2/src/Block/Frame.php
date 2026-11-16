@@ -182,6 +182,13 @@ final class Frame
 
     public bool $closed = false;
 
+    /**
+     * The parse findings of the block (C2-B-105, C2-B-122, C2-B-181).
+     *
+     * @var array<string>
+     */
+    public array $findings = [];
+
     public ?string $role = null;
 
     public int $own = -1;
