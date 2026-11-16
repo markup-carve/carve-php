@@ -85,7 +85,7 @@ final class HtmlRenderer
     {
         $this->log = new RenderLog();
         if ($o->profile !== 'full') {
-            $this->profile = new Profile($o->profile, $this->log);
+            $this->profile = new Profile($o->profile, $this->log, $source);
             $this->profile->measure($doc);
         }
         $this->state = new RenderState($doc, $o, $this->profile, $facts);
@@ -579,8 +579,8 @@ final class HtmlRenderer
         $kids = $node->children ?? [];
         $role = $node->f['role'] ?? null;
         $image = $append === '' ? $this->blockImage($node) : null;
-        if ($image !== null) {
-            // G-render-2: the attributes of a block image paragraph are not written, as the oracle does.
+        if ($image !== null && !isset($node->f['attrs']) && !isset($node->f['lang'])) {
+            // C2-H-020: only an unattributed block image paragraph loses its paragraph element.
             return self::pad($depth) . $this->inline->node($image, $depth);
         }
         if ($role === 'math' && $this->o->mode === 'static') {

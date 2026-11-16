@@ -106,7 +106,7 @@ final class Profile
      */
     private array $level = [];
 
-    public function __construct(string $name, private RenderLog $log)
+    public function __construct(string $name, private RenderLog $log, private ?string $source = null)
     {
         $spec = Tables::PROFILES[$name] ?? [];
         if (isset($spec['allowed_block'])) {
@@ -243,7 +243,12 @@ final class Profile
         }
         $this->report($node);
 
-        return Escape::text($this->inlineText($node));
+        $verbatim = in_array($node->type, ['code', 'literal_inline', 'math', 'raw_inline'], true)
+            && $node->children === null && $this->source !== null && $node->start >= 0 && $node->end >= $node->start
+            && $node->end <= strlen($this->source);
+        $text = $verbatim ? substr((string)$this->source, $node->start, $node->end - $node->start) : $this->inlineText($node);
+
+        return Escape::text($text);
     }
 
     /**
@@ -333,7 +338,10 @@ final class Profile
     private function degradedTexts(Node $node): array
     {
         if ($node->type === 'table') {
-            return [$this->tableText($node)];
+            $out = [$this->tableText($node)];
+            $caption = $node->f['caption'] ?? null;
+
+            return $caption instanceof Node ? array_merge($out, $this->captionList($caption)) : $out;
         }
         if ($node->type === 'definition_list') {
             $out = [];
@@ -351,10 +359,27 @@ final class Profile
             $out = $this->blockList($node->children ?? []);
             $caption = $node->f['caption'] ?? null;
 
-            return $caption instanceof Node ? array_merge($out, $this->blockList($caption->children ?? [])) : $out;
+            return $caption instanceof Node ? array_merge($out, $this->captionList($caption)) : $out;
         }
 
         return [Escape::text($this->plainOf($node))];
+    }
+
+    /**
+     * C2-H-165: a caption in a degraded block uses C2-H-143, including its number.
+     *
+     * @param \MarkupCarve\Carve2\Node $caption
+     *
+     * @return array<string>
+     */
+    private function captionList(Node $caption): array
+    {
+        $out = [];
+        foreach ($caption->children ?? [] as $block) {
+            $out[] = Escape::text(PlainText::of($block->children ?? []));
+        }
+
+        return $out;
     }
 
     /**

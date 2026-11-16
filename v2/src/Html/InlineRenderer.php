@@ -430,7 +430,7 @@ final class InlineRenderer
         if (is_string($key) && !is_string($href)) {
             return $this->unresolved($node, $attrs, $lang, $depth);
         }
-        // G-render-4: a heading outside the profile is no target, as the oracle does.
+        // C2-H-177: a reference to a degraded heading writes as unresolved, without changing resolution.
         if (is_string($key) && $this->profile !== null && !isset($this->state->linkDefs[$key]) && !$this->profile->allowsBlockType('heading')) {
             return $this->unresolved($node, $attrs, $lang, $depth);
         }
@@ -783,13 +783,19 @@ final class InlineRenderer
         $name = PlainText::str($mention ? $node->f['target'] ?? '' : $node->f['name'] ?? '');
         $label = $mention && is_string($node->f['label'] ?? null) ? $node->f['label'] : ($mention ? '@' : '#') . $name;
         $inner = '<strong>' . Escape::text($label) . '</strong>';
-        $url = $this->linkDepth > 0 ? null : $this->socialUrl($mention, $name, $node);
+        $url = $this->linkDepth > 0 || ($this->profile !== null && !$this->profile->allowsType('link'))
+            ? null : $this->socialUrl($mention, $name, $node);
         $class = $mention ? 'mention' : 'tag';
         if ($url === null) {
             return '<span' . $this->aw->build([], null, $attrs, $lang, [$class]) . '>' . $inner . '</span>';
         }
 
-        $built = $this->aw->build([['href', $this->destination($url)]], null, $attrs, $lang, [$class]);
+        $rel = $this->rel($attrs);
+        $structural = [['href', $this->destination($url)]];
+        if ($rel !== null) {
+            $structural[] = ['rel', $rel];
+        }
+        $built = $this->aw->build($structural, null, $attrs, $lang, [$class]);
         // C2-H-011: on a mention or a tag the class stands first.
         // C2-H-011: one negated class between fixed text, linear; once per linked mention or tag.
         if (preg_match('/ class="[^"]*"/', $built, $m) === 1) {
@@ -811,13 +817,16 @@ final class InlineRenderer
         $resolver = $mention ? $this->o->resolveMention : $this->o->resolveTag;
         if ($resolver !== null) {
             $url = $resolver($name, $node);
-            if (is_string($url)) {
+            if (is_string($url) && $url !== '') {
                 return $url;
             }
         }
         $template = $mention ? $this->o->mentionUrl : $this->o->tagUrl;
 
-        return $template === null ? null : str_replace('{name}', $name, $template);
+        $encoded = str_replace(['%21', '%27', '%28', '%29', '%2A'], ['!', "'", '(', ')', '*'], rawurlencode($name));
+        $url = $template === null ? '' : str_replace('{name}', $encoded, $template);
+
+        return $url === '' ? null : $url;
     }
 
     /**

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Resolve;
 
 use MarkupCarve\Carve2\Attrs;
+use MarkupCarve\Carve2\Inline\InlineContext;
+use MarkupCarve\Carve2\Inline\InlineRunner;
 use MarkupCarve\Carve2\Node;
 use MarkupCarve\Carve2\Options;
 
@@ -62,11 +64,16 @@ final class Resolver
     public array $taken = [];
 
     /**
-     * C2-I-084: the id of the first heading whose folded source or folded plain text is the key.
+     * C2-I-084: the id of the first heading whose folded plain text is the key.
      *
      * @var array<string, string>
      */
     private array $headingKeys = [];
+
+    /**
+     * @var array<string, string>
+     */
+    private array $plainKeys = [];
 
     /**
      * The next suffix to try per id base, so a run of equal slugs costs linear time.
@@ -152,7 +159,7 @@ final class Resolver
      */
     private const LISTED = ['footnote_ref' => true, 'inline_footnote' => true, 'heading' => true, 'caption_number' => true, 'math' => true, 'figure_group' => true, 'table' => true, 'comment' => true, 'image' => true];
 
-    private function __construct(private Node $doc, private string $s, private Options $o)
+    private function __construct(private Node $doc, private Options $o)
     {
     }
 
@@ -170,7 +177,7 @@ final class Resolver
         // The tree holds no cycles; with the collector on, each walk fills its root buffer and starts full scans.
         gc_disable();
         try {
-            $r = new self($doc, $s ?? '', $opts);
+            $r = new self($doc, $opts);
             $doc->f['astVersion'] = '2.0';
             if ($s !== null) {
                 $doc->f['srcByteLength'] = strlen($s);
@@ -494,9 +501,7 @@ final class Resolver
             $node = $this->nodes[$i];
             $id = self::idOf($node);
             if ($id !== null) {
-                foreach ($this->headingTexts($node) as $text) {
-                    $this->headingKeys[$text] ??= $id;
-                }
+                $this->headingKeys[self::fold(PlainText::of($node->children ?? []))] ??= $id;
                 $this->xrefIds[$id] = true;
             }
         }
@@ -698,32 +703,12 @@ final class Resolver
         if ($node->type === 'image' || ($node->f['refForm'] ?? null) === 'shortcut') {
             return;
         }
-        if (isset($this->headingKeys[$key])) {
-            $node->f['href'] = '#' . $this->headingKeys[$key];
+        $plain = $this->plainKeys[$key] ??= self::fold(PlainText::of(
+            InlineRunner::parse($key, [0, strlen($key)], new InlineContext()),
+        ));
+        if (isset($this->headingKeys[$plain])) {
+            $node->f['href'] = '#' . $this->headingKeys[$plain];
         }
-    }
-
-    /**
-     * C2-I-084: the folded plain text of a heading and the folded source of its text.
-     *
-     * @param \MarkupCarve\Carve2\Node $heading
-     *
-     * @return array<string>
-     */
-    private function headingTexts(Node $heading): array
-    {
-        $kids = $heading->children ?? [];
-        $out = [self::fold(PlainText::of($kids))];
-        if ($kids === [] || $this->s === '') {
-            return $out;
-        }
-        $start = $kids[0]->start;
-        $end = $kids[count($kids) - 1]->end;
-        if ($start >= 0 && $end >= $start && $end <= strlen($this->s)) {
-            $out[] = self::fold(substr($this->s, $start, $end - $start));
-        }
-
-        return $out;
     }
 
     /**

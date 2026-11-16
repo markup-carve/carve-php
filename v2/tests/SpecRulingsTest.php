@@ -1,0 +1,235 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve2\Test;
+
+use MarkupCarve\Carve2\Carve2;
+use PHPUnit\Framework\TestCase;
+
+final class SpecRulingsTest extends TestCase
+{
+    public function testC2I127Unicode18WordBoundary(): void
+    {
+        $this->assertSame('<p>𽀀*𰨌*</p>', Carve2::toHtml('𽀀*𰨌*'));
+    }
+
+    public function testC2I084HeadingLookupUsesPlainText(): void
+    {
+        $src = "# A bold title\n\n[A *bold* title][] and [x][A {*bold*} title]";
+        $html = Carve2::toHtml($src);
+        $this->assertStringContainsString('<a href="#A-bold-title">A <strong>bold</strong> title</a>', $html);
+        $this->assertStringContainsString('<a href="#A-bold-title">x</a>', $html);
+    }
+
+    public function testC2H020AttributedImageKeepsParagraph(): void
+    {
+        $src = "{.c #i}\n![a](x.png)\n\n{:de}\n![b](y.png)\n\n![c](z.png)";
+        $this->assertSame("<p id=\"i\" class=\"c\"><img src=\"x.png\" alt=\"a\"></p>\n"
+            . "<p lang=\"de\"><img src=\"y.png\" alt=\"b\"></p>\n<img src=\"z.png\" alt=\"c\">", Carve2::toHtml($src));
+    }
+
+    public function testC2I117DelimiterIsNoPlusMinusNeighbor(): void
+    {
+        $this->assertSame('<p><ins>±</ins></p>', Carve2::toHtml('{++-+}'));
+    }
+
+    public function testC2H126SocialTemplateAndProfile(): void
+    {
+        $src = '@ann.b and #topic';
+        $social = ['mentionUrl' => 'https://x.org/u/{name}'];
+        $this->assertSame('<p><a class="mention" href="https://x.org/u/ann.b"><strong>@ann.b</strong></a> and '
+            . '<span class="tag"><strong>#topic</strong></span></p>', Carve2::toHtml($src, ['social' => $social]));
+        $this->assertSame(
+            '<p><span class="mention"><strong>@ann.b</strong></span></p>',
+            Carve2::toHtml('@ann.b', ['social' => $social, 'profile' => 'minimal']),
+        );
+    }
+
+    public function testC2B227InvalidTableKeysStayWithoutEffect(): void
+    {
+        $src = "{aligns=right,x widths=25,,25 footer-rows=two .t}\n| a | b |\n| c | d |";
+        $html = Carve2::toHtml($src);
+        $this->assertStringStartsWith('<table class="t">', $html);
+        $this->assertStringNotContainsString('<colgroup>', $html);
+        $this->assertStringNotContainsString('text-align', $html);
+        $this->assertStringNotContainsString('aligns=', $html);
+        $this->assertStringNotContainsString('<tfoot>', $html);
+        $tree = json_decode(Carve2::toJson($src), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(
+            [['aligns', 'right,x'], ['widths', '25,,25'], ['footer-rows', 'two']],
+            $tree['children'][0]['attrs']['keyValues'],
+        );
+    }
+
+    public function testC2B211ColumnListIsValidatedAsAWhole(): void
+    {
+        $src = "{aligns=right,x widths=25,x}\n| a | b |";
+        $tree = json_decode(Carve2::toJson($src), true, 512, JSON_THROW_ON_ERROR);
+        $table = $tree['children'][0];
+        $this->assertSame([['aligns', 'right,x'], ['widths', '25,x']], $table['attrs']['keyValues']);
+        $this->assertSame([['type' => 'table_column'], ['type' => 'table_column']], $table['columns']);
+        $this->assertStringNotContainsString('<colgroup>', Carve2::toHtml($src));
+    }
+
+    public function testC2B210InvalidAndInapplicableCountsStayInAttrs(): void
+    {
+        $src = "{header-rows=2 footer-rows=x}\n| a | b |\n| c | d |";
+        $tree = json_decode(Carve2::toJson($src), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame([['header-rows', '2'], ['footer-rows', 'x']], $tree['children'][0]['attrs']['keyValues']);
+        $html = Carve2::toHtml($src);
+        $this->assertStringNotContainsString('header-rows=', $html);
+        $this->assertStringNotContainsString('footer-rows=', $html);
+        $this->assertStringNotContainsString('<thead>', $html);
+    }
+
+    public function testC2B226DelimitedTableDropsOneFinalEmptyRow(): void
+    {
+        $src = "{table}\n```csv\na,b\n\n```";
+        $this->assertSame(1, substr_count(Carve2::toHtml($src), '<tr>'));
+    }
+
+    public function testC2B218InvalidUtf8UsesMaximalSubparts(): void
+    {
+        $doc = Carve2::parse("a\xE2\x82" . 'b');
+        $this->assertSame('a�b', $doc->children[0]->children[0]->f['value']);
+        $tree = json_decode(Carve2::toJson("a\xE2\x82" . 'b'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('a�b', $tree['children'][0]['children'][0]['value']);
+        $this->assertSame(4, $tree['children'][0]['pos']['endOffset']);
+        $this->assertSame('<p>a�b</p>', Carve2::toHtml("a\xE2\x82" . 'b'));
+    }
+
+    public function testC2B225RawFormatStopsAtInvalidCharacter(): void
+    {
+        $src = "```=html~\n<b>x</b>\n```";
+        $this->assertSame("<pre><code class=\"language-html\">&lt;b&gt;x&lt;/b&gt;\n</code></pre>", Carve2::toHtml($src));
+    }
+
+    public function testC2H165DegradedCaptionsKeepNumbers(): void
+    {
+        $src = "![i](a.png)\n^ Figure #: cap\n\n| t |\n^ Table #: tc";
+        $this->assertSame(
+            "<p>[img: i]</p>\n<p>Figure 1: cap</p>\n<p>t</p>\n<p>Table 1: tc</p>",
+            Carve2::toHtml($src, ['profile' => 'comment']),
+        );
+    }
+
+    public function testC2A151IncludeOwnsTrailingSpaces(): void
+    {
+        $tree = json_decode(Carve2::toJson("{{ a.crv }}  \n"), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(13, $tree['children'][0]['pos']['endOffset']);
+    }
+
+    public function testC2A158EmptyAndSpanCellsKeepPositions(): void
+    {
+        $tree = json_decode(Carve2::toJson("| a | |\n| b | < |"), true, 512, JSON_THROW_ON_ERROR);
+        $rows = $tree['children'][0]['children'][0]['children'];
+        $this->assertSame(5, $rows[0]['children'][1]['pos']['startOffset']);
+        $this->assertSame(6, $rows[0]['children'][1]['pos']['endOffset']);
+        $this->assertArrayNotHasKey('pos', $rows[0]['children'][1]['children'][0]);
+        $this->assertSame(13, $rows[1]['children'][1]['pos']['startOffset']);
+    }
+
+    public function testC2A158CaptionNumberKeepsPosition(): void
+    {
+        $tree = json_decode(Carve2::toJson("![i](a.png)\n^ Figure #: cap"), true, 512, JSON_THROW_ON_ERROR);
+        $number = $tree['children'][0]['caption']['children'][0]['children'][1];
+        $this->assertSame(21, $number['pos']['startOffset']);
+        $this->assertSame(22, $number['pos']['endOffset']);
+    }
+
+    public function testC2A086TrailingTableCommentIsANode(): void
+    {
+        $src = "| 1 | 2 | %% note\n| 3 | 4 |";
+        $tree = json_decode(Carve2::toJson($src), true, 512, JSON_THROW_ON_ERROR);
+        $items = $tree['children'][0]['children'][0]['children'];
+        $this->assertSame(['table_row', 'comment', 'table_row'], array_column($items, 'type'));
+        $this->assertSame(9, $items[0]['pos']['endOffset']);
+        $this->assertSame(9, $items[1]['pos']['startOffset']);
+        $this->assertSame('note', $items[1]['value']);
+    }
+
+    public function testC2I118OpenDelimiterCountsTowardBracketCap(): void
+    {
+        foreach ([198 => true, 199 => false] as $depth => $forms) {
+            $src = str_repeat('{^', $depth) . '*[x](u) ![y](v)' . str_repeat('^}', $depth);
+            $html = Carve2::toHtml($src);
+            $this->assertSame($forms, str_contains($html, '<a href="u">x</a>'));
+            $this->assertSame($forms, str_contains($html, '<img src="v" alt="y">'));
+        }
+    }
+
+    public function testC2A158JoinedCellKeepsSinglePieceInlinePosition(): void
+    {
+        $tree = json_decode(Carve2::toJson("| *a* |\n+ b |"), true, 512, JSON_THROW_ON_ERROR);
+        $cell = $tree['children'][0]['children'][0]['children'][0]['children'][0];
+        $this->assertArrayNotHasKey('pos', $cell);
+        $this->assertSame(2, $cell['children'][0]['children'][0]['pos']['startOffset']);
+        $this->assertSame(5, $cell['children'][0]['children'][0]['pos']['endOffset']);
+    }
+
+    public function testC2I026CommentIsTransparentToApostropheWord(): void
+    {
+        $this->assertSame('<p>Qz ‘tisH</p>', Carve2::toHtml("Qz 'tis{%x%}H"));
+    }
+
+    public function testC2A154UnclosedInnerDivEndsAtItsLastChild(): void
+    {
+        $tree = json_decode(Carve2::toJson("::: a\n:::: b\nx\n:::\ny"), true, 512, JSON_THROW_ON_ERROR);
+        $inner = $tree['children'][0]['children'][0];
+        $this->assertSame(14, $inner['pos']['endOffset']);
+    }
+
+    public function testC2A151EmptyQuoteOwnsTrailingSpaces(): void
+    {
+        $src = '> >   ';
+        $tree = json_decode(Carve2::toJson($src), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(strlen($src), $tree['children'][0]['pos']['endOffset']);
+    }
+
+    public function testC2H177DegradedHeadingReferenceUsesUnresolvedForm(): void
+    {
+        $src = "## Sub *em* `code`\n\n[Sub em code][] and </#Sub-em-code>";
+        $this->assertSame(
+            "<p>## Sub em code</p>\n<p>[Sub em code][] and &lt;/#Sub-em-code&gt;</p>",
+            Carve2::toHtml($src, ['profile' => 'comment']),
+        );
+    }
+
+    public function testC2H064FigureGroupTableIsAPanel(): void
+    {
+        $src = ":::: figure\n![a](a.png)\n^ First\n\n| t |\n^ Second\n::::";
+        $html = Carve2::toHtml($src);
+        $this->assertSame(2, substr_count($html, '<figure class="carve-figure-panel">'));
+        $this->assertStringContainsString("    <table>\n      <caption>Second</caption>", $html);
+    }
+
+    public function testC2H032TaskLabelIncludesMultipleParagraphs(): void
+    {
+        $src = "- [ ] first *a*\n\n  second\n\n  > quote";
+        $this->assertStringContainsString('aria-label="first a second"', Carve2::toHtml($src));
+    }
+
+    public function testC2B040UppercaseRomanMarkerNeedsTwoSpaces(): void
+    {
+        $src = "II. Background\n\nII.  Background";
+        $this->assertSame(
+            "<p>II. Background</p>\n<ol type=\"I\" start=\"2\">\n  <li>Background</li>\n</ol>",
+            Carve2::toHtml($src),
+        );
+    }
+
+    public function testC2B122TwoSpacesBeforeFenceWordDropsLanguage(): void
+    {
+        $this->assertSame("<pre><code>text\n</code></pre>", Carve2::toHtml("```  b\ntext\n```"));
+    }
+
+    public function testC2H165DegradedChildlessInlineUsesSourceText(): void
+    {
+        $src = "![i](a.png)\n^ a `x` b $`m`\n\n> q `c` $`n`\n\np $`k`";
+        $this->assertSame(
+            "<p>[img: i]</p>\n<p>a x b m</p>\n<p>&gt; q c n</p>\n<p>p $`k`</p>",
+            Carve2::toHtml($src, ['profile' => 'minimal']),
+        );
+    }
+}
