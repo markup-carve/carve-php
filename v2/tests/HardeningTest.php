@@ -61,7 +61,14 @@ final class HardeningTest extends TestCase
                 sort($samples);
                 $times[] = $samples[1];
             }
-            $this->assertLessThanOrEqual(max(2.0, $times[0] * 20), $times[3], $name);
+            $this->assertLessThanOrEqual(max(2.0, $times[0] * 14), $times[3], $name);
         }
+    }
+
+    public function testC2H163ProfileByteLengthLimits(): void
+    {
+        $this->assertSame('', Carve2::toHtml(str_repeat('a', 10001), ['profile' => 'minimal']));
+        $this->assertSame('', Carve2::toHtml(str_repeat('a', 100001), ['profile' => 'comment']));
+        $this->assertSame('<p>a</p>', Carve2::toHtml('a', ['profile' => 'minimal']));
     }
 }
