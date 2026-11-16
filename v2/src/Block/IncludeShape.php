@@ -195,6 +195,9 @@ final class IncludeShape
             }
             if ($key === 'code') {
                 $options[$key] = true;
+            } elseif ($spec['without_value'] === 'include_node') {
+                // C2-A-181: keep an out-of-shape empty option on the include node.
+                $options[$key] = '';
             }
 
             return $k;

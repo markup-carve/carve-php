@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Test;
 
 use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Json\TreeDecoder;
+use MarkupCarve\Carve2\Options;
+use MarkupCarve\Carve2\Resolve\Resolver;
 use PHPUnit\Framework\TestCase;
 
 final class SpecRulingsTest extends TestCase
@@ -14,12 +17,51 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame('<p>𽀀*𰨌*</p>', Carve2::toHtml('𽀀*𰨌*'));
     }
 
+    public function testC2I002LineEndSpacesDropInsideProtectedSpans(): void
+    {
+        foreach (["`a  \n  b`", "!`a  \n  b`", "$`a  \n  b`", "`a  \n  b`{=html}"] as $src) {
+            $tree = json_decode(Carve2::toJson($src), true, 512, JSON_THROW_ON_ERROR);
+            $this->assertSame("a\nb", $tree['children'][0]['children'][0]['value']);
+        }
+        $tree = json_decode(Carve2::toJson("a{%x  \n  y%}b"), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame("x\ny", $tree['children'][0]['children'][1]['value']);
+    }
+
     public function testC2I084HeadingLookupUsesPlainText(): void
     {
         $src = "# A bold title\n\n[A *bold* title][] and [x][A {*bold*} title]";
         $html = Carve2::toHtml($src);
         $this->assertStringContainsString('<a href="#A-bold-title">A <strong>bold</strong> title</a>', $html);
         $this->assertStringContainsString('<a href="#A-bold-title">x</a>', $html);
+    }
+
+    public function testC2I084BracedHeadingAndShortcutReference(): void
+    {
+        $src = "# A {*bold*} title\n\n[A *bold* title][] and [A bold title][]";
+        $html = Carve2::toHtml($src);
+        $this->assertStringContainsString('<a href="#A-bold-title">A <strong>bold</strong> title</a>', $html);
+        $this->assertStringContainsString('<a href="#A-bold-title">A bold title</a>', $html);
+        $this->assertStringContainsString('<p>[H]</p>', Carve2::toHtml("# H\n\n[H]"));
+    }
+
+    public function testC2I084HeadingLookupNeedsNoSource(): void
+    {
+        $src = "# A bold title\n\n[A *bold* title][]";
+        $doc = TreeDecoder::json(Carve2::toJson($src));
+        $this->assertNotNull($doc);
+        Resolver::resolve($doc, null, Options::from([]));
+        $this->assertSame('#A-bold-title', $doc->children[1]->children[0]->f['href']);
+    }
+
+    public function testC2A109HeadingIdsAreResolutionResults(): void
+    {
+        $src = '# Ab';
+        $default = json_decode(Carve2::toJson($src), true, 512, JSON_THROW_ON_ERROR);
+        $off = json_decode(Carve2::toJson($src, ['headingIds' => 'off']), true, 512, JSON_THROW_ON_ERROR);
+        $lower = json_decode(Carve2::toJson($src, ['headingIds' => 'lower']), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('Ab', $default['children'][0]['generatedId']);
+        $this->assertArrayNotHasKey('generatedId', $off['children'][0]);
+        $this->assertSame('ab', $lower['children'][0]['generatedId']);
     }
 
     public function testC2H020AttributedImageKeepsParagraph(): void
@@ -97,6 +139,16 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame('a�b', $tree['children'][0]['children'][0]['value']);
         $this->assertSame(4, $tree['children'][0]['pos']['endOffset']);
         $this->assertSame('<p>a�b</p>', Carve2::toHtml("a\xE2\x82" . 'b'));
+        foreach ([
+            "a\xFF" . 'b' => 'a�b',
+            "\xED\xA0\x80" => '���',
+            "\xC0\xAF" => '��',
+            "\xE0\xA0" . 'b' => '�b',
+            "\xF0\x90\x80" . 'b' => '�b',
+            "a\0b" => 'a�b',
+        ] as $bytes => $expected) {
+            $this->assertSame('<p>' . $expected . '</p>', Carve2::toHtml($bytes));
+        }
     }
 
     public function testC2B225RawFormatStopsAtInvalidCharacter(): void
@@ -118,6 +170,16 @@ final class SpecRulingsTest extends TestCase
     {
         $tree = json_decode(Carve2::toJson("{{ a.crv }}  \n"), true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame(13, $tree['children'][0]['pos']['endOffset']);
+    }
+
+    public function testC2A153LineCommentOwnsDroppedTrailingSpaces(): void
+    {
+        foreach (["a %% x  \nb" => 8, 'c %% z  ' => 8] as $src => $end) {
+            $tree = json_decode(Carve2::toJson($src), true, 512, JSON_THROW_ON_ERROR);
+            $comment = $tree['children'][0]['children'][1];
+            $this->assertSame('comment', $comment['type']);
+            $this->assertSame($end, $comment['pos']['endOffset']);
+        }
     }
 
     public function testC2A158EmptyAndSpanCellsKeepPositions(): void
@@ -222,6 +284,18 @@ final class SpecRulingsTest extends TestCase
     public function testC2B122TwoSpacesBeforeFenceWordDropsLanguage(): void
     {
         $this->assertSame("<pre><code>text\n</code></pre>", Carve2::toHtml("```  b\ntext\n```"));
+    }
+
+    public function testC2A181IncludeRowsAndColsAcceptOutOfShapeValues(): void
+    {
+        foreach ([
+            '{{ a.crv @rows }}' => ['rows' => ''],
+            '{{ a.crv @rows:x }}' => ['rows' => 'x'],
+            '{{ a.crv @cols:"a,,b" }}' => ['cols' => 'a,,b'],
+        ] as $src => $expected) {
+            $tree = json_decode(Carve2::toJson($src), true, 512, JSON_THROW_ON_ERROR);
+            $this->assertSame($expected, $tree['children'][0]['options']);
+        }
     }
 
     public function testC2H165DegradedChildlessInlineUsesSourceText(): void
