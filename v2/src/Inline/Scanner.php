@@ -851,6 +851,8 @@ final class Scanner
         }
         if ($after < $this->n && $t[$after] === '}') {
             [$open, $close] = $this->flanks($i, $i + 1);
+            // C2-I-057: without a braced opener this mark is bare, so later marks need the stack.
+            $this->bareSeen[$m] = true;
 
             return $this->delim([self::DELIM, self::CLOSER, $i, $i + 2, $m, $open, $close, false, 1]);
         }

@@ -352,4 +352,10 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame('<p>x</p>', Carve2::toHtml("{%%}\nx"));
         $this->assertSame('<p>x</p>', Carve2::toHtml("x\n{%%}"));
     }
+
+    public function testC2I057BareMarkBeforeBraceBlocksFastPair(): void
+    {
+        $this->assertSame('<p><strong>}</strong>”*</p>', Carve2::toHtml('*}*"*'));
+        $this->assertSame('<p><code>a</code><strong>}</strong>’*</p>', Carve2::toHtml("`a`*}*'*"));
+    }
 }
