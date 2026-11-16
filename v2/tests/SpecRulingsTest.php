@@ -391,6 +391,14 @@ final class SpecRulingsTest extends TestCase
         );
     }
 
+    public function testC2H171EmptyIncludeOptionsUseNoValueSpelling(): void
+    {
+        $this->assertSame('<p>{{ a.crv @rows }}</p>', Carve2::toHtml('{{ a.crv @rows }}'));
+        $this->assertSame('<p>{{ a.crv @rows @cols }}</p>', Carve2::toHtml('{{ a.crv @cols @rows }}'));
+        $this->assertSame('<p>{{ a.crv @rows }}</p>', Carve2::toHtml('{{ a.crv @rows:"" }}'));
+        $this->assertSame('<p>{{ a.crv @cols }}</p>', Carve2::toHtml('{{ a.crv @cols:"" }}'));
+    }
+
     public function testC2I057BareMarkBeforeBraceBlocksFastPair(): void
     {
         $this->assertSame('<p><strong>}</strong>”*</p>', Carve2::toHtml('*}*"*'));

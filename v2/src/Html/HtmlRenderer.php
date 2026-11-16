@@ -1198,7 +1198,7 @@ final class HtmlRenderer
                 continue;
             }
             $value = $options[$name];
-            if ($value === true) {
+            if ($value === true || ($value === '' && ($name === 'rows' || $name === 'cols'))) {
                 $parts[] = '@' . $name;
             } elseif (is_array($value)) {
                 // C2-A-181: only a quoted `cols` value becomes a list, so a list is written quoted.
