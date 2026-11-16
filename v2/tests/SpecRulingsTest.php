@@ -358,4 +358,12 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame('<p><strong>}</strong>”*</p>', Carve2::toHtml('*}*"*'));
         $this->assertSame('<p><code>a</code><strong>}</strong>’*</p>', Carve2::toHtml("`a`*}*'*"));
     }
+
+    public function testC2B122InvalidDivInfoStillOpensAnAnonymousDiv(): void
+    {
+        foreach (['*', '<ul>', '|x', '"unclosed'] as $info) {
+            $this->assertSame("<div>\n  <p>x</p>\n</div>", Carve2::toHtml("::: $info\nx\n:::"));
+        }
+        $this->assertSame("<p>:::note\nx</p>\n<div>\n\n</div>", Carve2::toHtml(":::note\nx\n:::"));
+    }
 }

@@ -185,7 +185,8 @@ final class LineShapes
             }
         }
 
-        return null;
+        // C2-B-122: words that fit no name, title or label still leave an anonymous opener.
+        return $sp > 0 ? $info : null;
     }
 
     /**

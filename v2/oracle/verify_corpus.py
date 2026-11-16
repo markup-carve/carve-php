@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 CORPUS = Path(__file__).resolve().parent / 'corpus'
 LONE = re.compile(r'[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]')
-REASONS = {'D-blocks-1', 'C2-A-158-caption', 'C2-A-158-cell', 'C2-A-158-joined', 'C2-B-227', 'C2-A-086'}
+REASONS = {'C2-A-158-caption', 'C2-A-158-cell', 'C2-A-158-joined', 'C2-B-227', 'C2-A-086'}
 
 
 def normalize(value):
