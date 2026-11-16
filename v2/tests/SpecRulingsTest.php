@@ -74,6 +74,8 @@ final class SpecRulingsTest extends TestCase
     public function testC2I117DelimiterIsNoPlusMinusNeighbor(): void
     {
         $this->assertSame('<p><ins>±</ins></p>', Carve2::toHtml('{++-+}'));
+        $this->assertSame('<p>a+-+ b</p>', Carve2::toHtml('a+-{%x%}+ b'));
+        $this->assertSame('<p>a++- b</p>', Carve2::toHtml('a+{%x%}+- b'));
     }
 
     public function testC2H126SocialTemplateAndProfile(): void
@@ -85,6 +87,25 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame(
             '<p><span class="mention"><strong>@ann.b</strong></span></p>',
             Carve2::toHtml('@ann.b', ['social' => $social, 'profile' => 'minimal']),
+        );
+    }
+
+    public function testC2H167EmptySocialResolverFallsBackAndMentionGetsRel(): void
+    {
+        $social = [
+            'mentionUrl' => 'https://x/u/{name}',
+            'tagUrl' => 'https://x/t/{name}',
+            'resolveMention' => static fn (): string => '',
+            'resolveTag' => static fn (): null => null,
+        ];
+        $this->assertSame(
+            '<p><a class="mention" href="https://x/u/ann"><strong>@ann</strong></a> and '
+                . '<a class="tag" href="https://x/t/topic"><strong>#topic</strong></a></p>',
+            Carve2::toHtml('@ann and #topic', ['social' => $social]),
+        );
+        $this->assertStringContainsString(
+            'href="https://x/u/ann" rel="nofollow ugc"',
+            Carve2::toHtml('@ann', ['social' => $social, 'profile' => 'comment']),
         );
     }
 
@@ -139,14 +160,16 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame('a�b', $tree['children'][0]['children'][0]['value']);
         $this->assertSame(4, $tree['children'][0]['pos']['endOffset']);
         $this->assertSame('<p>a�b</p>', Carve2::toHtml("a\xE2\x82" . 'b'));
-        foreach ([
-            "a\xFF" . 'b' => 'a�b',
-            "\xED\xA0\x80" => '���',
-            "\xC0\xAF" => '��',
-            "\xE0\xA0" . 'b' => '�b',
-            "\xF0\x90\x80" . 'b' => '�b',
-            "a\0b" => 'a�b',
-        ] as $bytes => $expected) {
+        foreach (
+            [
+                "a\xFF" . 'b' => 'a�b',
+                "\xED\xA0\x80" => '���',
+                "\xC0\xAF" => '��',
+                "\xE0\xA0" . 'b' => '�b',
+                "\xF0\x90\x80" . 'b' => '�b',
+                "a\0b" => 'a�b',
+            ] as $bytes => $expected
+        ) {
             $this->assertSame('<p>' . $expected . '</p>', Carve2::toHtml($bytes));
         }
     }
@@ -209,6 +232,12 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame(9, $items[0]['pos']['endOffset']);
         $this->assertSame(9, $items[1]['pos']['startOffset']);
         $this->assertSame('note', $items[1]['value']);
+    }
+
+    public function testC2B167CommentNeedsWhitespaceAfterTablePipe(): void
+    {
+        $tree = json_decode(Carve2::toJson('| a | b |%% c'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('paragraph', $tree['children'][0]['type']);
     }
 
     public function testC2I118OpenDelimiterCountsTowardBracketCap(): void
@@ -288,11 +317,13 @@ final class SpecRulingsTest extends TestCase
 
     public function testC2A181IncludeRowsAndColsAcceptOutOfShapeValues(): void
     {
-        foreach ([
-            '{{ a.crv @rows }}' => ['rows' => ''],
-            '{{ a.crv @rows:x }}' => ['rows' => 'x'],
-            '{{ a.crv @cols:"a,,b" }}' => ['cols' => 'a,,b'],
-        ] as $src => $expected) {
+        foreach (
+            [
+                '{{ a.crv @rows }}' => ['rows' => ''],
+                '{{ a.crv @rows:x }}' => ['rows' => 'x'],
+                '{{ a.crv @cols:"a,,b" }}' => ['cols' => 'a,,b'],
+            ] as $src => $expected
+        ) {
             $tree = json_decode(Carve2::toJson($src), true, 512, JSON_THROW_ON_ERROR);
             $this->assertSame($expected, $tree['children'][0]['options']);
         }

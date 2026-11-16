@@ -659,7 +659,10 @@ final class Finisher
         } elseif ($j !== $this->smartEnd) {
             $prev = ord($t[$j - 1]);
         }
-        $after = $j + 2 < $te ? $this->sc->nextCp($j + 2) : -1;
+        $afterAt = $j + 2;
+        $after = $afterAt < $te || ($afterAt === $te && substr($t, $te, 2) === '{%')
+            ? $this->sc->nextCp($afterAt)
+            : -1;
 
         return $prev !== 0x2B && $prev !== 0x2D && $after !== 0x2B && $after !== 0x2D;
     }
