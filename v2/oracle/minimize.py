@@ -29,6 +29,10 @@ def minimize(source, html_only):
     while True:
         lines = source.split('\n')
         candidates = ['\n'.join(lines[:i] + lines[i + 1:]) for i in range(len(lines))] if len(lines) > 1 else []
+        if len(source) > 200:
+            for parts in (2, 4, 8, 16, 32):
+                width = max(1, (len(source) + parts - 1) // parts)
+                candidates += [source[:i] + source[i + width:] for i in range(0, len(source), width)]
         if len(source) <= 400:
             candidates += [source[:i] + source[i + 1:] for i in range(len(source))]
         candidates = list(dict.fromkeys(candidate for candidate in candidates if candidate != source))
