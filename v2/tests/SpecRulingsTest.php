@@ -332,6 +332,10 @@ final class SpecRulingsTest extends TestCase
             "<pre><code>  code\n</code></pre>",
             Carve2::toHtml("- a\n\n  > ```\n >   code\n > ```"),
         );
+        $this->assertStringContainsString(
+            "<pre><code>  `x\n</code></pre>",
+            Carve2::toHtml("- [x] \t> ```\n      \t>   `x\n      \t> \t```"),
+        );
     }
 
     public function testC2A181IncludeRowsAndColsAcceptOutOfShapeValues(): void
@@ -385,5 +389,11 @@ final class SpecRulingsTest extends TestCase
             $this->assertSame("<div>\n  <p>x</p>\n</div>", Carve2::toHtml("::: $info\nx\n:::"));
         }
         $this->assertSame("<p>:::note\nx</p>\n<div>\n\n</div>", Carve2::toHtml(":::note\nx\n:::"));
+    }
+
+    public function testC2B006TabDoesNotSeparateDivMarkerAndName(): void
+    {
+        $this->assertSame("<p>:::\tx\ny</p>", Carve2::toHtml(":::\tx\ny"));
+        $this->assertSame("<div>\n  <p>y</p>\n</div>", Carve2::toHtml("::: \tx\ny\n:::"));
     }
 }
