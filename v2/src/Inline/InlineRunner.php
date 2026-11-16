@@ -48,6 +48,11 @@ final class InlineRunner
             if ($node->lines !== null) {
                 $node->children = self::parse($s, $node->lines, $ctx, 0, self::mode($node->type, $hard, $caption));
                 $node->lines = null;
+                if ($node->children === [] && $node->type === 'line') {
+                    // C2-A-158: a line with no children has no position, also when it held spaces.
+                    $node->start = -1;
+                    $node->end = -1;
+                }
             }
             $attrs = $node->f['attrs'] ?? null;
             if ($node->type === 'div' && $attrs instanceof Attrs && in_array('hardbreaks', $attrs->classes, true)) {

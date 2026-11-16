@@ -604,4 +604,23 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame("<p>:::\tx\ny</p>", Carve2::toHtml(":::\tx\ny"));
         $this->assertSame("<p>::: \tx\ny</p>\n<div>\n\n</div>", Carve2::toHtml("::: \tx\ny\n:::"));
     }
+
+    public function testC2A158LineOfOnlySpacesHasNoPosition(): void
+    {
+        $tree = json_decode(Carve2::toJson("  ::: |\n  one\n    two\n  \n  three\n:::"), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['type' => 'line', 'children' => []], $tree['children'][0]['children'][2]);
+    }
+
+    public function testC2I002TabBeforeDescriptionContentIsIndent(): void
+    {
+        $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>", Carve2::toHtml(":: t\n: \tx"));
+        $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>x\ny</dd>\n</dl>", Carve2::toHtml(":: t\n: \tx\n  y"));
+    }
+
+    public function testC2H007OnlyABareBlockImageStandsOnItsOwnLine(): void
+    {
+        $this->assertSame('<blockquote><p class="c"><img src="x.png" alt="a"></p></blockquote>', Carve2::toHtml("> {.c}\n> ![a](x.png)\n> "));
+        $this->assertSame("<blockquote>\n  <img src=\"x.png\" alt=\"a\">\n</blockquote>", Carve2::toHtml('> ![a](x.png)'));
+        $this->assertSame("<ul>\n  <li><p class=\"c\"><img src=\"x.png\" alt=\"a\"></p></li>\n</ul>", Carve2::toHtml("- {.c}\n  ![a](x.png)"));
+    }
 }

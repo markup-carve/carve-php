@@ -387,10 +387,8 @@ final class NodeFactory
         $node->children = [];
         $n = count($f->spans);
         for ($k = 0; $k < $n; $k += 2) {
-            // C2-A-158: a line with no children has no source character and no position.
-            $empty = $f->spans[$k + 1] <= $f->spans[$k];
-            $line = $empty ? new Node('line') : Node::at('line', $f->spans[$k], $f->spans[$k + 1]);
-            $line->lines = $empty ? [] : [$f->spans[$k], $f->spans[$k + 1]];
+            $line = Node::at('line', $f->spans[$k], $f->spans[$k + 1]);
+            $line->lines = $f->spans[$k + 1] > $f->spans[$k] ? [$f->spans[$k], $f->spans[$k + 1]] : [];
             $node->children[] = $line;
         }
         $attrs = new Attrs();

@@ -676,6 +676,18 @@ final class HtmlRenderer
     }
 
     /**
+     * C2-H-007, C2-H-020: a block image paragraph without attributes and `lang` writes its `<img>` with no `<p>`.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return bool
+     */
+    private function bareImage(Node $node): bool
+    {
+        return !isset($node->f['attrs']) && !isset($node->f['lang']) && $this->blockImage($node) !== null;
+    }
+
+    /**
      * C2-H-018 to C2-H-020, C2-H-077.
      *
      * @param \MarkupCarve\Carve2\Node $node
@@ -899,7 +911,7 @@ final class HtmlRenderer
         if (
             count($visible) === 1 && $visible[0]->type === 'paragraph' && !self::hasFigureCaption($visible[0])
             && $this->allowed($visible[0], $depth + 1)
-            && (($visible[0]->f['role'] ?? null) !== 'image' || $this->blockImage($visible[0]) === null)
+            && !$this->bareImage($visible[0])
         ) {
             $p = $this->paragraph($visible[0], 0, false);
             if ($p !== null) {
@@ -1065,7 +1077,7 @@ final class HtmlRenderer
         $lead = $visible[0];
         if (
             $lead->type === 'paragraph' && !self::hasFigureCaption($lead) && $this->allowed($lead, $depth + 1)
-            && (($lead->f['role'] ?? null) !== 'image' || $this->blockImage($lead) === null)
+            && !$this->bareImage($lead)
         ) {
             $first = (string)$this->paragraph($lead, 0, $tight);
             array_shift($rest);

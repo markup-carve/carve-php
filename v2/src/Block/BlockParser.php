@@ -1097,7 +1097,11 @@ final class BlockParser
         $this->push($f);
         $this->i = $content;
         $this->col = $c + ($content - $j);
-        $this->openLine(count($this->stack) - 1, $content, $this->col);
+        // C2-I-002: a tab before the first content of the description is indent, as behind a list marker.
+        $k = $content;
+        $kc = $this->col;
+        $this->skipWs($k, $kc);
+        $this->openLine(count($this->stack) - 1, $k, $kc);
 
         return true;
     }
