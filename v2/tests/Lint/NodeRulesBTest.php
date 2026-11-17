@@ -297,8 +297,8 @@ final class NodeRulesBTest extends TestCase
                     '/children/0/children/0/children/1',
                     7,
                     11,
-                    'This list marker starts at column 2, between the columns of two open lists, so it joins '
-                        . 'the deeper list. Start it at column 4 to make that explicit, or at column 1 to put it in '
+                    'This list marker starts at column 2, between the columns of two open lists, so it is read '
+                        . 'at the column of the deeper list. Start it at column 4 to make that explicit, or at column 1 to put it in '
                         . 'the outer list.',
                 ],
                 "1. a\n\n   1. b\n",
@@ -401,8 +401,8 @@ final class NodeRulesBTest extends TestCase
                     '/children/0/children/0',
                     1,
                     5,
-                    'This marker sits left of its list and is text of the item above. Ordered markers are '
-                        . 'left-aligned in 0.2.',
+                    "This marker sits left of its list, so it is a sibling item that moves the list's column. "
+                        . 'Write the ordered markers left-aligned, as the formatter does.',
                 ],
                 " \n10. b",
                 [],

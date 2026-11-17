@@ -5937,6 +5937,79 @@ final class Tables
         'en_dash' => '–',
     ];
 
+    /** C2-A-098 smart-punctuation.json */
+    public const SMART_SOURCES = [
+        'left_double_quote' => '"',
+        'left_single_quote' => '\'',
+        'right_double_quote' => '"',
+        'right_single_quote' => '\'',
+        'em_dash' => '---',
+        'en_dash' => '--',
+        'not_equal' => '!=',
+        'trademark' => '(tm)',
+        'plus_minus' => '+-',
+        'rightwards_arrow' => '-->',
+        'ellipsis' => '...',
+        'leftwards_arrow' => '<--',
+        'left_right_arrow' => '<-->',
+        'less_than_or_equal' => '<=',
+        'leftwards_double_arrow' => '<==',
+        'left_right_double_arrow' => '<=>',
+        'rightwards_double_arrow' => '==>',
+        'greater_than_or_equal' => '>=',
+    ];
+
+    /** C2-A-162 ast-results.json */
+    public const AST_RESULTS = [
+        'abbreviation' => [
+            'expansion' => '',
+        ],
+        'caption_number' => [
+            'n' => '',
+        ],
+        'citation' => [
+            'number' => '',
+            'useIndex' => '',
+        ],
+        'document' => [
+            'stages' => '',
+        ],
+        'footnote_ref' => [
+            'number' => '',
+        ],
+        'heading' => [
+            'generatedId' => '',
+        ],
+        'image' => [
+            'src' => 'reference use',
+            'tooltip' => 'reference use',
+        ],
+        'include' => [
+            'children' => '',
+            'file' => '',
+        ],
+        'inline_footnote' => [
+            'number' => '',
+        ],
+        'link' => [
+            'href' => 'reference use',
+            'tooltip' => 'reference use',
+        ],
+        'math' => [
+            'number' => '',
+        ],
+        'table_cell' => [
+            'colspan' => 'derived from authored span mark',
+            'rowspan' => 'derived from authored span mark',
+        ],
+        'table_column' => [
+            'resolvedAlign' => '',
+        ],
+        'xref' => [
+            'href' => '',
+        ],
+    ];
+
     /** C2-I-104 */
     public const SMART_QUOTE_OPENS_AFTER = '(:=[{‘“';
 

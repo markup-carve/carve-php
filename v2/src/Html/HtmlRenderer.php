@@ -829,6 +829,23 @@ final class HtmlRenderer
     }
 
     /**
+     * C2-H-091: whether a block is written as `<p>`, so backlinks can be appended to it.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return bool
+     */
+    public function writesParagraph(Node $node): bool
+    {
+        if ($node->type !== 'paragraph' || ($node->f['caption'] ?? null) instanceof Node) {
+            return false;
+        }
+        $role = $node->f['role'] ?? null;
+
+        return !($role === 'math' && $this->o->mode === 'static') && !$this->bareImage($node);
+    }
+
+    /**
      * C2-H-018 to C2-H-020, C2-H-077.
      *
      * @param \MarkupCarve\Carve2\Node $node

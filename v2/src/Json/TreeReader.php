@@ -39,10 +39,27 @@ final class TreeReader
     ];
 
     /**
+     * @var array<string, true> C2-A-124 with the common fields of C2-A-027.
+     */
+    private const UNQUALIFIED_FIELDS = [
+        'type' => true,
+        'name' => true,
+        'children' => true,
+        'attrs' => true,
+        'data' => true,
+        'pos' => true,
+        'segments' => true,
+        'metadata' => true,
+        'dir' => true,
+        'lang' => true,
+    ];
+
+    /**
      * C2-I-118: every inline node with children counts one level of its inline content.
      *
      * @var array<string, true>
      */
+
     private const INLINE = [
         'emphasis' => true,
         'strong' => true,
@@ -263,11 +280,57 @@ final class TreeReader
         } elseif ($type === 'autolink' && isset($node->text) && $node->text === ($node->href ?? null)) {
             // C2-A-058: a default has one encoding.
             throw new TreeError('autolink-default-text', $path . '/text');
-        } elseif ($type === 'smart_punctuation' && isset($node->glyph) && $node->glyph !== self::glyphOf($node->kind ?? '')) {
-            throw new TreeError('smart-punctuation-glyph', $path . '/glyph');
+        } elseif ($type === 'smart_punctuation') {
+            self::smartPunctuation($node, $path);
+        } elseif ($type === 'table_cell') {
+            self::cellChildren($node, $path);
         }
         if (in_array($node->type ?? '', ['block_extension', 'inline_extension'], true)) {
             self::extension($node, $path, $declared);
+        }
+    }
+
+    /**
+     * C2-A-098: the glyph and the source the table gives the kind.
+     *
+     * @param \stdClass $node
+     * @param string $path
+     *
+     * @throws \MarkupCarve\Carve2\Json\TreeError
+     */
+    private static function smartPunctuation(stdClass $node, string $path): void
+    {
+        $kind = $node->kind ?? '';
+        if (isset($node->glyph) && $node->glyph !== self::glyphOf($kind)) {
+            throw new TreeError('smart-punctuation-glyph', $path . '/glyph');
+        }
+        if (is_string($kind) && isset($node->source) && $node->source !== (Tables::SMART_SOURCES[$kind] ?? null)) {
+            throw new TreeError('smart-punctuation-source', $path . '/source');
+        }
+    }
+
+    /**
+     * C2-A-091: a cell has children, and a `cell_paragraph` is the only child of its cell; a span mark cell stays empty
+     * (C2-A-092).
+     *
+     * @param \stdClass $node
+     * @param string $path
+     *
+     * @throws \MarkupCarve\Carve2\Json\TreeError
+     */
+    private static function cellChildren(stdClass $node, string $path): void
+    {
+        $children = is_array($node->children ?? null) ? $node->children : [];
+        if ($children === [] && !isset($node->span)) {
+            throw new TreeError('table-cell-children', $path . '/children');
+        }
+        if (count($children) === 1) {
+            return;
+        }
+        foreach ($children as $i => $child) {
+            if ($child instanceof stdClass && ($child->type ?? null) === 'cell_paragraph') {
+                throw new TreeError('table-cell-children', $path . '/children/' . $i);
+            }
         }
     }
 
@@ -340,7 +403,17 @@ final class TreeReader
     {
         $name = $node->name ?? '';
         if (!str_contains($name, '.')) {
+            // C2-A-124: an unqualified inline extension carries `name`, `children` and the common fields only.
+            foreach (get_object_vars($node) as $field => $value) {
+                if (!isset(self::UNQUALIFIED_FIELDS[$field])) {
+                    throw new TreeError('unqualified-extension-field', $path . '/' . self::escape($field));
+                }
+            }
+
             return;
+        }
+        if (isset($node->source)) {
+            self::sourceName($node->source, $path . '/source/name');
         }
         if (!isset($declared[$name]) || $declared[$name]->version !== $node->version) {
             throw new TreeError('extension-declaration', $path . '/name');
@@ -350,6 +423,38 @@ final class TreeReader
                 throw new TreeError('extension-slot', $path . '/slots/' . self::escape($slot));
             }
         }
+    }
+
+    /**
+     * C2-X-025: a source name that a matcher of its form can claim.
+     *
+     * @param \stdClass $source
+     * @param string $path
+     *
+     * @throws \MarkupCarve\Carve2\Json\TreeError
+     */
+    private static function sourceName(stdClass $source, string $path): void
+    {
+        $name = is_string($source->name ?? null) ? $source->name : '';
+        $form = $source->form ?? '';
+        $claimed = match ($form) {
+            // C2-B-127: the name of a plain div; `figure` is one only with a title or a label.
+            'div' => self::whole($name, Tables::CHARS_DIV_NAME) && (!isset(Tables::DIV_NAME_KINDS[$name])
+                || ($name === 'figure' && (isset($source->title) || isset($source->groupLabel)))),
+            // A raw fence (`=name`) opens a raw block, not a code block.
+            'fence' => self::whole($name, Tables::CHARS_LANGUAGE_WORD),
+            'inline' => $name !== '' && strspn($name, Tables::SIGIL_INLINE_EXTENSION_FIRST, 0, 1) === 1
+                && strspn($name, Tables::SIGIL_INLINE_EXTENSION_REST, 1) === strlen($name) - 1,
+            default => true,
+        };
+        if (!$claimed) {
+            throw new TreeError('extension-source-name', $path);
+        }
+    }
+
+    private static function whole(string $s, string $chars): bool
+    {
+        return $s !== '' && strspn($s, $chars) === strlen($s);
     }
 
     private static function opaque(mixed $value, string $path, string $reason): void

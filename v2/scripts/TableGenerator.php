@@ -187,6 +187,21 @@ final class TableGenerator
             $quotes[$row['kind']] = $row['glyph'];
         }
         $consts['SMART_GLYPHS'] = ['C2-I-104 C2-I-111 smart-punctuation.json', $quotes];
+        $sources = [];
+        foreach ([...$smart['quotes'], ...$smart['dashes'], ...$smart['runs']] as $row) {
+            if (isset($row['kind'])) {
+                $sources[$row['kind']] = $row['source'];
+            }
+        }
+        $consts['SMART_SOURCES'] = ['C2-A-098 smart-punctuation.json', $sources];
+
+        $results = [];
+        foreach ($load('ast-results')['nodes'] as $type => $fields) {
+            foreach ($fields as $row) {
+                $results[$type][$row['field']] = $row['when'] ?? '';
+            }
+        }
+        $consts['AST_RESULTS'] = ['C2-A-162 ast-results.json', $results];
         $consts['SMART_QUOTE_OPENS_AFTER'] = ['C2-I-104', implode('', $smart['quote_opens_after']['chars'])];
 
         $slug = $load('heading-slug');

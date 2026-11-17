@@ -492,7 +492,7 @@ final class InlineRenderer
     private function linkStructural(Node $node, ?string $key, string $href, ?Node $def, ?Attrs &$merged): array
     {
         $structural = [['href', $this->destination($href)]];
-        $tooltip = $node->f['tooltip'] ?? $def?->f['tooltip'] ?? null;
+        $tooltip = $def === null ? $node->f['tooltip'] ?? null : $def->f['tooltip'] ?? null;
         if (is_string($tooltip)) {
             $structural[] = ['title', $tooltip];
         }
@@ -699,7 +699,7 @@ final class InlineRenderer
         }
         $def = is_string($key) ? $this->state->linkDefs[$key] ?? null : null;
         $merged = self::mergeDefinition($attrs, $def);
-        $tooltip = $node->f['tooltip'] ?? $def?->f['tooltip'] ?? null;
+        $tooltip = $def === null ? $node->f['tooltip'] ?? null : $def->f['tooltip'] ?? null;
         $structural = [['src', $this->destination(PlainText::str($src))], ['alt', PlainText::str($node->f['alt'] ?? '')]];
         if (is_string($tooltip)) {
             $structural[] = ['title', $tooltip];

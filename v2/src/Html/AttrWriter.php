@@ -265,7 +265,13 @@ final class AttrWriter
             $sep = Tables::URL_LIST_ATTRIBUTES[$lower] ? '/[\s,]+/' : '/\s+/';
             // C2-H-161: one character class run, linear; authored URL list values only.
             foreach (preg_split($sep, $value, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $token) {
-                if (UrlPolicy::authoredValueFails($token) || !UrlPolicy::passes($token, $this->o)) {
+                if (UrlPolicy::authoredValueFails($token)) {
+                    return '';
+                }
+                if (!UrlPolicy::passes($token, $this->o)) {
+                    // C2-H-161 applies the policy of C2-H-160, which reports the failed destination.
+                    $this->log->loss('destination-denied', 'error');
+
                     return '';
                 }
             }

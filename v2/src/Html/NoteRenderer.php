@@ -74,7 +74,7 @@ final class NoteRenderer
         } else {
             $visible = HtmlRenderer::visibleOf($note->children ?? []);
             $last = $visible === [] ? null : $visible[count($visible) - 1];
-            $endsWithParagraph = $last !== null && $last->type === 'paragraph' && ($last->f['role'] ?? null) === null;
+            $endsWithParagraph = $last !== null && $this->r->writesParagraph($last);
             foreach ($visible as $block) {
                 $html = $block === $last && $endsWithParagraph
                     ? $this->r->paragraph($block, $depth + 1, false, $back)
