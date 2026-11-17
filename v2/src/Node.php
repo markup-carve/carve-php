@@ -56,7 +56,7 @@ final class Node
     /**
      * The source-layout facts the parser knows when it builds the node (source-layout.md); never encoded in the tree.
      *
-     * @var array<string, int|string|bool>
+     * @var array<string, mixed>
      */
     public array $layout = [];
 

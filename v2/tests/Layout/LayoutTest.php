@@ -98,6 +98,15 @@ final class LayoutTest extends TestCase
         $this->assertArrayNotHasKey('headerRows', self::facts("{table}\n```csv\na\n```\n")['/children/0']);
     }
 
+    public function testC2L055IncludeOptionsKeepTheirSpelling(): void
+    {
+        $facts = self::facts("{{ a.crv @lines:\"1-2\" @shift:1 @code }}\n");
+        $this->assertSame(['lines' => '"1-2"', 'shift' => '1'], $facts['/children/0']['optionSpelling']);
+        $this->assertArrayNotHasKey('optionSpelling', self::facts("{{ a.crv @code }}\n")['/children/0']);
+        $tree = json_decode(Carve2::toJson("{{ a.crv @lines:\"1-2\" }}\n"), true);
+        $this->assertSame(['lines' => '1-2'], $tree['children'][0]['options']);
+    }
+
     public function testC2L049RawRefIsTheReferenceAsTyped(): void
     {
         $facts = self::facts("> [a\n> b][Key]{.c} and ![i][]\n\n[key]: /u\n[i]: /i\n");

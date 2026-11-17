@@ -78,8 +78,18 @@ final class IncludeShape
                 return null;
             }
         }
+        $spelling = [];
+        foreach ($options as $key => $value) {
+            if (str_starts_with($key, "\0")) {
+                $spelling[substr($key, 1)] = $value;
+                unset($options[$key]);
+            }
+        }
         if ($options !== []) {
             $out['options'] = self::ordered($options);
+        }
+        if ($spelling !== []) {
+            $out["\0spelling"] = $spelling;
         }
         if ($invalid !== []) {
             $out['invalid'] = $invalid;
@@ -169,8 +179,10 @@ final class IncludeShape
         $k += $n;
         $value = null;
         $quoted = false;
+        $spelled = -1;
         if ($k < $end && $s[$k] === ':') {
             $k++;
+            $spelled = $k;
             if ($k < $end && ($s[$k] === '"' || $s[$k] === "'")) {
                 $raw = '';
                 $quoted = $s[$k] === '"';
@@ -197,6 +209,10 @@ final class IncludeShape
             return $k;
         }
         $options[$key] = $decoded;
+        if ($spelled >= 0) {
+            // C2-L-055: the value as written, quoted or bare.
+            $options["\0" . $key] = substr($s, $spelled, $k - $spelled);
+        }
 
         return $k;
     }

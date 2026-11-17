@@ -170,6 +170,11 @@ final class NodeFactory
             case Frame::INCLUDE:
                 $node = Node::at('include', $f->start, $f->end);
                 foreach ($f->include as $key => $value) {
+                    if ($key === "\0spelling") {
+                        $node->layout['optionSpelling'] = $value;
+
+                        continue;
+                    }
                     $node->f[$key] = is_string($value) ? self::v($value) : $value;
                 }
 

@@ -183,15 +183,15 @@ final class LayoutBuilder
         $start = $node->start;
         $end = $node->end;
         $facts = $node->layout;
-        if (isset($facts['startByte'], $facts['endByte'])) {
-            $start = (int)$facts['startByte'];
-            $end = (int)$facts['endByte'];
+        if (is_int($facts['startByte'] ?? null) && is_int($facts['endByte'] ?? null)) {
+            $start = $facts['startByte'];
+            $end = $facts['endByte'];
         }
         unset($facts['startByte'], $facts['endByte']);
-        if (isset($facts['refEnd'])) {
-            $facts = ['rawRef' => $this->rawRef($node, (int)$facts['refEnd'], $quotes)] + $facts;
-            unset($facts['refEnd']);
+        if (is_int($facts['refEnd'] ?? null)) {
+            $facts = ['rawRef' => $this->rawRef($node, $facts['refEnd'], $quotes)] + $facts;
         }
+        unset($facts['refEnd']);
         if ($node->type === 'caption') {
             // C2-L-054: a parse gives every caption the attachment `preceding`.
             $facts['attachment'] = 'preceding';
