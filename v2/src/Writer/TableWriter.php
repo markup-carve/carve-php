@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Writer;
 
+use MarkupCarve\Carve2\Json\TreeDecoder;
+use MarkupCarve\Carve2\Node;
+use MarkupCarve\Carve2\Resolve\TableGrid;
+
 /**
  * Tables as Carve source (C2-W-061 to C2-W-068, C2-W-118, C2-W-135, C2-W-136): a pipe table, or a delimited table where
  * the sidecar records that form or the table has no rows.
@@ -174,6 +178,7 @@ final class TableWriter
      */
     public function write(array $node, string $path, string $prefix, bool $prewritten): void
     {
+        $this->spanCounts($node, $path);
         $groups = $this->groups($node);
         $rows = array_sum(array_map('count', $groups));
         $format = $this->w->fact($path, 'sourceFormat');
@@ -194,6 +199,56 @@ final class TableWriter
         foreach ($this->w->alignTables ? self::aligned($lines) : $lines as $line) {
             $this->w->emit($prefix, is_array($line) ? self::joined($line) : $line);
         }
+    }
+
+    /**
+     * C2-A-093, C2-M-074: the span marks are the only spelling of a count, so a count they do not derive, as an
+     * imported span has, is lost.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     *
+     * @return void
+     */
+    private function spanCounts(array $node, string $path): void
+    {
+        $table = TreeDecoder::fromArray(['type' => 'table'] + $node);
+        if ($table === null) {
+            return;
+        }
+        $supplied = self::cells($table, $path);
+        $grid = TableGrid::of($table);
+        $grid->deriveSpans();
+        foreach ($supplied as [$cell, $at, $fields]) {
+            foreach (['colspan', 'rowspan'] as $field) {
+                $given = $fields[$field] ?? 1;
+                $derived = $grid->marks ? $cell->f[$field] ?? 1 : 1;
+                if ($given !== $derived) {
+                    $this->w->lose($at, 'table_cell', $field);
+                }
+            }
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $table
+     * @param string $path
+     *
+     * @return array<array{0: \MarkupCarve\Carve2\Node, 1: string, 2: array<string, mixed>}> Each cell, its path and its
+     *   fields as supplied.
+     */
+    private static function cells(Node $table, string $path): array
+    {
+        $out = [];
+        foreach ($table->children ?? [] as $g => $group) {
+            foreach ($group->type === 'comment' ? [] : $group->children ?? [] as $r => $row) {
+                foreach ($row->type === 'table_row' ? $row->children ?? [] : [] as $k => $cell) {
+                    $out[] = [$cell, $path . '/children/' . $g . '/children/' . $r . '/children/' . $k, $cell->f];
+                }
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -294,6 +349,10 @@ final class TableWriter
             [$prefix, $fragments] = $this->cell($cell, $path . '/children/' . $at, $head);
             $cells[] = [$prefix, $fragments];
             $height = max($height, count($fragments) === 0 ? 1 : max(array_keys($fragments)) + 1);
+        }
+        if ($cells === []) {
+            // C2-W-057: a row with no cell has no spelling, `||` is a row of one empty cell.
+            $this->w->lose($path, 'table_row', null);
         }
         $tail = $this->rowAttributes($row, $path);
         $lines = [];

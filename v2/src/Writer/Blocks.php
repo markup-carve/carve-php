@@ -1065,6 +1065,11 @@ final class Blocks
 
             return;
         }
+        $first = array_values(array_filter($entries, static fn ($e): bool => is_array($e) && ($e['type'] ?? '') !== 'comment'))[0] ?? null;
+        if (($first['type'] ?? '') !== 'definition_term') {
+            // C2-W-117: a list that opens with a description reads back as a paragraph.
+            $this->w->lose($path, 'definition_list', null);
+        }
         $this->attributeLine($node, $path, $prefix);
         $this->siblings($entries, $path . '/children', $prefix, self::ENTRIES);
     }

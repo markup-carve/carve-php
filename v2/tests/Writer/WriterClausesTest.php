@@ -97,6 +97,41 @@ final class WriterClausesTest extends TestCase
         $this->assertSame(['field-unspellable'], Writer::formatWithDiagnostics($source)->codes());
     }
 
+    /**
+     * @return array<string, array{string, array<string>}>
+     */
+    public static function importedLosses(): array
+    {
+        return [
+            'C2-M-074 an imported row span' => [
+                '<table><tr><td rowspan="2">a</td><td>b</td></tr><tr><td>c</td></tr></table>',
+                ['field-unspellable'],
+            ],
+            'C2-W-057 a row with no cell' => [
+                '<table><thead><tr><th>H</th></tr><tr></tr></thead><tbody><tr><td>a</td></tr></tbody></table>',
+                ['structure-unspellable'],
+            ],
+            'C2-W-117 a description list without a term' => ['<dl><dt></dt><dd>d</dd></dl>', ['structure-unspellable']],
+        ];
+    }
+
+    /**
+     * @param string $html
+     * @param array<string> $codes
+     *
+     * @return void
+     */
+    #[DataProvider('importedLosses')]
+    public function testImportedTreeLossIsReported(string $html, array $codes): void
+    {
+        $this->assertSame($codes, Carve2::importHtml($html)->codes());
+    }
+
+    public function testC2A093SpanCountsFromMarksAreSpelled(): void
+    {
+        $this->assertSame([], Writer::formatWithDiagnostics("| a | b |\n| ^ | c |\n")->codes());
+    }
+
     public function testTwoCodeSpansAreOne(): void
     {
         $result = Writer::writeWithDiagnostics(self::doc([
