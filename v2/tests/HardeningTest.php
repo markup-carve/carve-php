@@ -6,6 +6,8 @@ namespace MarkupCarve\Carve2\Test;
 
 use MarkupCarve\Carve2\Carve2;
 use MarkupCarve\Carve2\Html\Escape;
+use MarkupCarve\Carve2\Json\TreeEncoder;
+use MarkupCarve\Carve2\Writer\Writer;
 use PHPUnit\Framework\TestCase;
 
 final class HardeningTest extends TestCase
@@ -64,6 +66,42 @@ final class HardeningTest extends TestCase
                 $times[] = $samples[1];
             }
             $this->assertLessThanOrEqual(max(2.0, $times[0] * 24), $times[3], $name);
+        }
+    }
+
+    /**
+     * C2-W-010: the writer's work on the stress shapes grows linearly with the length of the text.
+     *
+     * @return void
+     */
+    public function testC2W010WriterStaysLinear(): void
+    {
+        $units = [
+            'escaped refs' => [str_repeat('\\[x] ', 250), "\n\n[x]: /u\n"],
+            'stars' => [str_repeat('a*b ', 250), ''],
+            'hyphen run' => [str_repeat('-', 1000), ''],
+            'dot run' => [str_repeat('.', 1000), ''],
+            'sigils' => [str_repeat('@a #b :c: <d ', 100), ''],
+            'pipes in cells' => [str_repeat("| a\\|b | [c](/d\\|e) |\n", 60), ''],
+            'emphasis nest' => [str_repeat('{*a {/b {_c_} d/} e*} ', 60), ''],
+            'table rows' => [str_repeat("| a | `b | c |\n", 60), ''],
+            'openers' => [str_repeat('*[', 500), ''],
+        ];
+        foreach ($units as $name => [$unit, $tail]) {
+            $times = [];
+            foreach ([1, 8] as $factor) {
+                $source = 'a' . str_repeat($unit, $factor) . $tail;
+                $tree = (new TreeEncoder())->encode(Carve2::parse($source), $source);
+                $samples = [];
+                for ($round = 0; $round < 3; $round++) {
+                    $start = hrtime(true);
+                    Writer::writeWithDiagnostics($tree);
+                    $samples[] = (hrtime(true) - $start) / 1e6;
+                }
+                sort($samples);
+                $times[] = $samples[1];
+            }
+            $this->assertLessThanOrEqual(max(2.0, $times[0] * 24), $times[1], $name);
         }
     }
 
