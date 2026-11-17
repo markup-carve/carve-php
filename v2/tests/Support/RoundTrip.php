@@ -36,6 +36,13 @@ final class RoundTrip
     ];
 
     /**
+     * C2-H-195 row 9: the directive kinds a plain div can name with its first class.
+     *
+     * @var array<string>
+     */
+    private const DIRECTIVE_KINDS = ['bibliography', 'footnotes', 'glossary', 'index', 'references', 'toc'];
+
+    /**
      * The blocks whose children are inline content, with edges HTML does not keep.
      *
      * @var array<string>
@@ -101,33 +108,53 @@ final class RoundTrip
             }
         });
         self::walk($doc, static function (array $node) use (&$found, $notes): void {
-            $type = $node['type'] ?? '';
-            $found ??= self::UNWRITTEN[$type] ?? null;
-            if ($type === 'footnote_ref' && !isset($notes[$node['key']])) {
-                $found ??= 'C2-H-188 unresolved reference';
-            }
-            if ($type === 'link' && self::interactive($node['children'] ?? [])) {
-                $found ??= 'gap: interactive content in a link';
-            }
-            $keys = array_map(static fn (array $pair): string => strtolower($pair[0]), $node['attrs']['keyValues'] ?? []);
-            if (in_array('style', $keys, true) && in_array('align', $keys, true)) {
-                $found ??= 'gap: align key folded into style';
-            }
-
-            $unresolved = in_array($type, ['link', 'image'], true) && isset($node['key'])
-                && !isset($node[$type === 'link' ? 'href' : 'src']);
-            if ($unresolved || ($type === 'xref' && !isset($node['href']))) {
-                $found ??= 'C2-H-188 unresolved reference';
-            }
-            if ($type === 'raw_block' || $type === 'raw_inline') {
-                $found ??= ($node['format'] ?? '') === 'html' ? null : 'C2-H-054 raw content of another format';
-            }
+            $found ??= self::UNWRITTEN[$node['type'] ?? ''] ?? self::unresolved($node, $notes) ?? self::restructured($node);
         });
         if ($found === null && (str_contains($html, ' rel="') || preg_match('/\s[a-z-]+=""/', $html) === 1)) {
             $found = 'C2-H-188 URL policy or profile output';
         }
 
         return $found;
+    }
+
+    /**
+     * @param array<mixed> $node
+     * @param array<string, true> $notes The keys of the footnotes of the document.
+     */
+    private static function unresolved(array $node, array $notes): ?string
+    {
+        $type = $node['type'] ?? '';
+        if ($type === 'footnote_ref') {
+            return isset($notes[$node['key']]) ? null : 'C2-H-188 unresolved reference';
+        }
+        if ($type === 'xref') {
+            return isset($node['href']) ? null : 'C2-H-188 unresolved reference';
+        }
+        if (!in_array($type, ['link', 'image'], true) || !isset($node['key'])) {
+            return null;
+        }
+
+        return isset($node[$type === 'link' ? 'href' : 'src']) ? null : 'C2-H-188 unresolved reference';
+    }
+
+    /**
+     * @param array<mixed> $node
+     */
+    private static function restructured(array $node): ?string
+    {
+        $type = $node['type'] ?? '';
+        if ($type === 'link' && self::interactive($node['children'] ?? [])) {
+            return 'gap: interactive content in a link';
+        }
+        $keys = array_map(static fn (array $pair): string => strtolower($pair[0]), $node['attrs']['keyValues'] ?? []);
+        if (in_array('style', $keys, true) && in_array('align', $keys, true)) {
+            return 'gap: align key folded into style';
+        }
+        if (($type === 'raw_block' || $type === 'raw_inline') && ($node['format'] ?? '') !== 'html') {
+            return 'C2-H-054 raw content of another format';
+        }
+
+        return null;
     }
 
     /**
@@ -181,50 +208,8 @@ final class RoundTrip
      */
     private function definitions(array $children): array
     {
-        $uses = [];
-        $notes = [];
-        $headings = [];
-        $first = [];
-        $live = array_filter($children, static function (array $child) use (&$first): bool {
-            $definition = in_array($child['type'], ['footnote', 'link_reference_definition'], true);
-
-            return !$definition || !isset($first[$child['type'] . ':' . $child['key']]) && $first[$child['type'] . ':' . $child['key']] = true;
-        });
-        self::walk($live, static function (array $node) use (&$uses, &$notes, &$headings): void {
-            $type = $node['type'] ?? '';
-            if (in_array($type, ['link', 'image'], true) && isset($node['key'])) {
-                $uses[$node['key']] ??= count($uses);
-            }
-            if (in_array($type, ['footnote_ref'], true)) {
-                $notes[$node['key']] = min($notes[$node['key']] ?? PHP_INT_MAX, $node['number'] ?? PHP_INT_MAX);
-            }
-            if ($type === 'heading') {
-                $headings[] = [Chars::fold(self::plain($node['children'] ?? [])), $node['attrs']['id'] ?? $node['generatedId'] ?? null];
-            }
-        });
-        $blocks = [];
-        $defs = [];
-        $footnotes = [];
-        foreach ($children as $child) {
-            $type = $child['type'];
-            if ($type === 'link_reference_definition') {
-                if (!isset($uses[$child['key']]) || isset($defs[$child['key']])) {
-                    $this->losses[] = 'C2-H-193 unused or later definition';
-
-                    continue;
-                }
-                $defs[$child['key']] = $child;
-            } elseif ($type === 'footnote') {
-                if (!isset($notes[$child['key']]) || isset($footnotes[$child['key']])) {
-                    $this->losses[] = 'C2-H-194 unused or later footnote';
-
-                    continue;
-                }
-                $footnotes[$child['key']] = $child;
-            } else {
-                $blocks[] = $child;
-            }
-        }
+        [$uses, $notes, $headings] = self::firstUses($children);
+        [$blocks, $defs, $footnotes] = $this->partition($children, $uses, $notes);
         $merged = [];
         foreach ($defs as $key => $def) {
             if (isset($def['lang']) || isset($def['dir'])) {
@@ -236,25 +221,117 @@ final class RoundTrip
                 unset($defs[$key]['attrs']);
                 $this->losses[] = 'C2-H-195 row 15 attributes of a link definition';
             }
-            foreach ($headings as [$text, $id]) {
-                if ($text === Chars::fold((string)$key)) {
-                    if ($id !== null && ($def['href'] ?? null) === '#' . $id) {
-                        unset($defs[$key]);
-                        $this->losses[] = 'C2-H-195 row 14 definition to the heading its key finds';
-                    }
-
-                    break;
-                }
+            if (self::toHeading((string)$key, $def, $headings)) {
+                unset($defs[$key]);
+                $this->losses[] = 'C2-H-195 row 14 definition to the heading its key finds';
             }
         }
         uksort($defs, static fn ($a, $b): int => $uses[$a] <=> $uses[$b]);
         uksort($footnotes, static fn ($a, $b): int => $notes[$a] <=> $notes[$b]);
-        if (array_keys($defs) !== array_keys(array_filter($defs)) || $children !== array_merge($blocks, array_values($defs), array_values($footnotes))) {
+        $out = array_merge($blocks, array_values($defs), array_values($footnotes));
+        if (array_keys($defs) !== array_keys(array_filter($defs)) || $children !== $out) {
             $this->losses[] = 'C2-H-193 C2-H-194 place of a definition';
         }
-        $out = array_merge($blocks, array_values($defs), array_values($footnotes));
 
         return $merged === [] ? $out : self::mergeAttrs($out, $merged);
+    }
+
+    /**
+     * The order of first use of every link key and the lowest number of every footnote key, outside the later
+     * definitions of a key, and the folded text and id of every heading.
+     *
+     * @param array<mixed> $children
+     *
+     * @return array{0: array<string, int>, 1: array<string, int>, 2: array<array{0: string, 1: string|null}>}
+     */
+    private static function firstUses(array $children): array
+    {
+        $uses = [];
+        $notes = [];
+        $headings = [];
+        $first = [];
+        $live = [];
+        foreach ($children as $child) {
+            $name = $child['type'] . ':' . ($child['key'] ?? '');
+            if (in_array($child['type'], ['footnote', 'link_reference_definition'], true)) {
+                if (isset($first[$name])) {
+                    continue;
+                }
+                $first[$name] = true;
+            }
+            $live[] = $child;
+        }
+        self::walk($live, static function (array $node) use (&$uses, &$notes, &$headings): void {
+            $type = $node['type'] ?? '';
+            if (in_array($type, ['link', 'image'], true) && isset($node['key'])) {
+                $uses[$node['key']] ??= count($uses);
+            }
+            if ($type === 'footnote_ref') {
+                $notes[$node['key']] = min($notes[$node['key']] ?? PHP_INT_MAX, $node['number'] ?? PHP_INT_MAX);
+            }
+            if ($type === 'heading') {
+                $id = $node['attrs']['id'] ?? $node['generatedId'] ?? null;
+                $headings[] = [Chars::fold(self::plain($node['children'] ?? [])), $id];
+            }
+        });
+
+        return [$uses, $notes, $headings];
+    }
+
+    /**
+     * The blocks, and the first used definition of every key.
+     *
+     * @param array<mixed> $children
+     * @param array<string, int> $uses
+     * @param array<string, int> $notes
+     *
+     * @return array{0: array<mixed>, 1: array<string, array<mixed>>, 2: array<string, array<mixed>>}
+     */
+    private function partition(array $children, array $uses, array $notes): array
+    {
+        $blocks = [];
+        $defs = [];
+        $footnotes = [];
+        foreach ($children as $child) {
+            $type = $child['type'];
+            if ($type !== 'link_reference_definition' && $type !== 'footnote') {
+                $blocks[] = $child;
+
+                continue;
+            }
+            $link = $type === 'link_reference_definition';
+            $kept = $link ? $defs : $footnotes;
+            if (!isset(($link ? $uses : $notes)[$child['key']]) || isset($kept[$child['key']])) {
+                $this->losses[] = $link ? 'C2-H-193 unused or later definition' : 'C2-H-194 unused or later footnote';
+
+                continue;
+            }
+            if ($link) {
+                $defs[$child['key']] = $child;
+            } else {
+                $footnotes[$child['key']] = $child;
+            }
+        }
+
+        return [$blocks, $defs, $footnotes];
+    }
+
+    /**
+     * C2-H-198: the first heading whose text the key finds is the one the definition links to.
+     *
+     * @param string $key
+     * @param array<mixed> $def
+     * @param array<array{0: string, 1: string|null}> $headings
+     */
+    private static function toHeading(string $key, array $def, array $headings): bool
+    {
+        foreach ($headings as [$text, $id]) {
+            if ($text === Chars::fold($key)) {
+                return $id !== null && ($def['href'] ?? null) === '#' . $id;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -491,7 +568,7 @@ final class RoundTrip
         if ($type === 'table' && !str_contains((string)json_encode($node), 'span"')) {
             $node = $this->resolvedAligns($node);
         }
-        if ($type === 'div' && in_array($node['attrs']['classes'][0] ?? '', ['bibliography', 'footnotes', 'glossary', 'index', 'references', 'toc'], true)) {
+        if ($type === 'div' && in_array($node['attrs']['classes'][0] ?? '', self::DIRECTIVE_KINDS, true)) {
             $this->losses[] = 'C2-H-195 row 9 div with a directive class';
             $node['type'] = 'directive';
             $node['kind'] = array_shift($node['attrs']['classes']);
@@ -596,18 +673,12 @@ final class RoundTrip
     private function resolvedAligns(array $table): array
     {
         $original = $table;
-        $head = [];
-        foreach ($table['children'] as $group) {
-            foreach ($group['type'] === 'table_head' ? $group['children'] : [] as $row) {
-                foreach ($row['children'] as $c => $cell) {
-                    $head[$c] ??= $cell['align'] ?? null;
-                }
-            }
-        }
+        $head = self::headMarks($table);
         foreach ($table['children'] as $g => $group) {
+            $inHead = $group['type'] === 'table_head';
             foreach ($group['children'] as $r => $row) {
                 foreach ($row['children'] as $c => $cell) {
-                    $align = $cell['align'] ?? ($group['type'] === 'table_head' ? null : $head[$c] ?? null) ?? $table['columns'][$c]['align'] ?? null;
+                    $align = $cell['align'] ?? ($inHead ? null : $head[$c] ?? null) ?? $table['columns'][$c]['align'] ?? null;
                     if ($align !== null) {
                         $table['children'][$g]['children'][$r]['children'][$c]['align'] = $align;
                     }
@@ -623,6 +694,27 @@ final class RoundTrip
         }
 
         return $resolved;
+    }
+
+    /**
+     * The first mark of the head in every column.
+     *
+     * @param array<mixed> $table
+     *
+     * @return array<int, string|null>
+     */
+    private static function headMarks(array $table): array
+    {
+        $head = [];
+        foreach ($table['children'] as $group) {
+            foreach ($group['type'] === 'table_head' ? $group['children'] : [] as $row) {
+                foreach ($row['children'] as $c => $cell) {
+                    $head[$c] ??= $cell['align'] ?? null;
+                }
+            }
+        }
+
+        return $head;
     }
 
     /**
@@ -645,6 +737,18 @@ final class RoundTrip
     }
 
     /**
+     * A paragraph a tight list writes without `<p>` when it opens an item (C2-H-034, C2-H-018).
+     *
+     * @param array<mixed> $block
+     */
+    private static function bare(array $block): bool
+    {
+        $marked = isset($block['role']) || isset($block['attrs']) || isset($block['lang']) || isset($block['dir']);
+
+        return ($block['type'] ?? '') === 'paragraph' && !$marked;
+    }
+
+    /**
      * @param array<mixed> $list
      */
     private static function noParagraph(array $list): bool
@@ -654,7 +758,7 @@ final class RoundTrip
         }
         foreach ($list['children'] as $item) {
             $first = $item['children'][0] ?? [];
-            if (($first['type'] ?? '') === 'paragraph' && !isset($first['role']) && !isset($first['attrs']) && !isset($first['lang']) && !isset($first['dir'])) {
+            if (self::bare($first)) {
                 return false;
             }
             $blocks = array_filter($item['children'], static fn (array $block): bool => $block['type'] !== 'list');
@@ -678,7 +782,7 @@ final class RoundTrip
     {
         foreach ($list['children'] as $i => $item) {
             $first = $item['children'][0] ?? [];
-            if (($first['type'] ?? '') !== 'paragraph' || isset($first['attrs']) || isset($first['role']) || isset($first['lang']) || isset($first['dir'])) {
+            if (!self::bare($first)) {
                 continue;
             }
             $images = [];
