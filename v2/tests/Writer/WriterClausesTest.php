@@ -49,6 +49,31 @@ final class WriterClausesTest extends TestCase
         $this->assertNull(WriterGate::check($input));
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function unspellableValues(): array
+    {
+        return [
+            'a CR at the end of the input' => ["a\r"],
+            'a CR before a soft break' => ["a\r\r\nb"],
+            'a code span line that would open a list' => ["`a\n- b`\n"],
+        ];
+    }
+
+    /**
+     * C2-W-016: a parse the writer cannot keep is reported, never written as another tree.
+     *
+     * @param string $source
+     *
+     * @return void
+     */
+    #[DataProvider('unspellableValues')]
+    public function testC2W016LineOfALeafIsReported(string $source): void
+    {
+        $this->assertSame(['field-unspellable'], Writer::formatWithDiagnostics($source)->codes());
+    }
+
     public function testTwoCodeSpansAreOne(): void
     {
         $result = Writer::writeWithDiagnostics(self::doc([

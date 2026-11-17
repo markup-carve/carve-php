@@ -289,6 +289,27 @@ final class Text
     }
 
     /**
+     * C2-W-016: whether a line after the first of a verbatim leaf could end its paragraph or open a block there
+     * (C2-B-014 to C2-B-019). The test is the line-start test of text, so it may hold a line for a block that does not
+     * interrupt a paragraph: such a value is reported, never written into another tree.
+     *
+     * @param string $line
+     *
+     * @return bool
+     */
+    public static function opensBlock(string $line): bool
+    {
+        $line = ltrim($line, " \t");
+        if ($line === '' || strspn($line, '`') >= 3 || strspn($line, ':') >= 3) {
+            return true;
+        }
+        $c = new Context();
+        $c->lineStart = true;
+
+        return self::lineStartMark($line, $c, 10) >= 0;
+    }
+
+    /**
      * C2-W-092: the offset of the character that keeps a line of text from opening a block, or -1.
      *
      * @param string $value

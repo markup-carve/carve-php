@@ -224,6 +224,10 @@ final class Inline
         if ($type === 'text') {
             $points = $c->inCell ? ($this->w->wrapPoints[$path] ?? null) : null;
             $out = $points === null ? $this->text($node, $c, $next, $before) : $this->wrapped($node, $points, $c, $next);
+            // C2-W-016: a CR at the end of a line is part of the line ending.
+            if (str_ends_with($out, "\r") && ($next === 10 || $next === -1)) {
+                $this->w->lose($path, 'text', 'value');
+            }
             $this->moved($c, $out);
 
             return $out;
@@ -881,7 +885,18 @@ final class Inline
      */
     private function cellValue(array $node, string $path, Context $c, string $value): string
     {
-        if (!$c->inCell || !str_contains($value, "\n")) {
+        if (!str_contains($value, "\n")) {
+            return $value;
+        }
+        if (!$c->inCell) {
+            foreach (array_slice(explode("\n", $value), 1) as $line) {
+                if (Text::opensBlock($line)) {
+                    $this->w->lose($path, self::str($node, 'type'), 'value');
+
+                    break;
+                }
+            }
+
             return $value;
         }
         $this->w->lose($path, self::str($node, 'type'), 'value');

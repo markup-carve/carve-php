@@ -386,6 +386,7 @@ final class Blocks
     public function block(array $node, string $path, string $prefix): void
     {
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+        $this->w->starts[] = [count($this->w->lines), $path, $type];
         if (!$this->leafBlock($type, $node, $path, $prefix)) {
             $this->containerBlock($type, $node, $path, $prefix);
         }

@@ -30,6 +30,7 @@ final class Writer
         self::collect($children, $w);
         self::rootLosses($tree, $children, $w);
         (new Blocks($w))->blocks($children, '/children', '');
+        $w->loseLineEndCarriageReturns();
         while ($w->lines !== [] && end($w->lines) === '') {
             array_pop($w->lines);
         }
