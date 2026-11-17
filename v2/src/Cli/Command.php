@@ -34,7 +34,9 @@ final class Command
     /**
      * @var array<string, true>
      */
-    private const FMT_FLAGS = ['check' => true, 'diff' => true, 'normalize' => true, 'align-tables' => true, 'write' => true, 'from-ast' => true];
+    private const FMT_FLAGS = [
+        'check' => true, 'diff' => true, 'normalize' => true, 'align-tables' => true, 'write' => true, 'from-ast' => true,
+    ];
 
     /**
      * @param array<string> $args
@@ -240,7 +242,9 @@ final class Command
             ? Carve2::write(self::tree($source), null, ['alignTables' => $options['alignTables']])
             : Carve2::format($source, $options + $parsed['options']);
         $changed = $output !== $source;
-        [$check, $diff, $write] = [($values['check'] ?? false) === true, ($values['diff'] ?? false) === true, ($values['write'] ?? false) === true];
+        $check = ($values['check'] ?? false) === true;
+        $diff = ($values['diff'] ?? false) === true;
+        $write = ($values['write'] ?? false) === true;
         if ($check && $changed && !$diff) {
             fwrite($out, self::firstChange($display, $source, $output));
         }

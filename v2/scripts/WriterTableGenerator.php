@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Turns the data files the writer reads (`ast-results.json`, `escape-contexts.json`) into the constants of
+ * Turns the data files the writer reads (`escape-contexts.json`) into the constants of
  * v2/src/Generated/WriterTables.php.
  */
 final class WriterTableGenerator
@@ -21,13 +21,6 @@ final class WriterTableGenerator
 
             return $data;
         };
-        $results = [];
-        foreach ($load('ast-results')['nodes'] as $type => $fields) {
-            foreach ($fields as $field) {
-                $results[$type][$field['field']] = $field['when'] ?? '';
-            }
-        }
-        ksort($results, SORT_STRING);
         $triggers = [];
         $contexts = [];
         $escape = $load('escape-contexts');
@@ -43,7 +36,6 @@ final class WriterTableGenerator
             $quiet[$row['name']] = $row['triggers'];
         }
         $consts = [
-            'AST_RESULT_FIELDS' => ['C2-A-162 ast-results.json: type => field => when', $results],
             'ESCAPE_CONTEXTS' => ['C2-W-088 to C2-W-099 escape-contexts.json: context => triggers', $contexts],
             'ESCAPE_TRIGGERS' => ['C2-W-089 escape-contexts.json: every first character of a trigger', implode('', array_keys($triggers))],
             'NO_ESCAPE' => ['C2-W-099 escape-contexts.json no_escape', $quiet],

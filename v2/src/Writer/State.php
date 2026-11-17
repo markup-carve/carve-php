@@ -58,6 +58,13 @@ final class State
     public ?string $prewritten = null;
 
     /**
+     * The extension registrations of the caller (C2-X-049).
+     *
+     * @var array<mixed>
+     */
+    public array $extensions = [];
+
+    /**
      * @param array<string, array<mixed>> $facts Sidecar entries by path.
      * @param bool $alignTables
      * @param bool $normalize

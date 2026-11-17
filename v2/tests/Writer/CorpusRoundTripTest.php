@@ -20,7 +20,11 @@ final class CorpusRoundTripTest extends TestCase
         foreach ($inputs as $id => $input) {
             $why = WriterGate::check($input);
             if ($why !== null) {
-                $failed[] = $id . ' (' . $why . ')';
+                $failed[] = $id . ' (write: ' . $why . ')';
+            }
+            $why = WriterGate::checkFormat($input);
+            if ($why !== null) {
+                $failed[] = $id . ' (fmt: ' . $why . ')';
             }
         }
 

@@ -33,6 +33,13 @@ final class Text
      */
     private const ALWAYS = '`[{"\'';
 
+    /**
+     * Every first character of an escape trigger this class decides; WriterTablesTest holds it to the data file.
+     *
+     * @var string
+     */
+    public const DECIDED = '!"#$%\'(*+-./:<=>@[\\]^`{|}';
+
     public static function isPunct(string $c): bool
     {
         return $c !== '' && strlen($c) === 1 && str_contains(self::PUNCT, $c);

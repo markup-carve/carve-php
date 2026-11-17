@@ -1405,8 +1405,16 @@ final class Blocks
         $run = str_repeat($mark, max(3, self::longestBareRun($lines, $mark) + 1));
         $title = is_string($source['title'] ?? null) ? ' ' . BraceBlock::quoted($source['title']) : '';
         $label = is_string($source['groupLabel'] ?? null) ? ' [' . $source['groupLabel'] . ']' : '';
+        $opener = $run . ($mark === ':' ? ' ' : '') . $name . $title . $label;
+        $text = implode("\n", array_merge([$opener], $lines, [$run])) . "\n";
+        // C2-X-023, C2-X-049
+        if (!ExtensionSource::readsBack($node, $text, $this->w->extensions)) {
+            $this->childrenOnly($node, $path, $prefix);
+
+            return;
+        }
         $this->attributeLine($node, $path, $prefix);
-        $this->w->emit($prefix, $run . ($mark === ':' ? ' ' : '') . $name . $title . $label);
+        $this->w->emit($prefix, $opener);
         $this->verbatim($lines, $prefix);
         $this->w->emit($prefix, $run);
     }

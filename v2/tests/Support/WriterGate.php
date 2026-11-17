@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Test\Support;
 
 use MarkupCarve\Carve2\Carve2;
-use MarkupCarve\Carve2\Writer\TreeEquality;
+use MarkupCarve\Carve2\Json\TreeEquality;
 use MarkupCarve\Carve2\Writer\Writer;
 
 /**
@@ -33,6 +33,30 @@ final class WriterGate
         }
         $second = Writer::writeWithDiagnostics($back, null, $options);
         if ($second->source !== $first->source) {
+            return 'stable';
+        }
+
+        return null;
+    }
+
+    /**
+     * The gates through `fmt`, which writes with the sidecar of its parse (C2-W-002, C2-L-042).
+     *
+     * @param string $source
+     * @param array<string, mixed> $options
+     *
+     * @return string|null
+     */
+    public static function checkFormat(string $source, array $options = []): ?string
+    {
+        $first = Writer::formatWithDiagnostics($source, $options);
+        if (self::refused($first->codes())) {
+            return null;
+        }
+        if (!TreeEquality::equal(self::tree($source), self::tree($first->source))) {
+            return 'tree';
+        }
+        if (Writer::formatWithDiagnostics($first->source, $options)->source !== $first->source) {
             return 'stable';
         }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Writer;
 
 use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Json\TreeEncoder;
 
 /**
  * The canonical writer (`writer.md`): a tree, and optionally the layout sidecar returned with it (C2-W-001), to Carve
@@ -24,6 +25,7 @@ final class Writer
     public static function writeWithDiagnostics(array $tree, ?array $layout = null, array $options = []): WriteResult
     {
         $w = new State(self::facts($layout), ($options['alignTables'] ?? false) === true, ($options['normalize'] ?? false) === true);
+        $w->extensions = is_array($options['extensions'] ?? null) ? $options['extensions'] : [];
         $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
         self::collect($children, $w);
         self::rootLosses($tree, $children, $w);
@@ -42,6 +44,33 @@ final class Writer
         }
 
         return new WriteResult($source, $w->losses);
+    }
+
+    /**
+     * C2-X-026: the canonical spelling of a list of blocks as a document body, final line feed included, `''` when
+     * empty. The blocks are decoded AST JSON; their losses are in the diagnostic form.
+     *
+     * @param array<mixed> $blocks
+     * @param array<string, mixed> $options
+     *
+     * @return string
+     */
+    public static function writeBlocks(array $blocks, array $options = []): string
+    {
+        return self::writeBlocksWithDiagnostics($blocks, $options)->source;
+    }
+
+    /**
+     * @param array<mixed> $blocks
+     * @param array<string, mixed> $options
+     *
+     * @return \MarkupCarve\Carve2\Writer\WriteResult
+     */
+    public static function writeBlocksWithDiagnostics(array $blocks, array $options = []): WriteResult
+    {
+        $document = ['type' => 'document', 'astVersion' => '2.0', 'children' => array_values($blocks)];
+
+        return self::writeWithDiagnostics($document, null, $options);
     }
 
     /**
@@ -89,15 +118,16 @@ final class Writer
      *
      * @param string $source
      * @param array<string, mixed> $options
-     * @param array<mixed>|null $layout The sidecar of this parse, where the caller has one.
+     * @param array<mixed>|null $layout A record to use in place of the one this parse gives.
      *
      * @return \MarkupCarve\Carve2\Writer\WriteResult
      */
     public static function formatWithDiagnostics(string $source, array $options = [], ?array $layout = null): WriteResult
     {
-        $tree = json_decode(Carve2::toJson($source), true, 100000, JSON_THROW_ON_ERROR);
+        $parsed = Carve2::parseWithLayout($source);
+        $tree = json_decode(TreeEncoder::json($parsed->tree, $source), true, 100000, JSON_THROW_ON_ERROR);
 
-        return self::writeWithDiagnostics(is_array($tree) ? $tree : [], $layout, $options);
+        return self::writeWithDiagnostics(is_array($tree) ? $tree : [], $layout ?? $parsed->layout, $options);
     }
 
     /**

@@ -9,57 +9,6 @@ namespace MarkupCarve\Carve2\Generated;
  */
 final class WriterTables
 {
-    /** C2-A-162 ast-results.json: type => field => when */
-    public const AST_RESULT_FIELDS = [
-        'abbreviation' => [
-            'expansion' => '',
-        ],
-        'caption_number' => [
-            'n' => '',
-        ],
-        'citation' => [
-            'number' => '',
-            'useIndex' => '',
-        ],
-        'document' => [
-            'stages' => '',
-        ],
-        'footnote_ref' => [
-            'number' => '',
-        ],
-        'heading' => [
-            'generatedId' => '',
-        ],
-        'image' => [
-            'src' => 'reference use',
-            'tooltip' => 'reference use',
-        ],
-        'include' => [
-            'children' => '',
-            'file' => '',
-        ],
-        'inline_footnote' => [
-            'number' => '',
-        ],
-        'link' => [
-            'href' => 'reference use',
-            'tooltip' => 'reference use',
-        ],
-        'math' => [
-            'number' => '',
-        ],
-        'table_cell' => [
-            'colspan' => 'derived from authored span mark',
-            'rowspan' => 'derived from authored span mark',
-        ],
-        'table_column' => [
-            'resolvedAlign' => '',
-        ],
-        'xref' => [
-            'href' => '',
-        ],
-    ];
-
     /** C2-W-088 to C2-W-099 escape-contexts.json: context => triggers */
     public const ESCAPE_CONTEXTS = [
         'angle_opener' => [
