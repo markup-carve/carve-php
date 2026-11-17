@@ -217,6 +217,7 @@ final class Resolver
         // The tree holds no cycles; with the collector on, each walk fills its root buffer and starts full scans.
         gc_disable();
         try {
+            Walk::$rendered = $opts->rendered;
             $r = new self($doc, $opts, $findings);
             $doc->f['astVersion'] = '2.0';
             if ($s !== null) {

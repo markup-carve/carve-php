@@ -284,6 +284,7 @@ final class NodeFactory
         self::titleField($node, $f);
         $attrs = new Attrs();
         if ($f->nameClass !== '') {
+            $node->sourceName = $f->nameClass;
             $attrs->classes[] = $f->nameClass;
         }
         if ($f->attrs !== null) {

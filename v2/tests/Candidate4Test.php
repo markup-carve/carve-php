@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Test;
 
 use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Extension\Tabs;
 use MarkupCarve\Carve2\Html\HtmlRenderer;
 use MarkupCarve\Carve2\Json\TreeEquality;
 use MarkupCarve\Carve2\Json\TreeError;
@@ -248,5 +249,64 @@ final class Candidate4Test extends TestCase
         $this->assertSame('document', TreeReader::read(sprintf(self::DOC, '', sprintf($list, 999999999)))->type);
         $this->expectException(TreeError::class);
         TreeReader::read(sprintf(self::DOC, '', sprintf($list, 1000000000)));
+    }
+
+    /**
+     * @var string
+     */
+    private const TABS = ":::: tabs\n::: tab \"A\"\n# Head\n\nBody[^m] see </#Head>.\n:::\n::::\n\n[^m]: M note.\n";
+
+    public function testC2X032ResolutionVisitsOneViewOfAnExtensionNode(): void
+    {
+        $result = Carve2::renderWithDiagnostics(self::TABS, ['extensions' => Tabs::extensions()]);
+        $this->assertStringContainsString('<h1 id="Head">Head</h1>', $result->html);
+        $this->assertSame(1, substr_count($result->html, 'id="fnref1"'));
+        $this->assertSame(1, substr_count($result->html, 'role="doc-backlink"'));
+        $this->assertStringContainsString('see <a href="#Head">Head</a>', $result->html);
+        $this->assertNotContains('duplicate-id', $result->codes());
+        $this->assertContains('extension-fallback-rendered', $result->codes());
+        $html = Carve2::toHtml(self::TABS, ['extensions' => Tabs::extensions(true)]);
+        $this->assertStringContainsString('<div class="tab-panel" role="group" aria-label="A"><h1 id="Head">Head</h1>', $html);
+        $this->assertSame(1, substr_count($html, 'id="fnref1"'));
+        $this->assertStringContainsString('<input type="radio" name="tabs-1" id="tabs-1-0" checked><label for="tabs-1-0">A</label>', $html);
+    }
+
+    public function testC2H165DegradedBlockExtensionWritesItsFallbackBlocks(): void
+    {
+        $options = ['extensions' => Tabs::extensions(), 'profile' => 'comment'];
+        $html = Carve2::toHtml(":::: tabs\n::: tab \"A\"\n# Head\n\nBody\n:::\n::::\n", $options);
+        $this->assertSame("<p>A</p>\n<p># Head</p>\n<p>Body</p>", $html);
+    }
+
+    public function testC2A058TabsTransformEmitsNoEmptyContainer(): void
+    {
+        $json = Carve2::toJson(":::: tabs\n::: tab \"A\"\nx\n:::\n::::\n", ['extensions' => Tabs::extensions()]);
+        $this->assertStringNotContainsString('"props":{}', $json);
+        $this->assertStringNotContainsString('"slots":{}', $json);
+        $this->assertStringNotContainsString('"payload":[]', $json);
+        $this->assertSame('document', TreeReader::read($json)->type);
+    }
+
+    public function testC2X040TabsClaimOnlyTabDivsWithATitle(): void
+    {
+        $tree = json_decode(Carve2::toJson(":::: tabs\n::: tab\nx\n:::\n::::\n", ['extensions' => Tabs::extensions()]), true);
+        $this->assertSame('div', $tree['children'][0]['type']);
+        $tree = json_decode(Carve2::toJson("::: tab \"A\"\nx\n:::\n", ['extensions' => Tabs::extensions()]), true);
+        $this->assertSame('div', $tree['children'][0]['type'], 'C2-X-039: a tab div elsewhere stays a core div');
+    }
+
+    public function testC2L011LayoutVisitsTheSlotsOfTheTransformedTree(): void
+    {
+        $source = ":::: tabs\n::: tab \"A\"\n# Head\n\nBody [x].\n:::\n::::\n\n[x]: /u\n";
+        $result = Carve2::parseWithLayout($source, ['extensions' => Tabs::extensions()]);
+        $paths = array_column($result->layout['nodes'], 'path');
+        $this->assertContains('/children/0/slots/tabs/0', $paths);
+        $this->assertContains('/children/0/slots/tabs/0/slots/body/0', $paths);
+        $this->assertContains('/children/0/slots/tabs/0/slots/body/1/children/1', $paths);
+        foreach ($paths as $path) {
+            $this->assertStringNotContainsString('/fallback', $path);
+        }
+        $tree = json_decode(Carve2::toJson($source, ['extensions' => Tabs::extensions()]), true);
+        $this->assertCount(count($paths), Carve2::validateLayout((string)json_encode($result->layout), $tree)['nodes']);
     }
 }

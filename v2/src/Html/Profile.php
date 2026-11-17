@@ -400,6 +400,8 @@ final class Profile
         $out = match (true) {
             $node->type === 'table' => [$this->tableText($node)],
             $node->type === 'definition_list' => $this->definitionTexts($node),
+            // C2-H-165: a block extension gives the blocks of its fallback.
+            $node->type === 'block_extension' => $this->blockList(PlainText::nodes($node->f['fallback'] ?? [])),
             isset(self::HOLDS_BLOCKS[$node->type]) => $this->blockList($node->children ?? []),
             default => [Escape::text($this->plainOf($node))],
         };

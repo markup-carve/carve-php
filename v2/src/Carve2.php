@@ -8,6 +8,7 @@ use MarkupCarve\Carve2\Block\BlockParser;
 use MarkupCarve\Carve2\Block\TreeSink;
 use MarkupCarve\Carve2\Diagnostics\Diagnostic;
 use MarkupCarve\Carve2\Diagnostics\Findings;
+use MarkupCarve\Carve2\Extension\Extensions;
 use MarkupCarve\Carve2\Html\HtmlRenderer;
 use MarkupCarve\Carve2\Include\Expander;
 use MarkupCarve\Carve2\Inline\InlineContext;
@@ -114,6 +115,7 @@ final class Carve2
         try {
             [$doc, $findings, $hasInclude] = self::stages($source);
             self::expand($doc, $findings, $opts, $hasInclude);
+            Extensions::apply($doc, $opts->extensions, self::divBody(...));
             $facts = Resolver::resolve($doc, $source, $opts, $keep, $findings)->facts;
 
             return [$doc, $findings, $facts];
@@ -122,6 +124,18 @@ final class Carve2
                 gc_enable();
             }
         }
+    }
+
+    /**
+     * C2-X-026: the canonical spelling of the blocks of a div, for the source record of an extension.
+     *
+     * @param \MarkupCarve\Carve2\Node $div
+     *
+     * @return string
+     */
+    private static function divBody(Node $div): string
+    {
+        return '';
     }
 
     /**
@@ -188,6 +202,7 @@ final class Carve2
         try {
             [$doc, , $hasInclude] = self::stages($source);
             self::expand($doc, new Findings(), $opts, $hasInclude);
+            Extensions::apply($doc, $opts->extensions, self::divBody(...));
             // The resolve hands its lists to the renderer, which then skips its own walk of the tree.
             $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
         } finally {

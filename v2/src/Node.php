@@ -44,6 +44,16 @@ final class Node
     public ?self $noteDefinition = null;
 
     /**
+     * C2-X-032: an extension node in the slots of one whose renderer is registered shows its slots too.
+     */
+    public bool $slotView = false;
+
+    /**
+     * C2-X-008: the name after the opener run of a div, as written; null for every other node.
+     */
+    public ?string $sourceName = null;
+
+    /**
      * The source-layout facts the parser knows when it builds the node (source-layout.md); never encoded in the tree.
      *
      * @var array<string, int|string|bool>

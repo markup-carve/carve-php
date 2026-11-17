@@ -28,12 +28,22 @@ final class Walk
     ];
 
     /**
+     * The extensions with a registered renderer, by name and version (C2-X-033), for the walk of C2-X-032.
+     *
+     * @var array<string, mixed>
+     */
+    public static array $rendered = [];
+
+    /**
      * @param \MarkupCarve\Carve2\Node $node
      *
      * @return array<\MarkupCarve\Carve2\Node>
      */
     public static function kids(Node $node): array
     {
+        if (isset($node->f['fallback']) && ($node->type === 'block_extension' || $node->type === 'inline_extension')) {
+            return self::extensionView($node);
+        }
         $out = [];
         if (isset($node->f['title'])) {
             self::collect($node->f['title'], $out);
@@ -54,6 +64,42 @@ final class Walk
         }
 
         return $out;
+    }
+
+    /**
+     * C2-X-032: the one view of an extension node that resolution visits: its children and named slots when a renderer
+     * is registered for it or for the extension node whose slots hold it, and its fallback otherwise.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return array<\MarkupCarve\Carve2\Node>
+     */
+    public static function extensionView(Node $node): array
+    {
+        $out = [];
+        if (!$node->slotView && !isset(self::$rendered[self::key($node)])) {
+            self::collect($node->f['fallback'], $out);
+
+            return $out;
+        }
+        foreach ($node->children ?? [] as $child) {
+            $out[] = $child;
+        }
+        foreach (is_array($node->f['slots'] ?? null) ? $node->f['slots'] : [] as $list) {
+            foreach (is_array($list) ? $list : [] as $kid) {
+                if ($kid instanceof Node) {
+                    $kid->slotView = true;
+                    $out[] = $kid;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    public static function key(Node $node): string
+    {
+        return PlainText::str($node->f['name'] ?? '') . "\0" . PlainText::str($node->f['version'] ?? '');
     }
 
     /**

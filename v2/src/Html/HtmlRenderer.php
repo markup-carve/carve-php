@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve2\Html;
 
 use Generator;
 use MarkupCarve\Carve2\Attrs;
+use MarkupCarve\Carve2\Extension\RenderHost;
 use MarkupCarve\Carve2\Generated\Tables;
 use MarkupCarve\Carve2\Include\Expander;
 use MarkupCarve\Carve2\Node;
@@ -13,6 +14,7 @@ use MarkupCarve\Carve2\Options;
 use MarkupCarve\Carve2\Resolve\Facts;
 use MarkupCarve\Carve2\Resolve\PlainText;
 use MarkupCarve\Carve2\Resolve\Resolver;
+use MarkupCarve\Carve2\Resolve\Walk;
 
 /**
  * Renders a resolved tree to an HTML fragment (C2-H). Block elements and their layout live here,
@@ -68,6 +70,11 @@ final class HtmlRenderer
     public InlineRenderer $inline;
 
     public ?Profile $profile = null;
+
+    /**
+     * @var array<string, int> C2-X-048: the ids extension renderers took, by prefix.
+     */
+    private array $extensionIds = [];
 
     private TableRenderer $tables;
 
@@ -141,6 +148,7 @@ final class HtmlRenderer
 
             return ['', $log];
         }
+        Walk::$rendered = $opts->rendered;
         $gc = gc_enabled();
         // The tree holds no cycles; with the collector on, each walk fills its root buffer and starts full scans.
         gc_disable();
@@ -1642,7 +1650,29 @@ final class HtmlRenderer
     }
 
     /**
-     * C2-H-076, C2-A-127: a block extension renders through its fallback.
+     * C2-X-033: the helpers an extension renderer receives.
+     *
+     * @return \MarkupCarve\Carve2\Extension\RenderHost
+     */
+    private function host(): RenderHost
+    {
+        return new RenderHost(
+            fn (array $nodes): string => implode('', array_map('trim', $this->blocks($nodes, 0))),
+            fn (array $nodes): string => $this->inline->inlines($nodes, 0),
+            static fn (array $nodes): string => PlainText::of($nodes),
+            function (string $prefix): string {
+                $this->extensionIds[$prefix] = ($this->extensionIds[$prefix] ?? 0) + 1;
+
+                return $prefix . '-' . $this->extensionIds[$prefix];
+            },
+            $this->o->profile,
+            $this->o->label('tabsGroup'),
+        );
+    }
+
+    /**
+     * C2-H-076, C2-A-127: a block extension renders through its registered renderer (C2-X-034) or its
+     * fallback (C2-X-035).
      *
      * @param \MarkupCarve\Carve2\Node $node
      * @param int $depth
@@ -1651,6 +1681,11 @@ final class HtmlRenderer
      */
     private function blockExtension(Node $node, int $depth): ?string
     {
+        $renderer = $this->o->rendered[Walk::key($node)] ?? null;
+        if ($renderer !== null) {
+            // C2-X-034: trusted host code; its HTML is written unchanged.
+            return self::pad($depth) . $renderer($node, $this->host());
+        }
         $this->log->loss('extension-fallback-rendered', 'warning', ['name' => PlainText::str($node->f['name'] ?? '')]);
         $fallback = PlainText::nodes($node->f['fallback'] ?? []);
         $blocks = $this->blocks($fallback, $depth);

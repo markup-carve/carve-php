@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2;
 
 use Closure;
+use MarkupCarve\Carve2\Extension\ExtensionDefinition;
 use MarkupCarve\Carve2\Generated\Tables;
 
 /**
@@ -25,6 +26,17 @@ final class Options
     public string $profile = 'full';
 
     public bool $rawHtml = false;
+
+    /**
+     * @var array<\MarkupCarve\Carve2\Extension\ExtensionDefinition> C2-X-002, C2-X-033.
+     */
+    public array $extensions = [];
+
+    /**
+     * @var array<string, \Closure(\MarkupCarve\Carve2\Node, \MarkupCarve\Carve2\Extension\RenderHost): string> The
+     *   registered renderers by name and version (C2-X-033).
+     */
+    public array $rendered = [];
 
     public bool $roundtrip = false;
 
@@ -143,7 +155,7 @@ final class Options
             'renderers' => self::renderers($value),
             'urlPolicy' => $this->setUrlPolicy($value),
             'social' => $this->setSocial($value),
-            'extensions' => self::extensions($value),
+            'extensions' => $this->setExtensions($value),
             'platforms' => self::platforms($value),
             default => $this->includes($value),
         };
@@ -331,14 +343,32 @@ final class Options
      *
      * @return void
      */
-    private static function extensions(mixed $value): void
+    private function setExtensions(mixed $value): void
     {
         if (!is_array($value) || !array_is_list($value)) {
             throw new OptionError('option extensions: not a list');
         }
+        $names = [];
+        $claims = [];
         foreach ($value as $item) {
-            if (!is_array($item) || !is_string($item['name'] ?? null)) {
+            if (!$item instanceof ExtensionDefinition) {
                 throw new OptionError('option extensions: an invalid extension registration');
+            }
+            if (isset($names[$item->name])) {
+                throw new OptionError('option extensions: duplicate name ' . $item->name);
+            }
+            $names[$item->name] = true;
+            // C2-X-014: two enabled matchers cannot claim one core node.
+            $claim = $item->matcher === null ? null : $item->matcher['form'] . ':' . $item->matcher['name'];
+            if ($claim !== null && isset($claims[$claim])) {
+                throw new OptionError('option extensions: duplicate claim ' . $claim);
+            }
+            $claims[(string)$claim] = true;
+        }
+        $this->extensions = $value;
+        foreach ($value as $item) {
+            if ($item->renderer !== null) {
+                $this->rendered[$item->name . "\0" . $item->version] = $item->renderer;
             }
         }
     }
