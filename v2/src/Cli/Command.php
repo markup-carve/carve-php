@@ -10,8 +10,8 @@ use MarkupCarve\Carve2\Include\FileResolver;
 use MarkupCarve\Carve2\OptionError;
 
 /**
- * The `carve2` command: `render` (the default), `ast`, `diagnostics` and `lint`, with the option names, output and exit
- * codes of the carve-js 0.2 command line.
+ * The `carve2` command: `render` (the default), `ast`, `diagnostics`, `lint` and `import` (`ImportCommand`), with the option
+ * names, output and exit codes of the carve-js 0.2 command line.
  */
 final class Command
 {
@@ -35,6 +35,9 @@ final class Command
      */
     public static function main(array $args, $in, $out, $err): int
     {
+        if (($args[0] ?? null) === 'import') {
+            return ImportCommand::main(array_slice($args, 1), $in, $out, $err);
+        }
         try {
             $parsed = self::parse($args);
             $files = $parsed['files'] === [] ? ['-'] : $parsed['files'];

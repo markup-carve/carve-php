@@ -10,6 +10,8 @@ use MarkupCarve\Carve2\Diagnostics\Diagnostic;
 use MarkupCarve\Carve2\Diagnostics\Findings;
 use MarkupCarve\Carve2\Extension\Extensions;
 use MarkupCarve\Carve2\Html\HtmlRenderer;
+use MarkupCarve\Carve2\Import\HtmlImporter;
+use MarkupCarve\Carve2\Import\ImportResult;
 use MarkupCarve\Carve2\Include\Expander;
 use MarkupCarve\Carve2\Inline\InlineContext;
 use MarkupCarve\Carve2\Inline\InlineRunner;
@@ -238,6 +240,20 @@ final class Carve2
     public static function lint(string $source, array $options = []): array
     {
         return Linter::lint($source, $options);
+    }
+
+    /**
+     * The HTML importer (import-html.md): the tree, the canonical source and the diagnostics of an HTML string. Options:
+     * `rawHtml` (C2-M-066) and `strictLosses` (C2-M-082). Needs `ext-dom`.
+     *
+     * @param string $html
+     * @param array<string, mixed> $options
+     *
+     * @return \MarkupCarve\Carve2\Import\ImportResult
+     */
+    public static function importHtml(string $html, array $options = []): ImportResult
+    {
+        return HtmlImporter::import($html, $options);
     }
 
     /**

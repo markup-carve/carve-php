@@ -19,6 +19,7 @@ final class Diagnostic
      * @param int $startOffset -1 when there is no range.
      * @param int $endOffset
      * @param string|null $file
+     * @param string|null $foreignType C2-M-081: the HTML node an importer entry is about.
      */
     public function __construct(
         public readonly string $code,
@@ -29,6 +30,7 @@ final class Diagnostic
         public readonly int $startOffset = -1,
         public readonly int $endOffset = -1,
         public readonly ?string $file = null,
+        public readonly ?string $foreignType = null,
     ) {
     }
 
@@ -46,6 +48,9 @@ final class Diagnostic
         }
         if ($this->file !== null) {
             $out['file'] = $this->file;
+        }
+        if ($this->foreignType !== null) {
+            $out['foreignType'] = $this->foreignType;
         }
 
         return $out;

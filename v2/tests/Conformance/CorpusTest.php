@@ -27,7 +27,7 @@ final class CorpusTest extends TestCase
     ];
 
     /**
-     * Kinds outside this engine: the HTML importer comes in a later stage.
+     * Kinds run outside this class: `import` by `Import\ImportCorpusTest`.
      *
      * @var array<string, true>
      */
