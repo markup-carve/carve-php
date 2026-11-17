@@ -48,7 +48,9 @@ jobs:
       - name: Check pinned oracle corpus and clause exceptions
         run: python3 v2/oracle/verify_corpus.py
 
+      # Dom\HTMLDocument and grapheme_str_split exist from PHP 8.4; 8.2 runs the fallbacks in the tests above.
       - name: Run PHPStan
+        if: matrix.php == '8.5'
         run: composer v2-stan
 
       - name: Check coding standards
