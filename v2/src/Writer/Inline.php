@@ -568,7 +568,8 @@ final class Inline
     private function bracketed(string $open, array $node, string $path, Context $c): string
     {
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
-        if ($children === [] && $open === '[') {
+        // An empty span reads back only with its attributes behind it, as `[]{.c}`.
+        if ($children === [] && ($node['type'] ?? '') === 'span' && ($node['attrs'] ?? []) === []) {
             $this->w->lose($path, 'span', null);
 
             return '';
@@ -610,7 +611,8 @@ final class Inline
             return $raw;
         }
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
-        if ($children === []) {
+        // C2-W-074: `[](/u)` is an empty link; a reference with no text has no label to read.
+        if ($children === [] && isset($node['refForm'])) {
             $this->w->lose($path, 'link', null);
 
             return '';

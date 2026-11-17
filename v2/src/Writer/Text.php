@@ -121,7 +121,7 @@ final class Text
             '/', '*' => self::pairs($value, $i, $prev, $after, $c),
             '-' => self::hyphen($value, $i, $c->last, $next),
             '.' => self::dot($value, $i),
-            default => self::sigil($value, $i, $prev, $after, $c),
+            default => self::sigil($value, $i, [$prev, $after, $next], $c),
         };
     }
 
@@ -135,16 +135,17 @@ final class Text
      *
      * @param string $value
      * @param int $i
-     * @param int $prev
-     * @param int $after
+     * @param array{0: int, 1: int, 2: int} $around The characters before and after this one, and after the text.
      * @param \MarkupCarve\Carve2\Writer\Context $c
      *
      * @return bool
      */
-    private static function sigil(string $value, int $i, int $prev, int $after, Context $c): bool
+    private static function sigil(string $value, int $i, array $around, Context $c): bool
     {
+        [$prev, $after, $next] = $around;
+
         return match ($value[$i]) {
-            '@', '#' => !self::isLetterOrNumber($prev) && self::isNameStart($after),
+            '@', '#' => !self::isLetterOrNumber($prev) && self::nameFollows($value, $i, $next),
             ':' => !self::isLetterOrNumber($prev) && self::symbolFollows($value, $i),
             '<' => $after === 0x2F || $after === 0x2D || $after === 0x3D || ($after >= 0 && $after < 0x80 && ctype_alnum(chr($after))),
             '>', '!' => $after === 0x3D,
@@ -262,9 +263,29 @@ final class Text
         return $cp >= 0 && Chars::isWord($cp);
     }
 
-    private static function isNameStart(int $cp): bool
+    /**
+     * C2-I-092: runs of letters, digits, `_` and `-` joined by single dots, holding a letter. A name that runs on into
+     * the next node counts as one, since the node after it may continue it.
+     *
+     * @param string $value
+     * @param int $i
+     * @param int $next The first character after the text.
+     *
+     * @return bool
+     */
+    private static function nameFollows(string $value, int $i, int $next): bool
     {
-        return $cp >= 0 && $cp < 0x80 && (ctype_alnum(chr($cp)) || $cp === 0x5F);
+        $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.';
+        $len = strspn($value, $chars, $i + 1);
+        $runsOn = $i + 1 + $len === strlen($value) && $next >= 0 && $next < 0x80 && str_contains($chars, chr($next));
+        if ($len === 0) {
+            return $runsOn;
+        }
+        $run = substr($value, $i + 1, $len);
+        $double = strpos($run, '..');
+        $name = $double === false ? $run : substr($run, 0, $double);
+
+        return preg_match('/[a-zA-Z]/', $name) === 1 || ($runsOn && $double === false);
     }
 
     /**
