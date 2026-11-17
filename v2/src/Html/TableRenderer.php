@@ -241,25 +241,41 @@ final class TableRenderer
     }
 
     /**
+     * C2-H-200: a cell of blocks is laid out as a list item with more blocks, its closing tag at the row indent.
+     *
      * @param \MarkupCarve\Carve2\Node $cell
-     * @param int $depth
+     * @param int $depth The depth of the row.
      *
      * @return string
      */
     private function content(Node $cell, int $depth): string
     {
-        $parts = [];
-        foreach ($cell->children ?? [] as $block) {
+        $kids = $cell->children ?? [];
+        if (count($kids) === 1 && $kids[0]->type === 'cell_paragraph') {
+            return $this->r->inline->leaf($kids[0]->children ?? [], $depth + 2);
+        }
+        $visible = HtmlRenderer::visibleOf($kids);
+        $first = '';
+        if ($visible !== [] && HtmlRenderer::paragraphLike($visible[0]) && !isset($visible[0]->f['caption'])) {
+            $first = (string)$this->r->paragraph(array_shift($visible), 0, false);
+        }
+        if ($visible === []) {
+            return $first;
+        }
+        $lines = [];
+        foreach ($visible as $block) {
             if ($block->type === 'cell_paragraph') {
-                $parts[] = $this->r->inline->leaf($block->children ?? [], $depth + 2);
+                $html = HtmlRenderer::pad($depth + 1) . '<p>' . $this->r->inline->leaf($block->children ?? [], $depth + 2) . '</p>';
+            } elseif (HtmlRenderer::paragraphLike($block)) {
+                $html = $this->r->paragraph($block, $depth + 1, false);
             } else {
-                $html = HtmlRenderer::paragraphLike($block) ? $this->r->paragraph($block, 0, false) : $this->r->block($block, 0);
-                if ($html !== null) {
-                    $parts[] = $html;
-                }
+                $html = $this->r->block($block, $depth + 1);
+            }
+            if ($html !== null) {
+                $lines[] = $html;
             }
         }
 
-        return implode("\n", $parts);
+        return $first . "\n" . implode("\n", $lines) . "\n" . HtmlRenderer::pad($depth);
     }
 }

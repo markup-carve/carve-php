@@ -6,8 +6,10 @@ namespace MarkupCarve\Carve2\Test;
 
 use MarkupCarve\Carve2\Carve2;
 use MarkupCarve\Carve2\Html\HtmlRenderer;
+use MarkupCarve\Carve2\Json\TreeError;
 use MarkupCarve\Carve2\Json\TreeReader;
 use MarkupCarve\Carve2\Options;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class Candidate3Test extends TestCase
@@ -96,5 +98,38 @@ final class Candidate3Test extends TestCase
             . '{"type":"paragraph","dir":"rtl","children":[{"type":"text","value":"x"}]}]}]}]}';
         $html = HtmlRenderer::render(TreeReader::read($json), Options::from([]));
         $this->assertSame("<ul>\n  <li><p dir=\"rtl\">x</p></li>\n</ul>", $html);
+    }
+
+    public function testC2H200CellOfBlocksIsLaidOutAsAnItem(): void
+    {
+        $p = '{"type":"paragraph","children":[{"type":"text","value":"%s"}]}';
+        $list = '{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","children":[{"type":"list_item","children":['
+            . sprintf($p, 'a') . ']}]}';
+        $cell = '{"type":"table_cell","header":false,"children":[%s]}';
+        $json = '{"type":"document","astVersion":"2.0","children":[{"type":"table","columns":[{"type":"table_column"},'
+            . '{"type":"table_column"},{"type":"table_column"}],"children":[{"type":"table_body","children":[{"type":"table_row",'
+            . '"children":['
+            . sprintf($cell, $list . ',' . sprintf($p, 'b')) . ',' . sprintf($cell, sprintf($p, 'c')) . ','
+            . sprintf($cell, sprintf($p, 'd') . ',' . sprintf($p, 'e')) . ']}]}]}]}';
+        $expected = "<table>\n  <tbody>\n    <tr><td>\n      <ul>\n        <li>a</li>\n      </ul>\n      <p>b</p>\n    </td>"
+            . "<td><p>c</p></td><td><p>d</p>\n      <p>e</p>\n    </td></tr>\n  </tbody>\n</table>";
+        $this->assertSame($expected, HtmlRenderer::render(TreeReader::read($json), Options::from([])));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function notAKey(): array
+    {
+        return ['space' => ['x onclick'], 'empty' => [''], 'quote' => ['a"b'], 'equals' => ['a=b']];
+    }
+
+    #[DataProvider('notAKey')]
+    public function testC2A035ReaderRefusesAKeyThatIsNoKey(string $key): void
+    {
+        $json = '{"type":"document","astVersion":"2.0","children":[{"type":"paragraph","attrs":{"keyValues":[['
+            . json_encode($key) . ',"1"]]},"children":[{"type":"text","value":"x"}]}]}';
+        $this->expectException(TreeError::class);
+        TreeReader::read($json);
     }
 }
