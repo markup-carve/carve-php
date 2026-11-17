@@ -8,17 +8,18 @@ use MarkupCarve\Carve2\Carve2;
 use MarkupCarve\Carve2\Diagnostics\Diagnostic;
 use MarkupCarve\Carve2\Include\FileResolver;
 use MarkupCarve\Carve2\OptionError;
+use MarkupCarve\Carve2\Writer\CarveWriteError;
 
 /**
- * The `carve2` command: `render` (the default), `ast`, `diagnostics`, `lint` and `import` (`ImportCommand`), with the option
- * names, output and exit codes of the carve-js 0.2 command line.
+ * The `carve2` command: `render` (the default), `ast`, `diagnostics`, `lint`, `fmt` and `import` (`ImportCommand`),
+ * with the option names, output and exit codes of the carve-js 0.2 command line.
  */
 final class Command
 {
     /**
      * @var array<string, true>
      */
-    private const COMMANDS = ['render' => true, 'ast' => true, 'diagnostics' => true, 'lint' => true];
+    private const COMMANDS = ['render' => true, 'ast' => true, 'diagnostics' => true, 'lint' => true, 'fmt' => true, 'format' => true];
 
     /**
      * @var array<string, true>
@@ -26,12 +27,22 @@ final class Command
     private const VALUED = ['include-root' => true, 'rules' => true, 'platforms' => true];
 
     /**
+     * @var array<string, bool>
+     */
+    private const FLAGS = ['json' => true, 'tree' => true, 'includes' => true, 'no-includes' => false];
+
+    /**
+     * @var array<string, true>
+     */
+    private const FMT_FLAGS = ['check' => true, 'diff' => true, 'normalize' => true, 'align-tables' => true, 'write' => true, 'from-ast' => true];
+
+    /**
      * @param array<string> $args
      * @param resource $in
      * @param resource $out
      * @param resource $err
      *
-     * @return int 0 done, 1 a lint finding, 2 a usage or input error.
+     * @return int 0 done, 1 a lint finding, a file `fmt --check` would change or a write loss, 2 a usage or input error.
      */
     public static function main(array $args, $in, $out, $err): int
     {
@@ -41,6 +52,9 @@ final class Command
         try {
             $parsed = self::parse($args);
             $files = $parsed['files'] === [] ? ['-'] : $parsed['files'];
+            if (($parsed['values']['write'] ?? false) && in_array('-', $files, true)) {
+                throw new OptionError('cannot write standard input in place');
+            }
             $status = 0;
             $records = [];
             foreach ($files as $file) {
@@ -63,9 +77,14 @@ final class Command
 
             return 2;
         } catch (InputError $e) {
-            fwrite($err, 'carve[input-unreadable]: ' . $e->getMessage() . "\n");
+            fwrite($err, 'carve[' . $e->category . ']: ' . $e->getMessage() . "\n");
 
             return 2;
+        } catch (CarveWriteError $e) {
+            // C2-W-134
+            fwrite($err, 'carve[writer-refused]: ' . $e->getMessage() . "\n");
+
+            return 1;
         }
     }
 
@@ -76,10 +95,10 @@ final class Command
      */
     private static function parse(array $args): array
     {
-        $command = isset($args[0], self::COMMANDS[$args[0]]) ? $args[0] : 'render';
+        $command = isset($args[0], self::COMMANDS[$args[0]]) ? ($args[0] === 'format' ? 'fmt' : $args[0]) : 'render';
         $parsed = ['command' => $command, 'files' => [], 'values' => [], 'options' => []];
         $count = count($args);
-        for ($i = $command === ($args[0] ?? null) ? 1 : 0; $i < $count; $i++) {
+        for ($i = isset($args[0], self::COMMANDS[$args[0]]) ? 1 : 0; $i < $count; $i++) {
             $arg = $args[$i];
             if ($arg === '--') {
                 array_push($parsed['files'], ...array_slice($args, $i + 1));
@@ -129,8 +148,14 @@ final class Command
 
             return $equals !== false ? $i : $i + 1;
         }
-        $flags = ['json' => true, 'tree' => true, 'includes' => true, 'no-includes' => false];
-        if (!array_key_exists($name, $flags) || $equals !== false) {
+        $fmt = $parsed['command'] === 'fmt';
+        if ($fmt && $arg === '-w') {
+            $parsed['values']['write'] = true;
+
+            return $i;
+        }
+        $flags = self::FLAGS + ($fmt ? self::FMT_FLAGS : []);
+        if (!str_starts_with($arg, '--') || !array_key_exists($name, $flags) || $equals !== false) {
             throw new OptionError('unknown option ' . $arg);
         }
         $parsed['values'][$name === 'no-includes' ? 'includes' : $name] = $flags[$name];
@@ -179,6 +204,8 @@ final class Command
                 ));
 
                 return [0, self::report([$display, $source, self::root($parsed, $file)], $entries, $json, $out)];
+            case 'fmt':
+                return [self::format($parsed, $file, $display, $source, $out), null];
             case 'lint':
                 $lint = ['includes' => $options['includes'] ?? null] + self::lintOptions($parsed);
                 $entries = Carve2::lint($source, array_filter($lint, static fn (mixed $v): bool => $v !== null));
@@ -189,6 +216,96 @@ final class Command
 
                 return [0, null];
         }
+    }
+
+    /**
+     * C2-W-100: the canonical form to standard output, in place with `--write`, or the first changed line with `--check`
+     * and a unified diff with `--diff`, both with status 1 when a file would change.
+     *
+     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     * @param string $file
+     * @param string $display
+     * @param string $source
+     * @param resource $out
+     *
+     * @throws \MarkupCarve\Carve2\Cli\InputError
+     *
+     * @return int
+     */
+    private static function format(array $parsed, string $file, string $display, string $source, $out): int
+    {
+        $values = $parsed['values'];
+        $options = ['normalize' => ($values['normalize'] ?? false) === true, 'alignTables' => ($values['align-tables'] ?? false) === true];
+        $output = ($values['from-ast'] ?? false) === true
+            ? Carve2::write(self::tree($source), null, ['alignTables' => $options['alignTables']])
+            : Carve2::format($source, $options + $parsed['options']);
+        $changed = $output !== $source;
+        [$check, $diff, $write] = [($values['check'] ?? false) === true, ($values['diff'] ?? false) === true, ($values['write'] ?? false) === true];
+        if ($check && $changed && !$diff) {
+            fwrite($out, self::firstChange($display, $source, $output));
+        }
+        if ($diff && $changed) {
+            fwrite($out, self::unified($display, $source, $output));
+        }
+        if ($write && $changed && @file_put_contents($file, $output) === false) {
+            throw new InputError($file . ': cannot be written');
+        }
+        if (!$check && !$diff && !$write) {
+            fwrite($out, $output);
+        }
+
+        return ($check || $diff) && $changed ? 1 : 0;
+    }
+
+    /**
+     * @param string $json
+     *
+     * @throws \MarkupCarve\Carve2\Cli\InputError
+     *
+     * @return array<string, mixed>
+     */
+    private static function tree(string $json): array
+    {
+        $tree = json_decode($json, true, 100000);
+        if (!is_array($tree) || ($tree['type'] ?? null) !== 'document') {
+            throw new InputError('the input is not AST JSON', 'ast-json-invalid');
+        }
+
+        /** @var array<string, mixed> $tree */
+        return $tree;
+    }
+
+    private static function firstChange(string $display, string $before, string $after): string
+    {
+        $old = explode("\n", $before);
+        $new = explode("\n", $after);
+        $at = 0;
+        while ($at < count($old) && $old[$at] === ($new[$at] ?? null)) {
+            $at++;
+        }
+
+        return $display . ':' . ($at + 1) . "\n- " . ($old[$at] ?? '') . "\n+ " . ($new[$at] ?? '') . "\n";
+    }
+
+    private static function unified(string $display, string $before, string $after): string
+    {
+        $left = explode("\n", $before);
+        $right = explode("\n", $after);
+        if (str_ends_with($before, "\n")) {
+            array_pop($left);
+        }
+        if (str_ends_with($after, "\n")) {
+            array_pop($right);
+        }
+        $lines = ['--- a/' . $display, '+++ b/' . $display, '@@ -1,' . count($left) . ' +1,' . count($right) . ' @@'];
+        foreach ($left as $line) {
+            $lines[] = '-' . $line;
+        }
+        foreach ($right as $line) {
+            $lines[] = '+' . $line;
+        }
+
+        return implode("\n", $lines) . "\n";
     }
 
     /**
