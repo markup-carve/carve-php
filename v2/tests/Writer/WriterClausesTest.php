@@ -34,6 +34,23 @@ final class WriterClausesTest extends TestCase
             'C2-W-074 an empty link' => ["x[](/u)\n", "x[](/u)\n"],
             'C2-W-116 an empty span' => ["x[]{.c}\n", "x[]{.c}\n"],
             'C2-W-116 an empty inline extension' => ["x :n[]\n", "x :n[]\n"],
+            'C2-W-094 a bracket pair with no tail is text' => ["\\[a] b\n", "[a] b\n"],
+            'C2-W-094 a bracket pair before a link tail' => ["\\[a](u)\n", "\\[a](u)\n"],
+            'C2-W-094 a bracket pair that names a definition' => ["\\[a]\n\n[a]: /u\n", "\\[a]\n\n[a]: /u\n"],
+            'C2-W-094 a footnote label' => ["x \\[^a]\n", "x \\[^a]\n"],
+            'C2-W-096 an attribute block glued to no node is text' => ["a {.c} b\n", "a {.c} b\n"],
+            'C2-W-096 a braced opener without its closer is text' => ["a {*b\n", "a {*b\n"],
+            'C2-W-092 a later paragraph line is not tested for a list marker' => ["x\n- a\n", "x\n- a\n"],
+            'C2-W-092 a later line inside an item is tested for a list marker' => ["- a\n  \\- b\n", "- a\n  \\- b\n"],
+            'C2-W-092 a first line that parses as a paragraph' => ["A. Smith\n", "A. Smith\n"],
+            'C2-W-092 a description mark with no list before it' => ["\\: x\n", ": x\n"],
+            'C2-W-121 a description mark behind a description list' => [":: t\n: d\n\n\\: x\n", ":: t\n: d\n\n\\: x\n"],
+            'C2-W-095 a colon before an inline extension name' => ["x \\:n[a]\n", "x \\:n[a]\n"],
+            'C2-W-125 case five: a caret at the start of span text' => ["x [\\^a]{.c}\n", "x [\\^a]{.c}\n"],
+            'C2-W-129 a table across a comment below a list' => [
+                "- a\n\n{footer-rows=0}\n%% c\n| a |\n",
+                "- a\n\n{footer-rows=0}\n%% c\n| a |\n",
+            ],
         ];
     }
 
