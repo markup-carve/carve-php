@@ -39,6 +39,12 @@ jobs:
       - name: Run tests
         run: composer v2-test
 
+      - name: Writer gates on generated inputs
+        run: |
+          php v2/scripts/writer-gates.php tokens 3
+          php v2/scripts/writer-gates.php lines 2
+          php v2/scripts/writer-gates.php random 20000 1
+
       - name: Check pinned oracle corpus and clause exceptions
         run: python3 v2/oracle/verify_corpus.py
 
