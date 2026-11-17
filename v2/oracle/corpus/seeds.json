@@ -1,5 +1,5 @@
 {
-  "oracle_commit": "0d3f252b175b19eb09878aab82a8c9c153ef539f",
+  "oracle_commit": "7a23a91b1d576b431728395c84095805e2ee1ae9",
   "generator": "carve-js/v2/proptest/generate.ts",
   "sets": [
     {

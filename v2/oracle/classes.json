@@ -1,0 +1,16 @@
+{
+  "classes": {
+    "lone-hard-break": {
+      "clause": "C2-B-140",
+      "reason": "a paragraph of a hard break and no comment is not one of only comments; the clause does not decide (_SPEC_GAPS G2)"
+    },
+    "note-soft-break": {
+      "clause": "C2-H-045",
+      "reason": "the body of an inline footnote is one paragraph, and its soft break is a line break; carve-js drops it"
+    }
+  },
+  "cases": {
+    "137": "lone-hard-break",
+    "889": "note-soft-break"
+  }
+}
