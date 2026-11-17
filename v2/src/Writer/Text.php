@@ -145,7 +145,7 @@ final class Text
 
         return match ($ch) {
             '[' => self::bracket($i, $c),
-            '{' => self::brace($i, $c),
+            '{' => self::brace($i, $c, $after),
             // C2-W-097: a backslash before ASCII punctuation, a space or a line end.
             '\\' => $after === -1 || $after === 10 || $after === 32 || ($after >= 0 && $after < 0x80 && self::isPunct(chr($after))),
             ']' => $c->inBracket,
@@ -251,10 +251,11 @@ final class Text
      *
      * @param int $i
      * @param \MarkupCarve\Carve2\Writer\Context $c
+     * @param int $after The first character written behind the brace.
      *
      * @return bool
      */
-    private static function brace(int $i, Context $c): bool
+    private static function brace(int $i, Context $c, int $after): bool
     {
         $flat = (string)$c->flat;
         $at = $c->here + $i;
@@ -268,6 +269,10 @@ final class Text
             }
         }
         $mark = $flat[$at + 1] ?? '';
+        // C2-W-125 case one: a brace glued before a node reads on into the first character of the node.
+        if ($mark === "\0") {
+            return $after >= 0 && $after < 0x80 && str_contains(self::MARKS . '%', chr($after));
+        }
         if ($mark === '' || !str_contains(self::MARKS . '%', $mark)) {
             return false;
         }
@@ -305,7 +310,7 @@ final class Text
 
         return match ($value[$i]) {
             '@', '#' => !self::isLetterOrNumber($prev) && self::nameFollows($value, $i, $next),
-            ':' => !self::isLetterOrNumber($prev) && (self::symbolFollows($value, $i) || self::extensionFollows($value, $i)),
+            ':' => !self::isLetterOrNumber($prev) && (self::symbolFollows($value, $i) || self::extensionFollows($value, $i, $next)),
             '<' => $after === 0x2F || $after === 0x2D || $after === 0x3D || ($after >= 0 && $after < 0x80 && ctype_alnum(chr($after))),
             '>', '!' => $after === 0x3D,
             '=' => substr($value, $i + 1, 2) === '=>',
@@ -418,21 +423,24 @@ final class Text
     }
 
     /**
-     * C2-I-094, C2-W-095: `:`, an inline extension name and `[`.
+     * C2-I-094, C2-W-095: `:`, an inline extension name and `[`, which may be the first character of the next node.
      *
      * @param string $value
      * @param int $i
+     * @param int $next
      *
      * @return bool
      */
-    private static function extensionFollows(string $value, int $i): bool
+    private static function extensionFollows(string $value, int $i, int $next): bool
     {
         if (strspn($value, Tables::SIGIL_INLINE_EXTENSION_FIRST, $i + 1, 1) !== 1) {
             return false;
         }
         $len = 1 + strspn($value, Tables::SIGIL_INLINE_EXTENSION_REST, $i + 2);
 
-        return ($value[$i + 1 + $len] ?? '') === '[';
+        $end = $i + 1 + $len;
+
+        return $end < strlen($value) ? $value[$end] === '[' : $next === 0x5B;
     }
 
     private static function isLetterOrNumber(int $cp): bool
@@ -485,8 +493,8 @@ final class Text
         $c->last = 10;
         $c->owner = 'body';
 
-        // The closer of the leaf may follow on the line, so the line is tested with content behind it.
-        return self::lineStartMark($line, $c, 0) >= 0;
+        // The closer of the leaf may follow on the line, after a space for a comment, so the line is tested with content.
+        return self::lineStartMark($line . ' ', $c, 0) >= 0;
     }
 
     /**
