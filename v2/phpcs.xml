@@ -15,4 +15,17 @@
     <rule ref="SlevomatCodingStandard.Functions.RequireTrailingCommaInDeclaration"/>
     <rule ref="SlevomatCodingStandard.Functions.RequireTrailingCommaInClosureUse"/>
 
+    <rule ref="Generic.Metrics.CyclomaticComplexity">
+        <properties>
+            <property name="complexity" value="15"/>
+            <property name="absoluteComplexity" value="15"/>
+        </properties>
+    </rule>
+    <rule ref="Generic.Files.LineLength">
+        <properties>
+            <property name="lineLimit" value="140"/>
+            <property name="absoluteLineLimit" value="140"/>
+        </properties>
+    </rule>
+
 </ruleset>
