@@ -750,6 +750,8 @@ final class TableBuilder
         $field = '';
         $n = strlen($body);
         $k = 0;
+        $recordStart = 0;
+        $emptyLine = false;
         $stop = $sep . "\n\"";
         while ($k < $n) {
             $m = strcspn($body, $stop, $k);
@@ -774,6 +776,8 @@ final class TableBuilder
             $field = '';
             $k++;
             if ($ch === "\n") {
+                $emptyLine = $k - 1 === $recordStart;
+                $recordStart = $k;
                 $records[] = $fields;
                 $fields = [];
             }
@@ -781,8 +785,10 @@ final class TableBuilder
         if ($field !== '' || $fields !== []) {
             $fields[] = $field;
             $records[] = $fields;
+            $emptyLine = false;
         }
-        if (str_ends_with($body, "\n") && end($records) === ['']) {
+        // C2-B-226: only an empty line at the end is dropped, not a quoted empty cell (C2-W-066).
+        if ($emptyLine && str_ends_with($body, "\n")) {
             array_pop($records);
         }
 

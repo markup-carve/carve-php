@@ -478,12 +478,12 @@ final class HtmlOutputTest extends RenderTestCase
     /**
      * @return void
      */
-    public function testC2H116ReservedNameDroppedUnderRoundtrip(): void
+    public function testC2H116ReservedNameDroppedWithRoundtripOnOrOff(): void
     {
         $p = self::p(self::t('x'));
         $p['attrs'] = ['keyValues' => [['data-carve-ref', 'r'], ['data-carve-other', '1']]];
         $this->assertSame('<p data-carve-other="1">x</p>', self::html(self::doc($p), ['roundtrip' => true]));
-        $this->assertSame('<p data-carve-ref="r" data-carve-other="1">x</p>', self::html(self::doc($p)));
+        $this->assertSame('<p data-carve-other="1">x</p>', self::html(self::doc($p)));
     }
 
     /**

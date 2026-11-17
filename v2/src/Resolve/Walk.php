@@ -41,8 +41,13 @@ final class Walk
         foreach ($node->children ?? [] as $child) {
             $out[] = $child;
         }
+        // C2-N-074: the caption of an expanded include is skipped; its copy in the child is walked.
+        $expanded = $node->type === 'include' && $node->children !== null;
         foreach ($node->f as $key => $value) {
             if ($key === 'title' || isset(self::OPAQUE[$key]) || !is_array($value) && !$value instanceof Node) {
+                continue;
+            }
+            if ($expanded && $key === 'caption') {
                 continue;
             }
             self::collect($value, $out);

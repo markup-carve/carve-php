@@ -5851,10 +5851,10 @@ final class Tables
     /** C2-I-123 */
     public const AUTOLINK_EMAIL_LAST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
-    /** C2-I-021 */
-    public const RAW_NAME_FIRST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
+    /** C2-I-021, C2-B-225 line-shapes.json raw_format */
+    public const RAW_NAME_FIRST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
-    /** C2-I-021 */
+    /** C2-I-021, C2-B-225 line-shapes.json raw_format */
     public const RAW_NAME_REST = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
 
     /** C2-I-092 to C2-I-094 */
@@ -6052,6 +6052,7 @@ final class Tables
     /** C2-H-161 url-policy.json: name to comma-separated */
     public const URL_LIST_ATTRIBUTES = [
         'attributionsrc' => false,
+        'background' => false,
         'imagesrcset' => true,
         'ping' => false,
         'srcset' => true,
@@ -6063,6 +6064,9 @@ final class Tables
         '@import',
         'behavior:',
         'expression(',
+        'image(',
+        'image-set(',
+        'src(',
         'url(',
     ];
 

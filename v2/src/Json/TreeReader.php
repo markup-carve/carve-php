@@ -243,12 +243,77 @@ final class TreeReader
         if (isset($node->props)) {
             self::opaque($node->props, $path . '/props', 'props-holds-node');
         }
-        if (($node->type ?? '') === 'include') {
+        self::typeChecks($node, $path, $declared);
+    }
+
+    /**
+     * @param \stdClass $node
+     * @param string $path
+     * @param array<string, \stdClass> $declared
+     *
+     * @throws \MarkupCarve\Carve2\Json\TreeError
+     */
+    private static function typeChecks(stdClass $node, string $path, array $declared): void
+    {
+        $type = $node->type ?? '';
+        if ($type === 'include') {
             self::ranges($node, $path);
+        } elseif ($type === 'table') {
+            self::groupOrder($node, $path);
+        } elseif ($type === 'autolink' && isset($node->text) && $node->text === ($node->href ?? null)) {
+            // C2-A-058: a default has one encoding.
+            throw new TreeError('autolink-default-text', $path . '/text');
+        } elseif ($type === 'smart_punctuation' && isset($node->glyph) && $node->glyph !== self::glyphOf($node->kind ?? '')) {
+            throw new TreeError('smart-punctuation-glyph', $path . '/glyph');
         }
         if (in_array($node->type ?? '', ['block_extension', 'inline_extension'], true)) {
             self::extension($node, $path, $declared);
         }
+    }
+
+    /**
+     * C2-A-086: at most one head, then the bodies, then at most one foot; comments come after them.
+     *
+     * @param \stdClass $node
+     * @param string $path
+     *
+     * @throws \MarkupCarve\Carve2\Json\TreeError
+     */
+    private static function groupOrder(stdClass $node, string $path): void
+    {
+        $rank = ['table_head' => 0, 'table_body' => 1, 'table_foot' => 2, 'comment' => 3];
+        $last = -1;
+        foreach ($node->children ?? [] as $i => $child) {
+            $r = $rank[$child->type ?? ''] ?? 3;
+            if ($r < $last || ($r === $last && $r !== 1 && $r !== 3)) {
+                throw new TreeError('table-group-order', $path . '/children/' . $i);
+            }
+            $last = $r;
+        }
+    }
+
+    /**
+     * C2-A-098: the glyph `data/smart-punctuation.json` gives a kind.
+     *
+     * @param mixed $kind
+     *
+     * @return string|null
+     */
+    private static function glyphOf(mixed $kind): ?string
+    {
+        if (!is_string($kind)) {
+            return null;
+        }
+        if (isset(Tables::SMART_GLYPHS[$kind])) {
+            return Tables::SMART_GLYPHS[$kind];
+        }
+        foreach (Tables::SMART_RUNS as [$runKind, $glyph]) {
+            if ($runKind === $kind) {
+                return $glyph;
+            }
+        }
+
+        return null;
     }
 
     private static function ranges(stdClass $node, string $path): void

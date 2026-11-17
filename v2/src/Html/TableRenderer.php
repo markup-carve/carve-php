@@ -252,7 +252,7 @@ final class TableRenderer
             if ($block->type === 'cell_paragraph') {
                 $parts[] = $this->r->inline->leaf($block->children ?? [], $depth + 2);
             } else {
-                $html = $block->type === 'paragraph' ? $this->r->paragraph($block, 0, false) : $this->r->block($block, 0);
+                $html = HtmlRenderer::paragraphLike($block) ? $this->r->paragraph($block, 0, false) : $this->r->block($block, 0);
                 if ($html !== null) {
                     $parts[] = $html;
                 }

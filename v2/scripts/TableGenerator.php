@@ -153,8 +153,11 @@ final class TableGenerator
                 $consts['AUTOLINK_EMAIL_LAST'] = ['C2-I-123', self::expand($row['email']['last_label']['chars'])];
             }
             if ($row['name'] === 'raw_inline') {
-                $consts['RAW_NAME_FIRST'] = ['C2-I-021', self::expand($row['suffix_name']['first'])];
-                $consts['RAW_NAME_REST'] = ['C2-I-021', self::expand($row['suffix_name']['rest'])];
+                // C2-I-021: the name is a raw format name (C2-B-225); inline-atoms.json still lets `_` start it.
+                $raw = array_values(array_filter($shapes['refs'], static fn (array $r): bool => $r['name'] === 'raw_format'))[0];
+                $rawFirst = str_replace(str_split(self::expand($raw['not_first'])), '', self::expand($raw['chars']));
+                $consts['RAW_NAME_FIRST'] = ['C2-I-021, C2-B-225 line-shapes.json raw_format', $rawFirst];
+                $consts['RAW_NAME_REST'] = ['C2-I-021, C2-B-225 line-shapes.json raw_format', self::expand($raw['chars'])];
             }
         }
         foreach ($load('inline-sigils')['sigils'] as $row) {

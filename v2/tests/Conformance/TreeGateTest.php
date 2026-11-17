@@ -57,6 +57,9 @@ final class TreeGateTest extends TestCase
     {
         $out = [];
         foreach (Corpus::file('trees/examples-includes.json')['trees'] as $entry) {
+            if (isset(CorpusTest::HELD[$entry['id']])) {
+                continue;
+            }
             $out[$entry['id']] = [$entry];
         }
 

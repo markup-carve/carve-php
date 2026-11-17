@@ -222,7 +222,8 @@ final class AttrWriter
                 return true;
             }
         }
-        if ($this->o->roundtrip && isset(self::RESERVED[$lower])) {
+        // C2-H-116: dropped with roundtrip on or off.
+        if (isset(self::RESERVED[$lower])) {
             $this->log->loss('carrier-attribute-dropped', 'warning', 'reserved attribute ' . $lower . ' dropped');
 
             return true;

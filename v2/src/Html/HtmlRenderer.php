@@ -597,6 +597,34 @@ final class HtmlRenderer
     }
 
     /**
+     * C2-H-133: an unexpanded include without a caption is laid out as a paragraph at its place.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return bool
+     */
+    public static function paragraphLike(Node $node): bool
+    {
+        return $node->type === 'paragraph'
+            || ($node->type === 'include' && $node->children === null && !(($node->f['caption'] ?? null) instanceof Node));
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param int $depth
+     * @param bool $bare
+     *
+     * @return string
+     */
+    private function unexpandedInclude(Node $node, int $depth, bool $bare): string
+    {
+        $this->log->loss('include-unresolved', 'warning', 'The include was not expanded.', $node->file);
+        $text = Escape::text(self::includeText($node));
+
+        return self::pad($depth) . ($bare ? $text : '<p>' . $text . '</p>');
+    }
+
+    /**
      * @param \MarkupCarve\Carve2\Node $node
      *
      * @return bool
@@ -658,8 +686,7 @@ final class HtmlRenderer
         if ($node->children !== null) {
             return implode("\n", $this->blocks($node->children, $depth));
         }
-        $this->log->loss('include-unresolved', 'warning', 'The include was not expanded.', $node->file);
-        $html = self::pad($depth) . '<p>' . Escape::text(self::includeText($node)) . '</p>';
+        $html = $this->unexpandedInclude($node, $depth, false);
         $caption = $node->f['caption'] ?? null;
         // C2-N-074: the caption is written as C2-H-165 writes the caption of a degraded block.
         foreach ($caption instanceof Node ? $caption->children ?? [] : [] as $block) {
@@ -808,6 +835,9 @@ final class HtmlRenderer
      */
     public function paragraph(Node $node, int $depth, bool $bare, string $append = ''): ?string
     {
+        if ($node->type === 'include') {
+            return $this->unexpandedInclude($node, $depth, $bare);
+        }
         $f = $node->f;
         if ($append === '' && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang']) && !isset($f['role'])) {
             // No attributes, no source line and no role: neither a block image nor static math.
@@ -1023,7 +1053,7 @@ final class HtmlRenderer
         $open = '<blockquote' . $this->attrs($node) . '>';
         $visible = self::visibleOf(iterator_to_array($this->documentBlocks($node->children ?? []), false));
         if (
-            count($visible) === 1 && $visible[0]->type === 'paragraph' && !self::hasFigureCaption($visible[0])
+            count($visible) === 1 && self::paragraphLike($visible[0]) && !self::hasFigureCaption($visible[0])
             && $this->allowed($visible[0], $depth + 1)
             && !$this->bareImage($visible[0])
         ) {
@@ -1190,7 +1220,7 @@ final class HtmlRenderer
         $degradedTail = [];
         $lead = $visible[0];
         if (
-            $lead->type === 'paragraph' && !self::hasFigureCaption($lead) && $this->allowed($lead, $depth + 1)
+            self::paragraphLike($lead) && !self::hasFigureCaption($lead) && $this->allowed($lead, $depth + 1)
             && !$this->bareImage($lead)
         ) {
             $first = (string)$this->paragraph($lead, 0, $tight);
@@ -1228,7 +1258,7 @@ final class HtmlRenderer
             $lines[] = self::pad($depth + 1) . '<p>' . $text . '</p>';
         }
         foreach ($rest as $child) {
-            $html = $child->type === 'paragraph' && !self::hasFigureCaption($child) && $this->allowed($child, $depth + 1)
+            $html = self::paragraphLike($child) && !self::hasFigureCaption($child) && $this->allowed($child, $depth + 1)
                 ? $this->paragraph($child, $depth + 1, false)
                 : $this->block($child, $depth + 1);
             if ($html !== null) {
@@ -1276,8 +1306,8 @@ final class HtmlRenderer
             return self::pad($depth) . $open . '</dd>';
         }
         if (
-            count($visible) === 1 && $visible[0]->type === 'paragraph' && !self::hasFigureCaption($visible[0])
-            && $this->allowed($visible[0], $depth + 1)
+            count($visible) === 1 && self::paragraphLike($visible[0]) && !self::hasFigureCaption($visible[0])
+            && $this->allowed($visible[0], $depth + 1) && !$this->bareImage($visible[0])
         ) {
             return self::pad($depth) . $open . $this->paragraph($visible[0], 0, true) . '</dd>';
         }
