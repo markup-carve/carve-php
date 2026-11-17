@@ -187,11 +187,18 @@ final class LayoutBuilder
             $start = $facts['startByte'];
             $end = $facts['endByte'];
         }
-        unset($facts['startByte'], $facts['endByte']);
+        if (is_int($facts['startByte'] ?? null) && is_int($facts['contentEnd'] ?? null)) {
+            $start = $facts['startByte'];
+            $end = $facts['contentEnd'] + strspn($this->lines->s, " \t", $facts['contentEnd']);
+        }
+        unset($facts['startByte'], $facts['endByte'], $facts['contentEnd']);
         if (is_int($facts['refEnd'] ?? null)) {
             $facts = ['rawRef' => $this->rawRef($node, $facts['refEnd'], $quotes)] + $facts;
         }
-        unset($facts['refEnd']);
+        unset($facts['refEnd'], $facts['wrapAt'], $facts['spansRows'], $facts['cellWraps']);
+        if ($node->type === 'table_cell') {
+            $facts += $this->wraps($node, $path);
+        }
         if ($node->type === 'caption') {
             // C2-L-054: a parse gives every caption the attachment `preceding`.
             $facts['attachment'] = 'preceding';
@@ -204,6 +211,36 @@ final class LayoutBuilder
             return;
         }
         $this->entries[] = ['path' => $path, 'startByte' => $start, 'endByte' => $end] + $facts;
+    }
+
+    /**
+     * C2-L-020, C2-L-048: the wraps of a cell, sorted by line and then by row; `row` only on a cell that spans rows.
+     *
+     * @param \MarkupCarve\Carve2\Node $cell
+     * @param string $path
+     *
+     * @return array<string, mixed>
+     */
+    private function wraps(Node $cell, string $path): array
+    {
+        $para = $cell->children[0] ?? null;
+        $found = $para instanceof Node && is_array($para->layout['cellWraps'] ?? null) ? $para->layout['cellWraps'] : [];
+        if ($found === []) {
+            return [];
+        }
+        $rows = ($para->layout['spansRows'] ?? false) === true;
+        $wraps = [];
+        foreach ($found as $wrap) {
+            if (!is_array($wrap) || !is_int($wrap['line'] ?? null) || !is_int($wrap['child'] ?? null)) {
+                continue;
+            }
+            $child = $path . '/children/0/children/' . $wrap['child'];
+            $entry = ['line' => $wrap['line'], 'path' => $child, 'offset' => $wrap['offset'] ?? 0];
+            $wraps[] = $rows ? $entry + ['row' => $wrap['row'] ?? 0] : $entry;
+        }
+        usort($wraps, static fn (array $a, array $b): int => [$a['line'], $a['row'] ?? 0] <=> [$b['line'], $b['row'] ?? 0]);
+
+        return ['wraps' => $wraps];
     }
 
     private function rawRef(Node $node, int $stop, int $quotes): string

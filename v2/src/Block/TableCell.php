@@ -43,6 +43,14 @@ final class TableCell
     public array $lines = [];
 
     /**
+     * C2-L-020: for each pair of `$lines`, its continuation line, 0 for the cell's own row, and the rows below the cell's
+     * own row it stands in.
+     *
+     * @var array<array{0: int, 1: int}>
+     */
+    public array $wrapAt = [];
+
+    /**
      * @param int $start
      * @param int $end
      */

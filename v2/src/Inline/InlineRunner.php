@@ -45,7 +45,10 @@ final class InlineRunner
         $stack = [[$doc, false, false]];
         while ($stack !== []) {
             [$node, $hard, $caption] = array_pop($stack);
-            if ($node->lines !== null) {
+            if ($node->lines !== null && isset($node->layout['wrapAt'])) {
+                $node->children = self::wrappedCell($s, $node, $ctx, self::mode($node->type, $hard, $caption));
+                $node->lines = null;
+            } elseif ($node->lines !== null) {
                 $node->children = self::parse($s, $node->lines, $ctx, 0, self::mode($node->type, $hard, $caption));
                 $node->lines = null;
                 if ($node->children === [] && $node->type === 'line') {
@@ -174,11 +177,19 @@ final class InlineRunner
      * @param \MarkupCarve\Carve2\Inline\InlineContext $ctx
      * @param int $depth
      * @param int $mode
+     * @param array<int, array{0: int, 1: int}>|null $joins Per fragment pair, the child that holds its joining space and
+     *   the offset behind it.
      *
      * @return array<\MarkupCarve\Carve2\Node>
      */
-    private static function cellFragments(string $s, array $spans, InlineContext $ctx, int $depth, int $mode): array
-    {
+    private static function cellFragments(
+        string $s,
+        array $spans,
+        InlineContext $ctx,
+        int $depth,
+        int $mode,
+        ?array &$joins = null,
+    ): array {
         $out = [];
         $n = count($spans);
         for ($i = 0; $i < $n; $i += 2) {
@@ -191,6 +202,11 @@ final class InlineRunner
             }
             if ($out !== []) {
                 self::appendText($out, Node::text(' ', -1, -1));
+                $last = $out[count($out) - 1];
+                $joins[intdiv($i, 2)] = [count($out) - 1, strlen(is_string($last->f['value'] ?? null) ? $last->f['value'] : '')];
+            } else {
+                // C2-L-048: content that starts in a continuation row has no joining space.
+                $joins[intdiv($i, 2)] = [0, 0];
             }
             foreach ($piece as $node) {
                 if ($node->type === 'text') {
@@ -202,6 +218,36 @@ final class InlineRunner
         }
 
         return $out;
+    }
+
+    /**
+     * C2-L-020: a cell joined from continuation rows records where each row's fragment starts, as the child of its
+     * paragraph and the offset in that child's value; LayoutBuilder writes them as the `wraps` of the cell.
+     *
+     * @param string $s
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param \MarkupCarve\Carve2\Inline\InlineContext $ctx
+     * @param int $mode
+     *
+     * @return array<\MarkupCarve\Carve2\Node>
+     */
+    private static function wrappedCell(string $s, Node $node, InlineContext $ctx, int $mode): array
+    {
+        $joins = [];
+        $children = self::cellFragments($s, $node->lines ?? [], $ctx, 0, $mode, $joins);
+        $at = is_array($node->layout['wrapAt'] ?? null) ? $node->layout['wrapAt'] : [];
+        $wraps = [];
+        foreach ($joins ?? [] as $pair => [$child, $offset]) {
+            $place = $at[$pair] ?? null;
+            $line = is_array($place) && is_int($place[0] ?? null) ? $place[0] : 0;
+            $row = is_array($place) && is_int($place[1] ?? null) ? $place[1] : 0;
+            if ($line > 0) {
+                $wraps[] = ['line' => $line, 'child' => $child, 'offset' => $offset, 'row' => $row];
+            }
+        }
+        $node->layout['cellWraps'] = $wraps;
+
+        return $children;
     }
 
     /**

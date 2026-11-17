@@ -370,6 +370,7 @@ final class TableBuilder
                 $cell->row = $r;
                 $cell->col = $c;
                 $cell->lines = $cell->ce > $cell->cs ? [$cell->cs, $cell->ce] : [];
+                $cell->wrapAt = $cell->lines === [] ? [] : [[0, 0]];
                 $grid[$r][$c] = $cell;
                 $cover[$r][$c] = $cell;
                 if ($cell->mark === '') {
@@ -391,8 +392,8 @@ final class TableBuilder
                 }
                 $cover[$r][$c] = $target;
             }
-            foreach ($row->cont as $fragments) {
-                self::join($grid[$r], $cover[$r], $r, $fragments);
+            foreach ($row->cont as $n => $fragments) {
+                self::join($grid[$r], $cover[$r], [$r, $n + 1], $fragments);
             }
         }
 
@@ -431,13 +432,14 @@ final class TableBuilder
      *
      * @param array<int, \MarkupCarve\Carve2\Block\TableCell> $cells
      * @param array<int, \MarkupCarve\Carve2\Block\TableCell> $cover
-     * @param int $r
+     * @param array{0: int, 1: int} $at The row and the number of its continuation row.
      * @param array<int> $fragments
      *
      * @return void
      */
-    private static function join(array &$cells, array &$cover, int $r, array $fragments): void
+    private static function join(array &$cells, array &$cover, array $at, array $fragments): void
     {
+        [$r, $line] = $at;
         $n = count($fragments);
         for ($k = 0; $k < $n; $k += 2) {
             $c = intdiv($k, 2);
@@ -455,6 +457,7 @@ final class TableBuilder
             $target->joined = true;
             $target->lines[] = $fragments[$k];
             $target->lines[] = $fragments[$k + 1];
+            $target->wrapAt[] = [$line, $r - $target->row];
         }
     }
 
@@ -514,6 +517,13 @@ final class TableBuilder
         $lines = $cell->lines;
         $para = $cell->joined || $lines === [] ? new Node('cell_paragraph') : Node::at('cell_paragraph', $lines[0], $lines[1]);
         $para->lines = $lines;
+        if ($cell->joined) {
+            $para->layout['wrapAt'] = $cell->wrapAt;
+            $para->layout['spansRows'] = $cell->rowspan > 1;
+            // C2-L-013: the range of a joined cell, from its own row to the end of its last fragment.
+            $node->layout['startByte'] = $cell->start;
+            $node->layout['contentEnd'] = $lines[count($lines) - 1];
+        }
         $node->children = [$para];
         $cell->attrs?->applyTo($node);
 

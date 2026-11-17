@@ -243,4 +243,34 @@ final class LayoutTest extends TestCase
 
         return $node;
     }
+
+    public function testC2L020WrapsOfACellJoinedFromContinuationRows(): void
+    {
+        $layout = Carve2::parseWithLayout("|= A |= B |\n| 1 | 2 |\n+ a | b |\n")->layout;
+        $cells = array_values(array_filter($layout['nodes'], static fn (array $n): bool => isset($n['wraps'])));
+        $this->assertSame([
+            [
+                'path' => '/children/0/children/1/children/0/children/0',
+                'startByte' => 13,
+                'endByte' => 26,
+                'wraps' => [['line' => 1, 'path' => '/children/0/children/1/children/0/children/0/children/0/children/0', 'offset' => 2]],
+            ],
+            [
+                'path' => '/children/0/children/1/children/0/children/1',
+                'startByte' => 17,
+                'endByte' => 30,
+                'wraps' => [['line' => 1, 'path' => '/children/0/children/1/children/0/children/1/children/0/children/0', 'offset' => 2]],
+            ],
+        ], $cells);
+        $this->assertSame("|= A |= B |\n| 1 | 2 |\n+ a | b |\n", Carve2::format("|= A |= B |\n| 1 | 2 |\n+ a | b |\n"));
+    }
+
+    public function testC2L048AWrapOfContentThatStartsInAContinuationRow(): void
+    {
+        $layout = Carve2::parseWithLayout("| 1 | |\n+ a | b |\n")->layout;
+        $cells = array_values(array_filter($layout['nodes'], static fn (array $n): bool => isset($n['wraps'])));
+        $wraps = array_column($cells, 'wraps');
+        $text = '/children/0/children/0/children/0/children/1/children/0/children/0';
+        $this->assertSame([['line' => 1, 'path' => $text, 'offset' => 0]], $wraps[1]);
+    }
 }
