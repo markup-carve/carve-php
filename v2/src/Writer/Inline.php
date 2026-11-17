@@ -517,8 +517,7 @@ final class Inline
         $c->open[$type] = ($c->open[$type] ?? 0) + 1;
         $inner = $this->content($children, $path . '/children', $c, ord($mark));
         $c->open = $open;
-        $bare = !isset($open[$type]) && !self::holds($children, $type, $mark) && BraceBlock::of($node) === ''
-            && self::bareFits($inner, $mark, $prev, $next);
+        $bare = !isset($open[$type]) && !self::holds($children, $type, $mark) && self::bareFits($inner, $mark, $prev, $next);
 
         return $bare ? $mark . $inner . $mark : '{' . $mark . $inner . $mark . '}';
     }
