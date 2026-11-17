@@ -273,4 +273,14 @@ final class LayoutTest extends TestCase
         $text = '/children/0/children/0/children/0/children/1/children/0/children/0';
         $this->assertSame([['line' => 1, 'path' => $text, 'offset' => 0]], $wraps[1]);
     }
+
+    public function testC2L048ACellThatOnlyAContinuationRowHolds(): void
+    {
+        $source = "| 1 | 2 |\n+ a | b | c |\n";
+        $nodes = Carve2::parseWithLayout($source)->layout['nodes'];
+        $entries = array_values(array_filter($nodes, static fn (array $n): bool => isset($n['wraps'])));
+        $this->assertSame([19, 22], [$entries[2]['startByte'], $entries[2]['endByte']]);
+        $this->assertSame(0, $entries[2]['wraps'][0]['offset']);
+        $this->assertSame("| 1 | 2 | |\n+ a | b | c |\n", Carve2::format($source));
+    }
 }

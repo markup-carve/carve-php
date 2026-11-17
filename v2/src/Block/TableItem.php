@@ -25,6 +25,11 @@ final class TableItem
      */
     public array $cont = [];
 
+    /**
+     * @var array<array<int>> The byte after each pipe that opens a cell of a continuation row, row by row.
+     */
+    public array $contSlots = [];
+
     public string $value = '';
 
     public int $continuationEnd = -1;

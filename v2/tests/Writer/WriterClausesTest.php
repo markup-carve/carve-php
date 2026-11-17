@@ -52,6 +52,7 @@ final class WriterClausesTest extends TestCase
             'C2-B-081 a definition shape inside an item' => ["- [a]: /u\n\n[x][a]\n", "- [a]: /u\n\n[x][a]\n"],
             'C2-I-055 a star glued to a bare brace belongs to the braced opener' => ["x{*\\*{*\\*\n", "x{*\\*{*\\*\n"],
             'C2-I-117 a plus glued behind a smart plus-minus' => ["x\\\\+-\\+\n", "x\\\\+-\\+\n"],
+            'C2-W-099 a run of four hyphens on line 1 opens no frontmatter' => ["----\ntitle: x\n----\n", "----\ntitle: x\n----\n"],
             'C2-W-129 a table across a comment below a list' => [
                 "- a\n\n{footer-rows=0}\n%% c\n| a |\n",
                 "- a\n\n{footer-rows=0}\n%% c\n| a |\n",

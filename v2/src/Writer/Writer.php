@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Writer;
 
+use MarkupCarve\Carve2\Block\LineShapes;
 use MarkupCarve\Carve2\Carve2;
 use MarkupCarve\Carve2\Json\TreeEncoder;
 
@@ -40,7 +41,8 @@ final class Writer
         $source = implode("\n", $w->lines) . "\n";
         // C2-W-099: a first block that would read as another tree on line 1 stands below one blank line.
         $first = is_array($children[0] ?? null) ? $children[0] : [];
-        if (str_starts_with($source, '---') && ($first['type'] ?? '') !== 'frontmatter') {
+        $opener = LineShapes::frontmatter($source, 0, (int)strpos($source, "\n")) !== null;
+        if ($opener && ($first['type'] ?? '') !== 'frontmatter') {
             $source = "\n" . $source;
         }
 

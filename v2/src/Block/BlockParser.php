@@ -635,6 +635,7 @@ final class BlockParser
         for ($k = count($table->rows) - 1; $k >= 0; $k--) {
             if ($table->rows[$k]->isRow) {
                 $table->rows[$k]->cont[] = TableBuilder::fragments($this->s, $j, $split['seps']);
+                $table->rows[$k]->contSlots[] = array_map(static fn (int $p): int => $p + 1, [$j, ...$split['seps']]);
                 $table->rows[$k]->continuationEnd = $this->le;
 
                 break;

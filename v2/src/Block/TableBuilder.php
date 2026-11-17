@@ -393,7 +393,7 @@ final class TableBuilder
                 $cover[$r][$c] = $target;
             }
             foreach ($row->cont as $n => $fragments) {
-                self::join($grid[$r], $cover[$r], [$r, $n + 1], $fragments);
+                self::join($grid[$r], $cover[$r], [$r, $n + 1, $row->contSlots[$n] ?? []], $fragments);
             }
         }
 
@@ -432,19 +432,20 @@ final class TableBuilder
      *
      * @param array<int, \MarkupCarve\Carve2\Block\TableCell> $cells
      * @param array<int, \MarkupCarve\Carve2\Block\TableCell> $cover
-     * @param array{0: int, 1: int} $at The row and the number of its continuation row.
+     * @param array{0: int, 1: int, 2: array<int>} $at The row, the number of its continuation row and its slot starts.
      * @param array<int> $fragments
      *
      * @return void
      */
     private static function join(array &$cells, array &$cover, array $at, array $fragments): void
     {
-        [$r, $line] = $at;
+        [$r, $line, $slots] = $at;
         $n = count($fragments);
         for ($k = 0; $k < $n; $k += 2) {
             $c = intdiv($k, 2);
             if (!isset($cover[$c])) {
-                $cell = new TableCell(-1, -1);
+                // C2-L-048: a cell that starts in a continuation row ranges from its first fragment.
+                $cell = new TableCell($slots[$c] ?? $fragments[$k], -1);
                 $cell->row = $r;
                 $cell->col = $c;
                 $cells[$c] = $cell;
