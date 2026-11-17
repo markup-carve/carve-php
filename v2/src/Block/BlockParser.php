@@ -1526,6 +1526,7 @@ final class BlockParser
         return match ($f->kind) {
             Frame::TABLE, Frame::QUOTE => true,
             Frame::CODE => $f->raw === null,
+            Frame::INCLUDE => is_array($f->include['options'] ?? null) && isset($f->include['options']['code']),
             Frame::DIV => $f->node === 'block_quote' || $f->node === 'figure_group',
             Frame::PARAGRAPH => $f->role !== null,
             default => false,

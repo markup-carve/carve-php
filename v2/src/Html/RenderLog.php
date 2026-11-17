@@ -10,7 +10,7 @@ namespace MarkupCarve\Carve2\Html;
 final class RenderLog
 {
     /**
-     * @var array<array{code: string, severity: string, message: string, channel: string}>
+     * @var array<array{code: string, severity: string, message: string, channel: string, file: string|null}>
      */
     public array $entries = [];
 
@@ -28,11 +28,19 @@ final class RenderLog
      * @param string $code
      * @param string $severity
      * @param string $message
+     * @param string|null $file
      *
      * @return void
      */
-    public function loss(string $code, string $severity, string $message): void
+    public function loss(string $code, string $severity, string $message, ?string $file = null): void
     {
-        $this->entries[] = ['code' => $code, 'severity' => $severity, 'message' => $message, 'channel' => 'render-loss'];
+        $this->entries[] = [
+
+            'code' => $code,
+            'severity' => $severity,
+            'message' => $message,
+            'channel' => 'render-loss',
+            'file' => $file,
+        ];
     }
 }

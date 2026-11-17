@@ -51,6 +51,41 @@ final class TreeGateTest extends TestCase
     }
 
     /**
+     * @return array<string, array{0: array<string, mixed>}>
+     */
+    public static function includeTrees(): array
+    {
+        $out = [];
+        foreach (Corpus::file('trees/examples-includes.json')['trees'] as $entry) {
+            $out[$entry['id']] = [$entry];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<string, mixed> $entry
+     */
+    #[DataProvider('includeTrees')]
+    public function testC2N019IncludeTreeMeetsFixtureAndPositions(array $entry): void
+    {
+        $files = $entry['files'];
+        $resolver = static function (array $request) use ($files): array {
+            $text = $files[$request['path']] ?? null;
+
+            return $text === null ? ['error' => 'not_found'] : ['text' => $text, 'id' => $request['path']];
+        };
+        $options = $entry['options'] ?? [];
+        $includes = is_array($options['includes'] ?? null) ? $options['includes'] : [];
+        $options['includes'] = $includes + ['resolver' => $resolver];
+        $json = Carve2::toJson($entry['source'], $options);
+        $tree = json_decode($json, true, 4096, JSON_THROW_ON_ERROR);
+        $this->assertSame(Corpus::sorted($entry['tree']), Corpus::sorted($tree));
+        $this->assertSame([], (new PositionChecker($entry['source'], $files))->failures($tree));
+        $this->assertNotNull(TreeReader::read($json));
+    }
+
+    /**
      * C2-A-021, C2-A-139 to C2-A-159: the engine's tree of every source meets the schema and the position invariants.
      *
      * @param string $source

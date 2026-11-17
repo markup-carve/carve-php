@@ -34,6 +34,20 @@ final class Node
 
     public int $ownStart = -1;
 
+    public ?string $file = null;
+
+    /**
+     * @var array<string>
+     */
+    public array $includeChain = [];
+
+    public ?self $noteDefinition = null;
+
+    /**
+     * @var array<string, string>
+     */
+    public array $includeSources = [];
+
     /**
      * @param string $type
      * @param array<\MarkupCarve\Carve2\Node>|null $children

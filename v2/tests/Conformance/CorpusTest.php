@@ -42,6 +42,48 @@ final class CorpusTest extends TestCase
     /**
      * @return array<string, array{0: array<string, mixed>}>
      */
+    public static function includeExamples(): array
+    {
+        return self::provide(Corpus::examples('include'));
+    }
+
+    /**
+     * @param array<string, mixed> $example
+     */
+    #[DataProvider('includeExamples')]
+    public function testIncludeExample(array $example): void
+    {
+        $this->gate($example['id'], function () use ($example): void {
+            $files = $example['files'];
+            $resolver = static function (array $request) use ($files): array {
+                $file = $files[$request['path']] ?? null;
+                if ($file === null) {
+                    return ['error' => 'not_found'];
+                }
+                $text = $file['text'] ?? hex2bin(str_replace(' ', '', $file['bytes'] ?? ''));
+
+                return ['text' => $text, 'id' => $request['path']];
+            };
+            $options = $example['options'];
+            $includes = is_array($options['includes'] ?? null) ? $options['includes'] : [];
+            $options['includes'] = $includes + ['resolver' => $resolver];
+            $expected = $example['expected'];
+            $result = Carve2::renderWithDiagnostics($example['input'], $options);
+            if (isset($expected['html'])) {
+                $this->assertSame($expected['html'], $result->html);
+            }
+            if (isset($expected['tree'])) {
+                $this->assertTree($expected['tree'], $example['input'], $options);
+            }
+            foreach ($expected['diagnostics'] ?? [] as $diagnostic) {
+                $this->assertContains(is_string($diagnostic) ? $diagnostic : $diagnostic['code'], $result->codes());
+            }
+        });
+    }
+
+    /**
+     * @return array<string, array{0: array<string, mixed>}>
+     */
     public static function writeExamples(): array
     {
         return self::provide(Corpus::examples('write'));

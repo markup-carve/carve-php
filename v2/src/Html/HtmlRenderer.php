@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Html;
 
+use Generator;
 use MarkupCarve\Carve2\Attrs;
 use MarkupCarve\Carve2\Generated\Tables;
 use MarkupCarve\Carve2\Node;
@@ -79,6 +80,11 @@ final class HtmlRenderer
      * @var array<int>|null
      */
     private ?array $lineStarts = null;
+
+    /**
+     * @var array<string, array<int>>
+     */
+    private array $includeLineStarts = [];
 
     private function __construct(private Node $doc, public Options $o, ?string $source, ?Facts $facts)
     {
@@ -164,12 +170,23 @@ final class HtmlRenderer
      */
     private function document(): string
     {
+        if ($this->o->roundtrip) {
+            $this->roundtripIncludes();
+        }
         $out = [];
         $open = [];
         $abbreviations = [];
         $sections = $this->o->sections;
-        foreach ($this->doc->children ?? [] as $child) {
+        foreach ($this->documentBlocks($this->doc->children ?? []) as $child) {
             if ($child->type === 'abbreviation_def') {
+                if ($child->file !== null) {
+                    if ($abbreviations !== []) {
+                        $this->appendAbbreviations($out, $abbreviations, count($open));
+                        $abbreviations = [];
+                    }
+
+                    continue;
+                }
                 $abbreviations[] = $child;
 
                 continue;
@@ -216,6 +233,43 @@ final class HtmlRenderer
         }
 
         return implode("\n", $out);
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve2\Node> $nodes
+     *
+     * @return \Generator<\MarkupCarve\Carve2\Node>
+     */
+    private function documentBlocks(array $nodes): Generator
+    {
+        foreach ($nodes as $node) {
+            if (
+                $node->type === 'include' && $node->children !== null
+                && ($this->profile === null || $this->profile->allowsBlockType('include'))
+            ) {
+                yield from $this->documentBlocks($node->children);
+            } else {
+                yield $node;
+            }
+        }
+    }
+
+    private function roundtripIncludes(): void
+    {
+        $stack = $this->doc->children ?? [];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            if ($node->type === 'include' && $node->children !== null) {
+                if ($this->profile === null || $this->profile->allowsBlockType('include')) {
+                    $this->log->loss('include-expanded-roundtrip', 'warning', 'An expanded include loses its directive.', $node->file);
+                }
+
+                continue;
+            }
+            foreach ($node->children ?? [] as $child) {
+                $stack[] = $child;
+            }
+        }
     }
 
     /**
@@ -334,11 +388,15 @@ final class HtmlRenderer
         if ($this->lineStarts === null || $node->start < 0) {
             return null;
         }
+        $starts = $this->lineStarts;
+        if ($node->file !== null && isset($this->doc->includeSources[$node->file])) {
+            $starts = $this->includeLineStarts[$node->file] ??= self::starts($this->doc->includeSources[$node->file]);
+        }
         $lo = 0;
-        $hi = count($this->lineStarts) - 1;
+        $hi = count($starts) - 1;
         while ($lo < $hi) {
             $mid = ($lo + $hi + 1) >> 1;
-            if ($this->lineStarts[$mid] <= $node->start) {
+            if ($starts[$mid] <= $node->start) {
                 $lo = $mid;
             } else {
                 $hi = $mid - 1;
@@ -346,6 +404,21 @@ final class HtmlRenderer
         }
 
         return $lo + 1;
+    }
+
+    /**
+     * @return array<int>
+     */
+    private static function starts(string $source): array
+    {
+        $starts = [0];
+        $pos = 0;
+        while (($nl = strpos($source, "\n", $pos)) !== false) {
+            $starts[] = $nl + 1;
+            $pos = $nl + 1;
+        }
+
+        return $starts;
     }
 
     /**
@@ -357,7 +430,7 @@ final class HtmlRenderer
     public function blocks(array $nodes, int $depth): array
     {
         $out = [];
-        foreach ($nodes as $node) {
+        foreach ($this->documentBlocks($nodes) as $node) {
             $html = $this->block($node, $depth);
             if ($html !== null) {
                 $out[] = $html;
@@ -438,6 +511,10 @@ final class HtmlRenderer
     public function block(Node $node, int $depth): ?string
     {
         if ($this->profile !== null && !$this->profile->allowsBlock($node, $depth)) {
+            if ($node->type === 'include' && $node->children === null) {
+                $this->log->loss('include-unresolved', 'warning', 'The include was not expanded.', $node->file);
+            }
+
             return $this->profile->degradeBlock($node, $depth);
         }
         if (isset(self::SILENT[$node->type])) {
@@ -557,7 +634,18 @@ final class HtmlRenderer
      */
     private function includeBlock(Node $node, int $depth): string
     {
-        return self::pad($depth) . '<p>' . Escape::text(self::includeText($node)) . '</p>';
+        if ($node->children !== null) {
+            return implode("\n", $this->blocks($node->children, $depth));
+        }
+        $this->log->loss('include-unresolved', 'warning', 'The include was not expanded.', $node->file);
+        $html = self::pad($depth) . '<p>' . Escape::text(self::includeText($node)) . '</p>';
+        $caption = $node->f['caption'] ?? null;
+        // C2-N-074: the caption is written as C2-H-165 writes the caption of a degraded block.
+        foreach ($caption instanceof Node ? $caption->children ?? [] : [] as $block) {
+            $html .= "\n" . self::pad($depth) . '<p>' . Escape::text(PlainText::of($block->children ?? [])) . '</p>';
+        }
+
+        return $html;
     }
 
     /**
@@ -907,7 +995,7 @@ final class HtmlRenderer
     private function quote(Node $node, int $depth): string
     {
         $open = '<blockquote' . $this->attrs($node) . '>';
-        $visible = self::visibleOf($node->children ?? []);
+        $visible = self::visibleOf(iterator_to_array($this->documentBlocks($node->children ?? []), false));
         if (
             count($visible) === 1 && $visible[0]->type === 'paragraph' && !self::hasFigureCaption($visible[0])
             && $this->allowed($visible[0], $depth + 1)
@@ -1067,7 +1155,7 @@ final class HtmlRenderer
             [$box, $structural, $base, $style] = $task !== null ? self::taskParts($item, $task, $ordered) : ['', [], [], []];
             $open = self::pad($depth) . '<li' . $this->attrs($item, $base, [], $structural, [], $style) . '>' . $box;
         }
-        $visible = self::visibleOf($item->children ?? []);
+        $visible = self::visibleOf(iterator_to_array($this->documentBlocks($item->children ?? []), false));
         if ($visible === []) {
             return rtrim($open, ' ') . '</li>';
         }

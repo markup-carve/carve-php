@@ -23,7 +23,7 @@ final class Resolver
      *
      * @var array<string, true>
      */
-    private const NEEDS_END = ['inline_footnote' => true, 'figure_group' => true];
+    private const NEEDS_END = ['inline_footnote' => true, 'figure_group' => true, 'footnote' => true];
 
     /**
      * @var array<string>
@@ -36,14 +36,29 @@ final class Resolver
     public array $linkDefs = [];
 
     /**
+     * @var array<string, array<string, \MarkupCarve\Carve2\Node>>
+     */
+    private array $includeLinkDefs = [];
+
+    /**
      * @var array<string, \MarkupCarve\Carve2\Node>
      */
     public array $footnoteDefs = [];
 
     /**
+     * @var array<string, array<string, \MarkupCarve\Carve2\Node>>
+     */
+    private array $includeFootnoteDefs = [];
+
+    /**
      * @var array<string, \MarkupCarve\Carve2\Node>
      */
     private array $abbrDefs = [];
+
+    /**
+     * @var array<string, array<string, \MarkupCarve\Carve2\Node>>
+     */
+    private array $includeAbbrDefs = [];
 
     /**
      * Notes in number order: a footnote definition or an inline footnote.
@@ -202,7 +217,8 @@ final class Resolver
             $r->headingIds();
             $r->captions();
             $r->references();
-            $doc->f['stages'] = self::STAGES;
+            $doc->f['stages'] = ($doc->f['stages'] ?? null) === ['includeExpansion']
+                ? array_merge(['includeExpansion'], self::STAGES) : self::STAGES;
             if ($keep) {
                 $r->facts = new Facts($doc, $r->nodes, $r->end, $r->pos, $r->noteMarks, $r->headings, $r->numbered, $r->titled, $r->taken, $r->longDescriptions, $r->comments);
             }
@@ -246,6 +262,44 @@ final class Resolver
             }
             if ($first !== $child) {
                 $this->findings?->add(self::DUPLICATE[$child->type], $child);
+            }
+        }
+        if ($this->doc->includeSources !== []) {
+            $this->collectIncludedDefinitions();
+        }
+    }
+
+    /**
+     * C2-N-053, C2-N-055: the definitions of each included file, first one per key and file.
+     *
+     * @return void
+     */
+    private function collectIncludedDefinitions(): void
+    {
+        $stack = $this->doc->children ?? [];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            $file = $node->f['file'] ?? null;
+            if ($node->type !== 'include' || $node->children === null || !is_string($file)) {
+                foreach ($node->type === 'include' ? [] : $node->children ?? [] as $child) {
+                    $stack[] = $child;
+                }
+
+                continue;
+            }
+            foreach ($node->children as $child) {
+                $key = $child->f['key'] ?? null;
+                if (is_string($key) && isset(self::DUPLICATE[$child->type])) {
+                    $first = match ($child->type) {
+                        'link_reference_definition' => $this->includeLinkDefs[$file][$key] ??= $child,
+                        'footnote' => $this->includeFootnoteDefs[$file][$key] ??= $child,
+                        default => $this->includeAbbrDefs[$file][$key] ??= $child,
+                    };
+                    if ($first !== $child) {
+                        $this->findings?->add(self::DUPLICATE[$child->type], $child, $file);
+                    }
+                }
+                $stack[] = $child;
             }
         }
     }
@@ -301,12 +355,15 @@ final class Resolver
                 continue;
             }
             $key = $node->f['key'] ?? null;
-            if (is_string($key) && isset($this->footnoteDefs[$key])) {
-                if (!isset($this->footnoteNumber[$key])) {
-                    $this->notes[] = $this->footnoteDefs[$key];
-                    $this->footnoteNumber[$key] = count($this->notes);
+            $definition = is_string($key) ? $this->definition($node, $key, 'footnote') : null;
+            if ($definition !== null) {
+                $node->noteDefinition = $definition;
+                $identity = 'n' . spl_object_id($definition);
+                if (!isset($this->footnoteNumber[$identity])) {
+                    $this->notes[] = $definition;
+                    $this->footnoteNumber[$identity] = count($this->notes);
                 }
-                $node->f['number'] = $this->footnoteNumber[$key];
+                $node->f['number'] = $this->footnoteNumber[$identity];
             }
         }
     }
@@ -354,6 +411,9 @@ final class Resolver
             $i = $n++;
             $f = $node->f;
             $type = $node->type;
+            if ($type === 'footnote') {
+                $this->pos[spl_object_id($node)] = $i;
+            }
             $kids = $node->children;
             foreach ($f as $key => $value) {
                 if (($value instanceof Node || is_array($value) && Walk::nests($value)) && !isset(Walk::OPAQUE[$key])) {
@@ -379,7 +439,7 @@ final class Resolver
                 }
             }
             $attrs = $f['attrs'] ?? null;
-            if ($attrs instanceof Attrs && $attrs->id !== null) {
+            if ($type !== 'include' && $attrs instanceof Attrs && $attrs->id !== null) {
                 $this->reserve($attrs->id, $node);
             }
             if (isset(self::LISTED[$type]) || isset($f['caption']) || isset($f['key'])) {
@@ -404,7 +464,7 @@ final class Resolver
     private function reserve(string $id, Node $node): void
     {
         if (isset($this->taken[$id])) {
-            $this->findings?->add('duplicate-id', $node);
+            $this->findings?->add('duplicate-id', $node, $node->file);
         }
         $this->taken[$id] = true;
     }
@@ -420,7 +480,8 @@ final class Resolver
     private function listNode(Node $node, int $i): void
     {
         $type = $node->type;
-        $numbered = $type === 'figure_group' || ($node->f['caption'] ?? null) instanceof Node;
+        $numbered = $type === 'figure_group' || ($node->f['caption'] ?? null) instanceof Node
+            && ($type !== 'include' || $node->children === null);
         switch ($type) {
             case 'footnote_ref':
             case 'inline_footnote':
@@ -602,7 +663,7 @@ final class Resolver
                 if ($mark !== null) {
                     if (!isset($panels[spl_object_id($node)])) {
                         $mark[0]->f['n'] = $this->next(self::labelKey($mark[1], $this->o->symbols));
-                        $id = self::idOf($node);
+                        $id = $node->type === 'include' ? null : self::idOf($node);
                         if ($id !== null) {
                             $this->xrefIds[$id] = true;
                         }
@@ -712,8 +773,9 @@ final class Resolver
                     break;
                 case 'abbreviation':
                     unset($node->f['expansion']);
-                    if (isset($this->abbrDefs[$key])) {
-                        $node->f['expansion'] = $this->abbrDefs[$key]->f['expansion'] ?? '';
+                    $definition = $this->definition($node, $key, 'abbr');
+                    if ($definition !== null) {
+                        $node->f['expansion'] = $definition->f['expansion'] ?? '';
                     }
 
                     break;
@@ -733,8 +795,9 @@ final class Resolver
     {
         $field = $node->type === 'image' ? 'src' : 'href';
         unset($node->f[$field]);
-        if (isset($this->linkDefs[$key])) {
-            $node->f[$field] = $this->linkDefs[$key]->f['href'] ?? '';
+        $definition = $this->definition($node, $key, 'link');
+        if ($definition !== null) {
+            $node->f[$field] = $definition->f['href'] ?? '';
 
             return;
         }
@@ -747,6 +810,26 @@ final class Resolver
         if (isset($this->headingKeys[$plain])) {
             $node->f['href'] = '#' . $this->headingKeys[$plain];
         }
+    }
+
+    private function definition(Node $node, string $key, string $kind): ?Node
+    {
+        $map = match ($kind) {
+            'link' => $this->includeLinkDefs,
+            'abbr' => $this->includeAbbrDefs,
+            default => $this->includeFootnoteDefs,
+        };
+        foreach ($node->includeChain as $file) {
+            if (isset($map[$file][$key])) {
+                return $map[$file][$key];
+            }
+        }
+
+        return match ($kind) {
+            'link' => $this->linkDefs[$key] ?? null,
+            'abbr' => $this->abbrDefs[$key] ?? null,
+            default => $this->footnoteDefs[$key] ?? null,
+        };
     }
 
     /**

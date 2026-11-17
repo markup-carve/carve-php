@@ -29,6 +29,13 @@ final class TreeEncoder
     private int $cacheCol = 0;
 
     /**
+     * @var array<string, string>
+     */
+    private array $sources = [];
+
+    private ?string $currentFile = null;
+
+    /**
      * @param \MarkupCarve\Carve2\Node $root
      * @param string|null $source Null for a tree without positions.
      *
@@ -49,15 +56,10 @@ final class TreeEncoder
      */
     public function encode(Node $root, ?string $source): array
     {
+        $this->sources = $root->includeSources;
         if ($source !== null) {
-            $this->s = $source;
-            $this->bom = str_starts_with($source, "\u{FEFF}") ? 3 : 0;
-            $this->lineStarts = [0];
-            $pos = 0;
-            while (($nl = strpos($source, "\n", $pos)) !== false) {
-                $this->lineStarts[] = $nl + 1;
-                $pos = $nl + 1;
-            }
+            $this->sources[''] = $source;
+            $this->setSource('');
         }
 
         return $this->node($root, $source !== null);
@@ -86,10 +88,31 @@ final class TreeEncoder
             $out['children'] = $children;
         }
         if ($positions && $node->start >= 0 && $node->type !== 'document') {
+            $file = $node->file ?? '';
+            if ($file !== $this->currentFile && isset($this->sources[$file])) {
+                $this->setSource($file);
+            }
             $out['pos'] = $this->pos($node->start, $node->end);
+            if ($file !== '') {
+                $out['pos']['file'] = $file;
+            }
         }
 
         return $out;
+    }
+
+    private function setSource(string $file): void
+    {
+        $this->currentFile = $file;
+        $this->s = $this->sources[$file];
+        $this->bom = str_starts_with($this->s, "\u{FEFF}") ? 3 : 0;
+        $this->lineStarts = [0];
+        $pos = 0;
+        while (($nl = strpos($this->s, "\n", $pos)) !== false) {
+            $this->lineStarts[] = $nl + 1;
+            $pos = $nl + 1;
+        }
+        $this->cacheLine = -1;
     }
 
     /**

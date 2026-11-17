@@ -63,6 +63,14 @@ final class Options
 
     public ?Closure $resolveTag = null;
 
+    public ?Closure $includeResolver = null;
+
+    public ?string $includeFile = null;
+
+    public int $includeDepth = Tables::INCLUDE_DEPTH;
+
+    public int $includeBytes = Tables::INCLUDE_BYTES;
+
     /**
      * @param array<string, mixed> $options
      *
@@ -137,7 +145,7 @@ final class Options
             'social' => $this->setSocial($value),
             'extensions' => self::extensions($value),
             'platforms' => self::platforms($value),
-            default => self::includes($value),
+            default => $this->includes($value),
         };
     }
 
@@ -362,10 +370,39 @@ final class Options
      *
      * @return void
      */
-    private static function includes(mixed $value): void
+    private function includes(mixed $value): void
     {
-        if ($value !== null && !is_string($value) && !is_array($value) && !$value instanceof Closure) {
-            throw new OptionError('option includes: not an include root or resolver');
+        if ($value === null) {
+            return;
+        }
+        if ($value instanceof Closure) {
+            $this->includeResolver = $value;
+
+            return;
+        }
+        if (!is_array($value) || !($value['resolver'] ?? null) instanceof Closure) {
+            throw new OptionError('option includes: invalid resolver');
+        }
+        $this->includeResolver = $value['resolver'];
+        foreach ($value as $key => $item) {
+            if ($key === 'resolver') {
+                continue;
+            }
+            if ($key === 'file' && ($item === null || is_string($item))) {
+                $this->includeFile = $item;
+
+                continue;
+            }
+            if (($key === 'depth' || $key === 'bytes') && is_int($item) && $item >= 0) {
+                $limit = $key === 'depth' ? Tables::INCLUDE_DEPTH : Tables::INCLUDE_BYTES;
+                if ($item <= $limit) {
+                    $key === 'depth' ? $this->includeDepth = $item : $this->includeBytes = $item;
+
+                    continue;
+                }
+            }
+
+            throw new OptionError('option includes: invalid field ' . $key);
         }
     }
 }

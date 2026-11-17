@@ -16,6 +16,8 @@ final class TreeSink implements Sink
 
     public Findings $findings;
 
+    public bool $hasInclude = false;
+
     /**
      * C2-B-111, C2-B-163: the leaves that report a missing closer.
      *
@@ -42,6 +44,9 @@ final class TreeSink implements Sink
     public function enter(Frame $frame, Frame $parent): void
     {
         $node = NodeFactory::make($frame, $this->s);
+        if ($node->type === 'include') {
+            $this->hasInclude = true;
+        }
         $frame->handle = $node;
         if ($frame === $parent) {
             $this->root = $node;
@@ -61,6 +66,9 @@ final class TreeSink implements Sink
         /** @var \MarkupCarve\Carve2\Node $parentNode */
         $parentNode = $parent->handle;
         $node = NodeFactory::make($frame, $this->s);
+        if ($node->type === 'include') {
+            $this->hasInclude = true;
+        }
         $frame->handle = $node;
         $this->note($frame, $node);
         if (!$frame->closed && isset(self::UNCLOSED[$frame->kind])) {

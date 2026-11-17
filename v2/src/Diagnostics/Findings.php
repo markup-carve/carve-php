@@ -38,6 +38,13 @@ final class Findings
         return count($this->notes);
     }
 
+    public function merge(self $other, ?string $file): void
+    {
+        foreach ($other->notes as [$code, $node, $oldFile, $start, $end, $message]) {
+            $this->notes[] = [$code, $node, $oldFile ?? $file, $start, $end, $message];
+        }
+    }
+
     /**
      * @param \MarkupCarve\Carve2\Node $doc
      *

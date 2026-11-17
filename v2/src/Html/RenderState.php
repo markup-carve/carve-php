@@ -370,7 +370,7 @@ final class RenderState
         if (!is_int($number) || ($this->profile !== null && !$this->profile->allowsInline($node))) {
             return;
         }
-        $note = $inline ? $node : $this->footnoteDefs[PlainText::str($node->f['key'] ?? '')] ?? null;
+        $note = $inline ? $node : ($node->noteDefinition ?? $this->footnoteDefs[PlainText::str($node->f['key'] ?? '')] ?? null);
         if ($note !== null) {
             $this->notes[$number] ??= $note;
         }
