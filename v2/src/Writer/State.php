@@ -28,6 +28,11 @@ final class State
     public bool $bareDotLead = false;
 
     /**
+     * C2-W-121: the block being written follows a description list among its siblings.
+     */
+    public bool $afterDescriptions = false;
+
+    /**
      * @var array<string, true> Paths already reported.
      */
     private array $lost = [];
@@ -41,6 +46,11 @@ final class State
      * @var array<string, true> C2-I-098: the keys the document defines as abbreviations.
      */
     public array $abbreviations = [];
+
+    /**
+     * @var array<string, true> C2-W-094: the keys the document defines as link references.
+     */
+    public array $labels = [];
 
     /**
      * @var array<string, true> Paths of fences written without their closer (C2-W-123).

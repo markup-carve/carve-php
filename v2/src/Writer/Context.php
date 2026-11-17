@@ -17,6 +17,17 @@ final class Context
 
     public bool $lineStart = false;
 
+    /**
+     * C2-W-092: what holds the paragraph, read from its prefix: `top`, `quote`, or `body` for an item, a description or a
+     * footnote, where a list marker interrupts on every line.
+     */
+    public string $owner = 'top';
+
+    /**
+     * C2-W-121: the paragraph follows a description list, so a description mark at its start would join the list.
+     */
+    public bool $afterDescriptions = false;
+
     public bool $inCell = false;
 
     public bool $inBracket = false;
@@ -40,4 +51,30 @@ final class Context
      * @var array<string, int> The bare kinds open around the content: `emphasis`, `strong`.
      */
     public array $open = [];
+
+    /**
+     * The text of the leaf's own text nodes, each other node one `\0`, each break a line feed; null until the leaf
+     * is first written. C2-W-094, C2-W-096: the bracket and brace tests read what follows a character in it.
+     */
+    public ?string $flat = null;
+
+    /**
+     * @var array<string, int> The offset in `$flat` of each text node of the leaf's own list, by path.
+     */
+    public array $flatAt = [];
+
+    /**
+     * The offset in `$flat` of the text being escaped, -1 for a text inside another node.
+     */
+    public int $here = -1;
+
+    /**
+     * @var array<int, bool>|null Whether each opening bracket of `$flat` takes a backslash, by offset.
+     */
+    public ?array $brackets = null;
+
+    /**
+     * @var array<string, true> The keys of the document's link definitions (C2-W-094).
+     */
+    public array $labels = [];
 }

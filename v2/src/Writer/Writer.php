@@ -165,6 +165,9 @@ final class Writer
             if (($node['type'] ?? '') === 'abbreviation_def' && is_string($node['key'] ?? null)) {
                 $w->abbreviations[$node['key']] = true;
             }
+            if (($node['type'] ?? '') === 'link_reference_definition' && is_string($node['key'] ?? null)) {
+                $w->labels[$node['key']] = true;
+            }
             if (is_array($node['children'] ?? null)) {
                 self::collect($node['children'], $w);
             }

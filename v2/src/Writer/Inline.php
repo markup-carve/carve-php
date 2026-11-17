@@ -118,6 +118,11 @@ final class Inline
      */
     public function content(array $nodes, string $path, Context $c, int $next): string
     {
+        if ($c->flat === null) {
+            $c->flat = '';
+            $c->labels = $this->w->labels;
+            self::flatten($nodes, $path, $c);
+        }
         $out = '';
         $count = count($nodes);
         for ($at = 0; $at < $count; $at++) {
@@ -137,6 +142,26 @@ final class Inline
         }
 
         return $out;
+    }
+
+    /**
+     * @param array<mixed> $nodes
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Writer\Context $c
+     *
+     * @return void
+     */
+    private static function flatten(array $nodes, string $path, Context $c): void
+    {
+        foreach ($nodes as $at => $node) {
+            $type = is_array($node) ? self::str($node, 'type') : '';
+            if ($type === 'text') {
+                $c->flatAt[$path . '/' . $at] = strlen((string)$c->flat);
+                $c->flat .= self::str($node, 'value');
+            } else {
+                $c->flat .= $type === 'soft_break' || $type === 'hard_break' ? "\n" : "\0";
+            }
+        }
     }
 
     /**
@@ -223,7 +248,9 @@ final class Inline
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
         if ($type === 'text') {
             $points = $c->inCell ? ($this->w->wrapPoints[$path] ?? null) : null;
+            $c->here = $points === null ? $c->flatAt[$path] ?? -1 : -1;
             $out = $points === null ? $this->text($node, $c, $next, $before) : $this->wrapped($node, $points, $c, $next);
+            $c->here = -1;
             // C2-W-016: a CR at the end of a line is part of the line ending.
             if (str_ends_with($out, "\r") && ($next === 10 || $next === -1)) {
                 $this->w->lose($path, 'text', 'value');
@@ -300,6 +327,7 @@ final class Inline
         ) {
             $prefix = '\\' . $value[0];
             $value = substr($value, 1);
+            $c->here += $c->here >= 0 ? 1 : 0;
             $c->last = Chars::at($prefix, 1);
             $c->lineStart = false;
         }
@@ -307,6 +335,7 @@ final class Inline
         if ($c->last === 0x5D && str_starts_with($value, '(')) {
             $prefix .= '\\(';
             $value = substr($value, 1);
+            $c->here += $c->here >= 0 ? 1 : 0;
             $c->last = 0x28;
         }
 
@@ -579,7 +608,13 @@ final class Inline
             return '';
         }
 
-        return $open . $this->inside($children, $path . '/children', $c) . ']';
+        $inner = $this->inside($children, $path . '/children', $c);
+        // C2-W-125 case five: a caret at the start of span text would read as a footnote reference.
+        if ($open === '[' && str_starts_with($inner, '^')) {
+            $inner = '\\' . $inner;
+        }
+
+        return $open . $inner . ']';
     }
 
     /**

@@ -27,11 +27,13 @@ final class WriteExamplesTest extends TestCase
             'nodes' => [
                 [
                     'path' => '/children/0/children/0/children/1/children/0',
-                    'wraps' => [[
-                        'line' => 1,
-                        'path' => '/children/0/children/0/children/1/children/0/children/0/children/0',
-                        'offset' => 4,
-                    ]],
+                    'wraps' => [
+                        [
+                            'line' => 1,
+                            'path' => '/children/0/children/0/children/1/children/0/children/0/children/0',
+                            'offset' => 4,
+                        ],
+                    ],
                 ],
             ],
         ],

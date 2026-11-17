@@ -35,7 +35,12 @@ final class Command
      * @var array<string, true>
      */
     private const FMT_FLAGS = [
-        'check' => true, 'diff' => true, 'normalize' => true, 'align-tables' => true, 'write' => true, 'from-ast' => true,
+        'check' => true,
+        'diff' => true,
+        'normalize' => true,
+        'align-tables' => true,
+        'write' => true,
+        'from-ast' => true,
     ];
 
     /**
@@ -284,7 +289,8 @@ final class Command
         $old = explode("\n", $before);
         $new = explode("\n", $after);
         $at = 0;
-        while ($at < count($old) && $old[$at] === ($new[$at] ?? null)) {
+        $lines = count($old);
+        while ($at < $lines && $old[$at] === ($new[$at] ?? null)) {
             $at++;
         }
 

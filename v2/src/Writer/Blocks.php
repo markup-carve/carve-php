@@ -92,6 +92,7 @@ final class Blocks
             $next = $nodes[$at + 1] ?? null;
             $this->markFenceBeforeComment($node, $path . '/' . $at, is_array($next) ? $next : null);
             $written = count($this->w->lines);
+            $this->w->afterDescriptions = is_array($before) && ($before['type'] ?? '') === 'definition_list';
             if (($node['type'] ?? '') === 'code_block' && isset($node['caption'])) {
                 $at = $this->captionedCode($nodes, $at, $path, $prefix);
             } else {
@@ -513,15 +514,18 @@ final class Blocks
      *
      * @param array<mixed> $nodes
      * @param bool $lineStart
+     * @param string $prefix
      *
      * @return \MarkupCarve\Carve2\Writer\Context
      */
-    private function context(array $nodes, bool $lineStart): Context
+    private function context(array $nodes, bool $lineStart, string $prefix = ''): Context
     {
         $c = new Context();
         $c->bareBreaks = $this->bareBreaks;
         $c->counts = Inline::counts($nodes);
         $c->lineStart = $lineStart;
+        $c->afterDescriptions = $this->w->afterDescriptions;
+        $c->owner = $prefix === '' ? 'top' : (str_ends_with($prefix, '> ') || str_ends_with($prefix, '>') ? 'quote' : 'body');
 
         return $c;
     }
@@ -558,7 +562,7 @@ final class Blocks
         }
         $this->attributeLine($node, $path, $prefix);
         $this->w->lead = ($this->w->lead ?? $prefix) . $mark;
-        $c = $this->context($children, $mark === '');
+        $c = $this->context($children, $mark === '', $prefix);
         $text = $this->inline->content($children, $path . '/children', $c, -1);
         $this->w->emitLines($prefix, $indent, self::endContent($text, $children, $c));
     }
