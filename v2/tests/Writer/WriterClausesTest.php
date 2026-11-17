@@ -47,6 +47,9 @@ final class WriterClausesTest extends TestCase
             'C2-W-121 a description mark behind a description list' => [":: t\n: d\n\n\\: x\n", ":: t\n: d\n\n\\: x\n"],
             'C2-W-095 a colon before an inline extension name' => ["x \\:n[a]\n", "x \\:n[a]\n"],
             'C2-W-125 case five: a caret at the start of span text' => ["x [\\^a]{.c}\n", "x [\\^a]{.c}\n"],
+            'C2-I-036 an attribute block behind a mention is text' => ["@user{.c} and #tag{.c}\n", "@user{.c} and #tag{.c}\n"],
+            'C2-I-036 a brace behind a host that holds no attribute block' => ["`x`{=_a}\n", "`x`{=_a}\n"],
+            'C2-B-081 a definition shape inside an item' => ["- [a]: /u\n\n[x][a]\n", "- [a]: /u\n\n[x][a]\n"],
             'C2-W-129 a table across a comment below a list' => [
                 "- a\n\n{footer-rows=0}\n%% c\n| a |\n",
                 "- a\n\n{footer-rows=0}\n%% c\n| a |\n",

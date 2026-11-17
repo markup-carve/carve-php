@@ -158,8 +158,11 @@ final class Inline
             if ($type === 'text') {
                 $c->flatAt[$path . '/' . $at] = strlen((string)$c->flat);
                 $c->flat .= self::str($node, 'value');
+            } elseif ($type === 'soft_break' || $type === 'hard_break') {
+                $c->flat .= "\n";
             } else {
-                $c->flat .= $type === 'soft_break' || $type === 'hard_break' ? "\n" : "\0";
+                $c->flatTypes[strlen((string)$c->flat)] = $type;
+                $c->flat .= "\0";
             }
         }
     }

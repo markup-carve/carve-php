@@ -64,6 +64,11 @@ final class Context
     public array $flatAt = [];
 
     /**
+     * @var array<int, string> The type of the node that each `\0` of `$flat` stands for, by offset.
+     */
+    public array $flatTypes = [];
+
+    /**
      * The offset in `$flat` of the text being escaped, -1 for a text inside another node.
      */
     public int $here = -1;

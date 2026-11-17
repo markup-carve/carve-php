@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Writer;
 
+use MarkupCarve\Carve2\AttributeParser;
 use MarkupCarve\Carve2\Attrs;
 use MarkupCarve\Carve2\Block\LineShapes;
 use MarkupCarve\Carve2\Block\Markers;
@@ -30,6 +31,25 @@ final class Text
      * @var string
      */
     private const MARKS = '/*_~=+-^,#%';
+
+    /**
+     * @var array<string, true>
+     */
+    private const DEFINITIONS = ['link_reference_definition' => true, 'footnote' => true, 'abbreviation_def' => true];
+
+    /**
+     * C2-I-036: the inline nodes that take no attribute block glued behind them.
+     *
+     * @var array<string, true>
+     */
+    private const NO_HOSTS = [
+        'mention' => true,
+        'tag' => true,
+        'smart_punctuation' => true,
+        'abbreviation' => true,
+        'comment' => true,
+        'critic_comment' => true,
+    ];
 
     /**
      * C2-W-092: the punctuation a block opener of a first paragraph line starts with.
@@ -238,8 +258,14 @@ final class Text
     {
         $flat = (string)$c->flat;
         $at = $c->here + $i;
-        if ($c->here < 0 || ($flat[$at] ?? '') !== '{' || ($at > 0 && $flat[$at - 1] === "\0")) {
+        if ($c->here < 0 || ($flat[$at] ?? '') !== '{') {
             return true;
+        }
+        // C2-I-036: a valid attribute block glued to the end of a host attaches to it.
+        if ($at > 0 && $flat[$at - 1] === "\0" && !isset(self::NO_HOSTS[$c->flatTypes[$at - 1] ?? ''])) {
+            if (AttributeParser::readRun($flat, $at, strlen($flat), new Attrs()) >= 0) {
+                return true;
+            }
         }
         $mark = $flat[$at + 1] ?? '';
         if ($mark === '' || !str_contains(self::MARKS . '%', $mark)) {
@@ -533,6 +559,10 @@ final class Text
         }
         $children = Carve2::parse($line . "\n")->children ?? [];
         if (count($children) === 1 && $children[0]->type === 'paragraph') {
+            return -1;
+        }
+        // C2-B-081: a definition shape opens a definition only at column 0.
+        if ($c->owner !== 'top' && isset(self::DEFINITIONS[$children[0]->type ?? ''])) {
             return -1;
         }
 
