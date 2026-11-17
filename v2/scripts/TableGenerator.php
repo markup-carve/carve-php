@@ -247,12 +247,18 @@ final class TableGenerator
 
         $include = $load('include-options');
         $codes = [];
+        $messages = [];
         foreach ($load('lint-rules')['rules'] as $rule) {
             if (isset($rule['channel']) && $rule['channel'] !== 'lint') {
                 $codes[$rule['id']] = [$rule['severity'], $rule['channel'], $rule['messages'][0] ?? $rule['id']];
             }
+            if (isset($rule['messages']) && $rule['messages'] !== []) {
+                $messages[$rule['id']] = $rule['messages'];
+            }
         }
         ksort($codes, SORT_STRING);
+        ksort($messages, SORT_STRING);
+        $consts['MESSAGES'] = ['C2-A-173 lint-rules.json: the messages of each code, slots unfilled', $messages];
         $consts['DIAGNOSTICS'] = ['C2-A-173 lint-rules.json: severity, channel and first message of each parse' .
             ' and render-loss code', $codes];
         $consts['INCLUDE_OPTIONS'] = ['C2-B-205 include-options.json', self::stripClauses($include['options'] ?? $include)];

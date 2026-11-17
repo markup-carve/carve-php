@@ -691,7 +691,7 @@ final class TableBuilder
         $records = self::records($body, $sep, $malformed);
         if ($malformed) {
             // C2-B-181
-            $f->findings[] = 'delimited-table-malformed';
+            $f->findings[] = ['delimited-table-malformed', -1];
         }
         $attrs = $f->attrs;
         $declared = self::count($attrs, 'header-rows');

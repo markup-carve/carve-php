@@ -373,7 +373,7 @@ final class InlineRenderer
         $value = PlainText::str($node->f['value'] ?? '');
         $format = PlainText::str($node->f['format'] ?? '');
         if ($format !== 'html') {
-            $this->log->loss('raw-format-dropped', 'warning', 'raw ' . $format . ' dropped');
+            $this->log->loss('raw-format-dropped', 'warning', ['kind' => 'inline', 'format' => $format, 'target' => 'HTML']);
 
             return '';
         }
@@ -591,7 +591,7 @@ final class InlineRenderer
         if (UrlPolicy::passes($url, $this->o)) {
             return $url;
         }
-        $this->log->loss('destination-denied', 'error', 'destination denied');
+        $this->log->loss('destination-denied', 'error');
 
         return '';
     }
@@ -914,7 +914,7 @@ final class InlineRenderer
     {
         $name = PlainText::str($node->f['name'] ?? '');
         if (str_contains($name, '.')) {
-            $this->log->loss('extension-fallback-rendered', 'warning', 'extension ' . $name . ' rendered through its fallback');
+            $this->log->loss('extension-fallback-rendered', 'warning', ['name' => $name]);
             $fallback = $node->f['fallback'] ?? null;
 
             return $this->inlines(PlainText::nodes(is_array($fallback) ? $fallback : $node->children), $depth + 1, true);

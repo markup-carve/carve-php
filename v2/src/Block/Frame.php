@@ -183,9 +183,9 @@ final class Frame
     public bool $closed = false;
 
     /**
-     * The parse findings of the block (C2-B-105, C2-B-122, C2-B-181).
+     * The parse findings of the block (C2-B-105, C2-B-122, C2-B-181): the code and the offset its message starts from.
      *
-     * @var array<string>
+     * @var array<array{0: string, 1: int}>
      */
     public array $findings = [];
 

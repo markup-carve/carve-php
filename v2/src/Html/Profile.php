@@ -107,7 +107,7 @@ final class Profile
      */
     private array $level = [];
 
-    public function __construct(string $name, private RenderLog $log)
+    public function __construct(private string $name, private RenderLog $log)
     {
         $spec = Tables::PROFILES[$name] ?? [];
         if (isset($spec['allowed_block'])) {
@@ -258,7 +258,7 @@ final class Profile
      */
     private function report(Node $node): void
     {
-        $this->log->loss('profile-construct-degraded', 'warning', $node->type . ' is outside the profile');
+        $this->log->loss('profile-construct-degraded', 'warning', ['profile' => $this->name, 'construct' => $node->type]);
     }
 
     /**

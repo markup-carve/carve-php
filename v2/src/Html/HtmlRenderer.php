@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve2\Html;
 use Generator;
 use MarkupCarve\Carve2\Attrs;
 use MarkupCarve\Carve2\Generated\Tables;
+use MarkupCarve\Carve2\Include\Expander;
 use MarkupCarve\Carve2\Node;
 use MarkupCarve\Carve2\Options;
 use MarkupCarve\Carve2\Resolve\Facts;
@@ -284,7 +285,7 @@ final class HtmlRenderer
             $node = array_pop($stack);
             if ($node->type === 'include' && $node->children !== null) {
                 if ($this->profile === null || $this->profile->allowsBlockType('include')) {
-                    $this->log->loss('include-expanded-roundtrip', 'warning', 'An expanded include loses its directive.', $node->file);
+                    $this->log->loss('include-expanded-roundtrip', 'warning', ['path' => self::includePathOf($node)], $node->file);
                 }
 
                 continue;
@@ -535,7 +536,7 @@ final class HtmlRenderer
     {
         if ($this->profile !== null && !$this->profile->allowsBlock($node, $depth)) {
             if ($node->type === 'include' && $node->children === null) {
-                $this->log->loss('include-unresolved', 'warning', 'The include was not expanded.', $node->file);
+                $this->log->loss('include-unresolved', 'warning', ['path' => self::includePathOf($node)], $node->file);
             }
 
             return $this->profile->degradeBlock($node, $depth);
@@ -620,7 +621,7 @@ final class HtmlRenderer
      */
     private function unexpandedInclude(Node $node, int $depth, bool $bare): string
     {
-        $this->log->loss('include-unresolved', 'warning', 'The include was not expanded.', $node->file);
+        $this->log->loss('include-unresolved', 'warning', ['path' => self::includePathOf($node)], $node->file);
         $text = Escape::text(self::includeText($node));
 
         return self::pad($depth) . ($bare ? $text : '<p>' . $text . '</p>');
@@ -1037,7 +1038,7 @@ final class HtmlRenderer
         $format = PlainText::str($node->f['format'] ?? '');
         $value = PlainText::str($node->f['value'] ?? '');
         if ($format !== 'html') {
-            $this->log->loss('raw-format-dropped', 'warning', 'raw ' . $format . ' dropped');
+            $this->log->loss('raw-format-dropped', 'warning', ['kind' => 'block', 'format' => $format, 'target' => 'HTML']);
 
             return null;
         }
@@ -1543,6 +1544,11 @@ final class HtmlRenderer
         return $this->container($open, '</' . $tag . '>', $blocks, $depth);
     }
 
+    private static function includePathOf(Node $node): string
+    {
+        return Expander::shownPath($node);
+    }
+
     /**
      * C2-H-133, C2-H-171: the directive as text.
      *
@@ -1628,11 +1634,7 @@ final class HtmlRenderer
      */
     private function blockExtension(Node $node, int $depth): ?string
     {
-        $this->log->loss(
-            'extension-fallback-rendered',
-            'warning',
-            'extension ' . PlainText::str($node->f['name'] ?? '') . ' rendered through its fallback',
-        );
+        $this->log->loss('extension-fallback-rendered', 'warning', ['name' => PlainText::str($node->f['name'] ?? '')]);
         $fallback = PlainText::nodes($node->f['fallback'] ?? []);
         $blocks = $this->blocks($fallback, $depth);
 

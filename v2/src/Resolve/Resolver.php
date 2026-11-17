@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve2\Resolve;
 
 use MarkupCarve\Carve2\Attrs;
 use MarkupCarve\Carve2\Diagnostics\Findings;
+use MarkupCarve\Carve2\Diagnostics\Message;
 use MarkupCarve\Carve2\Inline\InlineContext;
 use MarkupCarve\Carve2\Inline\InlineRunner;
 use MarkupCarve\Carve2\Node;
@@ -284,7 +285,7 @@ final class Resolver
                 continue;
             }
             if ($first !== $child) {
-                $this->findings?->add(self::DUPLICATE[$child->type], $child);
+                $this->findings?->add(self::DUPLICATE[$child->type], $child, message: self::duplicateMessage($child, $key));
             }
         }
         if ($this->doc->includeSources !== []) {
@@ -329,7 +330,7 @@ final class Resolver
                 continue;
             }
             if (isset($seen[$child->type][$key])) {
-                $this->findings?->add(self::DUPLICATE[$child->type], $child, $file);
+                $this->findings?->add(self::DUPLICATE[$child->type], $child, $file, message: self::duplicateMessage($child, $key));
 
                 continue;
             }
@@ -503,9 +504,16 @@ final class Resolver
     private function reserve(string $id, Node $node): void
     {
         if (isset($this->taken[$id])) {
-            $this->findings?->add('duplicate-id', $node, $node->file);
+            $this->findings?->add('duplicate-id', $node, $node->file, message: Message::fill('duplicate-id', ['explicit' => $id]));
         }
         $this->taken[$id] = true;
+    }
+
+    private static function duplicateMessage(Node $child, string $key): string
+    {
+        $label = is_string($child->f['label'] ?? null) ? $child->f['label'] : $key;
+
+        return Message::fill(self::DUPLICATE[$child->type], ['label' => $label]);
     }
 
     /**

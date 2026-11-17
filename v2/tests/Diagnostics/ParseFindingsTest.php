@@ -90,4 +90,56 @@ final class ParseFindingsTest extends TestCase
         $this->assertArrayNotHasKey('title', $tree['children'][0]);
         $this->assertArrayNotHasKey('syntax', $tree['children'][0]);
     }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function messages(): array
+    {
+        return [
+            'unclosed-code-fence' => [
+                "- a\n\n  ```\n  x\n- b", 'The ``` fence opened here has no closing fence; it ends at the end of its '
+                . 'container on line 4. Add a closing ``` where the code should stop.',
+            ],
+            'unclosed-comment-fence' => [
+                "%%%\nx", 'The %%% comment fence opened here has no closing fence and hides everything to the end '
+                . 'of the document. Add a closing %%% where the comment should stop.',
+            ],
+            'unclosed-container-fence' => [
+                "::: |\na", 'This 3-colon line block has no closer; it runs to the end of its container. '
+                . 'Add a bare fence of 3 colons to close it.',
+            ],
+            'fence-title-syntax' => [
+                "```js T\nx\n```", 'Text after the "js" fence type must be a quoted "title" or a [label]; unquoted it '
+                . 'is not read as a title, and the block opens. Did you mean ``` js "T"?',
+            ],
+            'fence-opener-fallback' => [
+                "::: note {.c}\nx\n:::", 'An admonition carries no inline attributes, so "{.c}" after the name is '
+                . 'not valid. The block opens without them (use: "{.c}" on its own line directly above the opener, then "::: note").',
+            ],
+            'duplicate-footnote-definition' => [
+                "[^a]: x\n\n[^a]: y", 'Duplicate footnote definition [^a] is ignored; the first '
+                . 'definition for a label wins.',
+            ],
+            'duplicate-id' => [
+                "{#a}\nx\n\n{#a}\ny", 'Duplicate id "a": the repeated HTML id is invalid, and cross-references to it resolve '
+                . 'to the first occurrence.',
+            ],
+            'include-unresolved' => ['{{ /etc/x.crv }}', 'Include "[absolute path]" could not be resolved.'],
+            'carrier-attribute-dropped' => [
+                '[x]{data-carve-raw=html}', 'Dropped the authored attribute data-carve-raw: the name is '
+                . 'reserved for roundtrip import',
+            ],
+        ];
+    }
+
+    #[DataProvider('messages')]
+    public function testC2A173MessagesFillTheSlotsOfTheCatalog(string $source, string $message): void
+    {
+        $found = array_map(static fn (Diagnostic $d): string => $d->message, Carve2::renderWithDiagnostics($source)->diagnostics);
+        $this->assertContains($message, $found);
+        foreach ($found as $text) {
+            $this->assertStringNotContainsString('${', $text);
+        }
+    }
 }

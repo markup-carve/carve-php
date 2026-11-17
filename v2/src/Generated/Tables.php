@@ -6331,6 +6331,477 @@ final class Tables
         '~' => 'center',
     ];
 
+    /** C2-A-173 lint-rules.json: the messages of each code, slots unfilled */
+    public const MESSAGES = [
+        'a11y/image-alt' => [
+            'image has empty alternative text and is not marked decorative',
+        ],
+        'bare-html-tag' => [
+            'This bare HTML tag is escaped as text; use a raw HTML block if markup is intended.',
+        ],
+        'bidi-control-in-source' => [
+            'Bidi override/isolate control U+${code} is preserved by canonical Carve but not written to the text and code of presentation output; remove it unless intentional.',
+        ],
+        'block-marker-as-text' => [
+            'This line begins like ${what} but parsed as plain text - the block did not open. Check this line\'s syntax and any unterminated fence above it.',
+        ],
+        'block-opener-overindented' => [
+            'This ${kind} is indented ${past} column(s) past the content column of ${owner}, and it still opens a ${kind}, measured from its own line. Remove the indentation to make the structure explicit, or escape the opener to keep the line as text.',
+        ],
+        'block-opener-without-blank-line' => [
+            'This line looks like a (kind) but directly follows text, so it is part of the paragraph or caption above it. Add a blank line before it.',
+        ],
+        'blockquote-marker-without-space' => [
+            'A blockquote marker must be either bare ">" or followed by a space. This line renders as literal text; write "> ${text}" to quote it.',
+        ],
+        'braced-comment-in-a-template-source' => [
+            'This braced comment is a template tag. Liquid, Nunjucks, or Twig source may have reached Carve as text; the tag is parsed as an invisible comment.',
+        ],
+        'braced-span-opener-as-text' => [
+            'This braced span did not open: the delimiter inside it closed a span that started before it. Escape that delimiter.',
+        ],
+        'broken-crossref' => [
+            'Cross-reference </#${target}> matches no id; ${caseOnlyPhrase}, and cross-references are case-sensitive, so it renders as the literal text "</#${target}>".',
+            'Cross-reference </#${target}> names the id "${id}", which is on a ${kind}; a cross-reference reaches only headings and numbered captions, so it renders as the literal text "</#${target}>". Link to it with [text](#${id}).',
+            'Cross-reference </#${target}> has no matching heading id; it renders as the literal text "</#${target}>".',
+        ],
+        'broken-fragment-link' => [
+            'Link to "${href}" matches no id; the id "${caseOnly}" differs only in case, and fragment links are case-sensitive, so the link goes nowhere.',
+            'Link to "${href}" matches no id in this document, so the link goes nowhere.',
+        ],
+        'caption-looking-paragraph' => [
+            'This caption-looking paragraph sits next to a table or image; use a ^ caption line.',
+        ],
+        'carrier-attribute-dropped' => [
+            'Dropped the authored attribute ${key}: the name is reserved for roundtrip import',
+        ],
+        'carve-version-unsupported' => [
+            'document declares Carve ${version}; this engine implements ${SPEC_VERSION}, so constructs added after that version will not render as intended',
+            'document declares an unrecognized Carve version ${version}; this engine implements ${SPEC_VERSION}',
+        ],
+        'colon-fence-length-mismatch' => [
+            'Bare ${authoredWidth}-colon fence does not close the innermost ${expectedWidth}-colon ${kind} opened at ${line}:${column}; it ${outcome}.',
+        ],
+        'comment-fence-closer-with-text' => [
+            'This line starts with a percent run and holds other text, so it is content of the comment block and does not close it. Put the closing run alone on its line.',
+        ],
+        'comment-in-reference-label' => [
+            'A line comment starts inside this reference label and takes the rest of the line, so the brackets are text. Move the comment out of the label, or escape the percent signs.',
+        ],
+        'comment-line-in-line-block' => [
+            'A line comment is text inside a line block. Use the braced comment.',
+        ],
+        'comment-shaped-emphasis' => [
+            'This emphasis looks like a C comment; use Carve comment syntax if you meant a comment.',
+        ],
+        'comment-splits-table-row' => [
+            'This comment stands between a table row and its continuation, so it belongs after the whole row. Move it above the row or below the continuation.',
+        ],
+        'consumed-key-near-miss' => [
+            '"${word}" is not a consumed key here; did you mean {${key}}?',
+        ],
+        'definition-in-container' => [
+            'A definition is recognized only at column 0 outside every container, so this line is text. Move it to the top level.',
+        ],
+        'definition-term-block-folded' => [
+            'This block opener is indented under a definition term, which has no content column, so it folds into the term as text (a fence line or a table row does not fold: it closes the description list). Dedent it to the container\'s content column to open the block, or put it in the term\'s ": " description.',
+        ],
+        'delimited-table-malformed' => [
+            'This marked CSV/TSV fence has malformed quoting. It stays a table, and the cell with the unclosed quote holds the rest of the fence body.',
+        ],
+        'delimited-table-wide-row' => [
+            'A CSV/TSV record has more fields than the first record; the table keeps the extra columns.',
+        ],
+        'deprecated-bare-highlight' => [
+            'A bare equals pair is text in 0.2. Write the braced highlight.',
+        ],
+        'deprecated-bare-strike' => [
+            'A bare tilde pair is text in 0.2. Write the braced strike.',
+        ],
+        'deprecated-bare-underline' => [
+            'A bare underscore pair is text in 0.2. Write the braced underline, or the slash pair for emphasis.',
+        ],
+        'deprecated-cell-alignment' => [
+            'The table cell alignment prefix "${prefix}" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell\'s attribute block: write "${braced}". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it.',
+        ],
+        'deprecated-continuation-marker' => [
+            'The plus continuation marker was removed in 0.2 and is text here. Put the block after a blank line, indented past the list marker.',
+        ],
+        'deprecated-indented-line-under-heading' => [
+            'This indented line directly below a heading is part of the heading in 0.2; in 0.1 it started a paragraph. Remove the indent to make it a separate block again; if it then reads as a list marker or another opener and a paragraph is meant, escape its first character.',
+        ],
+        'deprecated-loose-attribute' => [
+            'The loose attribute was removed in 0.2 and is a plain attribute here. A list is loose when a blank line stands between two of its items.',
+        ],
+        'deprecated-separator-row' => [
+            'The separator row was removed in 0.2 and is a row of dashes here. Mark the header cells with the header mark and delete this row.',
+        ],
+        'deprecated-spaced-thematic-break' => [
+            'A spaced thematic break was removed in 0.2; this line is a list item (or text). Write the unspaced star form.',
+        ],
+        'deprecated-substitution-arrow' => [
+            'The substitution arrow was removed in 0.2; this is a strike span. Write a deletion directly followed by an insertion.',
+        ],
+        'deprecated-table-attribute' => [
+            '(key) does not apply to a pipe table in 0.2. Mark header cells with the header mark and write alignment on the cells.',
+        ],
+        'description-separator-below-content-column' => [
+            'This ${name} starts at column ${column}, below the column ${host.column} of the definition list above, so it adds no entry to that list. Indent it to column ${host.column} to continue the list.',
+        ],
+        'description-term-multi-line' => [
+            'This line continues the term above. Add a blank line after the term if it is a paragraph.',
+        ],
+        'destination-denied' => [
+            'Blanked a denied destination scheme',
+            'Blanked a denied image source',
+        ],
+        'djot-emphasis-underscore' => [
+            'Djot emphasis `_x_` is literal text in Carve. Carve emphasis is `/x/`.',
+        ],
+        'djot-heading-continuation' => [
+            'Djot folds the line(s) below a heading INTO it (a plain line, or one with the same number of `#`); Carve takes only lines indented past the heading marker into the heading (C2-B-154), so a line at the marker column is a separate block and the heading id changes.',
+        ],
+        'djot-highlight-braces' => [
+            'Djot highlight `{=x=}` is also Carve highlight. The bare `=x=` is literal text in Carve.',
+        ],
+        'djot-intraword-underscore' => [
+            'Djot emphasizes this intraword `_x_`; the migration leaves it literal, so the emphasis is lost. Brace it as `{/x/}` if it was meant.',
+        ],
+        'djot-plus-bullet' => [
+            'Djot/Markdown `+` bullet is not a Carve bullet, so this line is a paragraph. Write `-` or `*`.',
+        ],
+        'djot-subscript-tilde' => [
+            'Djot subscript `~x~` is literal text in Carve. Carve subscript is the braced `{,x,}`.',
+        ],
+        'djot-subscript-tilde-braced' => [
+            'Djot subscript `{~x~}` renders as *strikethrough* in Carve.',
+        ],
+        'djot-superscript-caret' => [
+            'Djot superscript `^x^` is literal text in Carve — Carve superscript is the braced `{^x^}` only.',
+        ],
+        'duplicate-abbreviation-definition' => [
+            'Duplicate abbreviation definition (label) is ignored; the first definition for a label wins.',
+        ],
+        'duplicate-footnote-definition' => [
+            'Duplicate footnote definition [^${label}] is ignored; the first definition for a label wins.',
+        ],
+        'duplicate-id' => [
+            'Duplicate id "${explicit}": the repeated HTML id is invalid, and cross-references to it resolve to the first occurrence.',
+            'Heading slug "${base}" collides with another heading or an explicit id; its auto id becomes "${id}", and ambiguous references to "${base}" resolve to the first occurrence.',
+        ],
+        'duplicate-link-reference-definition' => [
+            'Duplicate link definition (label) is ignored; the first definition for a label wins.',
+        ],
+        'duplicate-reference-url' => [
+            'This reference definition repeats an earlier URL.',
+        ],
+        'emphasis-as-heading' => [
+            'This emphasized paragraph looks like a heading.',
+        ],
+        'emphasis-marker-before-attributes' => [
+            'This ${ch} closes no span, so it and the attribute block after it stay text. Brace the span you mean ({${ch}text${ch}}{…}) to attach the block, or escape the ${ch} to keep both as text.',
+            'This ${marker} closes the ${name} span that opens at line ${line}, column ${column}, so the attribute block after it attaches to that whole span, which also holds a literal ${marker}. Brace the span you mean ({${marker}text${marker}}{…}) or escape the inner ${marker} to make the pairing explicit.',
+        ],
+        'empty-include-path' => [
+            'This "${text}" looks like an include directive with no path, so it renders as literal text. Add a path (for example {{ chapter.crv }}) or remove the braces.',
+        ],
+        'empty-link-destination' => [
+            'This link has an empty destination.',
+        ],
+        'empty-reference-definition' => [
+            'This line is a label and a colon with nothing after it, so it is text and defines nothing. Add a destination, or remove the line.',
+        ],
+        'extension-fallback-rendered' => [
+            'Rendered the fallback of the unknown extension "${name}"',
+        ],
+        'fence-closer-indented' => [
+            'This line closes the block opened on line (n) although it is indented differently. If it is content, make the outer fence longer.',
+        ],
+        'fence-opener-fallback' => [
+            'A code fence carries no inline attributes, so "${attributes}" after the info string is not valid. The block opens without them (use: "${attributes}" on its own line directly above the fence, then "${opener}").',
+            'An admonition carries no inline attributes, so "${attributes}" after the name is not valid. The block opens without them (use: "${attributes}" on its own line directly above the opener, then "${opener}").',
+        ],
+        'fence-title-syntax' => [
+            'The title after "${type}" uses typographic quotes - usually a CMS "smart quote" filter rewrote the source before Carve parsed it. A fence title needs straight double quotes: ${fence} ${type} "${title}"${label}.',
+            'Text after the "${type}" fence type must be a quoted "title" or a [label]; unquoted it is not read as a title, and the block opens. Did you mean ${fence} ${type} "${title}"${label}?',
+            'The whitespace in this fence opener is not valid: at most one space follows the fence, and the parts of the info string are separated by spaces, never tabs. The block opens with no language (use: "${respaced}").',
+        ],
+        'field-unspellable' => [
+            'Carve source cannot spell ${what}',
+        ],
+        'figure-group-empty' => [
+            'This "::: figure" group holds no captionable panel; the panels wrapper renders around the preserved content only.',
+        ],
+        'figure-group-nested' => [
+            'A "::: figure" inside a figure group is a figure group of its own and not a panel of the outer group. Move it out of the enclosing group.',
+        ],
+        'figure-group-opener-metadata' => [
+            'A "::: figure" opener carrying a quoted title or [label] is not a figure group; it is a plain container with the class "figure" (C2-B-127). Drop the title or label to open a figure group, and use a caption line below it.',
+        ],
+        'figure-group-panel-number' => [
+            'A "#" placeholder in a panel caption stays literal: panels are not numbering units, the group caption carries the number (and panel ids resolve with its letter).',
+        ],
+        'figure-group-single-panel' => [
+            'This "::: figure" group holds a single panel; a plain captioned figure renders the same content without the group wrapper.',
+        ],
+        'footnote-labels-differ-only-in-whitespace' => [
+            'Footnote definition [^${label}] normalizes to the same key as [^${twin}]; the first definition wins. Normalized key: ${key}.',
+        ],
+        'footnotes-placement-in-container' => [
+            'This "::: footnotes" marker is inside a container, where it does not place: it renders as a plain typed div and the endnotes section goes where it would without the marker. Move the marker to document level, or delete it to accept the default position.',
+        ],
+        'frontmatter-shaped-thematic-break' => [
+            'Three hyphens on line 1 open frontmatter, not a thematic break. Write three stars for a break.',
+        ],
+        'github-alert-marker' => [
+            'This github alert marker stays literal in a Carve quote; use an admonition fence.',
+        ],
+        'glob-shaped-strong' => [
+            'This strong span looks like a file glob; escape the asterisk if you meant a glob.',
+        ],
+        'heading-closing-hashes' => [
+            'The closing "${run}" run is heading text in Carve, not a closing marker. Delete it.',
+        ],
+        'heading-level-skip' => [
+            'This heading skips from level ${previous} to ${level}; use the next heading level for a continuous outline.',
+        ],
+        'heading-marker-mixed' => [
+            'This document mixes the two heading markers. carve fmt rewrites the hash to the equals sign.',
+        ],
+        'heading-trailing-attribute' => [
+            'Trailing "${block}" on a heading is literal text in Carve, not an attribute block. Move it to a "${block}" line directly above the heading.',
+        ],
+        'html-comment-renders-as-text' => [
+            'This HTML comment renders as visible text. Use %% for one line or %%% for a comment block.',
+        ],
+        'include-attributes-unused' => [
+            'The attributes above this include apply to nothing, because it has no @code option. Remove them or move them into the included file.',
+        ],
+        'include-budget' => [
+            'Include "${path}" was not expanded: the included texts reach the size cap of ${limit} bytes.',
+        ],
+        'include-cols-duplicate' => [
+            'Include "${path}" was not expanded: @cols names the column ${name} twice.',
+        ],
+        'include-cols-invalid' => [
+            'Include "${path}" was not expanded: @cols ${reason}.',
+        ],
+        'include-cycle' => [
+            'Include "${path}" was not expanded: it would include a file that is already being included.',
+        ],
+        'include-depth' => [
+            'Include "${path}" was not expanded: it is nested deeper than ${limit} levels.',
+        ],
+        'include-expanded-roundtrip' => [
+            'Include "${path}" was expanded, so the roundtrip HTML holds the included content and not the directive.',
+        ],
+        'include-heading-clamp' => [
+            'A shift moves the heading "${text}" outside levels 1 to 6; it is kept at level ${level}.',
+        ],
+        'include-lines-out-of-range' => [
+            'Include "${path}" was not expanded: @lines starts past the last line of the file.',
+        ],
+        'include-lines-table-rows-hint' => [
+            '@lines counts physical lines. Use @rows to select records of this table.',
+        ],
+        'include-no-resolver' => [
+            'Include "${path}" was not expanded: no include resolver is configured.',
+        ],
+        'include-non-text' => [
+            'Include "${path}" was not expanded: the file is not text.',
+        ],
+        'include-not-found' => [
+            'Include "${path}" was not expanded: the file does not exist.',
+        ],
+        'include-option-invalid' => [
+            'The include option ${option} ${reason}, so the include is not expanded. Correct it or remove it.',
+        ],
+        'include-outside-root' => [
+            'Include "${path}" was not expanded: the path leads outside the include root.',
+        ],
+        'include-region-invalid' => [
+            'Include "${path}" was not expanded: the region ${name} ${reason}.',
+        ],
+        'include-rows-out-of-range' => [
+            'Include "${path}" was not expanded: @rows starts past the last record.',
+        ],
+        'include-section' => [
+            'Include "${path}" was not expanded: no heading or block has the id ${name}.',
+        ],
+        'include-selection-conflict' => [
+            'Include "${path}" was not expanded: ${reason}.',
+        ],
+        'include-unreadable' => [
+            'Include "${path}" was not expanded: the file cannot be read.',
+        ],
+        'include-unresolved' => [
+            'Include "${path}" could not be resolved.',
+        ],
+        'indented-code-block' => [
+            'Four-space indentation does not make a code block in Carve; this renders as a paragraph. Use a ``` fence.',
+        ],
+        'link-gap-before-destination' => [
+            'The gap after this link label keeps the link as text; write ]( with no space.',
+        ],
+        'list-item-block-overindented' => [
+            'This block opener is past the list item\'s canonical content column ${contentColumn}; it now parses structurally and the formatter will canonicalize it. Dedent it to column ${contentColumn} for an explicit structural spelling, or escape the opener to preserve the literal meaning used by older readers.',
+        ],
+        'list-item-body-below-content-column' => [
+            'This line is indented past the list marker but short of the item\'s text, and it belongs to the item. Indent it to the text, or move it to the column of the list to end the item.',
+        ],
+        'list-marker-below-content-column' => [
+            'This list marker starts at column ${column}, between the columns of two open lists, so it joins the deeper list. Start it at column ${contentColumn} to make that explicit, or at column ${baseColumn} to put it in the outer list.',
+        ],
+        'list-marker-without-blank-line' => [
+            'This list marker is part of the preceding paragraph; add a blank line before the list.',
+            'This list marker directly follows term or description text and is part of that text; add a blank line before the list.',
+        ],
+        'markdown-definition-paragraph' => [
+            'This markdown definition remains paragraph text; use a :: term line before the definition.',
+        ],
+        'markdown-strikethrough-double-tilde' => [
+            'Markdown `~~strikethrough~~` is literal text in Carve. Carve strikethrough is the braced `{~x~}`.',
+        ],
+        'markdown-strong-double-star' => [
+            'Markdown `**strong**` is literal text in Carve, asterisks included. Carve strong is a single `*`.',
+        ],
+        'non-descriptive-link-text' => [
+            'Use descriptive link text or a specific aria-label.',
+        ],
+        'ordered-list-kind-split' => [
+            'A lone i starts a roman list and any other single letter an alphabetic one, so this list splits after its first item.',
+        ],
+        'ordered-marker-right-aligned' => [
+            'This marker sits left of its list and is text of the item above. Ordered markers are left-aligned in 0.2.',
+        ],
+        'platform-issue-reference' => [
+            '${host} re-linkifies a hash-number in published output, so "${text}" becomes a link that notifies or references something unrelated; move the example into a fenced code block, or rewrite it as "item 1" / "point 1"',
+        ],
+        'platform-mention-token' => [
+            '${host} re-linkifies ${what} in published output, so "${text}" becomes a link that notifies or references something unrelated; move the example into a fenced code block, or strip the sigil and rephrase',
+        ],
+        'profile-construct-degraded' => [
+            'Degraded a construct the profile "${profile}" does not allow: ${construct}',
+        ],
+        'quote-fence-ends-the-quote-above' => [
+            'A "::: >" opener at the column of the quote above it ENDS that quote and opens a sibling one; the two render as adjacent blockquotes, not one nested in the other. Write "> ::: >" to nest it, or leave a blank line to make two quotes deliberate.',
+        ],
+        'raw-format-dropped' => [
+            'Dropped ${kind} raw format "${format}" while rendering ${target}',
+        ],
+        'references-placement-in-container' => [
+            'This "::: references" marker is inside a container and does not place the reference list. Move it to document level, or remove it if no placement is needed.',
+        ],
+        'region-marker-renders-as-text' => [
+            'This line renders as text and is not a region marker for a Carve include. Use "%% #region name".',
+        ],
+        'semantic-attribute-outside-span' => [
+            '"${name}" is a semantic span attribute (PART 9 §10) and only applies to an ordinary [content]{attrs} span; on ${type} it stays a raw attribute and renders as ${name}="${value}".',
+        ],
+        'semantic-attribute-value-ignored' => [
+            'Value on the semantic attribute "${name}" is discarded: it selects the <${name}> element and reaches no output. Only abbr, dfn and time carry a value (as title or datetime).',
+        ],
+        'setext-heading-underline' => [
+            'Carve has no underline heading: this run of hyphens is text. Write the heading with a leading `=`.',
+        ],
+        'sigil-after-letter' => [
+            'A mention or tag does not start directly after a letter or number. Put a space or punctuation before it.',
+        ],
+        'structure-unspellable' => [
+            'Carve source cannot spell ${what}',
+        ],
+        'table-attribute-invalid' => [
+            'The value of ${key} is not valid, so the table ignores the whole attribute. Correct every entry, or remove the attribute.',
+        ],
+        'table-column-arity' => [
+            '${key} supplies ${count} column entries for a ${widest}-column table; the unset tail is valid but may be accidental.',
+        ],
+        'table-column-overlap' => [
+            'Column ${n} supplies the same alignment axis both in the table and in a table attribute; the in-table marker wins.',
+        ],
+        'table-marker-run-padding' => [
+            '"${spelling}" writes a cell\'s attribute block before its alignment marker, which Carve no longer reads as one. The block is part of the cell\'s marker run and the run ends at a space, so with the "${marker}" glued to it there is no run: the braces are content and the cell is neither attributed nor aligned. Write "${marker}${block} " to align it, or "${block} ${marker}" to keep the "${marker}" as content deliberately.',
+        ],
+        'table-row-attribute-as-cell' => [
+            'A row attribute is the brace block glued after the closing pipe. Here it is cell content.',
+        ],
+        'table-row-cell-count' => [
+            'This table row has ${cells} cells; the header has ${width}. Add or remove a cell to match the table.',
+        ],
+        'table-row-count-clamped' => [
+            '${key}=${count} asks for more rows than the table has, so it takes ${effective}. Write ${key}=${effective}.',
+        ],
+        'table-row-without-closing-pipe' => [
+            'This row has no closing pipe. carve fmt adds it; escape the first pipe if the line is text.',
+        ],
+        'table-shaped-paragraph' => [
+            'This table-shaped line lacks a closing pipe and renders as paragraph text; close the table row.',
+        ],
+        'table-span-marker-attribute' => [
+            'This "${marker}" joins the cell ${direction}, so its attribute block applies to no cell and carve fmt drops it. Move the attributes to the cell it joins, or remove them.',
+            'This "${marker}" joins the cell ${direction}, and its header mark makes no head row, so it marks no cell and carve fmt drops it. Remove the "=", or make the row a head row.',
+        ],
+        'table-span-marker-blocked' => [
+            'The "${marker}" span marker cannot extend a cell. ${reason} It is a cell that holds "${marker}" as text; escape it as "\\${marker}" to say so, or remove it.',
+        ],
+        'table-width-total' => [
+            'The specified table column widths total more than 100%.',
+        ],
+        'thematic-break-spelling' => [
+            'This line of "${raw}" is text in Carve 0.2. Write "***" for a thematic break.',
+        ],
+        'tight-list-item-with-blank-line' => [
+            'A blank line inside an item no longer makes the list loose. Put a blank line between the items if every item should render as a paragraph.',
+        ],
+        'unattached-block-attribute' => [
+            'This attribute line reaches no block: a blank line or the end of its container follows, so the line is text (C2-B-192). Move it directly above the block it describes, or delete it.',
+            'This attribute line is separated from its block by a blank line, so it is text. Remove the blank line.',
+        ],
+        'unattached-caption' => [
+            'This caption line is not directly below an image, table, code block, quote, math block, figure group or code include, so it is text. If a blank line separates it from such a block, remove the blank line; otherwise escape the caret.',
+        ],
+        'unattached-inline-attribute' => [
+            'This attribute block is attached to nothing and renders as text. Glue it to a span, link or code span, or escape the brace.',
+        ],
+        'unclosed-braced-comment' => [
+            'This braced comment is not closed before the next block starts, so it stays text. Close it inside its block, or use %% line comments.',
+        ],
+        'unclosed-code-fence' => [
+            'The ${marker} fence opened here has no closing fence; ${ending}. Add a closing ${marker} where the code should stop.',
+        ],
+        'unclosed-comment-fence' => [
+            'The ${opener} comment fence opened here has no closing fence and hides everything to the end of its container (or: the document). Add a closing ${opener} where the comment should stop.',
+        ],
+        'unclosed-container-fence' => [
+            'This ${width}-colon ${kind} has no closer; it runs to the end of its container. Add a bare fence of ${width} colons to close it.',
+            'This ${width}-colon container has no closer; add a bare fence of ${width} colons to close it.',
+        ],
+        'unclosed-frontmatter' => [
+            'The frontmatter opened on line 1 has no closing line, so the whole document is frontmatter.',
+        ],
+        'unclosed-inline-emphasis' => [
+            'This strong (or: emphasis) opener is unclosed in its paragraph; add a closer.',
+        ],
+        'uneven-list-indent' => [
+            'This marker stands left of every open list and continues the list above it. Align it with the markers of that list.',
+        ],
+        'unresolved-footnote' => [
+            'Footnote reference [^${id}] has no matching definition; it renders as literal text.',
+        ],
+        'unresolved-reference-link' => [
+            'Reference link ${rawRef} matches no link definition or heading; ${caseOnlyPhrase}, and reference labels are case-sensitive, so it renders as literal text.',
+            'Reference link ${rawRef} has no matching link definition or heading; it renders as literal text.',
+            'Reference image ${rawRef} matches no link definition; ${caseOnlyPhrase}, and reference labels are case-sensitive, so it renders as literal text.',
+            'Reference image ${rawRef} has no matching link definition; it renders as literal text.',
+        ],
+        'unused-footnote-definition' => [
+            'Footnote definition [^${label}] is never referenced, so it is omitted from the rendered document.',
+        ],
+        'unused-link-reference-definition' => [
+            'This link reference definition is unused.',
+        ],
+    ];
+
     /** C2-A-173 lint-rules.json: severity, channel and first message of each parse and render-loss code */
     public const DIAGNOSTICS = [
         'carrier-attribute-dropped' => [

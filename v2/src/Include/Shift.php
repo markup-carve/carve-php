@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Include;
 
 use MarkupCarve\Carve2\Diagnostics\Findings;
+use MarkupCarve\Carve2\Diagnostics\Message;
 use MarkupCarve\Carve2\Node;
+use MarkupCarve\Carve2\Resolve\PlainText;
 
 final class Shift
 {
@@ -83,7 +85,9 @@ final class Shift
                 $value = $node->f['level'] + $amount;
                 $node->f['level'] = max(1, min(6, $value));
                 if ($node->f['level'] !== $value) {
-                    $findings->add('include-heading-clamp', $node, $node->file);
+                    $slots = ['text' => PlainText::of($node->children ?? []), 'level' => $node->f['level']];
+                    $text = Message::fill('include-heading-clamp', $slots);
+                    $findings->add('include-heading-clamp', $node, $node->file, message: $text);
                 }
             }
             foreach ($node->children ?? [] as $child) {

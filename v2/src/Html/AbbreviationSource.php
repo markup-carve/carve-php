@@ -30,7 +30,7 @@ final class AbbreviationSource
                 preg_match('/^[A-Za-z0-9]+$/D', $key) !== 1 || $expansion === ''
                 || strpbrk($expansion, "\r\n") !== false || str_ends_with($expansion, ' ') || str_ends_with($expansion, "\t")
             ) {
-                $log->loss('field-unspellable', 'warning', 'abbreviation definition has no exact source spelling');
+                $log->loss('field-unspellable', 'warning', ['what' => 'this abbreviation definition exactly']);
             }
             // C2-W-055: each line break becomes one space in the nearest spelling.
             $expansion = rtrim((string)preg_replace('/\r\n|\r|\n/', ' ', $expansion), " \t");
@@ -112,7 +112,7 @@ final class AbbreviationSource
      */
     private static function lostAttribute(RenderLog $log): void
     {
-        $log->loss('field-unspellable', 'warning', 'abbreviation attribute has no exact source spelling');
+        $log->loss('field-unspellable', 'warning', ['what' => 'this abbreviation attribute exactly']);
     }
 
     /**

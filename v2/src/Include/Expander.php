@@ -7,9 +7,11 @@ namespace MarkupCarve\Carve2\Include;
 use Closure;
 use MarkupCarve\Carve2\Attrs;
 use MarkupCarve\Carve2\Diagnostics\Findings;
+use MarkupCarve\Carve2\Diagnostics\Message;
 use MarkupCarve\Carve2\Inline\Chars;
 use MarkupCarve\Carve2\Node;
 use MarkupCarve\Carve2\Options;
+use MarkupCarve\Carve2\Resolve\PlainText;
 use MarkupCarve\Carve2\Resolve\Resolver;
 use Throwable;
 
@@ -97,8 +99,17 @@ final class Expander
         if ($from !== null) {
             $request['from'] = $from;
         }
+        // The built-in file resolver refuses a larger file before it reads it whole; a host resolver may ignore this.
+        $request['budget'] = $this->options->includeBytes - $this->bytes;
         $answer = $this->resolve($request);
         if (isset($answer['error'])) {
+            if (isset($answer['id'])) {
+                // C2-N-065 after the cycle test of rank 10: the file was over the budget.
+                $node->f['file'] = $answer['id'];
+                $this->failure(isset($ancestors[$answer['id']]) ? 'include-cycle' : 'include-budget', $node, $from);
+
+                return;
+            }
             $this->failure($answer['error'], $node, $from);
 
             return;
@@ -129,7 +140,7 @@ final class Expander
     /**
      * @param array<string, mixed> $request
      *
-     * @return array{text: string, id: string}|array{error: string}
+     * @return array{text: string, id: string}|array{error: string, id?: string}
      */
     private function resolve(array $request): array
     {
@@ -141,6 +152,9 @@ final class Expander
         }
         if (!is_array($answer)) {
             return ['error' => 'include-unreadable'];
+        }
+        if (($answer['error'] ?? null) === 'size_exceeded' && is_string($answer['id'] ?? null)) {
+            return ['error' => 'include-budget', 'id' => $answer['id']];
         }
         if (isset($answer['error'])) {
             $codes = [
@@ -339,29 +353,87 @@ final class Expander
 
     private function failure(string $code, Node $node, ?string $from): void
     {
-        $path = is_string($node->f['path'] ?? null) ? $node->f['path'] : '';
-        $shown = str_starts_with($path, '/') ? '[absolute path]'
-            : (preg_match('~^[A-Za-z][A-Za-z0-9+.-]*:~', $path) === 1 ? '[URI]' : $path);
-        $reasons = [
-            'include-no-resolver' => 'no resolver is configured',
-            'include-option-invalid' => 'an option is invalid',
-            'include-selection-conflict' => 'the selections conflict',
-            'include-depth' => 'the include depth limit was reached',
-            'include-budget' => 'the include byte budget was reached',
-            'include-outside-root' => 'the path lies outside the include root',
-            'include-not-found' => 'the target was not found',
-            'include-unreadable' => 'the target could not be read',
-            'include-non-text' => 'the target is not text',
-            'include-cycle' => 'the target would form a cycle',
-            'include-section' => 'the section was not found',
-            'include-region-invalid' => 'the region is invalid',
-            'include-lines-out-of-range' => 'the line range starts past the file',
-            'include-rows-out-of-range' => 'the row range starts past the file',
-            'include-cols-invalid' => 'the column selection is invalid',
-            'include-cols-duplicate' => 'a column is selected twice',
-        ];
-        $message = 'Include "' . $shown . '" was not expanded: ' . ($reasons[$code] ?? 'unknown cause') . '.';
+        $message = Message::fill($code, ['path' => self::shownPath($node)] + $this->failureSlots($code, $node));
         $this->findings->add($code, $node, $node->file, message: $message);
+    }
+
+    /**
+     * The path of an include as a message shows it: never a host path (C2-N-013).
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return string
+     */
+    public static function shownPath(Node $node): string
+    {
+        $path = is_string($node->f['path'] ?? null) ? $node->f['path'] : '';
+
+        return str_starts_with($path, '/') ? '[absolute path]'
+            : (preg_match('~^[A-Za-z][A-Za-z0-9+.-]*:~', $path) === 1 ? '[URI]' : $path);
+    }
+
+    /**
+     * The slots of a failure message beside the path.
+     *
+     * @param string $code
+     * @param \MarkupCarve\Carve2\Node $node
+     *
+     * @return array<string, string|int>
+     */
+    private function failureSlots(string $code, Node $node): array
+    {
+        $options = is_array($node->f['options'] ?? null) ? $node->f['options'] : [];
+        if ($code === 'include-option-invalid') {
+            $invalid = is_array($node->f['invalid'] ?? null) ? $node->f['invalid'] : [];
+
+            return ['option' => PlainText::str($invalid[0] ?? ''), 'reason' => 'is not a valid option'];
+        }
+        if ($code === 'include-selection-conflict') {
+            return ['reason' => self::conflictReason($node, $options)];
+        }
+        $limits = ['include-depth' => $this->options->includeDepth, 'include-budget' => $this->options->includeBytes];
+        if (isset($limits[$code])) {
+            return ['limit' => $limits[$code]];
+        }
+        $region = PlainText::str($options['region'] ?? '');
+
+        return [
+            'include-section' => ['name' => PlainText::str($node->f['section'] ?? '')],
+            'include-region-invalid' => ['name' => $region, 'reason' => 'is missing or its markers do not pair'],
+            'include-cols-invalid' => ['reason' => 'names a column the table does not have'],
+            'include-cols-duplicate' => ['name' => self::duplicateColumn($options['cols'] ?? null)],
+        ][$code] ?? [];
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param array<string, mixed> $options
+     *
+     * @return string
+     */
+    private static function conflictReason(Node $node, array $options): string
+    {
+        if (isset($node->f['section'], $options['code'])) {
+            return 'a section and @code exclude each other';
+        }
+
+        return isset($options['rows']) || isset($options['cols'])
+            ? '@rows and @cols need a code include of a csv or tsv table' : 'a directive takes at most one selection';
+    }
+
+    private static function duplicateColumn(mixed $cols): string
+    {
+        $seen = [];
+        $list = is_array($cols) ? $cols : (is_string($cols) ? explode(',', $cols) : []);
+        foreach ($list as $name) {
+            $name = trim(is_string($name) ? $name : '');
+            if (isset($seen[$name])) {
+                return $name;
+            }
+            $seen[$name] = true;
+        }
+
+        return '';
     }
 
     private function offset(Node $root, int $delta): void

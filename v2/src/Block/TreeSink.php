@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Block;
 
 use MarkupCarve\Carve2\Diagnostics\Findings;
+use MarkupCarve\Carve2\Diagnostics\ParseMessages;
 use MarkupCarve\Carve2\Node;
 
 /**
@@ -72,7 +73,8 @@ final class TreeSink implements Sink
         $frame->handle = $node;
         $this->note($frame, $node);
         if (!$frame->closed && isset(self::UNCLOSED[$frame->kind])) {
-            $this->findings->add(self::UNCLOSED[$frame->kind], $node);
+            $code = self::UNCLOSED[$frame->kind];
+            $this->findings->add($code, $node, message: ParseMessages::of($code, $this->s, $node, -1));
         }
         $at = count($parentNode->children ?? []);
         if ($at === 0 || $parentNode->children[$at - 1]->start <= $node->start) {
@@ -100,7 +102,8 @@ final class TreeSink implements Sink
             $this->note($frame, $node);
             if (!$frame->closed) {
                 // C2-B-111, C2-B-132
-                $this->findings->add('unclosed-container-fence', $node);
+                $code = 'unclosed-container-fence';
+                $this->findings->add($code, $node, message: ParseMessages::of($code, $this->s, $node, -1));
             }
         }
     }
@@ -146,8 +149,8 @@ final class TreeSink implements Sink
      */
     private function note(Frame $frame, Node $node): void
     {
-        foreach ($frame->findings as $code) {
-            $this->findings->add($code, $node);
+        foreach ($frame->findings as [$code, $from]) {
+            $this->findings->add($code, $node, message: ParseMessages::of($code, $this->s, $node, $from));
         }
     }
 }

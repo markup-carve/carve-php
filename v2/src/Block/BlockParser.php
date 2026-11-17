@@ -1277,7 +1277,7 @@ final class BlockParser
             return;
         }
         $brace = $this->s[$at] === '{' && AttributeParser::read($this->s, $at, $this->le, new Attrs()) > $at;
-        $f->findings[] = $brace && ($named || $at === $info->wordEnd) ? 'fence-opener-fallback' : 'fence-title-syntax';
+        $f->findings[] = [$brace && ($named || $at === $info->wordEnd) ? 'fence-opener-fallback' : 'fence-title-syntax', $at];
     }
 
     /**

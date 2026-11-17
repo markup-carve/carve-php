@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Html;
 
+use MarkupCarve\Carve2\Diagnostics\Message;
+
 /**
  * The render-loss entries of one render (C2-H-132, C2-A-173).
  */
@@ -27,18 +29,18 @@ final class RenderLog
     /**
      * @param string $code
      * @param string $severity
-     * @param string $message
+     * @param array<string, string|int> $slots The slots of the catalog message.
      * @param string|null $file
+     * @param int $variant
      *
      * @return void
      */
-    public function loss(string $code, string $severity, string $message, ?string $file = null): void
+    public function loss(string $code, string $severity, array $slots = [], ?string $file = null, int $variant = 0): void
     {
         $this->entries[] = [
-
             'code' => $code,
             'severity' => $severity,
-            'message' => $message,
+            'message' => Message::fill($code, $slots, $variant),
             'channel' => 'render-loss',
             'file' => $file,
         ];

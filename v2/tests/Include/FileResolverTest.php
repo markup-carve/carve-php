@@ -164,4 +164,33 @@ final class FileResolverTest extends TestCase
             rmdir($root);
         }
     }
+
+    public function testC2N065FileOverTheBudgetIsRefusedBeforeItIsReadWhole(): void
+    {
+        $root = sys_get_temp_dir() . '/carve-include-' . bin2hex(random_bytes(8));
+        mkdir($root);
+        $files = ['big.txt' => str_repeat("é line\n", 1 << 20), 'bad.txt' => str_repeat('a', 9000) . "\xFF"];
+        $files['self.crv'] = "x\n\n{{ self.crv }}\n";
+        try {
+            foreach ($files as $name => $text) {
+                file_put_contents($root . '/' . $name, $text);
+            }
+            $resolver = FileResolver::closure($root);
+            $before = memory_get_usage();
+            $big = $resolver(['path' => 'big.txt', 'options' => [], 'budget' => 1000]);
+            $this->assertSame(['error' => 'size_exceeded', 'id' => 'big.txt'], $big);
+            $this->assertLessThan(1 << 20, memory_get_peak_usage() - $before);
+            $this->assertSame(['error' => 'non_text'], $resolver(['path' => 'bad.txt', 'options' => [], 'budget' => 1000]));
+            $this->assertSame('big.txt', $resolver(['path' => 'big.txt', 'options' => []])['id'] ?? null);
+            $options = ['includes' => ['resolver' => $resolver, 'bytes' => 30]];
+            $this->assertContains('include-budget', Carve2::renderWithDiagnostics('{{ big.txt @code }}', $options)->codes());
+            $this->assertContains('include-non-text', Carve2::renderWithDiagnostics('{{ bad.txt @code }}', $options)->codes());
+            $this->assertContains('include-cycle', Carve2::renderWithDiagnostics('{{ self.crv }}', $options)->codes());
+        } finally {
+            foreach (array_keys($files) as $name) {
+                unlink($root . '/' . $name);
+            }
+            rmdir($root);
+        }
+    }
 }
