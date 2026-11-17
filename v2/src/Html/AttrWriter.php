@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve2\Html;
 
 use MarkupCarve\Carve2\Attrs;
 use MarkupCarve\Carve2\Generated\Tables;
+use MarkupCarve\Carve2\Node;
 use MarkupCarve\Carve2\Options;
 
 /**
@@ -55,6 +56,7 @@ final class AttrWriter
      * @param array{decl?: string, first?: bool, align?: bool} $style `decl` (a generated style declaration), `first` (the authored style
      *   comes first), `align` (an authored `align` key becomes a declaration, C2-H-015).
      * @param int|null $sourceLine
+     * @param string|null $dir The `dir` field (C2-A-031).
      *
      * @return string
      */
@@ -68,9 +70,10 @@ final class AttrWriter
         array $generated = [],
         array $style = [],
         ?int $sourceLine = null,
+        ?string $dir = null,
     ): string {
         if (
-            $attrs === null && $lang === null && $sourceLine === null && $base === [] && $tail === [] && $generated === []
+            $attrs === null && $lang === null && $dir === null && $sourceLine === null && $base === [] && $tail === [] && $generated === []
             && !isset($style['decl'])
         ) {
             // Nothing else to merge: the structural attributes, then the id; `align` and `first` act on authored attributes only.
@@ -90,7 +93,7 @@ final class AttrWriter
         if ($sourceLine !== null) {
             $seen['data-source-line'] = true;
         }
-        $this->identity($out, $seen, $id ?? $attrs?->id, $this->classes($base, $attrs !== null ? $attrs->classes : [], $tail), $lang);
+        $this->identity($out, $seen, $id ?? $attrs?->id, $this->classes($base, $attrs !== null ? $attrs->classes : [], $tail), $lang, $dir);
         if ($attrs !== null) {
             $this->authored($out, $seen, $attrs, $style);
         }
@@ -118,10 +121,11 @@ final class AttrWriter
      * @param string|null $id
      * @param string $classes
      * @param string|null $lang
+     * @param string|null $dir
      *
      * @return void
      */
-    private function identity(array &$out, array &$seen, ?string $id, string $classes, ?string $lang): void
+    private function identity(array &$out, array &$seen, ?string $id, string $classes, ?string $lang, ?string $dir): void
     {
         if ($id !== null && $id !== '' && !isset($seen['id'])) {
             $out[] = ['id', $id];
@@ -135,6 +139,18 @@ final class AttrWriter
             $out[] = ['lang', UrlPolicy::authoredValueFails($lang) ? '' : $lang];
             $seen['lang'] = true;
         }
+        // C2-H-009, C2-H-013: the direction beside the language; the field wins over a `dir` key.
+        if ($dir !== null) {
+            $out[] = ['dir', $dir];
+            $seen['dir'] = true;
+        }
+    }
+
+    public static function dirOf(Node $node): ?string
+    {
+        $dir = $node->f['dir'] ?? null;
+
+        return is_string($dir) ? $dir : null;
     }
 
     /**

@@ -219,7 +219,7 @@ final class InlineRenderer
         $kids = $node->children ?? [];
         $tag = Tables::DELIMITER_HTML[$type] ?? null;
         if ($tag !== null) {
-            return '<' . $tag . $this->aw->build([], null, $attrs, $lang) . '>'
+            return '<' . $tag . $this->aw->build([], null, $attrs, $lang, dir: AttrWriter::dirOf($node)) . '>'
                 . $this->inlines($kids, $depth + 1, true) . '</' . $tag . '>';
         }
 
@@ -251,7 +251,7 @@ final class InlineRenderer
      */
     private function code(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
     {
-        return '<code' . $this->aw->build([], null, $attrs, $lang) . '>'
+        return '<code' . $this->aw->build([], null, $attrs, $lang, dir: AttrWriter::dirOf($node)) . '>'
             . Escape::text(PlainText::str($node->f['value'] ?? '')) . '</code>';
     }
 
@@ -267,7 +267,10 @@ final class InlineRenderer
     {
         $text = Escape::text(PlainText::str($node->f['value'] ?? ''));
 
-        return $attrs === null && $lang === null ? $text : '<span' . $this->aw->build([], null, $attrs, $lang) . '>' . $text . '</span>';
+        $dir = AttrWriter::dirOf($node);
+
+        return $attrs === null && $lang === null && $dir === null
+            ? $text : '<span' . $this->aw->build([], null, $attrs, $lang, dir: $dir) . '>' . $text . '</span>';
     }
 
     /**
@@ -280,7 +283,7 @@ final class InlineRenderer
      */
     private function criticComment(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
     {
-        return '<span' . $this->aw->build([], null, $attrs, $lang, ['critic-comment']) . '>'
+        return '<span' . $this->aw->build([], null, $attrs, $lang, ['critic-comment'], dir: AttrWriter::dirOf($node)) . '>'
             . Escape::text(PlainText::str($node->f['value'] ?? '')) . '</span>';
     }
 
@@ -307,7 +310,7 @@ final class InlineRenderer
      */
     private function smallCaps(Node $node, ?Attrs $attrs, ?string $lang, int $depth): string
     {
-        return '<span' . $this->aw->build([], null, $attrs, $lang, ['smallcaps']) . '>'
+        return '<span' . $this->aw->build([], null, $attrs, $lang, ['smallcaps'], dir: AttrWriter::dirOf($node)) . '>'
             . $this->inlines($node->children ?? [], $depth + 1, true) . '</span>';
     }
 
@@ -339,9 +342,11 @@ final class InlineRenderer
         $value = PlainText::str($node->f['value'] ?? '');
         $display = ($node->f['display'] ?? false) === true;
         if ($this->o->mode === 'static') {
-            return '<code' . $this->aw->build([], null, $attrs, $lang, ['language-math']) . '>' . Escape::text($value) . '</code>';
+            return '<code' . $this->aw->build([], null, $attrs, $lang, ['language-math'], dir: AttrWriter::dirOf($node)) . '>'
+                . Escape::text($value) . '</code>';
         }
-        $out = '<span' . $this->aw->build([], null, $attrs, $lang, ['math', $display ? 'display' : 'inline'], [], [['role', 'math']]) . '>'
+        $classes = ['math', $display ? 'display' : 'inline'];
+        $out = '<span' . $this->aw->build([], null, $attrs, $lang, $classes, [], [['role', 'math']], dir: AttrWriter::dirOf($node)) . '>'
             . ($display ? '\\[' : '\\(') . Escape::text($value) . ($display ? '\\]' : '\\)') . '</span>';
         // C2-H-151: a numbered equation of a supplied tree.
         $number = $node->f['number'] ?? null;
@@ -415,7 +420,7 @@ final class InlineRenderer
         $inner = $this->inlines($node->children ?? [], $depth + 1, true);
         $this->abbrSpan -= $isAbbr ? 1 : 0;
         if ($layers === []) {
-            return '<span' . $this->aw->build([], null, $attrs, $lang) . '>' . $inner . '</span>';
+            return '<span' . $this->aw->build([], null, $attrs, $lang, dir: AttrWriter::dirOf($node)) . '>' . $inner . '</span>';
         }
         $last = count($layers) - 1;
         foreach ($layers as $i => [$key, $target, $value]) {
@@ -424,7 +429,8 @@ final class InlineRenderer
                 $derived = $this->aw->filterValue($target, $value);
                 $structural = $i === $last && $rest->get($target) !== null ? [] : [[$target, $derived]];
             }
-            $attr = $i === $last ? $this->aw->build($structural, null, $rest, $lang) : AttrWriter::join($structural);
+            $attr = $i === $last
+                ? $this->aw->build($structural, null, $rest, $lang, dir: AttrWriter::dirOf($node)) : AttrWriter::join($structural);
             $inner = '<' . $key . $attr . '>' . $inner . '</' . $key . '>';
         }
 
@@ -469,7 +475,7 @@ final class InlineRenderer
         $this->moved = $saved;
         $this->linkDepth--;
 
-        return '<a' . $this->aw->build($structural, null, $merged, $lang) . '>' . $inner . '</a>' . $moved;
+        return '<a' . $this->aw->build($structural, null, $merged, $lang, dir: AttrWriter::dirOf($node)) . '>' . $inner . '</a>' . $moved;
     }
 
     /**
@@ -670,7 +676,7 @@ final class InlineRenderer
             $structural[] = ['data-carve-autolink', null];
         }
 
-        return '<a' . $this->aw->build($structural, null, $attrs, $lang) . '>' . $text . '</a>';
+        return '<a' . $this->aw->build($structural, null, $attrs, $lang, dir: AttrWriter::dirOf($node)) . '>' . $text . '</a>';
     }
 
     /**
@@ -702,7 +708,7 @@ final class InlineRenderer
             $structural = array_merge($structural, self::refCarriers($node, $key));
         }
 
-        return '<img' . $this->aw->build($structural, null, $merged, $lang, sourceLine: $sourceLine) . '>';
+        return '<img' . $this->aw->build($structural, null, $merged, $lang, sourceLine: $sourceLine, dir: AttrWriter::dirOf($node)) . '>';
     }
 
     /**
@@ -765,7 +771,7 @@ final class InlineRenderer
             $structural[] = ['data-carve-xref', null];
         }
 
-        return '<a' . $this->aw->build($structural, null, $attrs, $lang) . '>' . $text . '</a>';
+        return '<a' . $this->aw->build($structural, null, $attrs, $lang, dir: AttrWriter::dirOf($node)) . '>' . $text . '</a>';
     }
 
     /**
@@ -786,7 +792,8 @@ final class InlineRenderer
             return $term;
         }
 
-        return '<abbr' . $this->aw->build([['title', $expansion]], null, $attrs, $lang) . '>' . $term . '</abbr>';
+        return '<abbr' . $this->aw->build([['title', $expansion]], null, $attrs, $lang, dir: AttrWriter::dirOf($node)) . '>'
+            . $term . '</abbr>';
     }
 
     /**
@@ -809,7 +816,7 @@ final class InlineRenderer
             ? null : $this->socialUrl($mention, $name, $node);
         $class = $mention ? 'mention' : 'tag';
         if ($url === null) {
-            return '<span' . $this->aw->build([], null, $attrs, $lang, [$class]) . '>' . $inner . '</span>';
+            return '<span' . $this->aw->build([], null, $attrs, $lang, [$class], dir: AttrWriter::dirOf($node)) . '>' . $inner . '</span>';
         }
 
         $rel = $this->rel($attrs);
@@ -817,7 +824,7 @@ final class InlineRenderer
         if ($rel !== null) {
             $structural[] = ['rel', $rel];
         }
-        $built = $this->aw->build($structural, null, $attrs, $lang, [$class]);
+        $built = $this->aw->build($structural, null, $attrs, $lang, [$class], dir: AttrWriter::dirOf($node));
         // C2-H-011: on a mention or a tag the class stands first.
         // C2-H-011: one negated class between fixed text, linear; once per linked mention or tag.
         if (preg_match('/ class="[^"]*"/', $built, $m) === 1) {
@@ -869,7 +876,7 @@ final class InlineRenderer
             return $out;
         }
 
-        return '<span' . $this->aw->build([], null, $attrs, $lang) . '>' . $out . '</span>';
+        return '<span' . $this->aw->build([], null, $attrs, $lang, dir: AttrWriter::dirOf($node)) . '>' . $out . '</span>';
     }
 
     /**
@@ -913,7 +920,7 @@ final class InlineRenderer
             return $this->inlines(PlainText::nodes(is_array($fallback) ? $fallback : $node->children), $depth + 1, true);
         }
 
-        return '<span' . $this->aw->build([], null, $attrs, $lang, ['ext-' . $name]) . '>'
+        return '<span' . $this->aw->build([], null, $attrs, $lang, ['ext-' . $name], dir: AttrWriter::dirOf($node)) . '>'
             . $this->inlines($node->children ?? [], $depth + 1, true) . '</span>';
     }
 
@@ -935,6 +942,6 @@ final class InlineRenderer
                 . '<rp>(</rp><rt>' . $this->inlines(PlainText::nodes($pair->f['annotation'] ?? []), $depth + 1, true) . '</rt><rp>)</rp>';
         }
 
-        return '<ruby' . $this->aw->build([], null, $attrs, $lang) . '>' . $out . '</ruby>';
+        return '<ruby' . $this->aw->build([], null, $attrs, $lang, dir: AttrWriter::dirOf($node)) . '>' . $out . '</ruby>';
     }
 }

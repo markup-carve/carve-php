@@ -75,7 +75,8 @@ final class TableRenderer
             }
         }
         $lang = is_string($table->f['lang'] ?? null) ? $table->f['lang'] : null;
-        $open = '<table' . $this->r->aw->build([], null, $copy, $lang, [], [], [], [], $this->r->line($table)) . '>';
+        $line = $this->r->line($table);
+        $open = '<table' . $this->r->aw->build([], null, $copy, $lang, sourceLine: $line, dir: AttrWriter::dirOf($table)) . '>';
 
         if ($lines === []) {
             // An empty table is written with no blank line inside, unlike an empty container (oracle output).

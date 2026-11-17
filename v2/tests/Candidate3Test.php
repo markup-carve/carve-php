@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Test;
 
 use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Html\HtmlRenderer;
+use MarkupCarve\Carve2\Json\TreeReader;
+use MarkupCarve\Carve2\Options;
 use PHPUnit\Framework\TestCase;
 
 final class Candidate3Test extends TestCase
@@ -60,5 +63,38 @@ final class Candidate3Test extends TestCase
         $tree = json_decode(Carve2::toJson($source, $options), true, 512, JSON_THROW_ON_ERROR);
         $this->assertArrayNotHasKey('number', $tree['children'][0]['caption']['children'][0]['children'][3]);
         $this->assertSame(1, $tree['children'][0]['children'][0]['caption']['children'][0]['children'][3]['number']);
+    }
+
+    public function testC2A135RendererResolvesASuppliedTreeAgain(): void
+    {
+        $tree = json_decode(Carve2::toJson("# Title\n\na[^n] [t][zz]\n\n[^n]: x\n"), true, 512, JSON_THROW_ON_ERROR);
+        $tree['children'][0]['generatedId'] = 'custom';
+        $tree['children'][1]['children'][1]['number'] = 5;
+        $tree['children'][1]['children'][3]['href'] = '/stale';
+        $html = HtmlRenderer::render(TreeReader::read((string)json_encode($tree)), Options::from([]));
+        $this->assertStringContainsString('<section id="Title">', $html);
+        $this->assertStringContainsString('<sup>1</sup>', $html);
+        $this->assertStringContainsString('[t][zz]', $html);
+        $this->assertStringNotContainsString('/stale', $html);
+        $this->assertStringNotContainsString('custom', $html);
+    }
+
+    public function testC2H009DirectionIsWrittenBesideTheLanguage(): void
+    {
+        $json = '{"type":"document","astVersion":"2.0","children":['
+            . '{"type":"paragraph","dir":"rtl","children":[{"type":"text","value":"x"}]},'
+            . '{"type":"paragraph","lang":"ar","dir":"rtl","attrs":{"keyValues":[["dir","ltr"],["k","v"]]},'
+            . '"children":[{"type":"emphasis","dir":"ltr","children":[{"type":"text","value":"y"}]}]}]}';
+        $html = HtmlRenderer::render(TreeReader::read($json), Options::from([]));
+        $this->assertSame("<p dir=\"rtl\">x</p>\n<p lang=\"ar\" dir=\"rtl\" k=\"v\"><em dir=\"ltr\">y</em></p>", $html);
+    }
+
+    public function testC2H013DirectionInATightItemKeepsItsParagraph(): void
+    {
+        $json = '{"type":"document","astVersion":"2.0","children":[{"type":"list","marker":{"kind":"bullet","char":"-"},'
+            . '"spacing":"tight","children":[{"type":"list_item","children":['
+            . '{"type":"paragraph","dir":"rtl","children":[{"type":"text","value":"x"}]}]}]}]}';
+        $html = HtmlRenderer::render(TreeReader::read($json), Options::from([]));
+        $this->assertSame("<ul>\n  <li><p dir=\"rtl\">x</p></li>\n</ul>", $html);
     }
 }

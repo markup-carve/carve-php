@@ -110,7 +110,7 @@ final class HtmlRenderer
     }
 
     /**
-     * @param \MarkupCarve\Carve2\Node $doc A resolved tree.
+     * @param \MarkupCarve\Carve2\Node $doc A tree; it is resolved here unless `$resolved` is given.
      * @param \MarkupCarve\Carve2\Options $opts
      * @param string|null $source The source, needed only for `sourceLines`.
      * @param \MarkupCarve\Carve2\Resolve\Facts|null $resolved Resolver::resolve(..., keep: true)->facts of this
@@ -145,6 +145,8 @@ final class HtmlRenderer
         gc_disable();
         $r = null;
         try {
+            // C2-A-135: a tree resolved elsewhere is resolved again; no result field is read from it.
+            $resolved ??= Resolver::resolve($doc, $source, $opts, true)->facts;
             $r = new self($doc, $opts, $source, $resolved);
             $html = $r->document();
         } finally {
@@ -748,7 +750,8 @@ final class HtmlRenderer
         $attrs = $node->f['attrs'] ?? null;
         $lang = $node->f['lang'] ?? null;
         if (
-            $attrs === null && $lang === null && $structural === [] && $base === [] && $tail === [] && $generated === []
+            $attrs === null && $lang === null && !isset($node->f['dir']) && $structural === [] && $base === [] && $tail === []
+            && $generated === []
             && ($this->lineStarts === null || !$block) && !isset($style['decl'])
         ) {
             return '';
@@ -764,6 +767,7 @@ final class HtmlRenderer
             $generated,
             $style,
             $block ? $this->line($node) : null,
+            AttrWriter::dirOf($node),
         );
     }
 
@@ -820,7 +824,7 @@ final class HtmlRenderer
      */
     private function bareImage(Node $node): bool
     {
-        return !isset($node->f['attrs']) && !isset($node->f['lang']) && $this->blockImage($node) !== null;
+        return !isset($node->f['attrs']) && !isset($node->f['lang']) && !isset($node->f['dir']) && $this->blockImage($node) !== null;
     }
 
     /**
@@ -839,7 +843,10 @@ final class HtmlRenderer
             return $this->unexpandedInclude($node, $depth, $bare);
         }
         $f = $node->f;
-        if ($append === '' && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang']) && !isset($f['role'])) {
+        if (
+            $append === '' && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang']) && !isset($f['dir'])
+            && !isset($f['role'])
+        ) {
             // No attributes, no source line and no role: neither a block image nor static math.
             $kids = $node->children ?? [];
             if (self::onlyComments($kids)) {
@@ -855,13 +862,13 @@ final class HtmlRenderer
         $kids = $node->children ?? [];
         $role = $node->f['role'] ?? null;
         $image = $append === '' ? $this->blockImage($node) : null;
-        if ($image !== null && !isset($node->f['attrs']) && !isset($node->f['lang'])) {
+        if ($image !== null && !isset($node->f['attrs']) && !isset($node->f['lang']) && !isset($node->f['dir'])) {
             return $this->imageParagraph($image, $node, $depth);
         }
         if ($role === 'math' && $this->o->mode === 'static') {
             return self::pad($depth) . $this->staticMath($node);
         }
-        $hasAttrs = isset($node->f['attrs']) || isset($node->f['lang']);
+        $hasAttrs = isset($node->f['attrs']) || isset($node->f['lang']) || isset($node->f['dir']);
         $content = $this->inline->leaf($kids, $depth + 1) . $append;
         if ($bare && !$hasAttrs) {
             return self::pad($depth) . $content;
@@ -952,7 +959,7 @@ final class HtmlRenderer
         $f = $node->f;
         $level = is_int($f['level'] ?? null) ? max(1, $f['level']) : 1;
         if (
-            $level <= 6 && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang'])
+            $level <= 6 && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang']) && !isset($f['dir'])
             && ($inSection || !$this->o->roundtrip)
         ) {
             return $this->plainHeading($node, $level, $depth, $inSection);
@@ -967,7 +974,9 @@ final class HtmlRenderer
             $tag = 'div';
             $structural = array_merge([['role', 'heading'], ['aria-level', (string)$level]], $structural);
         }
-        $attr = $this->aw->build($structural, $id, $attrs, $lang, [], [], [], ['align' => true], $this->line($node));
+        $line = $this->line($node);
+        $dir = AttrWriter::dirOf($node);
+        $attr = $this->aw->build($structural, $id, $attrs, $lang, style: ['align' => true], sourceLine: $line, dir: $dir);
 
         return self::pad($depth) . '<' . $tag . $attr . '>' . $this->inline->leaf($node->children ?? [], $depth + 1) . '</' . $tag . '>';
     }
@@ -1205,7 +1214,7 @@ final class HtmlRenderer
     {
         $f = $item->f;
         $task = is_array($f['task'] ?? null) ? $f['task'] : null;
-        if ($task === null && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang'])) {
+        if ($task === null && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang']) && !isset($f['dir'])) {
             $open = self::pad($depth) . '<li>';
         } else {
             [$box, $structural, $base, $style] = $task !== null ? self::taskParts($item, $task, $ordered) : ['', [], [], []];
@@ -1350,7 +1359,7 @@ final class HtmlRenderer
     private function div(Node $node, int $depth): string
     {
         $structural = [];
-        if ($this->o->roundtrip && !isset($node->f['attrs']) && !isset($node->f['lang'])) {
+        if ($this->o->roundtrip && !isset($node->f['attrs']) && !isset($node->f['lang']) && !isset($node->f['dir'])) {
             $structural[] = ['data-carve-div', null];
         }
         $children = array_merge($this->titleAndLabel($node, $depth + 1, null), $this->blocks($node->children ?? [], $depth + 1));

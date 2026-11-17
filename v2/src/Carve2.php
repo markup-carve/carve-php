@@ -59,8 +59,8 @@ final class Carve2
     public static function renderWithDiagnostics(string $source, array $options = []): RenderResult
     {
         $opts = Options::from($options);
-        [$doc, $findings] = self::parsed($source, $opts);
-        [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source);
+        [$doc, $findings, $facts] = self::parsed($source, $opts, true);
+        [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts);
         $entries = $findings->finish($doc);
         foreach ($log->entries as $entry) {
             $severity = $opts->strictLosses ? 'error' : $entry['severity'];
@@ -73,18 +73,19 @@ final class Carve2
     /**
      * @param string $source
      * @param \MarkupCarve\Carve2\Options $opts
+     * @param bool $keep Keep the facts of the resolve for the renderer.
      *
-     * @return array{0: \MarkupCarve\Carve2\Node, 1: \MarkupCarve\Carve2\Diagnostics\Findings}
+     * @return array{0: \MarkupCarve\Carve2\Node, 1: \MarkupCarve\Carve2\Diagnostics\Findings, 2: \MarkupCarve\Carve2\Resolve\Facts|null}
      */
-    private static function parsed(string $source, Options $opts): array
+    private static function parsed(string $source, Options $opts, bool $keep = false): array
     {
         $gc = self::collectorOff();
         try {
             [$doc, $findings, $hasInclude] = self::stages($source);
             self::expand($doc, $findings, $opts, $hasInclude);
-            Resolver::resolve($doc, $source, $opts, false, $findings);
+            $facts = Resolver::resolve($doc, $source, $opts, $keep, $findings)->facts;
 
-            return [$doc, $findings];
+            return [$doc, $findings, $facts];
         } finally {
             if ($gc) {
                 gc_enable();
