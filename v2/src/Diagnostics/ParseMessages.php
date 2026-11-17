@@ -45,7 +45,7 @@ final class ParseMessages
             'unclosed-code-fence' => self::unclosedCode($s, $node, $start),
             'unclosed-comment-fence' => self::unclosedComment($s, $node, $start),
             'unclosed-container-fence' => self::unclosedContainer($s, $node, $start),
-            'fence-title-syntax' => self::title($s, $start, $from),
+            'fence-title-syntax' => self::title($s, $start, $from, $node->type === 'code_block'),
             'fence-opener-fallback' => self::fallback($s, $node, $start, $from),
             default => Message::fill($code),
         };
@@ -143,10 +143,11 @@ final class ParseMessages
      * @param string $s
      * @param int $start
      * @param int $from
+     * @param bool $code The whitespace message is only for a code fence (C2-B-117).
      *
      * @return string
      */
-    private static function title(string $s, int $start, int $from): string
+    private static function title(string $s, int $start, int $from, bool $code): string
     {
         $run = self::run($s, $start);
         $lineEnd = self::lineEnd($s, $start);
@@ -170,7 +171,7 @@ final class ParseMessages
             return self::withoutType(Message::fill('fence-title-syntax', $slots + ['title' => $title], 0), $run, $type);
         }
         $glued = $afterRun < strlen($s) ? $s[$afterRun] : '';
-        if ($type === '' && ($glued === "\t" || ($glued === ' ' && in_array($s[$afterRun + 1] ?? '', [' ', "\t"], true)))) {
+        if ($code && $type === '' && ($glued === "\t" || ($glued === ' ' && in_array($s[$afterRun + 1] ?? '', [' ', "\t"], true)))) {
             $line = trim(substr($s, $afterRun, $lineEnd - $afterRun), " \t\r");
 
             return Message::fill('fence-title-syntax', ['respaced' => $run . ' ' . $line], 2);

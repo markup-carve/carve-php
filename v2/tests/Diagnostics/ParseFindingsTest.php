@@ -117,6 +117,11 @@ final class ParseFindingsTest extends TestCase
                 "::: note {.c}\nx\n:::", 'An admonition carries no inline attributes, so "{.c}" after the name is '
                 . 'not valid. The block opens without them (use: "{.c}" on its own line directly above the opener, then "::: note").',
             ],
+            'fence-title-syntax div spaces' => [
+                ":::  \"T\nx\n:::",
+                'Text after the ":::" fence type must be a quoted "title" or a [label]; unquoted it is not read as a title, and '
+                . 'the block opens. Did you mean ::: ""T"?',
+            ],
             'duplicate-footnote-definition' => [
                 "[^a]: x\n\n[^a]: y", 'Duplicate footnote definition [^a] is ignored; the first '
                 . 'definition for a label wins.',
