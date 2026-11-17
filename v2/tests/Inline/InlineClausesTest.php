@@ -103,7 +103,8 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I016CodeSpanTrimsOneSpace(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") code@2-11(value="`b`") text@11-12(value=" ") code@12-15(value=" ") text@15-16(value=" ") code@16-23(value=" c ")',
+            'text@0-2(value="a ") code@2-11(value="`b`") text@11-12(value=" ") code@12-1'
+            . '5(value=" ") text@15-16(value=" ") code@16-23(value=" c ")',
             self::inline('a `` `b` `` ` ` `  c  `'),
         );
     }
@@ -136,7 +137,8 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I019MathSpans(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") math@2-8(display=false value="x^2") text@8-9(value=" ") math@9-14(display=true value="y") text@14-18(value=" $ b")',
+            'text@0-2(value="a ") math@2-8(display=false value="x^2") text@8-9(value=" "'
+            . ') math@9-14(display=true value="y") text@14-18(value=" $ b")',
             self::inline('a $`x^2` $$`y` $ b'),
         );
     }
@@ -246,7 +248,10 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I036HostsTakeAttributes(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") strong@2-9(attrs={"id":null,"classes":["c"],"keyValues":[]}){text@3-4(value="b")} text@9-10(value=" ") code@10-17(value="d" attrs={"id":null,"classes":["e"],"keyValues":[]}) text@17-18(value=" ") autolink@18-34(href="http://x.y" attrs={"id":null,"classes":["f"],"keyValues":[]})',
+            'text@0-2(value="a ") strong@2-9(attrs={"id":null,"classes":["c"],"keyValues'
+            . '":[]}){text@3-4(value="b")} text@9-10(value=" ") code@10-17(value="d" attrs'
+            . '={"id":null,"classes":["e"],"keyValues":[]}) text@17-18(value=" ") autolink'
+            . '@18-34(href="http://x.y" attrs={"id":null,"classes":["f"],"keyValues":[]})',
             self::inline('a *b*{.c} `d`{.e} <http://x.y>{.f}'),
         );
     }
@@ -279,7 +284,8 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I040EmptyBlockOnlyAfterSpan(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") span@2-7{text@3-4(value="b")} text@7-8(value=" ") link@8-14(href="u"){text@9-10(value="c")} text@14-20(value="{} d{}")',
+            'text@0-2(value="a ") span@2-7{text@3-4(value="b")} text@7-8(value=" ") link'
+            . '@8-14(href="u"){text@9-10(value="c")} text@14-20(value="{} d{}")',
             self::inline('a [b]{} [c](u){} d{}'),
         );
     }
@@ -290,7 +296,9 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I043BraceOrder(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") strong@2-7{text@4-5(value="b")} text@7-8(value=" ") comment@8-13(form="braced" value="c") text@13-14(value=" ") critic_comment@14-19(value="d") text@19-22(value=" {x")',
+            'text@0-2(value="a ") strong@2-7{text@4-5(value="b")} text@7-8(value=" ") co'
+            . 'mment@8-13(form="braced" value="c") text@13-14(value=" ") critic_comment@14'
+            . '-19(value="d") text@19-22(value=" {x")',
             self::inline('a {*b*} {%c%} {#d#} {x'),
         );
     }
@@ -433,7 +441,8 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I064Span(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") span@2-13(attrs={"id":null,"classes":["d"],"keyValues":[]}){text@3-5(value="b ") strong@5-8{text@6-7(value="c")}}',
+            'text@0-2(value="a ") span@2-13(attrs={"id":null,"classes":["d"],"keyValues"'
+            . ':[]}){text@3-5(value="b ") strong@5-8{text@6-7(value="c")}}',
             self::inline('a [b *c*]{.d}'),
         );
     }
@@ -444,7 +453,8 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I066InlineLinkWithTitle(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") link@2-13(href="/u" tooltip="t"){text@3-4(value="b")} text@13-14(value=" ") link@14-25(href="/v" tooltip="s"){text@15-16(value="c")}',
+            'text@0-2(value="a ") link@2-13(href="/u" tooltip="t"){text@3-4(value="b")} '
+            . 'text@13-14(value=" ") link@14-25(href="/v" tooltip="s"){text@15-16(value="c")}',
             self::inline('a [b](/u "t") [c](/v \'s\')'),
         );
     }
@@ -455,7 +465,8 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I067BalancedDestination(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") link@2-11(href="u(v)"){text@3-4(value="b")} text@11-12(value=" ") link@12-21(href="u)v"){text@13-14(value="c")}',
+            'text@0-2(value="a ") link@2-11(href="u(v)"){text@3-4(value="b")} text@11-12'
+            . '(value=" ") link@12-21(href="u)v"){text@13-14(value="c")}',
             self::inline('a [b](u(v)) [c](u\\)v)'),
         );
     }
@@ -477,7 +488,8 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I071InnerLinkStays(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") link@2-17(href="v"){text@3-5(value="b ") link@5-11(href="u"){text@6-7(value="c")} text@11-13(value=" d")}',
+            'text@0-2(value="a ") link@2-17(href="v"){text@3-5(value="b ") link@5-11(hre'
+            . 'f="u"){text@6-7(value="c")} text@11-13(value=" d")}',
             self::inline('a [b [c](u) d](v)'),
         );
     }
@@ -488,7 +500,11 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I072References(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") link@2-8(key="k" namespace="link" refForm="full"){text@3-4(value="b")} text@8-9(value=" ") link@9-14(key="k" namespace="link" refForm="collapsed"){text@10-11(value="k")} text@14-15(value=" ") link@15-18(key="k" namespace="link" refForm="shortcut"){text@16-17(value="k")} text@18-22(value=" [x]")',
+            'text@0-2(value="a ") link@2-8(key="k" namespace="link" refForm="full"){text'
+            . '@3-4(value="b")} text@8-9(value=" ") link@9-14(key="k" namespace="link" ref'
+            . 'Form="collapsed"){text@10-11(value="k")} text@14-15(value=" ") link@15-18(k'
+            . 'ey="k" namespace="link" refForm="shortcut"){text@16-17(value="k")} text@18-'
+            . '22(value=" [x]")',
             self::inline('a [b][k] [k][] [k] [x]', ['k']),
         );
     }
@@ -499,7 +515,9 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I073Autolinks(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") autolink@2-18(href="http://x.y/z?q") text@18-19(value=" ") autolink@19-27(href="mailto:a@b.cd" text="a@b.cd") text@27-40(value=" <a@b> <1a:x>")',
+            'text@0-2(value="a ") autolink@2-18(href="http://x.y/z?q") text@18-19(value='
+            . '" ") autolink@19-27(href="mailto:a@b.cd" text="a@b.cd") text@27-40(value=" '
+            . '<a@b> <1a:x>")',
             self::inline('a <http://x.y/z?q> <a@b.cd> <a@b> <1a:x>'),
         );
     }
@@ -510,7 +528,8 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I074Image(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") image@2-17(src="u.png" alt="b *c*") text@17-18(value=" ") image@18-22(key="k" namespace="link" refForm="shortcut" alt="k")',
+            'text@0-2(value="a ") image@2-17(src="u.png" alt="b *c*") text@17-18(value="'
+            . ' ") image@18-22(key="k" namespace="link" refForm="shortcut" alt="k")',
             self::inline('a ![b *c*](u.png) ![k]', ['k']),
         );
     }
@@ -521,7 +540,8 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I078CaretOrAtLabelIsNoReference(): void
     {
         $this->assertSame(
-            'text@0-5(value="a [x]") footnote_ref@5-9(key="n" namespace="footnote") text@9-14(value=" [y][") mention@14-16(target="k" kind="user") text@16-17(value="]")',
+            'text@0-5(value="a [x]") footnote_ref@5-9(key="n" namespace="footnote") text'
+            . '@9-14(value=" [y][") mention@14-16(target="k" kind="user") text@16-17(value="]")',
             self::inline('a [x][^n] [y][@k]', ['k']),
         );
     }
@@ -576,7 +596,9 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I092MentionAndTagNames(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") mention@2-6(target="a.b" kind="user") text@6-8(value=". ") tag@8-11(name="a9") text@11-16(value="- #9 ") mention@16-19(target="-x" kind="user")',
+            'text@0-2(value="a ") mention@2-6(target="a.b" kind="user") text@6-8(value="'
+            . '. ") tag@8-11(name="a9") text@11-16(value="- #9 ") mention@16-19(target="-x'
+            . '" kind="user")',
             self::inline('a @a.b. #a9- #9 @-x'),
         );
     }
@@ -598,7 +620,9 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I094InlineExtension(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") inline_extension@2-16(name="kbd" attrs={"id":null,"classes":["k"],"keyValues":[]}){text@7-11(value="Ctrl")} text@16-29(value=" x:kbd[y] :e[")',
+            'text@0-2(value="a ") inline_extension@2-16(name="kbd" attrs={"id":null,"cla'
+            . 'sses":["k"],"keyValues":[]}){text@7-11(value="Ctrl")} text@16-29(value=" x:'
+            . 'kbd[y] :e[")',
             self::inline('a :kbd[Ctrl]{.k} x:kbd[y] :e['),
         );
     }
@@ -609,7 +633,8 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I096CrossReference(): void
     {
         $this->assertSame(
-            'text@0-2(value="a ") xref@2-9(key="sec" namespace="heading") text@9-12(value=" </") tag@12-14(name="a") text@14-17(value=" b>")',
+            'text@0-2(value="a ") xref@2-9(key="sec" namespace="heading") text@9-12(valu'
+            . 'e=" </") tag@12-14(name="a") text@14-17(value=" b>")',
             self::inline('a </#sec> </#a b>'),
         );
     }
@@ -620,7 +645,8 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I101CitationShapeIsText(): void
     {
         $this->assertSame(
-            'text@0-3(value="a [") mention@3-5(target="k" kind="user") text@5-7(value="] ") link@7-15(href="/u"){mention@8-10(target="k" kind="user")}',
+            'text@0-3(value="a [") mention@3-5(target="k" kind="user") text@5-7(value="]'
+            . ' ") link@7-15(href="/u"){mention@8-10(target="k" kind="user")}',
             self::inline('a [@k] [@k](/u)', ['k']),
         );
     }
@@ -653,7 +679,14 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I104QuotesOpenAndClose(): void
     {
         $this->assertSame(
-            "text@0-2(value=\"a \") smart_punctuation@2-3(kind=\"left_double_quote\" glyph=\"\u{201C}\" source=\"\\\"\") text@3-4(value=\"b\") smart_punctuation@4-5(kind=\"right_double_quote\" glyph=\"\u{201D}\" source=\"\\\"\") text@5-7(value=\" (\") smart_punctuation@7-8(kind=\"left_single_quote\" glyph=\"\u{2018}\" source=\"'\") text@8-9(value=\"c\") smart_punctuation@9-10(kind=\"right_single_quote\" glyph=\"\u{2019}\" source=\"'\") text@10-13(value=\") x\") smart_punctuation@13-14(kind=\"right_double_quote\" glyph=\"\u{201D}\" source=\"\\\"\") text@14-15(value=\"y\")",
+            'text@0-2(value="a ") smart_punctuation@2-3(kind="left_double_quote" gly'
+            . "ph=\"\u{201C}\" source=\"\\\"\") text@3-4(value=\"b\") smart_punctuation@4-"
+            . "5(kind=\"right_double_quote\" glyph=\"\u{201D}\" source=\"\\\"\") text@5-7("
+            . 'value=" (") smart_punctuation@7-8(kind="left_single_quote" glyph="'
+            . "\u{2018}\" source=\"'\") text@8-9(value=\"c\") smart_punctuation@9-10(kind="
+            . "\"right_single_quote\" glyph=\"\u{2019}\" source=\"'\") text@10-13(value=\""
+            . ") x\") smart_punctuation@13-14(kind=\"right_double_quote\" glyph=\"\u{201D}"
+            . '" source="\\"") text@14-15(value="y")',
             self::inline('a "b" (\'c\') x"y'),
         );
     }
@@ -664,7 +697,8 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I105ApostropheBeforeDigit(): void
     {
         $this->assertSame(
-            "text@0-2(value=\"a \") smart_punctuation@2-3(kind=\"right_single_quote\" glyph=\"\u{2019}\" source=\"'\") text@3-6(value=\"90s\")",
+            'text@0-2(value="a ") smart_punctuation@2-3(kind="right_single_quote" gl'
+            . "yph=\"\u{2019}\" source=\"'\") text@3-6(value=\"90s\")",
             self::inline('a \'90s'),
         );
     }
@@ -718,7 +752,12 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I111HyphenRuns(): void
     {
         $this->assertSame(
-            "text@0-2(value=\"a \") smart_punctuation@2-4(kind=\"en_dash\" glyph=\"\u{2013}\" source=\"--\") text@4-7(value=\" b \") smart_punctuation@7-10(kind=\"em_dash\" glyph=\"\u{2014}\" source=\"---\") text@10-13(value=\" c \") smart_punctuation@13-16(kind=\"em_dash\" glyph=\"\u{2014}\" source=\"---\") smart_punctuation@16-18(kind=\"en_dash\" glyph=\"\u{2013}\" source=\"--\") text@18-20(value=\" d\")",
+            'text@0-2(value="a ") smart_punctuation@2-4(kind="en_dash" glyph="'
+            . "\u{2013}\" source=\"--\") text@4-7(value=\" b \") smart_punctuation@7-10(ki"
+            . "nd=\"em_dash\" glyph=\"\u{2014}\" source=\"---\") text@10-13(value=\" c \")"
+            . " smart_punctuation@13-16(kind=\"em_dash\" glyph=\"\u{2014}\" source=\"---\""
+            . ") smart_punctuation@16-18(kind=\"en_dash\" glyph=\"\u{2013}\" source=\"--\""
+            . ') text@18-20(value=" d")',
             self::inline('a -- b --- c ----- d'),
         );
     }
@@ -729,7 +768,9 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I114Ellipsis(): void
     {
         $this->assertSame(
-            "text@0-1(value=\"a\") smart_punctuation@1-4(kind=\"ellipsis\" glyph=\"\u{2026}\" source=\"...\") text@4-6(value=\" b\") smart_punctuation@6-9(kind=\"ellipsis\" glyph=\"\u{2026}\" source=\"...\") text@9-10(value=\".\")",
+            'text@0-1(value="a") smart_punctuation@1-4(kind="ellipsis" glyph="'
+            . "\u{2026}\" source=\"...\") text@4-6(value=\" b\") smart_punctuation@6-9(kin"
+            . "d=\"ellipsis\" glyph=\"\u{2026}\" source=\"...\") text@9-10(value=\".\")",
             self::inline('a... b....'),
         );
     }
@@ -740,7 +781,16 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I115Arrows(): void
     {
         $this->assertSame(
-            "text@0-2(value=\"a \") smart_punctuation@2-5(kind=\"rightwards_arrow\" glyph=\"\u{2192}\" source=\"-->\") text@5-6(value=\" \") smart_punctuation@6-9(kind=\"leftwards_arrow\" glyph=\"\u{2190}\" source=\"<--\") text@9-10(value=\" \") smart_punctuation@10-14(kind=\"left_right_arrow\" glyph=\"\u{2194}\" source=\"<-->\") text@14-15(value=\" \") smart_punctuation@15-18(kind=\"rightwards_double_arrow\" glyph=\"\u{21D2}\" source=\"==>\") text@18-19(value=\" \") smart_punctuation@19-22(kind=\"leftwards_double_arrow\" glyph=\"\u{21D0}\" source=\"<==\") text@22-23(value=\" \") smart_punctuation@23-26(kind=\"left_right_double_arrow\" glyph=\"\u{21D4}\" source=\"<=>\") text@26-32(value=\" -> =>\")",
+            'text@0-2(value="a ") smart_punctuation@2-5(kind="rightwards_arrow" glyp'
+            . "h=\"\u{2192}\" source=\"-->\") text@5-6(value=\" \") smart_punctuation@6-9("
+            . "kind=\"leftwards_arrow\" glyph=\"\u{2190}\" source=\"<--\") text@9-10(value"
+            . "=\" \") smart_punctuation@10-14(kind=\"left_right_arrow\" glyph=\"\u{2194}"
+            . '" source="<-->") text@14-15(value=" ") smart_punctuation@15-18(kind="'
+            . "rightwards_double_arrow\" glyph=\"\u{21D2}\" source=\"==>\") text@18-19(val"
+            . 'ue=" ") smart_punctuation@19-22(kind="leftwards_double_arrow" glyph="'
+            . "\u{21D0}\" source=\"<==\") text@22-23(value=\" \") smart_punctuation@23-26("
+            . "kind=\"left_right_double_arrow\" glyph=\"\u{21D4}\" source=\"<=>\") text@26"
+            . '-32(value=" -> =>")',
             self::inline('a --> <-- <--> ==> <== <=> -> =>'),
         );
     }
@@ -751,7 +801,9 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I116ArrowNeedsItsExactRun(): void
     {
         $this->assertSame(
-            "text@0-3(value=\"a <\") smart_punctuation@3-6(kind=\"em_dash\" glyph=\"\u{2014}\" source=\"---\") text@6-7(value=\" \") smart_punctuation@7-10(kind=\"em_dash\" glyph=\"\u{2014}\" source=\"---\") text@10-11(value=\">\")",
+            'text@0-3(value="a <") smart_punctuation@3-6(kind="em_dash" glyph="'
+            . "\u{2014}\" source=\"---\") text@6-7(value=\" \") smart_punctuation@7-10(kin"
+            . "d=\"em_dash\" glyph=\"\u{2014}\" source=\"---\") text@10-11(value=\">\")",
             self::inline('a <--- --->'),
         );
     }
@@ -762,7 +814,14 @@ final class InlineClausesTest extends InlineTestCase
     public function testC2I117Signs(): void
     {
         $this->assertSame(
-            "text@0-2(value=\"a \") smart_punctuation@2-4(kind=\"not_equal\" glyph=\"\u{2260}\" source=\"!=\") text@4-5(value=\" \") smart_punctuation@5-7(kind=\"less_than_or_equal\" glyph=\"\u{2264}\" source=\"<=\") text@7-8(value=\" \") smart_punctuation@8-10(kind=\"greater_than_or_equal\" glyph=\"\u{2265}\" source=\">=\") text@10-11(value=\" \") smart_punctuation@11-13(kind=\"plus_minus\" glyph=\"\u{B1}\" source=\"+-\") text@13-14(value=\" \") smart_punctuation@14-18(kind=\"trademark\" glyph=\"\u{2122}\" source=\"(tm)\") text@18-32(value=\" (c) C++-style\")",
+            'text@0-2(value="a ") smart_punctuation@2-4(kind="not_equal" glyph="'
+            . "\u{2260}\" source=\"!=\") text@4-5(value=\" \") smart_punctuation@5-7(kind="
+            . "\"less_than_or_equal\" glyph=\"\u{2264}\" source=\"<=\") text@7-8(value=\" "
+            . "\") smart_punctuation@8-10(kind=\"greater_than_or_equal\" glyph=\"\u{2265}"
+            . '" source=">=") text@10-11(value=" ") smart_punctuation@11-13(kind="pl'
+            . "us_minus\" glyph=\"\u{B1}\" source=\"+-\") text@13-14(value=\" \") smart_pu"
+            . "nctuation@14-18(kind=\"trademark\" glyph=\"\u{2122}\" source=\"(tm)\") text"
+            . '@18-32(value=" (c) C++-style")',
             self::inline('a != <= >= +- (tm) (c) C++-style'),
         );
     }

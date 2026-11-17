@@ -173,7 +173,18 @@ final class Resolver
      *
      * @var array<string, true>
      */
-    private const LISTED = ['footnote_ref' => true, 'inline_footnote' => true, 'heading' => true, 'caption_number' => true, 'math' => true, 'figure_group' => true, 'table' => true, 'comment' => true, 'image' => true];
+    private const LISTED = [
+
+        'footnote_ref' => true,
+        'inline_footnote' => true,
+        'heading' => true,
+        'caption_number' => true,
+        'math' => true,
+        'figure_group' => true,
+        'table' => true,
+        'comment' => true,
+        'image' => true,
+    ];
 
     /**
      * C2-B-085
@@ -220,7 +231,19 @@ final class Resolver
             $doc->f['stages'] = ($doc->f['stages'] ?? null) === ['includeExpansion']
                 ? array_merge(['includeExpansion'], self::STAGES) : self::STAGES;
             if ($keep) {
-                $r->facts = new Facts($doc, $r->nodes, $r->end, $r->pos, $r->noteMarks, $r->headings, $r->numbered, $r->titled, $r->taken, $r->longDescriptions, $r->comments);
+                $r->facts = new Facts(
+                    $doc,
+                    $r->nodes,
+                    $r->end,
+                    $r->pos,
+                    $r->noteMarks,
+                    $r->headings,
+                    $r->numbered,
+                    $r->titled,
+                    $r->taken,
+                    $r->longDescriptions,
+                    $r->comments,
+                );
             }
             $r->nodes = [];
             $r->end = [];
@@ -288,18 +311,23 @@ final class Resolver
                 continue;
             }
             foreach ($node->children as $child) {
-                $key = $child->f['key'] ?? null;
-                if (is_string($key) && isset(self::DUPLICATE[$child->type])) {
-                    $first = match ($child->type) {
-                        'link_reference_definition' => $this->includeLinkDefs[$file][$key] ??= $child,
-                        'footnote' => $this->includeFootnoteDefs[$file][$key] ??= $child,
-                        default => $this->includeAbbrDefs[$file][$key] ??= $child,
-                    };
-                    if ($first !== $child) {
-                        $this->findings?->add(self::DUPLICATE[$child->type], $child, $file);
-                    }
-                }
+                $this->collectIncludedDefinition($child, $file);
                 $stack[] = $child;
+            }
+        }
+    }
+
+    private function collectIncludedDefinition(Node $child, string $file): void
+    {
+        $key = $child->f['key'] ?? null;
+        if (is_string($key) && isset(self::DUPLICATE[$child->type])) {
+            $first = match ($child->type) {
+                'link_reference_definition' => $this->includeLinkDefs[$file][$key] ??= $child,
+                'footnote' => $this->includeFootnoteDefs[$file][$key] ??= $child,
+                default => $this->includeAbbrDefs[$file][$key] ??= $child,
+            };
+            if ($first !== $child) {
+                $this->findings?->add(self::DUPLICATE[$child->type], $child, $file);
             }
         }
     }
@@ -369,7 +397,8 @@ final class Resolver
     }
 
     /**
-     * One pass over the tree, which also builds the pre-order list: every earlier result is cleared (a tree may be resolved again), authored
+     * One pass over the tree, which also builds the pre-order list: every earlier result is cleared
+     * (a tree may be resolved again), authored
      * ids are reserved first in document order (C2-H-024), and the nodes each later pass reads are listed.
      *
      * @return void
@@ -639,8 +668,8 @@ final class Resolver
     }
 
     /**
-     * C2-H-066: a panel of a figure group takes no number. C2-H-151: inside a captioned block or group
-     * whose caption has a mark, an equation's number belongs to that caption.
+     * C2-H-151: inside a captioned block or group whose caption has a mark, an equation's number
+     * belongs to that caption.
      *
      * @param int $at
      * @param int $to
@@ -673,18 +702,32 @@ final class Resolver
                     }
                 }
             }
-            if ($type === 'math' && $i >= $ownedUntil && ($node->f['display'] ?? false) === true && is_string($node->f['numberPrefix'] ?? null)) {
+            if (
+                $type === 'math' && $i >= $ownedUntil && ($node->f['display'] ?? false) === true
+                && is_string($node->f['numberPrefix'] ?? null)
+            ) {
                 $node->f['number'] = $this->next($node->f['numberPrefix']);
             }
             if ($type === 'figure_group') {
-                foreach ($node->children ?? [] as $child) {
-                    if (
-                        $child->type === 'table' || in_array($child->type, ['paragraph', 'code_block', 'block_quote'], true)
-                        && ($child->f['caption'] ?? null) instanceof Node
-                    ) {
-                        $panels[spl_object_id($child)] = true;
-                    }
-                }
+                $this->markPanels($node, $panels);
+            }
+        }
+    }
+
+    /**
+     * C2-H-066: a panel of a figure group takes no number.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param array<int, bool> $panels
+     */
+    private function markPanels(Node $node, array &$panels): void
+    {
+        foreach ($node->children ?? [] as $child) {
+            if (
+                $child->type === 'table' || in_array($child->type, ['paragraph', 'code_block', 'block_quote'], true)
+                && ($child->f['caption'] ?? null) instanceof Node
+            ) {
+                $panels[spl_object_id($child)] = true;
             }
         }
     }

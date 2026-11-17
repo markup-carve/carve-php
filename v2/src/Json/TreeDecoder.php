@@ -20,7 +20,15 @@ final class TreeDecoder
      *
      * @var array<string, true>
      */
-    private const OPAQUE = ['data' => true, 'props' => true, 'payload' => true, 'source' => true, 'resources' => true, 'extensions' => true];
+    private const OPAQUE = [
+
+        'data' => true,
+        'props' => true,
+        'payload' => true,
+        'source' => true,
+        'resources' => true,
+        'extensions' => true,
+    ];
 
     /**
      * @param string $json

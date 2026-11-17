@@ -179,15 +179,7 @@ final class HtmlRenderer
         $sections = $this->o->sections;
         foreach ($this->documentBlocks($this->doc->children ?? []) as $child) {
             if ($child->type === 'abbreviation_def') {
-                if ($child->file !== null) {
-                    if ($abbreviations !== []) {
-                        $this->appendAbbreviations($out, $abbreviations, count($open));
-                        $abbreviations = [];
-                    }
-
-                    continue;
-                }
-                $abbreviations[] = $child;
+                $this->collectAbbreviation($child, $abbreviations, $out, count($open));
 
                 continue;
             }
@@ -202,14 +194,7 @@ final class HtmlRenderer
             }
             $depth = count($open);
             if ($child === $this->state->placingDirective && $child->type === 'directive') {
-                foreach ($this->blocks($child->children ?? [], $depth) as $b) {
-                    $out[] = $b;
-                }
-                $section = $this->notes->section($depth, $child);
-                if ($section !== null) {
-                    $out[] = $section;
-                }
-                $this->notesPlaced = true;
+                $this->placeNotes($child, $depth, $out);
 
                 continue;
             }
@@ -233,6 +218,42 @@ final class HtmlRenderer
         }
 
         return implode("\n", $out);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $child
+     * @param array<\MarkupCarve\Carve2\Node> $abbreviations
+     * @param array<string> $out
+     * @param int $depth
+     */
+    private function collectAbbreviation(Node $child, array &$abbreviations, array &$out, int $depth): void
+    {
+        if ($child->file !== null) {
+            if ($abbreviations !== []) {
+                $this->appendAbbreviations($out, $abbreviations, $depth);
+                $abbreviations = [];
+            }
+
+            return;
+        }
+        $abbreviations[] = $child;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $child
+     * @param int $depth
+     * @param array<string> $out
+     */
+    private function placeNotes(Node $child, int $depth, array &$out): void
+    {
+        foreach ($this->blocks($child->children ?? [], $depth) as $b) {
+            $out[] = $b;
+        }
+        $section = $this->notes->section($depth, $child);
+        if ($section !== null) {
+            $out[] = $section;
+        }
+        $this->notesPlaced = true;
     }
 
     /**
@@ -805,17 +826,7 @@ final class HtmlRenderer
         $role = $node->f['role'] ?? null;
         $image = $append === '' ? $this->blockImage($node) : null;
         if ($image !== null && !isset($node->f['attrs']) && !isset($node->f['lang'])) {
-            // C2-H-020: only an unattributed block image paragraph loses its paragraph element.
-            $attrs = $image->f['attrs'] ?? null;
-            $lang = $image->f['lang'] ?? null;
-
-            return self::pad($depth) . $this->inline->image(
-                $image,
-                $attrs instanceof Attrs ? $attrs : null,
-                is_string($lang) ? $lang : null,
-                $depth,
-                $this->line($node),
-            );
+            return $this->imageParagraph($image, $node, $depth);
         }
         if ($role === 'math' && $this->o->mode === 'static') {
             return self::pad($depth) . $this->staticMath($node);
@@ -827,6 +838,21 @@ final class HtmlRenderer
         }
 
         return self::pad($depth) . '<p' . $this->attrs($node, [], [], [], [], ['align' => true]) . '>' . $content . '</p>';
+    }
+
+    private function imageParagraph(Node $image, Node $node, int $depth): string
+    {
+        // C2-H-020: only an unattributed block image paragraph loses its paragraph element.
+        $attrs = $image->f['attrs'] ?? null;
+        $lang = $image->f['lang'] ?? null;
+
+        return self::pad($depth) . $this->inline->image(
+            $image,
+            $attrs instanceof Attrs ? $attrs : null,
+            is_string($lang) ? $lang : null,
+            $depth,
+            $this->line($node),
+        );
     }
 
     /**
@@ -1183,6 +1209,20 @@ final class HtmlRenderer
                 }
             }
         }
+        $lines = $this->itemTail($rest, $degradedTail, $depth);
+
+        return $open . $first . "\n" . implode("\n", $lines) . "\n" . self::pad($depth) . '</li>';
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve2\Node> $rest
+     * @param array<string> $degradedTail
+     * @param int $depth
+     *
+     * @return array<string>
+     */
+    private function itemTail(array $rest, array $degradedTail, int $depth): array
+    {
         $lines = [];
         foreach ($degradedTail as $text) {
             $lines[] = self::pad($depth + 1) . '<p>' . $text . '</p>';
@@ -1196,7 +1236,7 @@ final class HtmlRenderer
             }
         }
 
-        return $open . $first . "\n" . implode("\n", $lines) . "\n" . self::pad($depth) . '</li>';
+        return $lines;
     }
 
     /**

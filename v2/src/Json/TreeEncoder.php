@@ -45,7 +45,10 @@ final class TreeEncoder
     {
         $encoder = new self();
 
-        return json_encode($encoder->encode($root, $source), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}';
+        return json_encode(
+            $encoder->encode($root, $source),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE,
+        ) ?: '{}';
     }
 
     /**
@@ -163,7 +166,15 @@ final class TreeEncoder
         [$sl, $sc] = $this->lineColumn($start);
         [$el, $ec] = $this->lineColumn($end);
 
-        return ['startLine' => $sl, 'endLine' => $el, 'startColumn' => $sc, 'endColumn' => $ec, 'startOffset' => $start, 'endOffset' => $end];
+        return [
+
+            'startLine' => $sl,
+            'endLine' => $el,
+            'startColumn' => $sc,
+            'endColumn' => $ec,
+            'startOffset' => $start,
+            'endOffset' => $end,
+        ];
     }
 
     /**

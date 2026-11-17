@@ -29,7 +29,8 @@ final class Expander
      *
      * @param \MarkupCarve\Carve2\Options $options
      * @param \MarkupCarve\Carve2\Diagnostics\Findings $findings
-     * @param \Closure(string, array<string, string>): array{0: \MarkupCarve\Carve2\Node, 1: \MarkupCarve\Carve2\Diagnostics\Findings} $parse
+     * @param \Closure(string, array<string, string>): array{0: \MarkupCarve\Carve2\Node,
+     *     1: \MarkupCarve\Carve2\Diagnostics\Findings} $parse
      */
     public function __construct(private Options $options, private Findings $findings, private Closure $parse)
     {

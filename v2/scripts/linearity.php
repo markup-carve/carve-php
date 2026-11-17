@@ -24,7 +24,8 @@ $shapes['links ]('] = str_repeat('[a](', 2000);
 $shapes['unclosed fences'] = str_repeat("```\na\n", 500);
 $shapes['table rows'] = str_repeat("| a | `b | c |\n", 500);
 if (isset($argv[1])) {
-    $docs = json_decode((string)preg_replace('/\\\\u[dD][89a-fA-F][0-9a-fA-F]{2}/', '\\\\ufffd', (string)file_get_contents($argv[1])), true);
+    $docs = json_decode((string)preg_replace('/\\\\u[dD][89a-fA-F][0-9a-fA-F]{2}/', '\\\\ufffd',
+        (string)file_get_contents($argv[1])), true);
     usort($docs, fn ($a, $b) => strlen($b) <=> strlen($a));
     foreach (array_slice($docs, 0, 5) as $k => $d) {
         $shapes["generated $k"] = $d . "\n\n";

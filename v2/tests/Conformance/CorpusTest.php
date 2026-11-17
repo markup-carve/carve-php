@@ -184,7 +184,10 @@ final class CorpusTest extends TestCase
             $this->assertTree($expected['tree'], $example['input'], $example['options']);
         }
         if (isset($expected['diagnostics'])) {
-            $this->assertDiagnostics($expected['diagnostics'], Carve2::renderWithDiagnostics($example['input'], $example['options'])->codes());
+            $this->assertDiagnostics($expected['diagnostics'], Carve2::renderWithDiagnostics(
+                $example['input'],
+                $example['options'],
+            )->codes());
         }
     }
 

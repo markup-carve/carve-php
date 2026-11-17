@@ -256,7 +256,10 @@ final class SchemaValidator
             }
         }
         $n = count($props);
-        if ((isset($schema->minProperties) && $n < $schema->minProperties) || (isset($schema->maxProperties) && $n > $schema->maxProperties)) {
+        if (
+            (isset($schema->minProperties) && $n < $schema->minProperties) || (isset($schema->maxProperties)
+            && $n > $schema->maxProperties)
+        ) {
             return $this->fail($path, 'property count');
         }
         foreach ((array)($schema->dependentRequired ?? []) as $key => $needs) {

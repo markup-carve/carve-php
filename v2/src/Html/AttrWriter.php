@@ -69,7 +69,10 @@ final class AttrWriter
         array $style = [],
         ?int $sourceLine = null,
     ): string {
-        if ($attrs === null && $lang === null && $sourceLine === null && $base === [] && $tail === [] && $generated === [] && !isset($style['decl'])) {
+        if (
+            $attrs === null && $lang === null && $sourceLine === null && $base === [] && $tail === [] && $generated === []
+            && !isset($style['decl'])
+        ) {
             // Nothing else to merge: the structural attributes, then the id; `align` and `first` act on authored attributes only.
             if ($id === null || $id === '') {
                 return $structural === [] ? '' : self::join($structural);

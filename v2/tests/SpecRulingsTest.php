@@ -377,7 +377,10 @@ final class SpecRulingsTest extends TestCase
     public function testC2A095TableColumnHasNoAuthoredField(): void
     {
         $tree = json_decode(Carve2::toJson("{aligns=right widths=50}\n| a |"), true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame(['type' => 'table_column', 'align' => 'right', 'width' => 0.5, 'resolvedAlign' => 'right'], $tree['children'][0]['columns'][0]);
+        $this->assertSame(
+            ['type' => 'table_column', 'align' => 'right', 'width' => 0.5, 'resolvedAlign' => 'right'],
+            $tree['children'][0]['columns'][0],
+        );
     }
 
     public function testC2B133RowCommentMayStartALongerPercentRun(): void
@@ -619,8 +622,14 @@ final class SpecRulingsTest extends TestCase
 
     public function testC2H007OnlyABareBlockImageStandsOnItsOwnLine(): void
     {
-        $this->assertSame('<blockquote><p class="c"><img src="x.png" alt="a"></p></blockquote>', Carve2::toHtml("> {.c}\n> ![a](x.png)\n> "));
+        $this->assertSame(
+            '<blockquote><p class="c"><img src="x.png" alt="a"></p></blockquote>',
+            Carve2::toHtml("> {.c}\n> ![a](x.png)\n> "),
+        );
         $this->assertSame("<blockquote>\n  <img src=\"x.png\" alt=\"a\">\n</blockquote>", Carve2::toHtml('> ![a](x.png)'));
-        $this->assertSame("<ul>\n  <li><p class=\"c\"><img src=\"x.png\" alt=\"a\"></p></li>\n</ul>", Carve2::toHtml("- {.c}\n  ![a](x.png)"));
+        $this->assertSame(
+            "<ul>\n  <li><p class=\"c\"><img src=\"x.png\" alt=\"a\"></p></li>\n</ul>",
+            Carve2::toHtml("- {.c}\n  ![a](x.png)"),
+        );
     }
 }

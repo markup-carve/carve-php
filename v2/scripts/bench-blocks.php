@@ -35,5 +35,6 @@ foreach ($docs as $name => $src) {
     }
     $times = array_slice($times, 2);
     sort($times);
-    printf("%-22s %8d B %4d lines  %9.3f (%.3f)\n", $name, strlen($src), substr_count($src, "\n") + 1, $times[intdiv(count($times), 2)], $times[0]);
+    printf("%-22s %8d B %4d lines  %9.3f (%.3f)\n", $name, strlen($src), substr_count($src, "\n") + 1,
+        $times[intdiv(count($times), 2)], $times[0]);
 }

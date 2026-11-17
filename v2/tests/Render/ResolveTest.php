@@ -118,8 +118,20 @@ final class ResolveTest extends RenderTestCase
     public function testC2H087FootnoteNumbering(): void
     {
         $ref = static fn (string $k): array => ['type' => 'footnote_ref', 'key' => $k, 'namespace' => 'footnote'];
-        $def = static fn (string $k): array => ['type' => 'footnote', 'key' => $k, 'namespace' => 'footnote', 'children' => [self::p(self::t($k))]];
-        $tree = self::doc(self::p(['type' => 'inline_footnote', 'children' => [$ref('n')]], $ref('m'), $ref('zz'), $ref('m')), $def('n'), $def('m'));
+        $def = static fn (string $k): array => [
+
+            'type' => 'footnote',
+            'key' => $k,
+            'namespace' => 'footnote',
+            'children'
+            => [self::p(self::t($k))],
+        ];
+        $tree = self::doc(self::p(
+            ['type' => 'inline_footnote', 'children' => [$ref('n')]],
+            $ref('m'),
+            $ref('zz'),
+            $ref('m'),
+        ), $def('n'), $def('m'));
         $out = self::resolved($tree)['children'][0]['children'];
         $this->assertSame(1, $out[0]['number']);
         $this->assertSame(3, $out[0]['children'][0]['number']);
@@ -133,11 +145,25 @@ final class ResolveTest extends RenderTestCase
      */
     public function testC2I081DefinitionsBeforeHeadings(): void
     {
-        $link = static fn (string $k, string $form = 'collapsed'): array => ['type' => 'link', 'key' => $k, 'namespace' => 'link', 'refForm' => $form, 'children' => [self::t($k)]];
+        $link = static fn (string $k, string $form = 'collapsed'): array => [
+
+            'type' => 'link',
+            'key' => $k,
+            'namespace'
+            => 'link', 'refForm' => $form,
+            'children' => [self::t($k)],
+        ];
         $tree = self::doc(
             self::h('Intro'),
             ['type' => 'heading', 'level' => 1, 'children' => [self::t('A '), ['type' => 'emphasis', 'children' => [self::t('b')]]]],
-            self::p($link('Intro'), $link('A b'), $link('nope'), ['type' => 'image', 'key' => 'A b', 'namespace' => 'link', 'refForm' => 'full', 'alt' => 'i']),
+            self::p($link('Intro'), $link('A b'), $link('nope'), [
+
+                'type' => 'image',
+                'key' => 'A b',
+                'namespace' => 'link',
+                'refForm' => 'full',
+                'alt' => 'i',
+            ]),
             ['type' => 'link_reference_definition', 'key' => 'Intro', 'namespace' => 'link', 'href' => '/def'],
         );
         $out = self::resolved($tree)['children'][2]['children'];
@@ -179,7 +205,15 @@ final class ResolveTest extends RenderTestCase
             'value' => '',
             'caption' => ['type' => 'caption', 'children' => [self::p(self::t($label), ['type' => 'caption_number'])]],
         ];
-        $group = ['type' => 'figure_group', 'children' => [$fig('Figure ')], 'caption' => ['type' => 'caption', 'children' => [self::p(self::t('Figure '), ['type' => 'caption_number'])]]];
+        $group = [
+            'type' => 'figure_group',
+            'children' => [$fig('Figure ')], 'caption' => [
+
+                'type' => 'caption',
+                'children'
+            => [self::p(self::t('Figure '), ['type' => 'caption_number'])],
+            ],
+        ];
         $out = self::resolved(self::doc($fig('Figure '), $fig('Fig. '), $fig('Figure '), $group));
         $n = static fn (array $f): mixed => $f['caption']['children'][0]['children'][1]['n'] ?? null;
         $this->assertSame([1, 1, 2], [$n($out['children'][0]), $n($out['children'][1]), $n($out['children'][2])]);
@@ -203,7 +237,20 @@ final class ResolveTest extends RenderTestCase
                 ], ['type' => 'table_column'],
             ],
             'children' => [
-                ['type' => 'table_head', 'children' => [['type' => 'table_row', 'children' => [$cell(['header' => true]), $cell(['header' => true, 'align' => 'right'])]]]],
+                [
+
+                    'type' => 'table_head',
+                    'children' => [
+                        [
+
+                            'type' => 'table_row',
+                            'children' => [
+                                $cell(['header' => true]),
+                                $cell(['header' => true, 'align' => 'right']),
+                            ],
+                        ],
+                    ],
+                ],
                 ['type' => 'table_body', 'children' => [['type' => 'table_row', 'children' => [$cell(), $cell(['span' => 'colspan'])]]]],
             ],
         ];
@@ -218,7 +265,13 @@ final class ResolveTest extends RenderTestCase
      */
     public function testC2A133ResolvingTwiceGivesTheSameTree(): void
     {
-        $tree = self::doc(self::h('A'), self::h('A'), self::p(['type' => 'footnote_ref', 'key' => 'n', 'namespace' => 'footnote']), ['type' => 'footnote', 'key' => 'n', 'namespace' => 'footnote', 'children' => []]);
+        $tree = self::doc(self::h('A'), self::h('A'), self::p([
+
+            'type' => 'footnote_ref',
+            'key' => 'n',
+            'namespace'
+            => 'footnote',
+        ]), ['type' => 'footnote', 'key' => 'n', 'namespace' => 'footnote', 'children' => []]);
         $doc = self::node($tree);
         Resolver::resolve($doc, null, Options::from([]));
         $once = (new TreeEncoder())->encode($doc, null);

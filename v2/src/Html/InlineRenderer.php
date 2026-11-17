@@ -20,7 +20,14 @@ final class InlineRenderer
      *
      * @var array<string, string>
      */
-    private const FIXED = ['soft_break' => "\n", 'hard_break' => "<br>\n", 'non_breaking_space' => '&nbsp;', 'comment' => '', 'citation' => ''];
+    private const FIXED = [
+
+        'soft_break' => "\n",
+        'hard_break' => "<br>\n",
+        'non_breaking_space' => '&nbsp;',
+        'comment' => '',
+        'citation' => '',
+    ];
 
     /**
      * The writer of each inline type, called with the node, its attributes, its language and the depth.
@@ -104,7 +111,8 @@ final class InlineRenderer
             } elseif ($node->type === 'text') {
                 $value = $node->f['value'] ?? '';
                 // Plain text needs no escaping: the check of Escape::text, done here to save two calls.
-                $out .= is_string($value) && strcspn($value, Escape::TEXT_SPECIAL) === strlen($value) ? $value : Escape::text(PlainText::str($value));
+                $out .= is_string($value) && strcspn($value, Escape::TEXT_SPECIAL) === strlen($value) ? $value
+                    : Escape::text(PlainText::str($value));
             } else {
                 $out .= $this->node($node, $depth);
             }
@@ -243,7 +251,8 @@ final class InlineRenderer
      */
     private function code(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
     {
-        return '<code' . $this->aw->build([], null, $attrs, $lang) . '>' . Escape::text(PlainText::str($node->f['value'] ?? '')) . '</code>';
+        return '<code' . $this->aw->build([], null, $attrs, $lang) . '>'
+            . Escape::text(PlainText::str($node->f['value'] ?? '')) . '</code>';
     }
 
     /**
@@ -271,7 +280,8 @@ final class InlineRenderer
      */
     private function criticComment(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
     {
-        return '<span' . $this->aw->build([], null, $attrs, $lang, ['critic-comment']) . '>' . Escape::text(PlainText::str($node->f['value'] ?? '')) . '</span>';
+        return '<span' . $this->aw->build([], null, $attrs, $lang, ['critic-comment']) . '>'
+            . Escape::text(PlainText::str($node->f['value'] ?? '')) . '</span>';
     }
 
     /**
@@ -439,7 +449,10 @@ final class InlineRenderer
             return $this->unresolved($node, $attrs, $lang, $depth);
         }
         // C2-H-177: a reference to a degraded heading writes as unresolved, without changing resolution.
-        if (is_string($key) && $this->profile !== null && !isset($this->state->linkDefs[$key]) && !$this->profile->allowsBlockType('heading')) {
+        if (
+            is_string($key) && $this->profile !== null && !isset($this->state->linkDefs[$key])
+            && !$this->profile->allowsBlockType('heading')
+        ) {
             return $this->unresolved($node, $attrs, $lang, $depth);
         }
         if ($this->linkDepth > 0) {

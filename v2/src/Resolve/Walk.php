@@ -15,7 +15,17 @@ final class Walk
     /**
      * @var array<string, true>
      */
-    public const OPAQUE = ['attrs' => true, 'data' => true, 'props' => true, 'payload' => true, 'source' => true, 'resources' => true, 'extensions' => true, 'columns' => true];
+    public const OPAQUE = [
+
+        'attrs' => true,
+        'data' => true,
+        'props' => true,
+        'payload' => true,
+        'source' => true,
+        'resources' => true,
+        'extensions' => true,
+        'columns' => true,
+    ];
 
     /**
      * @param \MarkupCarve\Carve2\Node $node

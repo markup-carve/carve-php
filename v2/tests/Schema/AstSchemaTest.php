@@ -103,7 +103,13 @@ final class AstSchemaTest extends TestCase
     private function nodesIn(mixed $value): array
     {
         if ($value instanceof stdClass) {
-            return isset($value->type) && is_string($value->type) ? [$value] : array_merge(...array_map(fn ($v) => $this->nodesIn($v), array_values(get_object_vars($value))) ?: [[]]);
+            if (isset($value->type) && is_string($value->type)) {
+                return [$value];
+            }
+
+            $children = array_map(fn ($v) => $this->nodesIn($v), array_values(get_object_vars($value)));
+
+            return array_merge(...$children ?: [[]]);
         }
         if (is_array($value)) {
             $out = [];

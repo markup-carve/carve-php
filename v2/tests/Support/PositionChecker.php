@@ -161,7 +161,10 @@ final class PositionChecker
         $pos = $node['pos'] ?? null;
         if (!is_array($pos)) {
             $emptyLine = $type === 'line' && ($node['children'] ?? []) === [];
-            if ($type !== 'document' && !isset(self::UNPOSITIONED[$type]) && !$inCell && !$emptyLine && !self::copiedCaption($ancestors, $type)) {
+            if (
+                $type !== 'document' && !isset(self::UNPOSITIONED[$type]) && !$inCell && !$emptyLine
+                && !self::copiedCaption($ancestors, $type)
+            ) {
                 $this->found[] = $where . ': no pos (C2-A-158)';
             }
 
@@ -193,7 +196,10 @@ final class PositionChecker
             return true;
         }
         foreach ($ancestors as $at => $a) {
-            if ($a['type'] === 'caption' && $at >= 2 && $ancestors[$at - 2]['type'] === 'include' && isset($ancestors[$at - 2]['caption'])) {
+            if (
+                $a['type'] === 'caption' && $at >= 2 && $ancestors[$at - 2]['type'] === 'include'
+                && isset($ancestors[$at - 2]['caption'])
+            ) {
                 return true;
             }
         }

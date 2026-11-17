@@ -64,12 +64,16 @@ final class TreeReaderTest extends TestCase
     public function testC2A017DuplicateDeclarationIsRefused(): void
     {
         $declaration = '{"name":"org.example.x","version":"1","required":false,"slots":[]}';
-        $this->assertReason('duplicate-extension-declaration', '{"type":"document","astVersion":"2.0","children":[],"extensions":[' . $declaration . ',' . $declaration . ']}');
+        $this->assertReason(
+            'duplicate-extension-declaration',
+            '{"type":"document","astVersion":"2.0","children":[],"extensions":[' . $declaration . ',' . $declaration . ']}',
+        );
     }
 
     public function testC2A018RequiredExtensionIsRefused(): void
     {
-        $json = '{"type":"document","astVersion":"2.0","children":[],"extensions":[{"name":"org.example.x","version":"1","required":true,"slots":[]}]}';
+        $json = '{"type":"document","astVersion":"2.0","children":[],"extensions":[{"name":"'
+            . 'org.example.x","version":"1","required":true,"slots":[]}]}';
         $this->assertReason('required-extension', $json);
         self::assertInstanceOf(Node::class, TreeReader::read($json, ['extensions' => ['org.example.x' => '1']]));
     }
@@ -81,7 +85,8 @@ final class TreeReaderTest extends TestCase
 
     public function testC2A035DuplicateAttributeKeyIsRefused(): void
     {
-        $this->assertReason('duplicate-attribute-key', '{"type":"document","astVersion":"2.0","children":[],"attrs":{"keyValues":[["X","1"],["x","2"]]}}');
+        $this->assertReason('duplicate-attribute-key', '{"type":"document","astVersion":"2.0","children":[],"attrs":{"keyValues":[['
+            . '"X","1"],["x","2"]]}}');
     }
 
     public function testC2A171DepthIsRefused(): void
@@ -95,7 +100,8 @@ final class TreeReaderTest extends TestCase
 
     public function testC2A171ParserTreesAtBothLimitsAreAccepted(): void
     {
-        $source = str_repeat('> ', 200) . 'x' . "\n\n" . str_repeat('- ', 100) . 'y' . "\n\n" . str_repeat('{_', 200) . 'z' . str_repeat('_}', 200);
+        $source = str_repeat('> ', 200) . 'x' . "\n\n" . str_repeat('- ', 100) . 'y' . "\n\n" . str_repeat('{_', 200) . 'z'
+            . str_repeat('_}', 200);
         self::assertInstanceOf(Node::class, TreeReader::read(Carve2::toJson($source)));
     }
 
@@ -103,9 +109,11 @@ final class TreeReaderTest extends TestCase
     {
         $child = '{"type":"text","value":"x"}';
         for ($i = 0; $i < 201; $i++) {
-            $child = '{"type":"' . ($i % 2 === 0 ? 'emphasis' : 'link') . '","children":[' . $child . ']' . ($i % 2 === 0 ? '' : ',"href":"u"') . '}';
+            $child = '{"type":"' . ($i % 2 === 0 ? 'emphasis' : 'link') . '","children":[' . $child . ']' . ($i % 2 === 0
+                ? '' : ',"href":"u"') . '}';
         }
-        $this->assertReason('depth', '{"type":"document","astVersion":"2.0","children":[{"type":"paragraph","children":[' . $child . ']}]}');
+        $this->assertReason('depth', '{"type":"document","astVersion":"2.0","children":[{"type":"paragraph","children":['
+            . $child . ']}]}');
     }
 
     public function testC2A171IncludeChildrenStartAgainAtLevelZero(): void
@@ -117,8 +125,12 @@ final class TreeReaderTest extends TestCase
 
             return $inner;
         };
-        $include = '{"type":"include","path":"a.crv","file":"a.crv","children":[' . $quotes(150, '{"type":"paragraph","children":[]}') . ']}';
-        self::assertInstanceOf(Node::class, TreeReader::read('{"type":"document","astVersion":"2.0","children":[' . $quotes(150, $include) . ']}'));
+        $include = '{"type":"include","path":"a.crv","file":"a.crv","children":[' . $quotes(
+            150,
+            '{"type":"paragraph","children":[]}',
+        ) . ']}';
+        self::assertInstanceOf(Node::class, TreeReader::read('{"type":"document","astVersion":"2.0","children":['
+            . $quotes(150, $include) . ']}'));
     }
 
     public function testC2A181ReversedRangeIsRefused(): void

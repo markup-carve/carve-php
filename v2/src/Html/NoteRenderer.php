@@ -31,7 +31,8 @@ final class NoteRenderer
         $o = $this->r->o;
         $pad = HtmlRenderer::pad($depth);
         $titleId = $directive !== null ? $state->admonitionIds[spl_object_id($directive)] ?? null : null;
-        $label = $titleId !== null ? ' aria-labelledby="' . Escape::attr($titleId) . '"' : ' aria-label="' . Escape::attr($o->label('endnotes')) . '"';
+        $label = $titleId !== null ? ' aria-labelledby="' . Escape::attr($titleId) . '"' : ' aria-label="'
+            . Escape::attr($o->label('endnotes')) . '"';
         $lines = [$pad . '<section role="doc-endnotes"' . $label . '>'];
         if ($directive !== null) {
             foreach ($this->r->titleAndLabel($directive, $depth + 1, $titleId) as $line) {
@@ -60,7 +61,10 @@ final class NoteRenderer
     {
         $structural = [['id', 'fn' . $number]];
         if ($this->r->o->roundtrip) {
-            $structural[] = $note->type === 'footnote' ? ['data-carve-footnote-label', PlainText::str($note->f['key'] ?? '')] : ['data-carve-inline-footnote', null];
+            $structural[] = $note->type === 'footnote' ? [
+                'data-carve-footnote-label',
+                PlainText::str($note->f['key'] ?? ''),
+            ] : ['data-carve-inline-footnote', null];
         }
         $back = $this->backlinks($number);
         $pad = HtmlRenderer::pad($depth);
@@ -106,7 +110,8 @@ final class NoteRenderer
         $out = [];
         foreach ($ids as $k => $id) {
             $n = $k + 1;
-            $out[] = '<a href="#' . Escape::attr($id) . '" role="doc-backlink" aria-label="' . Escape::attr($label . ' ' . $n) . '">↩<sup>' . $n . '</sup></a>';
+            $out[] = '<a href="#' . Escape::attr($id) . '" role="doc-backlink" aria-label="' . Escape::attr($label . ' '
+                . $n) . '">↩<sup>' . $n . '</sup></a>';
         }
 
         return implode(' ', $out);

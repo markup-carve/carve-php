@@ -43,7 +43,14 @@ final class ParseFindingsTest extends TestCase
             'C2-B-105 glued div name' => ["::: foo{.x}\nx\n:::", [['fence-opener-fallback', '/children/0', 0, 17]]],
             'C2-B-122 spaced after a class name' => ["::: foo {.x}\nx\n:::", [['fence-title-syntax', '/children/0', 0, 18]]],
             'C2-B-181 unclosed quote' => ["{table}\n```csv\na,\"b\nc\n```", [['delimited-table-malformed', '/children/0', 0, 25]]],
-            'C2-B-181 doubled quote at the end' => ["{table}\n```csv\na,\"b\"\"\n```", [['delimited-table-malformed', '/children/0', 0, 25]]],
+            'C2-B-181 doubled quote at the end' => [
+                "{table}\n```csv\na,\"b\"\"\n```", [
+                    [
+                        'delimited-table-malformed',
+                        '/children/0', 0, 25,
+                    ],
+                ],
+            ],
             'C2-B-181 closed quote' => ["{table}\n```csv\na,\"b\"\n```", []],
             'C2-B-085 link' => ["[a]: /x\n[a]: /y", [['duplicate-link-reference-definition', '/children/1', 8, 15]]],
             'C2-B-085 footnote' => ["[^a]: x\n\n[^a]: y", [['duplicate-footnote-definition', '/children/1', 9, 16]]],

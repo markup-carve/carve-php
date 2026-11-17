@@ -53,10 +53,17 @@ final class TableRenderer
         foreach ($this->groups($table, $grid) as [$tag, $rows, $groupNode]) {
             $rowLines = [];
             foreach ($rows as [$row, $group]) {
-                $rowLines[] = HtmlRenderer::pad($depth + 2) . '<tr' . $this->r->attrs($row) . '>' . $this->cells($row, $group, $grid, $columns, $depth + 2) . '</tr>';
+                $rowLines[] = HtmlRenderer::pad($depth + 2) . '<tr' . $this->r->attrs($row) . '>' . $this->cells(
+                    $row,
+                    $group,
+                    $grid,
+                    $columns,
+                    $depth + 2,
+                ) . '</tr>';
             }
             if ($rowLines !== []) {
-                $lines[] = $pad . '<' . $tag . $this->r->attrs($groupNode) . '>' . "\n" . implode("\n", $rowLines) . "\n" . $pad . '</' . $tag . '>';
+                $lines[] = $pad . '<' . $tag . $this->r->attrs($groupNode) . '>' . "\n" . implode("\n", $rowLines) . "\n"
+                    . $pad . '</' . $tag . '>';
             }
         }
         $attrs = $table->f['attrs'] ?? null;
@@ -116,7 +123,8 @@ final class TableRenderer
      * @param \MarkupCarve\Carve2\Node $table
      * @param \MarkupCarve\Carve2\Resolve\TableGrid $grid
      *
-     * @return array<array{0: string, 1: array<array{0: \MarkupCarve\Carve2\Node, 1: \MarkupCarve\Carve2\Node}>, 2: \MarkupCarve\Carve2\Node}>
+     * @return array<array{0: string, 1: array<array{0: \MarkupCarve\Carve2\Node,
+     *     1: \MarkupCarve\Carve2\Node}>, 2: \MarkupCarve\Carve2\Node}>
      */
     private function groups(Node $table, TableGrid $grid): array
     {

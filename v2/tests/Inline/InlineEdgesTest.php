@@ -34,7 +34,8 @@ final class InlineEdgesTest extends InlineTestCase
         $abbr = ['HTML' => 'Hyper'];
         $this->assertSame(
             'abbreviation@0-4(key="HTML" namespace="abbr" expansion="Hyper") text@4-11(value=" HTMLs ") '
-            . 'strong@11-17{abbreviation@12-16(key="HTML" namespace="abbr" expansion="Hyper")} text@17-18(value=" ") code@18-24(value="HTML")',
+            . 'strong@11-17{abbreviation@12-16(key="HTML" namespace="abbr" expansion="Hype'
+            . 'r")} text@17-18(value=" ") code@18-24(value="HTML")',
             self::inline('HTML HTMLs *HTML* `HTML`', [], $abbr),
         );
     }

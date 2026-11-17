@@ -101,7 +101,13 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B043BareDotNumbersAutomaticallyAndDotRunIsText(): void
     {
-        $this->assertTree("1. a\n. b\n\n. . . and then silence", '[{"type":"list","marker":{"kind":"ordered","style":"1","delimiter":"."},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"paragraph"}]},{"type":"list_item","children":[{"type":"paragraph"}]}]},{"type":"paragraph"}]');
+        $this->assertTree(
+            "1. a\n. b\n\n. . . and then silence",
+            '[{"type":"list","marker":{"kind":"ordered","style":"1","delimiter":"."},"sp'
+            . 'acing":"tight","children":[{"type":"list_item","children":[{"type":"paragra'
+            . 'ph"}]},{"type":"list_item","children":[{"type":"paragraph"}]}]},{"type":"pa'
+            . 'ragraph"}]',
+        );
     }
 
     /**
@@ -109,7 +115,9 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B045StartAttributeSetsListStart(): void
     {
-        $this->assertTree("{start=3}\n1. a\n2. b", '[{"type":"list","marker":{"kind":"ordered","style":"1","delimiter":".","start":3},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"paragraph"}]},{"type":"list_item","children":[{"type":"paragraph"}]}]}]');
+        $this->assertTree("{start=3}\n1. a\n2. b", '[{"type":"list","marker":{"kind":"ordered","style":"1","delimiter":".","sta'
+            . 'rt":3},"spacing":"tight","children":[{"type":"list_item","children":[{"type'
+            . '":"paragraph"}]},{"type":"list_item","children":[{"type":"paragraph"}]}]}]');
     }
 
     /**
@@ -117,7 +125,10 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B046TaskBoxIsAnItemFact(): void
     {
-        $this->assertTree("- [x] done\n- [ ] open\n- plain", '[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","children":[{"type":"list_item","task":{"mark":"x"},"children":[{"type":"paragraph"}]},{"type":"list_item","task":{"mark":" "},"children":[{"type":"paragraph"}]},{"type":"list_item","children":[{"type":"paragraph"}]}]}]');
+        $this->assertTree("- [x] done\n- [ ] open\n- plain", '[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","ch'
+            . 'ildren":[{"type":"list_item","task":{"mark":"x"},"children":[{"type":"parag'
+            . 'raph"}]},{"type":"list_item","task":{"mark":" "},"children":[{"type":"parag'
+            . 'raph"}]},{"type":"list_item","children":[{"type":"paragraph"}]}]}]');
     }
 
     /**
@@ -125,7 +136,10 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B049MismatchedMarkerStartsNewList(): void
     {
-        $this->assertTree("- a\n* b", '[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"paragraph"}]}]},{"type":"list","marker":{"kind":"bullet","char":"*"},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"paragraph"}]}]}]');
+        $this->assertTree("- a\n* b", '[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","ch'
+            . 'ildren":[{"type":"list_item","children":[{"type":"paragraph"}]}]},{"type":"'
+            . 'list","marker":{"kind":"bullet","char":"*"},"spacing":"tight","children":[{'
+            . '"type":"list_item","children":[{"type":"paragraph"}]}]}]');
     }
 
     /**
@@ -133,7 +147,11 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B056NestedListNeedsBulletOrValueOne(): void
     {
-        $this->assertTree("- a\n  7. b\n\n- c\n  1. d", '[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"loose","children":[{"type":"list_item","children":[{"type":"paragraph"}]},{"type":"list_item","children":[{"type":"paragraph"},{"type":"list","marker":{"kind":"ordered","style":"1","delimiter":"."},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"paragraph"}]}]}]}]}]');
+        $this->assertTree("- a\n  7. b\n\n- c\n  1. d", '[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"loose","ch'
+            . 'ildren":[{"type":"list_item","children":[{"type":"paragraph"}]},{"type":"li'
+            . 'st_item","children":[{"type":"paragraph"},{"type":"list","marker":{"kind":"'
+            . 'ordered","style":"1","delimiter":"."},"spacing":"tight","children":[{"type"'
+            . ':"list_item","children":[{"type":"paragraph"}]}]}]}]}]');
     }
 
     /**
@@ -141,7 +159,10 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B021MarkerWithoutQuoteMarkClosesQuoteInItem(): void
     {
-        $this->assertTree("- a\n\n  > q\n- b", '[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"paragraph"},{"type":"block_quote","children":[{"type":"paragraph"}]}]},{"type":"list_item","children":[{"type":"paragraph"}]}]}]');
+        $this->assertTree("- a\n\n  > q\n- b", '[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","ch'
+            . 'ildren":[{"type":"list_item","children":[{"type":"paragraph"},{"type":"bloc'
+            . 'k_quote","children":[{"type":"paragraph"}]}]},{"type":"list_item","children'
+            . '":[{"type":"paragraph"}]}]}]');
     }
 
     /**
@@ -157,7 +178,9 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B026ContainerThatDoesNotOwnLineCloses(): void
     {
-        $this->assertTree("> a\n\n- b", '[{"type":"block_quote","children":[{"type":"paragraph"}]},{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"paragraph"}]}]}]');
+        $this->assertTree("> a\n\n- b", '[{"type":"block_quote","children":[{"type":"paragraph"}]},{"type":"list","m'
+            . 'arker":{"kind":"bullet","char":"-"},"spacing":"tight","children":[{"type":"'
+            . 'list_item","children":[{"type":"paragraph"}]}]}]');
     }
 
     /**
@@ -165,7 +188,11 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B125BareColonRunClosesOrOpens(): void
     {
-        $this->assertTree(":::\na\n:::\n\n::::\nb\n:::\n::::", '[{"type":"div","children":[{"type":"paragraph"}]},{"type":"div","children":[{"type":"paragraph"},{"type":"div","children":[]}]}]');
+        $this->assertTree(
+            ":::\na\n:::\n\n::::\nb\n:::\n::::",
+            '[{"type":"div","children":[{"type":"paragraph"}]},{"type":"div","children":'
+            . '[{"type":"paragraph"},{"type":"div","children":[]}]}]',
+        );
     }
 
     /**
@@ -173,7 +200,12 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B127DivNameGivesAdmonition(): void
     {
-        $this->assertTree("::: note\nx\n:::\n\n::: warning \"T\" [L]\ny\n:::", '[{"type":"admonition","kind":"note","children":[{"type":"paragraph"}]},{"type":"admonition","kind":"warning","title":{"type":"title"},"groupLabel":"L","children":[{"type":"paragraph"}]}]');
+        $this->assertTree(
+            "::: note\nx\n:::\n\n::: warning \"T\" [L]\ny\n:::",
+            '[{"type":"admonition","kind":"note","children":[{"type":"paragraph"}]},{"ty'
+            . 'pe":"admonition","kind":"warning","title":{"type":"title"},"groupLabel":"L"'
+            . ',"children":[{"type":"paragraph"}]}]',
+        );
     }
 
     /**
@@ -181,7 +213,8 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B196SigilNeedsSpace(): void
     {
-        $this->assertTree(":::>\nx\n:::\n\n::: >\ny\n:::", '[{"type":"paragraph"},{"type":"div","children":[{"type":"block_quote","children":[{"type":"paragraph"}]}]}]');
+        $this->assertTree(":::>\nx\n:::\n\n::: >\ny\n:::", '[{"type":"paragraph"},{"type":"div","children":[{"type":"block_quote","chil'
+            . 'dren":[{"type":"paragraph"}]}]}]');
     }
 
     /**
@@ -197,7 +230,11 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B157BlockImagePromotedAtClose(): void
     {
-        $this->assertTree("![alt](a.png)\n\n![alt](a.png) more\n\n![alt](a.png)\n%% note", '[{"type":"paragraph","role":"image"},{"type":"paragraph"},{"type":"paragraph","role":"image"}]');
+        $this->assertTree(
+            "![alt](a.png)\n\n![alt](a.png) more\n\n![alt](a.png)\n%% note",
+            '[{"type":"paragraph","role":"image"},{"type":"paragraph"},{"type":"paragrap'
+            . 'h","role":"image"}]',
+        );
     }
 
     /**
@@ -213,7 +250,16 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B172SpanMarksJoinCells(): void
     {
-        $this->assertTree("|=a|=b|\n|x|<|\n|^|y|", '[{"type":"table","columns":[{"type":"table_column"},{"type":"table_column"}],"children":[{"type":"table_head","children":[{"type":"table_row","children":[{"type":"table_cell","header":true,"children":[{"type":"cell_paragraph"}]},{"type":"table_cell","header":true,"children":[{"type":"cell_paragraph"}]}]}]},{"type":"table_body","children":[{"type":"table_row","children":[{"type":"table_cell","header":false,"colspan":2,"children":[{"type":"cell_paragraph"}]},{"type":"table_cell","header":false,"span":"colspan","children":[]}]},{"type":"table_row","children":[{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]},{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]}]}]}]}]');
+        $this->assertTree("|=a|=b|\n|x|<|\n|^|y|", '[{"type":"table","columns":[{"type":"table_column"},{"type":"table_column"}'
+            . '],"children":[{"type":"table_head","children":[{"type":"table_row","childre'
+            . 'n":[{"type":"table_cell","header":true,"children":[{"type":"cell_paragraph"'
+            . '}]},{"type":"table_cell","header":true,"children":[{"type":"cell_paragraph"'
+            . '}]}]}]},{"type":"table_body","children":[{"type":"table_row","children":[{"'
+            . 'type":"table_cell","header":false,"colspan":2,"children":[{"type":"cell_par'
+            . 'agraph"}]},{"type":"table_cell","header":false,"span":"colspan","children":'
+            . '[]}]},{"type":"table_row","children":[{"type":"table_cell","header":false,"'
+            . 'children":[{"type":"cell_paragraph"}]},{"type":"table_cell","header":false,'
+            . '"children":[{"type":"cell_paragraph"}]}]}]}]}]');
     }
 
     /**
@@ -232,7 +278,12 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B176ContinuationFragmentPastLastColumnFormsCell(): void
     {
-        $this->assertTree("|a|b|\n+ c | d | e |", '[{"type":"table","columns":[{"type":"table_column"},{"type":"table_column"},{"type":"table_column"}],"children":[{"type":"table_body","children":[{"type":"table_row","children":[{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]},{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]},{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]}]}]}]}]');
+        $this->assertTree("|a|b|\n+ c | d | e |", '[{"type":"table","columns":[{"type":"table_column"},{"type":"table_column"}'
+            . ',{"type":"table_column"}],"children":[{"type":"table_body","children":[{"ty'
+            . 'pe":"table_row","children":[{"type":"table_cell","header":false,"children":'
+            . '[{"type":"cell_paragraph"}]},{"type":"table_cell","header":false,"children"'
+            . ':[{"type":"cell_paragraph"}]},{"type":"table_cell","header":false,"children'
+            . '":[{"type":"cell_paragraph"}]}]}]}]}]');
     }
 
     /**
@@ -253,7 +304,10 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B159ThematicBreakAndSpacedStarsNestLists(): void
     {
-        $this->assertTree("* * *\n\n***", '[{"type":"list","marker":{"kind":"bullet","char":"*"},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"list","marker":{"kind":"bullet","char":"*"},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"paragraph"}]}]}]}]},{"type":"thematic_break"}]');
+        $this->assertTree("* * *\n\n***", '[{"type":"list","marker":{"kind":"bullet","char":"*"},"spacing":"tight","ch'
+            . 'ildren":[{"type":"list_item","children":[{"type":"list","marker":{"kind":"b'
+            . 'ullet","char":"*"},"spacing":"tight","children":[{"type":"list_item","child'
+            . 'ren":[{"type":"paragraph"}]}]}]}]},{"type":"thematic_break"}]');
     }
 
     /**
@@ -288,7 +342,10 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B147CaptionSetsTableCaption(): void
     {
-        $this->assertTree("|a|\n^ Cap", '[{"type":"table","columns":[{"type":"table_column"}],"caption":{"type":"caption","children":[{"type":"paragraph"}]},"children":[{"type":"table_body","children":[{"type":"table_row","children":[{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]}]}]}]}]');
+        $this->assertTree("|a|\n^ Cap", '[{"type":"table","columns":[{"type":"table_column"}],"caption":{"type":"cap'
+            . 'tion","children":[{"type":"paragraph"}]},"children":[{"type":"table_body","'
+            . 'children":[{"type":"table_row","children":[{"type":"table_cell","header":fa'
+            . 'lse,"children":[{"type":"cell_paragraph"}]}]}]}]}]');
     }
 
     /**
@@ -296,7 +353,8 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B138CommentBlockAndCommentOnlyLine(): void
     {
-        $this->assertTree("%%%\nhidden\n%%%\n\n%% line", '[{"type":"comment","form":"block","value":"hidden"},{"type":"comment","form":"line","value":"line"}]');
+        $this->assertTree("%%%\nhidden\n%%%\n\n%% line", '[{"type":"comment","form":"block","value":"hidden"},{"type":"comment","form'
+            . '":"line","value":"line"}]');
     }
 
     /**
@@ -304,7 +362,10 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B154HeadingTakesIndentedContinuationLines(): void
     {
-        $this->assertTree("# Title\n  more\n\n# Two\n# Three", '[{"type":"heading","level":1},{"type":"heading","level":1},{"type":"heading","level":1}]');
+        $this->assertTree(
+            "# Title\n  more\n\n# Two\n# Three",
+            '[{"type":"heading","level":1},{"type":"heading","level":1},{"type":"heading","level":1}]',
+        );
     }
 
     /**
@@ -312,7 +373,12 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B016DescriptionListTermAndDescriptions(): void
     {
-        $this->assertTree(":: term\nmore term text\n: first\n\n: second", '[{"type":"definition_list","children":[{"type":"definition_term"},{"type":"definition_description","children":[{"type":"paragraph"}]},{"type":"definition_description","children":[{"type":"paragraph"}]}]}]');
+        $this->assertTree(
+            ":: term\nmore term text\n: first\n\n: second",
+            '[{"type":"definition_list","children":[{"type":"definition_term"},{"type":"'
+            . 'definition_description","children":[{"type":"paragraph"}]},{"type":"definit'
+            . 'ion_description","children":[{"type":"paragraph"}]}]}]',
+        );
     }
 
     /**
@@ -320,7 +386,8 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B087FootnoteBodyNeedsIndent(): void
     {
-        $this->assertTree("[^n]: note\n    more\n\nafter", '[{"type":"footnote","key":"n","namespace":"footnote","children":[{"type":"paragraph"}]},{"type":"paragraph"}]');
+        $this->assertTree("[^n]: note\n    more\n\nafter", '[{"type":"footnote","key":"n","namespace":"footnote","children":[{"type":"p'
+            . 'aragraph"}]},{"type":"paragraph"}]');
     }
 
     /**
@@ -328,7 +395,12 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B083LinkAndAbbreviationDefinitions(): void
     {
-        $this->assertTree("[ref]: https://x.test \"T\"\n\n*[HTML]: Hyper Text", '[{"type":"link_reference_definition","key":"ref","namespace":"link","href":"https://x.test","tooltip":"T"},{"type":"abbreviation_def","key":"HTML","namespace":"abbr","expansion":"Hyper Text"}]');
+        $this->assertTree(
+            "[ref]: https://x.test \"T\"\n\n*[HTML]: Hyper Text",
+            '[{"type":"link_reference_definition","key":"ref","namespace":"link","href":'
+            . '"https://x.test","tooltip":"T"},{"type":"abbreviation_def","key":"HTML","na'
+            . 'mespace":"abbr","expansion":"Hyper Text"}]',
+        );
     }
 
     /**
@@ -344,7 +416,8 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B117CodeFenceLanguageTitleLabel(): void
     {
-        $this->assertTree("```php \"File\" [lst]\nx\n```", '[{"type":"code_block","value":"x\\n","syntax":"php","title":{"type":"title"},"groupLabel":"lst"}]');
+        $this->assertTree("```php \"File\" [lst]\nx\n```", '[{"type":"code_block","value":"x\\n","syntax":"php","title":{"type":"title"'
+            . '},"groupLabel":"lst"}]');
     }
 
     /**
@@ -376,7 +449,12 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B052ThreeBlankLinesEndListAndLooseness(): void
     {
-        $this->assertTree("- a\n- b\n\n- c\n\n\n\n- d", '[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"loose","children":[{"type":"list_item","children":[{"type":"paragraph"}]},{"type":"list_item","children":[{"type":"paragraph"}]},{"type":"list_item","children":[{"type":"paragraph"}]}]},{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"paragraph"}]}]}]');
+        $this->assertTree("- a\n- b\n\n- c\n\n\n\n- d", '[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"loose","ch'
+            . 'ildren":[{"type":"list_item","children":[{"type":"paragraph"}]},{"type":"li'
+            . 'st_item","children":[{"type":"paragraph"}]},{"type":"list_item","children":'
+            . '[{"type":"paragraph"}]}]},{"type":"list","marker":{"kind":"bullet","char":"'
+            . '-"},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"'
+            . 'paragraph"}]}]}]');
     }
 
     /**
@@ -384,7 +462,10 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B201IncludeDirective(): void
     {
-        $this->assertTree("{{ data.csv @code:csv }}\nnext line", '[{"type":"include","path":"data.csv","options":{"code":"csv"}},{"type":"paragraph"}]');
+        $this->assertTree(
+            "{{ data.csv @code:csv }}\nnext line",
+            '[{"type":"include","path":"data.csv","options":{"code":"csv"}},{"type":"paragraph"}]',
+        );
     }
 
     /**
@@ -392,7 +473,17 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B180DelimitedTableFromCsvFence(): void
     {
-        $this->assertTree("{table}\n```csv\na,b\n\"c,d\",e\n```", '[{"type":"table","columns":[{"type":"table_column"},{"type":"table_column"}],"children":[{"type":"table_head","children":[{"type":"table_row","children":[{"type":"table_cell","header":true,"children":[{"type":"cell_paragraph"}]},{"type":"table_cell","header":true,"children":[{"type":"cell_paragraph"}]}]}]},{"type":"table_body","children":[{"type":"table_row","children":[{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]},{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]}]}]}]}]');
+        $this->assertTree(
+            "{table}\n```csv\na,b\n\"c,d\",e\n```",
+            '[{"type":"table","columns":[{"type":"table_column"},{"type":"table_column"}'
+            . '],"children":[{"type":"table_head","children":[{"type":"table_row","childre'
+            . 'n":[{"type":"table_cell","header":true,"children":[{"type":"cell_paragraph"'
+            . '}]},{"type":"table_cell","header":true,"children":[{"type":"cell_paragraph"'
+            . '}]}]}]},{"type":"table_body","children":[{"type":"table_row","children":[{"'
+            . 'type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]},{'
+            . '"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]}]'
+            . '}]}]}]',
+        );
     }
 
     /**
@@ -408,7 +499,9 @@ final class BlockClausesTest extends TestCase
      */
     public function testC2B021OrderedMarkerPastOneStaysLazyInQuoteInItem(): void
     {
-        $this->assertTree("> - > a\n>   2. b", '[{"type":"block_quote","children":[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"block_quote","children":[{"type":"paragraph"}]}]}]}]}]');
+        $this->assertTree("> - > a\n>   2. b", '[{"type":"block_quote","children":[{"type":"list","marker":{"kind":"bullet"'
+            . ',"char":"-"},"spacing":"tight","children":[{"type":"list_item","children":['
+            . '{"type":"block_quote","children":[{"type":"paragraph"}]}]}]}]}]');
     }
 
     /**
@@ -438,7 +531,9 @@ final class BlockClausesTest extends TestCase
     public function testC2B029FenceLeftOfContentColumnStripsToOpener(): void
     {
         // G-blocks-7.
-        $this->assertTree("- a\n\n ```\n  code\n ```", '[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","children":[{"type":"list_item","children":[{"type":"paragraph"},{"type":"code_block","value":" code\\n"}]}]}]');
+        $this->assertTree("- a\n\n ```\n  code\n ```", '[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","ch'
+            . 'ildren":[{"type":"list_item","children":[{"type":"paragraph"},{"type":"code'
+            . '_block","value":" code\\n"}]}]}]');
     }
 
     /**
@@ -482,7 +577,12 @@ final class BlockClausesTest extends TestCase
      */
     public function testNoExceptionOnHostileInput(): void
     {
-        $pieces = ["\n", ' ', "\t", '>', '-', '*', '1.', 'a)', ':::', '```', '%%%', '%%', '|', '=', '<', '^', '{', '}', '.', '[^x]:', '[x]:', '*[A]:', '^ ', '#', '{{ ', ' }}', '![x](y)', '$$`x`', '---', "\0", "\r", "\u{FEFF}", "\xff", '+'];
+        $pieces = [
+            "\n", ' ', "\t", '>', '-', '*', '1.', 'a)', ':::', '```',
+            '%%%', '%%', '|', '=', '<', '^', '{', '}', '.',
+            '[^x]:', '[x]:', '*[A]:', '^ ', '#', '{{ ', ' }}', '![x](y)', '$$`x`', '---',
+            "\0", "\r", "\u{FEFF}", "\xff", '+',
+        ];
         mt_srand(7);
         for ($doc = 0; $doc < 300; $doc++) {
             $src = '';

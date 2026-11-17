@@ -95,8 +95,25 @@ final class OptionsAndPolicyTest extends RenderTestCase
      */
     public function testC2H163CommentProfile(): void
     {
-        $tree = self::doc(self::p(self::t('See '), ['type' => 'link', 'href' => 'https://x.org', 'attrs' => ['keyValues' => [['rel', 'me']]], 'children' => [self::t('docs')]], self::t(' and '), ['type' => 'image', 'src' => 'i.png', 'alt' => 'pic']));
-        $this->assertSame('<p>See <a href="https://x.org" rel="me nofollow ugc">docs</a> and [img: pic]</p>', self::html($tree, ['profile' => 'comment']));
+        $tree = self::doc(self::p(self::t('See '), [
+
+            'type' => 'link',
+            'href' => 'https://x.org',
+            'attrs' => [
+
+                'keyValues'
+            => [['rel', 'me']],
+            ], 'children' => [self::t('docs')],
+        ], self::t(' and '), [
+
+            'type' => 'image',
+            'src' => 'i.png',
+            'alt' => 'pic',
+        ]));
+        $this->assertSame(
+            '<p>See <a href="https://x.org" rel="me nofollow ugc">docs</a> and [img: pic]</p>',
+            self::html($tree, ['profile' => 'comment']),
+        );
     }
 
     /**
@@ -139,7 +156,12 @@ final class OptionsAndPolicyTest extends RenderTestCase
     public function testC2A165JsonRoundTrip(): void
     {
         $source = "# H\n";
-        $json = '{"type":"document","astVersion":"2.0","children":[{"type":"heading","level":1,"children":[{"type":"text","value":"H","pos":{"startLine":1,"endLine":1,"startColumn":3,"endColumn":4,"startOffset":2,"endOffset":3}}],"generatedId":"H","attrs":{"classes":["c"]},"pos":{"startLine":1,"endLine":1,"startColumn":1,"endColumn":4,"startOffset":0,"endOffset":3}}],"srcByteLength":4,"data":{}}';
+        $json = '{"type":"document","astVersion":"2.0","children":[{"type":"heading","level"'
+            . ':1,"children":[{"type":"text","value":"H","pos":{"startLine":1,"endLine":1,'
+            . '"startColumn":3,"endColumn":4,"startOffset":2,"endOffset":3}}],"generatedId'
+            . '":"H","attrs":{"classes":["c"]},"pos":{"startLine":1,"endLine":1,"startColu'
+            . 'mn":1,"endColumn":4,"startOffset":0,"endOffset":3}}],"srcByteLength":4,"dat'
+            . 'a":{}}';
         $doc = TreeDecoder::json($json);
         $this->assertNotNull($doc);
         $this->assertSame(2, $doc->children[0]->children[0]->start ?? null);

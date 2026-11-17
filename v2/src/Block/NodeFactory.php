@@ -36,7 +36,10 @@ final class NodeFactory
             return $node;
         }
         $node = self::build($f, $s);
-        if ($f->attrs !== null && $f->kind !== Frame::DIV && $f->kind !== Frame::TABLE && $f->kind !== Frame::CODE && $f->kind !== Frame::LIST) {
+        if (
+            $f->attrs !== null && $f->kind !== Frame::DIV && $f->kind !== Frame::TABLE && $f->kind !== Frame::CODE
+            && $f->kind !== Frame::LIST
+        ) {
             $f->attrs->applyTo($node);
         }
 
@@ -242,7 +245,10 @@ final class NodeFactory
         $start = $m->value < 0 ? 1 : $m->value;
         $attrs = $f->attrs;
         $written = $attrs?->get('start');
-        if ($attrs !== null && $written !== null && $written !== '' && strlen($written) <= 9 && ctype_digit($written) && ($m->style === '1' || (int)$written >= 1)) {
+        if (
+            $attrs !== null && $written !== null && $written !== '' && strlen($written) <= 9 && ctype_digit($written)
+            && ($m->style === '1' || (int)$written >= 1)
+        ) {
             $start = (int)$written;
             $attrs->remove('start');
         }
