@@ -77,13 +77,15 @@ final class TreeSink implements Sink
             $this->findings->add($code, $node, message: ParseMessages::of($code, $this->s, $node, -1));
         }
         $at = count($parentNode->children ?? []);
-        if ($at === 0 || $parentNode->children[$at - 1]->start <= $node->start) {
+        // C2-B-091: a block placed by its own start, not by the attribute lines it took across a comment line.
+        $key = $frame->own >= 0 ? $frame->own : $node->start;
+        if ($at === 0 || $parentNode->children[$at - 1]->start <= $key) {
             $parentNode->children[] = $node;
 
             return;
         }
         $children = $parentNode->children;
-        while ($at > 0 && $children[$at - 1]->start > $node->start) {
+        while ($at > 0 && $children[$at - 1]->start > $key) {
             $at--;
         }
         array_splice($children, $at, 0, [$node]);
