@@ -4,25 +4,19 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Import;
 
-use Closure;
 use MarkupCarve\Carve2\Diagnostics\Diagnostic;
 use MarkupCarve\Carve2\Json\TreeError;
 use MarkupCarve\Carve2\Json\TreeReader;
 use MarkupCarve\Carve2\Node;
 use MarkupCarve\Carve2\Options;
 use MarkupCarve\Carve2\Resolve\Resolver;
+use MarkupCarve\Carve2\Writer\Writer;
 
 /**
  * The HTML importer of import-html.md: HTML in, a 0.2 tree, its canonical source and a diagnostics record out (C2-M-001).
  */
 final class HtmlImporter
 {
-    /**
-     * The canonical writer, `fn (Node $tree): array{0: string, 1: array<Diagnostic>}`. While it is null the result has no
-     * source; the engine sets it once the writer exists, and its loss entries follow the importer's (C2-M-074).
-     */
-    public static ?Closure $writer = null;
-
     /**
      * @param string $html
      * @param array<string, mixed> $options `rawHtml` (C2-M-066) and `strictLosses` (C2-M-082).
@@ -59,11 +53,10 @@ final class HtmlImporter
         }
         $tree = self::read($document);
         $diagnostics = $context->diagnostics;
-        $source = null;
-        if (self::$writer !== null) {
-            [$source, $written] = (self::$writer)($tree);
-            $diagnostics = array_merge($diagnostics, $written);
-        }
+        // C2-M-074: the writer's loss entries follow the importer's.
+        $written = Writer::writeWithDiagnostics($document);
+        $source = $written->source;
+        $diagnostics = array_merge($diagnostics, $written->diagnostics);
         if ($opts->strictLosses) {
             $diagnostics = array_map(static fn (Diagnostic $d): Diagnostic => new Diagnostic(
                 $d->code,

@@ -153,7 +153,7 @@ final class CorpusTest extends TestCase
     }
 
     /**
-     * A `write` example states the parse tree of its input, which this engine checks; its canonical source waits for the writer.
+     * A `write` example states the parse tree of its input; its source is checked by `Writer\WriteExamplesTest`.
      *
      * @param array<string, mixed> $example
      *

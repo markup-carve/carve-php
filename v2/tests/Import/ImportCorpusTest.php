@@ -55,9 +55,7 @@ final class ImportCorpusTest extends TestCase
         foreach ($example['expected']['diagnostics'] ?? [] as $code) {
             $this->assertContains($code, $result->codes());
         }
-        if ($result->source !== null) {
-            $this->assertSame($example['expected']['carve'], $result->source);
-        }
+        $this->assertSame($example['expected']['carve'], $result->source);
     }
 
     /**

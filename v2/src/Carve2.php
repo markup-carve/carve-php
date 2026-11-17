@@ -139,7 +139,9 @@ final class Carve2
      */
     private static function divBody(Node $div): string
     {
-        return '';
+        $blocks = (new TreeEncoder())->encode($div, null)['children'] ?? [];
+
+        return Writer::writeBlocks(is_array($blocks) ? $blocks : []);
     }
 
     /**

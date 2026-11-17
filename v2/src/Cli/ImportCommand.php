@@ -7,7 +7,6 @@ namespace MarkupCarve\Carve2\Cli;
 use MarkupCarve\Carve2\Diagnostics\Diagnostic;
 use MarkupCarve\Carve2\Import\HtmlImporter;
 use MarkupCarve\Carve2\Import\ImportInputError;
-use MarkupCarve\Carve2\Json\TreeEncoder;
 use MarkupCarve\Carve2\Json\TreeError;
 
 /**
@@ -65,7 +64,7 @@ final class ImportCommand
         foreach ($result->diagnostics as $entry) {
             fwrite($err, 'carve[' . $entry->code . ']: ' . $entry->message . "\n");
         }
-        fwrite($out, $result->source ?? TreeEncoder::json($result->tree, null) . "\n");
+        fwrite($out, $result->source);
 
         return 0;
     }

@@ -226,7 +226,8 @@ final class ImportClausesTest extends TestCase
                 ],
             ],
         ], $result->document['children']);
-        $this->assertSame(['import-structure-repaired'], $result->codes());
+        // C2-A-159: ruby has no source spelling, so the writer's loss follows the importer's (C2-M-074).
+        $this->assertSame(['import-structure-repaired', 'structure-unspellable'], $result->codes());
     }
 
     public function testC2M049MathWithoutTexIsItsText(): void

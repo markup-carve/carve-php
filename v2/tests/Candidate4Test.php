@@ -309,4 +309,20 @@ final class Candidate4Test extends TestCase
         $tree = json_decode(Carve2::toJson($source, ['extensions' => Tabs::extensions()]), true);
         $this->assertCount(count($paths), Carve2::validateLayout((string)json_encode($result->layout), $tree)['nodes']);
     }
+
+    public function testC2X045TabsSourceBodyKeepsTheNestedTabDivs(): void
+    {
+        $source = ":::: tabs\n::: tab \"Install\"\nRun setup.\n:::\n\n::: tab \"Use\"\nOpen the app.\n:::\n::::\n";
+        $tree = json_decode(Carve2::toJson($source, ['extensions' => Tabs::extensions()]), true);
+        $tabs = $tree['children'][0];
+        $this->assertSame(
+            ['form' => 'div', 'name' => 'tabs', 'body' => "::: tab \"Install\"\nRun setup.\n:::\n\n::: tab \"Use\"\nOpen the app.\n:::\n"],
+            $tabs['source'],
+        );
+        $this->assertSame(
+            ['form' => 'div', 'name' => 'tab', 'body' => "Run setup.\n", 'title' => 'Install'],
+            $tabs['slots']['tabs'][0]['source'],
+        );
+        $this->assertSame("Open the app.\n", $tabs['slots']['tabs'][1]['source']['body']);
+    }
 }
