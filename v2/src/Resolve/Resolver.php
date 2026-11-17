@@ -299,36 +299,46 @@ final class Resolver
      */
     private function collectIncludedDefinitions(): void
     {
-        $stack = $this->doc->children ?? [];
+        $stack = array_reverse($this->doc->children ?? []);
         while ($stack !== []) {
             $node = array_pop($stack);
             $file = $node->f['file'] ?? null;
-            if ($node->type !== 'include' || $node->children === null || !is_string($file)) {
-                foreach ($node->type === 'include' ? [] : $node->children ?? [] as $child) {
-                    $stack[] = $child;
-                }
-
-                continue;
+            if ($node->type === 'include' && $node->children !== null && is_string($file)) {
+                $this->collectIncludedDefinition($node->children, $file);
             }
-            foreach ($node->children as $child) {
-                $this->collectIncludedDefinition($child, $file);
+            foreach (array_reverse($node->children ?? []) as $child) {
                 $stack[] = $child;
             }
         }
     }
 
-    private function collectIncludedDefinition(Node $child, string $file): void
+    /**
+     * C2-B-085 within one expansion: each include is a parse of its own, so a file included twice repeats no definition.
+     *
+     * @param array<\MarkupCarve\Carve2\Node> $children
+     * @param string $file
+     *
+     * @return void
+     */
+    private function collectIncludedDefinition(array $children, string $file): void
     {
-        $key = $child->f['key'] ?? null;
-        if (is_string($key) && isset(self::DUPLICATE[$child->type])) {
-            $first = match ($child->type) {
+        $seen = [];
+        foreach ($children as $child) {
+            $key = $child->f['key'] ?? null;
+            if (!is_string($key) || !isset(self::DUPLICATE[$child->type])) {
+                continue;
+            }
+            if (isset($seen[$child->type][$key])) {
+                $this->findings?->add(self::DUPLICATE[$child->type], $child, $file);
+
+                continue;
+            }
+            $seen[$child->type][$key] = true;
+            match ($child->type) {
                 'link_reference_definition' => $this->includeLinkDefs[$file][$key] ??= $child,
                 'footnote' => $this->includeFootnoteDefs[$file][$key] ??= $child,
                 default => $this->includeAbbrDefs[$file][$key] ??= $child,
             };
-            if ($first !== $child) {
-                $this->findings?->add(self::DUPLICATE[$child->type], $child, $file);
-            }
         }
     }
 

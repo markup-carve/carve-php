@@ -63,4 +63,16 @@ final class IncludeCoreTest extends TestCase
         $this->assertSame('child', $result->diagnostics[0]->file);
         $this->assertSame('/children/0/children/1', $result->diagnostics[0]->path);
     }
+
+    public function testC2B085AFileIncludedTwiceRepeatsNoDefinition(): void
+    {
+        $files = ['a.crv' => "[x][]\n\n[x]: /a\n", 'b.crv' => "[x][]\n\n[x]: /b\n[x]: /c\n"];
+        $resolver = static fn (array $request): array => ['text' => $files[$request['path']], 'id' => $request['path']];
+        $twice = Carve2::renderWithDiagnostics("{{ a.crv }}\n\n{{ a.crv }}\n", ['includes' => $resolver]);
+        $this->assertSame("<p><a href=\"/a\">x</a></p>\n<p><a href=\"/a\">x</a></p>", $twice->html);
+        $this->assertSame([], $twice->codes());
+        $once = Carve2::parseWithDiagnostics("{{ b.crv }}\n", ['includes' => $resolver]);
+        $this->assertSame(['duplicate-link-reference-definition'], $once->codes());
+        $this->assertSame(['b.crv', '/children/0/children/2'], [$once->diagnostics[0]->file, $once->diagnostics[0]->path]);
+    }
 }
