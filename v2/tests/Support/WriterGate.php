@@ -1,0 +1,89 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve2\Test\Support;
+
+use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Writer\TreeEquality;
+use MarkupCarve\Carve2\Writer\Writer;
+
+/**
+ * The two gates of the writer on one document (C2-W-002, C2-W-003): write, read back, equal tree, and writing the
+ * result again gives the same bytes.
+ */
+final class WriterGate
+{
+    /**
+     * @param string $source
+     * @param array<string, mixed> $options
+     *
+     * @return string|null Why the gate failed, or null.
+     */
+    public static function check(string $source, array $options = []): ?string
+    {
+        $tree = self::tree($source);
+        $first = Writer::writeWithDiagnostics($tree, null, $options);
+        if (self::refused($first->codes())) {
+            return null;
+        }
+        $back = self::tree($first->source);
+        if (!TreeEquality::equal($tree, $back)) {
+            return 'tree';
+        }
+        $second = Writer::writeWithDiagnostics($back, null, $options);
+        if ($second->source !== $first->source) {
+            return 'stable';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string> $codes
+     *
+     * @return bool
+     */
+    private static function refused(array $codes): bool
+    {
+        return in_array('writer-refused', $codes, true);
+    }
+
+    /**
+     * @param string $source
+     *
+     * @return array<string, mixed>
+     */
+    public static function tree(string $source): array
+    {
+        $tree = json_decode(Carve2::toJson($source), true, 100000, JSON_THROW_ON_ERROR);
+
+        return is_array($tree) ? $tree : [];
+    }
+
+    /**
+     * The inputs of the conformance corpus: every Carve input of an example and of a clause case.
+     *
+     * @param string $dir
+     *
+     * @return array<string, string>
+     */
+    public static function corpusInputs(string $dir): array
+    {
+        $inputs = [];
+        $examples = json_decode((string)file_get_contents($dir . '/examples.json'), true, 512, JSON_THROW_ON_ERROR);
+        foreach (is_array($examples) ? $examples['examples'] : [] as $example) {
+            if (is_string($example['input'] ?? null)) {
+                $inputs[(string)$example['id']] = $example['input'];
+            }
+        }
+        $cases = json_decode((string)file_get_contents($dir . '/clause-cases.json'), true, 512, JSON_THROW_ON_ERROR);
+        foreach (is_array($cases) ? $cases['cases'] : [] as $case) {
+            if (is_string($case['input'] ?? null)) {
+                $inputs[(string)$case['id']] = $case['input'];
+            }
+        }
+
+        return $inputs;
+    }
+}

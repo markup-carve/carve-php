@@ -1,0 +1,121 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve2\Test\Writer;
+
+use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Test\Support\WriterGate;
+use MarkupCarve\Carve2\Writer\CarveWriteError;
+use MarkupCarve\Carve2\Writer\Writer;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+final class WriterClausesTest extends TestCase
+{
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function formatCases(): array
+    {
+        return [
+            'C2-W-098 pipes in a cell keep their backslash' => [
+                '| [x]{title="a\|b"} [y](/c\|d "t\|u") ![i\|j](/k) a\|b |' . "\n\n[x]: /u\n",
+                '| [x]{title="a\|b"} [y](/c\|d "t\|u") ![i\|j](/k) a\|b |' . "\n\n[x]: /u\n",
+            ],
+            'C2-I-074 alt text is written as it stands' => ["![p\\*q](/k)\n", "![p\\*q](/k)\n"],
+            'C2-W-099 a line of one hyphen needs no escape' => ["-\n", "-\n"],
+            'C2-W-099 a dash run keeps every second hyphen escaped' => ["a -\\-\n", "a -\\-\n"],
+            'C2-W-095 a backtick in text' => ["a \\` b\n", "a \\` b\n"],
+            'C2-W-090 a sigil glued to a code span' => ["\\!`x`\n", "\\!`x`\n"],
+        ];
+    }
+
+    /**
+     * @param string $input
+     * @param string $expected
+     *
+     * @return void
+     */
+    #[DataProvider('formatCases')]
+    public function testFormat(string $input, string $expected): void
+    {
+        $this->assertSame($expected, Carve2::format($input));
+        $this->assertNull(WriterGate::check($input));
+    }
+
+    public function testTwoCodeSpansAreOne(): void
+    {
+        $result = Writer::writeWithDiagnostics(self::doc([
+            [
+
+                'type' => 'paragraph',
+                'children' => [
+                    ['type' => 'code', 'value' => 'a'],
+                    ['type' => 'code', 'value' => 'b'],
+                ],
+            ],
+        ]));
+
+        // C2-W-112
+        $this->assertSame("`ab`\n", $result->source);
+        $this->assertSame(['structure-unspellable'], $result->codes());
+    }
+
+    public function testWriteThrowsOnLoss(): void
+    {
+        // C2-W-134
+        $this->expectException(CarveWriteError::class);
+        Carve2::write(self::doc([
+            [
+
+                'type' => 'paragraph',
+                'children' => [
+                    ['type' => 'code', 'value' => 'a'],
+                    ['type' => 'code', 'value' => 'b'],
+                ],
+            ],
+        ]));
+    }
+
+    public function testExtensionWithoutSourceFormWritesFallback(): void
+    {
+        $tree = self::doc([
+            [
+                'type' => 'block_extension',
+                'name' => 'org.example.n',
+                'version' => '1',
+                'children' => [],
+                'fallback' => [['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'safe']]]],
+                'source' => ['form' => 'fence', 'name' => '=html', 'body' => "<script>alert(1)</script>\n"],
+            ],
+        ]);
+        $tree['extensions'] = [['name' => 'org.example.n', 'version' => '1', 'required' => false, 'slots' => []]];
+        $result = Writer::writeWithDiagnostics($tree);
+
+        // C2-X-023
+        $this->assertSame("safe\n", $result->source);
+        $this->assertSame(['structure-unspellable'], $result->codes());
+    }
+
+    public function testSidecarNumbersOverrideBareDot(): void
+    {
+        $tree = WriterGate::tree("1. a\n2. b\n");
+        $layout = ['nodes' => [['path' => '/children/0', 'bare' => false]]];
+
+        // C2-L-030, C2-L-031, C2-W-127
+        $this->assertSame(". a\n. b\n", Carve2::write($tree));
+        $this->assertSame("1. a\n2. b\n", Carve2::write($tree, $layout));
+        $this->assertSame(". a\n. b\n", Carve2::write($tree, $layout, ['normalize' => true]));
+    }
+
+    /**
+     * @param array<array<string, mixed>> $children
+     *
+     * @return array<string, mixed>
+     */
+    private static function doc(array $children): array
+    {
+        return ['type' => 'document', 'astVersion' => '2.0', 'children' => $children];
+    }
+}

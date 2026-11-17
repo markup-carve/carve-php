@@ -20,6 +20,8 @@ use MarkupCarve\Carve2\Layout\LayoutBuilder;
 use MarkupCarve\Carve2\Layout\LayoutReader;
 use MarkupCarve\Carve2\Lint\Linter;
 use MarkupCarve\Carve2\Resolve\Resolver;
+use MarkupCarve\Carve2\Writer\Writer;
+use MarkupCarve\Carve2\Writer\WriteResult;
 
 /**
  * The public entry: parse (source to tree), resolve, render (tree to HTML).
@@ -289,5 +291,57 @@ final class Carve2
         }
 
         return $out;
+    }
+
+    /**
+     * C2-W-001: the canonical source of a tree; throws `CarveWriteError` when the tree holds what no source spells.
+     *
+     * @param array<string, mixed> $tree The decoded AST JSON of `toJson()`.
+     * @param array<string, mixed>|null $layout Sidecar facts by path (C2-L-046); null writes the defaults (C2-L-015).
+     * @param array<string, mixed> $options
+     *
+     * @return string
+     */
+    public static function write(array $tree, ?array $layout = null, array $options = []): string
+    {
+        return Writer::write($tree, $layout, $options);
+    }
+
+    /**
+     * @param array<string, mixed> $tree
+     * @param array<string, mixed>|null $layout
+     * @param array<string, mixed> $options
+     *
+     * @return \MarkupCarve\Carve2\Writer\WriteResult
+     */
+    public static function writeWithDiagnostics(array $tree, ?array $layout = null, array $options = []): WriteResult
+    {
+        return Writer::writeWithDiagnostics($tree, $layout, $options);
+    }
+
+    /**
+     * C2-W-100: parse and write again.
+     *
+     * @param string $source
+     * @param array<string, mixed> $options
+     * @param array<string, mixed>|null $layout
+     *
+     * @return string
+     */
+    public static function format(string $source, array $options = [], ?array $layout = null): string
+    {
+        return Writer::format($source, $options, $layout);
+    }
+
+    /**
+     * @param string $source
+     * @param array<string, mixed> $options
+     * @param array<string, mixed>|null $layout
+     *
+     * @return \MarkupCarve\Carve2\Writer\WriteResult
+     */
+    public static function formatWithDiagnostics(string $source, array $options = [], ?array $layout = null): WriteResult
+    {
+        return Writer::formatWithDiagnostics($source, $options, $layout);
     }
 }

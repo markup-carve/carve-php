@@ -14,10 +14,12 @@ $target = $root . '/src/Generated/Tables.php';
 
 require_once $root . '/scripts/TableGenerator.php';
 require_once $root . '/scripts/ImportTableGenerator.php';
+require_once $root . '/scripts/WriterTableGenerator.php';
 
 $files = [
     $target => TableGenerator::generate($root . '/spec/data'),
     $root . '/src/Generated/ImportTables.php' => ImportTableGenerator::generate($root . '/spec/data'),
+    $root . '/src/Generated/WriterTables.php' => WriterTableGenerator::generate($root . '/spec/data'),
 ];
 if (in_array('--check', $argv, true)) {
     foreach ($files as $file => $code) {
@@ -27,7 +29,7 @@ if (in_array('--check', $argv, true)) {
             exit(1);
         }
     }
-    echo "Tables.php and ImportTables.php are current\n";
+    echo "Tables.php, ImportTables.php and WriterTables.php are current\n";
     exit(0);
 }
 foreach ($files as $file => $code) {
