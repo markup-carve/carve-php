@@ -13,6 +13,8 @@ use MarkupCarve\Carve2\Include\Expander;
 use MarkupCarve\Carve2\Inline\InlineContext;
 use MarkupCarve\Carve2\Inline\InlineRunner;
 use MarkupCarve\Carve2\Json\TreeEncoder;
+use MarkupCarve\Carve2\Layout\LayoutBuilder;
+use MarkupCarve\Carve2\Layout\LayoutReader;
 use MarkupCarve\Carve2\Lint\Linter;
 use MarkupCarve\Carve2\Resolve\Resolver;
 
@@ -47,6 +49,34 @@ final class Carve2
         [$doc, $findings] = self::parsed($source, Options::from($options));
 
         return new ParseResult($doc, $findings->finish($doc));
+    }
+
+    /**
+     * Parse and resolve, with the source-layout record of the input (C2-L-001, C2-L-003: the tree is the same).
+     *
+     * @param string $source
+     * @param array<string, mixed> $options
+     *
+     * @return \MarkupCarve\Carve2\LayoutResult
+     */
+    public static function parseWithLayout(string $source, array $options = []): LayoutResult
+    {
+        [$doc, $findings] = self::parsed($source, Options::from($options));
+
+        return new LayoutResult($doc, LayoutBuilder::build($source, $doc), $findings->finish($doc));
+    }
+
+    /**
+     * Reads a source-layout record as JSON, refusing what C2-L-008 and C2-L-058 refuse.
+     *
+     * @param string $json
+     * @param array<mixed>|null $tree The decoded tree the record belongs to, for the order of extension slots.
+     *
+     * @return array<mixed>
+     */
+    public static function validateLayout(string $json, ?array $tree = null): array
+    {
+        return LayoutReader::read($json, $tree);
     }
 
     /**

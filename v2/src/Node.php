@@ -44,6 +44,13 @@ final class Node
     public ?self $noteDefinition = null;
 
     /**
+     * The source-layout facts the parser knows when it builds the node (source-layout.md); never encoded in the tree.
+     *
+     * @var array<string, int|string|bool>
+     */
+    public array $layout = [];
+
+    /**
      * @var array<string, string>
      */
     public array $includeSources = [];

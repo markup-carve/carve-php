@@ -21,8 +21,27 @@ final class Layout
      */
     private array $nodes = [];
 
+    /**
+     * @var array<string, string> C2-L-022: the `rawRef` of the source-layout record, by path.
+     */
+    private array $rawRefs = [];
+
     public function __construct(private string $s)
     {
+    }
+
+    /**
+     * @param array<mixed> $entries The node entries of the source-layout record.
+     *
+     * @return void
+     */
+    public function rawRefs(array $entries): void
+    {
+        foreach ($entries as $entry) {
+            if (is_array($entry) && is_string($entry['rawRef'] ?? null) && is_string($entry['path'] ?? null)) {
+                $this->rawRefs[$entry['path']] = $entry['rawRef'];
+            }
+        }
     }
 
     /**
@@ -139,7 +158,7 @@ final class Layout
     }
 
     /**
-     * C2-L-022: the reference of a link or an image, from its opening bracket.
+     * C2-L-022: the reference of a link or an image as typed, from the source-layout record.
      *
      * @param string $path
      *
@@ -147,66 +166,7 @@ final class Layout
      */
     public function rawRef(string $path): ?string
     {
-        $node = $this->nodes[$path][0] ?? null;
-        $start = self::start($node);
-        $end = self::end($node);
-        if ($start === null || $end === null || !isset($node['key'])) {
-            return null;
-        }
-        if (($node['type'] ?? '') === 'image') {
-            $start++;
-        }
-
-        $stop = $this->referenceEnd($start, $end);
-        $quotes = $this->nodes[$path][1];
-        $out = '';
-        $at = $start;
-        // Inside a paragraph the reference is read without the prefixes and the indentation of the lines it crosses.
-        while (($feed = strpos($this->s, "\n", $at)) !== false && $feed < $stop) {
-            $segment = substr($this->s, $at, $feed - $at);
-            $out .= (str_ends_with($segment, "\r") ? substr($segment, 0, -1) : $segment) . "\n";
-            $next = $this->prefix($feed + 1, $stop, $quotes)[0];
-            $at = $this->skipSpaces($next, $stop);
-        }
-
-        return $out . substr($this->s, $at, $stop - $at);
-    }
-
-    /**
-     * The offset behind the bracket that closes the label of the reference opening at `$start`: the text bracket, then a
-     * label glued to it; attributes glued after it are not part of the reference.
-     *
-     * @param int $start
-     * @param int $end
-     *
-     * @return int
-     */
-    private function referenceEnd(int $start, int $end): int
-    {
-        $depth = 0;
-        for ($p = $start; $p < $end; $p++) {
-            $ch = $this->s[$p];
-            if ($ch === '\\') {
-                $p++;
-            } elseif ($ch === '[') {
-                $depth++;
-            } elseif ($ch === ']' && --$depth === 0) {
-                break;
-            }
-        }
-        if ($p + 1 < $end && $this->s[$p + 1] === '[') {
-            for ($q = $p + 2; $q < $end; $q++) {
-                if ($this->s[$q] === '\\') {
-                    $q++;
-                } elseif ($this->s[$q] === ']') {
-                    return $q + 1;
-                }
-            }
-
-            return $end;
-        }
-
-        return min($p + 1, $end);
+        return $this->rawRefs[$path] ?? null;
     }
 
     /**

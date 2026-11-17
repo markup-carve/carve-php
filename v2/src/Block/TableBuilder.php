@@ -284,6 +284,7 @@ final class TableBuilder
             $rowNodes[] = self::rowNode($rows[$r], $cells);
         }
         $table = Node::at('table', $f->start, $f->end);
+        $table->layout['sourceFormat'] = 'pipe';
         $attrs = $f->attrs;
         $table->f['columns'] = self::columns($width, $attrs);
         $table->children = self::groups($f->rows, $rowNodes, $head, $foot);
@@ -467,6 +468,12 @@ final class TableBuilder
     {
         // C2-A-158: a row that a continuation row joined carries no position.
         $node = $row->cont !== [] ? new Node('table_row', []) : Node::at('table_row', $row->start, $row->end);
+        if ($row->cont !== []) {
+            // C2-L-013, C2-L-019: the range from the row to its last continuation row.
+            $node->layout['continuationLines'] = count($row->cont);
+            $node->layout['startByte'] = $row->start;
+            $node->layout['endByte'] = max($row->end, $row->continuationEnd);
+        }
         $node->children = [];
         foreach ($cells as $cell) {
             $node->children[] = self::cellNode($cell);
@@ -719,6 +726,11 @@ final class TableBuilder
             $items[] = new TableItem(true, -1, -1);
         }
         $table = Node::at('table', $f->start, $f->end);
+        // C2-L-023, C2-L-057
+        $table->layout['sourceFormat'] = $sep === ',' ? 'csv' : 'tsv';
+        if ($declared !== null) {
+            $table->layout['headerRows'] = $head;
+        }
         $table->f['columns'] = self::columns($width, $attrs);
         $table->children = self::groups($items, $rowNodes, $head, self::count($attrs, 'footer-rows'));
         foreach ($table->children as $group) {

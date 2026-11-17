@@ -1497,6 +1497,8 @@ final class Scanner
         $node->f['key'] = $key;
         $node->f['namespace'] = 'link';
         $node->f['refForm'] = $form;
+        // C2-L-049: the bracket that closes the reference.
+        $node->layout['refEnd'] = $this->c->src($end - 1) + 1;
         if ($image) {
             $node->f['alt'] = $text;
         }

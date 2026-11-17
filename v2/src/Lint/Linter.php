@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Lint;
 
 use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Json\TreeEncoder;
 use MarkupCarve\Carve2\OptionError;
 
 /**
@@ -81,15 +82,15 @@ final class Linter
      */
     public static function lintSource(string $source, array $options): array
     {
-        $tree = json_decode(Carve2::toJson($source), true, 4096, JSON_THROW_ON_ERROR);
+        $parsed = Carve2::parseWithLayout($source);
+        $tree = (new TreeEncoder())->encode($parsed->tree, $source);
         $c = new Context($source, $options, self::catalog());
+        $c->layout->rawRefs((array)$parsed->layout['nodes']);
         /** @var array<int, array<array{0: string, 1: array<string>}>> $controls */
         $controls = [];
-        if (is_array($tree)) {
-            $root = Support::node($tree);
-            self::measure($root, '', '', 0, $c);
-            self::visit($root, '', $c, $controls);
-        }
+        $root = Support::node($tree);
+        self::measure($root, '', '', 0, $c);
+        self::visit($root, '', $c, $controls);
         NodeRulesB::finish($c);
         foreach ($c->lines as $line) {
             if ($line->opaque) {

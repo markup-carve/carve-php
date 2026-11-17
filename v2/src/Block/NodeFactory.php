@@ -61,7 +61,11 @@ final class NodeFactory
 
                 return $node;
             case Frame::QUOTE:
-                return self::container('block_quote', $f);
+                $node = self::container('block_quote', $f);
+                // C2-L-017
+                $node->layout['fenced'] = false;
+
+                return $node;
             case Frame::LIST:
                 return self::listNode($f);
             case Frame::ITEM:
@@ -253,6 +257,8 @@ final class NodeFactory
             $attrs->remove('start');
         }
         $marker = ['kind' => 'ordered', 'style' => $m->style, 'delimiter' => $m->delimiter];
+        // C2-L-016: the form of the first marker.
+        $node->layout['bare'] = $m->value < 0;
         if ($start !== 1) {
             $marker['start'] = $start;
         }
@@ -287,6 +293,12 @@ final class NodeFactory
             $attrs->classes[] = $f->sigilClass;
         }
         $attrs->applyTo($node);
+        // C2-L-017, C2-L-018
+        if ($f->node === 'block_quote') {
+            $node->layout['fenced'] = true;
+        } elseif (in_array('hardbreaks', $attrs->classes, true)) {
+            $node->layout['hardBreakOpener'] = $f->sigilClass === 'hardbreaks';
+        }
 
         return $node;
     }
