@@ -24,6 +24,37 @@ final class TableGenerator
 
         $consts = [];
 
+        self::unicodeTables($load, $consts);
+        self::lineShapeTables($load, $consts);
+        self::limitTables($load, $consts);
+        self::taskTables($load, $consts);
+        self::orderedTables($load, $consts);
+        self::divTables($load, $consts);
+        self::attributeTables($load, $consts);
+        self::delimiterTables($load, $consts);
+        self::atomTables($load, $consts);
+        self::smartTables($load, $consts);
+        self::slugTables($load, $consts);
+        self::urlTables($load, $consts);
+        self::optionTables($load, $consts);
+        self::markTables($load, $consts);
+        self::diagnosticTables($load, $consts);
+
+        foreach (self::inlineTables($load) as $name => $row) {
+            $consts[$name] = $row;
+        }
+
+        return self::render($consts);
+    }
+
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function unicodeTables(Closure $load, array &$consts): void
+    {
         $categories = [];
         foreach ($load('unicode-categories')['categories'] as $category) {
             $ranges = [];
@@ -39,7 +70,16 @@ final class TableGenerator
         $consts['UNICODE_NUMBER_RANGES'] = ['C2-I-127 Unicode 18.0.0 N', $categories['N']];
         $consts['UNICODE_MARK_RANGES'] = ['C2-I-127 Unicode 18.0.0 M', $categories['M']];
         $consts['UNICODE_FORMAT_RANGES'] = ['C2-I-127 Unicode 18.0.0 Cf', $categories['Cf']];
+    }
 
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function lineShapeTables(Closure $load, array &$consts): void
+    {
         $shapes = $load('line-shapes');
         $first = [];
         foreach ($shapes['shapes'] as $shape) {
@@ -62,7 +102,16 @@ final class TableGenerator
                 $consts['DIV_SIGILS'] = ['C2-B-196 div sigils', implode('', $ref['values'])];
             }
         }
+    }
 
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function limitTables(Closure $load, array &$consts): void
+    {
         $limits = [];
         foreach ($load('limits')['limits'] as $row) {
             $limits[$row['name']] = $row['value'];
@@ -73,7 +122,16 @@ final class TableGenerator
         $consts['INCLUDE_BYTES'] = ['C2-N-065 limits.json include_bytes', $limits['include_bytes']];
         $consts['LIST_END_BLANK_LINES'] = ['C2-B-052 limits.json', $limits['list_end_blank_lines']];
         $consts['TAB_STOP'] = ['C2-B-004 limits.json', $limits['tab_stop']];
+    }
 
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function taskTables(Closure $load, array &$consts): void
+    {
         $tasks = [];
         foreach ($load('task-states')['states'] as $row) {
             $tasks[$row['char']] = $row['mark'];
@@ -87,7 +145,16 @@ final class TableGenerator
         }
         $consts['TASK_CHECKED'] = ['C2-H-032 task-states.json', $checked];
         $consts['TASK_STATE_ATTRIBUTE'] = ['C2-H-033 task-states.json', $stateAttr];
+    }
 
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function orderedTables(Closure $load, array &$consts): void
+    {
         $styles = [];
         foreach ($load('ordered-styles')['styles'] as $row) {
             $styles[$row['style']] = $row['html_type'];
@@ -98,7 +165,16 @@ final class TableGenerator
             $delims[$row['char']] = $row['data_delim'];
         }
         $consts['ORDERED_DATA_DELIM'] = ['C2-H-031 ordered-styles.json', $delims];
+    }
 
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function divTables(Closure $load, array &$consts): void
+    {
         $divs = $load('div-names');
         $kinds = [];
         foreach ($divs['names'] as $row) {
@@ -110,7 +186,16 @@ final class TableGenerator
             $sigils[$row['sigil']] = [$row['name'], $row['class'] ?? null];
         }
         $consts['DIV_SIGIL_KINDS'] = ['C2-B-196 C2-B-128 div-names.json', $sigils];
+    }
 
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function attributeTables(Closure $load, array &$consts): void
+    {
         $attr = $load('attribute-block');
         foreach ($attr['shapes'] as $row) {
             $shape = $row['shape'];
@@ -124,7 +209,16 @@ final class TableGenerator
                 $consts['ATTR_' . $name . '_EXCLUDED'] = ['C2-I-032 attribute-block.json', implode('', $shape['excluded'])];
             }
         }
+    }
 
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function delimiterTables(Closure $load, array &$consts): void
+    {
         $delimiters = $load('inline-delimiters');
         $braced = [];
         $bare = [];
@@ -142,7 +236,17 @@ final class TableGenerator
         $consts['BRACED_MARKS'] = ['C2-I-055 inline-delimiters.json: mark to node', $braced];
         $consts['BARE_DELIMITERS'] = ['C2-I-046 inline-delimiters.json', $bare];
         $consts['DELIMITER_HTML'] = ['C2-H-072 inline-delimiters.json: node to element', $html];
+    }
 
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function atomTables(Closure $load, array &$consts): void
+    {
+        $shapes = $load('line-shapes');
         $atoms = $load('inline-atoms');
         foreach ($atoms['atoms'] as $row) {
             if ($row['name'] === 'autolink') {
@@ -170,7 +274,16 @@ final class TableGenerator
                 $consts['SIGIL_' . $n . '_CHARS'] = ['C2-I-092', self::expand($s['chars'])];
             }
         }
+    }
 
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function smartTables(Closure $load, array &$consts): void
+    {
         $smart = $load('smart-punctuation');
         $runs = [];
         foreach ($smart['runs'] as $row) {
@@ -203,7 +316,16 @@ final class TableGenerator
         }
         $consts['AST_RESULTS'] = ['C2-A-162 ast-results.json', $results];
         $consts['SMART_QUOTE_OPENS_AFTER'] = ['C2-I-104', implode('', $smart['quote_opens_after']['chars'])];
+    }
 
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function slugTables(Closure $load, array &$consts): void
+    {
         $slug = $load('heading-slug');
         $removed = [];
         foreach ($slug['removed'] as $row) {
@@ -215,7 +337,16 @@ final class TableGenerator
             $reversed[$row['glyph']] = $row['ascii'];
         }
         $consts['SLUG_REVERSED'] = ['C2-H-145 heading-slug.json', $reversed];
+    }
 
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function urlTables(Closure $load, array &$consts): void
+    {
         $url = $load('url-policy');
         $ranges = [];
         foreach ($url['probe_removes'] as $row) {
@@ -241,7 +372,16 @@ final class TableGenerator
             $profiles[$name] = $row;
         }
         $consts['PROFILES'] = ['C2-H-163 url-policy.json', $profiles];
+    }
 
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function optionTables(Closure $load, array &$consts): void
+    {
         $options = [];
         foreach ($load('options')['options'] as $row) {
             $options[$row['name']] = [
@@ -252,14 +392,32 @@ final class TableGenerator
             ];
         }
         $consts['OPTIONS'] = ['C2-H-137 options.json', $options];
+    }
 
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function markTables(Closure $load, array &$consts): void
+    {
         $marks = $load('table-marks');
         $align = [];
         foreach ($marks['alignment_marks'] as $row) {
             $align[$row['mark']] = $row['alignment'];
         }
         $consts['ALIGNMENT_MARKS'] = ['C2-B-182 table-marks.json', $align];
+    }
 
+    /**
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function diagnosticTables(Closure $load, array &$consts): void
+    {
         $include = $load('include-options');
         $codes = [];
         $messages = [];
@@ -277,12 +435,6 @@ final class TableGenerator
         $consts['DIAGNOSTICS'] = ['C2-A-173 lint-rules.json: severity, channel and first message of each parse' .
             ' and render-loss code', $codes];
         $consts['INCLUDE_OPTIONS'] = ['C2-B-205 include-options.json', self::stripClauses($include['options'] ?? $include)];
-
-        foreach (self::inlineTables($load) as $name => $row) {
-            $consts[$name] = $row;
-        }
-
-        return self::render($consts);
     }
 
     /**
