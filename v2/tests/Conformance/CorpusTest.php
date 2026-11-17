@@ -6,7 +6,7 @@ namespace MarkupCarve\Carve2\Test\Conformance;
 
 use Closure;
 use MarkupCarve\Carve2\Carve2;
-use MarkupCarve\Carve2\Generated\Tables;
+use MarkupCarve\Carve2\Diagnostics\Diagnostic;
 use MarkupCarve\Carve2\Test\Support\Corpus;
 use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -27,11 +27,11 @@ final class CorpusTest extends TestCase
     ];
 
     /**
-     * Kinds outside this engine: the writer, lint and the HTML importer come in later stages.
+     * Kinds outside this engine: the HTML importer comes in a later stage.
      *
      * @var array<string, true>
      */
-    private const LATER = ['import' => true, 'lint' => true];
+    private const LATER = ['import' => true];
 
     /**
      * @return array<string, array{0: array<string, mixed>}>
@@ -89,6 +89,33 @@ final class CorpusTest extends TestCase
     public static function writeExamples(): array
     {
         return self::provide(Corpus::examples('write'));
+    }
+
+    /**
+     * @return array<string, array{0: array<string, mixed>}>
+     */
+    public static function lintExamples(): array
+    {
+        return self::provide(Corpus::examples('lint'));
+    }
+
+    /**
+     * C2-W-103: a `lint` example states the tree of its input and the codes lint reports.
+     *
+     * @param array<string, mixed> $example
+     *
+     * @return void
+     */
+    #[DataProvider('lintExamples')]
+    public function testLintExample(array $example): void
+    {
+        $this->gate($example['id'], function () use ($example): void {
+            $this->assertTree($example['expected']['tree'], $example['input'], $example['options']);
+            $codes = array_map(static fn (Diagnostic $d): string => $d->code, Carve2::lint($example['input']));
+            foreach ($example['expected']['diagnostics'] ?? [] as $diagnostic) {
+                $this->assertContains(is_string($diagnostic) ? $diagnostic : $diagnostic['code'], $codes);
+            }
+        });
     }
 
     /**
@@ -161,7 +188,7 @@ final class CorpusTest extends TestCase
         }
         ksort($kinds);
         $this->assertSame(['import', 'include', 'lint', 'render', 'write'], array_keys($kinds));
-        $this->assertSame(['import' => true, 'lint' => true], self::LATER);
+        $this->assertSame(['import' => true], self::LATER);
         foreach (array_keys(self::HELD) as $id) {
             $this->assertTrue(isset(Corpus::examples()[$id]) || isset(Corpus::clauseCases()[$id]), $id);
         }
@@ -186,15 +213,16 @@ final class CorpusTest extends TestCase
             $this->assertTree($expected['tree'], $example['input'], $example['options']);
         }
         if (isset($expected['diagnostics'])) {
-            $this->assertDiagnostics($expected['diagnostics'], Carve2::renderWithDiagnostics(
-                $example['input'],
-                $example['options'],
-            )->codes());
+            $codes = Carve2::renderWithDiagnostics($example['input'], $example['options'])->codes();
+            foreach (Carve2::lint($example['input']) as $finding) {
+                $codes[] = $finding->code;
+            }
+            $this->assertDiagnostics($expected['diagnostics'], $codes);
         }
     }
 
     /**
-     * The expected codes are those of the example's `Reported:` line, not a complete list. Lint codes wait for lint.
+     * The expected codes are those of the example's `Reported:` line, not a complete list; lint codes included.
      *
      * @param array<string> $expected
      * @param array<string> $got
@@ -204,9 +232,7 @@ final class CorpusTest extends TestCase
     private function assertDiagnostics(array $expected, array $got): void
     {
         foreach ($expected as $code) {
-            if (isset(Tables::DIAGNOSTICS[$code])) {
-                $this->assertContains($code, $got);
-            }
+            $this->assertContains($code, $got);
         }
     }
 

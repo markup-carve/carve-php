@@ -13,6 +13,7 @@ use MarkupCarve\Carve2\Include\Expander;
 use MarkupCarve\Carve2\Inline\InlineContext;
 use MarkupCarve\Carve2\Inline\InlineRunner;
 use MarkupCarve\Carve2\Json\TreeEncoder;
+use MarkupCarve\Carve2\Lint\Linter;
 use MarkupCarve\Carve2\Resolve\Resolver;
 
 /**
@@ -177,6 +178,21 @@ final class Carve2
     public static function toJson(string $source, array $options = []): string
     {
         return TreeEncoder::json(self::parse($source, $options), $source);
+    }
+
+    /**
+     * C2-W-103, C2-W-109: the lint findings of a source, with the catalog messages, byte ranges and tree paths. Options:
+     * `rules` (rule id to `on` or `off`), `platforms` (`['github']`) and `includes` (as for a parse), which lints the
+     * included files too (C2-N-085). Nothing of lint runs unless this is called.
+     *
+     * @param string $source
+     * @param array<string, mixed> $options
+     *
+     * @return array<\MarkupCarve\Carve2\Diagnostics\Diagnostic>
+     */
+    public static function lint(string $source, array $options = []): array
+    {
+        return Linter::lint($source, $options);
     }
 
     /**

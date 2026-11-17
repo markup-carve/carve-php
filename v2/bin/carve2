@@ -3,55 +3,8 @@
 
 declare(strict_types=1);
 
-use MarkupCarve\Carve2\Carve2;
-use MarkupCarve\Carve2\OptionError;
-use MarkupCarve\Carve2\Include\FileResolver;
+use MarkupCarve\Carve2\Cli\Command;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-$args = array_slice($argv, 1);
-$tree = in_array('--tree', $args, true);
-$options = [];
-$input = null;
-$root = null;
-$noIncludes = false;
-for ($index = 0; $index < count($args); $index++) {
-    $arg = $args[$index];
-    if (str_starts_with($arg, '--option=')) {
-        [$k, $v] = explode('=', substr($arg, 9), 2) + [1 => ''];
-        $options[$k] = json_decode($v, true) ?? $v;
-    } elseif (str_starts_with($arg, '--include-root=')) {
-        $root = substr($arg, 15);
-    } elseif ($arg === '--include-root') {
-        $root = $args[++$index] ?? null;
-        if ($root === null) {
-            fwrite(STDERR, "--include-root needs a directory\n");
-            exit(2);
-        }
-    } elseif ($arg === '--no-includes') {
-        $noIncludes = true;
-    } elseif ($arg !== '--tree' && !str_starts_with($arg, '--')) {
-        $input = $arg;
-    }
-}
-try {
-    $source = $input === null ? (string)stream_get_contents(STDIN) : @file_get_contents($input);
-    if ($source === false) {
-        throw new OptionError('input file is unavailable');
-    }
-    if (!$noIncludes && ($root !== null || $input !== null)) {
-        $base = $root ?? dirname($input);
-        $canonical = realpath($base);
-        if ($canonical === false) {
-            throw new OptionError('include root is unavailable');
-        }
-        $entry = $input === null ? null : realpath($input);
-        $inside = $entry !== false && $entry !== null && ($entry === $canonical || str_starts_with($entry, $canonical . '/'));
-        $file = $entry === false || $entry === null ? null : ($inside ? ltrim(substr($entry, strlen($canonical)), '/') : $entry);
-        $options['includes'] = ['resolver' => FileResolver::closure($canonical), 'file' => $file];
-    }
-    echo $tree ? Carve2::toJson($source, $options) : Carve2::toHtml($source, $options), "\n";
-} catch (OptionError $e) {
-    fwrite(STDERR, $e->getMessage() . "\n");
-    exit(2);
-}
+exit(Command::main(array_slice($argv, 1), STDIN, STDOUT, STDERR));

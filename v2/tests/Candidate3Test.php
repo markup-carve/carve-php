@@ -132,4 +132,20 @@ final class Candidate3Test extends TestCase
         $this->expectException(TreeError::class);
         TreeReader::read($json);
     }
+
+    public function testC2H162CssImageFunctionsBlankTheStyle(): void
+    {
+        foreach (['image(x.png)', 'src(x)', 'IMAGE-SET(x 1x)', 'image\\2d set(x)', 'url(x)'] as $value) {
+            $this->assertSame('<p><span style="">a</span></p>', Carve2::toHtml('[a]{style="b: ' . $value . '"}'), $value);
+        }
+        $this->assertSame('<p><span style="color: red">a</span></p>', Carve2::toHtml('[a]{style="color: red"}'));
+    }
+
+    public function testC2H161BackgroundIsAUrlListAttribute(): void
+    {
+        $html = Carve2::toHtml('[a]{background="javascript:x"} [b]{background="https://x/y.png"}');
+        $this->assertSame('<p><span background="">a</span> <span background="https://x/y.png">b</span></p>', $html);
+        $html = Carve2::toHtml('[b]{background="https://x/y.png"}', ['urlPolicy' => ['allow' => ['mailto']]]);
+        $this->assertSame('<p><span background="">b</span></p>', $html);
+    }
 }

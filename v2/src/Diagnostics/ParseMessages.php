@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Diagnostics;
 
+use MarkupCarve\Carve2\Generated\Tables;
 use MarkupCarve\Carve2\Node;
 
 /**
@@ -63,7 +64,14 @@ final class ParseMessages
     private static function opener(string $s, Node $node, int $from): int
     {
         $n = strlen($s);
-        $at = $from >= 0 ? self::lineStart($s, $from) : max(0, $node->start);
+        if ($from >= 0) {
+            // The opener of a finding with a position: the first fence character of its line, behind any marker.
+            $line = self::lineStart($s, $from);
+            $fence = $line + strcspn($s, '`~:', $line, $from - $line);
+
+            return $fence < $from ? $fence : $line;
+        }
+        $at = max(0, $node->start);
         while ($at < $n) {
             $p = $at + strspn($s, " \t>", $at);
             if ($p < $n && str_contains('`~%:|-', $s[$p])) {
@@ -143,7 +151,7 @@ final class ParseMessages
         $run = self::run($s, $start);
         $lineEnd = self::lineEnd($s, $start);
         $afterRun = $start + strlen($run);
-        $type = $from > $afterRun ? trim(substr($s, $afterRun, $from - $afterRun)) : '';
+        $type = $from > $afterRun ? self::word(ltrim(substr($s, $afterRun, $from - $afterRun), " \t")) : '';
         $rest = trim(substr($s, max($from, $afterRun), $lineEnd - max($from, $afterRun)), " \t\r");
         $label = '';
         $open = strrpos($rest, ' [');
@@ -169,6 +177,26 @@ final class ParseMessages
         }
 
         return self::withoutType(Message::fill('fence-title-syntax', $slots + ['title' => $rest], 1), $run, $type);
+    }
+
+    /**
+     * C2-B-225: the language word, the raw format or the div name or sigil at the start of an opener's text.
+     *
+     * @param string $text
+     *
+     * @return string
+     */
+    private static function word(string $text): string
+    {
+        if (str_starts_with($text, '=')) {
+            return '=' . substr($text, 1, strspn($text, Tables::CHARS_RAW_FORMAT, 1));
+        }
+        $run = strspn($text, Tables::CHARS_LANGUAGE_WORD);
+        if ($run > 0) {
+            return substr($text, 0, $run);
+        }
+
+        return $text !== '' && strspn($text, '>|', 0, 1) === 1 && in_array($text[1] ?? ' ', [' ', "\t"], true) ? $text[0] : '';
     }
 
     /**

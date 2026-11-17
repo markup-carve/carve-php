@@ -1,0 +1,1073 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve2\Lint;
+
+/**
+ * The second half of the carve-js node rules (`lint/structure.ts`), one method per JS rule function, and the checks that run
+ * after the walk.
+ */
+final class NodeRulesB
+{
+    /**
+     * @var array<string>
+     */
+    private const TEMPLATE_WORDS = ['if ', 'for ', 'endif', 'endfor', 'assign ', 'set ', 'include '];
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function delimitedWideRow(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'table') {
+            return;
+        }
+        $format = $c->layout->sourceFormat($path);
+        if ($format !== 'csv' && $format !== 'tsv') {
+            return;
+        }
+        $width = -1;
+        $records = 0;
+        $firstLine = Support::pos($node)['startLine'] ?? 1;
+        foreach (Support::kids($node) as $index => $section) {
+            if (!in_array($section['type'] ?? null, ['table_body', 'table_head', 'table_foot'], true)) {
+                continue;
+            }
+            foreach (Support::kids($section) as $rowIndex => $row) {
+                if (($row['type'] ?? null) !== 'table_row') {
+                    continue;
+                }
+                $cells = count(Support::kids($row));
+                if ($width < 0) {
+                    $width = $cells;
+                } elseif ($cells > $width) {
+                    $line = $c->lines[$firstLine + 1 + $records] ?? null;
+                    if ($line !== null) {
+                        $rowPath = $path . '/children/' . $index . '/children/' . $rowIndex;
+                        $c->report('delimited-table-wide-row', $line->start, $line->end, $rowPath);
+                    }
+                }
+                $records++;
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function intrawordUnderscore(array $node, string $path, Context $c): void
+    {
+        $range = self::textRange($node);
+        if ($range === null) {
+            return;
+        }
+        $source = Support::raw($node, $c);
+        $length = strlen($source);
+        for ($at = 1; $at < $length - 2; $at++) {
+            if ($source[$at] !== '_' || !Support::isWord($source[$at - 1])) {
+                continue;
+            }
+            $end = strpos($source, '_', $at + 2);
+            if ($end === false || !Support::isWord($source[$end + 1] ?? null)) {
+                continue;
+            }
+            $c->report('djot-intraword-underscore', $range[0] + $at, $range[0] + $end + 1, $path);
+            $at = $end;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function emphasisBeforeAttrs(array $node, string $path, Context $c): void
+    {
+        $range = self::textRange($node);
+        if ($range === null) {
+            return;
+        }
+        $source = Support::raw($node, $c);
+        $length = strlen($source);
+        for ($at = 0; $at < $length - 2; $at++) {
+            $ch = $source[$at];
+            if (($ch !== '*' && $ch !== '/') || $source[$at + 1] !== '{') {
+                continue;
+            }
+            $end = strpos($source, '}', $at + 2);
+            if ($end === false) {
+                continue;
+            }
+            $c->report('emphasis-marker-before-attributes', $range[0] + $at, $range[0] + $end + 1, $path, ['ch' => $ch], 0);
+            $at = $end;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function carveVersion(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'frontmatter') {
+            return;
+        }
+        foreach (explode("\n", Support::str($node, 'value') ?? '') as $line) {
+            if (!str_starts_with($line, 'carve:')) {
+                continue;
+            }
+            $version = Support::trim(substr($line, 6));
+            if ($version === '' || $version === '0.2' || $version === '0.2.0') {
+                return;
+            }
+            $values = ['version' => $version, 'SPEC_VERSION' => '0.2'];
+            Support::reportNode('carve-version-unsupported', $node, $path, $c, $values, str_starts_with($version, '0.') ? 0 : 1);
+
+            return;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function commentFenceCloserText(array $node, string $path, Context $c): void
+    {
+        $pos = Support::pos($node);
+        if (($node['type'] ?? null) !== 'comment' || ($node['form'] ?? null) !== 'block' || $pos === null) {
+            return;
+        }
+        $width = strspn(self::trimStart(($c->lines[$pos['startLine'] - 1] ?? null)->text ?? ''), '%');
+        if ($width < 3) {
+            return;
+        }
+        for ($lineNumber = $pos['startLine'] + 1; $lineNumber <= $pos['endLine']; $lineNumber++) {
+            $line = $c->lines[$lineNumber - 1] ?? null;
+            if ($line === null) {
+                continue;
+            }
+            $text = self::trimStart($line->text);
+            $run = strspn($text, '%');
+            if ($run >= $width && Support::trim(substr($text, $run)) !== '') {
+                $c->report('comment-fence-closer-with-text', $line->start, $line->end, $path);
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function commentInLabel(array $node, string $path, Context $c): void
+    {
+        $pos = Support::pos($node);
+        if (($node['type'] ?? null) !== 'comment' || ($node['form'] ?? null) !== 'line' || $pos === null) {
+            return;
+        }
+        $line = $c->lines[$pos['startLine'] - 1] ?? null;
+        $range = Support::bounds($node);
+        if ($line === null || $range === null) {
+            return;
+        }
+        $before = substr($c->source, $line->start, max(0, $range[0] - $line->start));
+        $open = strrpos($before, '[');
+        if ($open === false || strpos($before, ']', $open) !== false) {
+            return;
+        }
+        $c->report('comment-in-reference-label', $line->start + $open, $range[1], $path);
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function footnoteWhitespace(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'footnote') {
+            return;
+        }
+        $source = Support::raw($node, $c);
+        $close = strpos($source, ']');
+        if (!str_starts_with($source, '[^') || $close === false) {
+            return;
+        }
+        $label = substr($source, 2, $close - 2);
+        $key = Support::str($node, 'key') ?? '';
+        $twin = $c->footnoteLabels[$key] ?? null;
+        if ($twin !== null && $twin !== $label) {
+            $values = ['label' => $label, 'twin' => $twin, 'key' => $key];
+            Support::reportNode('footnote-labels-differ-only-in-whitespace', $node, $path, $c, $values);
+        } elseif ($twin === null) {
+            $c->footnoteLabels[$key] = $label;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function tableColumnOverlap(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'table' || !self::hasAttribute($node, $c, 'aligns')) {
+            return;
+        }
+        $head = self::firstOfType(Support::kids($node), 'table_head');
+        $first = $head === null ? null : self::firstOfType(Support::kids($head), 'table_row');
+        if ($first === null) {
+            return;
+        }
+        $cells = Support::kids($first);
+        foreach (Support::kids($node, 'columns') as $at => $column) {
+            // C2-A-095: the column fields carry the fact that `aligns` or `widths` wrote them.
+            if ((isset($column['align']) || isset($column['width'])) && isset($cells[$at]['align'])) {
+                Support::reportNode('table-column-overlap', $node, $path, $c, ['n' => (string)($at + 1)]);
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function tightBlankLine(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'list' || ($node['spacing'] ?? null) !== 'tight') {
+            return;
+        }
+        foreach (Support::kids($node) as $at => $item) {
+            $children = Support::kids($item);
+            $count = count($children);
+            for ($inner = 0; $inner < $count - 1; $inner++) {
+                $child = $children[$inner] ?? null;
+                $childPath = $path . '/children/' . $at . '/children/' . $inner;
+                if ($child !== null && ($child['type'] ?? null) === 'paragraph' && $c->layout->blankLinesAfter($childPath) > 0) {
+                    Support::reportNode('tight-list-item-with-blank-line', $child, $childPath, $c);
+                }
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function templateComment(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'comment' || ($node['form'] ?? null) !== 'braced') {
+            return;
+        }
+        $source = Support::raw($node, $c);
+        $content = str_starts_with($source, '{%') ? self::trimStart(substr($source, 2)) : '';
+        foreach (self::TEMPLATE_WORDS as $word) {
+            if (str_starts_with($content, $word)) {
+                Support::reportNode('braced-comment-in-a-template-source', $node, $path, $c);
+
+                return;
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function unclosedBracedComment(array $node, string $path, Context $c): void
+    {
+        $range = self::textRange($node);
+        if ($range === null) {
+            return;
+        }
+        $source = Support::raw($node, $c);
+        $at = strpos($source, '{%');
+        if ($at !== false && strpos($source, '%}', $at + 2) === false) {
+            $c->report('unclosed-braced-comment', $range[0] + $at, $range[1], $path);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function unclosedEmphasis(array $node, string $path, Context $c): void
+    {
+        $range = self::textRange($node);
+        if ($range === null) {
+            return;
+        }
+        $source = Support::raw($node, $c);
+        $length = strlen($source);
+        for ($at = 0; $at < $length - 1; $at++) {
+            if ($source[$at] !== '*' || !Support::isWord($source[$at + 1]) || ($at > 0 && Support::isWord($source[$at - 1]))) {
+                continue;
+            }
+            if (strpos($source, '*', $at + 1) !== false) {
+                continue;
+            }
+            $c->report('unclosed-inline-emphasis', $range[0] + $at, $range[0] + $at + 1, $path);
+
+            return;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function orderedKindSplit(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'document') {
+            return;
+        }
+        $children = Support::kids($node);
+        $count = count($children);
+        for ($at = 1; $at < $count; $at++) {
+            $before = $children[$at - 1] ?? [];
+            $after = $children[$at] ?? [];
+            if (($before['type'] ?? null) !== 'list' || ($after['type'] ?? null) !== 'list' || count(Support::kids($before)) !== 1) {
+                continue;
+            }
+            if (self::markerField($before, 'style') === 'i' && self::markerField($after, 'style') === 'a') {
+                Support::reportNode('ordered-list-kind-split', $after, $path . '/children/' . $at, $c);
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function sigilAfterLetter(array $node, string $path, Context $c): void
+    {
+        $range = self::textRange($node);
+        if ($range === null) {
+            return;
+        }
+        $source = Support::raw($node, $c);
+        $length = strlen($source);
+        for ($at = 1; $at < $length - 1; $at++) {
+            $sigil = $source[$at];
+            if ($sigil !== '@' && $sigil !== '#') {
+                continue;
+            }
+            $before = $source[$at - 1];
+            if (!(Support::isWord($before) || ord($before) >= 128) || !Support::isWord($source[$at + 1])) {
+                continue;
+            }
+            if ($sigil !== '#' || !ctype_digit($source[$at + 1])) {
+                $c->report('sigil-after-letter', $range[0] + $at, $range[0] + $at + 1, $path);
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function listItemBodyColumn(array $node, string $path, Context $c): void
+    {
+        $pos = Support::pos($node);
+        if (($node['type'] ?? null) !== 'list_item' || $pos === null) {
+            return;
+        }
+        $marker = $c->layout->markerColumn($path);
+        $content = $c->layout->contentColumn($path);
+        if ($marker === null || $content === null) {
+            return;
+        }
+        for ($lineNumber = $pos['startLine'] + 1; $lineNumber <= $pos['endLine']; $lineNumber++) {
+            $line = $c->lines[$lineNumber - 1] ?? null;
+            $previous = $c->lines[$lineNumber - 2] ?? null;
+            if ($line === null || $previous === null || Support::trim($previous->text) !== '') {
+                continue;
+            }
+            $indent = self::indentation($line->text);
+            if ($indent > $marker && $indent < $content) {
+                $c->report('list-item-body-below-content-column', $line->start + $indent, $line->end, $path);
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function listItemBlockIndent(array $node, string $path, Context $c): void
+    {
+        foreach (self::overindented($node, $path, $c) as [$at, $line, $indent, , $content]) {
+            $c->report('list-item-block-overindented', $line->start + $indent, $line->end, $path . '/children/' . $at, [
+                'contentColumn' => (string)($content + 1),
+            ]);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function listMarkerBelowColumn(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'list') {
+            return;
+        }
+        $parent = Support::parent($path);
+        if ($parent === null || ($c->nodeTypes[$parent] ?? null) !== 'list_item') {
+            return;
+        }
+        $marker = $c->layout->markerColumn($path . '/children/0');
+        $base = $c->layout->markerColumn($parent);
+        $content = $c->layout->contentColumn($parent);
+        if ($marker === null || $base === null || $content === null) {
+            return;
+        }
+        if ($marker > $base && $marker < $content) {
+            Support::reportNode('list-marker-below-content-column', $node, $path, $c, [
+                'column' => (string)($marker + 1),
+                'contentColumn' => (string)($content + 1),
+                'baseColumn' => (string)($base + 1),
+            ]);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function blockOverindent(array $node, string $path, Context $c): void
+    {
+        foreach (self::overindented($node, $path, $c) as [$at, $line, $indent, $type, $content]) {
+            $c->report('block-opener-overindented', $line->start + $indent, $line->end, $path . '/children/' . $at, [
+                'kind' => str_replace('_', ' ', $type),
+                'past' => (string)($indent - $content),
+                'owner' => 'list item',
+            ]);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function bracedSpanAsText(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'text') {
+            return;
+        }
+        $split = Support::parent($path);
+        $parent = $split === null ? null : ($c->nodeTypes[$split] ?? null);
+        if ($parent !== 'strong' && $parent !== 'emphasis') {
+            return;
+        }
+        $at = strpos(Support::raw($node, $c), $parent === 'strong' ? '{*' : '{/');
+        $range = Support::bounds($node);
+        if ($at !== false && $range !== null) {
+            $c->report('braced-span-opener-as-text', $range[0] + $at, $range[0] + $at + 2, $path);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function colonFenceMismatch(array $node, string $path, Context $c): void
+    {
+        $type = $node['type'] ?? null;
+        $pos = Support::pos($node);
+        // C2-L-027: a figure group records no opener and closer run.
+        if (($type !== 'div' && $type !== 'admonition') || $pos === null) {
+            return;
+        }
+        $opener = self::openerRun($node, $c);
+        $endLine = $c->lines[$pos['endLine'] - 1] ?? null;
+        if ($opener === null || $endLine === null || $c->lineOf($opener[0]) === $endLine->number) {
+            return;
+        }
+        $closer = Support::trim($endLine->text);
+        if (!self::allColons($closer) || strlen($closer) <= $opener[1] || self::closesInner($node, strlen($closer), $c)) {
+            return;
+        }
+        $c->report('colon-fence-length-mismatch', $endLine->start, $endLine->end, $path, [
+            'authoredWidth' => (string)strlen($closer),
+            'expectedWidth' => (string)$opener[1],
+            'kind' => str_replace('_', ' ', (string)$type),
+            'line' => (string)$pos['startLine'],
+            'column' => (string)$pos['startColumn'],
+            'outcome' => 'closes the container',
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function consumedNearMiss(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'table') {
+            return;
+        }
+        foreach (Support::keyValues($node) as [$word]) {
+            $key = $word === 'align' ? 'aligns' : ($word === 'width' ? 'widths' : null);
+            if ($key !== null) {
+                Support::reportNode('consumed-key-near-miss', $node, $path, $c, ['word' => $word, 'key' => $key]);
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function orderedRightAligned(array $node, string $path, Context $c): void
+    {
+        $children = Support::kids($node);
+        if (($node['type'] ?? null) !== 'list' || self::markerField($node, 'kind') !== 'ordered' || count($children) < 2) {
+            return;
+        }
+        $firstMarker = $c->layout->markerColumn($path . '/children/0');
+        $secondMarker = $c->layout->markerColumn($path . '/children/1');
+        if ($firstMarker === null || $secondMarker === null || !isset($children[0])) {
+            return;
+        }
+        $sameContent = $c->layout->contentColumn($path . '/children/0') === $c->layout->contentColumn($path . '/children/1');
+        if ($firstMarker > $secondMarker && $sameContent) {
+            Support::reportNode('ordered-marker-right-aligned', $children[0], $path . '/children/0', $c);
+        }
+    }
+
+    /**
+     * C2-B-173: a span mark that joins nothing is the text of its cell, whatever prefix the cell has.
+     *
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function spanMarkerBlocked(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'table_cell' || isset($node['span'])) {
+            return;
+        }
+        $content = Support::kids($node)[0] ?? null;
+        $inner = $content !== null && ($content['type'] ?? null) === 'cell_paragraph' ? Support::kids($content) : [];
+        $only = count($inner) === 1 ? $inner[0] ?? null : null;
+        $marker = $only !== null && ($only['type'] ?? null) === 'text' ? Support::str($only, 'value') ?? '' : '';
+        if ($marker !== '<' && $marker !== '^') {
+            return;
+        }
+        // An escaped mark is text by the author's choice.
+        if (str_ends_with(rtrim(Support::raw($node, $c), " \t\n\r\v\f"), '\\' . $marker)) {
+            return;
+        }
+        $reason = $marker === '<'
+            ? 'There is no cell to its left in its row.'
+            : 'There is no cell of one column above it in its group: head, body or foot.';
+        Support::reportNode('table-span-marker-blocked', $node, $path, $c, ['marker' => $marker, 'reason' => $reason]);
+    }
+
+    /**
+     * C2-B-174: the brace block in the prefix of a span mark that joins a cell applies to no cell, and fmt drops it; so does
+     * a header mark on it whose row is no head row.
+     *
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function spanMarkerAttribute(array $node, string $path, Context $c): void
+    {
+        $span = $node['span'] ?? null;
+        if (($node['type'] ?? null) !== 'table_cell' || $span === null) {
+            return;
+        }
+        $prefix = Support::raw($node, $c);
+        $header = str_starts_with($prefix, '=');
+        $braced = str_starts_with($header ? substr($prefix, 1) : $prefix, '{');
+        if (!$braced && (!$header || ($c->nodeTypes[self::groupPath($path)] ?? null) === 'table_head')) {
+            return;
+        }
+        $marker = $span === 'rowspan' ? '^' : '<';
+        $values = ['marker' => $marker, 'direction' => $marker === '^' ? 'above it' : 'to its left'];
+        Support::reportNode('table-span-marker-attribute', $node, $path, $c, $values, $braced ? 0 : 1);
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function unevenListIndent(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'list') {
+            return;
+        }
+        $children = Support::kids($node);
+        $count = count($children);
+        for ($at = 1; $at < $count; $at++) {
+            $first = $c->layout->markerColumn($path . '/children/' . ($at - 1));
+            $next = $c->layout->markerColumn($path . '/children/' . $at);
+            if ($first !== null && $next !== null && $next < $first && isset($children[$at])) {
+                Support::reportNode('uneven-list-indent', $children[$at], $path . '/children/' . $at, $c);
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function nonDescriptiveLink(array $node, string $path, Context $c): void
+    {
+        $children = Support::kids($node);
+        if (($node['type'] ?? null) !== 'link' || count($children) !== 1) {
+            return;
+        }
+        $child = $children[0] ?? [];
+        if (($child['type'] ?? null) !== 'text') {
+            return;
+        }
+        $value = Support::trim(strtolower(Support::str($child, 'value') ?? ''));
+        if ($value === 'here' || $value === 'click here' || $value === 'read more') {
+            Support::reportNode('non-descriptive-link-text', $node, $path, $c);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function unresolvedReference(array $node, string $path, Context $c): void
+    {
+        $type = $node['type'] ?? null;
+        if (($type !== 'link' && $type !== 'image') || !isset($node['key'])) {
+            return;
+        }
+        if (isset($node[$type === 'link' ? 'href' : 'src'])) {
+            return;
+        }
+        $rawRef = $c->layout->rawRef($path) ?? Support::raw($node, $c);
+        Support::reportNode('unresolved-reference-link', $node, $path, $c, ['rawRef' => $rawRef], $type === 'link' ? 1 : 3);
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function unusedReference(array $node, string $path, Context $c): void
+    {
+        $type = $node['type'] ?? null;
+        $key = Support::str($node, 'key');
+        if ($type === 'link_reference_definition') {
+            $c->referenceDefinitions[] = [$node, $path];
+        } elseif (($type === 'link' || $type === 'image') && $key !== null) {
+            $c->usedReferences[$key] = true;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function unresolvedFootnote(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) === 'footnote_ref' && !isset($node['number'])) {
+            Support::reportNode('unresolved-footnote', $node, $path, $c, ['id' => Support::str($node, 'key') ?? '']);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function unusedFootnote(array $node, string $path, Context $c): void
+    {
+        $type = $node['type'] ?? null;
+        if ($type === 'footnote') {
+            $c->footnoteDefinitions[] = [$node, $path];
+        } elseif ($type === 'footnote_ref') {
+            $c->usedFootnotes[Support::str($node, 'key') ?? ''] = true;
+        }
+    }
+
+    /**
+     * C2-N-072: the attribute line above an include without `code` applies to nothing.
+     *
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function includeAttributesUnused(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) === 'include' && isset($node['attrs']) && self::option($node, 'code') === null) {
+            Support::reportNode('include-attributes-unused', $node, $path, $c);
+        }
+    }
+
+    /**
+     * C2-N-088: `lines` on a delimited table include counts physical lines, where `rows` counts records.
+     *
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function includeLinesTableRows(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'include' || self::option($node, 'lines') === null) {
+            return;
+        }
+        $code = self::option($node, 'code');
+        $table = in_array('table', array_column(Support::keyValues($node), 0), true);
+        if ($table && ($code === 'csv' || $code === 'tsv')) {
+            Support::reportNode('include-lines-table-rows-hint', $node, $path, $c);
+        }
+    }
+
+    /**
+     * The checks that need the whole tree (the JS `finishStructure`).
+     *
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function finish(Context $c): void
+    {
+        self::finishFragments($c);
+        self::finishReferences($c);
+        self::finishFootnotes($c);
+    }
+
+    private static function finishFragments(Context $c): void
+    {
+        if ($c->off('broken-fragment-link')) {
+            return;
+        }
+        foreach ($c->fragmentLinks as [$node, $path]) {
+            $href = Support::str($node, 'href');
+            if (($node['type'] ?? null) !== 'link' || $href === null) {
+                continue;
+            }
+            if (!isset($c->ids[substr($href, 1)])) {
+                Support::reportNode('broken-fragment-link', $node, $path, $c, ['href' => $href], 1);
+            }
+        }
+    }
+
+    private static function finishReferences(Context $c): void
+    {
+        if ($c->off('unused-link-reference-definition')) {
+            return;
+        }
+        foreach ($c->referenceDefinitions as [$node, $path]) {
+            if (($node['type'] ?? null) === 'link_reference_definition' && !isset($c->usedReferences[Support::str($node, 'key') ?? ''])) {
+                Support::reportNode('unused-link-reference-definition', $node, $path, $c);
+            }
+        }
+    }
+
+    private static function finishFootnotes(Context $c): void
+    {
+        if ($c->off('unused-footnote-definition')) {
+            return;
+        }
+        foreach ($c->footnoteDefinitions as [$node, $path]) {
+            $key = Support::str($node, 'key') ?? '';
+            if (($node['type'] ?? null) === 'footnote' && !isset($c->usedFootnotes[$key])) {
+                Support::reportNode('unused-footnote-definition', $node, $path, $c, ['label' => $key]);
+            }
+        }
+    }
+
+    /**
+     * The range of a text node, or null for another node or one without a position.
+     *
+     * @param array<string, mixed> $node
+     *
+     * @return array{0: int, 1: int}|null
+     */
+    private static function textRange(array $node): ?array
+    {
+        return ($node['type'] ?? null) === 'text' ? Support::bounds($node) : null;
+    }
+
+    private static function trimStart(string $text): string
+    {
+        return ltrim($text, " \t\n\r\v\f");
+    }
+
+    /**
+     * The JS `indentation` of `structure.ts`: -1 for a line of only spaces and tabs.
+     *
+     * @param string $text
+     *
+     * @return int
+     */
+    private static function indentation(string $text): int
+    {
+        $at = strspn($text, " \t");
+
+        return $at < strlen($text) ? $at : -1;
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $field
+     *
+     * @return string|null
+     */
+    private static function markerField(array $node, string $field): ?string
+    {
+        $marker = $node['marker'] ?? null;
+
+        return is_array($marker) && is_string($marker[$field] ?? null) ? $marker[$field] : null;
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $name
+     *
+     * @return string|null
+     */
+    private static function option(array $node, string $name): ?string
+    {
+        $options = $node['options'] ?? null;
+        if (!is_array($options) || !isset($options[$name])) {
+            return null;
+        }
+
+        return is_scalar($options[$name]) ? (string)$options[$name] : '';
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $nodes
+     * @param string $type
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function firstOfType(array $nodes, string $type): ?array
+    {
+        foreach ($nodes as $node) {
+            if (($node['type'] ?? null) === $type) {
+                return $node;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether the attribute line of a node names `key` (the JS `attributeValue` is not undefined).
+     *
+     * @param array<string, mixed> $node
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     * @param string $key
+     *
+     * @return bool
+     */
+    private static function hasAttribute(array $node, Context $c, string $key): bool
+    {
+        $pos = Support::pos($node);
+        $line = $pos === null ? null : ($c->lines[$pos['startLine'] - 1] ?? null);
+        if ($line === null) {
+            return false;
+        }
+        $text = Support::trim($line->text);
+        if (!str_starts_with($text, '{') || !str_ends_with($text, '}')) {
+            return false;
+        }
+        $at = strpos($text, $key);
+
+        return $at !== false && ($at === 0 || $text[$at - 1] === '{' || $text[$at - 1] === ' ');
+    }
+
+    /**
+     * The children of a list item that open a block past its content column: index, line, indentation, type, content
+     * column.
+     *
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return array<array{0: int, 1: \MarkupCarve\Carve2\Lint\Line, 2: int, 3: string, 4: int}>
+     */
+    private static function overindented(array $node, string $path, Context $c): array
+    {
+        $content = ($node['type'] ?? null) === 'list_item' ? $c->layout->contentColumn($path) : null;
+        if ($content === null) {
+            return [];
+        }
+        $out = [];
+        foreach (Support::kids($node) as $at => $child) {
+            $type = Support::str($child, 'type') ?? '';
+            $pos = Support::pos($child);
+            if ($type === 'paragraph' || $pos === null) {
+                continue;
+            }
+            $line = $c->lines[$pos['startLine'] - 1] ?? null;
+            if ($line === null) {
+                continue;
+            }
+            $indent = self::indentation($line->text);
+            if ($indent > $content) {
+                $out[] = [$at, $line, $indent, $type, $content];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * C2-L-027: the offset and length of the colon run that opens a div, behind its attribute lines.
+     *
+     * @param array<string, mixed> $node
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return array{0: int, 1: int}|null
+     */
+    private static function openerRun(array $node, Context $c): ?array
+    {
+        $pos = Support::pos($node);
+        if ($pos === null) {
+            return null;
+        }
+        $at = $pos['startOffset'];
+        $line = $c->lineOf($at);
+        while (($c->source[$at] ?? '') !== ':' && isset($c->lines[$line]) && $line < $pos['endLine']) {
+            $next = $c->lines[$line++];
+            $at = $next->start + strspn($next->text, " \t>");
+        }
+        $run = strspn($c->source, ':', $at);
+
+        return $run > 0 ? [$at, $run] : null;
+    }
+
+    /**
+     * Whether a block inside `node` that ends where it ends takes a colon run of `length` as its own closer (C2-B-125).
+     *
+     * @param array<string, mixed> $node
+     * @param int $length
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return bool
+     */
+    private static function closesInner(array $node, int $length, Context $c): bool
+    {
+        $end = Support::bounds($node)[1] ?? null;
+        $at = $node;
+        while (true) {
+            $children = Support::kids($at);
+            $last = $children === [] ? null : $children[array_key_last($children)];
+            if ($last === null || (Support::bounds($last)[1] ?? null) !== $end) {
+                return false;
+            }
+            $type = $last['type'] ?? null;
+            if (in_array($type, ['div', 'admonition', 'figure_group', 'line_block'], true)) {
+                $run = self::openerRun($last, $c);
+                if ($run !== null && $run[1] <= $length) {
+                    return true;
+                }
+            }
+            $at = $last;
+        }
+    }
+
+    private static function allColons(string $value): bool
+    {
+        return strlen($value) >= 3 && strspn($value, ':') === strlen($value);
+    }
+
+    private static function groupPath(string $path): string
+    {
+        $row = substr($path, 0, (int)strrpos($path, '/children/'));
+
+        return substr($row, 0, (int)strrpos($row, '/children/'));
+    }
+}
