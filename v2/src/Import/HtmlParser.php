@@ -168,18 +168,31 @@ final class HtmlParser
         $root = new HtmlNode(HtmlNode::ROOT);
         $source = $document ? $dom : $dom->getElementsByTagName(self::LEGACY_ROOT)->item(0);
         if ($source !== null) {
-            self::copyLegacy($source, $root);
+            self::copyLegacy($source, $root, !$document);
         }
 
         return $root;
     }
 
-    private static function copyLegacy(DOMNode $source, HtmlNode $target): void
+    /**
+     * @param \DOMNode $source
+     * @param \MarkupCarve\Carve2\Import\HtmlNode $target
+     * @param bool $fragment
+     *
+     * @return void
+     */
+    private static function copyLegacy(DOMNode $source, HtmlNode $target, bool $fragment = false): void
     {
         $pending = [[$source, $target]];
         while ($pending !== []) {
             [$from, $to] = array_pop($pending);
             foreach ($from->childNodes as $child) {
+                // HTML: in a body fragment an `<html>` or `<body>` start tag is ignored, its content stays in place.
+                if ($fragment && $child instanceof DOMElement && in_array(strtolower($child->tagName), ['html', 'body'], true)) {
+                    $pending[] = [$child, $to];
+
+                    continue;
+                }
                 $node = self::legacyNode($child);
                 if ($node === null) {
                     continue;
