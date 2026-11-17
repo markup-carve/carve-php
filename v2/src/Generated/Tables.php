@@ -6650,7 +6650,7 @@ final class Tables
             'This line is indented past the list marker but short of the item\'s text, and it belongs to the item. Indent it to the text, or move it to the column of the list to end the item.',
         ],
         'list-marker-below-content-column' => [
-            'This list marker starts at column ${column}, between the columns of two open lists, so it joins the deeper list. Start it at column ${contentColumn} to make that explicit, or at column ${baseColumn} to put it in the outer list.',
+            'This list marker starts at column ${column}, between the columns of two open lists, so it is read at the column of the deeper list. Start it at column ${contentColumn} to make that explicit, or at column ${baseColumn} to put it in the outer list.',
         ],
         'list-marker-without-blank-line' => [
             'This list marker is part of the preceding paragraph; add a blank line before the list.',
@@ -6672,7 +6672,7 @@ final class Tables
             'A lone i starts a roman list and any other single letter an alphabetic one, so this list splits after its first item.',
         ],
         'ordered-marker-right-aligned' => [
-            'This marker sits left of its list and is text of the item above. Ordered markers are left-aligned in 0.2.',
+            'This marker sits left of its list, so it is a sibling item that moves the list\'s column. Write the ordered markers left-aligned, as the formatter does.',
         ],
         'platform-issue-reference' => [
             '${host} re-linkifies a hash-number in published output, so "${text}" becomes a link that notifies or references something unrelated; move the example into a fenced code block, or rewrite it as "item 1" / "point 1"',

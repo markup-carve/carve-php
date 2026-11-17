@@ -1897,7 +1897,7 @@
       "group": "div boundary at owning column",
       "from": "- one\n ::: note\n b\n :::\n",
       "to": "- one\n::: note\n b\n :::\n",
-      "meaning02": "C2-B-056 and C2-B-076 place the div or follower outside its preceding item or description when written at column zero.",
+      "meaning02": "C2-B-015 and C2-B-076 place the div or follower outside its preceding item or description when written at column zero.",
       "toolEntry": "U-222",
       "silent": true
     },
@@ -2037,7 +2037,7 @@
       "group": "nested item follower at outer content column",
       "from": "- a\n  * w\n  1. v\n    - u\n",
       "to": "- a\n  * w\n  1. v\n  - u\n",
-      "meaning02": "C2-B-056 and C2-B-076 place the follower list or text at the outer item content column.",
+      "meaning02": "C2-B-015 and C2-B-076 place the follower list or text at the outer item content column.",
       "toolEntry": "U-237",
       "silent": true
     },
@@ -2127,7 +2127,7 @@
       "group": "unresolved footnote attribute and heading id",
       "from": "x[^n]{#i}\n\n## {#i}\n",
       "to": "x[^n]{\\#i}\n\n{#i}\n## \\{#i}\n",
-      "meaning02": "C2-I-087, C2-I-044, and C2-B-091 keep the unresolved footnote attribute literal while the heading receives its authored id from the line above.",
+      "meaning02": "C2-I-087, C2-I-119, and C2-B-091 keep the unresolved footnote attribute literal while the heading receives its authored id from the line above.",
       "toolEntry": "U-246",
       "silent": true
     },
@@ -2227,7 +2227,7 @@
       "group": "tag inside a failed brace attribute",
       "from": "# H {#id .cls}\n",
       "to": "# H {#id .cls\\}\n",
-      "meaning02": "C2-I-044 and C2-I-090 keep the tag visible when a failed brace attribute has its opening or closing brace escaped.",
+      "meaning02": "C2-I-119 and C2-I-090 keep the tag visible when a failed brace attribute has its opening or closing brace escaped.",
       "toolEntry": "U-256",
       "silent": true
     },
@@ -2237,7 +2237,7 @@
       "group": "nested bracket text in an inline note",
       "from": "^[/[^[g]/] b/]\n",
       "to": "^[{/\\[\\^[g]\\/\\] b/}]\n",
-      "meaning02": "C2-I-044 and C2-I-047 preserve the old note text when its bracket run is escaped inside a braced emphasis span.",
+      "meaning02": "C2-I-119 and C2-I-047 preserve the old note text when its bracket run is escaped inside a braced emphasis span.",
       "toolEntry": "U-257",
       "silent": true
     },
@@ -2437,7 +2437,7 @@
       "id": "T-011",
       "kind": "move",
       "from": "`marker.bare`, `block_quote.fenced`, `table.sourceFormat`",
-      "to": "dropped from the tree; written to a source-layout sidecar when the caller asks for one",
+      "to": "dropped from the tree; written to a source-layout sidecar when the caller asks for one and supplies the original source, and otherwise dropped",
       "migrationRule": "C2-A-178",
       "silent": false
     },

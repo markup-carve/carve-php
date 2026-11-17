@@ -14,7 +14,6 @@
     "C2-B-003",
     "C2-B-004",
     "C2-B-005",
-    "C2-B-006",
     "C2-B-007",
     "C2-B-008",
     "C2-B-009",
@@ -133,7 +132,6 @@
     "C2-B-003",
     "C2-B-004",
     "C2-B-005",
-    "C2-B-006",
     "C2-B-007",
     "C2-B-008",
     "C2-B-009",
@@ -196,7 +194,6 @@
     "C2-B-003",
     "C2-B-004",
     "C2-B-005",
-    "C2-B-006",
     "C2-B-007",
     "C2-B-008",
     "C2-B-009",
@@ -326,7 +323,6 @@
     "C2-B-003",
     "C2-B-004",
     "C2-B-005",
-    "C2-B-006",
     "C2-B-007",
     "C2-B-008",
     "C2-B-009",
@@ -445,7 +441,6 @@
     "C2-B-003",
     "C2-B-004",
     "C2-B-005",
-    "C2-B-006",
     "C2-B-007",
     "C2-B-008",
     "C2-B-009",
@@ -551,7 +546,6 @@
     "C2-B-003",
     "C2-B-004",
     "C2-B-005",
-    "C2-B-006",
     "C2-B-007",
     "C2-B-008",
     "C2-B-009",
@@ -714,7 +708,6 @@
     "C2-B-003",
     "C2-B-004",
     "C2-B-005",
-    "C2-B-006",
     "C2-B-007",
     "C2-B-008",
     "C2-B-009",
@@ -902,7 +895,6 @@
     "C2-B-003",
     "C2-B-004",
     "C2-B-005",
-    "C2-B-006",
     "C2-B-007",
     "C2-B-008",
     "C2-B-009",
@@ -960,7 +952,6 @@
     "C2-B-020",
     "C2-B-021",
     "C2-B-022",
-    "C2-B-023",
     "C2-B-024"
    ],
    "kind": "render",
@@ -1106,7 +1097,6 @@
     "C2-B-020",
     "C2-B-021",
     "C2-B-022",
-    "C2-B-023",
     "C2-B-024"
    ],
    "kind": "render",
@@ -1219,7 +1209,6 @@
     "C2-B-020",
     "C2-B-021",
     "C2-B-022",
-    "C2-B-023",
     "C2-B-024"
    ],
    "kind": "render",
@@ -5864,7 +5853,6 @@
    "section": "Task items",
    "clauses": [
     "C2-B-046",
-    "C2-B-047",
     "C2-B-048",
     "C2-B-229"
    ],
@@ -6077,7 +6065,6 @@
    "section": "Task items",
    "clauses": [
     "C2-B-046",
-    "C2-B-047",
     "C2-B-048",
     "C2-B-229"
    ],
@@ -6164,7 +6151,6 @@
    "section": "Task items",
    "clauses": [
     "C2-B-046",
-    "C2-B-047",
     "C2-B-048",
     "C2-B-229"
    ],
@@ -6255,7 +6241,6 @@
    "section": "Task items",
    "clauses": [
     "C2-B-046",
-    "C2-B-047",
     "C2-B-048",
     "C2-B-229"
    ],
@@ -6385,7 +6370,6 @@
    "section": "Task items",
    "clauses": [
     "C2-B-046",
-    "C2-B-047",
     "C2-B-048",
     "C2-B-229"
    ],
@@ -6513,7 +6497,6 @@
    "section": "Task items",
    "clauses": [
     "C2-B-046",
-    "C2-B-047",
     "C2-B-048",
     "C2-B-229"
    ],
@@ -7702,7 +7685,6 @@
    "number": 52,
    "section": "Nested lists and the marker line",
    "clauses": [
-    "C2-B-056",
     "C2-B-057",
     "C2-B-058",
     "C2-B-059",
@@ -7905,7 +7887,6 @@
    "number": 53,
    "section": "Nested lists and the marker line",
    "clauses": [
-    "C2-B-056",
     "C2-B-057",
     "C2-B-058",
     "C2-B-059",
@@ -8032,7 +8013,6 @@
    "number": 54,
    "section": "Nested lists and the marker line",
    "clauses": [
-    "C2-B-056",
     "C2-B-057",
     "C2-B-058",
     "C2-B-059",
@@ -8152,7 +8132,6 @@
    "number": 55,
    "section": "Nested lists and the marker line",
    "clauses": [
-    "C2-B-056",
     "C2-B-057",
     "C2-B-058",
     "C2-B-059",
@@ -8302,7 +8281,6 @@
    "number": 56,
    "section": "Nested lists and the marker line",
    "clauses": [
-    "C2-B-056",
     "C2-B-057",
     "C2-B-058",
     "C2-B-059",
@@ -8425,7 +8403,6 @@
    "number": 57,
    "section": "Nested lists and the marker line",
    "clauses": [
-    "C2-B-056",
     "C2-B-057",
     "C2-B-058",
     "C2-B-059",
@@ -18622,16 +18599,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -18766,16 +18739,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -18930,16 +18899,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -19077,16 +19042,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -19182,16 +19143,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -19251,16 +19208,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -19413,16 +19366,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -19501,16 +19450,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -19571,16 +19516,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -19692,16 +19633,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -19843,16 +19780,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -19938,16 +19871,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -19994,16 +19923,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -20106,16 +20031,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -20234,16 +20155,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -20372,16 +20289,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -20541,16 +20454,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -20642,16 +20551,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -20806,16 +20711,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -21042,16 +20943,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -21338,16 +21235,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -21463,16 +21356,12 @@
    "section": "Comments",
    "clauses": [
     "C2-B-133",
-    "C2-B-134",
     "C2-B-135",
     "C2-B-136",
     "C2-B-137",
     "C2-B-138",
-    "C2-B-139",
     "C2-B-140",
     "C2-B-141",
-    "C2-B-142",
-    "C2-B-143",
     "C2-B-144",
     "C2-B-145",
     "C2-B-199",
@@ -25901,6 +25790,170 @@
    "reason": "the HTML was written by hand from the clauses and has not been run through any engine (conventions of the document)"
   },
   {
+   "id": "syntax-blocks-271",
+   "document": "syntax-blocks.md",
+   "number": 271,
+   "section": "Tables",
+   "clauses": [
+    "C2-B-166",
+    "C2-B-167",
+    "C2-B-168",
+    "C2-B-169",
+    "C2-B-223",
+    "C2-B-224",
+    "C2-B-170",
+    "C2-B-171",
+    "C2-B-172",
+    "C2-B-173",
+    "C2-B-174",
+    "C2-B-175",
+    "C2-B-176",
+    "C2-B-178",
+    "C2-B-179",
+    "C2-B-180",
+    "C2-B-181",
+    "C2-B-182",
+    "C2-B-183",
+    "C2-B-184",
+    "C2-B-185",
+    "C2-B-186",
+    "C2-B-187",
+    "C2-B-188",
+    "C2-B-209",
+    "C2-B-221",
+    "C2-B-210",
+    "C2-B-211",
+    "C2-B-212",
+    "C2-B-220",
+    "C2-B-213",
+    "C2-B-214",
+    "C2-B-227",
+    "C2-B-226"
+   ],
+   "kind": "render",
+   "input": "| a |\t \n+ b |  \n| c |",
+   "options": {},
+   "expected": {
+    "html": "<table>\n  <tbody>\n    <tr><td>a b</td></tr>\n    <tr><td>c</td></tr>\n  </tbody>\n</table>",
+    "tree": {
+     "type": "document",
+     "astVersion": "2.0",
+     "children": [
+      {
+       "type": "table",
+       "columns": [
+        {
+         "type": "table_column"
+        }
+       ],
+       "children": [
+        {
+         "type": "table_body",
+         "children": [
+          {
+           "type": "table_row",
+           "children": [
+            {
+             "type": "table_cell",
+             "header": false,
+             "children": [
+              {
+               "type": "cell_paragraph",
+               "children": [
+                {
+                 "type": "text",
+                 "value": "a b"
+                }
+               ]
+              }
+             ]
+            }
+           ]
+          },
+          {
+           "type": "table_row",
+           "children": [
+            {
+             "type": "table_cell",
+             "header": false,
+             "children": [
+              {
+               "type": "cell_paragraph",
+               "children": [
+                {
+                 "type": "text",
+                 "value": "c",
+                 "pos": {
+                  "startLine": 3,
+                  "endLine": 3,
+                  "startColumn": 3,
+                  "endColumn": 4,
+                  "startOffset": 18,
+                  "endOffset": 19
+                 }
+                }
+               ],
+               "pos": {
+                "startLine": 3,
+                "endLine": 3,
+                "startColumn": 3,
+                "endColumn": 4,
+                "startOffset": 18,
+                "endOffset": 19
+               }
+              }
+             ],
+             "pos": {
+              "startLine": 3,
+              "endLine": 3,
+              "startColumn": 2,
+              "endColumn": 5,
+              "startOffset": 17,
+              "endOffset": 20
+             }
+            }
+           ],
+           "pos": {
+            "startLine": 3,
+            "endLine": 3,
+            "startColumn": 1,
+            "endColumn": 6,
+            "startOffset": 16,
+            "endOffset": 21
+           }
+          }
+         ],
+         "pos": {
+          "startLine": 1,
+          "endLine": 3,
+          "startColumn": 1,
+          "endColumn": 6,
+          "startOffset": 0,
+          "endOffset": 21
+         }
+        }
+       ],
+       "pos": {
+        "startLine": 1,
+        "endLine": 3,
+        "startColumn": 1,
+        "endColumn": 6,
+        "startOffset": 0,
+        "endOffset": 21
+       }
+      }
+     ],
+     "srcByteLength": 21,
+     "stages": [
+      "referenceResolution",
+      "tableAlignment"
+     ]
+    }
+   },
+   "status": "verified",
+   "reason": "the HTML was produced by the 0.1 reference engine, because the 0.2 rule equals 0.1 behavior for that input (conventions of the document)"
+  },
+  {
    "id": "syntax-blocks-199",
    "document": "syntax-blocks.md",
    "number": 199,
@@ -25919,7 +25972,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -26210,7 +26262,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -26402,7 +26453,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -26607,7 +26657,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -26944,7 +26993,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -27197,7 +27245,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -27384,7 +27431,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -27584,7 +27630,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -27794,7 +27839,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -28093,7 +28137,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -28414,7 +28457,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -28692,7 +28734,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -28946,7 +28987,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -29208,7 +29248,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -29603,7 +29642,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -29769,7 +29807,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -30007,7 +30044,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -30248,7 +30284,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -30483,7 +30518,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -30640,7 +30674,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -30852,7 +30885,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -31015,7 +31047,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -31170,7 +31201,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -31301,7 +31331,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -31488,7 +31517,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -31686,7 +31714,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -31817,7 +31844,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -32022,7 +32048,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -32185,7 +32210,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -32698,7 +32722,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -32995,7 +33018,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -33315,7 +33337,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -33593,7 +33614,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -33751,7 +33771,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -34059,7 +34078,6 @@
     "C2-B-174",
     "C2-B-175",
     "C2-B-176",
-    "C2-B-177",
     "C2-B-178",
     "C2-B-179",
     "C2-B-180",
@@ -36704,8 +36722,7 @@
     "C2-I-023",
     "C2-I-024",
     "C2-I-025",
-    "C2-I-026",
-    "C2-I-027"
+    "C2-I-026"
    ],
    "kind": "render",
    "input": "a %% comment\nb and 50%% and a%%b",
@@ -36797,8 +36814,7 @@
     "C2-I-023",
     "C2-I-024",
     "C2-I-025",
-    "C2-I-026",
-    "C2-I-027"
+    "C2-I-026"
    ],
    "kind": "render",
    "input": "*a %% b*\nc* d",
@@ -36915,8 +36931,7 @@
     "C2-I-023",
     "C2-I-024",
     "C2-I-025",
-    "C2-I-026",
-    "C2-I-027"
+    "C2-I-026"
    ],
    "kind": "render",
    "input": "[a %% b](/u) c",
@@ -36985,8 +37000,7 @@
     "C2-I-023",
     "C2-I-024",
     "C2-I-025",
-    "C2-I-026",
-    "C2-I-027"
+    "C2-I-026"
    ],
    "kind": "render",
    "input": "`a %% b` and [a](/u%%20c) and [a]{k=\"a %% b\"}",
@@ -37125,8 +37139,7 @@
     "C2-I-023",
     "C2-I-024",
     "C2-I-025",
-    "C2-I-026",
-    "C2-I-027"
+    "C2-I-026"
    ],
    "kind": "render",
    "input": "a {% one\ntwo %} b and *bo{% c %}ld* and a {% oops",
@@ -37275,8 +37288,6 @@
     "C2-I-034",
     "C2-I-035",
     "C2-I-036",
-    "C2-I-037",
-    "C2-I-038",
     "C2-I-039",
     "C2-I-040",
     "C2-I-041",
@@ -37541,8 +37552,6 @@
     "C2-I-034",
     "C2-I-035",
     "C2-I-036",
-    "C2-I-037",
-    "C2-I-038",
     "C2-I-039",
     "C2-I-040",
     "C2-I-041",
@@ -37608,8 +37617,6 @@
     "C2-I-034",
     "C2-I-035",
     "C2-I-036",
-    "C2-I-037",
-    "C2-I-038",
     "C2-I-039",
     "C2-I-040",
     "C2-I-041",
@@ -37794,8 +37801,6 @@
     "C2-I-034",
     "C2-I-035",
     "C2-I-036",
-    "C2-I-037",
-    "C2-I-038",
     "C2-I-039",
     "C2-I-040",
     "C2-I-041",
@@ -37898,8 +37903,6 @@
     "C2-I-034",
     "C2-I-035",
     "C2-I-036",
-    "C2-I-037",
-    "C2-I-038",
     "C2-I-039",
     "C2-I-040",
     "C2-I-041",
@@ -37978,8 +37981,6 @@
     "C2-I-034",
     "C2-I-035",
     "C2-I-036",
-    "C2-I-037",
-    "C2-I-038",
     "C2-I-039",
     "C2-I-040",
     "C2-I-041",
@@ -38045,8 +38046,6 @@
     "C2-I-034",
     "C2-I-035",
     "C2-I-036",
-    "C2-I-037",
-    "C2-I-038",
     "C2-I-039",
     "C2-I-040",
     "C2-I-041",
@@ -38152,8 +38151,6 @@
     "C2-I-034",
     "C2-I-035",
     "C2-I-036",
-    "C2-I-037",
-    "C2-I-038",
     "C2-I-039",
     "C2-I-040",
     "C2-I-041",
@@ -38324,8 +38321,6 @@
     "C2-I-034",
     "C2-I-035",
     "C2-I-036",
-    "C2-I-037",
-    "C2-I-038",
     "C2-I-039",
     "C2-I-040",
     "C2-I-041",
@@ -38460,8 +38455,6 @@
     "C2-I-034",
     "C2-I-035",
     "C2-I-036",
-    "C2-I-037",
-    "C2-I-038",
     "C2-I-039",
     "C2-I-040",
     "C2-I-041",
@@ -38593,8 +38586,6 @@
     "C2-I-034",
     "C2-I-035",
     "C2-I-036",
-    "C2-I-037",
-    "C2-I-038",
     "C2-I-039",
     "C2-I-040",
     "C2-I-041",
@@ -38756,7 +38747,6 @@
    "section": "The opening brace",
    "clauses": [
     "C2-I-043",
-    "C2-I-044",
     "C2-I-045"
    ],
    "kind": "render",
@@ -38897,7 +38887,6 @@
    "section": "The opening brace",
    "clauses": [
     "C2-I-043",
-    "C2-I-044",
     "C2-I-045"
    ],
    "kind": "render",
@@ -39051,7 +39040,6 @@
    "section": "The opening brace",
    "clauses": [
     "C2-I-043",
-    "C2-I-044",
     "C2-I-045"
    ],
    "kind": "render",
@@ -39131,7 +39119,6 @@
    "section": "The opening brace",
    "clauses": [
     "C2-I-043",
-    "C2-I-044",
     "C2-I-045"
    ],
    "kind": "render",
@@ -39348,8 +39335,7 @@
     "C2-I-050",
     "C2-I-051",
     "C2-I-052",
-    "C2-I-053",
-    "C2-I-054"
+    "C2-I-053"
    ],
    "kind": "render",
    "input": "/emphasis/ and *strong* and *a\nb* and * a* and *a *",
@@ -39531,8 +39517,7 @@
     "C2-I-050",
     "C2-I-051",
     "C2-I-052",
-    "C2-I-053",
-    "C2-I-054"
+    "C2-I-053"
    ],
    "kind": "render",
    "input": "*́a* and *a*",
@@ -39617,8 +39602,7 @@
     "C2-I-050",
     "C2-I-051",
     "C2-I-052",
-    "C2-I-053",
-    "C2-I-054"
+    "C2-I-053"
    ],
    "kind": "render",
    "input": "/a /b/ c/",
@@ -39728,8 +39712,7 @@
     "C2-I-050",
     "C2-I-051",
     "C2-I-052",
-    "C2-I-053",
-    "C2-I-054"
+    "C2-I-053"
    ],
    "kind": "render",
    "input": "a_*x* and _*x*_",
@@ -39863,8 +39846,7 @@
     "C2-I-050",
     "C2-I-051",
     "C2-I-052",
-    "C2-I-053",
-    "C2-I-054"
+    "C2-I-053"
    ],
    "kind": "render",
    "input": "/*both*/ and */both/*",
@@ -40000,8 +39982,7 @@
     "C2-I-050",
     "C2-I-051",
     "C2-I-052",
-    "C2-I-053",
-    "C2-I-054"
+    "C2-I-053"
    ],
    "kind": "render",
    "input": "**bold** and *a** and ***x*** and /b// and //x//",
@@ -40061,8 +40042,7 @@
     "C2-I-050",
     "C2-I-051",
     "C2-I-052",
-    "C2-I-053",
-    "C2-I-054"
+    "C2-I-053"
    ],
    "kind": "render",
    "input": "a/b testing, 2 * 3 * 4, a*b*c, x^2, $5, 50%, a = b = c",
@@ -40122,8 +40102,7 @@
     "C2-I-050",
     "C2-I-051",
     "C2-I-052",
-    "C2-I-053",
-    "C2-I-054"
+    "C2-I-053"
    ],
    "kind": "render",
    "input": "x =1, y= 2 and ~/config and _id",
@@ -40183,8 +40162,7 @@
     "C2-I-050",
     "C2-I-051",
     "C2-I-052",
-    "C2-I-053",
-    "C2-I-054"
+    "C2-I-053"
    ],
    "kind": "render",
    "input": "snake_case_name and _private and __init__ and ~5 minutes~ and a == b",
@@ -40244,8 +40222,7 @@
     "C2-I-050",
     "C2-I-051",
     "C2-I-052",
-    "C2-I-053",
-    "C2-I-054"
+    "C2-I-053"
    ],
    "kind": "render",
    "input": "the /etc/ dir and /usr/local/ and /etc/hosts/ file",
@@ -40342,8 +40319,7 @@
     "C2-I-050",
     "C2-I-051",
     "C2-I-052",
-    "C2-I-053",
-    "C2-I-054"
+    "C2-I-053"
    ],
    "kind": "render",
    "input": "cd /tmp/ && ls /var/",
@@ -40465,8 +40441,7 @@
     "C2-I-050",
     "C2-I-051",
     "C2-I-052",
-    "C2-I-053",
-    "C2-I-054"
+    "C2-I-053"
    ],
    "kind": "render",
    "input": "glob *.js or src/* and 5 *3 and 4* 2",
@@ -40600,8 +40575,7 @@
     "C2-I-050",
     "C2-I-051",
     "C2-I-052",
-    "C2-I-053",
-    "C2-I-054"
+    "C2-I-053"
    ],
    "kind": "render",
    "input": "*a /b* c/",
@@ -42093,8 +42067,7 @@
    "number": 59,
    "section": "Spans",
    "clauses": [
-    "C2-I-064",
-    "C2-I-065"
+    "C2-I-064"
    ],
    "kind": "render",
    "input": "[text]{.c} and [a /b/ c]{#i} and [text] {.c} and [text]",
@@ -42254,8 +42227,7 @@
    "number": 60,
    "section": "Spans",
    "clauses": [
-    "C2-I-064",
-    "C2-I-065"
+    "C2-I-064"
    ],
    "kind": "render",
    "input": "[*x*]{???} and [[t](/v)]{.c}",
@@ -56929,6 +56901,116 @@
    "reason": "the HTML was produced by the 0.1 reference engine, because the 0.2 rule equals 0.1 behavior for that input (conventions of the document)"
   },
   {
+   "id": "html-65",
+   "document": "html.md",
+   "number": 65,
+   "section": "Attributes",
+   "clauses": [
+    "C2-H-009",
+    "C2-H-010",
+    "C2-H-011",
+    "C2-H-012",
+    "C2-H-013",
+    "C2-H-014",
+    "C2-H-015",
+    "C2-H-016",
+    "C2-H-017"
+   ],
+   "kind": "render",
+   "input": "{style=\"color: red; \" align=center}\nT\n\n{style=\"url(x)\" align=center}\nU",
+   "options": {},
+   "expected": {
+    "html": "<p style=\"color: red; text-align: center;\">T</p>\n<p style=\"text-align: center;\">U</p>",
+    "tree": {
+     "type": "document",
+     "astVersion": "2.0",
+     "children": [
+      {
+       "type": "paragraph",
+       "children": [
+        {
+         "type": "text",
+         "value": "T",
+         "pos": {
+          "startLine": 2,
+          "endLine": 2,
+          "startColumn": 1,
+          "endColumn": 2,
+          "startOffset": 36,
+          "endOffset": 37
+         }
+        }
+       ],
+       "attrs": {
+        "keyValues": [
+         [
+          "style",
+          "color: red; "
+         ],
+         [
+          "align",
+          "center"
+         ]
+        ]
+       },
+       "pos": {
+        "startLine": 1,
+        "endLine": 2,
+        "startColumn": 1,
+        "endColumn": 2,
+        "startOffset": 0,
+        "endOffset": 37
+       }
+      },
+      {
+       "type": "paragraph",
+       "children": [
+        {
+         "type": "text",
+         "value": "U",
+         "pos": {
+          "startLine": 5,
+          "endLine": 5,
+          "startColumn": 1,
+          "endColumn": 2,
+          "startOffset": 69,
+          "endOffset": 70
+         }
+        }
+       ],
+       "attrs": {
+        "keyValues": [
+         [
+          "style",
+          "url(x)"
+         ],
+         [
+          "align",
+          "center"
+         ]
+        ]
+       },
+       "pos": {
+        "startLine": 4,
+        "endLine": 5,
+        "startColumn": 1,
+        "endColumn": 2,
+        "startOffset": 39,
+        "endOffset": 70
+       }
+      }
+     ],
+     "srcByteLength": 70,
+     "stages": [
+      "referenceResolution",
+      "tableAlignment"
+     ]
+    }
+   },
+   "status": "verified",
+   "reason": "the HTML was produced by the 0.1 reference engine, because the 0.2 rule equals 0.1 behavior for that input (conventions of the document)"
+  },
+  {
    "id": "html-2",
    "document": "html.md",
    "number": 2,
@@ -57247,6 +57329,65 @@
       }
      ],
      "srcByteLength": 39,
+     "stages": [
+      "referenceResolution",
+      "tableAlignment"
+     ]
+    }
+   },
+   "status": "verified",
+   "reason": "the HTML was produced by the 0.1 reference engine, because the 0.2 rule equals 0.1 behavior for that input (conventions of the document)"
+  },
+  {
+   "id": "html-67",
+   "document": "html.md",
+   "number": 67,
+   "section": "Paragraphs, headings and sections",
+   "clauses": [
+    "C2-H-018",
+    "C2-H-019",
+    "C2-H-020",
+    "C2-H-021",
+    "C2-H-022",
+    "C2-H-023",
+    "C2-H-024",
+    "C2-H-025"
+   ],
+   "kind": "render",
+   "input": "\\",
+   "options": {},
+   "expected": {
+    "html": "<p><br>\n</p>",
+    "tree": {
+     "type": "document",
+     "astVersion": "2.0",
+     "children": [
+      {
+       "type": "paragraph",
+       "children": [
+        {
+         "type": "hard_break",
+         "pos": {
+          "startLine": 1,
+          "endLine": 1,
+          "startColumn": 1,
+          "endColumn": 2,
+          "startOffset": 0,
+          "endOffset": 1
+         }
+        }
+       ],
+       "pos": {
+        "startLine": 1,
+        "endLine": 1,
+        "startColumn": 1,
+        "endColumn": 2,
+        "startOffset": 0,
+        "endOffset": 1
+       }
+      }
+     ],
+     "srcByteLength": 1,
      "stages": [
       "referenceResolution",
       "tableAlignment"
@@ -64275,6 +64416,124 @@
    "reason": "the HTML was written by hand from the clauses and has not been run through any engine (conventions of the document)"
   },
   {
+   "id": "html-66",
+   "document": "html.md",
+   "number": 66,
+   "section": "Footnotes",
+   "clauses": [
+    "C2-H-087",
+    "C2-H-088",
+    "C2-H-089",
+    "C2-H-090",
+    "C2-H-091",
+    "C2-H-092",
+    "C2-H-093",
+    "C2-H-094"
+   ],
+   "kind": "render",
+   "input": "a[^n]\n\n[^n]: ![a][nope]",
+   "options": {},
+   "expected": {
+    "html": "<p>a<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>![a][nope]<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
+    "tree": {
+     "type": "document",
+     "astVersion": "2.0",
+     "children": [
+      {
+       "type": "paragraph",
+       "children": [
+        {
+         "type": "text",
+         "value": "a",
+         "pos": {
+          "startLine": 1,
+          "endLine": 1,
+          "startColumn": 1,
+          "endColumn": 2,
+          "startOffset": 0,
+          "endOffset": 1
+         }
+        },
+        {
+         "type": "footnote_ref",
+         "key": "n",
+         "namespace": "footnote",
+         "pos": {
+          "startLine": 1,
+          "endLine": 1,
+          "startColumn": 2,
+          "endColumn": 6,
+          "startOffset": 1,
+          "endOffset": 5
+         },
+         "number": 1
+        }
+       ],
+       "pos": {
+        "startLine": 1,
+        "endLine": 1,
+        "startColumn": 1,
+        "endColumn": 6,
+        "startOffset": 0,
+        "endOffset": 5
+       }
+      },
+      {
+       "type": "footnote",
+       "key": "n",
+       "namespace": "footnote",
+       "children": [
+        {
+         "type": "paragraph",
+         "children": [
+          {
+           "type": "image",
+           "key": "nope",
+           "namespace": "link",
+           "refForm": "full",
+           "alt": "a",
+           "pos": {
+            "startLine": 3,
+            "endLine": 3,
+            "startColumn": 7,
+            "endColumn": 17,
+            "startOffset": 13,
+            "endOffset": 23
+           }
+          }
+         ],
+         "role": "image",
+         "pos": {
+          "startLine": 3,
+          "endLine": 3,
+          "startColumn": 7,
+          "endColumn": 17,
+          "startOffset": 13,
+          "endOffset": 23
+         }
+        }
+       ],
+       "pos": {
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 1,
+        "endColumn": 17,
+        "startOffset": 7,
+        "endOffset": 23
+       }
+      }
+     ],
+     "srcByteLength": 23,
+     "stages": [
+      "referenceResolution",
+      "tableAlignment"
+     ]
+    }
+   },
+   "status": "verified",
+   "reason": "the HTML was produced by the 0.1 reference engine, because the 0.2 rule equals 0.1 behavior for that input (conventions of the document)"
+  },
+  {
    "id": "html-61",
    "document": "html.md",
    "number": 61,
@@ -67156,7 +67415,10 @@
       "referenceResolution",
       "tableAlignment"
      ]
-    }
+    },
+    "diagnostics": [
+     "destination-denied"
+    ]
    },
    "status": "unverified",
    "reason": "the HTML was written by hand from the clauses and has not been run through any engine (conventions of the document)"
@@ -67304,7 +67566,10 @@
       "referenceResolution",
       "tableAlignment"
      ]
-    }
+    },
+    "diagnostics": [
+     "destination-denied"
+    ]
    },
    "status": "unverified",
    "reason": "the HTML was written by hand from the clauses and has not been run through any engine (conventions of the document)"

@@ -4,7 +4,7 @@
     "separator": "|",
     "not_a_separator": ["escaped_pipe", "pipe_between_backtick_run_and_matching_run_on_same_line"],
     "before": "reading_cell_content",
-    "clauses": ["C2-B-134", "C2-B-169"]
+    "clauses": ["C2-B-169", "C2-B-223"]
   },
   "cell_prefix": {
     "sequence": [
@@ -54,7 +54,7 @@
       "entries": ["center", "left", "right"],
       "sets": "table_column.align",
       "written_to_html": false,
-      "report": "table-column-arity",
+      "report": "table-attribute-invalid",
       "clauses": ["C2-B-187", "C2-B-211", "C2-B-213", "C2-B-227", "C2-H-153"]
     },
     {
