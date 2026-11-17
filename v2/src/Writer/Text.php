@@ -95,6 +95,7 @@ final class Text
             return $value;
         }
         $marks = self::lineStartMark($value, $c, $next);
+        $c->escapedAt = [];
         $out = '';
         $prev = $c->last;
         $prevBare = true;
@@ -112,6 +113,7 @@ final class Text
             }
             $after = $i + 1 < $n ? Chars::at($value, $i + 1) : $next;
             $escape = $i === $marks || (str_contains(self::PUNCT, $ch) && self::needs($value, $i, $prev, $prevBare, $after, $c, $next));
+            $c->escapedAt[$i] = $escape;
             $out .= $escape ? '\\' . $ch : $ch;
             $prevBare = !$escape;
             $prev = $byte;
@@ -339,8 +341,9 @@ final class Text
         if (($c->counts[$ch] ?? 0) < 2) {
             return false;
         }
-        // C2-I-049: a run of two or more is text.
-        if (($i > 0 && $value[$i - 1] === $ch) || ($value[$i + 1] ?? '') === $ch) {
+        // C2-I-049: a run of two or more is text, counted without the mark a bare brace takes (C2-I-055).
+        $run = self::run($value, $i, $c);
+        if ($run === null || $run[1] > $run[0]) {
             return false;
         }
         if ($after >= 0 && Chars::isGlue($after)) {
@@ -350,6 +353,38 @@ final class Text
         $close = !Chars::isSpace($prev) && !Chars::isWord($after);
 
         return $open || $close;
+    }
+
+    /**
+     * The run of `$value[$i]` without the mark that a bare brace before it takes as a braced opener; null
+     * when `$i` is that mark.
+     *
+     * @param string $value
+     * @param int $i
+     * @param \MarkupCarve\Carve2\Writer\Context $c
+     *
+     * @return array{0: int, 1: int}|null
+     */
+    private static function run(string $value, int $i, Context $c): ?array
+    {
+        $ch = $value[$i];
+        $start = $i;
+        while ($start > 0 && $value[$start - 1] === $ch) {
+            $start--;
+        }
+        $end = $i;
+        $n = strlen($value);
+        while ($end + 1 < $n && $value[$end + 1] === $ch) {
+            $end++;
+        }
+        if ($start > 0 && $value[$start - 1] === '{' && ($c->escapedAt[$start - 1] ?? true) === false) {
+            if ($i === $start) {
+                return null;
+            }
+            $start++;
+        }
+
+        return [$start, $end];
     }
 
     /**

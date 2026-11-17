@@ -334,6 +334,14 @@ final class Inline
             $c->last = Chars::at($prefix, 1);
             $c->lineStart = false;
         }
+        // C2-I-117: `+-` needs its exact run, so a `+` or `-` behind it takes the backslash.
+        $plusMinus = is_array($before) && ($before['type'] ?? '') === 'smart_punctuation' && ($before['source'] ?? '') === '+-';
+        if ($plusMinus && $value !== '' && str_contains('+-', $value[0])) {
+            $prefix .= '\\' . $value[0];
+            $value = substr($value, 1);
+            $c->here += $c->here >= 0 ? 1 : 0;
+            $c->last = Chars::at($prefix, strlen($prefix) - 1);
+        }
         // C2-W-094: a parenthesis glued behind a closing bracket would read as a link tail.
         if ($c->last === 0x5D && str_starts_with($value, '(')) {
             $prefix .= '\\(';

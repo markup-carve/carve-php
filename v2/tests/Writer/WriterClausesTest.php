@@ -50,6 +50,8 @@ final class WriterClausesTest extends TestCase
             'C2-I-036 an attribute block behind a mention is text' => ["@user{.c} and #tag{.c}\n", "@user{.c} and #tag{.c}\n"],
             'C2-I-036 a brace behind a host that holds no attribute block' => ["`x`{=_a}\n", "`x`{=_a}\n"],
             'C2-B-081 a definition shape inside an item' => ["- [a]: /u\n\n[x][a]\n", "- [a]: /u\n\n[x][a]\n"],
+            'C2-I-055 a star glued to a bare brace belongs to the braced opener' => ["x{*\\*{*\\*\n", "x{*\\*{*\\*\n"],
+            'C2-I-117 a plus glued behind a smart plus-minus' => ["x\\\\+-\\+\n", "x\\\\+-\\+\n"],
             'C2-W-129 a table across a comment below a list' => [
                 "- a\n\n{footer-rows=0}\n%% c\n| a |\n",
                 "- a\n\n{footer-rows=0}\n%% c\n| a |\n",

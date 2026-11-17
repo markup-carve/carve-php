@@ -7,6 +7,7 @@ declare(strict_types=1);
  *   php v2/scripts/writer-gates.php tokens N        every content of N inline tokens behind `x`
  *   php v2/scripts/writer-gates.php lines N         every document of N line shapes
  *   php v2/scripts/writer-gates.php random COUNT [SEED]
+ * A last argument `K/N` keeps every N-th input from the K-th, so N processes share one run.
  * Each input counts as refused (C2-W-133), with a reported loss (C2-W-011), or failed: a form with no reported loss
  * that reads back as another tree or is not stable. The run fails on a failure; losses are listed apart.
  */
@@ -24,10 +25,16 @@ $inputs = match ($kind) {
     'random' => WriterInputs::random($size, (int)($argv[3] ?? 1)),
     default => throw new InvalidArgumentException('kind is tokens, lines or random'),
 };
+$shard = preg_match('#^(\d+)/(\d+)$#', (string)end($argv), $m) === 1 ? [(int)$m[1], (int)$m[2]] : null;
+$index = -1;
 $started = microtime(true);
 $counts = ['inputs' => 0, 'refused' => 0, 'losses' => 0, 'failures' => 0];
 $shown = ['failures' => [], 'losses' => []];
 foreach ($inputs as $source) {
+    $index++;
+    if ($shard !== null && $index % $shard[1] !== $shard[0]) {
+        continue;
+    }
     $counts['inputs']++;
     $gates = WriterGate::gates($source);
     if ($gates['refused']) {

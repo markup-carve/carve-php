@@ -74,6 +74,11 @@ final class Context
     public int $here = -1;
 
     /**
+     * @var array<int, bool> Whether each character of the text being escaped took a backslash, so far.
+     */
+    public array $escapedAt = [];
+
+    /**
      * @var array<int, bool>|null Whether each opening bracket of `$flat` takes a backslash, by offset.
      */
     public ?array $brackets = null;
