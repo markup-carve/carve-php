@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Test;
 
 use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Html\Escape;
 use PHPUnit\Framework\TestCase;
 
 final class HardeningTest extends TestCase
@@ -88,5 +89,14 @@ final class HardeningTest extends TestCase
         $this->assertSame('', Carve2::toHtml(str_repeat('a', 10001), ['profile' => 'minimal']));
         $this->assertSame('', Carve2::toHtml(str_repeat('a', 100001), ['profile' => 'comment']));
         $this->assertSame('<p>a</p>', Carve2::toHtml('a', ['profile' => 'minimal']));
+    }
+
+    public function testC2H002TextFastPathSkipsOnlyMarkupControlsAndNonAscii(): void
+    {
+        $plain = implode('', array_map('chr', array_merge([9, 10, 13], range(0x20, 0x25), range(0x27, 0x3b), [0x3d], range(0x3f, 0x7e))));
+        $this->assertSame(strlen($plain), strcspn($plain, Escape::TEXT_SPECIAL));
+        foreach (['&', '<', '>', "\x00", "\x7f", "\x80", "\xff"] as $special) {
+            $this->assertSame(0, strcspn($special, Escape::TEXT_SPECIAL));
+        }
     }
 }
