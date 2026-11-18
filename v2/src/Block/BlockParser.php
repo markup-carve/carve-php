@@ -411,6 +411,8 @@ final class BlockParser
         $n = count($this->stack);
         $owner = 0;
         $this->stripI = -1;
+        // The end of the space run at the line position, kept across containers so deep nesting reads it once.
+        $spaces = -1;
         for ($k = 1; $k < $n; $k++) {
             $f = $this->stack[$k];
             $kind = $f->kind;
@@ -426,9 +428,11 @@ final class BlockParser
             } elseif ($kind !== Frame::DIV) {
                 $j = $this->i;
                 $c = $this->col;
-                $w = strspn($this->s, ' ', $j, $this->le - $j);
-                $j += $w;
-                $c += $w;
+                if ($spaces < $j) {
+                    $spaces = $j + strspn($this->s, ' ', $j, $this->le - $j);
+                }
+                $c += $spaces - $j;
+                $j = $spaces;
                 if ($j < $this->le && $this->s[$j] === "\t") {
                     $this->skipWs($j, $c);
                 }
@@ -438,7 +442,13 @@ final class BlockParser
                 }
                 $this->stripI = $this->i;
                 $this->stripCol = $this->col;
-                $this->stripTo($f->contentCol);
+                $need = $f->contentCol + $this->base - $this->col;
+                if ($need > 0 && $need <= $spaces - $this->i) {
+                    $this->i += $need;
+                    $this->col += $need;
+                } else {
+                    $this->stripTo($f->contentCol, $spaces);
+                }
             }
             $owner = $k;
         }
@@ -510,15 +520,17 @@ final class BlockParser
      * C2-B-007, C2-B-027: strips whole whitespace characters up to a relative column.
      *
      * @param int $target
+     * @param int $spaces The end of the space run that holds the position, or -1 to read it.
      *
      * @return void
      */
-    private function stripTo(int $target): void
+    private function stripTo(int $target, int $spaces = -1): void
     {
         $s = $this->s;
         $target += $this->base;
         if ($this->col < $target) {
-            $n = min($target - $this->col, strspn($s, ' ', $this->i, $this->le - $this->i));
+            $run = $spaces >= $this->i ? $spaces - $this->i : strspn($s, ' ', $this->i, $this->le - $this->i);
+            $n = min($target - $this->col, $run);
             $this->i += $n;
             $this->col += $n;
         }
