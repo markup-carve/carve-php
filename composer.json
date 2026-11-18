@@ -21,7 +21,8 @@
         }
     ],
     "require": {
-        "php": "^8.2"
+        "php": "^8.2",
+        "symfony/polyfill-intl-normalizer": "^1.27"
     },
     "suggest": {
         "ext-dom": "Required for HTML import and HTML heading-ID conversion.",
