@@ -24,6 +24,7 @@ final class Facts
      * @param array<string, true> $taken Authored ids and generated heading ids.
      * @param bool $longDescriptions Whether an image has a long description.
      * @param bool $comments Whether the tree holds a comment.
+     * @param array<int, \MarkupCarve\Carve2\Resolve\TableGrid> $tableGrids Grids already built to resolve table spans and alignment.
      */
     public function __construct(
         public readonly Node $doc,
@@ -37,6 +38,7 @@ final class Facts
         public readonly array $taken,
         public readonly bool $longDescriptions,
         public readonly bool $comments,
+        public readonly array $tableGrids,
     ) {
     }
 }
