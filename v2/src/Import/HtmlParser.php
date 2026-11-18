@@ -168,7 +168,17 @@ final class HtmlParser
         $root = new HtmlNode(HtmlNode::ROOT);
         $source = $document ? $dom : $dom->getElementsByTagName(self::LEGACY_ROOT)->item(0);
         if ($source !== null) {
-            self::copyLegacy($source, $root, !$document);
+            $synthetic = null;
+            if ($document) {
+                foreach ($dom->childNodes as $child) {
+                    if ($child instanceof DOMComment && $child->data === '?xml encoding="UTF-8"') {
+                        $synthetic = $child;
+
+                        break;
+                    }
+                }
+            }
+            self::copyLegacy($source, $root, !$document, $synthetic);
         }
 
         return $root;
@@ -178,15 +188,19 @@ final class HtmlParser
      * @param \DOMNode $source
      * @param \MarkupCarve\Carve2\Import\HtmlNode $target
      * @param bool $fragment
+     * @param \DOMComment|null $synthetic The declaration inserted only to select UTF-8 in the libxml fallback.
      *
      * @return void
      */
-    private static function copyLegacy(DOMNode $source, HtmlNode $target, bool $fragment = false): void
+    private static function copyLegacy(DOMNode $source, HtmlNode $target, bool $fragment = false, ?DOMComment $synthetic = null): void
     {
         $pending = [[$source, $target]];
         while ($pending !== []) {
             [$from, $to] = array_pop($pending);
             foreach ($from->childNodes as $child) {
+                if ($child === $synthetic) {
+                    continue;
+                }
                 // HTML: in a body fragment an `<html>` or `<body>` start tag is ignored, its content stays in place.
                 if ($fragment && $child instanceof DOMElement && in_array(strtolower($child->tagName), ['html', 'body'], true)) {
                     $pending[] = [$child, $to];
