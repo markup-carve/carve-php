@@ -17,6 +17,7 @@ final class RenderHost
      * @param \Closure(array<\MarkupCarve\Carve2\Node>): string $inlines
      * @param \Closure(array<\MarkupCarve\Carve2\Node>): string $plainText
      * @param \Closure(string): string $nextId
+     * @param \Closure(string): bool $idTaken Whether an authored or generated id is already reserved.
      * @param string $profile
      * @param string $groupLabel The `tabsGroup` label (C2-X-047).
      */
@@ -27,6 +28,7 @@ final class RenderHost
         public readonly Closure $nextId,
         public readonly string $profile,
         public readonly string $groupLabel,
+        public readonly Closure $idTaken,
     ) {
     }
 

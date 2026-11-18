@@ -1704,6 +1704,7 @@ final class HtmlRenderer
             },
             $this->o->profile,
             $this->o->label('tabsGroup'),
+            $this->state->isIdTaken(...),
         );
     }
 
@@ -1725,6 +1726,12 @@ final class HtmlRenderer
         }
         $this->log->loss('extension-fallback-rendered', 'warning', ['name' => PlainText::str($node->f['name'] ?? '')]);
         $fallback = PlainText::nodes($node->f['fallback'] ?? []);
+        $attrs = $node->f['attrs'] ?? null;
+        $carrier = $attrs instanceof Attrs && !$attrs->isEmpty()
+            || isset($node->f['lang']) || isset($node->f['dir']);
+        if ($carrier) {
+            return $this->container('<div' . $this->attrs($node) . '>', '</div>', $this->blocks($fallback, $depth + 1), $depth);
+        }
         $blocks = $this->blocks($fallback, $depth);
 
         return $blocks === [] ? null : implode("\n", $blocks);

@@ -98,6 +98,11 @@ final class RenderState
      */
     private array $taken = [];
 
+    public function isIdTaken(string $id): bool
+    {
+        return isset($this->taken[$id]);
+    }
+
     /**
      * @var array<string, int>
      */

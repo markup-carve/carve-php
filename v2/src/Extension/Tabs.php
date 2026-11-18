@@ -117,11 +117,22 @@ final class Tabs
      */
     public static function render(Node $node, RenderHost $host): string
     {
-        $group = ($host->nextId)('tabs');
         $controls = '';
         $panels = '';
         $slots = $node->f['slots'] ?? [];
-        foreach (array_values(PlainText::nodes(is_array($slots) ? $slots['tabs'] ?? [] : [])) as $at => $tab) {
+        $tabs = array_values(PlainText::nodes(is_array($slots) ? $slots['tabs'] ?? [] : []));
+        do {
+            $group = ($host->nextId)('tabs');
+            $conflict = false;
+            foreach ($tabs as $at => $_tab) {
+                if (($host->idTaken)($group . '-' . $at)) {
+                    $conflict = true;
+
+                    break;
+                }
+            }
+        } while ($conflict);
+        foreach ($tabs as $at => $tab) {
             $tabSlots = is_array($tab->f['slots'] ?? null) ? $tab->f['slots'] : [];
             $title = PlainText::nodes($tabSlots['title'] ?? []);
             $label = $title === [] ? 'Tab ' . ($at + 1) : ($host->plainText)($title);

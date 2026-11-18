@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Json;
 
 use JsonException;
+use MarkupCarve\Carve2\Extension\ExtensionDefinition;
 use MarkupCarve\Carve2\Generated\Tables;
 use MarkupCarve\Carve2\Node;
 use stdClass;
@@ -133,7 +134,16 @@ final class TreeReader
             throw new TreeError('envelope-version', '/document/astVersion');
         }
         $declared = self::declarations($root, $envelope ? $decoded : null, $options);
-        self::checkTree($root, $declared, $envelope ? '/document' : '');
+        $standardTabs = false;
+        $extensions = $options['extensions'] ?? [];
+        foreach (is_array($extensions) ? $extensions : [] as $extension) {
+            if ($extension instanceof ExtensionDefinition && $extension->name === 'carve.tabs') {
+                $standardTabs = true;
+
+                break;
+            }
+        }
+        self::checkTree($root, $declared, $envelope ? '/document' : '', $standardTabs);
         $json = json_encode($root, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR, self::JSON_DEPTH);
         $node = TreeDecoder::json($json, self::JSON_DEPTH);
         if ($node === null) {
@@ -209,18 +219,23 @@ final class TreeReader
      * @param \stdClass $root
      * @param array<string, \stdClass> $declared
      * @param string $prefix
+     * @param bool $standardTabs
      *
      * @throws \MarkupCarve\Carve2\Json\TreeError
      */
-    private static function checkTree(stdClass $root, array $declared, string $prefix): void
+    private static function checkTree(stdClass $root, array $declared, string $prefix, bool $standardTabs): void
     {
         $stack = [[$root, $prefix, 0, 0, 0, 0]];
         $annotationIds = [];
+        $acceptedTabs = [];
         while ($stack !== []) {
             [$node, $path, $blocks, $inlines, $qualified, $unqualified] = array_pop($stack);
             self::checkNode($node, $path, $declared);
             self::checkAnnotationIds($node, $path, $annotationIds);
             $type = is_string($node->type ?? null) ? $node->type : '';
+            if ($standardTabs) {
+                self::checkStandardTabs($node, $path, $acceptedTabs);
+            }
             if ($type === 'inline_extension' || $type === 'block_extension') {
                 if (str_contains($node->name ?? '', '.')) {
                     $qualified++;
@@ -248,6 +263,34 @@ final class TreeReader
                 $blocks = 0;
             }
             self::pushNodes($node, $path, $blocks, $inlines, $qualified, $unqualified, $stack);
+        }
+    }
+
+    /**
+     * @param \stdClass $node
+     * @param string $path
+     * @param array<int, true> $acceptedTabs
+     *
+     * @throws \MarkupCarve\Carve2\Json\TreeError
+     */
+    private static function checkStandardTabs(stdClass $node, string $path, array &$acceptedTabs): void
+    {
+        if (($node->type ?? null) !== 'block_extension') {
+            return;
+        }
+        if (($node->name ?? null) === 'carve.tabs') {
+            foreach ($node->slots->tabs ?? [] as $at => $tab) {
+                $tabPath = $path . '/slots/tabs/' . $at;
+                if (
+                    !$tab instanceof stdClass || ($tab->type ?? null) !== 'block_extension'
+                    || ($tab->name ?? null) !== 'carve.tab' || !isset($tab->slots->body)
+                ) {
+                    throw new TreeError('standard-tabs', $tabPath);
+                }
+                $acceptedTabs[spl_object_id($tab)] = true;
+            }
+        } elseif (($node->name ?? null) === 'carve.tab' && !isset($acceptedTabs[spl_object_id($node)])) {
+            throw new TreeError('standard-tabs', $path);
         }
     }
 

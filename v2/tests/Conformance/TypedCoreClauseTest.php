@@ -25,11 +25,6 @@ final class TypedCoreClauseTest extends TestCase
      * @var array<string, true>
      */
     private const HELD_CASES = [
-        'CC-455' => true,
-        'CC-456' => true,
-        'CC-468' => true,
-        'CC-1048' => true,
-        'CC-1089' => true,
         'CC-601' => true,
         'CC-996' => true,
         'CC-1166' => true,
