@@ -55,11 +55,7 @@ final class Carve2
      */
     public static function parse(string $source, array $options = []): Node
     {
-        $doc = self::parsed($source, Options::from(self::normalize($options), ['parse', 'resolve']))[0];
-        self::$sources ??= new WeakMap();
-        self::$sources[$doc] = $source;
-
-        return $doc;
+        return self::remember(self::parsed($source, Options::from(self::normalize($options), ['parse', 'resolve']))[0], $source);
     }
 
     /**
@@ -74,7 +70,7 @@ final class Carve2
     {
         [$doc, $findings] = self::parsed($source, Options::from(self::normalize($options), ['parse', 'resolve']));
 
-        return new ParseResult($doc, $findings->finish($doc));
+        return new ParseResult(self::remember($doc, $source), $findings->finish($doc));
     }
 
     /**
@@ -89,7 +85,7 @@ final class Carve2
     {
         [$doc, $findings] = self::parsed($source, Options::from(self::normalize($options), ['parse', 'resolve']));
 
-        return new LayoutResult($doc, LayoutBuilder::build($source, $doc), $findings->finish($doc));
+        return new LayoutResult(self::remember($doc, $source), LayoutBuilder::build($source, $doc), $findings->finish($doc));
     }
 
     /**
@@ -626,13 +622,39 @@ final class Carve2
     /**
      * @param array<string, mixed> $options
      *
-     * @return array{extensions?: array<\MarkupCarve\Carve2\Extension\ExtensionDefinition>}
+     * @return array{extensions?: array<\MarkupCarve\Carve2\Extension\ExtensionDefinition|string>}
      */
     private static function treeOptions(array $options): array
     {
-        $opts = Options::from(self::normalize($options), ['tree']);
+        return self::readerExtensions(Options::from(self::normalize($options), ['tree'])->extensions);
+    }
 
-        return $opts->extensions === [] ? [] : ['extensions' => $opts->extensions];
+    /**
+     * The tree reader takes the definitions (for the standard tabs) and their versions by name (C2-X-003) in one list.
+     *
+     * @param array<\MarkupCarve\Carve2\Extension\ExtensionDefinition> $definitions
+     *
+     * @return array{extensions?: array<\MarkupCarve\Carve2\Extension\ExtensionDefinition|string>}
+     */
+    private static function readerExtensions(array $definitions): array
+    {
+        if ($definitions === []) {
+            return [];
+        }
+        $list = $definitions;
+        foreach ($definitions as $definition) {
+            $list[$definition->name] = $definition->version;
+        }
+
+        return ['extensions' => $list];
+    }
+
+    private static function remember(Node $doc, string $source): Node
+    {
+        self::$sources ??= new WeakMap();
+        self::$sources[$doc] = $source;
+
+        return $doc;
     }
 
     /**
@@ -661,8 +683,7 @@ final class Carve2
     private static function resolvedTree(Node|array $tree, Options $opts): array
     {
         $source = $tree instanceof Node ? self::sourceOf($tree) : null;
-        $treeOptions = $opts->extensions === [] ? [] : ['extensions' => $opts->extensions];
-        $doc = $source !== null ? Extensions::copy($tree) : self::readTree($tree, $treeOptions);
+        $doc = $source !== null ? Extensions::copy($tree) : self::readTree($tree, self::readerExtensions($opts->extensions));
         if ($source !== null) {
             self::checkRenderInput($source, $opts);
         }

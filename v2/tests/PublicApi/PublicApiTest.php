@@ -164,6 +164,29 @@ final class PublicApiTest extends TestCase
         ));
     }
 
+    public function testARequiredExtensionIsReadWhenItsVersionIsRegistered(): void
+    {
+        $embed = self::embed();
+        $tree = json_decode(Carve2::encodeTree(Carve2::parse(self::EMBED, ['extensions' => [$embed]])), true);
+        $this->assertIsArray($tree);
+        $tree['extensions'][0]['required'] = true;
+        $json = (string)json_encode($tree);
+        $want = "<p>Watch:</p>\n<iframe src=\"https://youtu.be/abc\"></iframe>";
+        $this->assertSame($want, Carve2::render(Carve2::decodeTree($json, ['extensions' => [$embed]]), ['extensions' => [$embed]]));
+        Carve2::validateTree($tree, ['extensions' => [$embed]]);
+        $this->assertSame($want, Carve2::render($tree, ['extensions' => [$embed]]));
+        $this->expectException(TreeError::class);
+        Carve2::decodeTree($json);
+    }
+
+    public function testEveryParseResultKeepsItsSourceForLaterCalls(): void
+    {
+        $want = "<p data-source-line=\"1\">a</p>\n<p data-source-line=\"3\">b</p>";
+        $this->assertSame($want, Carve2::render(Carve2::parseWithDiagnostics("a\n\nb\n")->tree, ['sourceLines' => true]));
+        $this->assertSame($want, Carve2::render(Carve2::parseWithLayout("a\n\nb\n")->tree, ['sourceLines' => true]));
+        $this->assertSame(Carve2::toJson("a\n"), Carve2::encodeTree(Carve2::parseWithDiagnostics("a\n")->tree));
+    }
+
     public function testWriterRegistry(): void
     {
         $registry = Carve2::writers();

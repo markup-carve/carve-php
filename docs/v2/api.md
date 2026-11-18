@@ -103,11 +103,11 @@ Class. The one documented exception: an option name or value that options.json d
 
 ### `MarkupCarve\Carve2\InputError`
 
-Class. 
+Class.
 
 ### `MarkupCarve\Carve2\RenderError`
 
-Class. 
+Class.
 
 Fields: `array $diagnostics`.
 
@@ -119,7 +119,7 @@ Fields: `array $diagnostics`.
 
 ### `MarkupCarve\Carve2\Json\TreeError`
 
-Class. 
+Class.
 
 Fields: `string $reason`, `string $pointer`.
 
@@ -143,7 +143,7 @@ Interface. A host include resolver (C2-N-003, C2-N-012). Pass an instance as the
 
 ### `MarkupCarve\Carve2\Include\FileResolver`
 
-Class. 
+Class.
 
 - `static forRoot(string $root): IncludeResolver`: The file resolver of C2-N-012 for an absolute root, as an `IncludeResolver`.
 - `static closure(string $root): Closure`

@@ -85,8 +85,11 @@ final class PublicSurface
         $params = array_map(self::param(...), $method->getParameters());
         $return = $method->getReturnType();
 
-        return ($method->isStatic() ? 'static ' : '') . $method->getName() . '(' . implode(', ', $params) . ')'
+        $text = ($method->isStatic() ? 'static ' : '') . $method->getName() . '(' . implode(', ', $params) . ')'
             . ($return === null ? '' : ': ' . self::type($return));
+
+        // Reflection prints `self` on PHP 8.2 and the class from 8.3 on; the reference names the class.
+        return (string)preg_replace('~\bself\b~', $method->getDeclaringClass()->getShortName(), $text);
     }
 
     /**
@@ -130,7 +133,7 @@ final class PublicSurface
                 }
                 $class = new ReflectionClass($name);
                 $kind = $class->isInterface() ? 'interface' : 'class';
-                $out .= "\n### `" . $name . "`\n\n" . ucfirst($kind) . '. ' . self::summary($class->getDocComment()) . "\n";
+                $out .= "\n### `" . $name . "`\n\n" . rtrim(ucfirst($kind) . '. ' . self::summary($class->getDocComment())) . "\n";
                 $methods = self::methods($class);
                 $props = array_filter(
                     $class->getProperties(ReflectionProperty::IS_PUBLIC),
