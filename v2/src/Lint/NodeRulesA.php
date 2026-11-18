@@ -659,7 +659,7 @@ final class NodeRulesA
      */
     public static function bidiControl(array $node, string $path, Context $c): void
     {
-        if (!in_array($node['type'] ?? null, ['text', 'code', 'code_block'], true)) {
+        if (!in_array($node['type'] ?? null, ['text', 'code', 'code_block', 'math'], true)) {
             return;
         }
         $range = Support::bounds($node);

@@ -66,7 +66,9 @@ final class Linter
         self::validate($options);
         $own = self::lintSource($source, $options);
         if (!isset($options['includes'])) {
-            return $own;
+            $parsed = Carve2::parseWithDiagnostics($source);
+
+            return self::ordered(array_merge($own, $parsed->diagnostics));
         }
         $rest = $options;
         unset($rest['includes']);
@@ -180,6 +182,9 @@ final class Linter
     private static function placed(array $node, string $type, string $path, array $pos, Context $c, array &$controls): void
     {
         $c->firstLines[$path] = $pos['startLine'];
+        if ($type === 'paragraph') {
+            $c->paragraphStarts[$path] = $pos['startOffset'];
+        }
         self::markLines($c, $type === 'comment' && ($node['form'] ?? null) === 'block' ? 'comment_block' : $type, $path, $pos);
         if (isset(self::OPAQUE_LEAVES[$type])) {
             $c->leafMask[] = [$pos['startOffset'], $pos['endOffset']];

@@ -81,7 +81,7 @@ final class TypedCoreClauseTest extends TestCase
             return;
         }
         if (isset($expected['children'])) {
-            $actual = json_decode(Carve2::toJson($source, $options), true, 4096, JSON_THROW_ON_ERROR);
+            $actual = json_decode(Carve2::toJson($source, Corpus::parseOptions($options)), true, 4096, JSON_THROW_ON_ERROR);
             if (in_array('C2-N-081', $case['clauses'], true)) {
                 self::assertTrue(TreeEquality::equal($expected['children'], $actual['children']));
             } else {

@@ -200,7 +200,7 @@ final class RenderState
                 $this->headingTarget($this->nodes[$headings[$h++]]);
             } else {
                 $node = $this->nodes[$numbered[$c++]];
-                if (isset($node->f['attrs'])) {
+                if (isset($node->f['attrs']) || $node->type === 'figure_group') {
                     $this->authoredTarget($node);
                 }
             }
@@ -453,18 +453,19 @@ final class RenderState
     private function authoredTarget(Node $node): void
     {
         $f = $node->f;
-        $attrs = $f['attrs'];
+        $attrs = $f['attrs'] ?? null;
         $id = $attrs instanceof Attrs ? $attrs->id : null;
-        if ($id === null) {
-            return;
+        if ($id !== null) {
+            $this->taken[$id] = true;
         }
-        $this->taken[$id] = true;
         $caption = $f['caption'] ?? null;
         $mark = $caption instanceof Node ? Resolver::captionMark($caption) : null;
         if ($mark !== null && is_int($mark[0]->f['n'] ?? null)) {
             $label = Resolver::labelKey($mark[1], $this->o->symbols);
             $text = ltrim($label . ' ' . $mark[0]->f['n']);
-            $this->xrefText[Resolver::nfc($id)] ??= $text;
+            if ($id !== null) {
+                $this->xrefText[Resolver::nfc($id)] ??= $text;
+            }
             if ($node->type === 'figure_group') {
                 $this->panelTargets($node, $text);
             }

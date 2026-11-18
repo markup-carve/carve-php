@@ -5416,6 +5416,7 @@ final class Tables
             'comment_block_closer',
             'comment_block_opener',
             'comment_only',
+            'region_marker',
         ],
         '*' => [
             'abbreviation_definition',
@@ -5677,6 +5678,9 @@ final class Tables
 
     /** line-shapes.json ref raw_format */
     public const CHARS_RAW_FORMAT = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
+
+    /** line-shapes.json ref region_name */
+    public const CHARS_REGION_NAME = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
 
     /** C2-B-190 limits.json block_depth */
     public const BLOCK_DEPTH = 200;
@@ -6461,7 +6465,7 @@ final class Tables
             'This ${kind} is indented ${past} ${columns} past the content column of ${owner}, and it still opens a ${kind}, measured from its own line. Remove the indentation to make the structure explicit, or escape the opener to keep the line as text.',
         ],
         'block-opener-without-blank-line' => [
-            'This line looks like a (kind) but directly follows text, so it is part of the paragraph or caption above it. Add a blank line before it.',
+            'This line looks like ${opener} but directly follows text, so it is part of the paragraph or caption above it. Add a blank line before it.',
         ],
         'blockquote-marker-without-space' => [
             [
@@ -6531,12 +6535,16 @@ final class Tables
         ],
         'colon-fence-length-mismatch' => [
             [
-                'when' => 'the bare run is shorter than the innermost opener',
-                'text' => 'Bare ${authoredWidth}-colon fence does not close the innermost ${expectedWidth}-colon ${kind} opened at ${line}:${column}; it ${outcome}.',
+                'when' => 'the bare run is shorter than the innermost opener and long enough for no open div',
+                'text' => 'Bare ${authoredWidth}-colon fence does not close the innermost ${expectedWidth}-colon ${kind} opened at ${line}:${column}; it opens an anonymous div.',
+            ],
+            [
+                'when' => 'the bare run is shorter than the innermost opener and long enough for an enclosing open container',
+                'text' => 'Bare ${authoredWidth}-colon fence does not close the innermost ${expectedWidth}-colon ${kind} opened at ${line}:${column}; it closes an enclosing container and every container inside it.',
             ],
             [
                 'when' => 'the bare run is longer than the innermost opener',
-                'text' => 'Bare ${authoredWidth}-colon fence has a different width from the innermost ${expectedWidth}-colon ${kind} opened at ${line}:${column}; it ${outcome}.',
+                'text' => 'Bare ${authoredWidth}-colon fence has a different width from the innermost ${expectedWidth}-colon ${kind} opened at ${line}:${column}; it closes the container.',
             ],
         ],
         'comment-fence-closer-with-text' => [
@@ -6840,7 +6848,22 @@ final class Tables
             'Include "${path}" was not expanded: the file does not exist.',
         ],
         'include-option-invalid' => [
-            'The include option ${option} ${reason}, so the include is not expanded. Correct it or remove it.',
+            [
+                'when' => 'the key is not one of the include options',
+                'text' => 'The include option ${option} has a key that is not an include option, so the include is not expanded. Correct it or remove it.',
+            ],
+            [
+                'when' => 'the key stands earlier in the same directive',
+                'text' => 'The include option ${option} repeats a key that stands earlier in the directive, so the include is not expanded. Correct it or remove it.',
+            ],
+            [
+                'when' => 'the key needs a value and has none or an empty quoted one',
+                'text' => 'The include option ${option} needs a value, so the include is not expanded. Correct it or remove it.',
+            ],
+            [
+                'when' => 'the value is outside the shape of its key (C2-B-206)',
+                'text' => 'The include option ${option} has a value outside the shape of its key, so the include is not expanded. Correct it or remove it.',
+            ],
         ],
         'include-outside-root' => [
             'Include "${path}" was not expanded: the path leads outside the include root.',
@@ -6997,7 +7020,22 @@ final class Tables
             ],
         ],
         'table-span-marker-blocked' => [
-            'The "${marker}" span marker cannot extend a cell. ${reason} It is a cell that holds "${marker}" as text; escape it as "\\${marker}" to say so, or remove it.',
+            [
+                'when' => 'the `<` stands in the first column',
+                'text' => 'The "<" span marker cannot extend a cell. There is no cell to its left in its row. It is a cell that holds "<" as text; escape it as "\\<" to say so, or remove it.',
+            ],
+            [
+                'when' => 'the cell to the left of the `<` is covered by a row span from above',
+                'text' => 'The "<" span marker cannot extend a cell. The cell to its left is covered by a row span from above. It is a cell that holds "<" as text; escape it as "\\<" to say so, or remove it.',
+            ],
+            [
+                'when' => 'the `^` stands in the first row of its group',
+                'text' => 'The "^" span marker cannot extend a cell. It stands in the first row of its group: head, body or foot. It is a cell that holds "^" as text; escape it as "\\^" to say so, or remove it.',
+            ],
+            [
+                'when' => 'the cell above the `^` spans more than one column',
+                'text' => 'The "^" span marker cannot extend a cell. The cell above it spans more than one column. It is a cell that holds "^" as text; escape it as "\\^" to say so, or remove it.',
+            ],
         ],
         'table-width-total' => [
             'The specified table column widths total more than 100%.',
@@ -7267,7 +7305,10 @@ final class Tables
         'include-option-invalid' => [
             'warning',
             'parse',
-            'The include option ${option} ${reason}, so the include is not expanded. Correct it or remove it.',
+            [
+                'when' => 'the key is not one of the include options',
+                'text' => 'The include option ${option} has a key that is not an include option, so the include is not expanded. Correct it or remove it.',
+            ],
         ],
         'include-outside-root' => [
             'warning',

@@ -335,10 +335,17 @@ final class NodeRulesB
         $source = Support::raw($node, $c);
         $length = strlen($source);
         for ($at = 0; $at < $length - 1; $at++) {
-            if ($source[$at] !== '*' || !Support::isWord($source[$at + 1]) || ($at > 0 && Support::isWord($source[$at - 1]))) {
+            if (($source[$at] !== '*' && $source[$at] !== '/') || !Support::isWord($source[$at + 1])) {
                 continue;
             }
-            if (strpos($source, '*', $at + 1) !== false) {
+            $backslashes = 0;
+            for ($before = $at - 1; $before >= 0 && $source[$before] === '\\'; $before--) {
+                $backslashes++;
+            }
+            if ($backslashes % 2 === 1 || ($at > 0 && !str_contains(" \t\r\n([{", $source[$at - 1]))) {
+                continue;
+            }
+            if (strpos($source, $source[$at], $at + 1) !== false) {
                 continue;
             }
             $c->report('unclosed-inline-emphasis', $range[0] + $at, $range[0] + $at + 1, $path);
@@ -490,11 +497,41 @@ final class NodeRulesB
      */
     public static function blockOverindent(array $node, string $path, Context $c): void
     {
-        foreach (self::overindented($node, $path, $c) as [$at, $line, $indent, $type, $content]) {
-            $c->report('block-opener-overindented', $line->start + $indent, $line->end, $path . '/children/' . $at, [
-                'kind' => str_replace('_', ' ', $type),
-                'past' => (string)($indent - $content),
-                'owner' => 'list item',
+        if (($node['type'] ?? null) !== 'document') {
+            return;
+        }
+        $kinds = [
+            'block_quote' => 'quote mark',
+            'code_block' => 'code fence',
+            'raw_block' => 'code fence',
+            'div' => 'colon fence',
+            'admonition' => 'colon fence',
+            'heading' => 'heading marker',
+            'thematic_break' => 'thematic break',
+            'table' => 'pipe table row',
+            'line_block' => 'line block',
+            'definition_list' => 'definition term',
+        ];
+        foreach (Support::kids($node) as $at => $child) {
+            $type = Support::str($child, 'type') ?? '';
+            $pos = Support::pos($child);
+            if ($pos === null || !isset($kinds[$type])) {
+                continue;
+            }
+            $line = $c->lines[$pos['startLine'] - 1] ?? null;
+            if ($line === null) {
+                continue;
+            }
+            $indent = self::indentation($line->text);
+            if ($indent === 0) {
+                continue;
+            }
+            $start = $line->start + $indent;
+            $c->report('block-opener-overindented', $start, $start + 1, $path . '/children/' . $at, [
+                'kind' => $kinds[$type],
+                'past' => (string)$indent,
+                'columns' => $indent === 1 ? 'column' : 'columns',
+                'owner' => 'the document',
             ]);
         }
     }
@@ -553,8 +590,7 @@ final class NodeRulesB
             'kind' => str_replace('_', ' ', (string)$type),
             'line' => (string)$pos['startLine'],
             'column' => (string)$pos['startColumn'],
-            'outcome' => 'closes the container',
-        ]);
+        ], 2);
     }
 
     /**
@@ -626,10 +662,16 @@ final class NodeRulesB
         if (str_ends_with(rtrim(Support::raw($node, $c), " \t\n\r\v\f"), '\\' . $marker)) {
             return;
         }
-        $reason = $marker === '<'
-            ? 'There is no cell to its left in its row.'
-            : 'There is no cell of one column above it in its group: head, body or foot.';
-        Support::reportNode('table-span-marker-blocked', $node, $path, $c, ['marker' => $marker, 'reason' => $reason]);
+        $variant = self::blockedSpanVariant($marker, $path);
+        Support::reportNode('table-span-marker-blocked', $node, $path, $c, [], $variant);
+    }
+
+    private static function blockedSpanVariant(string $marker, string $path): int
+    {
+        $rowPath = Support::parent($path);
+        $index = $rowPath === null ? null : (int)substr($rowPath, (int)strrpos($rowPath, '/') + 1);
+
+        return $marker === '<' ? ($index === 0 ? 0 : 1) : ($index === 0 ? 2 : 3);
     }
 
     /**

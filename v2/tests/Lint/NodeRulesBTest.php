@@ -352,7 +352,7 @@ final class NodeRulesBTest extends TestCase
                     '/children/0/children/0/children/0',
                     13,
                     19,
-                    'Bare 4-colon fence does not close the innermost 3-colon div opened at 1:3; it closes the '
+                    'Bare 4-colon fence has a different width from the innermost 3-colon div opened at 1:3; it closes the '
                         . 'container.',
                 ],
                 "- :::\n  :::e\n\nl\n",
@@ -365,7 +365,7 @@ final class NodeRulesBTest extends TestCase
                     '/children/0',
                     19,
                     23,
-                    'Bare 4-colon fence does not close the innermost 3-colon admonition opened at 1:1; it '
+                    'Bare 4-colon fence has a different width from the innermost 3-colon admonition opened at 1:1; it '
                         . 'closes the container.',
                 ],
                 "{.x}\n::: warning\na\n:::\n",
@@ -415,7 +415,7 @@ final class NodeRulesBTest extends TestCase
                     '/children/0/children/1/children/0/children/0',
                     8,
                     11,
-                    'The "^" span marker cannot extend a cell. There is no cell of one column above it in its '
+                    'The "^" span marker cannot extend a cell. It stands in the first row of its '
                         . 'group: head, body or foot. It is a cell that holds "^" as text; escape it as "\\^" to say '
                         . 'so, or remove it.',
                 ],

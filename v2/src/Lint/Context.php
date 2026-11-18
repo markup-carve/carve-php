@@ -33,6 +33,13 @@ final class Context
     public array $firstLines = [];
 
     /**
+     * First source byte of each paragraph's content.
+     *
+     * @var array<string, int>
+     */
+    public array $paragraphStarts = [];
+
+    /**
      * @var array<\MarkupCarve\Carve2\Diagnostics\Diagnostic>
      */
     public array $diagnostics = [];

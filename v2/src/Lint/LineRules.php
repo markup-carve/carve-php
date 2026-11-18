@@ -79,6 +79,19 @@ final class LineRules
     }
 
     /**
+     * @return array{0: string, 1: int}
+     */
+    private static function paragraphContent(Line $line, Context $c): array
+    {
+        $start = $c->paragraphStarts[$line->path] ?? null;
+        if ($start !== null && $start >= $line->start && $start < $line->end) {
+            return [Support::trimEnd(substr($line->text, $start - $line->start)), $start];
+        }
+
+        return self::trimmed($line);
+    }
+
+    /**
      * The text of a line from `$from` as a message shows it: a masked character is one U+0000 per byte here and one per
      * UTF-16 unit in carve-js.
      *
@@ -231,19 +244,19 @@ final class LineRules
 
     private static function tildeFence(Line $line, Context $c): void
     {
-        $text = self::trimmed($line)[0];
         if (!$line->paragraph) {
             return;
         }
+        [$text, $start] = self::paragraphContent($line, $c);
         if (str_starts_with($text, '~~~')) {
-            self::reportLine('block-marker-as-text', $line, $c, ['what' => 'a tilde fence']);
+            $c->report('block-marker-as-text', $start, $start + strlen($text), $line->path, ['what' => 'a tilde fence']);
 
             return;
         }
         $second = $text[1] ?? '';
         $opens = $second === '.' || $second === '#' || $second === '_' || ($second !== '' && ctype_alpha($second));
         if (str_starts_with($text, '{') && $opens && !self::isAttributeLine($text)) {
-            self::reportLine('block-marker-as-text', $line, $c, ['what' => 'an attribute line']);
+            $c->report('block-marker-as-text', $start, $start + strlen($text), $line->path, ['what' => 'an attribute line']);
         }
     }
 
@@ -351,7 +364,20 @@ final class LineRules
         if (str_starts_with($text, '> ') && str_starts_with(Support::trimStart($previous->text), '> ')) {
             return;
         }
-        $c->report('block-opener-without-blank-line', $start, $start + strlen($text), $line->path);
+        $opener = match (true) {
+            str_starts_with($text, '# '), str_starts_with($text, '= ') => 'a heading',
+            str_starts_with($text, '> ') => 'a quote',
+            str_starts_with($text, '{') => 'an attribute line',
+            str_starts_with($text, ':: ') => 'a term',
+            str_starts_with($text, ': ') => 'a description',
+            default => 'a definition',
+        };
+        $markerLength = str_starts_with($text, '{') ? strlen($text) : (str_starts_with($text, ':: ') ? 2 : 1);
+        if ($opener === 'a definition') {
+            $close = strpos($text, ']:');
+            $markerLength = $close === false ? 1 : $close + 2;
+        }
+        $c->report('block-opener-without-blank-line', $start, $start + $markerLength, $line->path, ['opener' => $opener]);
     }
 
     private static function listWithoutBlank(Line $line, Context $c): void
@@ -454,7 +480,7 @@ final class LineRules
 
     private static function definitionInContainer(Line $line, Context $c): void
     {
-        [$text, $start] = self::trimmed($line);
+        [$text, $start] = self::paragraphContent($line, $c);
         $close = strpos($text, ']:');
         if (!$line->paragraph || !str_starts_with($text, '[') || $close === false || $close <= 1 || $close + 2 >= strlen($text)) {
             return;
@@ -466,7 +492,7 @@ final class LineRules
         if (!$indented && count(explode('/', $line->path)) <= 3) {
             return;
         }
-        $c->report('definition-in-container', $start, $start + strlen($text), $line->path);
+        $c->report('definition-in-container', $start, $start + $close + 2, $line->path);
     }
 
     private static function foldedTerm(Line $line, Context $c): void

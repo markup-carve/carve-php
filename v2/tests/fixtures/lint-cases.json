@@ -1150,9 +1150,16 @@
   },
   "block-marker-as-text#3": {
    "trigger": "- ~~~\nx\n~~~\n",
-   "near": "- ~~~\nx\n\n",
+   "near": "- x\nx\n\n",
    "options": {},
    "findings": [
+    [
+     "block-marker-as-text",
+     "/children/0/children/0/children/0",
+     2,
+     5,
+     "This line begins like a tilde fence but parsed as plain text - the block did not open. Check this line's syntax and any unterminated fence above it."
+    ],
     [
      "block-marker-as-text",
      "/children/0/children/0/children/0",
@@ -1185,8 +1192,8 @@
      "block-opener-without-blank-line",
      "/children/0/children/0/children/0",
      4,
-     7,
-     "This line looks like a (kind) but directly follows text, so it is part of the paragraph or caption above it. Add a blank line before it."
+     5,
+     "This line looks like a heading but directly follows text, so it is part of the paragraph or caption above it. Add a blank line before it."
     ]
    ]
   },
@@ -1256,7 +1263,7 @@
      "/children/0/children/0/children/0",
      13,
      19,
-     "Bare 4-colon fence does not close the innermost 3-colon div opened at 1:3; it closes the container."
+     "Bare 4-colon fence has a different width from the innermost 3-colon div opened at 1:3; it closes the container."
     ]
    ]
   },
@@ -1998,7 +2005,7 @@
      "/children/0/children/1/children/0/children/0",
      8,
      11,
-     "The \"^\" span marker cannot extend a cell. There is no cell of one column above it in its group: head, body or foot. It is a cell that holds \"^\" as text; escape it as \"\\^\" to say so, or remove it."
+     "The \"^\" span marker cannot extend a cell. It stands in the first row of its group: head, body or foot. It is a cell that holds \"^\" as text; escape it as \"\\^\" to say so, or remove it."
     ]
    ]
   },

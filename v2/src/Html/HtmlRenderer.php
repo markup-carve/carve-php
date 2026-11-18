@@ -1288,6 +1288,9 @@ final class HtmlRenderer
             }
         }
         $lines = $this->itemTail($rest, $degradedTail, $depth);
+        if ($lines === []) {
+            return $open . $first . "\n" . self::pad($depth) . '</li>';
+        }
 
         return $open . $first . "\n" . implode("\n", $lines) . "\n" . self::pad($depth) . '</li>';
     }
