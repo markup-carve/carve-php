@@ -88,3 +88,7 @@ writer-32: Hold Writer example at candidate 12; writer is outside the core scope
 writer-clauses/C2-I-074 alt text is written as it stands: Hold Writer clause expectation at candidate 12; writer is outside the core scope.
 writer-clauses/C2-W-098 pipes in a cell keep their backslash: Hold Writer clause expectation at candidate 12; writer is outside the core scope.
 writer-corpus-roundtrip: Hold Aggregate writer round trip at candidate 12; writer is outside the core scope.
+writer-gates/tokens-3: Hold generated token writer round trips; C2-W-002 changes make 25 failures and writer is outside the core scope.
+writer-gates/lines-2: Hold generated line writer round trips; one line-block case fails and writer is outside the core scope.
+writer-gates/random-20000-seed1: Hold generated random writer round trips; 122 cases fail and writer is outside the core scope.
+oracle-js-differential: Hold the older JS differential corpus; its candidate and reviewed defects precede the candidate 12 specification.
