@@ -239,7 +239,7 @@ final class Carve2
         (new BlockParser($sink))->parse($source, $fileStart);
         $doc = $sink->root;
         assert($doc !== null);
-        $ctx = InlineContext::collect($doc, $source);
+        $ctx = $sink->hasDefinition ? InlineContext::collect($doc, $source) : new InlineContext();
         foreach ($inheritedAbbreviations as $key => $expansion) {
             $ctx->abbreviations[$key] ??= $expansion;
         }

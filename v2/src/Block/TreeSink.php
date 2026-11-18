@@ -20,6 +20,11 @@ final class TreeSink implements Sink
     public bool $hasInclude = false;
 
     /**
+     * Whether a block node with a definition key (a link, footnote or abbreviation definition) was made.
+     */
+    public bool $hasDefinition = false;
+
+    /**
      * C2-B-111, C2-B-163: the leaves that report a missing closer.
      *
      * @var array<int, string>
@@ -48,6 +53,9 @@ final class TreeSink implements Sink
         if ($node->type === 'include') {
             $this->hasInclude = true;
         }
+        if (isset($node->f['key'])) {
+            $this->hasDefinition = true;
+        }
         $frame->handle = $node;
         if ($frame === $parent) {
             $this->root = $node;
@@ -69,6 +77,9 @@ final class TreeSink implements Sink
         $node = NodeFactory::make($frame, $this->s);
         if ($node->type === 'include') {
             $this->hasInclude = true;
+        }
+        if (isset($node->f['key'])) {
+            $this->hasDefinition = true;
         }
         $frame->handle = $node;
         $this->note($frame, $node);

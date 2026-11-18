@@ -38,14 +38,22 @@ final class TableGrid
 
     /**
      * @param \MarkupCarve\Carve2\Node $table
+     * @param bool $complete False when only the head columns are read: without span marks the rows below the last
+     *   head row are not placed, since a row's columns depend only on the rows above it.
      *
      * @return self
      */
-    public static function of(Node $table): self
+    public static function of(Node $table, bool $complete = true): self
     {
         $grid = new self();
         $grid->collectRows($table);
-        $grid->place();
+        $limit = count($grid->rows);
+        if (!$complete && !$grid->marks) {
+            while ($limit > 0 && $grid->rows[$limit - 1][1]->type !== 'table_head') {
+                $limit--;
+            }
+        }
+        $grid->place($limit);
 
         return $grid;
     }
@@ -80,12 +88,15 @@ final class TableGrid
     /**
      * The column of each cell, past the slots that spans above and before it cover.
      *
+     * @param int $limit The number of rows to place.
+     *
      * @return void
      */
-    private function place(): void
+    private function place(int $limit): void
     {
         $taken = [];
-        foreach ($this->rows as $r => [$row]) {
+        for ($r = 0; $r < $limit; $r++) {
+            $row = $this->rows[$r][0];
             $c = 0;
             foreach ($row->children ?? [] as $cell) {
                 if ($cell->type !== 'table_cell') {
@@ -97,8 +108,13 @@ final class TableGrid
                 $id = spl_object_id($cell);
                 $this->column[$id] = $c;
                 $this->rowIndex[$id] = $r;
-                $cols = $this->marks ? 1 : self::count($cell, 'colspan');
-                $rows = $this->marks ? 1 : self::count($cell, 'rowspan');
+                $cols = $this->marks || !isset($cell->f['colspan']) ? 1 : self::count($cell, 'colspan');
+                $rows = $this->marks || !isset($cell->f['rowspan']) ? 1 : self::count($cell, 'rowspan');
+                if ($cols === 1 && $rows === 1) {
+                    $taken[$r][$c++] = true;
+
+                    continue;
+                }
                 for ($i = 0; $i < $rows; $i++) {
                     for ($j = 0; $j < $cols; $j++) {
                         $taken[$r + $i][$c + $j] = true;

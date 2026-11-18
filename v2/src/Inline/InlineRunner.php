@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Inline;
 
 use MarkupCarve\Carve2\Attrs;
+use MarkupCarve\Carve2\Generated\Tables;
 use MarkupCarve\Carve2\Node;
 
 /**
@@ -42,41 +43,93 @@ final class InlineRunner
      */
     private static function walk(Node $doc, string $s, InlineContext $ctx): void
     {
-        $stack = [[$doc, false, false]];
-        while ($stack !== []) {
-            [$node, $hard, $caption] = array_pop($stack);
+        // Parallel stacks of nodes and their mode bits (HARD_BREAKS, CAPTION), so no array is built per node.
+        $nodes = [$doc];
+        $modes = [0];
+        $top = 1;
+        while ($top > 0) {
+            $node = $nodes[--$top];
+            $bits = $modes[$top];
             // The parser below finishes each new inline subtree. Only children that came from the block pass
             // can still hold source spans, so do not schedule the freshly parsed nodes for another walk.
             $blockChildren = $node->children;
-            if ($node->lines !== null && isset($node->layout['wrapAt'])) {
-                $node->children = self::wrappedCell($s, $node, $ctx, self::mode($node->type, $hard, $caption));
-                $node->lines = null;
-            } elseif ($node->lines !== null) {
-                $node->children = self::parse($s, $node->lines, $ctx, 0, self::mode($node->type, $hard, $caption));
-                $node->lines = null;
-                self::appendLazyComments($node);
-                if ($node->children === [] && $node->type === 'line') {
-                    // C2-A-158: a line with no children has no position, also when it held spaces.
-                    $node->start = -1;
-                    $node->end = -1;
+            if ($node->lines !== null) {
+                self::leaf($node, $s, $ctx, $bits);
+            }
+            $hard = $bits & Scanner::HARD_BREAKS;
+            $caption = null;
+            if ($node->f !== []) {
+                $hard = self::slots($node, $s, $ctx, $hard);
+                $caption = $node->f['caption'] ?? null;
+            }
+            if ($blockChildren !== null) {
+                $child = $node->type === 'caption' ? $hard | Scanner::CAPTION : $hard;
+                foreach ($blockChildren as $kid) {
+                    $nodes[$top] = $kid;
+                    $modes[$top++] = $child;
                 }
             }
-            $attrs = $node->f['attrs'] ?? null;
-            if ($node->type === 'div' && $attrs instanceof Attrs && in_array('hardbreaks', $attrs->classes, true)) {
-                $hard = true;
-            }
-            foreach ($blockChildren ?? [] as $child) {
-                $stack[] = [$child, $hard, $node->type === 'caption'];
-            }
-            $caption = $node->f['caption'] ?? null;
             if ($caption instanceof Node) {
-                $stack[] = [$caption, $hard, false];
-            }
-            $title = $node->f['title'] ?? null;
-            if ($title instanceof Node) {
-                $node->f['title'] = self::title($node, $title, $s, $ctx, 0, $hard);
+                $nodes[$top] = $caption;
+                $modes[$top++] = $hard;
             }
         }
+    }
+
+    /**
+     * The inline pass of one leaf that still holds content line spans.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param string $s
+     * @param \MarkupCarve\Carve2\Inline\InlineContext $ctx
+     * @param int $bits HARD_BREAKS and CAPTION from the walk.
+     *
+     * @return void
+     */
+    private static function leaf(Node $node, string $s, InlineContext $ctx, int $bits): void
+    {
+        $type = $node->type;
+        $mode = $bits | ($type === 'line' ? Scanner::LINE_BLOCK : 0) | ($type === 'cell_paragraph' ? Scanner::CELL : 0);
+        if (isset($node->layout['wrapAt'])) {
+            $node->children = self::wrappedCell($s, $node, $ctx, $mode);
+            $node->lines = null;
+
+            return;
+        }
+        $node->children = self::parse($s, $node->lines ?? [], $ctx, 0, $mode);
+        $node->lines = null;
+        if (isset($node->layout['lazyComments'])) {
+            self::appendLazyComments($node);
+        }
+        if ($node->children === [] && $type === 'line') {
+            // C2-A-158: a line with no children has no position, also when it held spaces.
+            $node->start = -1;
+            $node->end = -1;
+        }
+    }
+
+    /**
+     * The hardbreaks class of a div and the title slot. Returns the hard-break bit for the children.
+     *
+     * @param \MarkupCarve\Carve2\Node $node
+     * @param string $s
+     * @param \MarkupCarve\Carve2\Inline\InlineContext $ctx
+     * @param int $hard
+     *
+     * @return int
+     */
+    private static function slots(Node $node, string $s, InlineContext $ctx, int $hard): int
+    {
+        $attrs = $node->f['attrs'] ?? null;
+        if ($node->type === 'div' && $attrs instanceof Attrs && in_array('hardbreaks', $attrs->classes, true)) {
+            $hard = Scanner::HARD_BREAKS;
+        }
+        $title = $node->f['title'] ?? null;
+        if ($title instanceof Node) {
+            $node->f['title'] = self::title($node, $title, $s, $ctx, 0, $hard !== 0);
+        }
+
+        return $hard;
     }
 
     private static function appendLazyComments(Node $node): void
@@ -160,11 +213,15 @@ final class InlineRunner
             $start = $spans[0];
             $length = max(0, $spans[1] - $start);
             if (strcspn($s, Scanner::SPECIALS, $start, $length) === $length) {
-                $value = Content::trimEnd(substr($s, $start, $length));
+                $value = substr($s, $start, $length);
+                $last = $value === '' ? ' ' : $value[-1];
+                if ($last === ' ' || $last === "\t") {
+                    $value = Content::trimEnd($value);
+                }
                 if ($value === '') {
                     return [];
                 }
-                if (!Finisher::replaces($value)) {
+                if (strcspn($value, Tables::SMART_TRIGGERS) === strlen($value) || !Finisher::replaces($value)) {
                     return [Node::text($value, $start, $start + strlen($value))];
                 }
             }

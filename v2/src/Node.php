@@ -100,7 +100,7 @@ final class Node
     public static function text(string $value, int $start, int $end): self
     {
         $node = new self('text');
-        $node->f['value'] = $value;
+        $node->f = ['value' => $value];
         $node->start = $start;
         $node->end = $end;
 

@@ -998,7 +998,7 @@ final class Resolver
      */
     private function table(Node $table): void
     {
-        $grid = TableGrid::of($table);
+        $grid = TableGrid::of($table, $this->keepGrids);
         $grid->deriveSpans();
         if ($this->keepGrids) {
             $this->tableGrids[spl_object_id($table)] = $grid;
