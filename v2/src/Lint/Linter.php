@@ -84,7 +84,7 @@ final class Linter
      */
     public static function lintSource(string $source, array $options): array
     {
-        $parsed = Carve2::parseWithLayout($source);
+        $parsed = Carve2::parseWithLayout($source, array_intersect_key($options, ['extensions' => true]));
         $tree = (new TreeEncoder())->encode($parsed->tree, $source);
         $c = new Context($source, $options, self::catalog());
         $c->layout->rawRefs((array)$parsed->layout['nodes']);
@@ -125,7 +125,7 @@ final class Linter
      */
     public static function lintPayload(string $text, array $node, string $path, array $options): array
     {
-        $c = new Context($text, $options, self::catalog());
+        $c = new Context($text, $options + ['payload' => true], self::catalog());
         foreach (self::rulesFor(is_string($node['type'] ?? null) ? $node['type'] : '') as [$id, $check]) {
             if ($id === 'bidi-control-in-source' && $c->active($id)) {
                 $check($node, $path, $c);
@@ -528,7 +528,7 @@ final class Linter
     private static function validate(array $options): void
     {
         foreach (array_keys($options) as $name) {
-            if (!in_array($name, ['rules', 'platforms', 'includes'], true)) {
+            if (!in_array($name, ['rules', 'platforms', 'includes', 'extensions'], true)) {
                 throw new OptionError('option ' . $name . ': unknown option');
             }
         }

@@ -118,6 +118,11 @@ final class Context
     /**
      * @var array<array{0: array<string, mixed>, 1: string}>
      */
+    public array $unresolvedReferences = [];
+
+    /**
+     * @var array<array{0: array<string, mixed>, 1: string}>
+     */
     public array $footnoteDefinitions = [];
 
     public Layout $layout;

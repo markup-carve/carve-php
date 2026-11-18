@@ -162,6 +162,10 @@ final class ParseMessages
         $slots = ['type' => $type !== '' ? $type : $run, 'fence' => $run, 'label' => $label];
         $first = mb_substr($rest, 0, 1);
         $glued = $afterRun < strlen($s) ? $s[$afterRun] : '';
+        $afterFence = substr($s, $afterRun, $lineEnd - $afterRun);
+        if ($code && $type === '' && preg_match('/^[ \t]{2,}\{[.#][^{}]*\}/', $afterFence) === 1) {
+            return Message::fill('fence-title-syntax', ['correctedOpener' => $run], 4);
+        }
         if ($code && $type === '' && ($glued === "\t" || ($glued === ' ' && in_array($s[$afterRun + 1] ?? '', [' ', "\t"], true)))) {
             return Message::fill('fence-title-syntax', ['respaced' => $run], 5);
         }
@@ -237,6 +241,6 @@ final class ParseMessages
 
         $slots = ['attributes' => $attributes, 'opener' => $opener];
 
-        return Message::fill('fence-opener-fallback', $slots, $node->type === 'code_block' ? 0 : 1);
+        return Message::fill('fence-opener-fallback', $slots, in_array($node->type, ['code_block', 'raw_block'], true) ? 0 : 1);
     }
 }

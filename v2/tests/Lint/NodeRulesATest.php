@@ -367,8 +367,8 @@ final class NodeRulesATest extends TestCase
                 [],
                 [
                     'figure-group-panel-number',
-                    '/children/0/children/0/caption',
-                    17,
+                    '/children/0/children/0',
+                    11,
                     24,
                     'A "#" placeholder in a panel caption stays literal: panels are not numbering units, the group '
                     . 'caption carries the number (and panel ids resolve with its letter).',
@@ -448,7 +448,7 @@ final class NodeRulesATest extends TestCase
                     'table-attribute-invalid',
                     '/children/0',
                     1,
-                    7,
+                    9,
                     'The value of widths is not valid, so the table ignores the whole attribute. Correct every entry, or '
                     . 'remove the attribute.',
                 ],
@@ -497,7 +497,7 @@ final class NodeRulesATest extends TestCase
                 [
                     'comment-splits-table-row',
                     '/children/0',
-                    6,
+                    5,
                     10,
                     'This comment stands between a table row and its continuation, so it belongs after the whole row. '
                     . 'Move it above the row or below the continuation.',
@@ -596,7 +596,7 @@ final class NodeRulesATest extends TestCase
                     'deprecated-cell-alignment',
                     '/children/0/children/0/children/0/children/0',
                     1,
-                    5,
+                    2,
                     'The table cell alignment prefix "<" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment '
                     . 'symbols now lead the cell\'s attribute block: write "{<}". In 0.2 the old prefix is cell text, so '
                     . 'the formatter leaves it; the upgrade tool rewrites it.',
@@ -610,7 +610,7 @@ final class NodeRulesATest extends TestCase
                     'deprecated-cell-alignment',
                     '/children/0/children/0/children/0/children/0',
                     1,
-                    5,
+                    2,
                     'The table cell alignment prefix ">" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment '
                     . 'symbols now lead the cell\'s attribute block: write "{>}". In 0.2 the old prefix is cell text, so '
                     . 'the formatter leaves it; the upgrade tool rewrites it.',

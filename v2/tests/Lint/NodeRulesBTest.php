@@ -24,7 +24,7 @@ final class NodeRulesBTest extends TestCase
                 "{table}\n```csv\na,b\nc,d,e\n```",
                 [
                     'delimited-table-wide-row',
-                    '/children/0/children/1/children/0',
+                    '/children/0',
                     0,
                     28,
                     'A CSV/TSV record has more fields than the first record; the table keeps the extra columns.',
@@ -36,7 +36,7 @@ final class NodeRulesBTest extends TestCase
                 "{table}\n```tsv\na\tb\nc\td\te\n```",
                 [
                     'delimited-table-wide-row',
-                    '/children/0/children/1/children/0',
+                    '/children/0',
                     0,
                     28,
                     'A CSV/TSV record has more fields than the first record; the table keeps the extra columns.',
@@ -126,7 +126,7 @@ final class NodeRulesBTest extends TestCase
                 [
                     'comment-in-reference-label',
                     '/children/0/children/1',
-                    3,
+                    5,
                     11,
                     'A line comment starts inside this reference label and takes the rest of the line, so the '
                         . 'brackets are text. Move the comment out of the label, or escape the percent signs.',
@@ -238,7 +238,7 @@ final class NodeRulesBTest extends TestCase
                 [],
             ],
             'sigil-after-letter' => [
-                "<a@b.c1>\n",
+                'ü@bob',
                 [
                     'sigil-after-letter',
                     '/children/0/children/0',
@@ -247,20 +247,20 @@ final class NodeRulesBTest extends TestCase
                     'A mention or tag does not start directly after a letter or number. Put a space or '
                         . 'punctuation before it.',
                 ],
-                "<ab.c1>\n",
+                'a@bob',
                 [],
             ],
             'sigil-after-letter/hash' => [
-                'a#b',
+                'ü#1a',
                 [
                     'sigil-after-letter',
                     '/children/0/children/0',
-                    1,
                     2,
+                    3,
                     'A mention or tag does not start directly after a letter or number. Put a space or '
                         . 'punctuation before it.',
                 ],
-                'a#1',
+                'ü#1',
                 [],
             ],
             'list-item-body-below-content-column' => [
@@ -277,18 +277,18 @@ final class NodeRulesBTest extends TestCase
                 [],
             ],
             'list-item-block-overindented' => [
-                "- a\n   - b\n",
+                "- a\n\n    > b\n",
                 [
                     'list-item-block-overindented',
                     '/children/0/children/0/children/1',
-                    7,
-                    10,
+                    9,
+                    12,
                     "This block opener is past the list item's canonical content column 3; it now parses "
                         . 'structurally and the formatter will canonicalize it. Dedent it to column 3 for an explicit '
                         . 'structural spelling, or escape the opener to preserve the literal meaning used by older '
                         . 'readers.',
                 ],
-                "- a\n  - b\n",
+                "- a\n\n  > b\n",
                 [],
             ],
             'list-marker-below-content-column' => [
@@ -333,7 +333,7 @@ final class NodeRulesBTest extends TestCase
                 [],
             ],
             'braced-span-opener-as-text/emphasis' => [
-                '/a {/ b/',
+                '/a {*b/} c/',
                 [
                     'braced-span-opener-as-text',
                     '/children/0/children/0/children/0',
@@ -365,43 +365,43 @@ final class NodeRulesBTest extends TestCase
                     '/children/0',
                     19,
                     23,
-                    'Bare 4-colon fence has a different width from the innermost 3-colon admonition opened at 1:1; it '
+                    'Bare 4-colon fence has a different width from the innermost 3-colon admonition opened at 2:1; it '
                         . 'closes the container.',
                 ],
                 "{.x}\n::: warning\na\n:::\n",
                 [],
             ],
             'consumed-key-near-miss' => [
-                "{align=left}\n| a |",
+                "{tabel}\n```csv\na,b\n```",
                 [
                     'consumed-key-near-miss',
                     '/children/0',
-                    0,
-                    18,
-                    '"align" is not a consumed key here; did you mean {aligns}?',
+                    8,
+                    14,
+                    '"tabel" is not a consumed key here; did you mean {table}?',
                 ],
-                "{aligns=left}\n| a |",
+                "{table}\n```csv\na,b\n```",
                 [],
             ],
             'consumed-key-near-miss/width' => [
-                "{width=1}\n| a |",
+                "{atble}\n```csv\na\n```",
                 [
                     'consumed-key-near-miss',
                     '/children/0',
-                    0,
-                    15,
-                    '"width" is not a consumed key here; did you mean {widths}?',
+                    8,
+                    14,
+                    '"atble" is not a consumed key here; did you mean {table}?',
                 ],
-                "{widths=1}\n| a |",
+                "{table}\n```csv\na\n```",
                 [],
             ],
             'ordered-marker-right-aligned' => [
                 " 9. a\n10. b",
                 [
                     'ordered-marker-right-aligned',
-                    '/children/0/children/0',
-                    1,
-                    5,
+                    '/children/0/children/1',
+                    6,
+                    11,
                     "This marker sits left of its list, so it is a sibling item that moves the list's column. "
                         . 'Write the ordered markers left-aligned, as the formatter does.',
                 ],
@@ -541,7 +541,7 @@ final class NodeRulesBTest extends TestCase
                     'unused-footnote-definition',
                     '/children/0',
                     0,
-                    11,
+                    4,
                     'Footnote definition [^a] is never referenced, so it is omitted from the rendered document.',
                 ],
                 "[^a]: Note.\n\nSee [^a].",
