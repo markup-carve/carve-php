@@ -320,21 +320,27 @@ final class LineRules
         if (!$line->paragraph) {
             return;
         }
-        $at = strpos($line->text, '<');
-        if ($at === false || ($at > 0 && $line->text[$at - 1] === '\\') || substr_compare($line->text, '<!--', $at, 4) === 0) {
-            return;
-        }
-        $after = $line->text[$at + 1] ?? '';
-        if ($after === '' || !(ctype_alpha($after) || $after === '/')) {
-            return;
-        }
-        $end = strpos($line->text, '>', $at + 2);
-        $inside = substr($line->text, $at + 1, $end === false ? -1 : $end - $at - 1);
-        if (str_contains($inside, '://') || str_contains($inside, '@') || str_starts_with($inside, '/#')) {
-            return;
-        }
-        if ($end !== false) {
+        $from = 0;
+        while (($at = strpos($line->text, '<', $from)) !== false) {
+            $from = $at + 1;
+            if (($at > 0 && $line->text[$at - 1] === '\\') || substr_compare($line->text, '<!--', $at, 4) === 0) {
+                continue;
+            }
+            $after = $line->text[$at + 1] ?? '';
+            if ($after === '' || !(ctype_alpha($after) || $after === '/')) {
+                continue;
+            }
+            $end = strpos($line->text, '>', $at + 2);
+            if ($end === false) {
+                continue;
+            }
+            $inside = substr($line->text, $at + 1, $end - $at - 1);
+            if (str_contains($inside, '://') || str_contains($inside, '@') || str_starts_with($inside, '/#')) {
+                continue;
+            }
             $c->report('bare-html-tag', $line->start + $at, $line->start + $end + 1, $line->path);
+
+            return;
         }
     }
 

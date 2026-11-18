@@ -165,6 +165,8 @@ final class Resolver
 
     private bool $comments = false;
 
+    private ?string $source = null;
+
     /**
      * Set by resolve() when asked to keep what it found for the renderer.
      */
@@ -220,6 +222,7 @@ final class Resolver
         try {
             Walk::$rendered = $opts->rendered;
             $r = new self($doc, $opts, $findings);
+            $r->source = $s;
             $doc->f['astVersion'] = '2.0';
             if ($s !== null) {
                 $doc->f['srcByteLength'] = strlen($s);
@@ -287,7 +290,14 @@ final class Resolver
                 continue;
             }
             if ($first !== $child) {
-                $this->findings?->add(self::DUPLICATE[$child->type], $child, message: self::duplicateMessage($child, $key));
+                [$start, $end] = $this->duplicateRange($child, null);
+                $this->findings?->add(
+                    self::DUPLICATE[$child->type],
+                    $child,
+                    start: $start,
+                    end: $end,
+                    message: self::duplicateMessage($child, $key),
+                );
             }
         }
         if ($this->doc->includeSources !== []) {
@@ -332,7 +342,8 @@ final class Resolver
                 continue;
             }
             if (isset($seen[$child->type][$key])) {
-                $this->findings?->add(self::DUPLICATE[$child->type], $child, $file, message: self::duplicateMessage($child, $key));
+                [$start, $end] = $this->duplicateRange($child, $file);
+                $this->findings?->add(self::DUPLICATE[$child->type], $child, $file, $start, $end, self::duplicateMessage($child, $key));
 
                 continue;
             }
@@ -524,6 +535,36 @@ final class Resolver
         $label = is_string($child->f['label'] ?? null) ? $child->f['label'] : $key;
 
         return Message::fill(self::DUPLICATE[$child->type], ['label' => $label]);
+    }
+
+    /**
+     * C2-B-085: a duplicate footnote ranges its marker, not the continued definition body.
+     *
+     * @return array{0: int, 1: int}
+     */
+    private function duplicateRange(Node $node, ?string $file): array
+    {
+        if ($node->type !== 'footnote' || $node->start < 0) {
+            return [-1, -1];
+        }
+        $source = $file === null ? $this->source : ($this->doc->includeSources[$file] ?? null);
+        if (!is_string($source)) {
+            return [-1, -1];
+        }
+        $lineEnd = strpos($source, "\n", $node->start);
+        $limit = $lineEnd === false ? strlen($source) : $lineEnd;
+        for ($at = $node->start + 2; $at + 1 < $limit; $at++) {
+            if ($source[$at] === '\\') {
+                $at++;
+
+                continue;
+            }
+            if ($source[$at] === ']' && $source[$at + 1] === ':') {
+                return [$node->start, $at + 2];
+            }
+        }
+
+        return [-1, -1];
     }
 
     /**
