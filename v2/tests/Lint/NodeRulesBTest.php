@@ -292,17 +292,17 @@ final class NodeRulesBTest extends TestCase
                 [],
             ],
             'list-marker-below-content-column' => [
-                "1. a\n\n 1. b\n",
+                "- a\n  - b\n * c\n",
                 [
                     'list-marker-below-content-column',
-                    '/children/0/children/0/children/1',
-                    7,
+                    '/children/0/children/0/children/2/children/0',
                     11,
+                    14,
                     'This list marker starts at column 2, between the columns of two open lists, so it is read '
-                        . 'at the column of the deeper list. Start it at column 4 to make that explicit, or at column 1 to put it in '
+                        . 'at the column of the deeper list. Start it at column 3 to make that explicit, or at column 1 to put it in '
                         . 'the outer list.',
                 ],
-                "1. a\n\n   1. b\n",
+                "- a\n  - b\n  * c\n",
                 [],
             ],
             'block-opener-overindented' => [

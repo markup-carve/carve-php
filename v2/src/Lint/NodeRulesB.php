@@ -234,6 +234,10 @@ final class NodeRulesB
         if (($node['type'] ?? null) !== 'comment' || ($node['form'] ?? null) !== 'line' || $pos === null) {
             return;
         }
+        $parent = Support::parent($path);
+        if ($parent !== null && ($c->nodeTypes[$parent] ?? null) === 'inline_footnote') {
+            return;
+        }
         $line = $c->lines[$pos['startLine'] - 1] ?? null;
         $range = Support::bounds($node);
         if ($line === null || $range === null) {
@@ -443,6 +447,11 @@ final class NodeRulesB
             $firstStyle = self::markerField($before, 'style');
             $nextStyle = self::markerField($after, 'style');
             if (($firstStyle === 'i' && $nextStyle === 'a') || ($firstStyle === 'a' && $nextStyle === 'i')) {
+                $beforePos = Support::pos($before);
+                $afterPos = Support::pos($after);
+                if ($beforePos !== null && $afterPos !== null && $afterPos['startLine'] - $beforePos['endLine'] > 3) {
+                    continue;
+                }
                 Support::reportNode('ordered-list-kind-split', $before, $path . '/children/' . ($at - 1), $c);
             }
         }
@@ -500,10 +509,13 @@ final class NodeRulesB
         if ($marker === null || $content === null) {
             return;
         }
-        for ($lineNumber = $pos['startLine'] + 1; $lineNumber <= $pos['endLine']; $lineNumber++) {
-            $line = $c->lines[$lineNumber - 1] ?? null;
-            $previous = $c->lines[$lineNumber - 2] ?? null;
-            if ($line === null || $previous === null || Support::trim($previous->text) !== '') {
+        foreach (Support::kids($node) as $at => $block) {
+            if ($at === 0) {
+                continue;
+            }
+            $blockPos = Support::pos($block);
+            $line = $blockPos === null ? null : ($c->lines[$blockPos['startLine'] - 1] ?? null);
+            if ($line === null) {
                 continue;
             }
             $indent = self::indentation($line->text);
@@ -551,12 +563,23 @@ final class NodeRulesB
         if ($marker === null || $base === null || $content === null) {
             return;
         }
-        if ($marker > $base && $marker < $content) {
-            Support::reportNode('list-marker-below-content-column', $node, $path, $c, [
-                'column' => (string)($marker + 1),
-                'contentColumn' => (string)($content + 1),
-                'baseColumn' => (string)($base + 1),
-            ]);
+        $indexAt = strrpos($path, '/children/');
+        $index = $indexAt === false ? 0 : (int)substr($path, $indexAt + 10);
+        for ($prior = $index - 1; $prior >= 0; $prior--) {
+            $priorPath = $parent . '/children/' . $prior;
+            if (($c->nodeTypes[$priorPath] ?? null) !== 'list') {
+                continue;
+            }
+            $deeper = $c->layout->markerColumn($priorPath . '/children/0');
+            if ($deeper !== null && $marker > $base && $marker < $deeper) {
+                Support::reportNode('list-marker-below-content-column', Support::kids($node)[0], $path . '/children/0', $c, [
+                    'column' => (string)($marker + 1),
+                    'contentColumn' => (string)($deeper + 1),
+                    'baseColumn' => (string)($base + 1),
+                ]);
+            }
+
+            break;
         }
         foreach (Support::kids($node) as $at => $item) {
             if ($at === 0) {
@@ -863,10 +886,12 @@ final class NodeRulesB
         }
         $children = Support::kids($node);
         $count = count($children);
+        $parent = Support::parent($path);
+        $outer = $parent === null ? null : $c->layout->markerColumn($parent);
         for ($at = 1; $at < $count; $at++) {
             $first = $c->layout->markerColumn($path . '/children/' . ($at - 1));
             $next = $c->layout->markerColumn($path . '/children/' . $at);
-            if ($first !== null && $next !== null && $next < $first && isset($children[$at])) {
+            if ($first !== null && $next !== null && $next < $first && ($outer === null || $next < $outer) && isset($children[$at])) {
                 Support::reportNode('uneven-list-indent', $children[$at], $path . '/children/' . $at, $c);
             }
         }

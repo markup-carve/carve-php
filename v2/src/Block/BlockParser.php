@@ -186,7 +186,7 @@ final class BlockParser
             if ($leaf->kind === Frame::LINE_BLOCK && $owner < $top && $this->lazyLineBlockComment($leaf)) {
                 return;
             }
-            if ($owner === $top || $leaf->kind === Frame::LINE_BLOCK && $this->lazyLineBlock()) {
+            if ($owner === $top || $leaf->kind === Frame::LINE_BLOCK && $this->lazyLineBlock($leaf)) {
                 $this->opaqueLine($leaf);
 
                 return;
@@ -263,8 +263,13 @@ final class BlockParser
         return preg_match($shape, $line) === 1;
     }
 
-    private function lazyLineBlock(): bool
+    private function lazyLineBlock(Frame $leaf): bool
     {
+        $n = count($leaf->spans);
+        if ($n >= 2 && $leaf->spans[$n - 2] === $leaf->spans[$n - 1]) {
+            // C2-B-024: a blank line ended the open stanza; no later unowned line is lazy.
+            return false;
+        }
         $j = $this->i + strspn($this->s, " \t", $this->i, $this->le - $this->i);
         if ($j >= $this->le || $this->regionMarker($j)) {
             return false;
@@ -1840,7 +1845,14 @@ final class BlockParser
         $s = $this->s;
         if ($j < $end && $s[$j] === ':' && strspn($s, ':', $j, $end - $j) === $end - $j && $end - $j >= $f->level) {
             if ($f->lineComment !== null) {
-                $f->lineComment->end = $this->ls;
+                $commentEnd = $this->ls;
+                if ($commentEnd > $f->lineComment->start && $s[$commentEnd - 1] === "\n") {
+                    $commentEnd--;
+                }
+                if ($commentEnd > $f->lineComment->start && $s[$commentEnd - 1] === "\r") {
+                    $commentEnd--;
+                }
+                $f->lineComment->end = $commentEnd;
                 $f->hiddenComments[] = $f->lineComment;
                 $f->lineComment = null;
             }

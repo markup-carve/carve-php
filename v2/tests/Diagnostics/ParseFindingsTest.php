@@ -56,7 +56,7 @@ final class ParseFindingsTest extends TestCase
             ],
             'C2-B-181 closed quote' => ["{table}\n```csv\na,\"b\"\n```", []],
             'C2-B-085 link' => ["[a]: /x\n[a]: /y", [['duplicate-link-reference-definition', '/children/1', 8, 15]]],
-            'C2-B-085 footnote' => ["[^a]: x\n\n[^a]: y", [['duplicate-footnote-definition', '/children/1', 9, 16]]],
+            'C2-B-085 footnote' => ["[^a]: x\n\n[^a]: y", [['duplicate-footnote-definition', '/children/1', 9, 14]]],
             'C2-B-085 abbreviation' => ["*[A]: x\n*[A]: y", [['duplicate-abbreviation-definition', '/children/1', 8, 15]]],
             'C2-A-039' => [
                 "{#x}\n# A\n\n{#x}\npara\n\n[t]{#x} and *u*{#x}", [

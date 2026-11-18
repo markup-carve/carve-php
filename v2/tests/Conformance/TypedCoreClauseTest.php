@@ -22,25 +22,13 @@ use Throwable;
 final class TypedCoreClauseTest extends TestCase
 {
     /**
-     * @var array<string, true>
-     */
-    private const HELD_CASES = [
-        'CC-601' => true,
-        'CC-996' => true,
-        'CC-1166' => true,
-    ];
-
-    /**
      * @return array<string, array{0: array<string, mixed>}>
      */
     public static function cases(): array
     {
         $out = [];
         foreach (Corpus::clauseCases() as $case) {
-            if (
-                in_array($case['kind'] ?? null, ['parse', 'render', 'tree'], true)
-                && !isset(self::HELD_CASES[$case['id']])
-            ) {
+            if (in_array($case['kind'] ?? null, ['parse', 'render', 'tree'], true)) {
                 $out[$case['clauses'][0] . '/' . $case['id']] = [$case];
             }
         }
