@@ -101,6 +101,4 @@ node-rules-b/unresolved-reference-link/image: Hold the candidate 14 catalog chan
 CC-468: Hold standard tabs reader validation; the standard extension remains provisional and still accepts a tab outside its group.
 CC-601: Hold the obsolete node-start duplicate-id location; C2-W-138 requires the authored attribute span.
 CC-996: Hold the obsolete node-start duplicate-id location; C2-W-138 requires the authored attribute span.
-import-roundtrip/html-60: Hold candidate 14 note id collision round trip; the HTML importer is outside the core scope.
-import-roundtrip/html-85: Hold candidate 14 authored note id collision round trip; the HTML importer is outside the core scope.
 CC-1166: Hold the diagnostic range of a duplicate footnote with a lazy continuation; C2-W-138 does not distinguish the marker line from the full definition.

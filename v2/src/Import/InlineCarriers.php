@@ -115,7 +115,7 @@ final class InlineCarriers
         $note = $this->context->notes[str_starts_with($href, '#') ? substr($href, 1) : $href] ?? null;
         $label = $node->attr('data-carve-footnote-label');
         $omit = ['href', 'role', 'data-footnote-ref'];
-        if (self::isGeneratedRefId($node->attr('id'), $href)) {
+        if (self::isGeneratedRefId($node->attr('id'), $href, $node->plain())) {
             $omit[] = 'id';
         }
         $mapped = Attrs::of($node, $omit);
@@ -129,20 +129,34 @@ final class InlineCarriers
     }
 
     /**
-     * C2-H-088: the id a render gives the Nth reference to the note `#fnK` is `fnrefK`, then `fnrefK-N`.
+     * C2-H-088, C2-H-202: a generated mark id starts with the note number or the shown number and may be suffixed.
      */
-    private static function isGeneratedRefId(?string $id, string $href): bool
+    private static function isGeneratedRefId(?string $id, string $href, string $shown): bool
     {
         if ($id === null || !str_starts_with($href, '#fn')) {
             return true;
         }
-        $stem = 'fnref' . substr($href, 3);
-        if ($id === $stem) {
-            return true;
+        foreach (['fnref' . substr($href, 3), 'fnref' . $shown] as $stem) {
+            if ($id === $stem || self::generatedSuffix($id, $stem)) {
+                return true;
+            }
         }
-        $tail = str_starts_with($id, $stem . '-') ? substr($id, strlen($stem) + 1) : '';
 
-        return $tail !== '' && ctype_digit($tail) && $tail[0] !== '0' && (int)$tail > 1;
+        return false;
+    }
+
+    private static function generatedSuffix(string $id, string $stem): bool
+    {
+        if (!str_starts_with($id, $stem . '-')) {
+            return false;
+        }
+        foreach (explode('-', substr($id, strlen($stem) + 1)) as $part) {
+            if ($part === '' || !ctype_digit($part) || $part[0] === '0' || (int)$part < 2) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
