@@ -66,7 +66,7 @@ final class Linter
         self::validate($options);
         $own = self::lintSource($source, $options);
         if (!isset($options['includes'])) {
-            $parsed = Carve2::parseWithDiagnostics($source);
+            $parsed = Carve2::parseWithDiagnostics($source, array_intersect_key($options, ['extensions' => true]));
 
             return self::ordered(array_merge($own, $parsed->diagnostics));
         }
