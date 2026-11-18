@@ -40,6 +40,13 @@ final class Context
     public array $paragraphStarts = [];
 
     /**
+     * Frontmatter lines whose text is opaque to all other line rules.
+     *
+     * @var array<int, true>
+     */
+    public array $frontmatterLines = [];
+
+    /**
      * @var array<\MarkupCarve\Carve2\Diagnostics\Diagnostic>
      */
     public array $diagnostics = [];
@@ -60,6 +67,11 @@ final class Context
      * @var array<string, true>
      */
     public array $headingKinds = [];
+
+    /**
+     * @var array{0: int, 1: int, 2: string}|null
+     */
+    public ?array $firstHeading = null;
 
     public bool $mixedReported = false;
 

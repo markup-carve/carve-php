@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Test\Parity;
 
 use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Test\Support\Corpus;
 use PHPUnit\Framework\TestCase;
 
 final class Candidate15Test extends TestCase
@@ -66,5 +67,23 @@ final class Candidate15Test extends TestCase
     {
         $source = "::: figure\n{#p}\n![a](a)\n^ (a) One\n:::\n^ Figure #: Both\n\nSee </#p>.";
         self::assertStringContainsString('<a href="#p">Figure 1a</a>', Carve2::toHtml($source));
+    }
+
+    public function testCatalogLintRangesAcrossContainers(): void
+    {
+        foreach (['CC-695', 'CC-751', 'CC-811', 'CC-883', 'CC-962', 'CC-1014'] as $id) {
+            $case = Corpus::clauseCases()[$id];
+            $expected = $case['expected']['diagnostics'][0];
+            $found = array_values(array_filter(
+                Carve2::lint($case['input'], Corpus::caseOptions($case)),
+                static fn ($d): bool => $d->code === $expected['code'],
+            ));
+            self::assertNotEmpty($found, $id);
+            $prefix = substr($case['input'], 0, $found[0]->startOffset);
+            $line = substr_count($prefix, "\n") + 1;
+            $feed = strrpos($prefix, "\n");
+            $column = strlen($prefix) - ($feed === false ? 0 : $feed + 1) + 1;
+            self::assertSame([$expected['line'], $expected['column']], [$line, $column], $id);
+        }
     }
 }

@@ -25,8 +25,8 @@ final class NodeRulesBTest extends TestCase
                 [
                     'delimited-table-wide-row',
                     '/children/0/children/1/children/0',
-                    19,
-                    24,
+                    0,
+                    28,
                     'A CSV/TSV record has more fields than the first record; the table keeps the extra columns.',
                 ],
                 "{table}\n```csv\na,b\nc,d\n```",
@@ -37,8 +37,8 @@ final class NodeRulesBTest extends TestCase
                 [
                     'delimited-table-wide-row',
                     '/children/0/children/1/children/0',
-                    19,
-                    24,
+                    0,
+                    28,
                     'A CSV/TSV record has more fields than the first record; the table keeps the extra columns.',
                 ],
                 "{table}\n```tsv\na\tb\nc\td\n```",
@@ -152,8 +152,8 @@ final class NodeRulesBTest extends TestCase
                 [
                     'table-column-overlap',
                     '/children/0',
-                    0,
-                    28,
+                    1,
+                    7,
                     'Column 1 supplies the same alignment axis both in the table and in a table attribute; the '
                         . 'in-table marker wins.',
                 ],
@@ -164,9 +164,9 @@ final class NodeRulesBTest extends TestCase
                 "- a\n\n  b\n- c",
                 [
                     'tight-list-item-with-blank-line',
-                    '/children/0/children/0/children/0',
-                    2,
-                    3,
+                    '/children/0',
+                    0,
+                    12,
                     'A blank line inside an item no longer makes the list loose. Put a blank line between the '
                         . 'items if every item should render as a paragraph.',
                 ],
@@ -177,9 +177,9 @@ final class NodeRulesBTest extends TestCase
                 "> - a\n>\n>   b\n> - c",
                 [
                     'tight-list-item-with-blank-line',
-                    '/children/0/children/0/children/0/children/0',
-                    4,
-                    5,
+                    '/children/0/children/0',
+                    2,
+                    19,
                     'A blank line inside an item no longer makes the list loose. Put a blank line between the '
                         . 'items if every item should render as a paragraph.',
                 ],
@@ -565,8 +565,8 @@ final class NodeRulesBTest extends TestCase
                 [
                     'include-lines-table-rows-hint',
                     '/children/0',
-                    0,
-                    40,
+                    17,
+                    27,
                     '@lines counts physical lines. Use @rows to select records of this table.',
                 ],
                 "{table}\n{{ d.csv @rows:1-2 @code:csv }}",

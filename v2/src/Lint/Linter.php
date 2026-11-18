@@ -96,6 +96,10 @@ final class Linter
         NodeRulesB::finish($c);
         foreach ($c->lines as $line) {
             if ($line->opaque) {
+                if (isset($c->frontmatterLines[$line->number]) && $c->active('blockquote-marker-without-space')) {
+                    LineRules::frontmatterQuote($line, $c);
+                }
+
                 continue;
             }
             $scan = self::masked($line, $c);
@@ -298,16 +302,21 @@ final class Linter
     {
         $paragraph = $type === 'paragraph' || $type === 'caption' || $type === 'definition_term';
         $opaque = in_array($type, ['code_block', 'raw_block', 'frontmatter', 'comment_block'], true);
-        if (!$paragraph && !$opaque) {
+        if (!$paragraph && !$opaque && $type !== 'heading') {
             return;
         }
         for ($i = $pos['startLine'] - 1; $i < $pos['endLine'] && isset($c->lines[$i]); $i++) {
-            if ($paragraph) {
+            if ($paragraph || $type === 'heading') {
                 $c->lines[$i]->path = $path;
+            }
+            if ($paragraph) {
                 $c->lines[$i]->paragraph = true;
             }
             if ($opaque) {
                 $c->lines[$i]->opaque = true;
+                if ($type === 'frontmatter') {
+                    $c->frontmatterLines[$i + 1] = true;
+                }
             }
         }
     }

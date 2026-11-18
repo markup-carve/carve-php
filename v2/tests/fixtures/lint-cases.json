@@ -240,8 +240,8 @@
     [
      "include-lines-table-rows-hint",
      "/children/0",
-     0,
-     40,
+     17,
+     27,
      "@lines counts physical lines. Use @rows to select records of this table."
     ]
    ]
@@ -724,8 +724,8 @@
     [
      "delimited-table-wide-row",
      "/children/0/children/1/children/0",
-     19,
-     24,
+     0,
+     28,
      "A CSV/TSV record has more fields than the first record; the table keeps the extra columns."
     ]
    ]
@@ -923,9 +923,9 @@
    "findings": [
     [
      "heading-marker-mixed",
-     "/children/1",
-     7,
-     12,
+     "/children/0",
+     0,
+     5,
      "This document mixes the two heading markers. carve fmt rewrites the hash to the equals sign."
     ]
    ]
@@ -994,8 +994,8 @@
     [
      "table-column-arity",
      "/children/0",
-     0,
-     21,
+     1,
+     7,
      "widths supplies 1 column entries for a 2-column table; the unset tail is valid but may be accidental."
     ]
    ]
@@ -1008,8 +1008,8 @@
     [
      "table-attribute-invalid",
      "/children/0",
-     0,
-     16,
+     1,
+     7,
      "The value of widths is not valid, so the table ignores the whole attribute. Correct every entry, or remove the attribute."
     ]
    ]
@@ -1022,8 +1022,8 @@
     [
      "table-column-overlap",
      "/children/0",
-     0,
-     28,
+     1,
+     7,
      "Column 1 supplies the same alignment axis both in the table and in a table attribute; the in-table marker wins."
     ]
    ]
@@ -1068,8 +1068,8 @@
     [
      "table-width-total",
      "/children/0",
-     0,
-     24,
+     1,
+     7,
      "The specified table column widths total more than 100%."
     ]
    ]
@@ -1085,9 +1085,9 @@
    "findings": [
     [
      "tight-list-item-with-blank-line",
-     "/children/0/children/0/children/0",
-     2,
-     3,
+     "/children/0",
+     0,
+     12,
      "A blank line inside an item no longer makes the list loose. Put a blank line between the items if every item should render as a paragraph."
     ]
    ]

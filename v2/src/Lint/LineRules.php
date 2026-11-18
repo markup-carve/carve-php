@@ -186,8 +186,12 @@ final class LineRules
 
     private static function deprecatedContinuation(Line $line, Context $c): void
     {
-        if (self::trimmed($line)[0] === '+') {
-            self::reportLine('deprecated-continuation-marker', $line, $c);
+        $pattern = '/^(?:[ \t]*>[ \t]*)*[ \t]*(?:(?<marker>[-*]|\d+[.)]|[A-Za-z][.)])[ \t]+)?(?<plus>\+)[ \t]*$/';
+        if (preg_match($pattern, $line->text, $match, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL) === 1) {
+            $offset = $match['plus'][1];
+            $markerLine = $match['marker'][0] !== null;
+            $variant = $markerLine ? 2 : (self::hasAncestor($line->path, $c, 'list_item') ? 1 : 0);
+            $c->report('deprecated-continuation-marker', $line->start + $offset, $line->start + $offset + 1, $line->path, [], $variant);
         }
     }
 
@@ -248,6 +252,11 @@ final class LineRules
             return;
         }
         [$text, $start] = self::paragraphContent($line, $c);
+        if (str_starts_with($text, ':::') && strspn($text, ':') >= 3) {
+            $c->report('block-marker-as-text', $start, $start + strlen($text), $line->path, ['what' => 'a div opener']);
+
+            return;
+        }
         if (str_starts_with($text, '~~~')) {
             $c->report('block-marker-as-text', $start, $start + strlen($text), $line->path, ['what' => 'a tilde fence']);
 
@@ -308,20 +317,36 @@ final class LineRules
 
     private static function tableShaped(Line $line, Context $c): void
     {
-        [$text, $start] = self::trimmed($line);
-        if (str_starts_with($text, '|') && !str_ends_with($text, '|') && $line->paragraph) {
-            $c->report('table-shaped-paragraph', $start, $start + strlen($text), $line->path);
+        [$text, $start] = self::paragraphContent($line, $c);
+        $closing = str_ends_with($text, '|');
+        if ($closing) {
+            $before = substr($text, 0, -1);
+            $slashes = strlen($before) - strlen(rtrim($before, '\\'));
+            $closing = $slashes % 2 === 0;
+        }
+        $owner = $c->nodeTypes[$line->path] ?? 'paragraph';
+        if (strlen($text) > 1 && str_starts_with($text, '|') && !$closing && ($line->paragraph || $owner === 'heading')) {
+            $c->report('table-shaped-paragraph', $start, $start + strlen($text), $line->path, ['owner' => $owner]);
         }
     }
 
     private static function quoteWithoutSpace(Line $line, Context $c): void
     {
         [$text, $start] = self::trimmed($line);
-        if (!str_starts_with($text, '>') || strlen($text) < 2 || $text[1] === ' ' || $text[1] === "\t") {
+        if ($start !== $line->start || !str_starts_with($text, '>') || strlen($text) < 2 || $text[1] === ' ') {
             return;
         }
         $value = self::shown($line, $c, $start - $line->start + 1, strlen($text) - 1);
         $c->report('blockquote-marker-without-space', $start, $start + strlen($text), $line->path, ['text' => $value]);
+    }
+
+    public static function frontmatterQuote(Line $line, Context $c): void
+    {
+        if (($line->text[0] ?? '') !== '>' || strlen($line->text) < 2 || $line->text[1] === ' ') {
+            return;
+        }
+        $value = substr($line->text, 1);
+        $c->report('blockquote-marker-without-space', $line->start, $line->start + 1, $line->path, ['text' => $value], 1);
     }
 
     private static function isListMarker(string $text): bool
@@ -450,23 +475,32 @@ final class LineRules
     private static function emptyInclude(Line $line, Context $c): void
     {
         $at = strpos($line->text, '{{');
-        if ($at === false || !$line->paragraph) {
+        if ($at === false) {
             return;
         }
         $end = strpos($line->text, '}}', $at + 2);
-        if ($end === false || Support::trim(substr($line->text, $at + 2, $end - $at - 2)) !== '') {
+        if ($end === false) {
             return;
         }
-        $text = substr($line->text, $at, $end + 2 - $at);
+        $body = substr($line->text, $at + 2, $end - $at - 2);
+        $empty = Support::trim($body) === '' || preg_match('/^[ \t]+(?:""|“”|[\#@])/', $body) === 1;
+        if (!$empty) {
+            return;
+        }
         $text = self::shown($line, $c, $at, $end + 2 - $at);
         $c->report('empty-include-path', $line->start + $at, $line->start + $end + 2, $line->path, ['text' => $text]);
     }
 
     private static function linkGap(Line $line, Context $c): void
     {
-        $at = strpos($line->text, '] (');
-        if ($at !== false && $line->paragraph) {
-            $c->report('link-gap-before-destination', $line->start + $at, $line->start + $at + 3, $line->path);
+        if (!$line->paragraph) {
+            return;
+        }
+        if (preg_match_all('/\[[^\]\n]+\][ \t]+\([ \t]*[^)\s]/', $line->text, $matches, PREG_OFFSET_CAPTURE) < 1) {
+            return;
+        }
+        foreach ($matches[0] as [$match, $at]) {
+            $c->report('link-gap-before-destination', $line->start + $at, $line->start + $at + strlen($match), $line->path);
         }
     }
 
@@ -497,12 +531,16 @@ final class LineRules
 
     private static function foldedTerm(Line $line, Context $c): void
     {
-        if (($c->nodeTypes[$line->path] ?? null) !== 'definition_term' || ($c->firstLines[$line->path] ?? null) === $line->number) {
+        if (($c->nodeTypes[$line->path] ?? null) !== 'definition_term' || ($c->firstLines[$line->path] ?? null) !== $line->number) {
             return;
         }
         [$text, $start] = self::trimmed($line);
-        if (self::startsBlock($text)) {
-            $c->report('definition-term-block-folded', $start, $start + strlen($text), $line->path);
+        if (!str_starts_with($text, ':: ')) {
+            return;
+        }
+        $term = substr($text, 3);
+        if (str_starts_with($term, '> ') || self::isListMarker($term)) {
+            $c->report('definition-term-block-folded', $start + 3, $start + 4, $line->path);
         }
     }
 
@@ -540,21 +578,44 @@ final class LineRules
 
     private static function regionAsText(Line $line, Context $c): void
     {
-        [$text, $start] = self::trimmed($line);
-        if ($line->paragraph && (str_starts_with($text, '#region ') || str_starts_with($text, '#endregion'))) {
-            $c->report('region-marker-renders-as-text', $start, $start + strlen($text), $line->path);
+        $original = $c->lines[$line->number - 1] ?? $line;
+        [$text, $start] = self::trimmed($original);
+        if (str_starts_with($text, '%%')) {
+            if (
+                preg_match('/^%%[ \t]*#(?:region|endregion)(?![A-Za-z0-9_])/i', $text) === 1
+                && preg_match('/^%%[ \t]*#(?:region|endregion)(?![A-Za-z0-9_])/', $text) !== 1
+            ) {
+                $c->report('region-marker-renders-as-text', $start, $original->end, $line->path, [], 1);
+            }
+
+            return;
+        }
+        $candidate = preg_replace('/^(?:(?:\/\/|--|\/\*|<!--)[ \t]*)?/', '', $text);
+        if (is_string($candidate) && preg_match('/^#(?:region|endregion)(?![A-Za-z0-9_])/i', $candidate) === 1) {
+            $c->report('region-marker-renders-as-text', $start, $original->end, $line->path);
         }
     }
 
     private static function captionLooking(Line $line, Context $c): void
     {
-        $previous = self::prior($line, $c);
-        if (!$line->paragraph || $previous === null || !str_starts_with(Support::trimStart($previous->text), '|')) {
+        if (!$line->paragraph) {
             return;
         }
-        [$text, $start] = self::trimmed($line);
-        if (str_starts_with($text, 'Table:') || str_starts_with($text, 'Figure:')) {
-            $c->report('caption-looking-paragraph', $start, $start + strlen($text), $line->path);
+        [$text, $start] = self::paragraphContent($line, $c);
+        if (preg_match('/^\*?\s*(?:Caption|Table|Tabelle|Figure|Image)(?:\s+\d+)?\s*:|^:\s+\S/i', $text) !== 1) {
+            return;
+        }
+        $below = false;
+        $above = false;
+        for ($distance = 1; $distance <= 2; $distance++) {
+            $next = $c->lines[$line->number - 1 + $distance] ?? null;
+            $prev = $c->lines[$line->number - 1 - $distance] ?? null;
+            $below = $below || ($next !== null && str_starts_with(Support::trimStart($next->text), '|'));
+            $above = $above || ($prev !== null && (str_starts_with(Support::trimStart($prev->text), '|')
+                || str_starts_with(Support::trimStart($prev->text), '![')));
+        }
+        if ($below || $above) {
+            $c->report('caption-looking-paragraph', $start, $start + 1, $line->path, [], $below ? 0 : 1);
         }
     }
 

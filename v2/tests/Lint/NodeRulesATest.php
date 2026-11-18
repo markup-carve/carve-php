@@ -169,9 +169,9 @@ final class NodeRulesATest extends TestCase
                 [],
                 [
                     'heading-marker-mixed',
-                    '/children/1',
-                    7,
-                    12,
+                    '/children/0',
+                    0,
+                    5,
                     'This document mixes the two heading markers. carve fmt rewrites the hash to the equals sign.',
                 ],
             ],
@@ -434,8 +434,8 @@ final class NodeRulesATest extends TestCase
                 [
                     'table-column-arity',
                     '/children/0',
-                    0,
-                    21,
+                    1,
+                    7,
                     'widths supplies 1 column entries for a 2-column table; the unset tail is valid but may be '
                     . 'accidental.',
                 ],
@@ -447,8 +447,8 @@ final class NodeRulesATest extends TestCase
                 [
                     'table-attribute-invalid',
                     '/children/0',
-                    0,
-                    16,
+                    1,
+                    7,
                     'The value of widths is not valid, so the table ignores the whole attribute. Correct every entry, or '
                     . 'remove the attribute.',
                 ],
@@ -507,7 +507,7 @@ final class NodeRulesATest extends TestCase
                 "{widths=60,60}\n| a | b |",
                 "{widths=50,50}\n| a | b |",
                 [],
-                ['table-width-total', '/children/0', 0, 24, 'The specified table column widths total more than 100%.'],
+                ['table-width-total', '/children/0', 1, 7, 'The specified table column widths total more than 100%.'],
             ],
             'table-row-attribute-as-cell' => [
                 '| a | {.x} |',

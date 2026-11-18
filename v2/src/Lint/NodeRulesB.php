@@ -11,11 +11,6 @@ namespace MarkupCarve\Carve2\Lint;
 final class NodeRulesB
 {
     /**
-     * @var array<string>
-     */
-    private const TEMPLATE_WORDS = ['if ', 'for ', 'endif', 'endfor', 'assign ', 'set ', 'include '];
-
-    /**
      * @param array<string, mixed> $node
      * @param string $path
      * @param \MarkupCarve\Carve2\Lint\Context $c
@@ -32,8 +27,6 @@ final class NodeRulesB
             return;
         }
         $width = -1;
-        $records = 0;
-        $firstLine = Support::pos($node)['startLine'] ?? 1;
         foreach (Support::kids($node) as $index => $section) {
             if (!in_array($section['type'] ?? null, ['table_body', 'table_head', 'table_foot'], true)) {
                 continue;
@@ -46,13 +39,9 @@ final class NodeRulesB
                 if ($width < 0) {
                     $width = $cells;
                 } elseif ($cells > $width) {
-                    $line = $c->lines[$firstLine + 1 + $records] ?? null;
-                    if ($line !== null) {
-                        $rowPath = $path . '/children/' . $index . '/children/' . $rowIndex;
-                        $c->report('delimited-table-wide-row', $line->start, $line->end, $rowPath);
-                    }
+                    $rowPath = $path . '/children/' . $index . '/children/' . $rowIndex;
+                    Support::reportNode('delimited-table-wide-row', $node, $rowPath, $c);
                 }
-                $records++;
             }
         }
     }
@@ -126,16 +115,32 @@ final class NodeRulesB
         if (($node['type'] ?? null) !== 'frontmatter') {
             return;
         }
-        foreach (explode("\n", Support::str($node, 'value') ?? '') as $line) {
-            if (!str_starts_with($line, 'carve:')) {
+        $pos = Support::pos($node);
+        if ($pos === null) {
+            return;
+        }
+        for ($number = $pos['startLine'] + 1; $number < $pos['endLine']; $number++) {
+            $line = $c->lines[$number - 1] ?? null;
+            if ($line === null) {
                 continue;
             }
-            $version = Support::trim(substr($line, 6));
-            if ($version === '' || $version === '0.2' || $version === '0.2.0') {
+            if (preg_match('/^[ \t]*carve(?:-version)?[ \t]*:[ \t]*(\S+)[ \t]*$/', $line->text, $match, PREG_OFFSET_CAPTURE) !== 1) {
+                continue;
+            }
+            [$version, $offset] = $match[1];
+            $numeric = preg_match('/^\d+(?:\.\d+)*$/', $version) === 1;
+            $parts = $numeric ? array_map('intval', explode('.', $version)) : [];
+            $major = $numeric ? $parts[0] : -1;
+            $minor = count($parts) > 1 ? $parts[1] : 0;
+            if (
+                $major === 0 && ($minor < 2
+                || ($minor === 2 && array_sum(array_slice($parts, 2)) === 0))
+            ) {
                 return;
             }
-            $values = ['version' => $version, 'SPEC_VERSION' => '0.2'];
-            Support::reportNode('carve-version-unsupported', $node, $path, $c, $values, str_starts_with($version, '0.') ? 0 : 1);
+            $c->report('carve-version-unsupported', $line->start + $offset, $line->start + $offset + strlen($version), $path, [
+                'version' => $version,
+            ], $numeric ? 1 : 0);
 
             return;
         }
@@ -246,7 +251,10 @@ final class NodeRulesB
         foreach (Support::kids($node, 'columns') as $at => $column) {
             // C2-A-095: the column fields carry the fact that `aligns` or `widths` wrote them.
             if ((isset($column['align']) || isset($column['width'])) && isset($cells[$at]['align'])) {
-                Support::reportNode('table-column-overlap', $node, $path, $c, ['n' => (string)($at + 1)]);
+                $range = NodeRulesA::tableKeyRange($node, 'aligns', $c);
+                if ($range !== null) {
+                    $c->report('table-column-overlap', $range[0], $range[1], $path, ['n' => (string)($at + 1)]);
+                }
             }
         }
     }
@@ -270,7 +278,9 @@ final class NodeRulesB
                 $child = $children[$inner] ?? null;
                 $childPath = $path . '/children/' . $at . '/children/' . $inner;
                 if ($child !== null && ($child['type'] ?? null) === 'paragraph' && $c->layout->blankLinesAfter($childPath) > 0) {
-                    Support::reportNode('tight-list-item-with-blank-line', $child, $childPath, $c);
+                    Support::reportNode('tight-list-item-with-blank-line', $node, $path, $c);
+
+                    return;
                 }
             }
         }
@@ -289,13 +299,12 @@ final class NodeRulesB
             return;
         }
         $source = Support::raw($node, $c);
-        $content = str_starts_with($source, '{%') ? self::trimStart(substr($source, 2)) : '';
-        foreach (self::TEMPLATE_WORDS as $word) {
-            if (str_starts_with($content, $word)) {
-                Support::reportNode('braced-comment-in-a-template-source', $node, $path, $c);
-
-                return;
-            }
+        $content = str_starts_with($source, '{%') ? Support::trim(substr($source, 2, -2)) : '';
+        if (
+            in_array($content, ['raw', 'endraw', 'endif', 'endfor', 'endblock'], true)
+            || preg_match('/^(?:if|for|block)[ \t\r\n]+\S/', $content) === 1
+        ) {
+            Support::reportNode('braced-comment-in-a-template-source', $node, $path, $c);
         }
     }
 
@@ -348,7 +357,9 @@ final class NodeRulesB
             if (strpos($source, $source[$at], $at + 1) !== false) {
                 continue;
             }
-            $c->report('unclosed-inline-emphasis', $range[0] + $at, $range[0] + $at + 1, $path);
+            $c->report('unclosed-inline-emphasis', $range[0] + $at, $range[0] + $at + 1, $path, [
+                'span' => $source[$at] === '*' ? 'strong' : 'emphasis',
+            ]);
 
             return;
         }
@@ -849,7 +860,12 @@ final class NodeRulesB
         $code = self::option($node, 'code');
         $table = in_array('table', array_column(Support::keyValues($node), 0), true);
         if ($table && ($code === 'csv' || $code === 'tsv')) {
-            Support::reportNode('include-lines-table-rows-hint', $node, $path, $c);
+            $bounds = Support::bounds($node);
+            if ($bounds === null || preg_match('/@lines:[^\s}]+/', Support::raw($node, $c), $match, PREG_OFFSET_CAPTURE) !== 1) {
+                return;
+            }
+            $start = $bounds[0] + $match[0][1];
+            $c->report('include-lines-table-rows-hint', $start, $start + strlen($match[0][0]), $path);
         }
     }
 

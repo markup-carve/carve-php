@@ -55,6 +55,51 @@ final class NodeRulesA
     }
 
     /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function multilineMarkdownStrong(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'paragraph') {
+            return;
+        }
+        $bounds = Support::bounds($node);
+        if ($bounds === null) {
+            return;
+        }
+        $raw = Support::raw($node, $c);
+        preg_match_all('/\*\*([^*]+)\*\*/s', $raw, $matches, PREG_OFFSET_CAPTURE);
+        foreach ($matches[0] as $i => [$whole, $offset]) {
+            $inside = $matches[1][$i][0];
+            if (!str_contains($inside, "\n") || str_contains($inside, "\n\n") || self::jsTrim($inside) !== $inside) {
+                continue;
+            }
+            $start = $bounds[0] + $offset;
+            $end = $start + strlen($whole);
+            $masked = false;
+            foreach ($c->leafMask as [$from, $to]) {
+                $masked = $masked || ($from < $end && $to > $start);
+            }
+            if ($masked) {
+                continue;
+            }
+            $owner = $path;
+            foreach (Support::kids($node) as $at => $child) {
+                $part = Support::bounds($child);
+                if ($part !== null && $part[0] <= $start && $part[1] > $start) {
+                    $owner = $path . '/children/' . $at;
+
+                    break;
+                }
+            }
+            $c->report('markdown-strong-double-star', $start, $end, $owner);
+        }
+    }
+
+    /**
      * @param string $text
      * @param string $mark
      * @param int $start
@@ -68,6 +113,11 @@ final class NodeRulesA
         $before = $start > 0 ? $text[$start - 1] : null;
         $after = $text[$end + $size] ?? null;
         $inside = substr($text, $start + $size, $end - $start - $size);
+
+        if ($mark === '**') {
+            return $before !== '\\' && $inside !== '' && !str_contains($inside, '*') && !str_contains($inside, "\n\n")
+                && self::jsTrim($inside) === $inside;
+        }
 
         return $before !== '\\' && $inside !== '' && $inside[0] !== $mark[0] && $inside[strlen($inside) - 1] !== $mark[0]
             && self::jsTrim($inside) === $inside && !Support::isWord($before) && !Support::isWord($after);
@@ -180,7 +230,10 @@ final class NodeRulesA
             if ($pipe && $key === 'header-rows' && preg_match('/^\d*$/', $value) === 1) {
                 continue;
             }
-            Support::reportNode('table-attribute-invalid', $node, $path, $c, ['key' => $key]);
+            $range = self::tableKeyRange($node, $key, $c);
+            if ($range !== null) {
+                $c->report('table-attribute-invalid', $range[0], $range[1], $path, ['key' => $key]);
+            }
         }
     }
 
@@ -422,9 +475,16 @@ final class NodeRulesA
         if ($kind !== '#' && $kind !== '=') {
             return;
         }
+        $bounds = Support::bounds($node);
+        if ($bounds !== null) {
+            $c->firstHeading ??= [$bounds[0], $bounds[1], $path];
+        }
         $c->headingKinds[$kind] = true;
         if (count($c->headingKinds) === 2 && !$c->mixedReported) {
-            Support::reportNode('heading-marker-mixed', $node, $path, $c);
+            if ($c->firstHeading !== null) {
+                [$start, $end, $firstPath] = $c->firstHeading;
+                $c->report('heading-marker-mixed', $start, $end, $firstPath);
+            }
             $c->mixedReported = true;
         }
     }
@@ -627,8 +687,27 @@ final class NodeRulesA
      */
     public static function substitutionArrow(array $node, string $path, Context $c): void
     {
-        if (($node['type'] ?? null) === 'strike' && str_contains(Support::raw($node, $c), '~>')) {
-            Support::reportNode('deprecated-substitution-arrow', $node, $path, $c);
+        if (($node['type'] ?? null) !== 'strike') {
+            return;
+        }
+        foreach (Support::kids($node) as $child) {
+            if (($child['type'] ?? null) !== 'text') {
+                continue;
+            }
+            $raw = Support::raw($child, $c);
+            $at = strpos($raw, '~>');
+            while ($at !== false) {
+                $slashes = 0;
+                for ($before = $at - 1; $before >= 0 && $raw[$before] === '\\'; $before--) {
+                    $slashes++;
+                }
+                if ($slashes % 2 === 0) {
+                    Support::reportNode('deprecated-substitution-arrow', $node, $path, $c);
+
+                    return;
+                }
+                $at = strpos($raw, '~>', $at + 2);
+            }
         }
     }
 
@@ -734,12 +813,22 @@ final class NodeRulesA
      */
     public static function figureNested(array $node, string $path, Context $c): void
     {
-        if (($node['type'] ?? null) !== 'figure_group') {
+        $attrs = $node['attrs'] ?? null;
+        $classes = is_array($attrs) ? ($attrs['classes'] ?? []) : [];
+        if (
+            ($node['type'] ?? null) !== 'div' || !is_array($classes) || !in_array('figure', $classes, true)
+            || preg_match('/^:{3,}[ \t]+figure[ \t]*$/m', Support::raw($node, $c)) !== 1
+        ) {
             return;
         }
         $parent = Support::parent($path);
-        if ($parent !== null && ($c->nodeTypes[$parent] ?? null) === 'figure_group') {
-            Support::reportNode('figure-group-nested', $node, $path, $c);
+        while ($parent !== null) {
+            if (($c->nodeTypes[$parent] ?? null) === 'figure_group') {
+                Support::reportNode('figure-group-nested', $node, $path, $c);
+
+                return;
+            }
+            $parent = Support::parent($parent);
         }
     }
 
@@ -813,17 +902,28 @@ final class NodeRulesA
     public static function semanticOutside(array $node, string $path, Context $c): void
     {
         $type = Support::str($node, 'type') ?? '';
-        if ($type === 'span') {
+        if ($type === 'span' || !is_array($node['attrs'] ?? null)) {
             return;
         }
-        foreach (Support::keyValues($node) as [$name, $value]) {
-            if (in_array($name, ['abbr', 'dfn', 'time', 'mark'], true)) {
-                Support::reportNode('semantic-attribute-outside-span', $node, $path, $c, [
-                    'name' => $name,
-                    'type' => $type,
-                    'value' => $value,
-                ]);
+        $bounds = Support::bounds($node);
+        if ($bounds === null) {
+            return;
+        }
+        $raw = Support::raw($node, $c);
+        $pattern = '/(?<![A-Za-z0-9_-])(abbr|time|kbd)(?:=(?:"(?:\\\\.|[^"])*"|[^\s}]+))?(?=[\s}])/';
+        preg_match_all($pattern, $raw, $matches, PREG_OFFSET_CAPTURE);
+        foreach ($matches[0] as $index => [$spelling, $offset]) {
+            $before = substr($raw, 0, $offset);
+            $open = strrpos($before, '{');
+            $close = strrpos($before, '}');
+            if ($open === false || ($close !== false && $close > $open)) {
+                continue;
             }
+            $name = $matches[1][$index][0];
+            $c->report('semantic-attribute-outside-span', $bounds[0] + $offset, $bounds[0] + $offset + strlen($spelling), $path, [
+                'name' => $name,
+                'type' => $type,
+            ]);
         }
     }
 
@@ -840,10 +940,58 @@ final class NodeRulesA
             return;
         }
         foreach (Support::keyValues($node) as [$name, $value]) {
-            if ($value !== '' && in_array($name, ['mark', 'kbd', 'samp'], true)) {
-                Support::reportNode('semantic-attribute-value-ignored', $node, $path, $c, ['name' => $name]);
+            if ($value !== '' && $name === 'kbd') {
+                $range = self::semanticAttributeRange($node, $name, $c);
+                if ($range !== null) {
+                    $c->report('semantic-attribute-value-ignored', $range[0], $range[1], $path, ['name' => $name]);
+                }
             }
         }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $name
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return array{0: int, 1: int}|null
+     */
+    private static function semanticAttributeRange(array $node, string $name, Context $c): ?array
+    {
+        $bounds = Support::bounds($node);
+        if ($bounds === null) {
+            return null;
+        }
+        $raw = Support::raw($node, $c);
+        $pattern = '/\{' . '[^}]*?\b(' . preg_quote($name, '/') . '(?:=(?:"(?:\\\\.|[^"])*"|[^\s}]+))?)' . '[^}]*\}/';
+        if (preg_match($pattern, $raw, $match, PREG_OFFSET_CAPTURE) !== 1) {
+            return null;
+        }
+        $start = $bounds[0] + $match[1][1];
+
+        return [$start, $start + strlen($match[1][0])];
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $key
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return array{0: int, 1: int}|null
+     */
+    public static function tableKeyRange(array $node, string $key, Context $c): ?array
+    {
+        $bounds = Support::bounds($node);
+        if ($bounds === null) {
+            return null;
+        }
+        $raw = Support::raw($node, $c);
+        if (preg_match('/\{[^}]*?\b(' . preg_quote($key, '/') . ')=/', $raw, $match, PREG_OFFSET_CAPTURE) !== 1) {
+            return null;
+        }
+        $start = $bounds[0] + $match[1][1];
+
+        return [$start, $start + strlen($key)];
     }
 
     /**
@@ -868,7 +1016,11 @@ final class NodeRulesA
             }
             $count = count(explode(',', $value));
             if ($count < $columns) {
-                Support::reportNode('table-column-arity', $node, $path, $c, [
+                $range = self::tableKeyRange($node, $key, $c);
+                if ($range === null) {
+                    continue;
+                }
+                $c->report('table-column-arity', $range[0], $range[1], $path, [
                     'key' => $key,
                     'count' => (string)$count,
                     'widest' => (string)$columns,
@@ -895,7 +1047,10 @@ final class NodeRulesA
             $total += is_int($width) || is_float($width) ? $width : 0;
         }
         if ($total > 1) {
-            Support::reportNode('table-width-total', $node, $path, $c);
+            $range = self::tableKeyRange($node, 'widths', $c);
+            if ($range !== null) {
+                $c->report('table-width-total', $range[0], $range[1], $path);
+            }
         }
     }
 
@@ -1071,10 +1226,17 @@ final class NodeRulesA
             return;
         }
         $block = substr($source, 0, $close + 1);
-        Support::reportNode('table-marker-run-padding', $node, $path, $c, [
+        $bounds = Support::bounds($node);
+        if ($bounds === null) {
+            return;
+        }
+        $inner = ltrim(substr($block, 1, -1));
+        $corrected = '{' . $marker . ($inner === '' ? '' : ' ' . $inner) . '}';
+        $c->report('table-marker-run-padding', $bounds[0], $bounds[0] + $close + 2, $path, [
             'spelling' => $block . $marker,
             'marker' => $marker,
             'block' => $block,
+            'correctedPrefix' => $corrected,
         ]);
     }
 
