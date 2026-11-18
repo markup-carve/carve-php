@@ -40,7 +40,7 @@ final class TableRenderer
      */
     public function table(Node $table, int $depth): string
     {
-        $grid = TableGrid::of($table);
+        $grid = $this->r->state->tableGrids[spl_object_id($table)] ?? TableGrid::of($table);
         $columns = PlainText::nodes($table->f['columns'] ?? []);
         $lines = [];
         $pad = HtmlRenderer::pad($depth + 1);

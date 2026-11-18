@@ -94,6 +94,11 @@ final class RenderState
     public bool $comments = false;
 
     /**
+     * @var array<int, \MarkupCarve\Carve2\Resolve\TableGrid>
+     */
+    public array $tableGrids = [];
+
+    /**
      * @var array<string, true>
      */
     private array $taken = [];
@@ -191,6 +196,7 @@ final class RenderState
         $this->taken = $facts->taken;
         $this->longDescriptions = $facts->longDescriptions;
         $this->comments = $facts->comments;
+        $this->tableGrids = $facts->tableGrids;
         foreach ($this->marks as $i) {
             $this->noteOf($this->nodes[$i]);
         }

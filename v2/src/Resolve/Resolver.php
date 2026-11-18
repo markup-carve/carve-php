@@ -173,6 +173,13 @@ final class Resolver
     public ?Facts $facts = null;
 
     /**
+     * @var array<int, \MarkupCarve\Carve2\Resolve\TableGrid>
+     */
+    private array $tableGrids = [];
+
+    private bool $keepGrids = false;
+
+    /**
      * Types whose earlier result prepare() clears, whose nodes a later pass reads or that set a flag.
      *
      * @var array<string, true>
@@ -233,6 +240,7 @@ final class Resolver
             $r->numberFootnotes();
             $r->headingIds();
             $r->captions();
+            $r->keepGrids = $keep;
             $r->references();
             $doc->f['stages'] = ($doc->f['stages'] ?? null) === ['includeExpansion']
                 ? array_merge(['includeExpansion'], self::STAGES) : self::STAGES;
@@ -249,6 +257,7 @@ final class Resolver
                     $r->taken,
                     $r->longDescriptions,
                     $r->comments,
+                    $r->tableGrids,
                 );
             }
             $r->nodes = [];
@@ -991,6 +1000,9 @@ final class Resolver
     {
         $grid = TableGrid::of($table);
         $grid->deriveSpans();
+        if ($this->keepGrids) {
+            $this->tableGrids[spl_object_id($table)] = $grid;
+        }
         [$marks, $verticalMarks] = self::headMarks($grid);
         $columns = $table->f['columns'] ?? [];
         foreach (is_array($columns) ? $columns : [] as $c => $column) {

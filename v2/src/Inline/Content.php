@@ -101,7 +101,7 @@ final class Content
      *
      * @return string
      */
-    private static function trimEnd(string $line): string
+    public static function trimEnd(string $line): string
     {
         $trimmed = rtrim($line, " \t");
         $len = strlen($trimmed);

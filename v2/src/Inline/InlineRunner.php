@@ -153,6 +153,19 @@ final class InlineRunner
         if (($mode & Scanner::CELL) !== 0 && count($spans) > 2) {
             return self::cellFragments($s, $spans, $ctx, $depth, $mode);
         }
+        if (count($spans) === 2 && $ctx->abbreviations === []) {
+            $start = $spans[0];
+            $length = max(0, $spans[1] - $start);
+            if (strcspn($s, Scanner::SPECIALS, $start, $length) === $length) {
+                $value = Content::trimEnd(substr($s, $start, $length));
+                if ($value === '') {
+                    return [];
+                }
+                if (!Finisher::replaces($value)) {
+                    return [Node::text($value, $start, $start + strlen($value))];
+                }
+            }
+        }
         $content = new Content($s, $spans);
         $t = $content->t;
         if ($t === '') {
