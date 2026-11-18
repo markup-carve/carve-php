@@ -1,9 +1,7 @@
 syntax-blocks-273: Hold the `table-column-overlap` diagnostic assertion; table lint is outside the core scope at candidate 12.
 syntax-blocks-286: Hold the `figure-group-nested` diagnostic assertion; figure lint is outside the core scope at candidate 12.
-includes-38: Hold the missing inline note number in the expected child caption; C2-N-074 requires resolution of the copy.
 CC-455: Hold attributed block extension fallback rendering; C2-X-035 is provisional under open issue O15.
 CC-456: Hold attributed inline extension fallback rendering; C2-X-035 is provisional under open issue O15.
-CC-468: Hold standard tabs reader validation; the standard extensions remain provisional.
 CC-1048: Hold tabs generated id rendering; the standard tabs renderer remains provisional.
 CC-1089: Hold tabs generated id collision rendering; the standard tabs renderer remains provisional.
 import-html-49: Hold importer empty table cell normalization at candidate 12; HTML import is outside the core scope.
@@ -92,3 +90,17 @@ writer-gates/tokens-3: Hold generated token writer round trips; C2-W-002 changes
 writer-gates/lines-2: Hold generated line writer round trips; one line-block case fails and writer is outside the core scope.
 writer-gates/random-20000-seed1: Hold generated random writer round trips; 122 cases fail and writer is outside the core scope.
 oracle-js-differential: Hold the older JS differential corpus; its candidate and reviewed defects precede the candidate 12 specification.
+lint-rules/table-shaped-paragraph: Hold the candidate 14 catalog changes this lint expectation; lint is outside the core scope.
+lint-rules/unresolved-reference-link: Hold the candidate 14 catalog changes this lint expectation; lint is outside the core scope.
+lint-rules/semantic-attribute-outside-span: Hold the candidate 14 catalog changes this lint expectation; lint is outside the core scope.
+lint-rules/table-shaped-paragraph#2: Hold the candidate 14 catalog changes this lint expectation; lint is outside the core scope.
+lint-rules/unresolved-reference-link#2: Hold the candidate 14 catalog changes this lint expectation; lint is outside the core scope.
+node-rules-a/semantic-attribute-outside-span: Hold the candidate 14 catalog changes this lint message; lint is outside the core scope.
+node-rules-b/unresolved-reference-link: Hold the candidate 14 catalog changes this lint message; lint is outside the core scope.
+node-rules-b/unresolved-reference-link/image: Hold the candidate 14 catalog changes this lint message; lint is outside the core scope.
+CC-468: Hold standard tabs reader validation; the standard extension remains provisional and still accepts a tab outside its group.
+CC-601: Hold the obsolete node-start duplicate-id location; C2-W-138 requires the authored attribute span.
+CC-996: Hold the obsolete node-start duplicate-id location; C2-W-138 requires the authored attribute span.
+import-roundtrip/html-60: Hold candidate 14 note id collision round trip; the HTML importer is outside the core scope.
+import-roundtrip/html-85: Hold candidate 14 authored note id collision round trip; the HTML importer is outside the core scope.
+CC-1166: Hold the diagnostic range of a duplicate footnote with a lazy continuation; C2-W-138 does not distinguish the marker line from the full definition.

@@ -13,6 +13,11 @@ final class Attrs
     public ?string $id = null;
 
     /**
+     * @var array{0: int, 1: int}|null
+     */
+    public ?array $idRange = null;
+
+    /**
      * @var array<string>
      */
     public array $classes = [];
@@ -46,6 +51,7 @@ final class Attrs
     {
         if ($other->id !== null) {
             $this->id = $other->id;
+            $this->idRange = $other->idRange;
         }
         foreach ($other->classes as $class) {
             $this->classes[] = $class;

@@ -611,7 +611,7 @@ final class InlineRenderer
         if (UrlPolicy::passes($url, $this->o)) {
             return $url;
         }
-        $this->log->loss('destination-denied', 'error');
+        $this->log->loss('destination-denied', 'error', field: $this->log->currentNode?->type === 'image' ? 'src' : 'href');
 
         return '';
     }
@@ -751,7 +751,7 @@ final class InlineRenderer
         if (!is_int($number) || $id === null) {
             return $this->unresolvedNoteMark($node, $depth);
         }
-        $structural = [['id', $id], ['href', '#fn' . $number], ['role', 'doc-noteref']];
+        $structural = [['id', $id], ['href', '#' . $this->state->noteIds[$number]], ['role', 'doc-noteref']];
         if ($this->o->roundtrip && $node->type === 'footnote_ref') {
             $structural[] = ['data-carve-footnote-label', PlainText::str($node->f['key'] ?? '')];
         }

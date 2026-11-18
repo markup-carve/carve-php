@@ -75,6 +75,7 @@ final class AttributeParser
             $name = substr($s, $i + 1, $n);
             if ($c === '#') {
                 $a->id = $name;
+                $a->idRange = [$i, $i + 1 + $n];
             } else {
                 $a->classes[] = $name;
             }
@@ -97,6 +98,9 @@ final class AttributeParser
                 return -1;
             }
             self::key($a, $key, $value);
+            if (strtolower($key) === 'id') {
+                $a->idRange = [$i, $j];
+            }
 
             return $j;
         }

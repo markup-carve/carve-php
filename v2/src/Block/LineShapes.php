@@ -67,6 +67,11 @@ final class LineShapes
             return null;
         }
         $info = new Opener($n);
+        if ($k === $end && $k < $le && $s[$k] === "\t") {
+            $info->extra = $k;
+
+            return $info;
+        }
         if ($k < $end && $s[$k] === ' ') {
             $k++;
         }

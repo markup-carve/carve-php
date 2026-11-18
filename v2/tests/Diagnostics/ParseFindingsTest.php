@@ -40,6 +40,9 @@ final class ParseFindingsTest extends TestCase
             'C2-B-105 glued' => ["```js{.x}\nx\n```", [['fence-opener-fallback', '/children/0', 5, 9]]],
             'C2-B-122 language' => ["```js {.x}\nx\n```", [['fence-title-syntax', '/children/0', 6, 10]]],
             'C2-B-122 admonition' => ["::: note {.x}\nx\n:::", [['fence-title-syntax', '/children/0', 9, 13]]],
+            'C2-B-122 further words to line end' => [
+                "::: note {.c} more\nx\n:::", [['fence-title-syntax', '/children/0', 9, 18]],
+            ],
             'C2-B-105 glued div name' => ["::: foo{.x}\nx\n:::", [['fence-opener-fallback', '/children/0', 7, 11]]],
             'C2-B-122 spaced after a class name' => ["::: foo {.x}\nx\n:::", [['fence-title-syntax', '/children/0', 8, 12]]],
             'C2-B-181 unclosed quote' => ["{table}\n```csv\na,\"b\nc\n```", [['delimited-table-malformed', '/children/0', 17, 18]]],
@@ -57,9 +60,9 @@ final class ParseFindingsTest extends TestCase
             'C2-B-085 abbreviation' => ["*[A]: x\n*[A]: y", [['duplicate-abbreviation-definition', '/children/1', 8, 15]]],
             'C2-A-039' => [
                 "{#x}\n# A\n\n{#x}\npara\n\n[t]{#x} and *u*{#x}", [
-                    ['duplicate-id', '/children/1', 10, 19],
-                    ['duplicate-id', '/children/2/children/0', 21, 28],
-                    ['duplicate-id', '/children/2/children/2', 33, 40],
+                    ['duplicate-id', '/children/1', 11, 13],
+                    ['duplicate-id', '/children/2/children/0', 25, 27],
+                    ['duplicate-id', '/children/2/children/2', 37, 39],
                 ],
             ],
         ];
@@ -91,6 +94,26 @@ final class ParseFindingsTest extends TestCase
         $this->assertArrayNotHasKey('syntax', $tree['children'][0]);
     }
 
+    public function testC2W138DuplicateKeyValueIdRangesItsAttribute(): void
+    {
+        $source = "{id=\"foo\"}\np\n\n{id=\"foo\"}\nq";
+        $diagnostics = Carve2::parseWithDiagnostics($source)->diagnostics;
+        $this->assertCount(1, $diagnostics);
+        $this->assertSame('duplicate-id', $diagnostics[0]->code);
+        $this->assertSame([15, 23], [$diagnostics[0]->startOffset, $diagnostics[0]->endOffset]);
+    }
+
+    public function testC2N058DuplicateIdAcrossIncludeFilesKeepsFileRange(): void
+    {
+        $resolver = static fn (array $request): array => ['text' => "{#x}\nq\n", 'id' => $request['path']];
+        $options = ['includes' => ['resolver' => $resolver]];
+        $diagnostics = Carve2::parseWithDiagnostics("{#x}\np\n\n{{ a.crv }}\n", $options)->diagnostics;
+        $this->assertCount(1, $diagnostics);
+        $this->assertSame('duplicate-id', $diagnostics[0]->code);
+        $this->assertSame('a.crv', $diagnostics[0]->file);
+        $this->assertSame([1, 3], [$diagnostics[0]->startOffset, $diagnostics[0]->endOffset]);
+    }
+
     /**
      * @return array<string, array{0: string, 1: string}>
      */
@@ -103,7 +126,7 @@ final class ParseFindingsTest extends TestCase
             ],
             'unclosed-comment-fence' => [
                 "%%%\nx", 'The %%% comment fence opened here has no closing fence and hides everything to the end '
-                . 'of the document. Add a closing %%% where the comment should stop.',
+                . 'of its container (or: the document). Add a closing %%% where the comment should stop.',
             ],
             'unclosed-container-fence' => [
                 "::: |\na", 'This 3-colon line block has no closer; it runs to the end of its container. '
@@ -114,12 +137,12 @@ final class ParseFindingsTest extends TestCase
                 . 'Write ``` js "T".',
             ],
             'fence-opener-fallback' => [
-                "::: note {.c}\nx\n:::", 'Text after "note" must be a quoted title or a [label]; it is not read as a title. '
-                . 'Write ::: note "{.c}".',
+                "::: note {.c}\nx\n:::", 'These further words are not read as a title, label or attributes. The block opens without them. '
+                . 'Use "::: note" for the same block with only valid opener parts; put attributes on their own line above it.',
             ],
             'fence-title-syntax div spaces' => [
                 ":::  \"T\nx\n:::",
-                'Text after ":::" must be a quoted title or a [label]; it is not read as a title. Write ::: ""T".',
+                'These words are not part of the anonymous div opener; it opens without them. Remove the words or use a named div.',
             ],
             'duplicate-footnote-definition' => [
                 "[^a]: x\n\n[^a]: y", 'Duplicate footnote definition [^a] is ignored; the first '

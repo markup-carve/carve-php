@@ -779,6 +779,7 @@ final class Scanner
         $attrs = new Attrs();
         $end = AttributeParser::read($t, $i, $this->lineEnd($i), $attrs);
         if ($end > 0 && !AttributeParser::$lastEmpty) {
+            $this->sourceIdRange($attrs);
             $this->attaches = true;
 
             return $this->emit([self::ATTR, $attrs, $i, $end]);
@@ -1519,11 +1520,21 @@ final class Scanner
             $attrs = new Attrs();
             $end = AttributeParser::readRun($t, $i + 1, $this->lineEnd($i + 1), $attrs, true);
             if ($end > 0) {
+                $this->sourceIdRange($attrs);
+
                 return $this->span($frame, $i, $end, $attrs);
             }
         }
 
         return $this->shortcut($frame, $i, $text, $image);
+    }
+
+    private function sourceIdRange(Attrs $attrs): void
+    {
+        if ($attrs->idRange !== null) {
+            [$start, $end] = $attrs->idRange;
+            $attrs->idRange = [$this->c->src($start), $this->c->src($end - 1) + 1];
+        }
     }
 
     /**

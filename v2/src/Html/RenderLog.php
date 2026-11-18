@@ -14,7 +14,7 @@ final class RenderLog
 {
     /**
      * @var array<array{code: string, severity: string, message: string, channel: string, file: string|null,
-     *     node: \MarkupCarve\Carve2\Node|null, slots: array<string, string|int>}>
+     *     node: \MarkupCarve\Carve2\Node|null, slots: array<string, string|int>, field: string|null}>
      */
     public array $entries = [];
 
@@ -37,6 +37,7 @@ final class RenderLog
      * @param string|null $file
      * @param int $variant
      * @param \MarkupCarve\Carve2\Node|null $node
+     * @param string|null $field The field named by a loss on a supplied tree (C2-W-138).
      *
      * @return void
      */
@@ -47,6 +48,7 @@ final class RenderLog
         ?string $file = null,
         int $variant = 0,
         ?Node $node = null,
+        ?string $field = null,
     ): void {
         $this->entries[] = [
             'code' => $code,
@@ -56,6 +58,7 @@ final class RenderLog
             'file' => $file,
             'node' => $node ?? $this->currentNode,
             'slots' => $slots,
+            'field' => $field,
         ];
     }
 }

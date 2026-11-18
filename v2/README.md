@@ -1,7 +1,7 @@
 # Carve 0.2 for PHP
 
 The `v2/` tree is the Carve 0.2 engine: parser, HTML renderer, linter, HTML importer and canonical writer. It follows the
-next2 specification (freeze candidate 12). Namespace `MarkupCarve\Carve2`, PHP 8.2 or later; `Dom\HTMLDocument` is used
+next2 specification (freeze candidate 14). Namespace `MarkupCarve\Carve2`, PHP 8.2 or later; `Dom\HTMLDocument` is used
 for import from PHP 8.4 on, `DOMDocument` before that.
 
 ## API

@@ -63,6 +63,28 @@ final class TreeGateTest extends TestCase
     /**
      * @return array<string, array{0: array<string, mixed>}>
      */
+    public static function supplied(): array
+    {
+        $out = [];
+        foreach (Corpus::file('trees/nodes.json')['trees'] as $entry) {
+            $out[$entry['clauses'][0] . '/' . $entry['id']] = [$entry['tree']];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<string, mixed> $tree
+     */
+    #[DataProvider('supplied')]
+    public function testC2A017SuppliedPositiveTreeIsRead(array $tree): void
+    {
+        $this->assertNotNull(TreeReader::read(json_encode($tree, JSON_THROW_ON_ERROR)));
+    }
+
+    /**
+     * @return array<string, array{0: array<string, mixed>}>
+     */
     public static function includeTrees(): array
     {
         $out = [];

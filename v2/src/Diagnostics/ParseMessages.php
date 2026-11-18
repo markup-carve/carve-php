@@ -121,9 +121,7 @@ final class ParseMessages
 
     private static function unclosedComment(string $s, Node $node, int $start): string
     {
-        $text = Message::fill('unclosed-comment-fence', ['opener' => self::run($s, $start)]);
-
-        return str_replace('its container (or: the document)', self::toEnd($s, $node) ? 'the document' : 'its container', $text);
+        return Message::fill('unclosed-comment-fence', ['opener' => self::run($s, $start)]);
     }
 
     private static function unclosedContainer(string $s, Node $node, int $start): string
@@ -152,7 +150,8 @@ final class ParseMessages
         $run = self::run($s, $start);
         $lineEnd = self::lineEnd($s, $start);
         $afterRun = $start + strlen($run);
-        $type = $from > $afterRun ? self::word(ltrim(substr($s, $afterRun, $from - $afterRun), " \t")) : '';
+        $before = $from > $afterRun ? substr($s, $afterRun, $from - $afterRun) : '';
+        $type = self::word(ltrim($before, " \t"));
         $rest = trim(substr($s, max($from, $afterRun), $lineEnd - max($from, $afterRun)), " \t\r");
         $label = '';
         $open = strrpos($rest, ' [');
@@ -162,22 +161,34 @@ final class ParseMessages
         }
         $slots = ['type' => $type !== '' ? $type : $run, 'fence' => $run, 'label' => $label];
         $first = mb_substr($rest, 0, 1);
-        if ($rest !== '' && in_array($first, self::CURLY, true)) {
+        $glued = $afterRun < strlen($s) ? $s[$afterRun] : '';
+        if ($code && $type === '' && ($glued === "\t" || ($glued === ' ' && in_array($s[$afterRun + 1] ?? '', [' ', "\t"], true)))) {
+            return Message::fill('fence-title-syntax', ['respaced' => $run], 5);
+        }
+        if ($code && $type !== '' && str_contains($before, "\t")) {
+            $respaced = $run . ' ' . str_replace("\t", ' ', trim(substr($s, $afterRun, $lineEnd - $afterRun)));
+
+            return Message::fill('fence-title-syntax', ['respaced' => $respaced], 6);
+        }
+        if ($code && $rest !== '' && in_array($first, self::CURLY, true)) {
             $title = mb_substr($rest, 1);
             if (in_array(mb_substr($title, -1), self::CURLY, true)) {
                 $title = mb_substr($title, 0, -1);
             }
 
-            return self::withoutType(Message::fill('fence-title-syntax', $slots + ['title' => $title], 0), $run, $type);
+            return Message::fill('fence-title-syntax', $slots + ['title' => $title], 2);
         }
-        $glued = $afterRun < strlen($s) ? $s[$afterRun] : '';
-        if ($code && $type === '' && ($glued === "\t" || ($glued === ' ' && in_array($s[$afterRun + 1] ?? '', [' ', "\t"], true)))) {
-            $line = trim(substr($s, $afterRun, $lineEnd - $afterRun), " \t\r");
-
-            return Message::fill('fence-title-syntax', ['respaced' => $run . ' ' . $line], 2);
+        if ($code && str_contains($before, '"') && !str_contains($before, ']')) {
+            return Message::fill('fence-title-syntax', [], 1);
+        }
+        if ($code && $type !== '') {
+            return Message::fill('fence-title-syntax', $slots + ['title' => $rest], 3);
+        }
+        if (!$code && trim($before, ' ') === '') {
+            return Message::fill('fence-title-syntax', [], 0);
         }
 
-        return self::withoutType(Message::fill('fence-title-syntax', $slots + ['title' => $rest], 1), $run, $type);
+        return Message::fill('fence-title-syntax', ['correctedOpener' => rtrim(substr($s, $start, $from - $start))], 4);
     }
 
     /**
@@ -198,20 +209,6 @@ final class ParseMessages
         }
 
         return $text !== '' && strspn($text, '>|', 0, 1) === 1 && in_array($text[1] ?? ' ', [' ', "\t"], true) ? $text[0] : '';
-    }
-
-    /**
-     * A fence with no type writes its opener as the bare run.
-     *
-     * @param string $text
-     * @param string $run
-     * @param string $type
-     *
-     * @return string
-     */
-    private static function withoutType(string $text, string $run, string $type): string
-    {
-        return $type === '' ? str_replace($run . ' ' . $run . ' "', $run . ' "', $text) : $text;
     }
 
     /**

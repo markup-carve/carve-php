@@ -6,6 +6,8 @@ namespace MarkupCarve\Carve2\Test\Conformance;
 
 use MarkupCarve\Carve2\Carve2;
 use MarkupCarve\Carve2\Diagnostics\Diagnostic;
+use MarkupCarve\Carve2\Diagnostics\Findings;
+use MarkupCarve\Carve2\Generated\Tables;
 use MarkupCarve\Carve2\Html\HtmlRenderer;
 use MarkupCarve\Carve2\Json\TreeEncoder;
 use MarkupCarve\Carve2\Json\TreeEquality;
@@ -22,12 +24,15 @@ final class TypedCoreClauseTest extends TestCase
     /**
      * @var array<string, true>
      */
-    private const HELD_EXTENSIONS = [
+    private const HELD_CASES = [
         'CC-455' => true,
         'CC-456' => true,
         'CC-468' => true,
         'CC-1048' => true,
         'CC-1089' => true,
+        'CC-601' => true,
+        'CC-996' => true,
+        'CC-1166' => true,
     ];
 
     /**
@@ -39,7 +44,7 @@ final class TypedCoreClauseTest extends TestCase
         foreach (Corpus::clauseCases() as $case) {
             if (
                 in_array($case['kind'] ?? null, ['parse', 'render', 'tree'], true)
-                && !isset(self::HELD_EXTENSIONS[$case['id']])
+                && !isset(self::HELD_CASES[$case['id']])
             ) {
                 $out[$case['clauses'][0] . '/' . $case['id']] = [$case];
             }
@@ -92,26 +97,43 @@ final class TypedCoreClauseTest extends TestCase
             }
         }
         if (isset($expected['diagnostics']) || isset($expected['notReported'])) {
-            if (isset($case['tree'])) {
-                $node = TreeReader::read(json_encode($case['tree'], JSON_THROW_ON_ERROR), $options);
-                [, $log] = HtmlRenderer::renderWithLog($node, Options::from($options));
-                $actual = array_map(
-                    static fn (array $entry): Diagnostic => new Diagnostic(
-                        $entry['code'],
-                        $entry['severity'],
-                        $entry['channel'],
-                        $entry['message'],
-                        $entry['path'] ?? null,
-                    ),
-                    $log->entries,
-                );
-            } else {
-                $actual = $case['kind'] === 'parse'
-                    ? Carve2::parseWithDiagnostics($source, $options)->diagnostics
-                    : Carve2::renderWithDiagnostics($source, $options)->diagnostics;
-            }
-            $this->diagnostics($source, $expected, $actual);
+            $this->diagnostics($source, $expected, self::actualDiagnostics($case, $source, $options));
         }
+    }
+
+    /**
+     * @param array<string, mixed> $case
+     * @param string|null $source
+     * @param array<string, mixed> $options
+     *
+     * @return array<\MarkupCarve\Carve2\Diagnostics\Diagnostic>
+     */
+    private static function actualDiagnostics(array $case, ?string $source, array $options): array
+    {
+        if (!isset($case['tree'])) {
+            return $case['kind'] === 'parse'
+                ? Carve2::parseWithDiagnostics($source, $options)->diagnostics
+                : Carve2::renderWithDiagnostics($source, $options)->diagnostics;
+        }
+        $node = TreeReader::read(json_encode($case['tree'], JSON_THROW_ON_ERROR), $options);
+        [, $log] = HtmlRenderer::renderWithLog($node, Options::from($options));
+        $losses = new Findings();
+        foreach ($log->entries as $entry) {
+            $losses->add($entry['code'], $entry['node']);
+        }
+        $paths = $losses->finish($node);
+
+        return array_map(
+            static fn (array $entry, Diagnostic $path): Diagnostic => new Diagnostic(
+                $entry['code'],
+                $entry['severity'],
+                $entry['channel'],
+                $entry['message'],
+                $path->path . (isset($entry['field']) ? '/' . $entry['field'] : ''),
+            ),
+            $log->entries,
+            $paths,
+        );
     }
 
     /**
@@ -182,17 +204,56 @@ final class TypedCoreClauseTest extends TestCase
         if (isset($item['channel']) && $item['channel'] !== $entry->channel) {
             return false;
         }
-        if (!isset($item['line'], $item['column'])) {
-            return true;
-        }
-        if ($entry->startOffset < 0) {
+        if (isset($item['path']) && $item['path'] !== $entry->path) {
             return false;
         }
-        $prefix = substr($source ?? '', 0, $entry->startOffset);
+        if (isset($item['file']) && $item['file'] !== $entry->file) {
+            return false;
+        }
+        if (isset($item['messageWhen']) && !self::messageMatchesVariant($item['messageWhen'], $entry)) {
+            return false;
+        }
+        if (
+            isset($item['line'], $item['column']) && ($entry->startOffset < 0
+            || self::sourcePosition($source ?? '', $entry->startOffset) !== [$item['line'], $item['column']])
+        ) {
+            return false;
+        }
+        if (
+            isset($item['endLine'], $item['endColumn']) && ($entry->endOffset < 0
+            || self::sourcePosition($source ?? '', $entry->endOffset) !== [$item['endLine'], $item['endColumn']])
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @return array{0: int, 1: int}
+     */
+    private static function sourcePosition(string $source, int $offset): array
+    {
+        $prefix = substr($source, 0, $offset);
         $line = substr_count($prefix, "\n") + 1;
         $last = strrpos($prefix, "\n");
-        $column = strlen($prefix) - ($last === false ? -1 : $last);
+        $column = mb_strlen(substr($prefix, $last === false ? 0 : $last + 1)) + 1;
 
-        return [$item['line'], $item['column']] === [$line, $column];
+        return [$line, $column];
+    }
+
+    private static function messageMatchesVariant(string $when, Diagnostic $entry): bool
+    {
+        foreach (Tables::MESSAGES[$entry->code] ?? [] as $variant) {
+            if (!is_array($variant) || ($variant['when'] ?? null) !== $when) {
+                continue;
+            }
+            $parts = preg_split('/\$\{[^}]+\}/', $variant['text']) ?: [];
+            $pattern = implode('.*?', array_map(static fn (string $part): string => preg_quote($part, '~'), $parts));
+
+            return preg_match('~^' . $pattern . '$~su', $entry->message) === 1;
+        }
+
+        return false;
     }
 }

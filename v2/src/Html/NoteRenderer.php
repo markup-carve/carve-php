@@ -59,7 +59,7 @@ final class NoteRenderer
      */
     private function note(int $number, Node $note, int $depth): string
     {
-        $structural = [['id', 'fn' . $number]];
+        $structural = [['id', $this->r->state->noteIds[$number]]];
         if ($this->r->o->roundtrip) {
             $structural[] = $note->type === 'footnote' ? [
                 'data-carve-footnote-label',

@@ -22,9 +22,7 @@ final class CorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    public const HELD = [
-        'includes-38' => 'C2-N-074: "the copy in its child is numbered, resolved and written"; its inline note has no number',
-    ];
+    public const HELD = [];
 
     /**
      * @var array<string, true>

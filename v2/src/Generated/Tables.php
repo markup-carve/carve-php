@@ -6465,8 +6465,8 @@ final class Tables
         ],
         'blockquote-marker-without-space' => [
             [
-                'when' => 'the line is paragraph text outside frontmatter',
-                'text' => 'A blockquote marker must be bare `>` or followed by a space. This line is literal paragraph text; write `> ${text}` to quote it.',
+                'when' => 'the line is paragraph, heading, cell, term, caption or line-block text outside frontmatter',
+                'text' => 'A blockquote marker must be bare `>` or followed by a space. This line is literal text; write `> ${text}` to quote it.',
             ],
             [
                 'when' => 'the line is inside frontmatter',
@@ -6495,11 +6495,11 @@ final class Tables
         ],
         'broken-fragment-link' => [
             [
-                'when' => 'a rendered id differs from the fragment only in case',
+                'when' => 'a rendered id differs only in case from the fragment as written or percent-decoded',
                 'text' => 'Link to "${href}" matches no id; the id "${caseOnly}" differs only in case, and fragment links are case-sensitive, so the link goes nowhere.',
             ],
             [
-                'when' => 'no rendered id matches the fragment, even by case',
+                'when' => 'no rendered id differs only in case from either the fragment as written or percent-decoded',
                 'text' => 'Link to "${href}" matches no id in this document, so the link goes nowhere.',
             ],
         ],
@@ -6510,11 +6510,14 @@ final class Tables
             ],
             [
                 'when' => 'no pipe table starts one or two lines below, and a pipe table row or an image marker `![` occurs in one of the two lines above',
-                'text' => 'This caption-looking paragraph sits next to a table or image; use a ^ caption line.',
+                'text' => 'This caption-looking paragraph sits next to a table or image-looking marker; use a ^ caption line.',
             ],
         ],
         'carrier-attribute-dropped' => [
-            'Dropped the authored attribute ${key}: the name is reserved for roundtrip import',
+            [
+                'when' => 'every finding of this code',
+                'text' => 'Dropped the authored attribute ${key}: the name is reserved for roundtrip import',
+            ],
         ],
         'carve-version-unsupported' => [
             [
@@ -6527,7 +6530,14 @@ final class Tables
             ],
         ],
         'colon-fence-length-mismatch' => [
-            'Bare ${authoredWidth}-colon fence does not close the innermost ${expectedWidth}-colon ${kind} opened at ${line}:${column}; it ${outcome}.',
+            [
+                'when' => 'the bare run is shorter than the innermost opener',
+                'text' => 'Bare ${authoredWidth}-colon fence does not close the innermost ${expectedWidth}-colon ${kind} opened at ${line}:${column}; it ${outcome}.',
+            ],
+            [
+                'when' => 'the bare run is longer than the innermost opener',
+                'text' => 'Bare ${authoredWidth}-colon fence has a different width from the innermost ${expectedWidth}-colon ${kind} opened at ${line}:${column}; it ${outcome}.',
+            ],
         ],
         'comment-fence-closer-with-text' => [
             'This line starts with a percent run and holds other text, so it is content of the comment block and does not close it. Put the closing run alone on its line.',
@@ -6650,10 +6660,16 @@ final class Tables
             'Duplicate abbreviation definition (label) is ignored; the first definition for a label wins.',
         ],
         'duplicate-footnote-definition' => [
-            'Duplicate footnote definition [^${label}] is ignored; the first definition for a label wins.',
+            [
+                'when' => 'every finding of this code',
+                'text' => 'Duplicate footnote definition [^${label}] is ignored; the first definition for a label wins.',
+            ],
         ],
         'duplicate-id' => [
-            'Duplicate authored id "${explicit}": the first node in document order wins id lookup. Change one id.',
+            [
+                'when' => 'every finding of this code',
+                'text' => 'Duplicate authored id "${explicit}": the first node in document order wins id lookup. Change one id.',
+            ],
         ],
         'duplicate-link-reference-definition' => [
             'Duplicate link definition (label) is ignored; the first definition for a label wins.',
@@ -6708,6 +6724,14 @@ final class Tables
         ],
         'fence-title-syntax' => [
             [
+                'when' => 'an anonymous div opener has unrecognized further words after the fence run',
+                'text' => 'These words are not part of the anonymous div opener; it opens without them. Remove the words or use a named div.',
+            ],
+            [
+                'when' => 'a code fence has a valid quoted title followed by further words',
+                'text' => 'These words follow a valid title and are not part of the code fence opener. Remove them or put them in the block body.',
+            ],
+            [
                 'when' => 'a code fence type is followed by typographic quotation marks around a title',
                 'text' => 'The title after "${type}" uses typographic quotes. Check whether a smart quote filter changed the source; a fence title needs straight double quotes: ${fence} ${type} "${title}"${label}.',
             ],
@@ -6716,7 +6740,7 @@ final class Tables
                 'text' => 'Text after "${type}" must be a quoted title or a [label]; it is not read as a title. Write ${fence} ${type} "${title}"${label}.',
             ],
             [
-                'when' => 'further words after a raw format, div name or sigil, a title after a label, a spaced brace block, or a character glued to a type that is no valid attribute block',
+                'when' => 'further words after a raw format, div name (including a tab before later words) or sigil, a title after a label, a spaced brace block, or a character glued to a type that is no valid attribute block',
                 'text' => 'These further words are not read as a title, label or attributes. The block opens without them. Use "${correctedOpener}" for the same block with only valid opener parts; put attributes on their own line above it.',
             ],
             [
@@ -6724,8 +6748,8 @@ final class Tables
                 'text' => 'The whitespace in this fence opener is invalid: at most one space follows the fence, and info-string parts use spaces, never tabs. The block opens with no language; write "${respaced}".',
             ],
             [
-                'when' => 'a tab separates a parsed language or div name from later info-string parts',
-                'text' => 'The tab does not separate valid info-string parts; the block keeps its language or div name, but does not keep the later title or label. Use "${respaced}" with spaces between parts.',
+                'when' => 'a tab separates a parsed code-fence language from later info-string parts',
+                'text' => 'The tab does not separate valid info-string parts; the block keeps its language, but does not keep the later title or label. Use "${respaced}" with spaces between parts.',
             ],
         ],
         'field-unspellable' => [
@@ -6902,7 +6926,10 @@ final class Tables
             'A "::: >" opener ENDS that quote and opens a sibling one; the two render as adjacent blockquotes, not one nested in the other. Write "> ::: >" to nest it, or leave a blank line to make two quotes deliberate.',
         ],
         'raw-format-dropped' => [
-            'Dropped ${kind} raw format "${format}" while rendering ${target}',
+            [
+                'when' => 'every finding of this code',
+                'text' => 'Dropped ${kind} raw format "${format}" while rendering ${target}',
+            ],
         ],
         'references-placement-in-container' => [
             'This "::: references" marker is inside a container and does not place the reference list. Move it to document level, or remove it if no placement is needed.',
@@ -6918,7 +6945,7 @@ final class Tables
             ],
         ],
         'semantic-attribute-outside-span' => [
-            '"${name}" is a semantic span attribute (PART 9 §10) and only applies to an ordinary [content]{attrs} span; on ${type} it stays a raw attribute and renders as ${name}="${value}".',
+            '"${name}" is a semantic span attribute (PART 9 §10) and only applies to an ordinary [content]{attrs} span; on ${type} it stays a raw attribute and is subject to HTML attribute filtering.',
         ],
         'semantic-attribute-value-ignored' => [
             'Value on the semantic attribute "${name}" is discarded: it selects the <${name}> element and reaches no output. Only abbr and time carry a value (as title or datetime).',
@@ -6957,7 +6984,7 @@ final class Tables
             'This row has no closing pipe. carve fmt adds it; escape the first pipe if the line is text.',
         ],
         'table-shaped-paragraph' => [
-            'This table-shaped line lacks a closing pipe and renders as paragraph text; close the table row.',
+            'This table-shaped line lacks a closing pipe and stays as ${owner} text. If a table row was intended, write a complete row where a table can start.',
         ],
         'table-span-marker-attribute' => [
             [
@@ -6983,12 +7010,12 @@ final class Tables
         ],
         'unattached-block-attribute' => [
             [
-                'when' => 'the attribute line reaches the end of its container or document',
+                'when' => 'the attribute line reaches the end of its container or document without a following blank line',
                 'text' => 'This attribute line reaches no block: a blank line or the end of its container follows, so the line is text (C2-B-192). Move it directly above the block it describes, or delete it.',
             ],
             [
-                'when' => 'a blank line follows the attribute line in its container',
-                'text' => 'This attribute line is separated from its block by a blank line, so it is text. Remove the blank line.',
+                'when' => 'a blank line follows the attribute line in its container, whether or not a block follows that blank line',
+                'text' => 'A blank line follows this attribute line, so it is text. Remove the blank line if you mean to attach it to a following block.',
             ],
         ],
         'unattached-caption' => [
@@ -7004,7 +7031,10 @@ final class Tables
             'The ${marker} fence opened here has no closing fence; ${ending}. Add a closing ${marker} where the code should stop.',
         ],
         'unclosed-comment-fence' => [
-            'The ${opener} comment fence opened here has no closing fence and hides everything to the end of its container (or: the document). Add a closing ${opener} where the comment should stop.',
+            [
+                'when' => 'every finding of this code',
+                'text' => 'The ${opener} comment fence opened here has no closing fence and hides everything to the end of its container (or: the document). Add a closing ${opener} where the comment should stop.',
+            ],
         ],
         'unclosed-container-fence' => [
             [
@@ -7031,19 +7061,19 @@ final class Tables
         'unresolved-reference-link' => [
             [
                 'when' => 'the unresolved reference is a link and a label or heading differs from its key only in case',
-                'text' => 'Reference link ${rawRef} matches no link definition or heading; ${caseOnlyPhrase}, and reference labels are case-sensitive, so it renders as literal text.',
+                'text' => 'Reference link ${rawRef} matches no link definition or heading; ${caseOnlyPhrase}, and reference labels are case-sensitive, so its brackets and label remain literal, while link-text children render normally.',
             ],
             [
                 'when' => 'the unresolved reference is a link with no label or heading that differs only in case',
-                'text' => 'Reference link ${rawRef} has no matching link definition or heading; it renders as literal text.',
+                'text' => 'Reference link ${rawRef} has no matching link definition or heading; its brackets and label remain literal, while link-text children render normally.',
             ],
             [
                 'when' => 'the unresolved reference is an image and a link definition label differs from its key only in case',
-                'text' => 'Reference image ${rawRef} matches no link definition; ${caseOnlyPhrase}, and reference labels are case-sensitive, so it renders as literal text.',
+                'text' => 'Reference image ${rawRef} matches no link definition; ${caseOnlyPhrase}, and reference labels are case-sensitive, so its marker, brackets, label and alt text render as literal text.',
             ],
             [
                 'when' => 'the unresolved reference is an image with no link definition label that differs only in case',
-                'text' => 'Reference image ${rawRef} has no matching link definition; it renders as literal text.',
+                'text' => 'Reference image ${rawRef} has no matching link definition; its marker, brackets, label and alt text render as literal text.',
             ],
         ],
         'unused-footnote-definition' => [
@@ -7059,7 +7089,10 @@ final class Tables
         'carrier-attribute-dropped' => [
             'warning',
             'render-loss',
-            'Dropped the authored attribute ${key}: the name is reserved for roundtrip import',
+            [
+                'when' => 'every finding of this code',
+                'text' => 'Dropped the authored attribute ${key}: the name is reserved for roundtrip import',
+            ],
         ],
         'delimited-table-malformed' => [
             'error',
@@ -7087,12 +7120,18 @@ final class Tables
         'duplicate-footnote-definition' => [
             'warning',
             'parse',
-            'Duplicate footnote definition [^${label}] is ignored; the first definition for a label wins.',
+            [
+                'when' => 'every finding of this code',
+                'text' => 'Duplicate footnote definition [^${label}] is ignored; the first definition for a label wins.',
+            ],
         ],
         'duplicate-id' => [
             'warning',
             'parse',
-            'Duplicate authored id "${explicit}": the first node in document order wins id lookup. Change one id.',
+            [
+                'when' => 'every finding of this code',
+                'text' => 'Duplicate authored id "${explicit}": the first node in document order wins id lookup. Change one id.',
+            ],
         ],
         'duplicate-link-reference-definition' => [
             'warning',
@@ -7126,8 +7165,8 @@ final class Tables
             'warning',
             'parse',
             [
-                'when' => 'a code fence type is followed by typographic quotation marks around a title',
-                'text' => 'The title after "${type}" uses typographic quotes. Check whether a smart quote filter changed the source; a fence title needs straight double quotes: ${fence} ${type} "${title}"${label}.',
+                'when' => 'an anonymous div opener has unrecognized further words after the fence run',
+                'text' => 'These words are not part of the anonymous div opener; it opens without them. Remove the words or use a named div.',
             ],
         ],
         'field-unspellable' => [
@@ -7276,7 +7315,10 @@ final class Tables
         'raw-format-dropped' => [
             'warning',
             'render-loss',
-            'Dropped ${kind} raw format "${format}" while rendering ${target}',
+            [
+                'when' => 'every finding of this code',
+                'text' => 'Dropped ${kind} raw format "${format}" while rendering ${target}',
+            ],
         ],
         'structure-unspellable' => [
             'warning',
@@ -7291,7 +7333,10 @@ final class Tables
         'unclosed-comment-fence' => [
             'error',
             'parse',
-            'The ${opener} comment fence opened here has no closing fence and hides everything to the end of its container (or: the document). Add a closing ${opener} where the comment should stop.',
+            [
+                'when' => 'every finding of this code',
+                'text' => 'The ${opener} comment fence opened here has no closing fence and hides everything to the end of its container (or: the document). Add a closing ${opener} where the comment should stop.',
+            ],
         ],
         'unclosed-container-fence' => [
             'error',

@@ -43,6 +43,11 @@ final class RenderState
     public array $refIds = [];
 
     /**
+     * @var array<int, string>
+     */
+    public array $noteIds = [];
+
+    /**
      * @var array<int, array<string>>
      */
     public array $backlinks = [];
@@ -92,6 +97,11 @@ final class RenderState
      * @var array<string, true>
      */
     private array $taken = [];
+
+    /**
+     * @var array<string, int>
+     */
+    private array $suffix = [];
 
     private int $admonitions = 0;
 
@@ -149,8 +159,8 @@ final class RenderState
             $this->placingDirective = null;
         }
         $body = Walk::bodyRanges($doc, $this->pos, $this->end);
-        $this->allRefs($body);
         $this->allAdmonitionIds($body);
+        $this->allRefs($body);
         $this->nodes = [];
         $this->end = [];
         $this->pos = [];
@@ -489,7 +499,7 @@ final class RenderState
     }
 
     /**
-     * C2-H-088: the second and later references to a note take `-2`, `-3`; an authored id replaces it.
+     * C2-H-202: each new note takes its id before its mark; every generated mark shares the document's taken ids.
      *
      * @param int $from
      * @param int $to
@@ -513,15 +523,30 @@ final class RenderState
             if (!is_int($number) || !isset($this->notes[$number]) || ($this->profile !== null && !$this->profile->allowsInline($node))) {
                 continue;
             }
+            $this->noteIds[$number] ??= $this->unique('fn' . $number);
             $k = count($this->backlinks[$number] ?? []) + 1;
             $attrs = $node->f['attrs'] ?? null;
-            $id = $attrs instanceof Attrs && $attrs->id !== null ? $attrs->id : 'fnref' . $number . ($k > 1 ? '-' . $k : '');
+            $id = $attrs instanceof Attrs && $attrs->id !== null
+                ? $attrs->id : $this->unique('fnref' . $number . ($k > 1 ? '-' . $k : ''));
             $this->refIds[spl_object_id($node)] = $id;
             $this->backlinks[$number][] = $id;
             if ($node->type === 'inline_footnote') {
                 $from = $this->end[$i];
             }
         }
+    }
+
+    private function unique(string $base): string
+    {
+        $id = $base;
+        $next = $this->suffix[$base] ?? 2;
+        while (isset($this->taken[$id])) {
+            $id = $base . '-' . $next++;
+        }
+        $this->suffix[$base] = $next;
+        $this->taken[$id] = true;
+
+        return $id;
     }
 
     /**

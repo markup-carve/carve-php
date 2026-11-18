@@ -482,7 +482,7 @@ final class Resolver
             }
             $attrs = $f['attrs'] ?? null;
             if ($type !== 'include' && $attrs instanceof Attrs && $attrs->id !== null) {
-                $this->reserve($attrs->id, $node);
+                $this->reserve($attrs->id, $node, $attrs->idRange);
             }
             if (isset(self::LISTED[$type]) || isset($f['caption']) || isset($f['key'])) {
                 $this->listNode($node, $i);
@@ -500,13 +500,21 @@ final class Resolver
      *
      * @param string $id
      * @param \MarkupCarve\Carve2\Node $node
+     * @param array{0: int, 1: int}|null $range
      *
      * @return void
      */
-    private function reserve(string $id, Node $node): void
+    private function reserve(string $id, Node $node, ?array $range): void
     {
         if (isset($this->taken[$id])) {
-            $this->findings?->add('duplicate-id', $node, $node->file, message: Message::fill('duplicate-id', ['explicit' => $id]));
+            $this->findings?->add(
+                'duplicate-id',
+                $node,
+                $node->file,
+                $range[0] ?? -1,
+                $range[1] ?? -1,
+                Message::fill('duplicate-id', ['explicit' => $id]),
+            );
         }
         $this->taken[$id] = true;
     }
