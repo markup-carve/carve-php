@@ -93,6 +93,7 @@
         }
     },
     "bin": [
-        "bin/carve"
+        "bin/carve",
+        "v2/bin/carve2"
     ]
 }

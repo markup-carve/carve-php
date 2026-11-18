@@ -36,6 +36,19 @@ vendor/bin/carve fmt README.crv
 vendor/bin/carve migrate --from html page.html
 ```
 
+### Carve 0.2
+
+The same package carries the Carve 0.2 engine under `MarkupCarve\Carve2`, with its own program `vendor/bin/carve2`:
+
+```php
+use MarkupCarve\Carve2\Carve2;
+
+$html = Carve2::render("# Hello /Carve/\n");
+```
+
+Read the [0.2 library guide](docs/v2/README.md), the [API reference](docs/v2/api.md) and the
+[0.1 to 0.2 migration guide](docs/v2/migration.md).
+
 ## Documentation
 
 - [Carve documentation](https://markup-carve.github.io/carve/)
