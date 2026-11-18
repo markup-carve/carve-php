@@ -174,13 +174,18 @@ final class Finisher
         [, $value, $ts, $te, $lit] = $item;
         if (
             $lit === true || !is_string($value) || !is_int($ts) || !is_int($te) || $value === ''
-            || $te - $ts !== strlen($value) || $this->ctx->abbreviations !== [] || self::replaces($value)
+            || $te - $ts !== strlen($value) || $this->ctx->abbreviations !== []
+            || strcspn($value, Tables::SMART_TRIGGERS) !== strlen($value) && self::replaces($value)
         ) {
             return false;
         }
-        $out[] = Node::text($value, $this->sc->c->src($ts), $this->sc->c->src($te));
+        $c = $this->sc->c;
+        $out[] = $c->base >= 0
+            ? Node::text($value, $c->base + $ts, $c->base + $te)
+            : Node::text($value, $c->src($ts), $c->src($te));
         $this->smartEnd = -2;
-        $this->visible = Chars::before($this->t, $te);
+        $last = ord($this->t[$te - 1]);
+        $this->visible = $last < 0x80 ? $last : Chars::before($this->t, $te);
 
         return true;
     }

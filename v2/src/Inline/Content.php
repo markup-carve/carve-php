@@ -46,6 +46,11 @@ final class Content
     public int $base = -1;
 
     /**
+     * Source end of the line, trailing spaces included, when the content is one line.
+     */
+    private int $baseEnd = -1;
+
+    /**
      * @param string $s
      * @param array<int> $spans
      */
@@ -54,9 +59,7 @@ final class Content
         $n = count($spans);
         if ($n === 2) {
             $this->base = $spans[0];
-            $this->lt = [0];
-            $this->ls = [$spans[0]];
-            $this->le = [$spans[1]];
+            $this->baseEnd = $spans[1];
             $this->t = self::trimEnd(substr($s, $spans[0], max(0, $spans[1] - $spans[0])));
 
             return;
@@ -125,6 +128,9 @@ final class Content
      */
     public function lineEnd(int $x): int
     {
+        if ($this->base >= 0) {
+            return $this->baseEnd;
+        }
         $lo = 0;
         $hi = count($this->lt) - 1;
         while ($lo < $hi) {

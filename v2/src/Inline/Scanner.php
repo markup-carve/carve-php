@@ -237,7 +237,9 @@ final class Scanner
     ) {
         $this->t = $c->t;
         $this->n = strlen($this->t);
-        $this->capTracking = $depth + substr_count($this->t, '[') + substr_count($this->t, '{')
+        // The four counts together never exceed the length, so a short content needs none of them.
+        $this->capTracking = $depth + $this->n >= Tables::INLINE_DEPTH
+            && $depth + substr_count($this->t, '[') + substr_count($this->t, '{')
             + substr_count($this->t, '*') + substr_count($this->t, '/') >= Tables::INLINE_DEPTH;
         $this->lineBlock = ($mode & self::LINE_BLOCK) !== 0;
         $this->hardBreaks = ($mode & self::HARD_BREAKS) !== 0;
@@ -348,6 +350,11 @@ final class Scanner
      */
     public function node(string $type, int $ts, int $te): Node
     {
+        $base = $this->c->base;
+        if ($base >= 0) {
+            return Node::at($type, $base + $ts, $base + $te);
+        }
+
         return Node::at($type, $this->c->src($ts), $this->c->src($te));
     }
 

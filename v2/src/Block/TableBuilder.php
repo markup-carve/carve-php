@@ -49,13 +49,17 @@ final class TableBuilder
 
                 continue;
             }
-            $rowAttrs = null;
-            $afterAttrs = self::tail($s, $k, $end, $rowAttrs);
-            if ($afterAttrs >= 0 && $rowAttrs !== null) {
-                $seps[] = $k;
-                $k = $afterAttrs;
+            // Only a pipe before `{` or ` {` can carry row attributes; tail() reads them.
+            $b = $k + 1 < $end ? $s[$k + 1] : '';
+            if ($b === '{' || $b === ' ' && $k + 2 < $end && $s[$k + 2] === '{') {
+                $rowAttrs = null;
+                $afterAttrs = self::tail($s, $k, $end, $rowAttrs);
+                if ($afterAttrs >= 0 && $rowAttrs !== null) {
+                    $seps[] = $k;
+                    $k = $afterAttrs;
 
-                continue;
+                    continue;
+                }
             }
             $seps[] = $k;
             $k++;
@@ -196,7 +200,10 @@ final class TableBuilder
             $first = false;
         }
         $k += strspn($s, " \t", $k, $end - $k);
-        $ce = LineShapes::trimEnd($s, $k, $end);
+        $ce = $end;
+        while ($ce > $k && ($s[$ce - 1] === ' ' || $s[$ce - 1] === "\t")) {
+            $ce--;
+        }
         $cell->cs = $k;
         $cell->ce = $ce;
         if ($ce - $k === 1 && ($s[$k] === '<' || $s[$k] === '^')) {
@@ -397,7 +404,6 @@ final class TableBuilder
                 $cell->row = $r;
                 $cell->col = $c;
                 $cell->lines = $cell->ce > $cell->cs ? [$cell->cs, $cell->ce] : [];
-                $cell->wrapAt = $cell->lines === [] ? [] : [[0, 0]];
                 $grid[$r][$c] = $cell;
                 $cover[$r][$c] = $cell;
                 if ($cell->mark === '') {
@@ -486,6 +492,10 @@ final class TableBuilder
             }
             $target = $cover[$c];
             $target->joined = true;
+            // The cell's own row starts its first fragment; wrapAt is only read for joined cells.
+            if ($target->wrapAt === [] && $target->lines !== []) {
+                $target->wrapAt[] = [0, 0];
+            }
             $target->lines[] = $fragments[$k];
             $target->lines[] = $fragments[$k + 1];
             $target->wrapAt[] = [$line, $r - $target->row];
@@ -557,7 +567,7 @@ final class TableBuilder
         }
         $bare = $cell->joined || $cell->start < 0 || $cell->end < $cell->start;
         $node = $bare ? new Node('table_cell') : Node::at('table_cell', $cell->start, $cell->end);
-        $node->f['header'] = $cell->header;
+        $node->f = ['header' => $cell->header];
         if ($cell->colspan > 1) {
             $node->f['colspan'] = $cell->colspan;
         }
