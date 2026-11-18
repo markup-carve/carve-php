@@ -6,8 +6,11 @@ for import from PHP 8.4 on, `DOMDocument` before that.
 
 ## API
 
-All entry points are static methods on `MarkupCarve\Carve2\Carve2`. `$options` is the option map of the specification
+All entry points are static methods on `MarkupCarve\Carve2\Carve2`; the [library guide](../docs/v2/README.md) shows
+each one, the [API reference](../docs/v2/api.md) lists the public classes, and the
+[migration guide](../docs/v2/migration.md) maps the 0.1 calls. `$options` is the option map of the specification
 (`smartTypography`, `rawHtml`, `extensions`, `urlPolicy`, ...); an unknown or malformed option throws `OptionError`.
+Every error a call throws implements `CarveException`.
 
 | Method | Returns |
 |---|---|
@@ -15,28 +18,33 @@ All entry points are static methods on `MarkupCarve\Carve2\Carve2`. `$options` i
 | `parseWithDiagnostics($source, $options)` | `ParseResult`: tree and parse diagnostics |
 | `parseWithLayout($source, $options)` | `LayoutResult`: tree and the source-layout record |
 | `validateLayout($json, $tree = null)` | the layout record, or `LayoutError` when it is refused |
-| `renderWithDiagnostics($source, $options)` | `RenderResult`: HTML and all diagnostics |
+| `render($sourceOrTree, $options)` | HTML of source, a `Node` or a decoded tree array |
+| `renderWithDiagnostics($sourceOrTree, $options)` | `RenderResult`: HTML and all diagnostics |
 | `toHtml($source, $options)` | HTML |
 | `toJson($source, $options)` | the tree as AST JSON |
+| `encodeTree($tree)`, `encodeEnvelope($tree)` | the tree as JSON, bare or in its envelope |
+| `decodeTree($json, $options)`, `validateTree($tree, $options)` | the tree of AST JSON, or `TreeError` |
 | `lint($source, $options)` | lint diagnostics |
-| `includeDependencies($source, $options)` | the files the includes of a document read |
-| `importHtml($html, $options)` | `ImportResult`: tree, AST array, diagnostics and the Carve source |
-| `write($tree, $layout = null, $options)` | Carve source of an AST array; throws `CarveWriteError` on a loss |
+| `includeDependencies($sourceOrTree, $options)` | the files the includes of a document read |
+| `importDocument($html, $options)`, `importHtml($html, $options)` | `ImportResult`: tree, AST array, diagnostics and the Carve source |
+| `write($tree, $layout = null, $options)` | Carve source of a tree; throws `CarveWriteError` on a loss |
 | `writeWithDiagnostics($tree, $layout = null, $options)` | `WriteResult`: source and the loss diagnostics |
 | `format($source, $options, $layout = null)` | the canonical form of a document |
 | `formatWithDiagnostics($source, $options, $layout = null)` | `WriteResult` of the canonical form |
+| `writers()`, `writeTo($target, $tree, $options, $registry = null)` | the output writer registry (`html`, `carve`), and a write through it |
 
-Writer options: `normalize` (ignore the layout record), `alignTables` (pad pipe tables). Import options: `rawHtml`
-(keep raw HTML nodes) and `strictLosses`.
+Writer options: `normalize` (ignore the layout record), `alignTables` (pad pipe tables). Import options: `from`
+(`html`), `rawHtml` (keep raw HTML nodes) and `strictLosses`. Includes: an `Include\IncludeResolver` such as
+`Include\FileResolver::forRoot($root)` in the `includes` option.
 
-Extensions are passed as `ExtensionDefinition` objects in the `extensions` option. `Extension\Tabs::extensions()` gives
-the standard tabs extension; pass `true` to get its renderer as well.
+Extensions (provisional) are passed as `ExtensionDefinition` or `ExtensionProvider` objects in the `extensions` option.
+`Extension\Tabs::extensions()` gives the standard tabs extension; pass `true` to get its renderer as well.
 
 ```php
 use MarkupCarve\Carve2\Carve2;
 
-$html = Carve2::toHtml("# Title\n\nSome *strong* text.\n");
-$source = Carve2::importHtml('<p>Hi <em>there</em></p>')->source;
+$html = Carve2::render("# Title\n\nSome *strong* text.\n");
+$source = Carve2::importDocument('<p>Hi <em>there</em></p>')->source;
 $canonical = Carve2::format($source);
 ```
 

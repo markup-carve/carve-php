@@ -6,7 +6,7 @@ namespace MarkupCarve\Carve2;
 
 use RuntimeException;
 
-final class RenderError extends RuntimeException
+final class RenderError extends RuntimeException implements CarveException
 {
     /**
      * @param array<\MarkupCarve\Carve2\Diagnostics\Diagnostic> $diagnostics

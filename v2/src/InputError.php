@@ -6,6 +6,6 @@ namespace MarkupCarve\Carve2;
 
 use RuntimeException;
 
-final class InputError extends RuntimeException
+final class InputError extends RuntimeException implements CarveException
 {
 }

@@ -39,6 +39,10 @@ jobs:
       - name: Run tests
         run: composer v2-test
 
+      - name: Install into a scratch consumer and call every public entry
+        if: matrix.php == '8.2'
+        run: v2/scripts/consumer-smoke.sh
+
       - name: Writer gates on generated inputs (held for candidate 12)
         if: false
         run: |

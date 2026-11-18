@@ -29,4 +29,14 @@ final class Claim
         public readonly Closure $divSource,
     ) {
     }
+
+    /**
+     * A deep copy of the claimed node, for the fallback of the extension node the transform returns (C2-X-016).
+     *
+     * @return \MarkupCarve\Carve2\Node
+     */
+    public function copyNode(): Node
+    {
+        return Extensions::copy($this->node);
+    }
 }

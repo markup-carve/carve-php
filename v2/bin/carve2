@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 use MarkupCarve\Carve2\Cli\Command;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+// Composer's bin proxy names the autoloader of the consuming project; a checkout uses its own.
+require $GLOBALS['_composer_autoload_path'] ?? dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 exit(Command::main(array_slice($argv, 1), STDIN, STDOUT, STDERR));

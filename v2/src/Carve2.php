@@ -8,27 +8,43 @@ use MarkupCarve\Carve2\Block\BlockParser;
 use MarkupCarve\Carve2\Block\TreeSink;
 use MarkupCarve\Carve2\Diagnostics\Diagnostic;
 use MarkupCarve\Carve2\Diagnostics\Findings;
+use MarkupCarve\Carve2\Extension\ExtensionProvider;
 use MarkupCarve\Carve2\Extension\Extensions;
 use MarkupCarve\Carve2\Html\HtmlRenderer;
 use MarkupCarve\Carve2\Html\Profile;
 use MarkupCarve\Carve2\Import\HtmlImporter;
 use MarkupCarve\Carve2\Import\ImportResult;
 use MarkupCarve\Carve2\Include\Expander;
+use MarkupCarve\Carve2\Include\IncludeResolver;
 use MarkupCarve\Carve2\Inline\InlineContext;
 use MarkupCarve\Carve2\Inline\InlineRunner;
 use MarkupCarve\Carve2\Json\TreeEncoder;
+use MarkupCarve\Carve2\Json\TreeReader;
 use MarkupCarve\Carve2\Layout\LayoutBuilder;
 use MarkupCarve\Carve2\Layout\LayoutReader;
 use MarkupCarve\Carve2\Lint\Linter;
+use MarkupCarve\Carve2\Output\CarveWriter;
+use MarkupCarve\Carve2\Output\HtmlWriter;
+use MarkupCarve\Carve2\Output\WriterRegistry;
 use MarkupCarve\Carve2\Resolve\Resolver;
 use MarkupCarve\Carve2\Writer\Writer;
 use MarkupCarve\Carve2\Writer\WriteResult;
+use WeakMap;
 
 /**
- * The public entry: parse (source to tree), resolve, render (tree to HTML).
+ * The public entry of the 0.2 engine (tooling.md C2-T-005): parse, render, lint, format and write, HTML import, tree
+ * JSON, include dependencies and the output writers. Every call validates its options and throws only errors that
+ * implement `CarveException`.
  */
 final class Carve2
 {
+    /**
+     * The source of each tree `parse()` returned, so `render()` of that tree keeps its source lines.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve2\Node, string>|null
+     */
+    private static ?WeakMap $sources = null;
+
     /**
      * Parse and resolve: the tree of a source.
      *
@@ -39,7 +55,7 @@ final class Carve2
      */
     public static function parse(string $source, array $options = []): Node
     {
-        return self::parsed($source, Options::from($options, ['parse', 'resolve']))[0];
+        return self::remember(self::parsed($source, Options::from(self::normalize($options), ['parse', 'resolve']))[0], $source);
     }
 
     /**
@@ -52,9 +68,9 @@ final class Carve2
      */
     public static function parseWithDiagnostics(string $source, array $options = []): ParseResult
     {
-        [$doc, $findings] = self::parsed($source, Options::from($options, ['parse', 'resolve']));
+        [$doc, $findings] = self::parsed($source, Options::from(self::normalize($options), ['parse', 'resolve']));
 
-        return new ParseResult($doc, $findings->finish($doc));
+        return new ParseResult(self::remember($doc, $source), $findings->finish($doc));
     }
 
     /**
@@ -67,9 +83,9 @@ final class Carve2
      */
     public static function parseWithLayout(string $source, array $options = []): LayoutResult
     {
-        [$doc, $findings] = self::parsed($source, Options::from($options, ['parse', 'resolve']));
+        [$doc, $findings] = self::parsed($source, Options::from(self::normalize($options), ['parse', 'resolve']));
 
-        return new LayoutResult($doc, LayoutBuilder::build($source, $doc), $findings->finish($doc));
+        return new LayoutResult(self::remember($doc, $source), LayoutBuilder::build($source, $doc), $findings->finish($doc));
     }
 
     /**
@@ -86,18 +102,24 @@ final class Carve2
     }
 
     /**
-     * Render, with the entries of the parse and the render-loss channels (C2-A-173).
+     * Render, with the entries of the parse and the render-loss channels (C2-A-173). A tree has no parse entries.
      *
-     * @param string $source
+     * @param \MarkupCarve\Carve2\Node|array<string, mixed>|string $input Carve source, or a tree (see `render()`).
      * @param array<string, mixed> $options
      *
      * @return \MarkupCarve\Carve2\RenderResult
      */
-    public static function renderWithDiagnostics(string $source, array $options = []): RenderResult
+    public static function renderWithDiagnostics(Node|array|string $input, array $options = []): RenderResult
     {
-        $opts = Options::from($options, ['parse', 'resolve', 'render']);
-        self::checkRenderInput($source, $opts);
-        [$doc, $findings, $facts] = self::parsed($source, $opts, true);
+        $opts = Options::from(self::normalize($options), ['parse', 'resolve', 'render']);
+        if (is_string($input)) {
+            $source = $input;
+            self::checkRenderInput($source, $opts);
+            [$doc, $findings, $facts] = self::parsed($source, $opts, true);
+        } else {
+            [$doc, $source, $facts] = self::resolvedTree($input, $opts);
+            $findings = new Findings();
+        }
         [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts);
         $entries = $findings->finish($doc);
         $losses = new Findings();
@@ -131,15 +153,15 @@ final class Carve2
     }
 
     /**
-     * @param string $source
+     * @param string|null $source
      * @param array{code: string, node: \MarkupCarve\Carve2\Node|null, slots: array<string, string|int>} $entry
      *
      * @return array{int, int}
      */
-    private static function renderLossRange(string $source, array $entry): array
+    private static function renderLossRange(?string $source, array $entry): array
     {
         $node = $entry['node'];
-        if ($node === null || $node->start < 0) {
+        if ($source === null || $node === null || $node->start < 0) {
             return [-1, -1];
         }
         $start = $node->start;
@@ -263,6 +285,8 @@ final class Carve2
     }
 
     /**
+     * Carve source to HTML; `render()` takes a tree as well.
+     *
      * @param string $source
      * @param array<string, mixed> $options
      *
@@ -272,7 +296,7 @@ final class Carve2
      */
     public static function toHtml(string $source, array $options = []): string
     {
-        $opts = Options::from($options, ['parse', 'resolve', 'render']);
+        $opts = Options::from(self::normalize($options), ['parse', 'resolve', 'render']);
         self::checkRenderInput($source, $opts);
         $gc = self::collectorOff();
         try {
@@ -296,6 +320,8 @@ final class Carve2
     }
 
     /**
+     * Carve source to the bare tree as JSON (C2-A-012), with positions.
+     *
      * @param string $source
      * @param array<string, mixed> $options
      *
@@ -318,7 +344,7 @@ final class Carve2
      */
     public static function lint(string $source, array $options = []): array
     {
-        return Linter::lint($source, $options);
+        return Linter::lint($source, self::normalize($options));
     }
 
     /**
@@ -332,19 +358,23 @@ final class Carve2
      */
     public static function importHtml(string $html, array $options = []): ImportResult
     {
-        return HtmlImporter::import($html, $options);
+        return HtmlImporter::import($html, self::normalize($options));
     }
 
     /**
-     * @param string $source
+     * C2-N-083: the includes of a tree in tree order. Source is parsed first with `$options`, which then needs `includes`
+     * for any include to be read.
+     *
+     * @param \MarkupCarve\Carve2\Node|string $input A tree of `parse()` or `decodeTree()`, or Carve source.
      * @param array<string, mixed> $options
      *
      * @return array<array{path: string, from: string|null, file: string|null, read: bool}>
      */
-    public static function includeDependencies(string $source, array $options = []): array
+    public static function includeDependencies(Node|string $input, array $options = []): array
     {
+        $options = self::normalize($options);
         $opts = Options::from($options);
-        $doc = self::parse($source, $options);
+        $doc = is_string($input) ? self::parse($input, $options) : $input;
         $out = [];
         $stack = [[$doc, $opts->includeFile]];
         while ($stack !== []) {
@@ -373,27 +403,29 @@ final class Carve2
     /**
      * C2-W-001: the canonical source of a tree; throws `CarveWriteError` when the tree holds what no source spells.
      *
-     * @param array<string, mixed> $tree The decoded AST JSON of `toJson()`.
+     * @param \MarkupCarve\Carve2\Node|array<string, mixed> $tree A tree, or the decoded AST JSON of `toJson()`.
      * @param array<string, mixed>|null $layout Sidecar facts by path (C2-L-046); null writes the defaults (C2-L-015).
      * @param array<string, mixed> $options
      *
      * @return string
      */
-    public static function write(array $tree, ?array $layout = null, array $options = []): string
+    public static function write(Node|array $tree, ?array $layout = null, array $options = []): string
     {
-        return Writer::write($tree, $layout, $options);
+        return Writer::write(self::treeArray($tree), $layout, self::normalize($options));
     }
 
     /**
-     * @param array<string, mixed> $tree
+     * `write()` with the writer losses as diagnostics instead of a `CarveWriteError` (C2-W-134).
+     *
+     * @param \MarkupCarve\Carve2\Node|array<string, mixed> $tree
      * @param array<string, mixed>|null $layout
      * @param array<string, mixed> $options
      *
      * @return \MarkupCarve\Carve2\Writer\WriteResult
      */
-    public static function writeWithDiagnostics(array $tree, ?array $layout = null, array $options = []): WriteResult
+    public static function writeWithDiagnostics(Node|array $tree, ?array $layout = null, array $options = []): WriteResult
     {
-        return Writer::writeWithDiagnostics($tree, $layout, $options);
+        return Writer::writeWithDiagnostics(self::treeArray($tree), $layout, self::normalize($options));
     }
 
     /**
@@ -407,10 +439,12 @@ final class Carve2
      */
     public static function format(string $source, array $options = [], ?array $layout = null): string
     {
-        return Writer::format($source, $options, $layout);
+        return Writer::format($source, self::normalize($options), $layout);
     }
 
     /**
+     * `format()` with the writer losses as diagnostics (C2-W-134).
+     *
      * @param string $source
      * @param array<string, mixed> $options
      * @param array<string, mixed>|null $layout
@@ -419,6 +453,264 @@ final class Carve2
      */
     public static function formatWithDiagnostics(string $source, array $options = [], ?array $layout = null): WriteResult
     {
-        return Writer::formatWithDiagnostics($source, $options, $layout);
+        return Writer::formatWithDiagnostics($source, self::normalize($options), $layout);
+    }
+
+    /**
+     * C2-T-005 `render`: the HTML of Carve source or of a tree. A tree is a `Node` of `parse()` or `decodeTree()`, or the
+     * decoded AST JSON as an array; it is validated (C2-A-188) and resolved again with the render options on a copy, so
+     * the caller's tree is not changed.
+     *
+     * @param \MarkupCarve\Carve2\Node|array<string, mixed>|string $input
+     * @param array<string, mixed> $options
+     *
+     * @throws \MarkupCarve\Carve2\RenderError A loss under `strictLosses`.
+     *
+     * @return string
+     */
+    public static function render(Node|array|string $input, array $options = []): string
+    {
+        if (is_string($input)) {
+            return self::toHtml($input, $options);
+        }
+        $opts = Options::from(self::normalize($options), ['parse', 'resolve', 'render']);
+        [$doc, $source, $facts] = self::resolvedTree($input, $opts);
+        [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts);
+        if ($opts->strictLosses && $log->entries !== []) {
+            throw new RenderError();
+        }
+
+        return $html;
+    }
+
+    /**
+     * C2-T-005 `importDocument`: the importer for `from` (only `html`, the default).
+     *
+     * @param string $input
+     * @param array<string, mixed> $options `from`, `rawHtml`, `strictLosses`.
+     *
+     * @throws \MarkupCarve\Carve2\OptionError
+     *
+     * @return \MarkupCarve\Carve2\Import\ImportResult
+     */
+    public static function importDocument(string $input, array $options = []): ImportResult
+    {
+        $from = $options['from'] ?? 'html';
+        unset($options['from']);
+        if ($from !== 'html') {
+            throw new OptionError('option from: unknown input format ' . (is_string($from) ? $from : get_debug_type($from)));
+        }
+
+        return self::importHtml($input, $options);
+    }
+
+    /**
+     * C2-A-012: the bare tree as JSON, without positions where the tree came from JSON without them.
+     *
+     * @param \MarkupCarve\Carve2\Node $tree
+     *
+     * @return string
+     */
+    public static function encodeTree(Node $tree): string
+    {
+        return TreeEncoder::json($tree, self::sourceOf($tree));
+    }
+
+    /**
+     * C2-A-012, C2-A-013: the tree in its envelope, for a storage or process boundary.
+     *
+     * @param \MarkupCarve\Carve2\Node $tree
+     *
+     * @return string
+     */
+    public static function encodeEnvelope(Node $tree): string
+    {
+        $document = (new TreeEncoder())->encode($tree, self::sourceOf($tree));
+        $envelope = ['astVersion' => $document['astVersion'] ?? '2.0', 'document' => $document];
+        if (isset($document['extensions'])) {
+            $envelope['extensions'] = $document['extensions'];
+        }
+
+        return json_encode($envelope, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}';
+    }
+
+    /**
+     * C2-A-188: reads the JSON of a 2.0 tree or envelope.
+     *
+     * @param string $json
+     * @param array<string, mixed> $options `extensions`, the registered extensions for the reader checks (C2-X-038).
+     *
+     * @return \MarkupCarve\Carve2\Node
+     */
+    public static function decodeTree(string $json, array $options = []): Node
+    {
+        return TreeReader::read($json, self::treeOptions($options));
+    }
+
+    /**
+     * C2-A-188: returns when the tree passes the schema and the reader checks, and throws the refusal otherwise.
+     *
+     * @param \MarkupCarve\Carve2\Node|array<string, mixed> $tree
+     * @param array<string, mixed> $options `extensions`.
+     *
+     * @return void
+     */
+    public static function validateTree(Node|array $tree, array $options = []): void
+    {
+        self::readTree($tree, self::treeOptions($options));
+    }
+
+    /**
+     * A writer registry with the `html` and `carve` targets; register further `OutputWriter`s on it.
+     *
+     * @return \MarkupCarve\Carve2\Output\WriterRegistry
+     */
+    public static function writers(): WriterRegistry
+    {
+        return new WriterRegistry([new HtmlWriter(), new CarveWriter()]);
+    }
+
+    /**
+     * Writes a tree with the writer of `$target`, from `$registry` or from `writers()`.
+     *
+     * @param string $target
+     * @param \MarkupCarve\Carve2\Node $tree
+     * @param array<string, mixed> $options
+     * @param \MarkupCarve\Carve2\Output\WriterRegistry|null $registry
+     *
+     * @return string
+     */
+    public static function writeTo(string $target, Node $tree, array $options = [], ?WriterRegistry $registry = null): string
+    {
+        return ($registry ?? self::writers())->write($target, $tree, $options);
+    }
+
+    /**
+     * Expands `ExtensionProvider` items of `extensions` and wraps an `IncludeResolver` in `includes`.
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    private static function normalize(array $options): array
+    {
+        if (isset($options['extensions']) && is_array($options['extensions'])) {
+            $list = [];
+            foreach ($options['extensions'] as $item) {
+                if ($item instanceof ExtensionProvider) {
+                    foreach ($item->definitions() as $definition) {
+                        $list[] = $definition;
+                    }
+
+                    continue;
+                }
+                $list[] = $item;
+            }
+            $options['extensions'] = $list;
+        }
+        $includes = $options['includes'] ?? null;
+        if ($includes instanceof IncludeResolver) {
+            $options['includes'] = $includes->resolve(...);
+        } elseif (is_array($includes) && ($includes['resolver'] ?? null) instanceof IncludeResolver) {
+            $includes['resolver'] = $includes['resolver']->resolve(...);
+            $options['includes'] = $includes;
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     *
+     * @return array{extensions?: array<\MarkupCarve\Carve2\Extension\ExtensionDefinition|string>}
+     */
+    private static function treeOptions(array $options): array
+    {
+        return self::readerExtensions(Options::from(self::normalize($options), ['tree'])->extensions);
+    }
+
+    /**
+     * The tree reader takes the definitions (for the standard tabs) and their versions by name (C2-X-003) in one list.
+     *
+     * @param array<\MarkupCarve\Carve2\Extension\ExtensionDefinition> $definitions
+     *
+     * @return array{extensions?: array<\MarkupCarve\Carve2\Extension\ExtensionDefinition|string>}
+     */
+    private static function readerExtensions(array $definitions): array
+    {
+        if ($definitions === []) {
+            return [];
+        }
+        $list = $definitions;
+        foreach ($definitions as $definition) {
+            $list[$definition->name] = $definition->version;
+        }
+
+        return ['extensions' => $list];
+    }
+
+    private static function remember(Node $doc, string $source): Node
+    {
+        self::$sources ??= new WeakMap();
+        self::$sources[$doc] = $source;
+
+        return $doc;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node|array<string, mixed> $tree
+     * @param array<string, mixed> $options
+     *
+     * @return \MarkupCarve\Carve2\Node
+     */
+    private static function readTree(Node|array $tree, array $options): Node
+    {
+        $json = $tree instanceof Node ? TreeEncoder::json($tree, self::sourceOf($tree))
+            : json_encode($tree, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+
+        return TreeReader::read($json === false ? '' : $json, $options);
+    }
+
+    /**
+     * A copy of a tree, resolved for `$opts`: a `Node` of `parse()` is copied with its source; any other tree is read
+     * and checked first.
+     *
+     * @param \MarkupCarve\Carve2\Node|array<string, mixed> $tree
+     * @param \MarkupCarve\Carve2\Options $opts
+     *
+     * @return array{0: \MarkupCarve\Carve2\Node, 1: string|null, 2: \MarkupCarve\Carve2\Resolve\Facts|null}
+     */
+    private static function resolvedTree(Node|array $tree, Options $opts): array
+    {
+        $source = $tree instanceof Node ? self::sourceOf($tree) : null;
+        $doc = $source !== null ? Extensions::copy($tree) : self::readTree($tree, self::readerExtensions($opts->extensions));
+        if ($source !== null) {
+            self::checkRenderInput($source, $opts);
+        }
+        $gc = self::collectorOff();
+        try {
+            $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
+        } finally {
+            if ($gc) {
+                gc_enable();
+            }
+        }
+
+        return [$doc, $source, $facts];
+    }
+
+    private static function sourceOf(Node $tree): ?string
+    {
+        return self::$sources !== null && isset(self::$sources[$tree]) ? self::$sources[$tree] : null;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node|array<string, mixed> $tree
+     *
+     * @return array<string, mixed>
+     */
+    private static function treeArray(Node|array $tree): array
+    {
+        return $tree instanceof Node ? (new TreeEncoder())->encode($tree, self::sourceOf($tree)) : $tree;
     }
 }

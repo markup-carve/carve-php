@@ -14,6 +14,34 @@ final class FileResolver
      */
     private const CHUNK = 1 << 16;
 
+    /**
+     * The file resolver of C2-N-012 for an absolute root, as an `IncludeResolver`.
+     *
+     * @param string $root
+     *
+     * @return \MarkupCarve\Carve2\Include\IncludeResolver
+     */
+    public static function forRoot(string $root): IncludeResolver
+    {
+        $read = self::closure($root);
+
+        return new class ($read) implements IncludeResolver {
+            public function __construct(private Closure $read)
+            {
+            }
+
+            /**
+             * @param array<string, mixed> $request
+             *
+             * @return array{text: string, id: string}|array{error: string, id?: string}
+             */
+            public function resolve(array $request): array
+            {
+                return ($this->read)($request);
+            }
+        };
+    }
+
     public static function closure(string $root): Closure
     {
         if (!str_starts_with($root, '/')) {

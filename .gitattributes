@@ -30,3 +30,12 @@ mago-baseline.toml export-ignore
 scripts/check-mago.sh export-ignore
 renovate.json export-ignore
 bin/gen-translit-map.php export-ignore
+v2/tests/ export-ignore
+v2/bench/ export-ignore
+v2/oracle/ export-ignore
+v2/scripts/ export-ignore
+v2/spec/conformance/ export-ignore
+v2/spec/trees/ export-ignore
+v2/phpunit.xml.dist export-ignore
+v2/phpcs.xml export-ignore
+v2/phpstan.neon export-ignore
