@@ -45,6 +45,9 @@ final class InlineRunner
         $stack = [[$doc, false, false]];
         while ($stack !== []) {
             [$node, $hard, $caption] = array_pop($stack);
+            // The parser below finishes each new inline subtree. Only children that came from the block pass
+            // can still hold source spans, so do not schedule the freshly parsed nodes for another walk.
+            $blockChildren = $node->children;
             if ($node->lines !== null && isset($node->layout['wrapAt'])) {
                 $node->children = self::wrappedCell($s, $node, $ctx, self::mode($node->type, $hard, $caption));
                 $node->lines = null;
@@ -62,7 +65,7 @@ final class InlineRunner
             if ($node->type === 'div' && $attrs instanceof Attrs && in_array('hardbreaks', $attrs->classes, true)) {
                 $hard = true;
             }
-            foreach ($node->children ?? [] as $child) {
+            foreach ($blockChildren ?? [] as $child) {
                 $stack[] = [$child, $hard, $node->type === 'caption'];
             }
             $caption = $node->f['caption'] ?? null;
